@@ -1,20 +1,16 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
-	"log/slog"
-	"net/http"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/labstack/echo/v4"
 )
-
-type GenericError struct {
-	Error   string `json:"error"`
-	Message string `json:"message"`
-}
 
 func (srv *Server) ResolveHandle(c echo.Context) error {
 	ctx := c.Request().Context()
@@ -23,20 +19,20 @@ func (srv *Server) ResolveHandle(c echo.Context) error {
 	if err != nil {
 		return c.JSON(400, GenericError{
 			Error:   "InvalidHandleSyntax",
-			Message: fmt.Sprintf("%s", err), // TODO: something more idiomatic?
+			Message: err.Error(),
 		})
 	}
 
 	did, err := srv.dir.ResolveHandle(ctx, hdl)
-	if err != nil && false { // XXX: is ErrNotFound; other errors?
+	if err != nil && errors.Is(err, identity.ErrHandleNotFound) {
 		return c.JSON(404, GenericError{
 			Error:   "HandleNotFound",
-			Message: fmt.Sprintf("%s", err),
+			Message: err.Error(),
 		})
 	} else if err != nil {
 		return c.JSON(500, GenericError{
 			Error:   "InternalError",
-			Message: fmt.Sprintf("%s", err),
+			Message: err.Error(),
 		})
 	}
 	return c.JSON(200, comatproto.IdentityResolveHandle_Output{
@@ -51,62 +47,145 @@ func (srv *Server) ResolveDid(c echo.Context) error {
 	if err != nil {
 		return c.JSON(400, GenericError{
 			Error:   "InvalidDidSyntax",
-			Message: fmt.Sprintf("%s", err), // TODO: something more idiomatic?
+			Message: err.Error(),
 		})
 	}
 
-	// XXX: ResolveDID() on identity?
-	doc, err := srv.dir.ResolveDID(ctx, did)
-	if err != nil && false { // XXX: is ErrNotFound; other errors?
+	rawDoc, err := srv.dir.ResolveDIDRaw(ctx, did)
+	if err != nil && errors.Is(err, identity.ErrDIDNotFound) {
 		return c.JSON(404, GenericError{
 			Error:   "DidNotFound",
-			Message: fmt.Sprintf("%s", err),
+			Message: err.Error(),
 		})
 	} else if err != nil {
 		return c.JSON(500, GenericError{
 			Error:   "InternalError",
-			Message: fmt.Sprintf("%s", err),
+			Message: err.Error(),
 		})
 	}
 	return c.JSON(200, comatproto.IdentityResolveDid_Output{
-		DidDoc: doc,
+		DidDoc: rawDoc,
+	})
+}
+
+func (srv *Server) resolveIdentityFromHandle(c echo.Context, handle syntax.Handle) error {
+	ctx := c.Request().Context()
+
+	did, err := srv.dir.ResolveHandle(ctx, handle)
+	if err != nil && errors.Is(err, identity.ErrHandleNotFound) {
+		return c.JSON(404, GenericError{
+			Error:   "HandleNotFound",
+			Message: err.Error(),
+		})
+	} else if err != nil {
+		srv.logger.Warn("failed handle resolution", "err", err, "handle", handle)
+		return c.JSON(502, GenericError{
+			Error:   "HandleResolutionFailed",
+			Message: err.Error(),
+		})
+	}
+
+	rawDoc, err := srv.dir.ResolveDIDRaw(ctx, did)
+	if err != nil && errors.Is(err, identity.ErrDIDNotFound) {
+		return c.JSON(404, GenericError{
+			Error:   "DidNotFound",
+			Message: err.Error(),
+		})
+	} else if err != nil {
+		return c.JSON(502, GenericError{
+			Error:   "DIDResolutionFailed",
+			Message: err.Error(),
+		})
+	}
+
+	var doc identity.DIDDocument
+	if err := json.Unmarshal(rawDoc, &doc); err != nil {
+		return c.JSON(400, GenericError{
+			Error:   "InvalidDidDocument",
+			Message: err.Error(),
+		})
+	}
+
+	ident := identity.ParseIdentity(&doc)
+	declHandle, err := ident.DeclaredHandle()
+	if err != nil || declHandle != handle {
+		return c.JSON(400, GenericError{
+			Error:   "HandleMismatch",
+			Message: err.Error(),
+		})
+	}
+
+	h := handle.String()
+	return c.JSON(200, comatproto.IdentityDefs_AtprotoIdentity{
+		Did:    ident.DID.String(),
+		Handle: &h,
+		DidDoc: rawDoc,
+	})
+}
+
+func (srv *Server) resolveIdentityFromDID(c echo.Context, did syntax.DID) error {
+	ctx := c.Request().Context()
+
+	rawDoc, err := srv.dir.ResolveDIDRaw(ctx, did)
+	if err != nil && errors.Is(err, identity.ErrDIDNotFound) {
+		return c.JSON(404, GenericError{
+			Error:   "DidNotFound",
+			Message: err.Error(),
+		})
+	} else if err != nil {
+		return c.JSON(502, GenericError{
+			Error:   "DIDResolutionFailed",
+			Message: err.Error(),
+		})
+	}
+
+	var doc identity.DIDDocument
+	if err := json.Unmarshal(rawDoc, &doc); err != nil {
+		return c.JSON(400, GenericError{
+			Error:   "InvalidDidDocument",
+			Message: err.Error(),
+		})
+	}
+
+	ident := identity.ParseIdentity(&doc)
+	handle, err := ident.DeclaredHandle()
+	if err != nil {
+		// no handle declared, or invalid syntax
+		handle = syntax.Handle("handle.invalid")
+	}
+
+	checkDID, err := srv.dir.ResolveHandle(ctx, handle)
+	if err != nil || checkDID != did {
+		handle = syntax.Handle("handle.invalid")
+	}
+
+	h := handle.String()
+	return c.JSON(200, comatproto.IdentityDefs_AtprotoIdentity{
+		Did:    ident.DID.String(),
+		Handle: &h,
+		DidDoc: rawDoc,
 	})
 }
 
 func (srv *Server) ResolveIdentity(c echo.Context) error {
-	ctx := c.Request().Context()
-
+	// we partially re-implement the "Lookup()" logic here, but returning the full DID document, not `identity.Identity`
 	atid, err := syntax.ParseAtIdentifier(c.QueryParam("identifier"))
 	if err != nil {
 		return c.JSON(400, GenericError{
 			Error:   "InvalidIdentifierSyntax",
-			Message: fmt.Sprintf("%s", err), // TODO: something more idiomatic?
+			Message: err.Error(),
 		})
 	}
 
-	// XXX: ResolveDID() on identity?
-	ident, err := srv.dir.Lookup(ctx, *atid)
-	if err != nil && false { // XXX: is ErrNotFound; other errors?
-		return c.JSON(404, GenericError{
-			Error:   "DidNotFound",
-			Message: fmt.Sprintf("%s", err),
-		})
-	} else if err != nil {
-		return c.JSON(500, GenericError{
-			Error:   "InternalError",
-			Message: fmt.Sprintf("%s", err),
-		})
+	handle, err := atid.AsHandle()
+	if nil == err {
+		return srv.resolveIdentityFromHandle(c, handle)
 	}
-	handle := ident.Handle.String()
-	doc, err := srv.dir.ResolveDID(ctx, ident.DID)
-	if err != nil {
-		return err
+	did, err := atid.AsDID()
+	if nil == err {
+		return srv.resolveIdentityFromDID(c, did)
 	}
-	return c.JSON(200, comatproto.IdentityDefs_AtprotoIdentity{
-		Did:    ident.DID.String(),
-		Handle: &handle,
-		DidDoc: doc,
-	})
+	return fmt.Errorf("unreachable code path")
 }
 
 func (srv *Server) RefreshIdentity(c echo.Context) error {
@@ -116,16 +195,21 @@ func (srv *Server) RefreshIdentity(c echo.Context) error {
 	if err != nil {
 		return c.JSON(400, GenericError{
 			Error:   "InvalidIdentifierSyntax",
-			Message: fmt.Sprintf("%s", err), // TODO: something more idiomatic?
+			Message: err.Error(),
 		})
 	}
 
-	err = srv.dir.Purge(ctx, *atid)
-	if err != nil {
-		return c.JSON(500, GenericError{
-			Error:   "InternalError",
-			Message: fmt.Sprintf("%s", err),
-		})
+	did, err := atid.AsDID()
+	if nil == err {
+		if err := srv.dir.PurgeDID(ctx, did); err != nil {
+			return err
+		}
+	}
+	handle, err := atid.AsHandle()
+	if nil == err {
+		if err := srv.dir.PurgeHandle(ctx, handle); err != nil {
+			return err
+		}
 	}
 
 	return srv.ResolveIdentity(c)
@@ -135,20 +219,6 @@ type GenericStatus struct {
 	Daemon  string `json:"daemon"`
 	Status  string `json:"status"`
 	Message string `json:"msg,omitempty"`
-}
-
-func (srv *Server) errorHandler(err error, c echo.Context) {
-	code := http.StatusInternalServerError
-	var errorMessage string
-	if he, ok := err.(*echo.HTTPError); ok {
-		code = he.Code
-		errorMessage = fmt.Sprintf("%s", he.Message)
-	}
-	if code >= 500 {
-		slog.Warn("domesday-http-internal-error", "err", err)
-	}
-	// XXX: actual error struct
-	c.JSON(code, GenericStatus{Status: "error", Daemon: "domesday", Message: errorMessage})
 }
 
 func (s *Server) HandleHealthCheck(c echo.Context) error {
