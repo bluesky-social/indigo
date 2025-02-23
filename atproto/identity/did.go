@@ -98,6 +98,10 @@ func (d *BaseDirectory) resolveDIDWeb(ctx context.Context, did syntax.DID) ([]by
 	if err != nil {
 		return nil, fmt.Errorf("constructing HTTP request for did:web resolution: %w", err)
 	}
+	if d.UserAgent != "" {
+		req.Header.Set("User-Agent", d.UserAgent)
+	}
+
 	resp, err := d.HTTPClient.Do(req)
 
 	// look for NXDOMAIN
@@ -143,6 +147,10 @@ func (d *BaseDirectory) resolveDIDPLC(ctx context.Context, did syntax.DID) ([]by
 	if err != nil {
 		return nil, fmt.Errorf("constructing HTTP request for did:plc resolution: %w", err)
 	}
+	if d.UserAgent != "" {
+		req.Header.Set("User-Agent", d.UserAgent)
+	}
+
 	resp, err := d.HTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w: PLC directory lookup: %w", ErrDIDResolutionFailed, err)

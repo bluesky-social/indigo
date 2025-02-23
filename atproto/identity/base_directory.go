@@ -33,6 +33,8 @@ type BaseDirectory struct {
 	//
 	// The intended use-case for this flag is as an optimization for services which do not care about handles, but still want to use the `Directory` interface (instead of `ResolveDID`). For example, relay implementations, or services validating inter-service auth requests.
 	SkipHandleVerification bool
+	// User-Agent header for HTTP requests. Optional (ignored if empty string).
+	UserAgent string
 }
 
 var _ Directory = (*BaseDirectory)(nil)
