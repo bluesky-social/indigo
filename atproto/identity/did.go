@@ -112,9 +112,11 @@ func (d *BaseDirectory) resolveDIDWeb(ctx context.Context, did syntax.DID) ([]by
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
+		io.Copy(io.Discard, resp.Body)
 		return nil, fmt.Errorf("%w: did:web HTTP status 404", ErrDIDNotFound)
 	}
 	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body)
 		return nil, fmt.Errorf("%w: did:web HTTP status %d", ErrDIDResolutionFailed, resp.StatusCode)
 	}
 
@@ -147,9 +149,11 @@ func (d *BaseDirectory) resolveDIDPLC(ctx context.Context, did syntax.DID) ([]by
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
+		io.Copy(io.Discard, resp.Body)
 		return nil, fmt.Errorf("%w: PLC directory 404", ErrDIDNotFound)
 	}
 	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body)
 		return nil, fmt.Errorf("%w: PLC directory status %d", ErrDIDResolutionFailed, resp.StatusCode)
 	}
 
