@@ -250,14 +250,14 @@ func (d *CacheDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Id
 	return nil, fmt.Errorf("at-identifier neither a Handle nor a DID")
 }
 
-func (d *CacheDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error {
-	handle, err := a.AsHandle()
+func (d *CacheDirectory) Purge(ctx context.Context, atid syntax.AtIdentifier) error {
+	handle, err := atid.AsHandle()
 	if nil == err { // if not an error, is a handle
 		handle = handle.Normalize()
 		d.handleCache.Remove(handle)
 		return nil
 	}
-	did, err := a.AsDID()
+	did, err := atid.AsDID()
 	if nil == err { // if not an error, is a DID
 		d.identityCache.Remove(did)
 		return nil

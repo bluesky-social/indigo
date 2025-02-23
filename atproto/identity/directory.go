@@ -27,7 +27,7 @@ type Directory interface {
 	Lookup(ctx context.Context, atid syntax.AtIdentifier) (*Identity, error)
 
 	// Flushes any cache of the indicated identifier. If directory is not using caching, can ignore this.
-	Purge(ctx context.Context, i syntax.AtIdentifier) error
+	Purge(ctx context.Context, atid syntax.AtIdentifier) error
 }
 
 // Indicates that handle resolution failed. A wrapped error may provide more context. This is only returned when looking up a handle, not when looking up a DID.

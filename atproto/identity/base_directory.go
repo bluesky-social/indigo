@@ -107,7 +107,7 @@ func (d *BaseDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Ide
 	return nil, fmt.Errorf("at-identifier neither a Handle nor a DID")
 }
 
-func (d *BaseDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error {
+func (d *BaseDirectory) Purge(ctx context.Context, atid syntax.AtIdentifier) error {
 	// BaseDirectory itself does not implement caching
 	return nil
 }
