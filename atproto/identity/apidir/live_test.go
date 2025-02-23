@@ -10,7 +10,7 @@ import (
 )
 
 func TestBasicLookups(t *testing.T) {
-	//t.Skip("TODO: skipping live network test")
+	t.Skip("skipping live network test")
 	assert := assert.New(t)
 	ctx := context.Background()
 	var err error
