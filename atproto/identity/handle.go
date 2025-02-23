@@ -131,6 +131,9 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 	if err != nil {
 		return "", fmt.Errorf("constructing HTTP request for handle resolution: %w", err)
 	}
+	if d.UserAgent != "" {
+		req.Header.Set("User-Agent", d.UserAgent)
+	}
 
 	resp, err := d.HTTPClient.Do(req)
 	if err != nil {

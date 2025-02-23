@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
+
+	"github.com/carlmjohnson/versioninfo"
 )
 
 // Ergonomic interface for atproto identity lookup, by DID or handle.
@@ -80,6 +82,7 @@ func DefaultDirectory() Directory {
 		TryAuthoritativeDNS: true,
 		// primary Bluesky PDS instance only supports HTTP resolution method
 		SkipDNSDomainSuffixes: []string{".bsky.social"},
+		UserAgent:             "indigo-identity/" + versioninfo.Short(),
 	}
 	cached := NewCacheDirectory(&base, 250_000, time.Hour*24, time.Minute*2, time.Minute*5)
 	return &cached
