@@ -1005,19 +1005,19 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			if errors.Is(err, carstore.ErrRepoBaseMismatch) || ipld.IsNotFound(err) {
 				ai, lerr := bgs.Index.LookupUser(ctx, u.ID)
 				if lerr != nil {
-					log.Warn("failed handling event, no user", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
+					log.Warn("failed handling event, no user", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "commit", evt.Commit.String())
 					repoCommitsResultCounter.WithLabelValues(host.Host, "nou4").Inc()
 					return fmt.Errorf("failed to look up user %s (%d) (err case: %s): %w", u.Did, u.ID, err, lerr)
 				}
 
 				span.SetAttributes(attribute.Bool("catchup_queue", true))
 
-				log.Info("failed handling event, catchup", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
+				log.Info("failed handling event, catchup", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "commit", evt.Commit.String())
 				repoCommitsResultCounter.WithLabelValues(host.Host, "catchup2").Inc()
 				return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
 			}
 
-			log.Warn("failed handling event", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
+			log.Warn("failed handling event", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "commit", evt.Commit.String())
 			repoCommitsResultCounter.WithLabelValues(host.Host, "err").Inc()
 			return fmt.Errorf("handle user event failed: %w", err)
 		}
