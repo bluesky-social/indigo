@@ -309,7 +309,7 @@ func runBigsky(cctx *cli.Context) error {
 	}
 	cacheDir := identity.NewCacheDirectory(&baseDir, cctx.Int("did-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
 
-	repoman := repomgr.NewRepoManager(&cacheDir)
+	repoman := repomgr.NewRepoManager(&cacheDir, inductionTraceLog)
 
 	var persister events.EventPersistence
 

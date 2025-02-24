@@ -22,14 +22,15 @@ import (
 
 const defaultMaxRevFuture = time.Hour
 
-func NewRepoManager(directory DidDirectory) *RepoManager {
+func NewRepoManager(directory DidDirectory, inductionTraceLog *slog.Logger) *RepoManager {
 	maxRevFuture := defaultMaxRevFuture // TODO: configurable
 	ErrRevTooFarFuture := fmt.Errorf("new rev is > %s in the future", maxRevFuture)
 
 	return &RepoManager{
-		userLocks: make(map[models.Uid]*userLock),
-		log:       slog.Default().With("system", "repomgr"),
-		directory: directory,
+		userLocks:         make(map[models.Uid]*userLock),
+		log:               slog.Default().With("system", "repomgr"),
+		inductionTraceLog: inductionTraceLog,
+		directory:         directory,
 
 		maxRevFuture:           maxRevFuture,
 		ErrRevTooFarFuture:     ErrRevTooFarFuture,
@@ -47,7 +48,8 @@ type RepoManager struct {
 
 	events *events.EventManager
 
-	log *slog.Logger
+	log               *slog.Logger
+	inductionTraceLog *slog.Logger
 
 	directory DidDirectory
 
@@ -224,11 +226,13 @@ func (rm *RepoManager) VerifyCommitMessage(ctx context.Context, host *models.PDS
 	if msg.TooBig {
 		//logger.Warn("event with tooBig flag set")
 		commitVerifyWarnings.WithLabelValues(hostname, "big").Inc()
+		rm.inductionTraceLog.Warn("commit tooBig", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
 		hasWarning = true
 	}
 	if msg.Rebase {
 		//logger.Warn("event with rebase flag set")
 		commitVerifyWarnings.WithLabelValues(hostname, "reb").Inc()
+		rm.inductionTraceLog.Warn("commit rebase", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
 		hasWarning = true
 	}
 
@@ -285,12 +289,14 @@ func (rm *RepoManager) VerifyCommitMessage(ctx context.Context, host *models.PDS
 		case "delete":
 			if o.Prev == nil {
 				logger.Debug("can't invert legacy op", "action", o.Action)
+				rm.inductionTraceLog.Warn("commit delete op", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
 				commitVerifyOkish.WithLabelValues(hostname, "del").Inc()
 				return repoFragment, nil
 			}
 		case "update":
 			if o.Prev == nil {
 				logger.Debug("can't invert legacy op", "action", o.Action)
+				rm.inductionTraceLog.Warn("commit update op", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
 				commitVerifyOkish.WithLabelValues(hostname, "up").Inc()
 				return repoFragment, nil
 			}
@@ -302,6 +308,7 @@ func (rm *RepoManager) VerifyCommitMessage(ctx context.Context, host *models.PDS
 		if prevRoot != nil {
 			if *c != prevRoot.GetCid() {
 				commitVerifyWarnings.WithLabelValues(hostname, "pr").Inc()
+				rm.inductionTraceLog.Warn("commit prevData mismatch", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
 				hasWarning = true
 			}
 		} else {
