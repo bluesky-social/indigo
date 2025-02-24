@@ -39,6 +39,20 @@ var pdsCrawledCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "collectiondir_pds_crawled_total",
 })
 
+var pdsRepoPages = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "collectiondir_pds_repo_pages",
+})
+
+var pdsReposDescribed = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "collectiondir_pds_repos_described",
+})
+
+var statsCalculations = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name:    "collectiondir_stats_calculations",
+	Help:    "how long it takes to calculate total stats",
+	Buckets: prometheus.ExponentialBuckets(0.01, 2, 13),
+})
+
 var reqDur = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "http_request_duration_seconds",
 	Help:    "A histogram of latencies for requests.",
