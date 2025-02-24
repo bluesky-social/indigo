@@ -580,6 +580,7 @@ func (cs *collectionServer) statsBuilder() {
 		stats, err := cs.pcd.GetCollectionStats()
 		dt := time.Since(start)
 		if err == nil {
+			statsCalculations.Observe(dt.Seconds())
 			countsum := uint64(0)
 			for _, v := range stats.CollectionCounts {
 				countsum += v
