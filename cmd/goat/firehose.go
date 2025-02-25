@@ -90,7 +90,7 @@ func runFirehose(cctx *cli.Context) error {
 		u.RawQuery = fmt.Sprintf("cursor=%d", cctx.Int("cursor"))
 	}
 	urlString := u.String()
-	fmt.Fprintf(os.Stderr, "GET %s\n", urlString)
+	slog.Debug("GET", "url", urlString)
 	con, _, err := dialer.Dial(urlString, http.Header{
 		"User-Agent": []string{fmt.Sprintf("goat/%s", versioninfo.Short())},
 	})

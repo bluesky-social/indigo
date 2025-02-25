@@ -14,8 +14,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/cmd/medsky/events"
 	"github.com/bluesky-social/indigo/cmd/medsky/events/schedulers/parallel"
-	"github.com/bluesky-social/indigo/models"
-	"golang.org/x/time/rate"
+	"github.com/bluesky-social/indigo/cmd/medsky/models"
 
 	"github.com/gorilla/websocket"
 	pq "github.com/lib/pq"
@@ -38,7 +37,6 @@ type Slurper struct {
 	DefaultPerHourLimit   int64
 	DefaultPerDayLimit    int64
 
-	DefaultCrawlLimit rate.Limit
 	DefaultRepoLimit  int64
 	ConcurrencyPerPDS int64
 	MaxQueuePerPDS    int64
@@ -67,7 +65,6 @@ type SlurperOptions struct {
 	DefaultPerSecondLimit int64
 	DefaultPerHourLimit   int64
 	DefaultPerDayLimit    int64
-	DefaultCrawlLimit     rate.Limit
 	DefaultRepoLimit      int64
 	ConcurrencyPerPDS     int64
 	MaxQueuePerPDS        int64
@@ -81,7 +78,6 @@ func DefaultSlurperOptions() *SlurperOptions {
 		DefaultPerSecondLimit: 50,
 		DefaultPerHourLimit:   2500,
 		DefaultPerDayLimit:    20_000,
-		DefaultCrawlLimit:     rate.Limit(5),
 		DefaultRepoLimit:      100,
 		ConcurrencyPerPDS:     100,
 		MaxQueuePerPDS:        1_000,
@@ -107,7 +103,10 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, opts *SlurperOptions) (*Slurper, 
 	if opts == nil {
 		opts = DefaultSlurperOptions()
 	}
-	db.AutoMigrate(&SlurpConfig{})
+	err := db.AutoMigrate(&SlurpConfig{})
+	if err != nil {
+		return nil, err
+	}
 	s := &Slurper{
 		cb:                    cb,
 		db:                    db,
@@ -116,7 +115,6 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, opts *SlurperOptions) (*Slurper, 
 		DefaultPerSecondLimit: opts.DefaultPerSecondLimit,
 		DefaultPerHourLimit:   opts.DefaultPerHourLimit,
 		DefaultPerDayLimit:    opts.DefaultPerDayLimit,
-		DefaultCrawlLimit:     opts.DefaultCrawlLimit,
 		DefaultRepoLimit:      opts.DefaultRepoLimit,
 		ConcurrencyPerPDS:     opts.ConcurrencyPerPDS,
 		MaxQueuePerPDS:        opts.MaxQueuePerPDS,
@@ -405,14 +403,12 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adm
 			RateLimit:        float64(s.DefaultPerSecondLimit),
 			HourlyEventLimit: s.DefaultPerHourLimit,
 			DailyEventLimit:  s.DefaultPerDayLimit,
-			CrawlRateLimit:   float64(s.DefaultCrawlLimit),
 			RepoLimit:        s.DefaultRepoLimit,
 		}
 		if rateOverrides != nil {
 			npds.RateLimit = float64(rateOverrides.PerSecond)
 			npds.HourlyEventLimit = rateOverrides.PerHour
 			npds.DailyEventLimit = rateOverrides.PerDay
-			npds.CrawlRateLimit = float64(rateOverrides.CrawlRate)
 			npds.RepoLimit = rateOverrides.RepoLimit
 		}
 		if err := s.db.Create(&npds).Error; err != nil {

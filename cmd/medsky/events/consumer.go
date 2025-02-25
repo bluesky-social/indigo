@@ -140,6 +140,8 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 						con.Close()
 						return
 					}
+				} else {
+					failcount = 0 // ok ping
 				}
 			case <-ctx.Done():
 				con.Close()

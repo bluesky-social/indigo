@@ -15,14 +15,14 @@ import (
 	atrepo "github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/medsky/events"
-	"github.com/bluesky-social/indigo/models"
+	"github.com/bluesky-social/indigo/cmd/medsky/models"
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel"
 )
 
 const defaultMaxRevFuture = time.Hour
 
-func NewRepoManager(directory DidDirectory, inductionTraceLog *slog.Logger) *RepoManager {
+func NewRepoManager(directory identity.Directory, inductionTraceLog *slog.Logger) *RepoManager {
 	maxRevFuture := defaultMaxRevFuture // TODO: configurable
 	ErrRevTooFarFuture := fmt.Errorf("new rev is > %s in the future", maxRevFuture)
 
@@ -42,6 +42,8 @@ func (rm *RepoManager) SetEventManager(events *events.EventManager) {
 	rm.events = events
 }
 
+// RepoManager is a poorly defined chunk of code
+// TODO: RepoManager should probably merge with what calls it or what it calls; probably move HandleCommit into bgs.go
 type RepoManager struct {
 	lklk      sync.Mutex
 	userLocks map[models.Uid]*userLock
@@ -51,7 +53,7 @@ type RepoManager struct {
 	log               *slog.Logger
 	inductionTraceLog *slog.Logger
 
-	directory DidDirectory
+	directory identity.Directory
 
 	maxRevFuture       time.Duration
 	ErrRevTooFarFuture error
@@ -60,56 +62,9 @@ type RepoManager struct {
 	AllowSignatureNotFound bool
 }
 
-// DidDirectory the part of identity.Directory that we need
-type DidDirectory interface {
-	LookupDID(ctx context.Context, d syntax.DID) (*identity.Identity, error)
-}
-
 type NextCommitHandler interface {
 	HandleCommit(ctx context.Context, host *models.PDS, uid models.Uid, did string, commit *atproto.SyncSubscribeRepos_Commit) error
 }
-
-type ActorInfo struct {
-	Did         string
-	Handle      string
-	DisplayName string
-	Type        string
-}
-
-type RepoEvent struct {
-	User      models.Uid
-	OldRoot   *cid.Cid
-	NewRoot   cid.Cid
-	Since     *string
-	Rev       string
-	RepoSlice []byte
-	PDS       uint
-	Ops       []RepoOp
-}
-
-type RepoOp struct {
-	Kind       EventKind
-	Collection string
-	Rkey       string
-	RecCid     *cid.Cid
-	Record     any
-	ActorInfo  *ActorInfo
-}
-
-type EventKind string
-
-const (
-	EvtKindCreateRecord = EventKind("create")
-	EvtKindUpdateRecord = EventKind("update")
-	EvtKindDeleteRecord = EventKind("delete")
-)
-
-// TODO: dead code -- bolson 2025
-//type RepoHead struct {
-//	gorm.Model
-//	Usr  models.Uid `gorm:"uniqueIndex"`
-//	Root string
-//}
 
 type userLock struct {
 	lk      sync.Mutex
@@ -159,7 +114,6 @@ type UserPrev interface {
 	GetRev() syntax.TID
 }
 
-// TODO: move this to its own thing out of repomgr
 func (rm *RepoManager) HandleCommit(ctx context.Context, host *models.PDS, user IUser, commit *atproto.SyncSubscribeRepos_Commit, prevRoot UserPrev) (newRoot *cid.Cid, err error) {
 	uid := user.GetUid()
 	unlock := rm.lockUser(ctx, uid)

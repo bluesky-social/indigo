@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/bluesky-social/indigo/models"
+	"github.com/bluesky-social/indigo/cmd/medsky/models"
 )
 
 // Note that this interface looks generic, but some persisters might only work with RepoAppend or LabelLabels

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/models"
+	"github.com/bluesky-social/indigo/cmd/medsky/models"
 	"github.com/labstack/echo/v4"
 	dto "github.com/prometheus/client_model/go"
 	"gorm.io/gorm"
@@ -174,7 +174,6 @@ type enrichedPDS struct {
 	PerSecondEventRate     rateLimit `json:"PerSecondEventRate"`
 	PerHourEventRate       rateLimit `json:"PerHourEventRate"`
 	PerDayEventRate        rateLimit `json:"PerDayEventRate"`
-	CrawlRate              rateLimit `json:"CrawlRate"`
 	UserCount              int64     `json:"UserCount"`
 }
 
@@ -223,14 +222,6 @@ func (bgs *BGS) handleListPDSs(e echo.Context) error {
 			Max:           float64(p.DailyEventLimit),
 			WindowSeconds: 86400,
 		}
-
-		// Get the crawl rate limit for this PDS
-		crawlRate := rateLimit{
-			Max:           p.CrawlRateLimit,
-			WindowSeconds: 1,
-		}
-
-		enrichedPDSs[i].CrawlRate = crawlRate
 	}
 
 	return e.JSON(200, enrichedPDSs)
@@ -338,7 +329,7 @@ type bannedDomains struct {
 }
 
 func (bgs *BGS) handleAdminListDomainBans(c echo.Context) error {
-	var all []models.DomainBan
+	var all []DomainBan
 	if err := bgs.db.Find(&all).Error; err != nil {
 		return err
 	}
@@ -364,7 +355,7 @@ func (bgs *BGS) handleAdminBanDomain(c echo.Context) error {
 	}
 
 	// Check if the domain is already banned
-	var existing models.DomainBan
+	var existing DomainBan
 	if err := bgs.db.Where("domain = ?", body.Domain).First(&existing).Error; err == nil {
 		return &echo.HTTPError{
 			Code:    400,
@@ -372,7 +363,7 @@ func (bgs *BGS) handleAdminBanDomain(c echo.Context) error {
 		}
 	}
 
-	if err := bgs.db.Create(&models.DomainBan{
+	if err := bgs.db.Create(&DomainBan{
 		Domain: body.Domain,
 	}).Error; err != nil {
 		return err
@@ -389,7 +380,7 @@ func (bgs *BGS) handleAdminUnbanDomain(c echo.Context) error {
 		return err
 	}
 
-	if err := bgs.db.Where("domain = ?", body.Domain).Delete(&models.DomainBan{}).Error; err != nil {
+	if err := bgs.db.Where("domain = ?", body.Domain).Delete(&DomainBan{}).Error; err != nil {
 		return err
 	}
 
@@ -404,8 +395,6 @@ type PDSRates struct {
 	PerHour   int64 `json:"per_hour,omitempty"`
 	PerDay    int64 `json:"per_day,omitempty"`
 
-	CrawlRate int64 `json:"crawl_rate,omitempty"` // TODO: obsolete
-
 	RepoLimit int64 `json:"repo_limit,omitempty"`
 }
 
@@ -418,9 +407,6 @@ func (pr *PDSRates) FromSlurper(s *Slurper) {
 	}
 	if pr.PerDay == 0 {
 		pr.PerDay = s.DefaultPerDayLimit
-	}
-	if pr.CrawlRate == 0 {
-		pr.CrawlRate = int64(s.DefaultCrawlLimit)
 	}
 	if pr.RepoLimit == 0 {
 		pr.RepoLimit = s.DefaultRepoLimit
@@ -448,7 +434,6 @@ func (bgs *BGS) handleAdminChangePDSRateLimits(e echo.Context) error {
 	pds.RateLimit = float64(body.PerSecond)
 	pds.HourlyEventLimit = body.PerHour
 	pds.DailyEventLimit = body.PerDay
-	pds.CrawlRateLimit = float64(body.CrawlRate)
 	pds.RepoLimit = body.RepoLimit
 
 	if err := bgs.db.Save(&pds).Error; err != nil {

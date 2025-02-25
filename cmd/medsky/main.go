@@ -54,7 +54,7 @@ func main() {
 func run(args []string) error {
 
 	app := cli.App{
-		Name:    "bigsky",
+		Name:    "medsky",
 		Usage:   "atproto Relay daemon",
 		Version: versioninfo.Short(),
 	}
@@ -100,10 +100,6 @@ func run(args []string) error {
 		&cli.StringFlag{
 			Name:    "admin-key",
 			EnvVars: []string{"RELAY_ADMIN_KEY", "BGS_ADMIN_KEY"},
-		},
-		&cli.StringSliceFlag{
-			Name:    "handle-resolver-hosts",
-			EnvVars: []string{"HANDLE_RESOLVER_HOSTS"},
 		},
 		&cli.IntFlag{
 			Name:    "max-metadb-connections",
@@ -156,14 +152,9 @@ func run(args []string) error {
 		},
 		&cli.IntFlag{
 			Name:    "did-cache-size",
-			Usage:   "in-process cache by number of Did documents. see also did-memcached",
+			Usage:   "in-process cache by number of Did documents",
 			EnvVars: []string{"RELAY_DID_CACHE_SIZE"},
 			Value:   5_000_000,
-		},
-		&cli.StringSliceFlag{
-			Name:    "did-memcached",
-			Usage:   "nearby memcached which is storing did documents. did-cache-size can be smaller if we have memcached",
-			EnvVars: []string{"RELAY_DID_MEMCACHED"},
 		},
 		&cli.DurationFlag{
 			Name:    "event-playback-ttl",
@@ -301,7 +292,7 @@ func runBigsky(cctx *cli.Context) error {
 		return err
 	}
 
-	// TODO: add memcached layer for shared external cache
+	// TODO: add shared external cache
 	baseDir := identity.BaseDirectory{
 		SkipHandleVerification: true,
 		SkipDNSDomainSuffixes:  []string{".bsky.social"},

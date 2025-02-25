@@ -20,9 +20,9 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/cmd/medsky/events"
+	"github.com/bluesky-social/indigo/cmd/medsky/models"
 	"github.com/bluesky-social/indigo/cmd/medsky/repomgr"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/gorilla/websocket"
@@ -132,7 +132,7 @@ func NewBGS(db *gorm.DB, repoman *repomgr.RepoManager, evtman *events.EventManag
 	if err != nil {
 		panic(err)
 	}
-	err = db.AutoMigrate(models.DomainBan{})
+	err = db.AutoMigrate(DomainBan{})
 	if err != nil {
 		panic(err)
 	}
@@ -256,7 +256,6 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	// TODO: this API is temporary until we formalize what we want here
 
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", bgs.EventsHandler)
-	e.GET("/xrpc/com.atproto.sync.requestCrawl", bgs.HandleComAtprotoSyncRequestCrawl)
 	e.POST("/xrpc/com.atproto.sync.requestCrawl", bgs.HandleComAtprotoSyncRequestCrawl)
 	e.GET("/xrpc/com.atproto.sync.listRepos", bgs.HandleComAtprotoSyncListRepos)
 	e.GET("/xrpc/com.atproto.sync.getRepo", bgs.HandleComAtprotoSyncGetRepo) // just returns 3xx redirect to source PDS
@@ -700,7 +699,7 @@ func (s *BGS) domainIsBanned(ctx context.Context, host string) (bool, error) {
 }
 
 func (s *BGS) findDomainBan(ctx context.Context, host string) (bool, error) {
-	var db models.DomainBan
+	var db DomainBan
 	if err := s.db.Find(&db, "domain = ?", host).Error; err != nil {
 		return false, err
 	}
@@ -1185,7 +1184,6 @@ func (bgs *BGS) createExternalUser(ctx context.Context, did string, host *models
 		// TODO: could check other things, a valid response is good enough for now
 		peering.Host = durl.Host
 		peering.SSL = (durl.Scheme == "https")
-		peering.CrawlRateLimit = float64(bgs.slurper.DefaultCrawlLimit)
 		peering.RateLimit = float64(bgs.slurper.DefaultPerSecondLimit)
 		peering.HourlyEventLimit = bgs.slurper.DefaultPerHourLimit
 		peering.DailyEventLimit = bgs.slurper.DefaultPerDayLimit

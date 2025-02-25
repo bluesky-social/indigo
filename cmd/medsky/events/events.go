@@ -11,8 +11,8 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/cmd/medsky/models"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/models"
 	"github.com/prometheus/client_golang/prometheus"
 
 	cbg "github.com/whyrusleeping/cbor-gen"
