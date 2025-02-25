@@ -106,7 +106,7 @@ func (e *Effects) AddAccountLabel(val string) {
 func (e *Effects) RemoveAccountLabel(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.RemovedRecordLabels {
+	for _, v := range e.RemovedAccountLabels {
 		if v == val {
 			return
 		}
