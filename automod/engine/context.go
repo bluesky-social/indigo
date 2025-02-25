@@ -242,6 +242,10 @@ func (c *AccountContext) AddAccountLabel(val string) {
 	c.effects.AddAccountLabel(val)
 }
 
+func (c *AccountContext) RemoveAccountLabel(val string) {
+	c.effects.RemoveAccountLabel(val)
+}
+
 func (c *AccountContext) AddAccountTag(val string) {
 	c.effects.AddAccountTag(val)
 }
@@ -268,6 +272,10 @@ func (c *RecordContext) AddRecordFlag(val string) {
 
 func (c *RecordContext) AddRecordLabel(val string) {
 	c.effects.AddRecordLabel(val)
+}
+
+func (c *RecordContext) RemoveRecordLabel(val string) {
+	c.effects.RemoveRecordLabel(val)
 }
 
 func (c *RecordContext) AddRecordTag(val string) {

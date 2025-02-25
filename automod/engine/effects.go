@@ -28,6 +28,8 @@ type Effects struct {
 	CounterDistinctIncrements []CounterDistinctRef // TODO: better variable names
 	// Label values which should be applied to the overall account, as a result of rule execution.
 	AccountLabels []string
+	// Label values which should be removed from the overall account, as a result of rule execution.
+	RemovedAccountLabels []string
 	// Moderation tags (similar to labels, but private) which should be applied to the overall account, as a result of rule execution.
 	AccountTags []string
 	// automod flags (metadata) which should be applied to the account as a result of rule execution.
@@ -42,6 +44,8 @@ type Effects struct {
 	AccountAcknowledge bool
 	// Same as "AccountLabels", but at record-level
 	RecordLabels []string
+	// Same as "RemovedRecordLabels", but at record-level
+	RemovedRecordLabels []string
 	// Same as "AccountTags", but at record-level
 	RecordTags []string
 	// Same as "AccountFlags", but at record-level
@@ -96,6 +100,18 @@ func (e *Effects) AddAccountLabel(val string) {
 		}
 	}
 	e.AccountLabels = append(e.AccountLabels, val)
+}
+
+// Enqueues the provided label (string value) to be removed from the account at the end of rule processing.
+func (e *Effects) RemoveAccountLabel(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for _, v := range e.RemovedAccountLabels {
+		if v == val {
+			return
+		}
+	}
+	e.RemovedAccountLabels = append(e.RemovedAccountLabels, val)
 }
 
 // Enqueues the provided label (string value) to be added to the account at the end of rule processing.
@@ -162,6 +178,18 @@ func (e *Effects) AddRecordLabel(val string) {
 		}
 	}
 	e.RecordLabels = append(e.RecordLabels, val)
+}
+
+// Enqueues the provided label (string value) to be removed from the record at the end of rule processing.
+func (e *Effects) RemoveRecordLabel(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for _, v := range e.RemovedRecordLabels {
+		if v == val {
+			return
+		}
+	}
+	e.RemovedRecordLabels = append(e.RemovedRecordLabels, val)
 }
 
 // Enqueues the provided tag (string value) to be added to the record at the end of rule processing.
