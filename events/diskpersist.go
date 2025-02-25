@@ -173,6 +173,10 @@ func (dp *DiskPersistence) resumeLog() error {
 		return fmt.Errorf("failed to scan log file for last seqno: %w", err)
 	}
 
+	if seq < lfr.SeqStart {
+		return fmt.Errorf("somehow the final sequence in the log is in the wrong range %d < %d", seq, lfr.SeqStart)
+	}
+
 	dp.curSeq = seq
 	dp.logfi = fi
 
