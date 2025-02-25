@@ -98,6 +98,10 @@ func (d *BaseDirectory) resolveDIDWeb(ctx context.Context, did syntax.DID) ([]by
 	if err != nil {
 		return nil, fmt.Errorf("constructing HTTP request for did:web resolution: %w", err)
 	}
+	if d.UserAgent != "" {
+		req.Header.Set("User-Agent", d.UserAgent)
+	}
+
 	resp, err := d.HTTPClient.Do(req)
 
 	// look for NXDOMAIN
@@ -112,9 +116,11 @@ func (d *BaseDirectory) resolveDIDWeb(ctx context.Context, did syntax.DID) ([]by
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
+		io.Copy(io.Discard, resp.Body)
 		return nil, fmt.Errorf("%w: did:web HTTP status 404", ErrDIDNotFound)
 	}
 	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body)
 		return nil, fmt.Errorf("%w: did:web HTTP status %d", ErrDIDResolutionFailed, resp.StatusCode)
 	}
 
@@ -141,15 +147,21 @@ func (d *BaseDirectory) resolveDIDPLC(ctx context.Context, did syntax.DID) ([]by
 	if err != nil {
 		return nil, fmt.Errorf("constructing HTTP request for did:plc resolution: %w", err)
 	}
+	if d.UserAgent != "" {
+		req.Header.Set("User-Agent", d.UserAgent)
+	}
+
 	resp, err := d.HTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w: PLC directory lookup: %w", ErrDIDResolutionFailed, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
+		io.Copy(io.Discard, resp.Body)
 		return nil, fmt.Errorf("%w: PLC directory 404", ErrDIDNotFound)
 	}
 	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body)
 		return nil, fmt.Errorf("%w: PLC directory status %d", ErrDIDResolutionFailed, resp.StatusCode)
 	}
 
