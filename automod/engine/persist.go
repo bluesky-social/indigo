@@ -43,7 +43,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 
 	// de-dupe actions
 	newLabels := dedupeLabelActions(c.effects.AccountLabels, c.Account.AccountLabels, c.Account.AccountNegatedLabels)
-	var rmdLabels []string
+	rmdLabels := []string{}
 	for _, lbl := range dedupeStrings(c.effects.RemovedAccountLabels) {
 		// we don't need to try and remove labels whenever they are either _not_ already in the account labels, _or_ if they are
 		// being applied by some other rule before persisting
@@ -275,7 +275,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 
 	atURI := c.RecordOp.ATURI().String()
 	newLabels := dedupeStrings(c.effects.RecordLabels)
-	var rmdLabels []string
+	rmdLabels := []string{}
 	newTags := dedupeStrings(c.effects.RecordTags)
 	newEscalation := c.effects.RecordEscalate
 	newAcknowledge := c.effects.RecordAcknowledge
