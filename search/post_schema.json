@@ -15,38 +15,20 @@
                     "type": "custom",
                     "tokenizer": "icu_tokenizer",
                     "char_filter": [ "icu_normalizer" ],
-                    "filter": [ "icu_folding" ]
+                    "filter": [
+                        "icu_folding",
+                        "cjk_width",
+                        "cjk_bigram"
+                    ]
                 },
                 "textIcuSearch": {
                     "type": "custom",
                     "tokenizer": "icu_tokenizer",
                     "char_filter": [ "icu_normalizer" ],
-                    "filter": [ "icu_folding" ]
-                },
-                "textJapanese": {
-                    "type": "custom",
-                    "tokenizer": "kuromoji_tokenizer",
-                    "char_filter": [ "icu_normalizer" ],
                     "filter": [
-                        "kuromoji_baseform",
-                        "kuromoji_part_of_speech",
+                        "icu_folding",
                         "cjk_width",
-                        "ja_stop",
-                        "kuromoji_stemmer",
-                        "lowercase"
-                    ]
-                },
-                "textJapaneseSearch": {
-                    "type": "custom",
-                    "tokenizer": "kuromoji_tokenizer",
-                    "char_filter": [ "icu_normalizer" ],
-                    "filter": [
-                        "kuromoji_baseform",
-                        "kuromoji_part_of_speech",
-                        "cjk_width",
-                        "ja_stop",
-                        "kuromoji_stemmer",
-                        "lowercase"
+                        "cjk_bigram"
                     ]
                 }
             },
@@ -75,7 +57,6 @@
 
         "created_at":     { "type": "date" },
         "text":           { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
-        "text_ja":        { "type": "text", "analyzer": "textJapanese", "search_analyzer": "textJapaneseSearch", "copy_to": "everything_ja" },
         "lang_code":      { "type": "keyword", "normalizer": "default" },
         "lang_code_iso2": { "type": "keyword", "normalizer": "default" },
         "mention_did":    { "type": "keyword", "normalizer": "default" },
@@ -83,7 +64,6 @@
         "reply_root_aturi": { "type": "keyword", "normalizer": "default" },
         "embed_img_count": { "type": "integer" },
         "embed_img_alt_text": { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
-        "embed_img_alt_text_ja": { "type": "text", "analyzer": "textJapanese", "search_analyzer": "textJapaneseSearch", "copy_to": "everything_ja" },
         "self_label":     { "type": "keyword", "normalizer": "default" },
 
         "url":            { "type": "keyword", "normalizer": "default" },
@@ -94,7 +74,6 @@
         "likesFuzzy":     { "type": "integer" },
 
         "everything":     { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" },
-        "everything_ja":  { "type": "text", "analyzer": "textJapanese", "search_analyzer": "textJapaneseSearch" },
 
         "lang":           { "type": "alias", "path": "lang_code_iso2" }
     }
