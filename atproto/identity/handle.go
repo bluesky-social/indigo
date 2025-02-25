@@ -131,6 +131,9 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 	if err != nil {
 		return "", fmt.Errorf("constructing HTTP request for handle resolution: %w", err)
 	}
+	if d.UserAgent != "" {
+		req.Header.Set("User-Agent", d.UserAgent)
+	}
 
 	resp, err := d.HTTPClient.Do(req)
 	if err != nil {
@@ -144,15 +147,17 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 		return "", fmt.Errorf("%w: HTTP well-known request error: %w", ErrHandleResolutionFailed, err)
 	}
 	defer resp.Body.Close()
+	if resp.ContentLength > 2048 {
+		// NOTE: intentionally not draining body
+		return "", fmt.Errorf("%w: HTTP well-known body too large for %s", ErrHandleResolutionFailed, handle)
+	}
 	if resp.StatusCode == http.StatusNotFound {
+		io.Copy(io.Discard, resp.Body)
 		return "", fmt.Errorf("%w: HTTP 404 for %s", ErrHandleNotFound, handle)
 	}
 	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body)
 		return "", fmt.Errorf("%w: HTTP well-known status %d for %s", ErrHandleResolutionFailed, resp.StatusCode, handle)
-	}
-
-	if resp.ContentLength > 2048 {
-		return "", fmt.Errorf("%w: HTTP well-known body too large for %s", ErrHandleResolutionFailed, handle)
 	}
 
 	b, err := io.ReadAll(io.LimitReader(resp.Body, 2048))

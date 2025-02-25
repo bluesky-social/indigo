@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
+
+	"github.com/carlmjohnson/versioninfo"
 )
 
 // Ergonomic interface for atproto identity lookup, by DID or handle.
@@ -27,7 +29,7 @@ type Directory interface {
 	Lookup(ctx context.Context, atid syntax.AtIdentifier) (*Identity, error)
 
 	// Flushes any cache of the indicated identifier. If directory is not using caching, can ignore this.
-	Purge(ctx context.Context, i syntax.AtIdentifier) error
+	Purge(ctx context.Context, atid syntax.AtIdentifier) error
 }
 
 // Indicates that handle resolution failed. A wrapped error may provide more context. This is only returned when looking up a handle, not when looking up a DID.
@@ -80,6 +82,7 @@ func DefaultDirectory() Directory {
 		TryAuthoritativeDNS: true,
 		// primary Bluesky PDS instance only supports HTTP resolution method
 		SkipDNSDomainSuffixes: []string{".bsky.social"},
+		UserAgent:             "indigo-identity/" + versioninfo.Short(),
 	}
 	cached := NewCacheDirectory(&base, 250_000, time.Hour*24, time.Minute*2, time.Minute*5)
 	return &cached

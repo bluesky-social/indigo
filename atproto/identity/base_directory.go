@@ -33,6 +33,8 @@ type BaseDirectory struct {
 	//
 	// The intended use-case for this flag is as an optimization for services which do not care about handles, but still want to use the `Directory` interface (instead of `ResolveDID`). For example, relay implementations, or services validating inter-service auth requests.
 	SkipHandleVerification bool
+	// User-Agent header for HTTP requests. Optional (ignored if empty string).
+	UserAgent string
 }
 
 var _ Directory = (*BaseDirectory)(nil)
@@ -107,7 +109,7 @@ func (d *BaseDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Ide
 	return nil, fmt.Errorf("at-identifier neither a Handle nor a DID")
 }
 
-func (d *BaseDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error {
+func (d *BaseDirectory) Purge(ctx context.Context, atid syntax.AtIdentifier) error {
 	// BaseDirectory itself does not implement caching
 	return nil
 }
