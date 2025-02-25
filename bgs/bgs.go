@@ -2,7 +2,9 @@ package bgs
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -64,6 +66,10 @@ type BGS struct {
 	repoFetcher *indexer.RepoFetcher
 
 	hr api.HandleResolver
+
+	// serverId identifies a firehose sequence stream, clients can adjust seq expectations if server changes.
+	// Stored in db table relay_setting name = 'serverId'
+	serverId string
 
 	// TODO: work on doing away with this flag in favor of more pluggable
 	// pieces that abstract the need for explicit ssl checks
@@ -139,6 +145,34 @@ func DefaultBGSConfig() *BGSConfig {
 	}
 }
 
+func getRelaySetting(db *gorm.DB, name string) (value string, ok bool, err error) {
+	var setting RelaySetting
+	found := db.Find(&setting, "name = ?", name)
+	if errors.Is(found.Error, gorm.ErrRecordNotFound) {
+		return "", false, nil
+	}
+	if found.Error != nil {
+		return "", false, found.Error
+	}
+	return setting.Value, true, nil
+}
+func setRelaySetting(db *gorm.DB, name string, value string) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		var setting RelaySetting
+		found := tx.Find(&setting, "name = ?", name)
+		if errors.Is(found.Error, gorm.ErrRecordNotFound) {
+			// ok! create it
+			setting.Name = name
+			setting.Value = value
+			return tx.Create(&setting).Error
+		} else if found.Error != nil {
+			return found.Error
+		}
+		setting.Value = value
+		return tx.Save(&setting).Error
+	})
+}
+
 func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, rf *indexer.RepoFetcher, hr api.HandleResolver, config *BGSConfig) (*BGS, error) {
 
 	if config == nil {
@@ -146,8 +180,28 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	}
 	db.AutoMigrate(User{})
 	db.AutoMigrate(AuthToken{})
+	db.AutoMigrate(RelaySetting{})
 	db.AutoMigrate(models.PDS{})
 	db.AutoMigrate(models.DomainBan{})
+
+	serverId, ok, err := getRelaySetting(db, "serverId")
+	if err != nil {
+		return nil, fmt.Errorf("get relay server id, %w", err)
+	} else if ok {
+		// got one, done
+	} else {
+		// create new server id
+		var blob [15]byte
+		_, err := rand.Read(blob[:])
+		if err != nil {
+			return nil, fmt.Errorf("relay server id failed crypto/rand.Read, %w", err)
+		}
+		serverId = base64.StdEncoding.EncodeToString(blob[:])
+		err = setRelaySetting(db, "serverId", serverId)
+		if err != nil {
+			return nil, fmt.Errorf("relay server id, %w", err)
+		}
+	}
 
 	uc, _ := lru.New[string, *User](1_000_000)
 
@@ -161,6 +215,8 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		events:  evtman,
 		didr:    didr,
 		ssl:     config.SSL,
+
+		serverId: serverId,
 
 		consumersLk: sync.RWMutex{},
 		consumers:   make(map[uint64]*SocketConsumer),
@@ -526,6 +582,13 @@ func (bgs *BGS) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
+// RelaySetting is a gorm model
+type RelaySetting struct {
+	ID    models.Uid `gorm:"primarykey"`
+	Name  string     `gorm:"unique"`
+	Value string
+}
+
 type User struct {
 	ID          models.Uid `gorm:"primarykey;index:idx_user_id_active,where:taken_down = false AND tombstoned = false"`
 	CreatedAt   time.Time
@@ -620,6 +683,11 @@ func (bgs *BGS) cleanupConsumer(id uint64) {
 	delete(bgs.consumers, id)
 }
 
+// GET /xrpc/com.atproto.sync.subscribeRepos
+// aka THE FIREHOSE
+// ?cursor={seq last seen in an event}
+// ?source={source id previously sent in header X-subscribeRepos-source}
+// ?sco={microseconds to rewind on source mismatch (or m,s suffix for minutes,seconds)}
 func (bgs *BGS) EventsHandler(c echo.Context) error {
 	var since *int64
 	if sinceVal := c.QueryParam("cursor"); sinceVal != "" {
@@ -629,12 +697,39 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		}
 		since = &sval
 	}
+	// previousSource was sent in X-subscribeRepos-source header
+	previousSource := c.QueryParam("source")
+	sourceChangeOffset := c.QueryParam("sco")
+	if previousSource != "" && previousSource != bgs.serverId {
+		if sourceChangeOffset != "" {
+			// tmult converts passed in constant to UnixMicro()
+			tmult := 1
+			if strings.HasSuffix(sourceChangeOffset, "s") { // seconds
+				tmult = 1_000_000
+				sourceChangeOffset = sourceChangeOffset[:len(sourceChangeOffset)-1]
+			} else if strings.HasSuffix(sourceChangeOffset, "m") { // minutes
+				tmult = 60_000_000
+				sourceChangeOffset = sourceChangeOffset[:len(sourceChangeOffset)-1]
+			}
+			// if we are not the source the client is expecting, apply their source-change-offset to the sequence number.
+			// e.g. on source change, rewind about 5 minutes and de-dup events on the client side
+			dsval, err := strconv.ParseInt(sourceChangeOffset, 10, 64)
+			if err != nil {
+				return err
+			}
+			dsval *= int64(tmult)
+			*since -= dsval
+		}
+	}
 
 	ctx, cancel := context.WithCancel(c.Request().Context())
 	defer cancel()
 
+	replyHeaders := c.Response().Header()
+	replyHeaders.Set("X-subscribeRepos-source", bgs.serverId)
+
 	// TODO: authhhh
-	conn, err := websocket.Upgrade(c.Response(), c.Request(), c.Response().Header(), 10<<10, 10<<10)
+	conn, err := websocket.Upgrade(c.Response(), c.Request(), replyHeaders, 10<<10, 10<<10)
 	if err != nil {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
