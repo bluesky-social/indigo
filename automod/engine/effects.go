@@ -24,6 +24,8 @@ type Effects struct {
 	mu sync.Mutex
 	// List of counters which should be incremented as part of processing this event. These are collected during rule execution and persisted in bulk at the end.
 	CounterIncrements []CounterRef
+	// List of counters which should be reset as part of processing this event. These are collected during rule execution and persisted in bulk at the end.
+	CounterResets []CounterRef
 	// Similar to "CounterIncrements", but for "distinct" style counters
 	CounterDistinctIncrements []CounterDistinctRef // TODO: better variable names
 	// Label values which should be applied to the overall account, as a result of rule execution.
@@ -36,6 +38,8 @@ type Effects struct {
 	AccountReports []ModReport
 	// If "true", a rule decided that the entire account should have a takedown.
 	AccountTakedown bool
+	// If "true", indicates that a rule indicates that appeals on the account should be resolved.
+	AccountAppealResolve bool
 	// If "true", a rule decided that the reported account should be escalated.
 	AccountEscalate bool
 	// If "true", a rule decided that the reports on account should be resolved as acknowledged.
@@ -60,6 +64,8 @@ type Effects struct {
 	RejectEvent bool
 	// Services, if any, which should blast out a notification about this even (eg, Slack)
 	NotifyServices []string
+	// If "true", indicates that a rule indicates that any appeal on the record should be resolved
+	RecordAppealResolve bool
 }
 
 // Enqueues the named counter to be incremented at the end of all rule processing. Will automatically increment for all time periods.
@@ -70,6 +76,16 @@ func (e *Effects) Increment(name, val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val})
+}
+
+// Enqueues the named counter to be reset at the end of all rule processing.
+//
+// "name" is the counter namespace.
+// "val" is the specific counter with that namespace.
+func (e *Effects) ResetCount(name, val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.CounterResets = append(e.CounterResets, CounterRef{Name: name, Val: val})
 }
 
 // Enqueues the named counter to be incremented at the end of all rule processing. Will only increment the indicated time period bucket.
@@ -142,6 +158,11 @@ func (e *Effects) TakedownAccount() {
 	e.AccountTakedown = true
 }
 
+// Enqueues the accounts's appeals to be resolved at the end of rule processing.
+func (e *Effects) ResolveAccountAppeal() {
+	e.AccountAppealResolve = true
+}
+
 // Enqueues the account to be "escalated" for mod review at the end of rule processing.
 func (e *Effects) EscalateAccount() {
 	e.AccountEscalate = true
@@ -188,6 +209,17 @@ func (e *Effects) AddRecordFlag(val string) {
 	e.RecordFlags = append(e.RecordFlags, val)
 }
 
+// Enqueues the provided flag (string value) to be removed (in the Engine's flagstore) at the end of rule processing.
+func (e *Effects) RemoveRecordFlag(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for i, v := range e.RecordFlags {
+		if v == val {
+			e.RecordFlags = append(e.RecordFlags[:i], e.RecordFlags[i+1:]...)
+		}
+	}
+}
+
 // Enqueues a moderation report to be filed against the record at the end of rule processing.
 func (e *Effects) ReportRecord(reason, comment string) {
 	e.mu.Lock()
@@ -216,6 +248,11 @@ func (e *Effects) EscalateRecord() {
 // Enqueues the record to be "escalated" for mod review at the end of rule processing.
 func (e *Effects) AcknowledgeRecord() {
 	e.RecordAcknowledge = true
+}
+
+// Enqueues the record's appeals to be resolved at the end of rule processing.
+func (e *Effects) ResolveRecordAppeal() {
+	e.RecordAppealResolve = true
 }
 
 // Enqueues the blob CID to be taken down (aka, CDN purge) as part of any record takedown

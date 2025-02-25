@@ -66,6 +66,19 @@ func (s *RedisCountStore) Increment(ctx context.Context, name, val string) error
 	return err
 }
 
+func (s *RedisCountStore) ResetCount(ctx context.Context, name, val string) error {
+
+	// delete multiple counters in a single redis round-trip
+	multi := s.Client.Pipeline()
+
+	multi.Del(ctx, redisCountPrefix+periodBucket(name, val, PeriodHour))
+	multi.Del(ctx, redisCountPrefix+periodBucket(name, val, PeriodDay))
+	multi.Del(ctx, redisCountPrefix+periodBucket(name, val, PeriodTotal))
+
+	_, err := multi.Exec(ctx)
+	return err
+}
+
 // Variant of Increment() which only acts on a single specified time period. The intended us of this variant is to control the total number of counters persisted, by using a relatively short time period, for which the counters will expire.
 func (s *RedisCountStore) IncrementPeriod(ctx context.Context, name, val, period string) error {
 
