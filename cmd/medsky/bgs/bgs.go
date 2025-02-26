@@ -788,6 +788,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		repoCommitsReceivedCounter.WithLabelValues(host.Host).Add(1)
 		return bgs.handleCommit(ctx, host, env.RepoCommit)
 	case env.RepoHandle != nil:
+		// TODO: DEPRECATED - expect Identity message below instead
 		bgs.log.Info("bgs got repo handle event", "did", env.RepoHandle.Did, "handle", env.RepoHandle.Handle)
 		// Flush any cached DID documents for this user
 		bgs.purgeDidCache(ctx, env.RepoHandle.Did)
@@ -920,13 +921,14 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		return nil
 	case env.RepoMigrate != nil:
-		// TODO: bgs.events.AddEvent() pass-through the #migrate event?
+		// TODO: DEPRECATED - expect account message above instead
 		if _, err := bgs.createExternalUser(ctx, env.RepoMigrate.Did, host); err != nil {
 			return err
 		}
 
 		return nil
 	case env.RepoTombstone != nil:
+		// TODO: DEPRECATED - expect account message above instead
 		if err := bgs.handleRepoTombstone(ctx, host, env.RepoTombstone); err != nil {
 			return err
 		}
