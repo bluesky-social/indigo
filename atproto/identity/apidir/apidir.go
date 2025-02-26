@@ -1,6 +1,7 @@
 package apidir
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -66,6 +67,40 @@ func (dir *APIDirectory) apiGet(ctx context.Context, u string, body any, errFail
 	if err != nil {
 		return fmt.Errorf("constructing HTTP request: %w", err)
 	}
+	if dir.UserAgent != "" {
+		req.Header.Set("User-Agent", dir.UserAgent)
+	}
+	resp, err := dir.Client.Do(req)
+	if err != nil {
+		return fmt.Errorf("%w: identity service HTTP: %w", errFail, err)
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("%w: identity service HTTP: %w", errFail, err)
+	}
+
+	if resp.StatusCode == http.StatusNotFound {
+		return errNotFound
+	}
+	if resp.StatusCode != http.StatusOK {
+		// TODO: parse error body, handle more error conditions
+		return fmt.Errorf("%w: identity service HTTP: %d", errFail, resp.StatusCode)
+	}
+
+	if err := json.Unmarshal(b, body); err != nil {
+		return fmt.Errorf("%w: identity service HTTP: %w", errFail, err)
+	}
+	return nil
+}
+
+// body: struct pointer which can be `json.Unmarshal()`
+func (dir *APIDirectory) apiPost(ctx context.Context, u string, reqBody []byte, body any, errFail error, errNotFound error) error {
+	req, err := http.NewRequestWithContext(ctx, "POST", u, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return fmt.Errorf("constructing HTTP request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
 	if dir.UserAgent != "" {
 		req.Header.Set("User-Agent", dir.UserAgent)
 	}
@@ -165,10 +200,19 @@ func (dir *APIDirectory) LookupDID(ctx context.Context, did syntax.DID) (*identi
 }
 
 func (dir *APIDirectory) Purge(ctx context.Context, atid syntax.AtIdentifier) error {
-	var body identityBody
-	u := dir.Host + "/xrpc/com.atproto.identity.refreshIdentity?identifier=" + atid.String()
 
-	if err := dir.apiGet(ctx, u, &body, identity.ErrDIDResolutionFailed, identity.ErrDIDNotFound); err != nil {
+	input := map[string]string{
+		"identifier": atid.String(),
+	}
+	reqBody, err := json.Marshal(input)
+	if err != nil {
+		return err
+	}
+
+	var body identityBody
+	u := dir.Host + "/xrpc/com.atproto.identity.refreshIdentity"
+
+	if err := dir.apiPost(ctx, u, reqBody, &body, identity.ErrDIDResolutionFailed, identity.ErrDIDNotFound); err != nil {
 		return err
 	}
 
