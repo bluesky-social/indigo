@@ -27,10 +27,9 @@ var _ identity.Directory = (*APIDirectory)(nil)
 var _ identity.Resolver = (*APIDirectory)(nil)
 
 type identityBody struct {
-	DID        syntax.DID       `json:"did"`
-	Handle     *syntax.Handle   `json:"handle,omitempty"`
-	DIDDoc     *json.RawMessage `json:"didDoc,omitempty"`
-	Tombstoned bool             `json:"tombstoned"`
+	DID    syntax.DID      `json:"did"`
+	Handle syntax.Handle   `json:"handle"`
+	DIDDoc json.RawMessage `json:"didDoc"`
 }
 
 type didBody struct {
@@ -172,21 +171,13 @@ func (dir *APIDirectory) Lookup(ctx context.Context, atid syntax.AtIdentifier) (
 		return nil, err
 	}
 
-	if body.Tombstoned || body.DIDDoc == nil {
-		return nil, identity.ErrDIDNotFound
-	}
-
 	var doc identity.DIDDocument
-	if err := json.Unmarshal(*body.DIDDoc, &doc); err != nil {
+	if err := json.Unmarshal(body.DIDDoc, &doc); err != nil {
 		return nil, fmt.Errorf("%w: JSON DID document parse: %w", identity.ErrDIDResolutionFailed, err)
 	}
 
 	ident := identity.ParseIdentity(&doc)
-	if body.Handle != nil {
-		ident.Handle = *body.Handle
-	} else {
-		ident.Handle = syntax.Handle("invalid.handle")
-	}
+	ident.Handle = body.Handle
 
 	return &ident, nil
 }

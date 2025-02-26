@@ -118,10 +118,9 @@ func (srv *Server) resolveIdentityFromHandle(c echo.Context, handle syntax.Handl
 		})
 	}
 
-	h := handle.String()
-	return c.JSON(200, comatproto.IdentityDefs_AtprotoIdentity{
+	return c.JSON(200, comatproto.IdentityDefs_IdentityInfo{
 		Did:    ident.DID.String(),
-		Handle: &h,
+		Handle: handle.String(),
 		DidDoc: rawDoc,
 	})
 }
@@ -163,10 +162,9 @@ func (srv *Server) resolveIdentityFromDID(c echo.Context, did syntax.DID) error 
 		handle = syntax.Handle("handle.invalid")
 	}
 
-	h := handle.String()
-	return c.JSON(200, comatproto.IdentityDefs_AtprotoIdentity{
+	return c.JSON(200, comatproto.IdentityDefs_IdentityInfo{
 		Did:    ident.DID.String(),
-		Handle: &h,
+		Handle: handle.String(),
 		DidDoc: rawDoc,
 	})
 }
