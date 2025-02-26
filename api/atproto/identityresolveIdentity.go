@@ -12,12 +12,12 @@ import (
 
 // IdentityResolveIdentity calls the XRPC method "com.atproto.identity.resolveIdentity".
 //
-// handle: Handle or DID to resolve.
-func IdentityResolveIdentity(ctx context.Context, c *xrpc.Client, handle string) (*IdentityDefs_AtprotoIdentity, error) {
+// identifier: Handle or DID to resolve.
+func IdentityResolveIdentity(ctx context.Context, c *xrpc.Client, identifier string) (*IdentityDefs_AtprotoIdentity, error) {
 	var out IdentityDefs_AtprotoIdentity
 
 	params := map[string]interface{}{
-		"handle": handle,
+		"identifier": identifier,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.identity.resolveIdentity", params, nil, &out); err != nil {
 		return nil, err

@@ -12,7 +12,7 @@ import (
 
 // IdentityRefreshIdentity_Input is the input argument to a com.atproto.identity.refreshIdentity call.
 type IdentityRefreshIdentity_Input struct {
-	Hostname *string `json:"hostname,omitempty" cborgen:"hostname,omitempty"`
+	Identifier string `json:"identifier" cborgen:"identifier"`
 }
 
 // IdentityRefreshIdentity calls the XRPC method "com.atproto.identity.refreshIdentity".
