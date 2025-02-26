@@ -16,8 +16,8 @@ type IdentityRefreshIdentity_Input struct {
 }
 
 // IdentityRefreshIdentity calls the XRPC method "com.atproto.identity.refreshIdentity".
-func IdentityRefreshIdentity(ctx context.Context, c *xrpc.Client, input *IdentityRefreshIdentity_Input) (*IdentityDefs_AtprotoIdentity, error) {
-	var out IdentityDefs_AtprotoIdentity
+func IdentityRefreshIdentity(ctx context.Context, c *xrpc.Client, input *IdentityRefreshIdentity_Input) (*IdentityDefs_IdentityInfo, error) {
+	var out IdentityDefs_IdentityInfo
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.identity.refreshIdentity", nil, input, &out); err != nil {
 		return nil, err
 	}

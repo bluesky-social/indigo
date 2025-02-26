@@ -4,14 +4,11 @@ package atproto
 
 // schema: com.atproto.identity.defs
 
-// IdentityDefs_AtprotoIdentity is a "atprotoIdentity" in the com.atproto.identity.defs schema.
-type IdentityDefs_AtprotoIdentity struct {
+// IdentityDefs_IdentityInfo is a "identityInfo" in the com.atproto.identity.defs schema.
+type IdentityDefs_IdentityInfo struct {
 	Did string `json:"did" cborgen:"did"`
 	// didDoc: The complete DID document for the identity.
-	// TODO: manually make this 'interface{}' instead of '*interface{}'
-	DidDoc interface{} `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
+	DidDoc interface{} `json:"didDoc" cborgen:"didDoc"`
 	// handle: The validated handle of the account; or 'handle.invalid' if the handle did not bi-directionally match the DID document.
-	Handle *string `json:"handle,omitempty" cborgen:"handle,omitempty"`
-	// tombstoned: If true, the DID has been deleted, and the other optional fields (eg, handle and didDoc) should be null.
-	Tombstoned *bool `json:"tombstoned,omitempty" cborgen:"tombstoned,omitempty"`
+	Handle string `json:"handle" cborgen:"handle"`
 }
