@@ -1,8 +1,8 @@
 package apidir
 
 import (
-	"testing"
 	"context"
+	"testing"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
