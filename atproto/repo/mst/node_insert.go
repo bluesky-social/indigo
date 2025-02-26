@@ -65,6 +65,9 @@ func (n *Node) insert(key []byte, val cid.Cid, height int) (*Node, *cid.Cid, err
 		Dirty: true,
 	}
 
+	// include "covering" proof for this operation
+	proveMutation(n, key)
+
 	if !split {
 		// TODO: is this really necessary? or can we just slices.Insert beyond the end of a slice?
 		if idx >= len(n.Entries) {
