@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// GET /xrpc/com.atproto.identity.resolveHandle
 func (srv *Server) ResolveHandle(c echo.Context) error {
 	ctx := c.Request().Context()
 
@@ -40,6 +41,7 @@ func (srv *Server) ResolveHandle(c echo.Context) error {
 	})
 }
 
+// GET /xrpc/com.atproto.identity.resolveDid
 func (srv *Server) ResolveDid(c echo.Context) error {
 	ctx := c.Request().Context()
 
@@ -68,6 +70,7 @@ func (srv *Server) ResolveDid(c echo.Context) error {
 	})
 }
 
+// helper for resolveIdentity
 func (srv *Server) resolveIdentityFromHandle(c echo.Context, handle syntax.Handle) error {
 	ctx := c.Request().Context()
 
@@ -123,6 +126,7 @@ func (srv *Server) resolveIdentityFromHandle(c echo.Context, handle syntax.Handl
 	})
 }
 
+// helper for resolveIdentity
 func (srv *Server) resolveIdentityFromDID(c echo.Context, did syntax.DID) error {
 	ctx := c.Request().Context()
 
@@ -167,6 +171,7 @@ func (srv *Server) resolveIdentityFromDID(c echo.Context, did syntax.DID) error 
 	})
 }
 
+// GET /xrpc/com.atproto.identity.resolveIdentity
 func (srv *Server) ResolveIdentity(c echo.Context) error {
 	// we partially re-implement the "Lookup()" logic here, but returning the full DID document, not `identity.Identity`
 	atid, err := syntax.ParseAtIdentifier(c.QueryParam("identifier"))
@@ -188,10 +193,19 @@ func (srv *Server) ResolveIdentity(c echo.Context) error {
 	return fmt.Errorf("unreachable code path")
 }
 
+// POST /xrpc/com.atproto.identity.refreshIdentity
 func (srv *Server) RefreshIdentity(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	atid, err := syntax.ParseAtIdentifier(c.QueryParam("identifier"))
+	var body comatproto.IdentityRefreshIdentity_Input
+	if err := c.Bind(&body); err != nil {
+		return c.JSON(400, GenericError{
+			Error:   "InvalidRequestBody",
+			Message: err.Error(),
+		})
+	}
+
+	atid, err := syntax.ParseAtIdentifier(body.Identifier)
 	if err != nil {
 		return c.JSON(400, GenericError{
 			Error:   "InvalidIdentifierSyntax",
@@ -204,15 +218,17 @@ func (srv *Server) RefreshIdentity(c echo.Context) error {
 		if err := srv.dir.PurgeDID(ctx, did); err != nil {
 			return err
 		}
+		return srv.resolveIdentityFromDID(c, did)
 	}
 	handle, err := atid.AsHandle()
 	if nil == err {
 		if err := srv.dir.PurgeHandle(ctx, handle); err != nil {
 			return err
 		}
+		return srv.resolveIdentityFromHandle(c, handle)
 	}
 
-	return srv.ResolveIdentity(c)
+	return fmt.Errorf("unreachable code path")
 }
 
 type GenericStatus struct {

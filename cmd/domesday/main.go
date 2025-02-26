@@ -126,6 +126,20 @@ func run(args []string) error {
 					},
 				},
 			},
+			&cli.Command{
+				Name:      "refresh",
+				ArgsUsage: `<at-identifier>`,
+				Usage:     "ask service to refresh identity",
+				Action:    runRefreshCmd,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "host",
+						Usage:   "domesday server to send request to",
+						Value:   "http://localhost:6600",
+						EnvVars: []string{"DOMESDAY_HOST"},
+					},
+				},
+			},
 		},
 	}
 
@@ -243,6 +257,37 @@ func runLookupCmd(cctx *cli.Context) error {
 		return fmt.Errorf("need to provide identifier for resolution")
 	}
 	atid, err := syntax.ParseAtIdentifier(s)
+	if err != nil {
+		return err
+	}
+
+	ident, err := dir.Lookup(ctx, *atid)
+	if err != nil {
+		return err
+	}
+
+	b, err := json.MarshalIndent(ident, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(b))
+	return nil
+}
+
+func runRefreshCmd(cctx *cli.Context) error {
+	ctx := context.Background()
+	dir := configClient(cctx)
+
+	s := cctx.Args().First()
+	if s == "" {
+		return fmt.Errorf("need to provide identifier for resolution")
+	}
+	atid, err := syntax.ParseAtIdentifier(s)
+	if err != nil {
+		return err
+	}
+
+	err = dir.Purge(ctx, *atid)
 	if err != nil {
 		return err
 	}
