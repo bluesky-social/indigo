@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"time"
 	"net/http"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -18,7 +18,7 @@ import (
 type APIDirectory struct {
 	Client *http.Client
 	// API service to make queries to. Includes schema, hostname, and port, but no path or trailing slash. Eg: "http://localhost:6600"
-	Host   string
+	Host      string
 	UserAgent string
 }
 
@@ -54,8 +54,8 @@ func NewAPIDirectory(host string) APIDirectory {
 				MaxIdleConns:    100,
 			},
 		},
-		Host: host,
-		UserAgent: "indigo-apidir/"+versioninfo.Short(),
+		Host:      host,
+		UserAgent: "indigo-apidir/" + versioninfo.Short(),
 	}
 }
 
