@@ -40,11 +40,12 @@ type Server struct {
 }
 
 type Config struct {
-	Logger       *slog.Logger
-	PLCHost      string
-	PLCRateLimit int
-	RedisURL     string
-	Bind         string
+	Logger         *slog.Logger
+	PLCHost        string
+	PLCRateLimit   int
+	RedisURL       string
+	Bind           string
+	DisableRefresh bool
 }
 
 func NewServer(config Config) (*Server, error) {
@@ -136,7 +137,9 @@ func NewServer(config Config) (*Server, error) {
 	e.GET("/xrpc/com.atproto.identity.resolveHandle", srv.ResolveHandle)
 	e.GET("/xrpc/com.atproto.identity.resolveDid", srv.ResolveDid)
 	e.GET("/xrpc/com.atproto.identity.resolveIdentity", srv.ResolveIdentity)
-	e.POST("/xrpc/com.atproto.identity.refreshIdentity", srv.RefreshIdentity)
+	if !config.DisableRefresh {
+		e.POST("/xrpc/com.atproto.identity.refreshIdentity", srv.RefreshIdentity)
+	}
 
 	return srv, nil
 }
