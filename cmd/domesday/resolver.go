@@ -26,7 +26,7 @@ type RedisResolver struct {
 	ErrTTL           time.Duration
 	HitTTL           time.Duration
 	InvalidHandleTTL time.Duration
-	Logger *slog.Logger
+	Logger           *slog.Logger
 
 	handleCache        *cache.Cache
 	didCache           *cache.Cache
