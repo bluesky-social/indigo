@@ -306,5 +306,6 @@ func runAccountPlcAddRotationKey(cctx *cli.Context) error {
 		return fmt.Errorf("failed submitting PLC op via PDS: %w", err)
 	}
 
+	fmt.Println("Success!")
 	return nil
 }
