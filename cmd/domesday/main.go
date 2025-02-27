@@ -96,7 +96,7 @@ func run(args []string) error {
 						Name:    "firehose-parallelism",
 						Usage:   "number of concurrent firehose workers",
 						Value:   4,
-						EnvVars: []string{"HEPA_FIREHOSE_PARALLELISM"},
+						EnvVars: []string{"DOMESDAY_FIREHOSE_PARALLELISM"},
 					},
 				},
 			},
