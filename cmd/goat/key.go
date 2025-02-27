@@ -8,8 +8,8 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var cmdCrypto = &cli.Command{
-	Name:  "crypto",
+var cmdKey = &cli.Command{
+	Name:  "key",
 	Usage: "sub-commands for cryptographic keys",
 	Subcommands: []*cli.Command{
 		&cli.Command{
@@ -22,22 +22,22 @@ var cmdCrypto = &cli.Command{
 					Usage:   "indicate curve type (P-256 is default)",
 				},
 				&cli.BoolFlag{
-					Name:    "terse",
-					Usage:   "print just the secret key, in multikey format",
+					Name:  "terse",
+					Usage: "print just the secret key, in multikey format",
 				},
 			},
-			Action: runCryptoGenerate,
+			Action: runKeyGenerate,
 		},
 		&cli.Command{
-			Name:   "inspect",
-			Usage:  "parses and outputs metadata about a public or secret key",
+			Name:      "inspect",
+			Usage:     "parses and outputs metadata about a public or secret key",
 			ArgsUsage: `<key>`,
-			Action: runCryptoInspect,
+			Action:    runKeyInspect,
 		},
 	},
 }
 
-func runCryptoGenerate(cctx *cli.Context) error {
+func runKeyGenerate(cctx *cli.Context) error {
 	var priv crypto.PrivateKey
 	var privMultibase string
 	switch cctx.String("type") {
@@ -87,7 +87,7 @@ func descKeyType(val interface{}) string {
 	}
 }
 
-func runCryptoInspect(cctx *cli.Context) error {
+func runKeyInspect(cctx *cli.Context) error {
 	s := cctx.Args().First()
 	if s == "" {
 		return fmt.Errorf("need to provide key as an argument")
