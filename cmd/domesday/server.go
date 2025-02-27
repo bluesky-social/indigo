@@ -133,6 +133,7 @@ func NewServer(config Config) (*Server, error) {
 		// XSSProtection
 	}))
 
+	e.GET("/", srv.WebHome)
 	e.GET("/_health", srv.HandleHealthCheck)
 	e.GET("/xrpc/com.atproto.identity.resolveHandle", srv.ResolveHandle)
 	e.GET("/xrpc/com.atproto.identity.resolveDid", srv.ResolveDid)
