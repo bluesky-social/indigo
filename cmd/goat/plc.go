@@ -20,34 +20,53 @@ var cmdPLC = &cli.Command{
 	Usage: "sub-commands for DID PLCs",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:  "plc-directory",
-			Value: "https://plc.directory",
+			Name:    "plc-host",
+			Usage:   "method, hostname, and port of PLC registry",
+			Value:   "https://plc.directory",
+			EnvVars: []string{"ATP_PLC_HOST"},
 		},
 	},
 	Subcommands: []*cli.Command{
-		cmdPLCHistory,
-		cmdPLCDump,
+		&cli.Command{
+			Name:      "history",
+			Usage:     "fetch operation log for individual DID",
+			ArgsUsage: `<at-identifier>`,
+			Flags:     []cli.Flag{},
+			Action:    runPLCHistory,
+		},
+		&cli.Command{
+			Name:      "data",
+			Usage:     "fetch current data (op) for individual DID",
+			ArgsUsage: `<at-identifier>`,
+			Flags:     []cli.Flag{},
+			Action:    runPLCData,
+		},
+		&cli.Command{
+			Name:  "dump",
+			Usage: "output full operation log, as JSON lines",
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name: "cursor",
+				},
+				&cli.BoolFlag{
+					Name: "tail",
+				},
+			},
+			Action: runPLCDump,
+		},
 	},
-}
-
-var cmdPLCHistory = &cli.Command{
-	Name:      "history",
-	Usage:     "fetch operation log for individual DID",
-	ArgsUsage: `<at-identifier>`,
-	Flags:     []cli.Flag{},
-	Action:    runPLCHistory,
 }
 
 func runPLCHistory(cctx *cli.Context) error {
 	ctx := context.Background()
-	plcURL := cctx.String("plc-directory")
+	plcHost := cctx.String("plc-host")
 	s := cctx.Args().First()
 	if s == "" {
 		return fmt.Errorf("need to provide account identifier as an argument")
 	}
 
 	dir := identity.BaseDirectory{
-		PLCURL: plcURL,
+		PLCURL: plcHost,
 	}
 
 	id, err := syntax.ParseAtIdentifier(s)
@@ -75,11 +94,12 @@ func runPLCHistory(cctx *cli.Context) error {
 		return fmt.Errorf("non-PLC DID method: %s", did.Method())
 	}
 
-	url := fmt.Sprintf("%s/%s/log", plcURL, did)
+	url := fmt.Sprintf("%s/%s/log", plcHost, did)
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("PLC HTTP request failed")
 	}
@@ -106,23 +126,59 @@ func runPLCHistory(cctx *cli.Context) error {
 	return nil
 }
 
-var cmdPLCDump = &cli.Command{
-	Name:  "dump",
-	Usage: "output full operation log, as JSON lines",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name: "cursor",
-		},
-		&cli.BoolFlag{
-			Name: "tail",
-		},
-	},
-	Action: runPLCDump,
+func runPLCData(cctx *cli.Context) error {
+	ctx := context.Background()
+	plcHost := cctx.String("plc-host")
+	s := cctx.Args().First()
+	if s == "" {
+		return fmt.Errorf("need to provide account identifier as an argument")
+	}
+
+	dir := identity.BaseDirectory{
+		PLCURL: plcHost,
+	}
+
+	id, err := syntax.ParseAtIdentifier(s)
+	if err != nil {
+		return err
+	}
+	var did syntax.DID
+	if id.IsDID() {
+		did, err = id.AsDID()
+		if err != nil {
+			return err
+		}
+	} else {
+		hdl, err := id.AsHandle()
+		if err != nil {
+			return err
+		}
+		did, err = dir.ResolveHandle(ctx, hdl)
+		if err != nil {
+			return err
+		}
+	}
+
+	if did.Method() != "plc" {
+		return fmt.Errorf("non-PLC DID method: %s", did.Method())
+	}
+
+	plcData, err := fetchPLCData(ctx, plcHost, did)
+	if err != nil {
+		return err
+	}
+
+	b, err := json.MarshalIndent(plcData, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(b))
+	return nil
 }
 
 func runPLCDump(cctx *cli.Context) error {
 	ctx := context.Background()
-	plcURL := cctx.String("plc-directory")
+	plcHost := cctx.String("plc-host")
 	client := http.DefaultClient
 	tailMode := cctx.Bool("tail")
 
@@ -132,7 +188,7 @@ func runPLCDump(cctx *cli.Context) error {
 	}
 	var lastCursor string
 
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/export", plcURL), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/export", plcHost), nil)
 	if err != nil {
 		return err
 	}
@@ -202,4 +258,45 @@ func runPLCDump(cctx *cli.Context) error {
 	}
 
 	return nil
+}
+
+type PLCService struct {
+	Type     string `json:"type"`
+	Endpoint string `json:"endpoint"`
+}
+
+type PLCData struct {
+	DID                 string                `json:"did"`
+	VerificationMethods map[string]string     `json:"verificationMethods"`
+	RotationKeys        []string              `json:"rotationKeys"`
+	AlsoKnownAs         []string              `json:"alsoKnownAs"`
+	Services            map[string]PLCService `json:"services"`
+}
+
+func fetchPLCData(ctx context.Context, plcHost string, did syntax.DID) (*PLCData, error) {
+
+	if plcHost == "" {
+		return nil, fmt.Errorf("PLC host not configured")
+	}
+
+	url := fmt.Sprintf("%s/%s/data", plcHost, did)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("PLC HTTP request failed")
+	}
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var d PLCData
+	err = json.Unmarshal(respBytes, &d)
+	if err != nil {
+		return nil, err
+	}
+	return &d, nil
 }
