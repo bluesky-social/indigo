@@ -82,6 +82,17 @@ func run(args []string) error {
 						Value:   ":3989",
 						EnvVars: []string{"DOMESDAY_METRICS_LISTEN"},
 					},
+					&cli.BoolFlag{
+						Name:    "disable-firehose-consumer",
+						Usage:   "don't consume #identity events from firehose",
+						EnvVars: []string{"DOMESDAY_DISABLE_FIREHOSE_CONSUMER"},
+					},
+					&cli.IntFlag{
+						Name:    "firehose-parallelism",
+						Usage:   "number of concurrent firehose workers",
+						Value:   4,
+						EnvVars: []string{"HEPA_FIREHOSE_PARALLELISM"},
+					},
 				},
 			},
 			&cli.Command{
@@ -173,18 +184,34 @@ func configClient(cctx *cli.Context) apidir.APIDirectory {
 
 func runServeCmd(cctx *cli.Context) error {
 	logger := configLogger(cctx, os.Stdout)
-	//configOTEL("domesday")
+	ctx := context.Background()
 
 	srv, err := NewServer(
 		Config{
-			Logger:       logger,
-			FirehoseHost: cctx.String("atp-relay-host"),
-			RedisURL:     cctx.String("redis-url"),
-			Bind:         cctx.String("bind"),
+			Logger:   logger,
+			Bind:     cctx.String("bind"),
+			RedisURL: cctx.String("redis-url"),
 		},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to construct server: %v", err)
+	}
+
+	if !cctx.Bool("disable-firehose-consumer") {
+		go func() {
+			firehoseHost := cctx.String("atp-relay-host")
+			firehoseParallelism := cctx.Int("firehose-parallelism")
+			if err := srv.RunFirehoseConsumer(ctx, firehoseHost, firehoseParallelism); err != nil {
+				slog.Error("firehose consumer thread failed", "err", err)
+				// NOTE: not crashing or halting process here
+			}
+		}()
+		go func() {
+			if err := srv.RunPersistCursor(ctx); err != nil {
+				slog.Error("firehose persist thread failed", "err", err)
+				// NOTE: not crashing or halting process here
+			}
+		}()
 	}
 
 	// prometheus HTTP endpoint: /metrics
@@ -194,8 +221,7 @@ func runServeCmd(cctx *cli.Context) error {
 		runtime.SetMutexProfileFraction(10)
 		if err := srv.RunMetrics(cctx.String("metrics-listen")); err != nil {
 			slog.Error("failed to start metrics endpoint", "error", err)
-			// XXX: really panic? hrm
-			panic(fmt.Errorf("failed to start metrics endpoint: %w", err))
+			// NOTE: not crashing or halting process here
 		}
 	}()
 

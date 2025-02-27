@@ -18,6 +18,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 	slogecho "github.com/samber/slog-echo"
 	"golang.org/x/time/rate"
 )
@@ -27,11 +28,19 @@ type Server struct {
 	echo   *echo.Echo
 	httpd  *http.Server
 	logger *slog.Logger
+
+	// this redis client is used to store firehose offset
+	redisClient *redis.Client
+
+	// lastSeq is the most recent event sequence number we've received and begun to handle.
+	// This number is periodically persisted to redis, if redis is present.
+	// The value is best-effort (the stream handling itself is concurrent, so event numbers may not be monotonic),
+	// but nonetheless, you must use atomics when updating or reading this (to avoid data races).
+	lastSeq int64
 }
 
 type Config struct {
 	Logger       *slog.Logger
-	FirehoseHost string
 	PLCHost      string
 	PLCRateLimit int
 	RedisURL     string
@@ -74,6 +83,18 @@ func NewServer(config Config) (*Server, error) {
 		return nil, err
 	}
 
+	// configure redis client (for firehose consumer)
+	redisOpt, err := redis.ParseURL(config.RedisURL)
+	if err != nil {
+		return nil, fmt.Errorf("parsing redis URL: %v", err)
+	}
+	redisClient := redis.NewClient(redisOpt)
+	// check redis connection
+	_, err = redisClient.Ping(context.Background()).Result()
+	if err != nil {
+		return nil, fmt.Errorf("redis ping failed: %v", err)
+	}
+
 	e := echo.New()
 
 	// httpd
@@ -83,10 +104,12 @@ func NewServer(config Config) (*Server, error) {
 	)
 
 	srv := &Server{
-		echo:   e,
-		dir:    redisDir,
-		logger: logger,
+		echo:        e,
+		dir:         redisDir,
+		logger:      logger,
+		redisClient: redisClient,
 	}
+
 	srv.httpd = &http.Server{
 		Handler:        srv,
 		Addr:           config.Bind,
