@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
-	//"github.com/bluesky-social/indigo/atproto/identity/redisdir"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -83,6 +82,7 @@ func NewServer(config Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	redisDir.Logger = logger
 
 	// configure redis client (for firehose consumer)
 	redisOpt, err := redis.ParseURL(config.RedisURL)
@@ -149,44 +149,46 @@ func (srv *Server) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (srv *Server) RunAPI() error {
-	slog.Info("starting server", "bind", srv.httpd.Addr)
+	srv.logger.Info("starting server", "bind", srv.httpd.Addr)
 	go func() {
 		if err := srv.httpd.ListenAndServe(); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
-				slog.Error("HTTP server shutting down unexpectedly", "err", err)
+				srv.logger.Error("HTTP server shutting down unexpectedly", "err", err)
 			}
 		}
 	}()
 
 	// Wait for a signal to exit.
-	slog.Info("registering OS exit signal handler")
+	srv.logger.Info("registering OS exit signal handler")
 	quit := make(chan struct{})
 	exitSignals := make(chan os.Signal, 1)
 	signal.Notify(exitSignals, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-exitSignals
-		slog.Info("received OS exit signal", "signal", sig)
+		srv.logger.Info("received OS exit signal", "signal", sig)
 
 		// Shut down the HTTP server
 		if err := srv.Shutdown(); err != nil {
-			slog.Error("HTTP server shutdown error", "err", err)
+			srv.logger.Error("HTTP server shutdown error", "err", err)
 		}
 
 		// Trigger the return that causes an exit.
 		close(quit)
 	}()
 	<-quit
-	slog.Info("graceful shutdown complete")
+	srv.logger.Info("graceful shutdown complete")
 	return nil
 }
 
-func (srv *Server) RunMetrics(listen string) error {
-	http.Handle("/metrics", promhttp.Handler())
-	return http.ListenAndServe(listen, nil)
+func (srv *Server) RunMetrics(bind string) error {
+	p := "/metrics"
+	srv.logger.Info("starting metrics endpoint", "bind", bind, "path", p)
+	http.Handle(p, promhttp.Handler())
+	return http.ListenAndServe(bind, nil)
 }
 
 func (srv *Server) Shutdown() error {
-	slog.Info("shutting down")
+	srv.logger.Info("shutting down")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -207,7 +209,7 @@ func (srv *Server) errorHandler(err error, c echo.Context) {
 		errorMessage = fmt.Sprintf("%s", he.Message)
 	}
 	if code >= 500 {
-		slog.Warn("domesday-http-internal-error", "err", err)
+		srv.logger.Warn("domesday-http-internal-error", "err", err)
 	}
 	if !c.Response().Committed {
 		c.JSON(code, GenericError{Error: "InternalError", Message: errorMessage})
