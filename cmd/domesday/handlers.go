@@ -240,5 +240,21 @@ func (s *Server) HandleHealthCheck(c echo.Context) error {
 }
 
 func (srv *Server) WebHome(c echo.Context) error {
-	return c.JSON(200, GenericStatus{Status: "ok", Daemon: "domesday"})
+	return c.String(200, `
+########   #######  ##     ## ########  ######  ########     ###    ##    ##
+##     ## ##     ## ###   ### ##       ##    ## ##     ##   ## ##    ##  ##
+##     ## ##     ## #### #### ##       ##       ##     ##  ##   ##    ####
+##     ## ##     ## ## ### ## ######    ######  ##     ## ##     ##    ##
+##     ## ##     ## ##     ## ##             ## ##     ## #########    ##
+##     ## ##     ## ##     ## ##       ##    ## ##     ## ##     ##    ##
+########   #######  ##     ## ########  ######  ########  ##     ##    ##
+
+This is an AT Protocol Identity Service
+
+Most API routes are under /xrpc/
+
+      Code: https://github.com/bluesky-social/indigo/tree/main/cmd/domesday
+  Protocol: https://atproto.com
+	`)
+
 }
