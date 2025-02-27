@@ -48,7 +48,7 @@ func run(args []string) error {
 			&cli.IntFlag{
 				Name:    "plc-rate-limit",
 				Usage:   "max number of requests per second to PLC registry",
-				Value:   100,
+				Value:   300,
 				EnvVars: []string{"DOMESDAY_PLC_RATE_LIMIT"},
 			},
 			&cli.StringFlag{
@@ -86,6 +86,11 @@ func run(args []string) error {
 						Name:    "disable-firehose-consumer",
 						Usage:   "don't consume #identity events from firehose",
 						EnvVars: []string{"DOMESDAY_DISABLE_FIREHOSE_CONSUMER"},
+					},
+					&cli.BoolFlag{
+						Name:    "disable-refresh",
+						Usage:   "disable the refreshIdentity API endpoint",
+						EnvVars: []string{"DOMESDAY_DISABLE_REFRESH"},
 					},
 					&cli.IntFlag{
 						Name:    "firehose-parallelism",
@@ -188,9 +193,12 @@ func runServeCmd(cctx *cli.Context) error {
 
 	srv, err := NewServer(
 		Config{
-			Logger:   logger,
-			Bind:     cctx.String("bind"),
-			RedisURL: cctx.String("redis-url"),
+			Logger:         logger,
+			Bind:           cctx.String("bind"),
+			RedisURL:       cctx.String("redis-url"),
+			PLCHost:        cctx.String("atp-plc-host"),
+			PLCRateLimit:   cctx.Int("plc-rate-limit"),
+			DisableRefresh: cctx.Bool("disable-refresh"),
 		},
 	)
 	if err != nil {
