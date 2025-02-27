@@ -26,6 +26,7 @@ type RedisResolver struct {
 	ErrTTL           time.Duration
 	HitTTL           time.Duration
 	InvalidHandleTTL time.Duration
+	Logger *slog.Logger
 
 	handleCache        *cache.Cache
 	didCache           *cache.Cache
@@ -99,7 +100,21 @@ func (d *RedisResolver) isDIDStale(e *didEntry) bool {
 }
 
 func (d *RedisResolver) refreshHandle(ctx context.Context, h syntax.Handle) handleEntry {
+	start := time.Now()
 	did, err := d.Inner.ResolveHandle(ctx, h)
+	duration := time.Since(start)
+
+	if err != nil {
+		d.Logger.Info("handle resolution failed", "handle", h, "duration", duration, "err", err)
+		handleResolutionErrors.Inc()
+		handleResolveDuration.WithLabelValues("fail").Observe(time.Since(start).Seconds())
+	} else {
+		handleResolveDuration.WithLabelValues("success").Observe(time.Since(start).Seconds())
+	}
+	if duration.Seconds() > 5.0 {
+		d.Logger.Info("slow handle resolution", "handle", h, "duration", duration)
+	}
+
 	he := handleEntry{
 		Updated: time.Now(),
 		DID:     &did,
@@ -112,14 +127,27 @@ func (d *RedisResolver) refreshHandle(ctx context.Context, h syntax.Handle) hand
 		TTL:   d.ErrTTL,
 	})
 	if err != nil {
-		slog.Error("identity cache write failed", "cache", "handle", "err", err)
+		d.Logger.Error("identity cache write failed", "cache", "handle", "err", err)
 	}
 	return he
 }
 
 func (d *RedisResolver) refreshDID(ctx context.Context, did syntax.DID) didEntry {
-
+	start := time.Now()
 	rawDoc, err := d.Inner.ResolveDIDRaw(ctx, did)
+	duration := time.Since(start)
+
+	if err != nil {
+		d.Logger.Info("DID resolution failed", "did", did, "duration", duration, "err", err)
+		didResolutionErrors.Inc()
+		didResolveDuration.WithLabelValues("fail").Observe(time.Since(start).Seconds())
+	} else {
+		didResolveDuration.WithLabelValues("success").Observe(time.Since(start).Seconds())
+	}
+	if duration.Seconds() > 5.0 {
+		d.Logger.Info("slow DID resolution", "did", did, "duration", duration)
+	}
+
 	// persist the DID lookup error, instead of processing it immediately
 	entry := didEntry{
 		Updated: time.Now(),
@@ -134,7 +162,7 @@ func (d *RedisResolver) refreshDID(ctx context.Context, did syntax.DID) didEntry
 		TTL:   d.HitTTL,
 	})
 	if err != nil {
-		slog.Error("DID cache write failed", "cache", "did", "did", did, "err", err)
+		d.Logger.Error("DID cache write failed", "cache", "did", "did", did, "err", err)
 	}
 	return entry
 }
