@@ -166,6 +166,7 @@ var (
 type XRPCStreamEvent struct {
 	Error         *ErrorFrame
 	RepoCommit    *comatproto.SyncSubscribeRepos_Commit
+	RepoSync      *comatproto.SyncSubscribeRepos_Sync
 	RepoHandle    *comatproto.SyncSubscribeRepos_Handle
 	RepoIdentity  *comatproto.SyncSubscribeRepos_Identity
 	RepoInfo      *comatproto.SyncSubscribeRepos_Info
@@ -193,6 +194,9 @@ func (evt *XRPCStreamEvent) Serialize(wc io.Writer) error {
 	case evt.RepoCommit != nil:
 		header.MsgType = "#commit"
 		obj = evt.RepoCommit
+	case evt.RepoSync != nil:
+		header.MsgType = "#sync"
+		obj = evt.RepoSync
 	case evt.RepoHandle != nil:
 		header.MsgType = "#handle"
 		obj = evt.RepoHandle
@@ -236,6 +240,12 @@ func (xevt *XRPCStreamEvent) Deserialize(r io.Reader) error {
 				return fmt.Errorf("reading repoCommit event: %w", err)
 			}
 			xevt.RepoCommit = &evt
+		case "#sync":
+			var evt comatproto.SyncSubscribeRepos_Sync
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return fmt.Errorf("reading repoCommit event: %w", err)
+			}
+			xevt.RepoSync = &evt
 		case "#handle":
 			var evt comatproto.SyncSubscribeRepos_Handle
 			if err := evt.UnmarshalCBOR(r); err != nil {

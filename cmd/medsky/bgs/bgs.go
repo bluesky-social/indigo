@@ -787,6 +787,8 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	case env.RepoCommit != nil:
 		repoCommitsReceivedCounter.WithLabelValues(host.Host).Add(1)
 		return bgs.handleCommit(ctx, host, env.RepoCommit)
+	case env.RepoSync != nil:
+		return bgs.handleSync(ctx, host, env.RepoSync)
 	case env.RepoHandle != nil:
 		// TODO: DEPRECATED - expect Identity message below instead
 		bgs.log.Info("bgs got repo handle event", "did", env.RepoHandle.Did, "handle", env.RepoHandle.Handle)
@@ -1058,7 +1060,7 @@ func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatpr
 	newRootCid, err := bgs.repoman.HandleCommit(ctx, host, u, evt, prevP)
 	if err != nil {
 		bgs.inductionTraceLog.Error("commit bad", "seq", evt.Seq, "pseq", dbPrevSeqStr, "pdsHost", host.Host, "repo", evt.Repo, "prev", evtPrevDataStr, "dbprev", dbPrevRootStr, "err", err)
-		bgs.log.Warn("failed handling event", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
+		bgs.log.Warn("failed handling event", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "commit", evt.Commit.String())
 		repoCommitsResultCounter.WithLabelValues(host.Host, "err").Inc()
 		return fmt.Errorf("handle user event failed: %w", err)
 	} else {
@@ -1082,6 +1084,21 @@ func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatpr
 	}
 
 	repoCommitsResultCounter.WithLabelValues(host.Host, "ok").Inc()
+	return nil
+}
+
+func (bgs *BGS) handleSync(ctx context.Context, host *models.PDS, evt *comatproto.SyncSubscribeRepos_Sync) error {
+	// TODO: actually do something with #sync event
+	
+	// Broadcast the identity event to all consumers
+	err := bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
+		RepoSync: evt,
+	})
+	if err != nil {
+		bgs.log.Error("failed to broadcast sync event", "error", err, "did", evt.Did)
+		return fmt.Errorf("failed to broadcast sync event: %w", err)
+	}
+
 	return nil
 }
 

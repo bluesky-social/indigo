@@ -580,6 +580,19 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 
 			return nil
 		},
+		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
+			s.log.Debug("got remote repo event", "pdsHost", host.Host, "repo", evt.Did, "seq", evt.Seq)
+			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+				RepoSync: evt,
+			}); err != nil {
+				s.log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
+			}
+			*lastCursor = evt.Seq
+
+			sub.updateCursor(*lastCursor)
+
+			return nil
+		},
 		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
 			s.log.Debug("got remote handle update event", "pdsHost", host.Host, "did", evt.Did, "handle", evt.Handle)
 			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
