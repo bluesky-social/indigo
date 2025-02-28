@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"gorm.io/gorm"
 	"io"
 	"log/slog"
 	_ "net/http/pprof"
@@ -11,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -172,6 +175,12 @@ func run(args []string) error {
 			Usage:   "file path to log debug trace stuff about induction firehose",
 			EnvVars: []string{"RELAY_TRACE_INDUCTION"},
 		},
+		&cli.BoolFlag{
+			Name:    "time-seq",
+			EnvVars: []string{"RELAY_TIME_SEQUENCE"},
+			Value:   false,
+			Usage:   "make outbound firehose sequence number approximately unix microseconds",
+		},
 	}
 
 	app.Action = runBigsky
@@ -287,9 +296,8 @@ func runBigsky(cctx *cli.Context) error {
 			return err
 		}
 	}
-
-	if err != nil {
-		return err
+	if err := db.AutoMigrate(RelaySetting{}); err != nil {
+		panic(err)
 	}
 
 	// TODO: add shared external cache
@@ -317,6 +325,23 @@ func runBigsky(cctx *cli.Context) error {
 
 	pOpts := events.DefaultDiskPersistOptions()
 	pOpts.Retention = cctx.Duration("event-playback-ttl")
+	pOpts.TimeSequence = cctx.Bool("time-seq")
+
+	// ensure that time-ish sequence stays consistent within a server context
+	storedTimeSeq, hadStoredTimeSeq, err := getRelaySettingBool(db, "time-seq")
+	if err != nil {
+		return err
+	}
+	if !hadStoredTimeSeq {
+		if err := setRelaySettingBool(db, "time-seq", pOpts.TimeSequence); err != nil {
+			return err
+		}
+	} else {
+		if pOpts.TimeSequence != storedTimeSeq {
+			return fmt.Errorf("time-seq stored as %v but param/env set as %v", storedTimeSeq, pOpts.TimeSequence)
+		}
+	}
+
 	dp, err := events.NewDiskPersistence(dpd, "", db, pOpts)
 	if err != nil {
 		return fmt.Errorf("setting up disk persister: %w", err)
@@ -418,4 +443,54 @@ func makePdsClientSetup(ratelimitBypass string) func(c *xrpc.Client) {
 			c.Client.Timeout = time.Minute * 1
 		}
 	}
+}
+
+// RelaySetting is a gorm model
+type RelaySetting struct {
+	Name  string `gorm:"primarykey"`
+	Value string
+}
+
+func getRelaySetting(db *gorm.DB, name string) (value string, ok bool, err error) {
+	var setting RelaySetting
+	found := db.Find(&setting, "name = ?", name)
+	if errors.Is(found.Error, gorm.ErrRecordNotFound) {
+		return "", false, nil
+	}
+	if found.Error != nil {
+		return "", false, found.Error
+	}
+	return setting.Value, true, nil
+}
+
+func setRelaySetting(db *gorm.DB, name string, value string) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		var setting RelaySetting
+		found := tx.Find(&setting, "name = ?", name)
+		if errors.Is(found.Error, gorm.ErrRecordNotFound) {
+			// ok! create it
+			setting.Name = name
+			setting.Value = value
+			return tx.Create(&setting).Error
+		} else if found.Error != nil {
+			return found.Error
+		}
+		setting.Value = value
+		return tx.Save(&setting).Error
+	})
+}
+
+func getRelaySettingBool(db *gorm.DB, name string) (value bool, ok bool, err error) {
+	strval, found, err := getRelaySetting(db, name)
+	if err != nil || !found {
+		return false, found, err
+	}
+	bv, err := strconv.ParseBool(strval)
+	if err != nil {
+		return false, false, err
+	}
+	return bv, true, nil
+}
+func setRelaySettingBool(db *gorm.DB, name string, value bool) error {
+	return setRelaySetting(db, name, strconv.FormatBool(value))
 }

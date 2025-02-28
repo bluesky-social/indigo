@@ -35,7 +35,9 @@ type DiskPersistence struct {
 
 	logfi *os.File
 
-	curSeq int64
+	eventCounter int64
+	curSeq       int64
+	timeSequence bool
 
 	uids     UidSource
 	uidCache *arc.ARCCache[models.Uid, string] // TODO: unused
@@ -77,6 +79,8 @@ type DiskPersistOptions struct {
 	EventsPerFile   int64
 	WriteBufferSize int
 	Retention       time.Duration
+
+	TimeSequence bool
 }
 
 func DefaultDiskPersistOptions() *DiskPersistOptions {
@@ -136,6 +140,7 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 		outbuf:          new(bytes.Buffer),
 		writeBufferSize: opts.WriteBufferSize,
 		shutdown:        make(chan struct{}),
+		timeSequence:    opts.TimeSequence,
 	}
 
 	if err := dp.resumeLog(); err != nil {
@@ -182,7 +187,7 @@ func (dp *DiskPersistence) resumeLog() error {
 		return fmt.Errorf("failed to scan log file for last seqno: %w", err)
 	}
 
-	dp.curSeq = seq
+	dp.curSeq = seq + 1
 	dp.logfi = fi
 
 	return nil
@@ -452,7 +457,15 @@ func (dp *DiskPersistence) doPersist(ctx context.Context, j persistJob) error {
 	b := j.Bytes
 	e := j.Evt
 	seq := dp.curSeq
-	dp.curSeq++
+	if dp.timeSequence {
+		seq = time.Now().UnixMicro()
+		if seq < dp.curSeq {
+			seq = dp.curSeq
+		}
+		dp.curSeq = seq + 1
+	} else {
+		dp.curSeq++
+	}
 
 	// Set sequence number in event header
 	binary.LittleEndian.PutUint64(b[20:], uint64(seq))
@@ -492,7 +505,8 @@ func (dp *DiskPersistence) doPersist(ctx context.Context, j persistJob) error {
 
 	dp.evtbuf = append(dp.evtbuf, j)
 
-	if seq%dp.eventsPerFile == 0 {
+	dp.eventCounter++
+	if dp.eventCounter%dp.eventsPerFile == 0 {
 		if err := dp.flushLog(ctx); err != nil {
 			return err
 		}
@@ -651,13 +665,29 @@ func (dp *DiskPersistence) uidForDid(ctx context.Context, did string) (models.Ui
 }
 
 func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
-	base := since - (since % dp.eventsPerFile)
 	var logs []LogFileRef
-	if err := dp.meta.Debug().Order("seq_start asc").Find(&logs, "seq_start >= ?", base).Error; err != nil {
-		return err
+	needslogs := true
+	if since != 0 {
+		// find the log file that starts before our since
+		result := dp.meta.Debug().Order("seq_start desc").Where("seq_start < ?", since).Limit(1).Find(&logs)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 0 {
+			needslogs = false
+		}
 	}
 
+	// playback data from all the log files we found, then check the db to see if more were written during playback.
+	// repeat a few times but not unboundedly.
+	// don't decrease '10' below 2 because we should always do two passes through this if the above before-chunk query was used.
 	for i := 0; i < 10; i++ {
+		if needslogs {
+			if err := dp.meta.Debug().Order("seq_start asc").Find(&logs, "seq_start >= ?", since).Error; err != nil {
+				return err
+			}
+		}
+
 		lastSeq, err := dp.PlaybackLogfiles(ctx, since, cb, logs)
 		if err != nil {
 			return err
@@ -668,10 +698,8 @@ func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*X
 			break
 		}
 
-		if err := dp.meta.Debug().Order("seq_start asc").Find(&logs, "seq_start >= ?", *lastSeq).Error; err != nil {
-			return err
-		}
 		since = *lastSeq
+		needslogs = true
 	}
 
 	return nil

@@ -116,24 +116,19 @@ func NewBGS(db *gorm.DB, repoman *repomgr.RepoManager, evtman *events.EventManag
 	if config == nil {
 		config = DefaultBGSConfig()
 	}
-	err := db.AutoMigrate(User{})
-	if err != nil {
+	if err := db.AutoMigrate(AuthToken{}); err != nil {
 		panic(err)
 	}
-	err = db.AutoMigrate(UserPreviousState{})
-	if err != nil {
+	if err := db.AutoMigrate(DomainBan{}); err != nil {
 		panic(err)
 	}
-	err = db.AutoMigrate(AuthToken{})
-	if err != nil {
+	if err := db.AutoMigrate(models.PDS{}); err != nil {
 		panic(err)
 	}
-	err = db.AutoMigrate(models.PDS{})
-	if err != nil {
+	if err := db.AutoMigrate(User{}); err != nil {
 		panic(err)
 	}
-	err = db.AutoMigrate(DomainBan{})
-	if err != nil {
+	if err := db.AutoMigrate(UserPreviousState{}); err != nil {
 		panic(err)
 	}
 
@@ -1089,7 +1084,7 @@ func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatpr
 
 func (bgs *BGS) handleSync(ctx context.Context, host *models.PDS, evt *comatproto.SyncSubscribeRepos_Sync) error {
 	// TODO: actually do something with #sync event
-	
+
 	// Broadcast the identity event to all consumers
 	err := bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoSync: evt,
