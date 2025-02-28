@@ -840,7 +840,7 @@ var debugCompareReposCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:  "host-2",
 			Usage: "method, hostname, and port of PDS instance",
-			Value: "https://bgs.bsky.social",
+			Value: "https://bsky.network",
 		},
 	},
 	ArgsUsage: `<did>`,
