@@ -259,7 +259,7 @@ func runBigsky(cctx *cli.Context) error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
-	_, err := cliutil.SetupSlog(cliutil.LogOptions{})
+	logger, logWriter, err := cliutil.SetupSlog(cliutil.LogOptions{})
 	if err != nil {
 		return err
 	}
@@ -398,7 +398,7 @@ func runBigsky(cctx *cli.Context) error {
 	bgsErr := make(chan error, 1)
 
 	go func() {
-		err := bgs.Start(cctx.String("api-listen"))
+		err := bgs.Start(cctx.String("api-listen"), logWriter)
 		bgsErr <- err
 	}()
 

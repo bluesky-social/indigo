@@ -8,6 +8,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/ipfs/go-cid"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -182,7 +183,7 @@ func (bgs *BGS) StartMetrics(listen string) error {
 	return http.ListenAndServe(listen, nil)
 }
 
-func (bgs *BGS) Start(addr string) error {
+func (bgs *BGS) Start(addr string, logWriter io.Writer) error {
 	var lc net.ListenConfig
 	ctx, cancel := context.WithTimeout(context.Background(), serverListenerBootTimeout)
 	defer cancel()
@@ -191,11 +192,12 @@ func (bgs *BGS) Start(addr string) error {
 	if err != nil {
 		return err
 	}
-	return bgs.StartWithListener(li)
+	return bgs.StartWithListener(li, logWriter)
 }
 
-func (bgs *BGS) StartWithListener(listen net.Listener) error {
+func (bgs *BGS) StartWithListener(listen net.Listener, logWriter io.Writer) error {
 	e := echo.New()
+	e.Logger.SetOutput(logWriter)
 	e.HideBanner = true
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
