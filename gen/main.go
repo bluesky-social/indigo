@@ -10,6 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/data"
 	atrepo "github.com/bluesky-social/indigo/atproto/repo"
 	atmst "github.com/bluesky-social/indigo/atproto/repo/mst"
+	"github.com/bluesky-social/indigo/atproto/label"
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/mst"
@@ -129,6 +130,10 @@ func main() {
 	}
 
 	if err := genCfg.WriteMapEncodersToFile("atproto/repo/mst/cbor_gen.go", "mst", atmst.NodeData{}, atmst.EntryData{}); err != nil {
+		panic(err)
+	}
+
+	if err := genCfg.WriteMapEncodersToFile("atproto/label/cbor_gen.go", "label", label.Label{}); err != nil {
 		panic(err)
 	}
 }
