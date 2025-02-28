@@ -40,8 +40,6 @@ import (
 	"gorm.io/plugin/opentelemetry/tracing"
 )
 
-var log = slog.Default().With("system", "bigsky")
-
 func init() {
 	// control log level using, eg, GOLOG_LOG_LEVEL=debug
 	//logging.SetAllLoggers(logging.LevelDebug)
@@ -286,7 +284,7 @@ func runBigsky(cctx *cli.Context) error {
 	}
 
 	dburl := cctx.String("db-url")
-	slog.Info("setting up main database", "url", dburl)
+	logger.Info("setting up main database", "url", dburl)
 	db, err := cliutil.SetupDatabase(dburl, cctx.Int("max-metadb-connections"))
 	if err != nil {
 		return err
@@ -314,14 +312,14 @@ func runBigsky(cctx *cli.Context) error {
 
 	dpd := cctx.String("disk-persister-dir")
 	if dpd == "" {
-		slog.Info("empty disk-persister-dir, use current working directory")
+		logger.Info("empty disk-persister-dir, use current working directory")
 		cwd, err := os.Getwd()
 		if err != nil {
 			return err
 		}
 		dpd = filepath.Join(cwd, "medsky-persist")
 	}
-	slog.Info("setting up disk persister", "dir", dpd)
+	logger.Info("setting up disk persister", "dir", dpd)
 
 	pOpts := events.DefaultDiskPersistOptions()
 	pOpts.Retention = cctx.Duration("event-playback-ttl")
@@ -354,7 +352,7 @@ func runBigsky(cctx *cli.Context) error {
 
 	ratelimitBypass := cctx.String("bsky-social-rate-limit-skip")
 
-	slog.Info("constructing bgs")
+	logger.Info("constructing bgs")
 	bgsConfig := libbgs.DefaultBGSConfig()
 	bgsConfig.SSL = !cctx.Bool("crawl-insecure-ws")
 	bgsConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
@@ -371,7 +369,7 @@ func runBigsky(cctx *cli.Context) error {
 			if err != nil {
 				return fmt.Errorf("failed to parse next-crawler url: %w", err)
 			}
-			slog.Info("configuring relay for requestCrawl", "host", nextCrawlerUrls[i])
+			logger.Info("configuring relay for requestCrawl", "host", nextCrawlerUrls[i])
 		}
 		bgsConfig.NextCrawlers = nextCrawlerUrls
 	}
@@ -390,7 +388,7 @@ func runBigsky(cctx *cli.Context) error {
 	// set up metrics endpoint
 	go func() {
 		if err := bgs.StartMetrics(cctx.String("metrics-listen")); err != nil {
-			log.Error("failed to start metrics endpoint", "err", err)
+			logger.Error("failed to start metrics endpoint", "err", err)
 			os.Exit(1)
 		}
 	}()
@@ -402,26 +400,26 @@ func runBigsky(cctx *cli.Context) error {
 		bgsErr <- err
 	}()
 
-	slog.Info("startup complete")
+	logger.Info("startup complete")
 	select {
 	case <-signals:
-		log.Info("received shutdown signal")
+		logger.Info("received shutdown signal")
 		errs := bgs.Shutdown()
 		for err := range errs {
-			slog.Error("error during BGS shutdown", "err", err)
+			logger.Error("error during BGS shutdown", "err", err)
 		}
 	case err := <-bgsErr:
 		if err != nil {
-			slog.Error("error during BGS startup", "err", err)
+			logger.Error("error during BGS startup", "err", err)
 		}
-		log.Info("shutting down")
+		logger.Info("shutting down")
 		errs := bgs.Shutdown()
 		for err := range errs {
-			slog.Error("error during BGS shutdown", "err", err)
+			logger.Error("error during BGS shutdown", "err", err)
 		}
 	}
 
-	log.Info("shutdown complete")
+	logger.Info("shutdown complete")
 
 	return nil
 }
