@@ -20,9 +20,9 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/medsky/events"
-	"github.com/bluesky-social/indigo/cmd/medsky/models"
-	"github.com/bluesky-social/indigo/cmd/medsky/repomgr"
+	"github.com/bluesky-social/indigo/cmd/relay/events"
+	"github.com/bluesky-social/indigo/cmd/relay/models"
+	"github.com/bluesky-social/indigo/cmd/relay/repomgr"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 

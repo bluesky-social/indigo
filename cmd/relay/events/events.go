@@ -11,7 +11,7 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/medsky/models"
+	"github.com/bluesky-social/indigo/cmd/relay/models"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/prometheus/client_golang/prometheus"
 

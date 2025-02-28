@@ -14,8 +14,8 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	atrepo "github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/medsky/events"
-	"github.com/bluesky-social/indigo/cmd/medsky/models"
+	"github.com/bluesky-social/indigo/cmd/relay/events"
+	"github.com/bluesky-social/indigo/cmd/relay/models"
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel"
 )

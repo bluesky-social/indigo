@@ -12,7 +12,7 @@ import (
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/medsky/events"
+	"github.com/bluesky-social/indigo/cmd/relay/events"
 	"gorm.io/gorm"
 
 	"github.com/bluesky-social/indigo/xrpc"

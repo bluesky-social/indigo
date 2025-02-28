@@ -18,9 +18,9 @@ import (
 	"syscall"
 	"time"
 
-	libbgs "github.com/bluesky-social/indigo/cmd/medsky/bgs"
-	"github.com/bluesky-social/indigo/cmd/medsky/events"
-	"github.com/bluesky-social/indigo/cmd/medsky/repomgr"
+	libbgs "github.com/bluesky-social/indigo/cmd/relay/bgs"
+	"github.com/bluesky-social/indigo/cmd/relay/events"
+	"github.com/bluesky-social/indigo/cmd/relay/repomgr"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -55,7 +55,7 @@ func main() {
 func run(args []string) error {
 
 	app := cli.App{
-		Name:    "medsky",
+		Name:    "relay",
 		Usage:   "atproto Relay daemon",
 		Version: versioninfo.Short(),
 	}
@@ -317,7 +317,7 @@ func runBigsky(cctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		dpd = filepath.Join(cwd, "medsky-persist")
+		dpd = filepath.Join(cwd, "relay-persist")
 	}
 	logger.Info("setting up disk persister", "dir", dpd)
 

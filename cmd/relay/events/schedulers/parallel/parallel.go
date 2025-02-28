@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/bluesky-social/indigo/cmd/medsky/events"
+	"github.com/bluesky-social/indigo/cmd/relay/events"
 	"github.com/bluesky-social/indigo/events/schedulers"
 
 	"github.com/prometheus/client_golang/prometheus"
