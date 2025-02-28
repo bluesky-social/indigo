@@ -538,6 +538,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS, s
 				return
 			}
 			s.log.Warn("connection to failed", "host", host.Host, "err", err)
+			// TODO: measure the last N connection error times and if they're coming too fast reconnect slower or don't reconnect and wait for requestCrawl
 		}
 
 		if cursor > curCursor {

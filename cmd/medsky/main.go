@@ -449,14 +449,14 @@ type RelaySetting struct {
 	Value string
 }
 
-func getRelaySetting(db *gorm.DB, name string) (value string, ok bool, err error) {
+func getRelaySetting(db *gorm.DB, name string) (value string, found bool, err error) {
 	var setting RelaySetting
-	found := db.Find(&setting, "name = ?", name)
-	if errors.Is(found.Error, gorm.ErrRecordNotFound) {
+	dbResult := db.First(&setting, "name = ?", name)
+	if errors.Is(dbResult.Error, gorm.ErrRecordNotFound) {
 		return "", false, nil
 	}
-	if found.Error != nil {
-		return "", false, found.Error
+	if dbResult.Error != nil {
+		return "", false, dbResult.Error
 	}
 	return setting.Value, true, nil
 }
@@ -464,7 +464,7 @@ func getRelaySetting(db *gorm.DB, name string) (value string, ok bool, err error
 func setRelaySetting(db *gorm.DB, name string, value string) error {
 	return db.Transaction(func(tx *gorm.DB) error {
 		var setting RelaySetting
-		found := tx.Find(&setting, "name = ?", name)
+		found := tx.First(&setting, "name = ?", name)
 		if errors.Is(found.Error, gorm.ErrRecordNotFound) {
 			// ok! create it
 			setting.Name = name
@@ -478,16 +478,16 @@ func setRelaySetting(db *gorm.DB, name string, value string) error {
 	})
 }
 
-func getRelaySettingBool(db *gorm.DB, name string) (value bool, ok bool, err error) {
+func getRelaySettingBool(db *gorm.DB, name string) (value bool, found bool, err error) {
 	strval, found, err := getRelaySetting(db, name)
 	if err != nil || !found {
 		return false, found, err
 	}
-	bv, err := strconv.ParseBool(strval)
+	value, err = strconv.ParseBool(strval)
 	if err != nil {
 		return false, false, err
 	}
-	return bv, true, nil
+	return value, true, nil
 }
 func setRelaySettingBool(db *gorm.DB, name string, value bool) error {
 	return setRelaySetting(db, name, strconv.FormatBool(value))
