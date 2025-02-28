@@ -62,6 +62,18 @@ var cmdSyntax = &cli.Command{
 			},
 		},
 		&cli.Command{
+			Name:  "cid",
+			Usage: "sub-commands for CID syntax",
+			Subcommands: []*cli.Command{
+				&cli.Command{
+					Name:      "check",
+					Usage:     "validates CID syntax",
+					ArgsUsage: `<cid>`,
+					Action:    runSyntaxCIDCheck,
+				},
+			},
+		},
+		&cli.Command{
 			Name:  "rkey",
 			Usage: "sub-commands for record key syntax",
 			Subcommands: []*cli.Command{
@@ -94,6 +106,35 @@ var cmdSyntax = &cli.Command{
 					Usage:     "validates AT-URI syntax",
 					ArgsUsage: `<uri>`,
 					Action:    runSyntaxATURICheck,
+				},
+			},
+		},
+		&cli.Command{
+			Name:  "datetime",
+			Usage: "sub-commands for datetimes",
+			Subcommands: []*cli.Command{
+				&cli.Command{
+					Name:      "check",
+					Usage:     "validates datetime syntax",
+					ArgsUsage: `<datetime>`,
+					Action:    runSyntaxDatetimeCheck,
+				},
+				&cli.Command{
+					Name:   "now",
+					Usage:  "outputs the current datetime",
+					Action: runSyntaxDatetimeNow,
+				},
+			},
+		},
+		&cli.Command{
+			Name:  "language",
+			Usage: "sub-commands for language code syntax",
+			Subcommands: []*cli.Command{
+				&cli.Command{
+					Name:      "check",
+					Usage:     "validates language code syntax",
+					ArgsUsage: `<lang-code>`,
+					Action:    runSyntaxLanguageCheck,
 				},
 			},
 		},
@@ -159,6 +200,20 @@ func runSyntaxDIDCheck(cctx *cli.Context) error {
 	fmt.Println("valid")
 	return nil
 }
+
+func runSyntaxCIDCheck(cctx *cli.Context) error {
+	s := cctx.Args().First()
+	if s == "" {
+		return fmt.Errorf("need to provide identifier as argument")
+	}
+	_, err := syntax.ParseCID(s)
+	if err != nil {
+		return err
+	}
+	fmt.Println("valid")
+	return nil
+}
+
 func runSyntaxHandleCheck(cctx *cli.Context) error {
 	s := cctx.Args().First()
 	if s == "" {
@@ -191,6 +246,37 @@ func runSyntaxATURICheck(cctx *cli.Context) error {
 		return fmt.Errorf("need to provide identifier as argument")
 	}
 	_, err := syntax.ParseATURI(s)
+	if err != nil {
+		return err
+	}
+	fmt.Println("valid")
+	return nil
+}
+
+func runSyntaxDatetimeCheck(cctx *cli.Context) error {
+	s := cctx.Args().First()
+	if s == "" {
+		return fmt.Errorf("need to provide identifier as argument")
+	}
+	_, err := syntax.ParseDatetime(s)
+	if err != nil {
+		return err
+	}
+	fmt.Println("valid")
+	return nil
+}
+
+func runSyntaxDatetimeNow(cctx *cli.Context) error {
+	fmt.Printf("%s\n", syntax.DatetimeNow().String())
+	return nil
+}
+
+func runSyntaxLanguageCheck(cctx *cli.Context) error {
+	s := cctx.Args().First()
+	if s == "" {
+		return fmt.Errorf("need to provide identifier as argument")
+	}
+	_, err := syntax.ParseLanguage(s)
 	if err != nil {
 		return err
 	}
