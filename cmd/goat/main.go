@@ -37,7 +37,7 @@ func run(args []string) error {
 		cmdBsky,
 		cmdRecord,
 		cmdSyntax,
-		cmdCrypto,
+		cmdKey,
 		cmdPds,
 	}
 	return app.Run(args)
