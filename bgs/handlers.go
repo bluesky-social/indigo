@@ -128,31 +128,36 @@ func (s *BGS) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []string, 
 	return nil, fmt.Errorf("NYI")
 }
 
+func (bgs *BGS) newPdsHostPrefixNormalize(host string) (hostN string, sslUrl bool) {
+	sslUrl = false
+	if strings.HasPrefix(host, "http://") || strings.HasPrefix(host, "ws://") {
+	} else if strings.HasPrefix(host, "https://") || strings.HasPrefix(host, "wss://") {
+		sslUrl = true
+	} else {
+		if bgs.config.SSL == SlurperDisableSSL {
+			host = "http://" + host
+		} else {
+			host = "https://" + host
+			sslUrl = true
+		}
+	}
+	return host, sslUrl
+}
+
 func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatprototypes.SyncRequestCrawl_Input) error {
 	host := body.Hostname
 	if host == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname")
 	}
 
-	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
-		if s.ssl {
-			host = "https://" + host
-		} else {
-			host = "http://" + host
-		}
+	host, sslUrl := s.newPdsHostPrefixNormalize(host)
+	if !s.config.SSL.ExternalOk(sslUrl) {
+		return echo.NewHTTPError(http.StatusBadRequest, "server ssl policy is %s", s.config.SSL.String())
 	}
 
 	u, err := url.Parse(host)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "failed to parse hostname")
-	}
-
-	if u.Scheme == "http" && s.ssl {
-		return echo.NewHTTPError(http.StatusBadRequest, "this server requires https")
-	}
-
-	if u.Scheme == "https" && !s.ssl {
-		return echo.NewHTTPError(http.StatusBadRequest, "this server does not support https")
 	}
 
 	if u.Path != "" {
@@ -212,7 +217,7 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 		}
 	}
 
-	return s.slurper.SubscribeToPds(ctx, host, true, false, nil)
+	return s.slurper.SubscribeToPds(ctx, host, true, false, sslUrl, nil)
 }
 
 func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, body *comatprototypes.SyncNotifyOfUpdate_Input) error {
