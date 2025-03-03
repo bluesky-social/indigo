@@ -314,6 +314,9 @@ func (j *Gormjob) SetRev(ctx context.Context, r string) error {
 	j.rev = r
 	j.updatedAt = time.Now()
 
+	j.dbj.Rev = r
+	j.dbj.UpdatedAt = j.updatedAt
+
 	// Persist the job to the database
 
 	return j.db.Save(j.dbj).Error
