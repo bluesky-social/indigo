@@ -42,6 +42,8 @@ func (mp *MemPersister) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	switch {
 	case e.RepoCommit != nil:
 		e.RepoCommit.Seq = mp.seq
+	case e.RepoSync != nil:
+		e.RepoSync.Seq = mp.seq
 	case e.RepoIdentity != nil:
 		e.RepoIdentity.Seq = mp.seq
 	case e.RepoAccount != nil:
