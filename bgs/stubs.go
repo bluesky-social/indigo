@@ -17,21 +17,6 @@ type XRPCError struct {
 	Message string `json:"message"`
 }
 
-func (s *BGS) RegisterHandlersAppBsky(e *echo.Echo) error {
-	return nil
-}
-
-func (s *BGS) RegisterHandlersComAtproto(e *echo.Echo) error {
-	e.GET("/xrpc/com.atproto.sync.getBlocks", s.HandleComAtprotoSyncGetBlocks)
-	e.GET("/xrpc/com.atproto.sync.getLatestCommit", s.HandleComAtprotoSyncGetLatestCommit)
-	e.GET("/xrpc/com.atproto.sync.getRecord", s.HandleComAtprotoSyncGetRecord)
-	e.GET("/xrpc/com.atproto.sync.getRepo", s.HandleComAtprotoSyncGetRepo)
-	e.GET("/xrpc/com.atproto.sync.listRepos", s.HandleComAtprotoSyncListRepos)
-	e.POST("/xrpc/com.atproto.sync.notifyOfUpdate", s.HandleComAtprotoSyncNotifyOfUpdate)
-	e.POST("/xrpc/com.atproto.sync.requestCrawl", s.HandleComAtprotoSyncRequestCrawl)
-	return nil
-}
-
 func (s *BGS) HandleComAtprotoSyncGetBlocks(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetBlocks")
 	defer span.End()

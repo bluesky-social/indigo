@@ -47,23 +47,3 @@ func (s *Server) createAuthTokenForUser(ctx context.Context, handle, did string)
 		Did:        did,
 	}, nil
 }
-
-func (s *Server) createCrossServerAuthToken(ctx context.Context, otherpds string) (*xrpc.AuthInfo, error) {
-	accessTok := makeToken(otherpds, "com.atproto.federation", time.Now().Add(24*time.Hour))
-
-	// setting this is a little weird,
-	// since the token isn't signed by this key, we dont have a way to validate...
-	accessTok.Set("pds", s.signingKey.Public().DID())
-
-	rval := make([]byte, 10)
-	rand.Read(rval)
-
-	accSig, err := jwt.Sign(accessTok, jwt.WithKey(jwa.HS256, s.jwtSigningKey))
-	if err != nil {
-		return nil, err
-	}
-
-	return &xrpc.AuthInfo{
-		AccessJwt: string(accSig),
-	}, nil
-}
