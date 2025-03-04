@@ -1,4 +1,4 @@
-package events
+package pebblepersist
 
 import (
 	"bytes"
@@ -7,14 +7,18 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
+	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/cockroachdb/pebble"
 )
 
+var log = slog.Default().With("system", "pebblepersist")
+
 type PebblePersist struct {
-	broadcast func(*XRPCStreamEvent)
+	broadcast func(*events.XRPCStreamEvent)
 	db        *pebble.DB
 
 	prevSeq      int64
@@ -66,7 +70,7 @@ func setKeySeqMillis(key []byte, seq, millis int64) {
 	binary.BigEndian.PutUint64(key[8:16], uint64(millis))
 }
 
-func (pp *PebblePersist) Persist(ctx context.Context, e *XRPCStreamEvent) error {
+func (pp *PebblePersist) Persist(ctx context.Context, e *events.XRPCStreamEvent) error {
 	err := e.Preserialize()
 	if err != nil {
 		return err
@@ -101,13 +105,13 @@ func (pp *PebblePersist) Persist(ctx context.Context, e *XRPCStreamEvent) error 
 	return err
 }
 
-func eventFromPebbleIter(iter *pebble.Iterator) (*XRPCStreamEvent, error) {
+func eventFromPebbleIter(iter *pebble.Iterator) (*events.XRPCStreamEvent, error) {
 	blob, err := iter.ValueAndErr()
 	if err != nil {
 		return nil, err
 	}
 	br := bytes.NewReader(blob)
-	evt := new(XRPCStreamEvent)
+	evt := new(events.XRPCStreamEvent)
 	err = evt.Deserialize(br)
 	if err != nil {
 		return nil, err
@@ -116,7 +120,7 @@ func eventFromPebbleIter(iter *pebble.Iterator) (*XRPCStreamEvent, error) {
 	return evt, nil
 }
 
-func (pp *PebblePersist) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
+func (pp *PebblePersist) Playback(ctx context.Context, since int64, cb func(*events.XRPCStreamEvent) error) error {
 	var key [8]byte
 	binary.BigEndian.PutUint64(key[:], uint64(since))
 
@@ -156,13 +160,13 @@ func (pp *PebblePersist) Shutdown(context.Context) error {
 	return err
 }
 
-func (pp *PebblePersist) SetEventBroadcaster(broadcast func(*XRPCStreamEvent)) {
+func (pp *PebblePersist) SetEventBroadcaster(broadcast func(*events.XRPCStreamEvent)) {
 	pp.broadcast = broadcast
 }
 
 var ErrNoLast = errors.New("no last event")
 
-func (pp *PebblePersist) GetLast(ctx context.Context) (seq, millis int64, evt *XRPCStreamEvent, err error) {
+func (pp *PebblePersist) GetLast(ctx context.Context) (seq, millis int64, evt *events.XRPCStreamEvent, err error) {
 	iter, err := pp.db.NewIterWithContext(ctx, &pebble.IterOptions{})
 	if err != nil {
 		return 0, 0, nil, err

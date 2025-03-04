@@ -1,4 +1,4 @@
-package events
+package diskpersist
 
 import (
 	"context"
@@ -14,15 +14,17 @@ import (
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	pds "github.com/bluesky-social/indigo/pds/data"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.DB) (EventPersistence, error)) {
+func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.DB) (events.EventPersistence, error)) {
 	ctx := context.Background()
 
 	db, _, cs, tempPath, err := setupDBs(t)
@@ -63,7 +65,7 @@ func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.
 	}
 
 	// Create a bunch of events
-	evtman := NewEventManager(dp)
+	evtman := events.NewEventManager(dp)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {
@@ -71,11 +73,11 @@ func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.
 	}
 
 	n := 100
-	inEvts := make([]*XRPCStreamEvent, n)
+	inEvts := make([]*events.XRPCStreamEvent, n)
 	for i := 0; i < n; i++ {
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
-		inEvts[i] = &XRPCStreamEvent{
+		inEvts[i] = &events.XRPCStreamEvent{
 			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
 				Repo:   "did:example:123",
 				Commit: headLink,
@@ -107,7 +109,7 @@ func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.
 	outEvtCount := 0
 	expectedEvtCount := n
 
-	dp.Playback(ctx, 0, func(evt *XRPCStreamEvent) error {
+	dp.Playback(ctx, 0, func(evt *events.XRPCStreamEvent) error {
 		outEvtCount++
 		return nil
 	})
@@ -129,13 +131,13 @@ func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.
 		t.Fatal(err)
 	}
 
-	evtman2 := NewEventManager(dp2)
+	evtman2 := events.NewEventManager(dp2)
 
-	inEvts = make([]*XRPCStreamEvent, n)
+	inEvts = make([]*events.XRPCStreamEvent, n)
 	for i := 0; i < n; i++ {
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
-		inEvts[i] = &XRPCStreamEvent{
+		inEvts[i] = &events.XRPCStreamEvent{
 			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
 				Repo:   "did:example:123",
 				Commit: headLink,
@@ -159,7 +161,7 @@ func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.
 	}
 }
 func TestDiskPersist(t *testing.T) {
-	factory := func(tempPath string, db *gorm.DB) (EventPersistence, error) {
+	factory := func(tempPath string, db *gorm.DB) (events.EventPersistence, error) {
 		return NewDiskPersistence(filepath.Join(tempPath, "diskPrimary"), filepath.Join(tempPath, "diskArchive"), db, &DiskPersistOptions{
 			EventsPerFile: 10,
 			UIDCacheSize:  100000,
@@ -192,7 +194,7 @@ func BenchmarkDiskPersist(b *testing.B) {
 
 }
 
-func runPersisterBenchmark(b *testing.B, cs carstore.CarStore, db *gorm.DB, p EventPersistence) {
+func runPersisterBenchmark(b *testing.B, cs carstore.CarStore, db *gorm.DB, p events.EventPersistence) {
 	ctx := context.Background()
 
 	db.AutoMigrate(&pds.User{})
@@ -220,18 +222,18 @@ func runPersisterBenchmark(b *testing.B, cs carstore.CarStore, db *gorm.DB, p Ev
 	}
 
 	// Create a bunch of events
-	evtman := NewEventManager(p)
+	evtman := events.NewEventManager(p)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	inEvts := make([]*XRPCStreamEvent, b.N)
+	inEvts := make([]*events.XRPCStreamEvent, b.N)
 	for i := 0; i < b.N; i++ {
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
-		inEvts[i] = &XRPCStreamEvent{
+		inEvts[i] = &events.XRPCStreamEvent{
 			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
 				Repo:   "did:example:123",
 				Commit: headLink,
@@ -307,7 +309,7 @@ func TestDiskPersister(t *testing.T) {
 	runEventManagerTest(t, cs, db, dp)
 }
 
-func runEventManagerTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p EventPersistence) {
+func runEventManagerTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p events.EventPersistence) {
 	ctx := context.Background()
 
 	db.AutoMigrate(&pds.User{})
@@ -334,7 +336,7 @@ func runEventManagerTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p Even
 		t.Fatal(err)
 	}
 
-	evtman := NewEventManager(p)
+	evtman := events.NewEventManager(p)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {
@@ -342,11 +344,11 @@ func runEventManagerTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p Even
 	}
 
 	testSize := 100 // you can adjust this number as needed
-	inEvts := make([]*XRPCStreamEvent, testSize)
+	inEvts := make([]*events.XRPCStreamEvent, testSize)
 	for i := 0; i < testSize; i++ {
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
-		inEvts[i] = &XRPCStreamEvent{
+		inEvts[i] = &events.XRPCStreamEvent{
 			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
 				Repo:   "did:example:123",
 				Commit: headLink,
@@ -373,7 +375,7 @@ func runEventManagerTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p Even
 	}
 
 	outEvtCount := 0
-	p.Playback(ctx, 0, func(evt *XRPCStreamEvent) error {
+	p.Playback(ctx, 0, func(evt *events.XRPCStreamEvent) error {
 		// Check that the contents of the output events match the input events
 		// Clear cache, don't care if one has it and not the other
 		inEvts[outEvtCount].Preserialized = nil
@@ -414,7 +416,7 @@ func TestDiskPersisterTakedowns(t *testing.T) {
 	runTakedownTest(t, cs, db, dp)
 }
 
-func runTakedownTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p EventPersistence) {
+func runTakedownTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p events.EventPersistence) {
 	ctx := context.TODO()
 
 	db.AutoMigrate(&pds.User{})
@@ -444,10 +446,10 @@ func runTakedownTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p EventPer
 		}
 	}
 
-	evtman := NewEventManager(p)
+	evtman := events.NewEventManager(p)
 
 	testSize := 100 // you can adjust this number as needed
-	inEvts := make([]*XRPCStreamEvent, testSize*userCount)
+	inEvts := make([]*events.XRPCStreamEvent, testSize*userCount)
 	for i := 0; i < testSize*userCount; i++ {
 		user := users[i%userCount]
 		_, cid, err := mgr.CreateRecord(ctx, user.Uid, "app.bsky.feed.post", &bsky.FeedPost{
@@ -465,7 +467,7 @@ func runTakedownTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p EventPer
 
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
-		inEvts[i] = &XRPCStreamEvent{
+		inEvts[i] = &events.XRPCStreamEvent{
 			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
 				Repo:   user.Did,
 				Commit: headLink,
@@ -500,7 +502,7 @@ func runTakedownTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p EventPer
 
 	// Verify that the events of the user have been removed from the event stream
 	var evtsCount int
-	if err := p.Playback(ctx, 0, func(evt *XRPCStreamEvent) error {
+	if err := p.Playback(ctx, 0, func(evt *events.XRPCStreamEvent) error {
 		evtsCount++
 		if evt.RepoCommit.Repo == takeDownUser.Did {
 			t.Fatalf("found event for user %d after takedown", takeDownUser.Uid)
@@ -514,4 +516,45 @@ func runTakedownTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p EventPer
 	if evtsCount != exp {
 		t.Fatalf("wrong number of events out: %d != %d", evtsCount, exp)
 	}
+}
+
+func setupDBs(t testing.TB) (*gorm.DB, *gorm.DB, carstore.CarStore, string, error) {
+	dir, err := os.MkdirTemp("", "integtest")
+	if err != nil {
+		return nil, nil, nil, "", err
+	}
+
+	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.sqlite?cache=shared&mode=rwc")))
+	if err != nil {
+		return nil, nil, nil, "", err
+	}
+
+	tx := maindb.Exec("PRAGMA journal_mode=WAL;")
+	if tx.Error != nil {
+		return nil, nil, nil, "", tx.Error
+	}
+
+	tx.Commit()
+
+	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.sqlite?cache=shared&mode=rwc")))
+	if err != nil {
+		return nil, nil, nil, "", err
+	}
+
+	tx = cardb.Exec("PRAGMA journal_mode=WAL;")
+	if tx.Error != nil {
+		return nil, nil, nil, "", tx.Error
+	}
+
+	cspath := filepath.Join(dir, "carstore")
+	if err := os.Mkdir(cspath, 0775); err != nil {
+		return nil, nil, nil, "", err
+	}
+
+	cs, err := carstore.NewCarStore(cardb, []string{cspath})
+	if err != nil {
+		return nil, nil, nil, "", err
+	}
+
+	return maindb, cardb, cs, dir, nil
 }
