@@ -1,4 +1,4 @@
-package sonar
+package main
 
 import (
 	"bytes"
