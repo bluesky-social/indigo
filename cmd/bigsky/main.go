@@ -98,11 +98,6 @@ func run(args []string) error {
 			Name:  "crawl-insecure-ws",
 			Usage: "when connecting to PDS instances, use ws:// instead of wss://",
 		},
-		&cli.BoolFlag{
-			Name:    "spidering",
-			Value:   false,
-			EnvVars: []string{"RELAY_SPIDERING", "BGS_SPIDERING"},
-		},
 		&cli.StringFlag{
 			Name:  "api-listen",
 			Value: ":2470",
@@ -450,7 +445,7 @@ func runBigsky(cctx *cli.Context) error {
 
 	rf := indexer.NewRepoFetcher(db, repoman, cctx.Int("max-fetch-concurrency"))
 
-	ix, err := indexer.NewIndexer(db, evtman, cachedidr, rf, true, false, cctx.Bool("spidering"))
+	ix, err := indexer.NewIndexer(db, evtman, cachedidr, rf, true)
 	if err != nil {
 		return err
 	}

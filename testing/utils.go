@@ -566,7 +566,7 @@ func SetupRelay(ctx context.Context, didr plc.PLCClient, archive bool) (*TestRel
 	evtman := events.NewEventManager(diskpersist)
 	rf := indexer.NewRepoFetcher(maindb, repoman, 10)
 
-	ix, err := indexer.NewIndexer(maindb, evtman, didr, rf, true, true, true)
+	ix, err := indexer.NewIndexer(maindb, evtman, didr, rf, true)
 	if err != nil {
 		return nil, err
 	}
