@@ -40,7 +40,6 @@ type Server struct {
 	db             *gorm.DB
 	cs             carstore.CarStore
 	repoman        *repomgr.RepoManager
-	feedgen        *FeedGenerator
 	indexer        *indexer.Indexer
 	events         *events.EventManager
 	signingKey     *did.PrivKey
@@ -104,13 +103,6 @@ func NewServer(db *gorm.DB, cs carstore.CarStore, serkey *did.PrivKey, handleSuf
 
 	//ix.SendRemoteFollow = s.sendRemoteFollow
 	ix.CreateExternalUser = s.createExternalUser
-
-	feedgen, err := NewFeedGenerator(db, ix, s.readRecordFunc, s.log)
-	if err != nil {
-		return nil, err
-	}
-
-	s.feedgen = feedgen
 
 	return s, nil
 }
