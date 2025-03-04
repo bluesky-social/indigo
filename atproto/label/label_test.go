@@ -30,21 +30,21 @@ func TestVerifyLabel(t *testing.T) {
     }`)
 
 	var l Label
-    if err := json.Unmarshal(labelJSON, &l); err != nil {
-    	t.Fatal(err)
-    }
+	if err := json.Unmarshal(labelJSON, &l); err != nil {
+		t.Fatal(err)
+	}
 
-    assert.NoError(l.VerifySyntax())
-    assert.NoError(l.VerifySignature(pubkey))
+	assert.NoError(l.VerifySyntax())
+	assert.NoError(l.VerifySignature(pubkey))
 
 	// check that signature fails after mutation
-    l.Val = "wrong"
-    assert.NoError(l.VerifySyntax())
-    assert.Error(l.VerifySignature(pubkey))
+	l.Val = "wrong"
+	assert.NoError(l.VerifySyntax())
+	assert.Error(l.VerifySignature(pubkey))
 
 	// version check
-    l.Version = 0
-    assert.Error(l.VerifySyntax())
+	l.Version = 0
+	assert.Error(l.VerifySyntax())
 }
 
 func TestParseLabel(t *testing.T) {
@@ -59,20 +59,20 @@ func TestParseLabel(t *testing.T) {
     }`)
 
 	var l Label
-    if err := json.Unmarshal(unsignedJSON, &l); err != nil {
-    	t.Fatal(err)
-    }
-    assert.NoError(l.VerifySyntax())
+	if err := json.Unmarshal(unsignedJSON, &l); err != nil {
+		t.Fatal(err)
+	}
+	assert.NoError(l.VerifySyntax())
 }
 
 func TestSignLabel(t *testing.T) {
 	assert := assert.New(t)
 
 	l := Label{
-		Version: ATPROTO_LABEL_VERSION,
+		Version:   ATPROTO_LABEL_VERSION,
 		CreatedAt: "2024-10-23T17:51:19.128Z",
-		URI: "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.actor.profile/self",
-		Val: "good",
+		URI:       "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.actor.profile/self",
+		Val:       "good",
 		SourceDID: "did:plc:ewvi7nxzyoun6zhxrhs64oiz",
 	}
 
