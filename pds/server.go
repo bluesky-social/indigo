@@ -598,6 +598,9 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		case evt.RepoCommit != nil:
 			header.MsgType = "#commit"
 			obj = evt.RepoCommit
+		case evt.RepoSync != nil:
+			header.MsgType = "#sync"
+			obj = evt.RepoSync
 		case evt.RepoIdentity != nil:
 			header.MsgType = "#identity"
 			obj = evt.RepoIdentity
@@ -651,6 +654,7 @@ func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) e
 		return fmt.Errorf("failed to update handle: %w", err)
 	}
 
+	// Push an Identity event
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
 			Did:  u.Did,

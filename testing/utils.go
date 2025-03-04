@@ -666,6 +666,13 @@ func (b *TestRelay) Events(t *testing.T, since int64) *EventStream {
 				es.Lk.Unlock()
 				return nil
 			},
+			RepoSync: func(evt *atproto.SyncSubscribeRepos_Sync) error {
+				fmt.Println("received sync event: ", evt.Seq, evt.Did)
+				es.Lk.Lock()
+				es.Events = append(es.Events, &events.XRPCStreamEvent{RepoSync: evt})
+				es.Lk.Unlock()
+				return nil
+			},
 			RepoIdentity: func(evt *atproto.SyncSubscribeRepos_Identity) error {
 				fmt.Println("received identity event: ", evt.Seq, evt.Did)
 				es.Lk.Lock()
