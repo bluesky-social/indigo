@@ -13,7 +13,7 @@ func ExampleAPIDirectory() {
 
 	ctx := context.Background()
 
-	// will connect to the provided identity server (eg, a 'domesday' instance)
+	// will connect to the provided identity server (eg, a 'bluepages' instance)
 	dir := NewAPIDirectory("http://localhost:6600")
 
 	handle, _ := syntax.ParseHandle("atproto.com")
