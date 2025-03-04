@@ -101,6 +101,9 @@ type BGSConfig struct {
 
 	ApplyPDSClientSettings func(c *xrpc.Client)
 	InductionTraceLog      *slog.Logger
+
+	// AdminToken checked against "Authorization: Bearer {}" header
+	AdminToken string
 }
 
 func DefaultBGSConfig() *BGSConfig {
@@ -116,9 +119,6 @@ func NewBGS(db *gorm.DB, repoman *repomgr.RepoManager, evtman *events.EventManag
 
 	if config == nil {
 		config = DefaultBGSConfig()
-	}
-	if err := db.AutoMigrate(AuthToken{}); err != nil {
-		panic(err)
 	}
 	if err := db.AutoMigrate(DomainBan{}); err != nil {
 		panic(err)
@@ -341,60 +341,18 @@ func (bgs *BGS) HandleHomeMessage(c echo.Context) error {
 	return c.String(http.StatusOK, homeMessage)
 }
 
-type AuthToken struct {
-	gorm.Model
-	Token string `gorm:"index"`
-}
-
-func (bgs *BGS) lookupAdminToken(tok string) (bool, error) {
-	var at AuthToken
-	if err := bgs.db.Find(&at, "token = ?", tok).Error; err != nil {
-		return false, err
-	}
-
-	if at.ID == 0 {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-func (bgs *BGS) CreateAdminToken(tok string) error {
-	exists, err := bgs.lookupAdminToken(tok)
-	if err != nil {
-		return err
-	}
-
-	if exists {
-		return nil
-	}
-
-	return bgs.db.Create(&AuthToken{
-		Token: tok,
-	}).Error
-}
+const authorizationBearerPrefix = "Bearer "
 
 func (bgs *BGS) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(e echo.Context) error {
-		ctx, span := tracer.Start(e.Request().Context(), "checkAdminAuth")
-		defer span.End()
-
-		e.SetRequest(e.Request().WithContext(ctx))
-
 		authheader := e.Request().Header.Get("Authorization")
-		pref := "Bearer "
-		if !strings.HasPrefix(authheader, pref) {
+		if !strings.HasPrefix(authheader, authorizationBearerPrefix) {
 			return echo.ErrForbidden
 		}
 
-		token := authheader[len(pref):]
+		token := authheader[len(authorizationBearerPrefix):]
 
-		exists, err := bgs.lookupAdminToken(token)
-		if err != nil {
-			return err
-		}
-
-		if !exists {
+		if bgs.config.AdminToken != token {
 			return echo.ErrForbidden
 		}
 

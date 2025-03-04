@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -359,17 +361,19 @@ func runRelay(cctx *cli.Context) error {
 		}
 		bgsConfig.NextCrawlers = nextCrawlerUrls
 	}
+	if cctx.IsSet("admin-key") {
+		bgsConfig.AdminToken = cctx.String("admin-key")
+	} else {
+		var rblob [10]byte
+		_, _ = rand.Read(rblob[:])
+		bgsConfig.AdminToken = base64.URLEncoding.EncodeToString(rblob[:])
+		logger.Info("generated random admin key", "header", "Authorization: Bearer "+bgsConfig.AdminToken)
+	}
 	bgs, err := libbgs.NewBGS(db, repoman, evtman, &cacheDir, bgsConfig)
 	if err != nil {
 		return err
 	}
 	dp.SetUidSource(bgs)
-
-	if tok := cctx.String("admin-key"); tok != "" {
-		if err := bgs.CreateAdminToken(tok); err != nil {
-			return fmt.Errorf("failed to set up admin token: %w", err)
-		}
-	}
 
 	// set up metrics endpoint
 	go func() {
