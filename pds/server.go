@@ -20,7 +20,6 @@ import (
 	"github.com/bluesky-social/indigo/indexer"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/notifs"
 	pdsdata "github.com/bluesky-social/indigo/pds/data"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
@@ -42,7 +41,6 @@ type Server struct {
 	cs             carstore.CarStore
 	repoman        *repomgr.RepoManager
 	feedgen        *FeedGenerator
-	notifman       notifs.NotificationManager
 	indexer        *indexer.Indexer
 	events         *events.EventManager
 	signingKey     *did.PrivKey
@@ -74,11 +72,10 @@ func NewServer(db *gorm.DB, cs carstore.CarStore, serkey *did.PrivKey, handleSuf
 	kmgr := indexer.NewKeyManager(didr, serkey)
 
 	repoman := repomgr.NewRepoManager(cs, kmgr)
-	notifman := notifs.NewNotificationManager(db, repoman.GetRecord)
 
 	rf := indexer.NewRepoFetcher(db, repoman, 10)
 
-	ix, err := indexer.NewIndexer(db, notifman, evtman, didr, rf, false, true, true)
+	ix, err := indexer.NewIndexer(db, evtman, didr, rf, false, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +84,6 @@ func NewServer(db *gorm.DB, cs carstore.CarStore, serkey *did.PrivKey, handleSuf
 		signingKey:     serkey,
 		db:             db,
 		cs:             cs,
-		notifman:       notifman,
 		indexer:        ix,
 		plc:            didr,
 		events:         evtman,

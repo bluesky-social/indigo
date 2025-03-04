@@ -29,7 +29,6 @@ import (
 	"github.com/bluesky-social/indigo/indexer"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repo"
@@ -469,18 +468,6 @@ func (u *TestUser) GetFeed(t *testing.T) []*bsky.FeedDefs_FeedViewPost {
 	return resp.Feed
 }
 
-func (u *TestUser) GetNotifs(t *testing.T) []*bsky.NotificationListNotifications_Notification {
-	t.Helper()
-
-	ctx := context.TODO()
-	resp, err := bsky.NotificationListNotifications(ctx, u.client, "", 100, false, nil, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return resp.Notifications
-}
-
 func (u *TestUser) ChangeHandle(t *testing.T, nhandle string) {
 	t.Helper()
 
@@ -572,8 +559,6 @@ func SetupRelay(ctx context.Context, didr plc.PLCClient, archive bool) (*TestRel
 
 	repoman := repomgr.NewRepoManager(cs, kmgr)
 
-	notifman := notifs.NewNotificationManager(maindb, repoman.GetRecord)
-
 	opts := events.DefaultDiskPersistOptions()
 	opts.EventsPerFile = 10
 	diskpersist, err := events.NewDiskPersistence(filepath.Join(dir, "dp-primary"), filepath.Join(dir, "dp-archive"), maindb, opts)
@@ -581,7 +566,7 @@ func SetupRelay(ctx context.Context, didr plc.PLCClient, archive bool) (*TestRel
 	evtman := events.NewEventManager(diskpersist)
 	rf := indexer.NewRepoFetcher(maindb, repoman, 10)
 
-	ix, err := indexer.NewIndexer(maindb, notifman, evtman, didr, rf, true, true, true)
+	ix, err := indexer.NewIndexer(maindb, evtman, didr, rf, true, true, true)
 	if err != nil {
 		return nil, err
 	}

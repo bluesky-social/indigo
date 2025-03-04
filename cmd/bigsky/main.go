@@ -20,7 +20,6 @@ import (
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
-	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
@@ -449,11 +448,9 @@ func runBigsky(cctx *cli.Context) error {
 
 	evtman := events.NewEventManager(persister)
 
-	notifman := &notifs.NullNotifs{}
-
 	rf := indexer.NewRepoFetcher(db, repoman, cctx.Int("max-fetch-concurrency"))
 
-	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, rf, true, false, cctx.Bool("spidering"))
+	ix, err := indexer.NewIndexer(db, evtman, cachedidr, rf, true, false, cctx.Bool("spidering"))
 	if err != nil {
 		return err
 	}
