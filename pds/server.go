@@ -72,7 +72,7 @@ func NewServer(db *gorm.DB, cs carstore.CarStore, serkey *did.PrivKey, handleSuf
 
 	rf := indexer.NewRepoFetcher(db, repoman, 10)
 
-	ix, err := indexer.NewIndexer(db, evtman, didr, rf, false, true, true)
+	ix, err := indexer.NewIndexer(db, evtman, didr, rf, false)
 	if err != nil {
 		return nil, err
 	}
