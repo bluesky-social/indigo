@@ -233,6 +233,43 @@ func (n *Node) compareKey(key []byte, markDirty bool) (int, error) {
 	return 0, nil
 }
 
+// helper to mark nodes as "dirty" if they are needed to "prove" something about the key. used to generate invertable operation diffs.
+func proveMutation(n *Node, key []byte) error {
+	for i, e := range n.Entries {
+		if e.IsValue() {
+			if bytes.Compare(key, e.Key) < 0 {
+				return nil
+			}
+		}
+		if e.IsChild() {
+			// first, see if there is a next entry as a value which this key would be after; if so we can skip checking this child
+			if i+1 < len(n.Entries) {
+				next := n.Entries[i+1]
+				if next.IsValue() && bytes.Compare(key, next.Key) > 0 {
+					continue
+				}
+			}
+			if e.Child == nil {
+				return fmt.Errorf("can't prove mutation: %w", ErrPartialTree)
+			}
+			order, err := e.Child.compareKey(key, true)
+			if err != nil {
+				return err
+			}
+			if order > 0 {
+				// key comes after this entire child sub-tree
+				continue
+			}
+			if order < 0 {
+				return nil
+			}
+			// key falls inside this child sub-tree
+			return proveMutation(e.Child, key)
+		}
+	}
+	return nil
+}
+
 // helper function, mostly for testing or development, which redusively inserts key/CID pairs into a `map[string]cid.Cid
 func (n *Node) writeToMap(m map[string]cid.Cid) error {
 	if m == nil {
