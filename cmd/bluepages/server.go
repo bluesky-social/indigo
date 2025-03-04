@@ -74,7 +74,7 @@ func NewServer(config Config) (*Server, error) {
 		PLCLimiter:            rate.NewLimiter(rate.Limit(config.PLCRateLimit), 1),
 		TryAuthoritativeDNS:   true,
 		SkipDNSDomainSuffixes: []string{".bsky.social", ".staging.bsky.dev"},
-		// TODO: UserAgent: "domesday",
+		// TODO: UserAgent: "bluepages",
 	}
 
 	// TODO: config these timeouts
@@ -210,7 +210,7 @@ func (srv *Server) errorHandler(err error, c echo.Context) {
 		errorMessage = fmt.Sprintf("%s", he.Message)
 	}
 	if code >= 500 {
-		srv.logger.Warn("domesday-http-internal-error", "err", err)
+		srv.logger.Warn("bluepages-http-internal-error", "err", err)
 	}
 	if !c.Response().Committed {
 		c.JSON(code, GenericError{Error: "InternalError", Message: errorMessage})
