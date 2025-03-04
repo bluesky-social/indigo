@@ -185,16 +185,18 @@ func testRelayMultiPDS(t *testing.T, archive bool) {
 	// Now, the relay will discover a gap, and have to catch up somehow
 	socialSim(t, users2, 1, 0)
 
-	time.Sleep(time.Second)
-
 	// we expect the relay to learn about posts that it did not directly see from
 	// repos its already partially scraped, as long as its seen *something* after the missing post
 	// this is the 'catchup' process
+	_ = p2posts2
+	/* NOTE: BGS doesn't support indexing any more
+	time.Sleep(time.Second)
 	ctx := context.Background()
 	_, err := b1.bgs.Index.GetPost(ctx, p2posts2[4].Uri)
 	if err != nil {
 		t.Fatal(err)
 	}
+	*/
 }
 
 func TestRelayMultiGap(t *testing.T) {
@@ -229,13 +231,15 @@ func TestRelayMultiGap(t *testing.T) {
 	p2posts := socialSim(t, users2, 10, 0)
 
 	users[0].Reply(t, p2posts[0], p2posts[0], "what a wonderful life")
-	time.Sleep(time.Second * 2)
 
+	/* NOTE: BGS doesn't support indexing any more
+	time.Sleep(time.Second * 2)
 	ctx := context.Background()
 	_, err := b1.bgs.Index.GetPost(ctx, p2posts[3].Uri)
 	if err != nil {
 		t.Fatal(err)
 	}
+	*/
 
 	// now if we make posts on pds 2, the relay will not hear about those new posts
 
@@ -250,15 +254,17 @@ func TestRelayMultiGap(t *testing.T) {
 	// Now, the relay will discover a gap, and have to catch up somehow
 	socialSim(t, users2, 1, 0)
 
-	time.Sleep(time.Second * 2)
-
 	// we expect the relay to learn about posts that it did not directly see from
 	// repos its already partially scraped, as long as its seen *something* after the missing post
 	// this is the 'catchup' process
+	_ = p2posts2
+	/* NOTE: BGS doesn't support indexing any more
+	time.Sleep(time.Second * 2)
 	_, err = b1.bgs.Index.GetPost(ctx, p2posts2[4].Uri)
 	if err != nil {
 		t.Fatal(err)
 	}
+	*/
 }
 
 func TestHandleChange(t *testing.T) {
