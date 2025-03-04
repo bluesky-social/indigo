@@ -2,40 +2,35 @@ package client
 
 import (
 	"fmt"
+	"context"
+	"encoding/json"
 
-	atdata "github.com/bluesky-social/indigo/atproto/data"
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-func ExampleGetRequest() {
+func ExampleGet() {
 
-	// First load Lexicon schema JSON files from local disk.
-	cat := NewBaseCatalog()
-	if err := cat.LoadDirectory("testdata/catalog"); err != nil {
-		panic("failed to load lexicons")
+	ctx := context.Background()
+
+	c := APIClient{
+		Host: "https://public.api.bsky.app",
 	}
 
-	// Parse record JSON data using atproto/data helper
-	recordJSON := `{
-		"$type": "example.lexicon.record",
-		"integer": 123,
-        "formats": {
-            "did": "did:web:example.com",
-            "aturi": "at://handle.example.com/com.example.nsid/asdf123",
-            "datetime": "2023-10-30T22:25:23Z",
-            "language": "en",
-            "tid": "3kznmn7xqxl22"
-        }
-	}`
-
-	recordData, err := atdata.UnmarshalJSON([]byte(recordJSON))
+	endpoint := syntax.NSID("app.bsky.actor.getProfile")
+	params := map[string]string{
+		"actor": "atproto.com",
+	}
+	b, err := c.Get(ctx, endpoint, params)
 	if err != nil {
-		panic("failed to parse record JSON")
+		panic(err)
 	}
 
-	if err := ValidateRecord(&cat, recordData, "example.lexicon.record", 0); err != nil {
-		fmt.Printf("Schema validation failed: %v\n", err)
-	} else {
-		fmt.Println("Success!")
+	var profile appbsky.ActorDefs_ProfileViewDetailed
+	if err := json.Unmarshal(*b, &profile); err != nil {
+		panic(err)
 	}
-	// Output: Success!
+
+	fmt.Println(profile.Handle)
+	// Output: atproto.com
 }

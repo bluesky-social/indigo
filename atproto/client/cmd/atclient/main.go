@@ -32,7 +32,7 @@ func main() {
 func runGet(cctx *cli.Context) error {
 	ctx := context.Background()
 
-	c := client.BaseAPIClient{
+	c := client.APIClient{
 		Host: "https://public.api.bsky.app",
 	}
 
