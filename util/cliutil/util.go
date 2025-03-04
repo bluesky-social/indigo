@@ -55,54 +55,6 @@ func NewHttpClient() *http.Client {
 	}
 }
 
-type CliConfig struct {
-	filename string
-	PDS      string
-}
-
-func readGoskyConfig() (*CliConfig, error) {
-	// TODO: use os.UserConfigDir()/gosky, falling back to os.UserHomeDir()/.gosky for backwards compatibility.
-	d, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("cannot read Home directory")
-	}
-
-	f := filepath.Join(d, ".gosky")
-
-	b, err := os.ReadFile(f)
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-
-	var out CliConfig
-	if err := json.Unmarshal(b, &out); err != nil {
-		return nil, err
-	}
-
-	out.filename = f
-	return &out, nil
-}
-
-var Config *CliConfig
-
-func TryReadConfig() {
-	cfg, err := readGoskyConfig()
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		Config = cfg
-	}
-}
-
-func WriteConfig(cfg *CliConfig) error {
-	b, err := json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(cfg.filename, b, 0664)
-}
-
 func GetXrpcClient(cctx *cli.Context, authreq bool) (*xrpc.Client, error) {
 	h := "http://localhost:4989"
 	if pdsurl := cctx.String("pds-host"); pdsurl != "" {
