@@ -24,11 +24,9 @@ import (
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
-	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	gojwt "github.com/golang-jwt/jwt"
 	"github.com/gorilla/websocket"
-	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -111,32 +109,6 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.echo.Shutdown(ctx)
 }
 
-func (s *Server) handleFedEvent(ctx context.Context, host *Peering, env *events.XRPCStreamEvent) error {
-	fmt.Printf("[%s] got fed event from %q\n", s.serviceUrl, host.Host)
-	switch {
-	case env.RepoCommit != nil:
-		evt := env.RepoCommit
-		u, err := s.lookupUserByDid(ctx, evt.Repo)
-		if err != nil {
-			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				return fmt.Errorf("looking up event user: %w", err)
-			}
-
-			subj, err := s.createExternalUser(ctx, evt.Repo)
-			if err != nil {
-				return err
-			}
-
-			u = new(User)
-			u.ID = subj.Uid
-		}
-
-		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.Since, evt.Rev, evt.Blocks, evt.Ops)
-	default:
-		return fmt.Errorf("invalid fed event")
-	}
-}
-
 func (s *Server) createExternalUser(ctx context.Context, did string) (*models.ActorInfo, error) {
 	doc, err := s.plc.GetDocument(ctx, did)
 	if err != nil {
@@ -215,44 +187,6 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	}
 
 	return subj, nil
-}
-
-func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent) (*comatproto.SyncSubscribeRepos_Commit, error) {
-	did, err := s.indexer.DidForUser(ctx, evt.User)
-	if err != nil {
-		return nil, err
-	}
-
-	out := &comatproto.SyncSubscribeRepos_Commit{
-		Blocks: evt.RepoSlice,
-		Repo:   did,
-		Time:   time.Now().Format(bsutil.ISO8601),
-		//PrivUid: evt.User,
-	}
-
-	for _, op := range evt.Ops {
-		out.Ops = append(out.Ops, &comatproto.SyncSubscribeRepos_RepoOp{
-			Path:   op.Collection + "/" + op.Rkey,
-			Action: string(op.Kind),
-			Cid:    (*lexutil.LexLink)(op.RecCid),
-		})
-	}
-
-	return out, nil
-}
-
-func (s *Server) readRecordFunc(ctx context.Context, user models.Uid, c cid.Cid) (lexutil.CBOR, error) {
-	bs, err := s.cs.ReadOnlySession(user)
-	if err != nil {
-		return nil, err
-	}
-
-	blk, err := bs.Get(ctx, c)
-	if err != nil {
-		return nil, err
-	}
-
-	return lexutil.CborDecodeValue(blk.RawData())
 }
 
 func (s *Server) RunAPI(addr string) error {
