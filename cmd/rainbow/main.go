@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/pebblepersist"
 	"github.com/bluesky-social/indigo/splitter"
 
 	"github.com/carlmjohnson/versioninfo"
@@ -154,7 +154,7 @@ func Splitter(cctx *cli.Context) error {
 	var err error
 	if persistPath != "" {
 		log.Info("building splitter with storage at", "path", persistPath)
-		ppopts := events.PebblePersistOptions{
+		ppopts := pebblepersist.PebblePersistOptions{
 			DbPath:          persistPath,
 			PersistDuration: time.Duration(float64(time.Hour) * cctx.Float64("persist-hours")),
 			GCPeriod:        5 * time.Minute,
