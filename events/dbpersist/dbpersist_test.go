@@ -1,4 +1,4 @@
-package events
+package dbpersist
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	pds "github.com/bluesky-social/indigo/pds/data"
@@ -61,18 +62,18 @@ func BenchmarkDBPersist(b *testing.B) {
 	}
 
 	// Create a bunch of events
-	evtman := NewEventManager(dbp)
+	evtman := events.NewEventManager(dbp)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	inEvts := make([]*XRPCStreamEvent, b.N)
+	inEvts := make([]*events.XRPCStreamEvent, b.N)
 	for i := 0; i < b.N; i++ {
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
-		inEvts[i] = &XRPCStreamEvent{
+		inEvts[i] = &events.XRPCStreamEvent{
 			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
 				Repo:   "did:example:123",
 				Commit: headLink,
@@ -130,7 +131,7 @@ func BenchmarkDBPersist(b *testing.B) {
 
 	b.StopTimer()
 
-	dbp.Playback(ctx, 0, func(evt *XRPCStreamEvent) error {
+	dbp.Playback(ctx, 0, func(evt *events.XRPCStreamEvent) error {
 		outEvtCount++
 		return nil
 	})
@@ -183,18 +184,18 @@ func BenchmarkPlayback(b *testing.B) {
 	}
 
 	// Create a bunch of events
-	evtman := NewEventManager(dbp)
+	evtman := events.NewEventManager(dbp)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	inEvts := make([]*XRPCStreamEvent, n)
+	inEvts := make([]*events.XRPCStreamEvent, n)
 	for i := 0; i < n; i++ {
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
-		inEvts[i] = &XRPCStreamEvent{
+		inEvts[i] = &events.XRPCStreamEvent{
 			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
 				Repo:   "did:example:123",
 				Commit: headLink,
@@ -250,7 +251,7 @@ func BenchmarkPlayback(b *testing.B) {
 
 	b.ResetTimer()
 
-	dbp.Playback(ctx, 0, func(evt *XRPCStreamEvent) error {
+	dbp.Playback(ctx, 0, func(evt *events.XRPCStreamEvent) error {
 		outEvtCount++
 		return nil
 	})
