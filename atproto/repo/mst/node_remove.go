@@ -1,7 +1,6 @@
 package mst
 
 import (
-	"bytes"
 	"fmt"
 	"slices"
 
@@ -62,7 +61,7 @@ func (n *Node) remove(key []byte, height int) (*Node, *cid.Cid, error) {
 	}
 
 	// marks adjacent child nodes dirty to include as "proof"
-	proveDeletion(n, key)
+	proveMutation(n, key)
 
 	// check if top of node is now just a pointer
 	if top {
@@ -87,42 +86,6 @@ func (n *Node) remove(key []byte, height int) (*Node, *cid.Cid, error) {
 		}
 	}
 	return n, prev, nil
-}
-
-func proveDeletion(n *Node, key []byte) error {
-	for i, e := range n.Entries {
-		if e.IsValue() {
-			if bytes.Compare(key, e.Key) < 0 {
-				return nil
-			}
-		}
-		if e.IsChild() {
-			// first, see if there is a next entry as a value which this key would be after; if so we can skip checking this child
-			if i+1 < len(n.Entries) {
-				next := n.Entries[i+1]
-				if next.IsValue() && bytes.Compare(key, next.Key) > 0 {
-					continue
-				}
-			}
-			if e.Child == nil {
-				return fmt.Errorf("can't prove deletion: %w", ErrPartialTree)
-			}
-			order, err := e.Child.compareKey(key, true)
-			if err != nil {
-				return err
-			}
-			if order > 0 {
-				// key comes after this entire child sub-tree
-				continue
-			}
-			if order < 0 {
-				return nil
-			}
-			// key falls inside this child sub-tree
-			return proveDeletion(e.Child, key)
-		}
-	}
-	return nil
 }
 
 func mergeNodes(left *Node, right *Node) (*Node, error) {
