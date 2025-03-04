@@ -262,15 +262,7 @@ var debugStreamCmd = &cli.Command{
 
 				return nil
 			},
-			RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-				fmt.Printf("\rChecking seq: %d      ", evt.Seq)
-				if lastSeq > 0 && evt.Seq != lastSeq+1 {
-					fmt.Println("Gap in sequence numbers: ", lastSeq, evt.Seq)
-				}
-				lastSeq = evt.Seq
-				return nil
-			},
-			RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
+			RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
 				fmt.Printf("\rChecking seq: %d      ", evt.Seq)
 				if lastSeq > 0 && evt.Seq != lastSeq+1 {
 					fmt.Println("Gap in sequence numbers: ", lastSeq, evt.Seq)
