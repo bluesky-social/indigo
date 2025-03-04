@@ -18,7 +18,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var firehoseCursorKey = "domes/firehoseSeq"
+var firehoseCursorKey = "bluepages/firehoseSeq"
 
 func (srv *Server) RunFirehoseConsumer(ctx context.Context, host string, parallelism int) error {
 
@@ -38,7 +38,7 @@ func (srv *Server) RunFirehoseConsumer(ctx context.Context, host string, paralle
 	}
 	srv.logger.Info("subscribing to repo event stream", "upstream", host, "cursor", cur)
 	con, _, err := dialer.Dial(u.String(), http.Header{
-		"User-Agent": []string{fmt.Sprintf("domesday/%s", versioninfo.Short())},
+		"User-Agent": []string{fmt.Sprintf("bluepages/%s", versioninfo.Short())},
 	})
 	if err != nil {
 		return fmt.Errorf("subscribing to firehose failed (dialing): %w", err)
@@ -83,7 +83,7 @@ func (srv *Server) RunFirehoseConsumer(ctx context.Context, host string, paralle
 		host,
 		rsc.EventHandler,
 	)
-	srv.logger.Info("domesday firehose scheduler configured", "scheduler", "parallel", "initial", parallelism)
+	srv.logger.Info("bluepages firehose scheduler configured", "scheduler", "parallel", "initial", parallelism)
 
 	return events.HandleRepoStream(ctx, con, scheduler, srv.logger)
 }

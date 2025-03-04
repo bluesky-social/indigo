@@ -236,24 +236,22 @@ type GenericStatus struct {
 }
 
 func (s *Server) HandleHealthCheck(c echo.Context) error {
-	return c.JSON(200, GenericStatus{Status: "ok", Daemon: "domesday"})
+	return c.JSON(200, GenericStatus{Status: "ok", Daemon: "bluepages"})
 }
 
 func (srv *Server) WebHome(c echo.Context) error {
 	return c.String(200, `
-########   #######  ##     ## ########  ######  ########     ###    ##    ##
-##     ## ##     ## ###   ### ##       ##    ## ##     ##   ## ##    ##  ##
-##     ## ##     ## #### #### ##       ##       ##     ##  ##   ##    ####
-##     ## ##     ## ## ### ## ######    ######  ##     ## ##     ##    ##
-##     ## ##     ## ##     ## ##             ## ##     ## #########    ##
-##     ## ##     ## ##     ## ##       ##    ## ##     ## ##     ##    ##
-########   #######  ##     ## ########  ######  ########  ##     ##    ##
+eeeee  e     e   e eeee eeeee eeeee eeeee eeee eeeee 
+8   8  8     8   8 8    8   8 8   8 8   8 8    8   " 
+8eee8e 8e    8e  8 8eee 8eee8 8eee8 8e    8eee 8eeee 
+88   8 88    88  8 88   88    88  8 88 "8 88      88 
+88eee8 88eee 88ee8 88ee 88    88  8 88ee8 88ee 8ee88 
 
 This is an AT Protocol Identity Service
 
 Most API routes are under /xrpc/
 
-      Code: https://github.com/bluesky-social/indigo/tree/main/cmd/domesday
+      Code: https://github.com/bluesky-social/indigo/tree/main/cmd/bluepages
   Protocol: https://atproto.com
 	`)
 

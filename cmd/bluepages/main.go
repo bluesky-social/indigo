@@ -29,7 +29,7 @@ func main() {
 func run(args []string) error {
 
 	app := cli.App{
-		Name:    "domesday",
+		Name:    "bluepages",
 		Usage:   "atproto identity directory",
 		Version: versioninfo.Short(),
 		Flags: []cli.Flag{
@@ -49,24 +49,24 @@ func run(args []string) error {
 				Name:    "plc-rate-limit",
 				Usage:   "max number of requests per second to PLC registry",
 				Value:   300,
-				EnvVars: []string{"DOMESDAY_PLC_RATE_LIMIT"},
+				EnvVars: []string{"BLUEPAGES_PLC_RATE_LIMIT"},
 			},
 			&cli.StringFlag{
 				Name:    "redis-url",
 				Usage:   "redis connection URL: redis://<user>:<pass>@<hostname>:6379/<db>",
 				Value:   "redis://localhost:6379/0",
-				EnvVars: []string{"DOMESDAY_REDIS_URL"},
+				EnvVars: []string{"BLUEPAGES_REDIS_URL"},
 			},
 			&cli.StringFlag{
 				Name:    "log-level",
 				Usage:   "log verbosity level (eg: warn, info, debug)",
-				EnvVars: []string{"DOMESDAY_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"},
+				EnvVars: []string{"BLUEPAGES_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"},
 			},
 		},
 		Commands: []*cli.Command{
 			&cli.Command{
 				Name:   "serve",
-				Usage:  "run the domesday API daemon",
+				Usage:  "run the bluepages API daemon",
 				Action: runServeCmd,
 				Flags: []cli.Flag{
 					&cli.StringFlag{
@@ -74,29 +74,29 @@ func run(args []string) error {
 						Usage:    "Specify the local IP/port to bind to",
 						Required: false,
 						Value:    ":6600",
-						EnvVars:  []string{"DOMESDAY_BIND"},
+						EnvVars:  []string{"BLUEPAGES_BIND"},
 					},
 					&cli.StringFlag{
 						Name:    "metrics-listen",
 						Usage:   "IP or address, and port, to listen on for metrics APIs",
 						Value:   ":3989",
-						EnvVars: []string{"DOMESDAY_METRICS_LISTEN"},
+						EnvVars: []string{"BLUEPAGES_METRICS_LISTEN"},
 					},
 					&cli.BoolFlag{
 						Name:    "disable-firehose-consumer",
 						Usage:   "don't consume #identity events from firehose",
-						EnvVars: []string{"DOMESDAY_DISABLE_FIREHOSE_CONSUMER"},
+						EnvVars: []string{"BLUEPAGES_DISABLE_FIREHOSE_CONSUMER"},
 					},
 					&cli.BoolFlag{
 						Name:    "disable-refresh",
 						Usage:   "disable the refreshIdentity API endpoint",
-						EnvVars: []string{"DOMESDAY_DISABLE_REFRESH"},
+						EnvVars: []string{"BLUEPAGES_DISABLE_REFRESH"},
 					},
 					&cli.IntFlag{
 						Name:    "firehose-parallelism",
 						Usage:   "number of concurrent firehose workers",
 						Value:   4,
-						EnvVars: []string{"DOMESDAY_FIREHOSE_PARALLELISM"},
+						EnvVars: []string{"BLUEPAGES_FIREHOSE_PARALLELISM"},
 					},
 				},
 			},
@@ -108,9 +108,9 @@ func run(args []string) error {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "host",
-						Usage:   "domesday server to send request to",
+						Usage:   "bluepages server to send request to",
 						Value:   "http://localhost:6600",
-						EnvVars: []string{"DOMESDAY_HOST"},
+						EnvVars: []string{"BLUEPAGES_HOST"},
 					},
 				},
 			},
@@ -122,9 +122,9 @@ func run(args []string) error {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "host",
-						Usage:   "domesday server to send request to",
+						Usage:   "bluepages server to send request to",
 						Value:   "http://localhost:6600",
-						EnvVars: []string{"DOMESDAY_HOST"},
+						EnvVars: []string{"BLUEPAGES_HOST"},
 					},
 				},
 			},
@@ -136,9 +136,9 @@ func run(args []string) error {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "host",
-						Usage:   "domesday server to send request to",
+						Usage:   "bluepages server to send request to",
 						Value:   "http://localhost:6600",
-						EnvVars: []string{"DOMESDAY_HOST"},
+						EnvVars: []string{"BLUEPAGES_HOST"},
 					},
 				},
 			},
@@ -150,9 +150,9 @@ func run(args []string) error {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "host",
-						Usage:   "domesday server to send request to",
+						Usage:   "bluepages server to send request to",
 						Value:   "http://localhost:6600",
-						EnvVars: []string{"DOMESDAY_HOST"},
+						EnvVars: []string{"BLUEPAGES_HOST"},
 					},
 				},
 			},

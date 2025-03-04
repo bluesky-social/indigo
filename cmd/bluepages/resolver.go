@@ -122,7 +122,7 @@ func (d *RedisResolver) refreshHandle(ctx context.Context, h syntax.Handle) hand
 	}
 	err = d.handleCache.Set(&cache.Item{
 		Ctx:   ctx,
-		Key:   "domes/handle/" + h.String(),
+		Key:   "bluepages/handle/" + h.String(),
 		Value: he,
 		TTL:   d.ErrTTL,
 	})
@@ -157,7 +157,7 @@ func (d *RedisResolver) refreshDID(ctx context.Context, did syntax.DID) didEntry
 
 	err = d.didCache.Set(&cache.Item{
 		Ctx:   ctx,
-		Key:   "domes/did/" + did.String(),
+		Key:   "bluepages/did/" + did.String(),
 		Value: entry,
 		TTL:   d.HitTTL,
 	})
@@ -173,7 +173,7 @@ func (d *RedisResolver) ResolveHandle(ctx context.Context, h syntax.Handle) (syn
 	}
 	h = h.Normalize()
 	var entry handleEntry
-	err := d.handleCache.Get(ctx, "domes/handle/"+h.String(), &entry)
+	err := d.handleCache.Get(ctx, "bluepages/handle/"+h.String(), &entry)
 	if err != nil && err != cache.ErrCacheMiss {
 		return "", fmt.Errorf("identity cache read failed: %w", err)
 	}
@@ -198,7 +198,7 @@ func (d *RedisResolver) ResolveHandle(ctx context.Context, h syntax.Handle) (syn
 		select {
 		case <-val.(chan struct{}):
 			// The result should now be in the cache
-			err := d.handleCache.Get(ctx, "domes/handle/"+h.String(), entry)
+			err := d.handleCache.Get(ctx, "bluepages/handle/"+h.String(), entry)
 			if err != nil && err != cache.ErrCacheMiss {
 				return "", fmt.Errorf("identity cache read failed: %w", err)
 			}
@@ -236,7 +236,7 @@ func (d *RedisResolver) ResolveHandle(ctx context.Context, h syntax.Handle) (syn
 
 func (d *RedisResolver) ResolveDIDRaw(ctx context.Context, did syntax.DID) (json.RawMessage, error) {
 	var entry didEntry
-	err := d.didCache.Get(ctx, "domes/did/"+did.String(), &entry)
+	err := d.didCache.Get(ctx, "bluepages/did/"+did.String(), &entry)
 	if err != nil && err != cache.ErrCacheMiss {
 		return nil, fmt.Errorf("DID cache read failed: %w", err)
 	}
@@ -255,7 +255,7 @@ func (d *RedisResolver) ResolveDIDRaw(ctx context.Context, did syntax.DID) (json
 		select {
 		case <-val.(chan struct{}):
 			// The result should now be in the cache
-			err = d.didCache.Get(ctx, "domes/did/"+did.String(), &entry)
+			err = d.didCache.Get(ctx, "bluepages/did/"+did.String(), &entry)
 			if err != nil && err != cache.ErrCacheMiss {
 				return nil, fmt.Errorf("DID cache read failed: %w", err)
 			}
@@ -303,7 +303,7 @@ func (d *RedisResolver) ResolveDID(ctx context.Context, did syntax.DID) (*identi
 
 func (d *RedisResolver) PurgeHandle(ctx context.Context, handle syntax.Handle) error {
 	handle = handle.Normalize()
-	err := d.handleCache.Delete(ctx, "domes/handle/"+handle.String())
+	err := d.handleCache.Delete(ctx, "bluepages/handle/"+handle.String())
 	if err == cache.ErrCacheMiss {
 		return nil
 	}
@@ -311,7 +311,7 @@ func (d *RedisResolver) PurgeHandle(ctx context.Context, handle syntax.Handle) e
 }
 
 func (d *RedisResolver) PurgeDID(ctx context.Context, did syntax.DID) error {
-	err := d.didCache.Delete(ctx, "domes/did/"+did.String())
+	err := d.didCache.Delete(ctx, "bluepages/did/"+did.String())
 	if err == cache.ErrCacheMiss {
 		return nil
 	}

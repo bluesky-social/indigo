@@ -1,10 +1,8 @@
 
-domesday: an atproto identity directory
+bluepages: an atproto identity directory
 ========================================
 
 This is a simple API server which caches atproto handle and DID resolution responses. It is useful when you have a bunch of services that do identity resolution, and you don't want duplicated caches.
-
-The name is a reference to the [Domesday Book](https://en.wikipedia.org/wiki/Domesday_Book), an early manuscript recoding a English census in 1086. It is a big fancy book with a lot of names in it.
 
 Available commands, flags, and config are documented in the usage (`--help`).
 
