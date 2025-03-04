@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -19,7 +18,6 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 const MaxEventSliceLength = 1000000
@@ -33,9 +31,6 @@ type Indexer struct {
 
 	Crawler *CrawlDispatcher
 
-	doAggregations bool
-	doSpider       bool
-
 	SendRemoteFollow       func(context.Context, string, uint) error
 	CreateExternalUser     func(context.Context, string) (*models.ActorInfo, error)
 	ApplyPDSClientSettings func(*xrpc.Client)
@@ -43,7 +38,7 @@ type Indexer struct {
 	log *slog.Logger
 }
 
-func NewIndexer(db *gorm.DB, evtman *events.EventManager, didr did.Resolver, fetcher *RepoFetcher, crawl, aggregate, spider bool) (*Indexer, error) {
+func NewIndexer(db *gorm.DB, evtman *events.EventManager, didr did.Resolver, fetcher *RepoFetcher, crawl bool) (*Indexer, error) {
 	db.AutoMigrate(&models.FeedPost{})
 	db.AutoMigrate(&models.ActorInfo{})
 	db.AutoMigrate(&models.FollowRecord{})
@@ -51,11 +46,9 @@ func NewIndexer(db *gorm.DB, evtman *events.EventManager, didr did.Resolver, fet
 	db.AutoMigrate(&models.RepostRecord{})
 
 	ix := &Indexer{
-		db:             db,
-		events:         evtman,
-		didr:           didr,
-		doAggregations: aggregate,
-		doSpider:       spider,
+		db:     db,
+		events: evtman,
+		didr:   didr,
 		SendRemoteFollow: func(context.Context, string, uint) error {
 			return nil
 		},
@@ -217,33 +210,6 @@ func (ix *Indexer) LookupUserByHandle(ctx context.Context, handle string) (*mode
 	}
 
 	return &ai, nil
-}
-
-func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
-	ai := op.ActorInfo
-
-	if err := ix.db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "uid"}},
-		UpdateAll: true,
-	}).Create(&models.ActorInfo{
-		Uid:         evt.User,
-		Handle:      sql.NullString{String: ai.Handle, Valid: true},
-		Did:         ai.Did,
-		DisplayName: ai.DisplayName,
-		Type:        ai.Type,
-		PDS:         evt.PDS,
-	}).Error; err != nil {
-		return fmt.Errorf("initializing new actor info: %w", err)
-	}
-
-	if err := ix.db.Create(&models.FollowRecord{
-		Follower: evt.User,
-		Target:   evt.User,
-	}).Error; err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func isNotFound(err error) bool {
