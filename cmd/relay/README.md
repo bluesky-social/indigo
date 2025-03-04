@@ -8,22 +8,16 @@ This is the implementation of an atproto Relay which is running in the productio
 
 In atproto, a Relay subscribes to multiple PDS hosts and outputs a combined "firehose" event stream. Downstream services can subscribe to this single firehose a get all relevant events for the entire network, or a specific sub-graph of the network. The Relay maintains a mirror of repo data from all accounts on the upstream PDS instances, and verifies repo data structure integrity and identity signatures. It is agnostic to applications, and does not validate data against atproto Lexicon schemas.
 
-This Relay implementation is designed to subscribe to the entire global network. The current state of the codebase is informally expected to scale to around 20 million accounts in the network, and thousands of repo events per second (peak).
+This Relay implementation is designed to subscribe to the entire global network. The current state of the codebase is informally expected to scale to around 50 million accounts in the network, and thousands of repo events per second (peak).
 
 Features and design decisions:
 
 - runs on a single server
-- repo data: stored on-disk in individual CAR "slice" files, with metadata in SQL. filesystem must accommodate tens of millions of small files
-- firehose backfill data: stored on-disk by default, with metadata in SQL
 - crawling and account state: stored in SQL database
 - SQL driver: gorm, with PostgreSQL in production and sqlite for testing
-- disk I/O intensive: fast NVMe disks are recommended, and RAM is helpful for caching
 - highly concurrent: not particularly CPU intensive
 - single golang binary for easy deployment
 - observability: logging, prometheus metrics, OTEL traces
-- "spidering" feature to auto-discover new accounts (DIDs)
-- ability to export/import lists of DIDs to "backfill" Relay instances
-- periodic repo compaction
 - admin web interface: configure limits, add upstream PDS instances, etc
 
 This software is not as packaged, documented, and supported for self-hosting as our PDS distribution or Ozone service. But it is relatively simple and inexpensive to get running.
@@ -71,8 +65,8 @@ Request crawl of an individual PDS instance like:
 
 One way to deploy is running a docker image. You can pull and/or run a specific version of bigsky, referenced by git commit, from the Bluesky Github container registry. For example:
 
-    docker pull ghcr.io/bluesky-social/indigo:bigsky-fd66f93ce1412a3678a1dd3e6d53320b725978a6
-    docker run ghcr.io/bluesky-social/indigo:bigsky-fd66f93ce1412a3678a1dd3e6d53320b725978a6
+    docker pull ghcr.io/bluesky-social/indigo:relay-fd66f93ce1412a3678a1dd3e6d53320b725978a6
+    docker run ghcr.io/bluesky-social/indigo:relay-fd66f93ce1412a3678a1dd3e6d53320b725978a6
 
 There is a Dockerfile in this directory, which can be used to build customized/patched versions of the Relay as a container, republish them, run locally, deploy to servers, deploy to an orchestrated cluster, etc. See docs and guides for docker and cluster management systems for details.
 
@@ -99,31 +93,26 @@ This service currently uses `gorm` to automatically run database migrations as t
 
 *NOTE: this is not a complete guide to operating a Relay. There are decisions to be made and communicated about policies, bandwidth use, PDS crawling and rate-limits, financial sustainability, etc, which are not covered here. This is just a quick overview of how to technically get a relay up and running.*
 
-In a real-world system, you will probably want to use PostgreSQL for both the relay database and the carstore database. CAR shards will still be stored on-disk, resulting in many millions of files. Chose your storage hardware and filesystem carefully: we recommend XFS on local NVMe, not network-backed blockstorage (eg, not EBS volumes on AWS).
+In a real-world system, you will probably want to use PostgreSQL.
 
 Some notable configuration env vars to set:
 
 - `ENVIRONMENT`: eg, `production`
 - `DATABASE_URL`: see section below
-- `CARSTORE_DATABASE_URL`: see section below
-- `DATA_DIR`: CAR shards will be stored in a subdirectory
+- `DATA_DIR`: misc data will go in a subdirectory
 - `GOLOG_LOG_LEVEL`: log verbosity
 - `RESOLVE_ADDRESS`: DNS server to use
 - `FORCE_DNS_UDP`: recommend "true"
-- `BGS_COMPACT_INTERVAL`: to control CAR compaction scheduling. for example, "8h" (every 8 hours). Set to "0" to disable automatic compaction.
-- `MAX_CARSTORE_CONNECTIONS` and `MAX_METADB_CONNECTIONS`: number of concurrent SQL database connections
-- `MAX_FETCH_CONCURRENCY`: how many outbound CAR backfill requests to make in parallel
 
 There is a health check endpoint at `/xrpc/_health`. Prometheus metrics are exposed by default on port 2471, path `/metrics`. The service logs fairly verbosely to stderr; use `GOLOG_LOG_LEVEL` to control log volume.
 
 As a rough guideline for the compute resources needed to run a full-network Relay, in June 2024 an example Relay for over 5 million repositories used:
 
-- around 30 million inodes (files)
 - roughly 1 TByte of disk for PostgreSQL
-- roughly 1 TByte of disk for CAR shard storage
+- roughly 1 TByte of disk for event playback buffer
 - roughly 5k disk I/O operations per second (all combined)
 - roughly 100% of one CPU core (quite low CPU utilization)
-- roughly 5GB of RAM for bigsky, and as much RAM as available for PostgreSQL and page cache
+- roughly 5GB of RAM for `relay`, and as much RAM as available for PostgreSQL and page cache
 - on the order of 1 megabit inbound bandwidth (crawling PDS instances) and 1 megabit outbound per connected client. 1 mbit continuous is approximately 350 GByte/month
 
 Be sure to double-check bandwidth usage and pricing if running a public relay! Bandwidth prices can vary widely between providers, and popular cloud services (AWS, Google Cloud, Azure) are very expensive compared to alternatives like OVH or Hetzner.

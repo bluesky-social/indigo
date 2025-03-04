@@ -66,15 +66,13 @@ func (dbc *DbCID) GormDataType() string {
 type PDS struct {
 	gorm.Model
 
-	Host string `gorm:"unique"`
-	//Did        string
+	Host       string `gorm:"unique"`
 	SSL        bool
 	Cursor     int64
 	Registered bool
 	Blocked    bool
 
 	RateLimit float64
-	//CrawlRateLimit float64
 
 	RepoCount int64
 	RepoLimit int64

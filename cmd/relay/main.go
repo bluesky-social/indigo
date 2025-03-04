@@ -108,20 +108,6 @@ func run(args []string) error {
 			Value:   40,
 		},
 		&cli.StringFlag{
-			Name:    "resolve-address",
-			EnvVars: []string{"RESOLVE_ADDRESS"},
-			Value:   "1.1.1.1:53",
-		},
-		&cli.BoolFlag{
-			Name:    "force-dns-udp",
-			EnvVars: []string{"FORCE_DNS_UDP"},
-		},
-		&cli.IntFlag{
-			Name:    "max-fetch-concurrency",
-			Value:   100,
-			EnvVars: []string{"MAX_FETCH_CONCURRENCY"},
-		},
-		&cli.StringFlag{
 			Name:    "env",
 			Value:   "dev",
 			EnvVars: []string{"ENVIRONMENT"},
@@ -181,7 +167,7 @@ func run(args []string) error {
 		},
 	}
 
-	app.Action = runBigsky
+	app.Action = runRelay
 	return app.Run(os.Args)
 }
 
@@ -252,7 +238,7 @@ func setupOTEL(cctx *cli.Context) error {
 	return nil
 }
 
-func runBigsky(cctx *cli.Context) error {
+func runRelay(cctx *cli.Context) error {
 	// Trap SIGINT to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
