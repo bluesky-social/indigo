@@ -1,9 +1,9 @@
 package client
 
 import (
-	"fmt"
 	"context"
 	"encoding/json"
+	"fmt"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
