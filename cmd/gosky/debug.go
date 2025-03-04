@@ -262,6 +262,14 @@ var debugStreamCmd = &cli.Command{
 
 				return nil
 			},
+			RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
+				fmt.Printf("\rChecking seq: %d      ", evt.Seq)
+				if lastSeq > 0 && evt.Seq != lastSeq+1 {
+					fmt.Println("Gap in sequence numbers: ", lastSeq, evt.Seq)
+				}
+				lastSeq = evt.Seq
+				return nil
+			},
 			RepoInfo: func(evt *comatproto.SyncSubscribeRepos_Info) error {
 				return nil
 			},
