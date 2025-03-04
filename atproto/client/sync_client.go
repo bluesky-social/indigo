@@ -12,7 +12,7 @@ import (
 // API for clients which pull data from the public atproto network.
 //
 // Implementations of this interface might resolve PDS instances for DIDs, and fetch data from there. Or they might talk to an archival relay or other network mirroring service.
-type NetClient interface {
+type SyncClient interface {
 	// Fetches record JSON, without verification or validation. A version (CID) can optionally be specified; use empty string to fetch the latest.
 	// Returns the record as JSON, and the CID indicated by the server. Does not verify that the data (as CBOR) matches the CID, and does not cryptographically verify a "proof chain" to the record.
 	GetRecordJSON(ctx context.Context, aturi syntax.ATURI, version syntax.CID) (*json.RawMessage, *syntax.CID, error)
