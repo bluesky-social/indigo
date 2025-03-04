@@ -422,10 +422,10 @@ func (u *TestUser) Like(t *testing.T, post *atproto.RepoStrongRef) {
 
 	ctx := context.TODO()
 	_, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.feed.vote",
+		Collection: "app.bsky.feed.like",
 		Repo:       u.did,
 		Record: &lexutil.LexiconTypeDecoder{Val: &bsky.FeedLike{
-			LexiconTypeID: "app.bsky.feed.vote",
+			LexiconTypeID: "app.bsky.feed.like",
 			CreatedAt:     time.Now().Format(time.RFC3339),
 			Subject:       post,
 		}},
@@ -942,7 +942,7 @@ func GenerateFakeRepo(r *repo.Repo, size int) (cid.Cid, error) {
 				return cid.Undef, err
 			}
 		case "like":
-			_, _, err := r.CreateRecord(ctx, "app.bsky.feed.vote", &bsky.FeedLike{
+			_, _, err := r.CreateRecord(ctx, "app.bsky.feed.like", &bsky.FeedLike{
 				CreatedAt: time.Now().Format(bsutil.ISO8601),
 				Subject: &atproto.RepoStrongRef{
 					Uri: RandFakeAtUri("app.bsky.feed.post", ""),
