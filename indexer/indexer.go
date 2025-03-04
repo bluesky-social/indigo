@@ -14,7 +14,6 @@ import (
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -31,9 +30,8 @@ const MaxOpsSliceLength = 200
 type Indexer struct {
 	db *gorm.DB
 
-	notifman notifs.NotificationManager
-	events   *events.EventManager
-	didr     did.Resolver
+	events *events.EventManager
+	didr   did.Resolver
 
 	Crawler *CrawlDispatcher
 
@@ -47,7 +45,7 @@ type Indexer struct {
 	log *slog.Logger
 }
 
-func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events.EventManager, didr did.Resolver, fetcher *RepoFetcher, crawl, aggregate, spider bool) (*Indexer, error) {
+func NewIndexer(db *gorm.DB, evtman *events.EventManager, didr did.Resolver, fetcher *RepoFetcher, crawl, aggregate, spider bool) (*Indexer, error) {
 	db.AutoMigrate(&models.FeedPost{})
 	db.AutoMigrate(&models.ActorInfo{})
 	db.AutoMigrate(&models.FollowRecord{})
@@ -56,7 +54,6 @@ func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events
 
 	ix := &Indexer{
 		db:             db,
-		notifman:       notifman,
 		events:         evtman,
 		didr:           didr,
 		doAggregations: aggregate,
@@ -424,14 +421,6 @@ func (ix *Indexer) handleRecordDelete(ctx context.Context, evt *repomgr.RepoEven
 		if err := ix.db.Where("reposter = ? AND rkey = ?", evt.User, op.Rkey).Delete(&models.RepostRecord{}).Error; err != nil {
 			return err
 		}
-
-		ix.log.Warn("TODO: remove notifications on delete")
-		/*
-		   if err := ix.notifman.RemoveRepost(ctx, fp.Author, rr.ID, evt.User); err != nil {
-		           return nil, err
-		   }
-		*/
-
 	case "app.bsky.feed.vote":
 		return ix.handleRecordDeleteFeedLike(ctx, evt, op)
 	case "app.bsky.graph.follow":
@@ -518,10 +507,6 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			return nil, err
 		}
 
-		if err := ix.notifman.AddRepost(ctx, fp.Author, rr.ID, evt.User); err != nil {
-			return nil, err
-		}
-
 	case *bsky.FeedLike:
 		return nil, ix.handleRecordCreateFeedLike(ctx, rec, evt, op)
 	case *bsky.GraphFollow:
@@ -599,10 +584,6 @@ func (ix *Indexer) handleRecordCreateGraphFollow(ctx context.Context, rec *bsky.
 		Cid:      op.RecCid.String(),
 	}
 	if err := ix.db.Create(&fr).Error; err != nil {
-		return err
-	}
-
-	if err := ix.notifman.AddFollow(ctx, fr.Follower, fr.Target, fr.ID); err != nil {
 		return err
 	}
 
@@ -812,19 +793,9 @@ func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *util.Parse
 
 func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPost, fp *models.FeedPost, mentions []*models.ActorInfo) error {
 	if post.Reply != nil {
-		replyto, err := ix.GetPost(ctx, post.Reply.Parent.Uri)
+		_, err := ix.GetPost(ctx, post.Reply.Parent.Uri)
 		if err != nil {
 			ix.log.Error("probably shouldn't error when processing a reply to a not-found post")
-			return err
-		}
-
-		if err := ix.notifman.AddReplyTo(ctx, fp.Author, fp.ID, replyto); err != nil {
-			return err
-		}
-	}
-
-	for _, mentioned := range mentions {
-		if err := ix.notifman.AddMention(ctx, fp.Author, fp.ID, mentioned.Uid); err != nil {
 			return err
 		}
 	}
@@ -833,5 +804,5 @@ func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPo
 }
 
 func (ix *Indexer) addNewVoteNotification(ctx context.Context, postauthor models.Uid, vr *models.VoteRecord) error {
-	return ix.notifman.AddUpVote(ctx, vr.Voter, vr.Post, vr.ID, postauthor)
+	return nil
 }
