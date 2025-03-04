@@ -18,7 +18,6 @@ RUN GIT_VERSION=$(git describe --tags --long --always) && \
 FROM alpine:3.20
 
 RUN apk add --no-cache --update dumb-init ca-certificates runit
-ENTRYPOINT ["dumb-init", "--"]
 
 WORKDIR /
 RUN mkdir -p data/bluepages
@@ -28,9 +27,10 @@ COPY --from=build-env /bluepages /
 ENV GODEBUG=netdns=go
 ENV TZ=Etc/UTC
 
-EXPOSE 2210
+EXPOSE 6600
 
-CMD ["/bluepages", "run"]
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["/bluepages", "serve"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
 LABEL org.opencontainers.image.description="atproto identity directory (bluepages)"
