@@ -6,23 +6,23 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/crypto"
-	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
 // version of the label data fromat implemented by this package
 const ATPROTO_LABEL_VERSION int64 = 1
 
 type Label struct {
-	CID       *string `json:"cid,omitempty" cborgen:"cid,omitempty"`
-	CreatedAt string  `json:"cts" cborgen:"cts"`
-	ExpiresAt *string `json:"exp,omitempty" cborgen:"exp,omitempty"`
-	Negated   *bool   `json:"neg,omitempty" cborgen:"neg,omitempty"`
-	SourceDID string  `json:"src" cborgen:"src"`
-	URI       string  `json:"uri" cborgen:"uri"`
-	Val       string  `json:"val" cborgen:"val"`
-	Version   int64   `json:"ver" cborgen:"ver"`
-	Sig       data.Bytes  `json:"sig,omitempty" cborgen:"sig,omitempty"`
+	CID       *string    `json:"cid,omitempty" cborgen:"cid,omitempty"`
+	CreatedAt string     `json:"cts" cborgen:"cts"`
+	ExpiresAt *string    `json:"exp,omitempty" cborgen:"exp,omitempty"`
+	Negated   *bool      `json:"neg,omitempty" cborgen:"neg,omitempty"`
+	SourceDID string     `json:"src" cborgen:"src"`
+	URI       string     `json:"uri" cborgen:"uri"`
+	Val       string     `json:"val" cborgen:"val"`
+	Version   int64      `json:"ver" cborgen:"ver"`
+	Sig       data.Bytes `json:"sig,omitempty" cborgen:"sig,omitempty"`
 }
 
 // does basic checks on syntax and structure
