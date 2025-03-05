@@ -17,7 +17,7 @@ RUN GIT_VERSION=$(git describe --tags --long --always) && \
 ### Run stage
 FROM alpine:3.20
 
-RUN apk add --no-cache --update dumb-init ca-certificates
+RUN apk add --no-cache --update dumb-init ca-certificates runit
 ENTRYPOINT ["dumb-init", "--"]
 
 WORKDIR /
