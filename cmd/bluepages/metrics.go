@@ -5,54 +5,24 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-var handleCacheHits = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "bluepages_resolve_handle_cache_hits",
-	Help: "Number of cache hits for ATProto handle resolutions",
-})
+var handleResolution = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "atproto_identity_resolve_handle",
+	Help: "ATProto handle resolutions",
+}, []string{"directory", "status"})
 
-var handleCacheMisses = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "bluepages_resolve_handle_cache_misses",
-	Help: "Number of cache misses for ATProto handle resolutions",
-})
-
-var handleRequestsCoalesced = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "bluepages_resolve_handle_requests_coalesced",
-	Help: "Number of handle requests coalesced",
-})
-
-var handleResolutionErrors = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "bluepages_resolve_handle_resolution_errors",
-	Help: "Number of non-cached handle resolution errors",
-})
-
-var handleResolveDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-	Name:    "bluepages_resolve_handle_duration",
-	Help:    "Time to resolve a handle from network (not cached)",
+var handleResolutionDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "atproto_identity_resolve_handle_duration",
+	Help:    "Time to resolve a handle",
 	Buckets: prometheus.ExponentialBucketsRange(0.001, 2, 15),
-}, []string{"status"})
+}, []string{"directory", "status"})
 
-var didCacheHits = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "bluepages_resolve_did_cache_hits",
-	Help: "Number of cache hits for ATProto DID resolutions",
-})
+var didResolution = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "atproto_identity_resolve_did",
+	Help: "ATProto DID resolutions",
+}, []string{"directory", "status"})
 
-var didCacheMisses = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "bluepages_resolve_did_cache_misses",
-	Help: "Number of cache misses for ATProto DID resolutions",
-})
-
-var didRequestsCoalesced = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "bluepages_resolve_did_requests_coalesced",
-	Help: "Number of DID requests coalesced",
-})
-
-var didResolutionErrors = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "bluepages_resolve_did_resolution_errors",
-	Help: "Number of non-cached DID resolution errors",
-})
-
-var didResolveDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-	Name:    "bluepages_resolve_did_duration",
-	Help:    "Time to resolve a DID from network (not cached)",
+var didResolutionDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "atproto_identity_resolve_did_duration",
+	Help:    "Time to resolve a DID",
 	Buckets: prometheus.ExponentialBucketsRange(0.001, 2, 15),
-}, []string{"status"})
+}, []string{"directory", "status"})

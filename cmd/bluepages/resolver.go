@@ -106,10 +106,11 @@ func (d *RedisResolver) refreshHandle(ctx context.Context, h syntax.Handle) hand
 
 	if err != nil {
 		d.Logger.Info("handle resolution failed", "handle", h, "duration", duration, "err", err)
-		handleResolutionErrors.Inc()
-		handleResolveDuration.WithLabelValues("fail").Observe(time.Since(start).Seconds())
+		handleResolution.WithLabelValues("bluepages", "error").Inc()
+		handleResolutionDuration.WithLabelValues("bluepages", "error").Observe(time.Since(start).Seconds())
 	} else {
-		handleResolveDuration.WithLabelValues("success").Observe(time.Since(start).Seconds())
+		handleResolution.WithLabelValues("bluepages", "success").Inc()
+		handleResolutionDuration.WithLabelValues("bluepages", "success").Observe(time.Since(start).Seconds())
 	}
 	if duration.Seconds() > 5.0 {
 		d.Logger.Info("slow handle resolution", "handle", h, "duration", duration)
@@ -139,10 +140,11 @@ func (d *RedisResolver) refreshDID(ctx context.Context, did syntax.DID) didEntry
 
 	if err != nil {
 		d.Logger.Info("DID resolution failed", "did", did, "duration", duration, "err", err)
-		didResolutionErrors.Inc()
-		didResolveDuration.WithLabelValues("fail").Observe(time.Since(start).Seconds())
+		didResolution.WithLabelValues("bluepages", "error").Inc()
+		didResolutionDuration.WithLabelValues("bluepages", "error").Observe(time.Since(start).Seconds())
 	} else {
-		didResolveDuration.WithLabelValues("success").Observe(time.Since(start).Seconds())
+		didResolution.WithLabelValues("bluepages", "success").Inc()
+		didResolutionDuration.WithLabelValues("bluepages", "success").Observe(time.Since(start).Seconds())
 	}
 	if duration.Seconds() > 5.0 {
 		d.Logger.Info("slow DID resolution", "did", did, "duration", duration)
@@ -178,7 +180,7 @@ func (d *RedisResolver) ResolveHandle(ctx context.Context, h syntax.Handle) (syn
 		return "", fmt.Errorf("identity cache read failed: %w", err)
 	}
 	if err == nil && !d.isHandleStale(&entry) { // if no error...
-		handleCacheHits.Inc()
+		handleResolution.WithLabelValues("bluepages", "cached").Inc()
 		if entry.Err != nil {
 			return "", entry.Err
 		} else if entry.DID != nil {
@@ -187,13 +189,12 @@ func (d *RedisResolver) ResolveHandle(ctx context.Context, h syntax.Handle) (syn
 			return "", errors.New("code flow error in redis identity directory")
 		}
 	}
-	handleCacheMisses.Inc()
 
 	// Coalesce multiple requests for the same Handle
 	res := make(chan struct{})
 	val, loaded := d.handleResolveChans.LoadOrStore(h.String(), res)
 	if loaded {
-		handleRequestsCoalesced.Inc()
+		handleResolution.WithLabelValues("bluepages", "coalesced").Inc()
 		// Wait for the result from the pending request
 		select {
 		case <-val.(chan struct{}):
@@ -241,16 +242,15 @@ func (d *RedisResolver) ResolveDIDRaw(ctx context.Context, did syntax.DID) (json
 		return nil, fmt.Errorf("DID cache read failed: %w", err)
 	}
 	if err == nil && !d.isDIDStale(&entry) { // if no error...
-		didCacheHits.Inc()
+		didResolution.WithLabelValues("bluepages", "cached").Inc()
 		return entry.RawDoc, entry.Err
 	}
-	didCacheMisses.Inc()
 
 	// Coalesce multiple requests for the same DID
 	res := make(chan struct{})
 	val, loaded := d.didResolveChans.LoadOrStore(did.String(), res)
 	if loaded {
-		didRequestsCoalesced.Inc()
+		didResolution.WithLabelValues("bluepages", "coalesced").Inc()
 		// Wait for the result from the pending request
 		select {
 		case <-val.(chan struct{}):
