@@ -4,5 +4,5 @@ import "gorm.io/gorm"
 
 type DomainBan struct {
 	gorm.Model
-	Domain string
+	Domain string `gorm:"unique"`
 }

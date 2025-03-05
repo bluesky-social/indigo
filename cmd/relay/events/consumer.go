@@ -242,6 +242,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 					return err
 				}
 			case "#handle":
+				// TODO: DEPRECATED message; warning/counter; drop message
 				var evt comatproto.SyncSubscribeRepos_Handle
 				if err := evt.UnmarshalCBOR(r); err != nil {
 					return err
@@ -302,6 +303,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 					return err
 				}
 			case "#migrate":
+				// TODO: DEPRECATED message; warning/counter; drop message
 				var evt comatproto.SyncSubscribeRepos_Migrate
 				if err := evt.UnmarshalCBOR(r); err != nil {
 					return err
@@ -318,6 +320,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 					return err
 				}
 			case "#tombstone":
+				// TODO: DEPRECATED message; warning/counter; drop message
 				var evt comatproto.SyncSubscribeRepos_Tombstone
 				if err := evt.UnmarshalCBOR(r); err != nil {
 					return err

@@ -16,6 +16,11 @@ var eventsReceivedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "The total number of events received",
 }, []string{"pds"})
 
+var eventsWarningsCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "events_warn_counter",
+	Help: "Events received with warnings",
+}, []string{"pds", "warn"})
+
 var eventsHandleDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "events_handle_duration",
 	Help:    "A histogram of handleFedEvent latencies",
@@ -31,11 +36,6 @@ var repoCommitsResultCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "repo_commits_result_counter",
 	Help: "The results of commit events received",
 }, []string{"pds", "status"})
-
-var rebasesCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "event_rebases",
-	Help: "The total number of rebase events received",
-}, []string{"pds"})
 
 var eventsSentCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "events_sent_counter",
@@ -79,12 +79,6 @@ var resSz = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Help:    "A histogram of response sizes for requests.",
 	Buckets: prometheus.ExponentialBuckets(100, 10, 8),
 }, []string{"code", "method", "path"})
-
-//var userLookupDuration = promauto.NewHistogram(prometheus.HistogramOpts{
-//	Name:    "relay_user_lookup_duration",
-//	Help:    "A histogram of user lookup latencies",
-//	Buckets: prometheus.ExponentialBuckets(0.001, 2, 15),
-//})
 
 var newUserDiscoveryDuration = promauto.NewHistogram(prometheus.HistogramOpts{
 	Name:    "relay_new_user_discovery_duration",
