@@ -17,6 +17,7 @@ import (
 
 type RepoStreamCallbacks struct {
 	RepoCommit    func(evt *comatproto.SyncSubscribeRepos_Commit) error
+	RepoSync      func(evt *comatproto.SyncSubscribeRepos_Sync) error
 	RepoHandle    func(evt *comatproto.SyncSubscribeRepos_Handle) error
 	RepoIdentity  func(evt *comatproto.SyncSubscribeRepos_Identity) error
 	RepoAccount   func(evt *comatproto.SyncSubscribeRepos_Account) error
@@ -32,6 +33,8 @@ func (rsc *RepoStreamCallbacks) EventHandler(ctx context.Context, xev *XRPCStrea
 	switch {
 	case xev.RepoCommit != nil && rsc.RepoCommit != nil:
 		return rsc.RepoCommit(xev.RepoCommit)
+	case xev.RepoSync != nil && rsc.RepoCommit != nil:
+		return rsc.RepoSync(xev.RepoSync)
 	case xev.RepoHandle != nil && rsc.RepoHandle != nil:
 		return rsc.RepoHandle(xev.RepoHandle)
 	case xev.RepoInfo != nil && rsc.RepoInfo != nil:
@@ -140,6 +143,8 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 						con.Close()
 						return
 					}
+				} else {
+					failcount = 0 // ok ping
 				}
 			case <-ctx.Done():
 				con.Close()
@@ -219,7 +224,25 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 				}); err != nil {
 					return err
 				}
+			case "#sync":
+				var evt comatproto.SyncSubscribeRepos_Sync
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return fmt.Errorf("reading repoCommit event: %w", err)
+				}
+
+				if evt.Seq < lastSeq {
+					log.Error("Got events out of order from stream", "seq", evt.Seq, "prev", lastSeq)
+				}
+
+				lastSeq = evt.Seq
+
+				if err := sched.AddWork(ctx, evt.Did, &XRPCStreamEvent{
+					RepoSync: &evt,
+				}); err != nil {
+					return err
+				}
 			case "#handle":
+				// TODO: DEPRECATED message; warning/counter; drop message
 				var evt comatproto.SyncSubscribeRepos_Handle
 				if err := evt.UnmarshalCBOR(r); err != nil {
 					return err
@@ -280,6 +303,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 					return err
 				}
 			case "#migrate":
+				// TODO: DEPRECATED message; warning/counter; drop message
 				var evt comatproto.SyncSubscribeRepos_Migrate
 				if err := evt.UnmarshalCBOR(r); err != nil {
 					return err
@@ -296,6 +320,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 					return err
 				}
 			case "#tombstone":
+				// TODO: DEPRECATED message; warning/counter; drop message
 				var evt comatproto.SyncSubscribeRepos_Tombstone
 				if err := evt.UnmarshalCBOR(r); err != nil {
 					return err

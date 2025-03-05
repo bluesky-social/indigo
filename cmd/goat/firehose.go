@@ -79,7 +79,6 @@ func runFirehose(cctx *cli.Context) error {
 	}
 
 	relayHost := cctx.String("relay-host")
-	cursor := cctx.Int("cursor")
 
 	dialer := websocket.DefaultDialer
 	u, err := url.Parse(relayHost)
@@ -87,10 +86,12 @@ func runFirehose(cctx *cli.Context) error {
 		return fmt.Errorf("invalid relayHost URI: %w", err)
 	}
 	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
-	if cursor != 0 {
-		u.RawQuery = fmt.Sprintf("cursor=%d", cursor)
+	if cctx.IsSet("cursor") {
+		u.RawQuery = fmt.Sprintf("cursor=%d", cctx.Int("cursor"))
 	}
-	con, _, err := dialer.Dial(u.String(), http.Header{
+	urlString := u.String()
+	slog.Debug("GET", "url", urlString)
+	con, _, err := dialer.Dial(urlString, http.Header{
 		"User-Agent": []string{fmt.Sprintf("goat/%s", versioninfo.Short())},
 	})
 	if err != nil {

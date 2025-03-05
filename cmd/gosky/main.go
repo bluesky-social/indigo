@@ -81,7 +81,7 @@ func run(args []string) {
 		},
 	}
 
-	_, err := cliutil.SetupSlog(cliutil.LogOptions{})
+	_, _, err := cliutil.SetupSlog(cliutil.LogOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "logging setup error: %s\n", err.Error())
 		os.Exit(1)
