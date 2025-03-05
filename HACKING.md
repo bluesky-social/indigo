@@ -14,6 +14,7 @@ Run with, eg, `go run ./cmd/bigsky`):
 - `cmd/sonar`: event stream monitoring tool
 - `cmd/hepa`: auto-moderation rule engine service
 - `cmd/rainbow`: firehose fanout service
+- `cmd/bluepages`: identity directory service
 - `gen`: dev tool to run CBOR type codegen
 
 Packages:
