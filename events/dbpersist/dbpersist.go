@@ -1,15 +1,17 @@
-package events
+package dbpersist
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/util"
@@ -19,9 +21,11 @@ import (
 	"gorm.io/gorm"
 )
 
+var log = slog.Default().With("system", "dbpersist")
+
 type PersistenceBatchItem struct {
 	Record *RepoEventRecord
-	Event  *XRPCStreamEvent
+	Event  *events.XRPCStreamEvent
 }
 
 type Options struct {
@@ -55,7 +59,7 @@ type DbPersistence struct {
 
 	lk sync.Mutex
 
-	broadcast func(*XRPCStreamEvent)
+	broadcast func(*events.XRPCStreamEvent)
 
 	batch        []*PersistenceBatchItem
 	batchOptions Options
@@ -137,7 +141,7 @@ func (p *DbPersistence) batchFlusher() {
 	}
 }
 
-func (p *DbPersistence) SetEventBroadcaster(brc func(*XRPCStreamEvent)) {
+func (p *DbPersistence) SetEventBroadcaster(brc func(*events.XRPCStreamEvent)) {
 	p.broadcast = brc
 }
 
@@ -187,7 +191,7 @@ func (p *DbPersistence) flushBatchLocked(ctx context.Context) error {
 	return nil
 }
 
-func (p *DbPersistence) AddItemToBatch(ctx context.Context, rec *RepoEventRecord, evt *XRPCStreamEvent) error {
+func (p *DbPersistence) AddItemToBatch(ctx context.Context, rec *RepoEventRecord, evt *events.XRPCStreamEvent) error {
 	p.lk.Lock()
 	defer p.lk.Unlock()
 	p.batch = append(p.batch, &PersistenceBatchItem{
@@ -204,7 +208,7 @@ func (p *DbPersistence) AddItemToBatch(ctx context.Context, rec *RepoEventRecord
 	return nil
 }
 
-func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
+func (p *DbPersistence) Persist(ctx context.Context, e *events.XRPCStreamEvent) error {
 	var rer *RepoEventRecord
 	var err error
 
@@ -367,7 +371,7 @@ func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatprot
 	return &rer, nil
 }
 
-func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
+func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*events.XRPCStreamEvent) error) error {
 	pageSize := 1000
 
 	for {
@@ -416,11 +420,11 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPC
 	return nil
 }
 
-func (p *DbPersistence) hydrateBatch(ctx context.Context, batch []*RepoEventRecord, cb func(*XRPCStreamEvent) error) error {
-	events := make([]*XRPCStreamEvent, len(batch))
+func (p *DbPersistence) hydrateBatch(ctx context.Context, batch []*RepoEventRecord, cb func(*events.XRPCStreamEvent) error) error {
+	evts := make([]*events.XRPCStreamEvent, len(batch))
 
 	type Result struct {
-		Event *XRPCStreamEvent
+		Event *events.XRPCStreamEvent
 		Index int
 		Err   error
 	}
@@ -439,7 +443,7 @@ func (p *DbPersistence) hydrateBatch(ctx context.Context, batch []*RepoEventReco
 			// release the semaphore at the end of the goroutine
 			defer func() { <-sem }()
 
-			var streamEvent *XRPCStreamEvent
+			var streamEvent *events.XRPCStreamEvent
 			var err error
 
 			switch {
@@ -473,10 +477,10 @@ func (p *DbPersistence) hydrateBatch(ctx context.Context, batch []*RepoEventReco
 			return result.Err
 		}
 
-		events[result.Index] = result.Event
+		evts[result.Index] = result.Event
 
-		for ; cur < len(events) && events[cur] != nil; cur++ {
-			if err := cb(events[cur]); err != nil {
+		for ; cur < len(evts) && evts[cur] != nil; cur++ {
+			if err := cb(evts[cur]); err != nil {
 				return err
 			}
 		}
@@ -515,7 +519,7 @@ func (p *DbPersistence) didForUid(ctx context.Context, uid models.Uid) (string, 
 	return u.Did, nil
 }
 
-func (p *DbPersistence) hydrateHandleChange(ctx context.Context, rer *RepoEventRecord) (*XRPCStreamEvent, error) {
+func (p *DbPersistence) hydrateHandleChange(ctx context.Context, rer *RepoEventRecord) (*events.XRPCStreamEvent, error) {
 	if rer.NewHandle == nil {
 		return nil, fmt.Errorf("NewHandle is nil")
 	}
@@ -525,7 +529,7 @@ func (p *DbPersistence) hydrateHandleChange(ctx context.Context, rer *RepoEventR
 		return nil, err
 	}
 
-	return &XRPCStreamEvent{
+	return &events.XRPCStreamEvent{
 		RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
 			Did:    did,
 			Handle: *rer.NewHandle,
@@ -534,13 +538,13 @@ func (p *DbPersistence) hydrateHandleChange(ctx context.Context, rer *RepoEventR
 	}, nil
 }
 
-func (p *DbPersistence) hydrateIdentityEvent(ctx context.Context, rer *RepoEventRecord) (*XRPCStreamEvent, error) {
+func (p *DbPersistence) hydrateIdentityEvent(ctx context.Context, rer *RepoEventRecord) (*events.XRPCStreamEvent, error) {
 	did, err := p.didForUid(ctx, rer.Repo)
 	if err != nil {
 		return nil, err
 	}
 
-	return &XRPCStreamEvent{
+	return &events.XRPCStreamEvent{
 		RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
 			Did:  did,
 			Time: rer.Time.Format(util.ISO8601),
@@ -548,13 +552,13 @@ func (p *DbPersistence) hydrateIdentityEvent(ctx context.Context, rer *RepoEvent
 	}, nil
 }
 
-func (p *DbPersistence) hydrateAccountEvent(ctx context.Context, rer *RepoEventRecord) (*XRPCStreamEvent, error) {
+func (p *DbPersistence) hydrateAccountEvent(ctx context.Context, rer *RepoEventRecord) (*events.XRPCStreamEvent, error) {
 	did, err := p.didForUid(ctx, rer.Repo)
 	if err != nil {
 		return nil, err
 	}
 
-	return &XRPCStreamEvent{
+	return &events.XRPCStreamEvent{
 		RepoAccount: &comatproto.SyncSubscribeRepos_Account{
 			Did:    did,
 			Time:   rer.Time.Format(util.ISO8601),
@@ -564,13 +568,13 @@ func (p *DbPersistence) hydrateAccountEvent(ctx context.Context, rer *RepoEventR
 	}, nil
 }
 
-func (p *DbPersistence) hydrateTombstone(ctx context.Context, rer *RepoEventRecord) (*XRPCStreamEvent, error) {
+func (p *DbPersistence) hydrateTombstone(ctx context.Context, rer *RepoEventRecord) (*events.XRPCStreamEvent, error) {
 	did, err := p.didForUid(ctx, rer.Repo)
 	if err != nil {
 		return nil, err
 	}
 
-	return &XRPCStreamEvent{
+	return &events.XRPCStreamEvent{
 		RepoTombstone: &comatproto.SyncSubscribeRepos_Tombstone{
 			Did:  did,
 			Time: rer.Time.Format(util.ISO8601),
@@ -578,7 +582,7 @@ func (p *DbPersistence) hydrateTombstone(ctx context.Context, rer *RepoEventReco
 	}, nil
 }
 
-func (p *DbPersistence) hydrateCommit(ctx context.Context, rer *RepoEventRecord) (*XRPCStreamEvent, error) {
+func (p *DbPersistence) hydrateCommit(ctx context.Context, rer *RepoEventRecord) (*events.XRPCStreamEvent, error) {
 	if rer.Commit == nil {
 		return nil, fmt.Errorf("commit is nil")
 	}
@@ -632,7 +636,7 @@ func (p *DbPersistence) hydrateCommit(ctx context.Context, rer *RepoEventRecord)
 		out.Blocks = cs
 	}
 
-	return &XRPCStreamEvent{RepoCommit: out}, nil
+	return &events.XRPCStreamEvent{RepoCommit: out}, nil
 }
 
 func (p *DbPersistence) readCarSlice(ctx context.Context, rer *RepoEventRecord) ([]byte, error) {

@@ -1,4 +1,4 @@
-package events
+package diskpersist
 
 import (
 	"bufio"
@@ -8,12 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/models"
 	arc "github.com/hashicorp/golang-lru/arc/v2"
 	"github.com/prometheus/client_golang/prometheus"
@@ -21,6 +23,8 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"gorm.io/gorm"
 )
+
+var log = slog.Default().With("system", "diskpersist")
 
 type DiskPersistence struct {
 	primaryDir      string
@@ -31,7 +35,7 @@ type DiskPersistence struct {
 
 	meta *gorm.DB
 
-	broadcast func(*XRPCStreamEvent)
+	broadcast func(*events.XRPCStreamEvent)
 
 	logfi *os.File
 
@@ -54,7 +58,7 @@ type DiskPersistence struct {
 
 type persistJob struct {
 	Bytes  []byte
-	Evt    *XRPCStreamEvent
+	Evt    *events.XRPCStreamEvent
 	Buffer *bytes.Buffer // so we can put it back in the pool when we're done
 }
 
@@ -68,7 +72,7 @@ const (
 	EvtFlagRebased
 )
 
-var _ (EventPersistence) = (*DiskPersistence)(nil)
+var _ (events.EventPersistence) = (*DiskPersistence)(nil)
 
 type DiskPersistOptions struct {
 	UIDCacheSize    int
@@ -487,7 +491,7 @@ func (dp *DiskPersistence) doPersist(ctx context.Context, j persistJob) error {
 	return nil
 }
 
-func (dp *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
+func (dp *DiskPersistence) Persist(ctx context.Context, e *events.XRPCStreamEvent) error {
 	buffer := dp.buffers.Get().(*bytes.Buffer)
 	cw := dp.writers.Get().(*cbg.CborWriter)
 	cw.SetWriter(buffer)
@@ -631,7 +635,7 @@ func (dp *DiskPersistence) uidForDid(ctx context.Context, did string) (models.Ui
 	return u.Uid, nil
 }
 
-func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
+func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*events.XRPCStreamEvent) error) error {
 	base := since - (since % dp.eventsPerFile)
 	var logs []LogFileRef
 	if err := dp.meta.Debug().Order("seq_start asc").Find(&logs, "seq_start >= ?", base).Error; err != nil {
@@ -658,7 +662,7 @@ func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*X
 	return nil
 }
 
-func (dp *DiskPersistence) PlaybackLogfiles(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error, logFiles []LogFileRef) (*int64, error) {
+func (dp *DiskPersistence) PlaybackLogfiles(ctx context.Context, since int64, cb func(*events.XRPCStreamEvent) error, logFiles []LogFileRef) (*int64, error) {
 	for i, lf := range logFiles {
 		lastSeq, err := dp.readEventsFrom(ctx, since, filepath.Join(dp.primaryDir, lf.Path), cb)
 		if err != nil {
@@ -684,7 +688,7 @@ func postDoNotEmit(flags uint32) bool {
 	return false
 }
 
-func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn string, cb func(*XRPCStreamEvent) error) (*int64, error) {
+func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn string, cb func(*events.XRPCStreamEvent) error) (*int64, error) {
 	fi, err := os.OpenFile(fn, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, err
@@ -738,7 +742,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 				return nil, err
 			}
 			evt.Seq = h.Seq
-			if err := cb(&XRPCStreamEvent{RepoCommit: &evt}); err != nil {
+			if err := cb(&events.XRPCStreamEvent{RepoCommit: &evt}); err != nil {
 				return nil, err
 			}
 		case evtKindHandle:
@@ -747,7 +751,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 				return nil, err
 			}
 			evt.Seq = h.Seq
-			if err := cb(&XRPCStreamEvent{RepoHandle: &evt}); err != nil {
+			if err := cb(&events.XRPCStreamEvent{RepoHandle: &evt}); err != nil {
 				return nil, err
 			}
 		case evtKindIdentity:
@@ -756,7 +760,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 				return nil, err
 			}
 			evt.Seq = h.Seq
-			if err := cb(&XRPCStreamEvent{RepoIdentity: &evt}); err != nil {
+			if err := cb(&events.XRPCStreamEvent{RepoIdentity: &evt}); err != nil {
 				return nil, err
 			}
 		case evtKindAccount:
@@ -765,7 +769,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 				return nil, err
 			}
 			evt.Seq = h.Seq
-			if err := cb(&XRPCStreamEvent{RepoAccount: &evt}); err != nil {
+			if err := cb(&events.XRPCStreamEvent{RepoAccount: &evt}); err != nil {
 				return nil, err
 			}
 		case evtKindTombstone:
@@ -774,7 +778,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 				return nil, err
 			}
 			evt.Seq = h.Seq
-			if err := cb(&XRPCStreamEvent{RepoTombstone: &evt}); err != nil {
+			if err := cb(&events.XRPCStreamEvent{RepoTombstone: &evt}); err != nil {
 				return nil, err
 			}
 		default:
@@ -931,6 +935,6 @@ func (dp *DiskPersistence) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func (dp *DiskPersistence) SetEventBroadcaster(f func(*XRPCStreamEvent)) {
+func (dp *DiskPersistence) SetEventBroadcaster(f func(*events.XRPCStreamEvent)) {
 	dp.broadcast = f
 }
