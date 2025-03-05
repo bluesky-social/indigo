@@ -131,9 +131,15 @@ func (dir *APIDirectory) ResolveDIDRaw(ctx context.Context, did syntax.DID) (jso
 	var body didBody
 	u := dir.Host + "/xrpc/com.atproto.identity.resolveDid?did=" + did.String()
 
-	if err := dir.apiGet(ctx, u, &body, identity.ErrDIDResolutionFailed, identity.ErrDIDNotFound); err != nil {
+	start := time.Now()
+	err := dir.apiGet(ctx, u, &body, identity.ErrDIDResolutionFailed, identity.ErrDIDNotFound)
+	if err != nil {
+		didResolution.WithLabelValues("apidir", "error").Inc()
+		didResolutionDuration.WithLabelValues("apidir", "error").Observe(time.Since(start).Seconds())
 		return nil, err
 	}
+	didResolution.WithLabelValues("apidir", "success").Inc()
+	didResolutionDuration.WithLabelValues("apidir", "success").Observe(time.Since(start).Seconds())
 
 	return body.DIDDoc, nil
 }
@@ -155,9 +161,15 @@ func (dir *APIDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle
 	var body handleBody
 	u := dir.Host + "/xrpc/com.atproto.identity.resolveHandle?handle=" + handle.String()
 
-	if err := dir.apiGet(ctx, u, &body, identity.ErrHandleResolutionFailed, identity.ErrHandleNotFound); err != nil {
+	start := time.Now()
+	err := dir.apiGet(ctx, u, &body, identity.ErrHandleResolutionFailed, identity.ErrHandleNotFound)
+	if err != nil {
+		handleResolution.WithLabelValues("apidir", "error").Inc()
+		handleResolutionDuration.WithLabelValues("apidir", "error").Observe(time.Since(start).Seconds())
 		return "", err
 	}
+	handleResolution.WithLabelValues("apidir", "success").Inc()
+	handleResolutionDuration.WithLabelValues("apidir", "success").Observe(time.Since(start).Seconds())
 
 	return body.DID, nil
 }
@@ -167,9 +179,15 @@ func (dir *APIDirectory) Lookup(ctx context.Context, atid syntax.AtIdentifier) (
 	u := dir.Host + "/xrpc/com.atproto.identity.resolveIdentity?identifier=" + atid.String()
 
 	// TODO: detect atid type, use that for errors? or just assume DID?
-	if err := dir.apiGet(ctx, u, &body, identity.ErrDIDResolutionFailed, identity.ErrDIDNotFound); err != nil {
+	start := time.Now()
+	err := dir.apiGet(ctx, u, &body, identity.ErrDIDResolutionFailed, identity.ErrDIDNotFound)
+	if err != nil {
+		identityResolution.WithLabelValues("apidir", "error").Inc()
+		identityResolutionDuration.WithLabelValues("apidir", "error").Observe(time.Since(start).Seconds())
 		return nil, err
 	}
+	identityResolution.WithLabelValues("apidir", "success").Inc()
+	identityResolutionDuration.WithLabelValues("apidir", "success").Observe(time.Since(start).Seconds())
 
 	var doc identity.DIDDocument
 	if err := json.Unmarshal(body.DIDDoc, &doc); err != nil {
