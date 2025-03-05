@@ -22,11 +22,11 @@ import (
 
 const defaultMaxRevFuture = time.Hour
 
-func NewRepoManager(directory identity.Directory, inductionTraceLog *slog.Logger) *RepoManager {
+func NewValidator(directory identity.Directory, inductionTraceLog *slog.Logger) *Validator {
 	maxRevFuture := defaultMaxRevFuture // TODO: configurable
 	ErrRevTooFarFuture := fmt.Errorf("new rev is > %s in the future", maxRevFuture)
 
-	return &RepoManager{
+	return &Validator{
 		userLocks:         make(map[models.Uid]*userLock),
 		log:               slog.Default().With("system", "repomgr"),
 		inductionTraceLog: inductionTraceLog,
@@ -38,16 +38,17 @@ func NewRepoManager(directory identity.Directory, inductionTraceLog *slog.Logger
 	}
 }
 
-func (rm *RepoManager) SetEventManager(events *events.EventManager) {
+func (rm *Validator) SetEventManager(events *events.EventManager) {
 	rm.events = events
 }
 
-// RepoManager is a poorly defined chunk of code
-// TODO: RepoManager should probably merge with what calls it or what it calls; probably move HandleCommit into bgs.go
-type RepoManager struct {
+// Validator is a poorly defined chunk of code
+// TODO: Validator should probably merge with what calls it or what it calls; probably move HandleCommit into bgs.go
+type Validator struct {
 	lklk      sync.Mutex
 	userLocks map[models.Uid]*userLock
 
+	// events is where we forward an event if it passes all validations
 	events *events.EventManager
 
 	log               *slog.Logger
@@ -55,10 +56,15 @@ type RepoManager struct {
 
 	directory identity.Directory
 
-	maxRevFuture       time.Duration
+	// maxRevFuture is added to time.Now() for a limit of clock skew we'll accept a `rev` in the future for
+	maxRevFuture time.Duration
+
+	// ErrRevTooFarFuture is the error we return
+	// held here because we fmt.Errorf() once with our configured maxRevFuture into the message
 	ErrRevTooFarFuture error
 
 	// AllowSignatureNotFound enables counting messages without findable public key to pass through with a warning counter
+	// TODO: refine this for what kind of 'not found' we accept.
 	AllowSignatureNotFound bool
 }
 
@@ -72,7 +78,7 @@ type userLock struct {
 }
 
 // lockUser re-serializes access per-user after events may have been fanned out to many worker threads by events/schedulers/parallel
-func (rm *RepoManager) lockUser(ctx context.Context, user models.Uid) func() {
+func (rm *Validator) lockUser(ctx context.Context, user models.Uid) func() {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "userLock")
 	defer span.End()
 
@@ -114,7 +120,7 @@ type UserPrev interface {
 	GetRev() syntax.TID
 }
 
-func (rm *RepoManager) HandleCommit(ctx context.Context, host *models.PDS, user IUser, commit *atproto.SyncSubscribeRepos_Commit, prevRoot UserPrev) (newRoot *cid.Cid, err error) {
+func (rm *Validator) HandleCommit(ctx context.Context, host *models.PDS, user IUser, commit *atproto.SyncSubscribeRepos_Commit, prevRoot UserPrev) (newRoot *cid.Cid, err error) {
 	uid := user.GetUid()
 	unlock := rm.lockUser(ctx, uid)
 	defer unlock()
@@ -141,7 +147,7 @@ func (rm *RepoManager) HandleCommit(ctx context.Context, host *models.PDS, user 
 
 var ErrNewRevBeforePrevRev = errors.New("new rev is before previous rev")
 
-func (rm *RepoManager) VerifyCommitMessage(ctx context.Context, host *models.PDS, msg *atproto.SyncSubscribeRepos_Commit, prevRoot UserPrev) (*atrepo.Repo, error) {
+func (rm *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS, msg *atproto.SyncSubscribeRepos_Commit, prevRoot UserPrev) (*atrepo.Repo, error) {
 	hostname := host.Host
 	hasWarning := false
 	commitVerifyStarts.Inc()
@@ -361,7 +367,7 @@ func ParseCommitOps(ops []*atproto.SyncSubscribeRepos_RepoOp) ([]atrepo.Operatio
 
 // VerifyCommitSignature get's repo's registered public key from Identity Directory, verifies Commit
 // hostname is just for metrics in case of error
-func (rm *RepoManager) VerifyCommitSignature(ctx context.Context, commit *atrepo.Commit, hostname string, hasWarning *bool) error {
+func (rm *Validator) VerifyCommitSignature(ctx context.Context, commit *atrepo.Commit, hostname string, hasWarning *bool) error {
 	if rm.directory == nil {
 		return nil
 	}

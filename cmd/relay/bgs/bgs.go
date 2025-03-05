@@ -56,13 +56,12 @@ type BGS struct {
 	// pieces that abstract the need for explicit ssl checks
 	ssl bool
 
-	crawlOnly bool
-
+	// extUserLk serializes a section of syncPDSAccount()
 	// TODO: at some point we will want to lock specific DIDs, this lock as is
 	// is overly broad, but i dont expect it to be a bottleneck for now
 	extUserLk sync.Mutex
 
-	repoman *repomgr.RepoManager
+	repoman *repomgr.Validator
 
 	// Management of Socket Consumers
 	consumersLk    sync.RWMutex
@@ -114,7 +113,7 @@ func DefaultBGSConfig() *BGSConfig {
 	}
 }
 
-func NewBGS(db *gorm.DB, repoman *repomgr.RepoManager, evtman *events.EventManager, didd identity.Directory, config *BGSConfig) (*BGS, error) {
+func NewBGS(db *gorm.DB, repoman *repomgr.Validator, evtman *events.EventManager, didd identity.Directory, config *BGSConfig) (*BGS, error) {
 
 	if config == nil {
 		config = DefaultBGSConfig()
