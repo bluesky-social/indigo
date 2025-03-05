@@ -38,8 +38,8 @@ func NewValidator(directory identity.Directory, inductionTraceLog *slog.Logger) 
 	}
 }
 
-func (rm *Validator) SetEventManager(events *events.EventManager) {
-	rm.events = events
+func (val *Validator) SetEventManager(events *events.EventManager) {
+	val.events = events
 }
 
 // Validator contains the context and code necessary to validate #commit and #sync messages
@@ -77,43 +77,43 @@ type userLock struct {
 }
 
 // lockUser re-serializes access per-user after events may have been fanned out to many worker threads by events/schedulers/parallel
-func (rm *Validator) lockUser(ctx context.Context, user models.Uid) func() {
+func (val *Validator) lockUser(ctx context.Context, user models.Uid) func() {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "userLock")
 	defer span.End()
 
-	rm.lklk.Lock()
+	val.lklk.Lock()
 
-	ulk, ok := rm.userLocks[user]
+	ulk, ok := val.userLocks[user]
 	if !ok {
 		ulk = &userLock{}
-		rm.userLocks[user] = ulk
+		val.userLocks[user] = ulk
 	}
 
 	ulk.waiters.Add(1)
 
-	rm.lklk.Unlock()
+	val.lklk.Unlock()
 
 	ulk.lk.Lock()
 
 	return func() {
-		rm.lklk.Lock()
-		defer rm.lklk.Unlock()
+		val.lklk.Lock()
+		defer val.lklk.Unlock()
 
 		ulk.lk.Unlock()
 
 		nv := ulk.waiters.Add(-1)
 
 		if nv == 0 {
-			delete(rm.userLocks, user)
+			delete(val.userLocks, user)
 		}
 	}
 }
 
-func (rm *Validator) HandleCommit(ctx context.Context, host *models.PDS, account *Account, commit *atproto.SyncSubscribeRepos_Commit, prevRoot *AccountPreviousState) (newRoot *cid.Cid, err error) {
+func (val *Validator) HandleCommit(ctx context.Context, host *models.PDS, account *Account, commit *atproto.SyncSubscribeRepos_Commit, prevRoot *AccountPreviousState) (newRoot *cid.Cid, err error) {
 	uid := account.GetUid()
-	unlock := rm.lockUser(ctx, uid)
+	unlock := val.lockUser(ctx, uid)
 	defer unlock()
-	repoFragment, err := rm.VerifyCommitMessage(ctx, host, commit, prevRoot)
+	repoFragment, err := val.VerifyCommitMessage(ctx, host, commit, prevRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -121,14 +121,14 @@ func (rm *Validator) HandleCommit(ctx context.Context, host *models.PDS, account
 	if err != nil {
 		return nil, err
 	}
-	if rm.events != nil {
+	if val.events != nil {
 		xe := &events.XRPCStreamEvent{
 			RepoCommit: commit,
 			PrivUid:    uid,
 		}
-		err = rm.events.AddEvent(ctx, xe)
+		err = val.events.AddEvent(ctx, xe)
 		if err != nil {
-			rm.log.Error("events handle commit", "err", err)
+			val.log.Error("events handle commit", "err", err)
 		}
 	}
 	return newRootCid, nil
@@ -136,7 +136,7 @@ func (rm *Validator) HandleCommit(ctx context.Context, host *models.PDS, account
 
 var ErrNewRevBeforePrevRev = errors.New("new rev is before previous rev")
 
-func (rm *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS, msg *atproto.SyncSubscribeRepos_Commit, prevRoot *AccountPreviousState) (*atrepo.Repo, error) {
+func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS, msg *atproto.SyncSubscribeRepos_Commit, prevRoot *AccountPreviousState) (*atrepo.Repo, error) {
 	hostname := host.Host
 	hasWarning := false
 	commitVerifyStarts.Inc()
@@ -162,9 +162,9 @@ func (rm *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS, 
 			return nil, fmt.Errorf("new rev is before previous rev by %s", dt.String())
 		}
 	}
-	if rev.Time().After(time.Now().Add(rm.maxRevFuture)) {
+	if rev.Time().After(time.Now().Add(val.maxRevFuture)) {
 		commitVerifyErrors.WithLabelValues(hostname, "revf").Inc()
-		return nil, rm.ErrRevTooFarFuture
+		return nil, val.ErrRevTooFarFuture
 	}
 	_, err = syntax.ParseDatetime(msg.Time)
 	if err != nil {
@@ -175,13 +175,13 @@ func (rm *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS, 
 	if msg.TooBig {
 		//logger.Warn("event with tooBig flag set")
 		commitVerifyWarnings.WithLabelValues(hostname, "big").Inc()
-		rm.inductionTraceLog.Warn("commit tooBig", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+		val.inductionTraceLog.Warn("commit tooBig", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
 		hasWarning = true
 	}
 	if msg.Rebase {
 		//logger.Warn("event with rebase flag set")
 		commitVerifyWarnings.WithLabelValues(hostname, "reb").Inc()
-		rm.inductionTraceLog.Warn("commit rebase", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+		val.inductionTraceLog.Warn("commit rebase", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
 		hasWarning = true
 	}
 
@@ -200,7 +200,7 @@ func (rm *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS, 
 		return nil, fmt.Errorf("rev did not match commit")
 	}
 
-	err = rm.VerifyCommitSignature(ctx, commit, hostname, &hasWarning)
+	err = val.VerifyCommitSignature(ctx, commit, hostname, &hasWarning)
 	if err != nil {
 		// signature errors are metrics counted inside VerifyCommitSignature()
 		return nil, err
@@ -238,14 +238,14 @@ func (rm *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS, 
 		case "delete":
 			if o.Prev == nil {
 				logger.Debug("can't invert legacy op", "action", o.Action)
-				rm.inductionTraceLog.Warn("commit delete op", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+				val.inductionTraceLog.Warn("commit delete op", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
 				commitVerifyOkish.WithLabelValues(hostname, "del").Inc()
 				return repoFragment, nil
 			}
 		case "update":
 			if o.Prev == nil {
 				logger.Debug("can't invert legacy op", "action", o.Action)
-				rm.inductionTraceLog.Warn("commit update op", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+				val.inductionTraceLog.Warn("commit update op", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
 				commitVerifyOkish.WithLabelValues(hostname, "up").Inc()
 				return repoFragment, nil
 			}
@@ -257,7 +257,7 @@ func (rm *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS, 
 		if prevRoot != nil {
 			if *c != prevRoot.GetCid() {
 				commitVerifyWarnings.WithLabelValues(hostname, "pr").Inc()
-				rm.inductionTraceLog.Warn("commit prevData mismatch", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+				val.inductionTraceLog.Warn("commit prevData mismatch", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
 				hasWarning = true
 			}
 		} else {
@@ -356,8 +356,8 @@ func ParseCommitOps(ops []*atproto.SyncSubscribeRepos_RepoOp) ([]atrepo.Operatio
 
 // VerifyCommitSignature get's repo's registered public key from Identity Directory, verifies Commit
 // hostname is just for metrics in case of error
-func (rm *Validator) VerifyCommitSignature(ctx context.Context, commit *atrepo.Commit, hostname string, hasWarning *bool) error {
-	if rm.directory == nil {
+func (val *Validator) VerifyCommitSignature(ctx context.Context, commit *atrepo.Commit, hostname string, hasWarning *bool) error {
+	if val.directory == nil {
 		return nil
 	}
 	xdid, err := syntax.ParseDID(commit.DID)
@@ -365,9 +365,9 @@ func (rm *Validator) VerifyCommitSignature(ctx context.Context, commit *atrepo.C
 		commitVerifyErrors.WithLabelValues(hostname, "sig1").Inc()
 		return fmt.Errorf("bad car DID, %w", err)
 	}
-	ident, err := rm.directory.LookupDID(ctx, xdid)
+	ident, err := val.directory.LookupDID(ctx, xdid)
 	if err != nil {
-		if rm.AllowSignatureNotFound {
+		if val.AllowSignatureNotFound {
 			// allow not-found conditions to pass without signature check
 			commitVerifyWarnings.WithLabelValues(hostname, "nok").Inc()
 			if hasWarning != nil {
