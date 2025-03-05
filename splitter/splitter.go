@@ -395,6 +395,8 @@ func (s *Splitter) EventsHandler(c echo.Context) error {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
 
+	defer conn.Close()
+
 	lastWriteLk := sync.Mutex{}
 	lastWrite := time.Now()
 
