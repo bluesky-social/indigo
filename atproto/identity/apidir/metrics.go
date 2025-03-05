@@ -1,4 +1,4 @@
-package identity
+package apidir
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
@@ -24,5 +24,16 @@ var didResolution = promauto.NewCounterVec(prometheus.CounterOpts{
 var didResolutionDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "atproto_identity_resolve_did_duration",
 	Help:    "Time to resolve a DID",
+	Buckets: prometheus.ExponentialBucketsRange(0.001, 2, 15),
+}, []string{"directory", "status"})
+
+var identityResolution = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "atproto_identity_resolve_identity",
+	Help: "ATProto combined identity resolutions",
+}, []string{"directory", "status"})
+
+var identityResolutionDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "atproto_identity_resolve_identity_duration",
+	Help:    "Time to resolve a combined identity",
 	Buckets: prometheus.ExponentialBucketsRange(0.001, 2, 15),
 }, []string{"directory", "status"})

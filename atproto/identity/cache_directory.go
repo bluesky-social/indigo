@@ -95,9 +95,12 @@ func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 	if h.IsInvalidHandle() {
 		return "", fmt.Errorf("can not resolve handle: %w", ErrInvalidHandle)
 	}
+	start := time.Now()
 	entry, ok := d.handleCache.Get(h)
 	if ok && !d.IsHandleStale(&entry) {
 		handleCacheHits.Inc()
+		handleResolution.WithLabelValues("lru", "cached").Inc()
+		handleResolutionDuration.WithLabelValues("lru", "cached").Observe(time.Since(start).Seconds())
 		return entry.DID, entry.Err
 	}
 	handleCacheMisses.Inc()
@@ -107,6 +110,8 @@ func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 	val, loaded := d.handleLookupChans.LoadOrStore(h.String(), res)
 	if loaded {
 		handleRequestsCoalesced.Inc()
+		handleResolution.WithLabelValues("lru", "coalesced").Inc()
+		handleResolutionDuration.WithLabelValues("lru", "coalesced").Observe(time.Since(start).Seconds())
 		// Wait for the result from the pending request
 		select {
 		case <-val.(chan struct{}):
@@ -130,9 +135,13 @@ func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 	close(res)
 
 	if newEntry.Err != nil {
+		handleResolution.WithLabelValues("lru", "error").Inc()
+		handleResolutionDuration.WithLabelValues("lru", "error").Observe(time.Since(start).Seconds())
 		return "", newEntry.Err
 	}
 	if newEntry.DID != "" {
+		handleResolution.WithLabelValues("lru", "success").Inc()
+		handleResolutionDuration.WithLabelValues("lru", "success").Observe(time.Since(start).Seconds())
 		return newEntry.DID, nil
 	}
 	return "", fmt.Errorf("unexpected control-flow error")
@@ -169,9 +178,12 @@ func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identi
 }
 
 func (d *CacheDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax.DID) (*Identity, bool, error) {
+	start := time.Now()
 	entry, ok := d.identityCache.Get(did)
 	if ok && !d.IsIdentityStale(&entry) {
 		identityCacheHits.Inc()
+		didResolution.WithLabelValues("lru", "cached").Inc()
+		didResolutionDuration.WithLabelValues("lru", "cached").Observe(time.Since(start).Seconds())
 		return entry.Identity, true, entry.Err
 	}
 	identityCacheMisses.Inc()
@@ -181,6 +193,8 @@ func (d *CacheDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 	val, loaded := d.didLookupChans.LoadOrStore(did.String(), res)
 	if loaded {
 		identityRequestsCoalesced.Inc()
+		didResolution.WithLabelValues("lru", "coalesced").Inc()
+		didResolutionDuration.WithLabelValues("lru", "coalesced").Observe(time.Since(start).Seconds())
 		// Wait for the result from the pending request
 		select {
 		case <-val.(chan struct{}):
@@ -204,9 +218,13 @@ func (d *CacheDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 	close(res)
 
 	if newEntry.Err != nil {
+		didResolution.WithLabelValues("lru", "error").Inc()
+		didResolutionDuration.WithLabelValues("lru", "error").Observe(time.Since(start).Seconds())
 		return nil, false, newEntry.Err
 	}
 	if newEntry.Identity != nil {
+		didResolution.WithLabelValues("lru", "success").Inc()
+		didResolutionDuration.WithLabelValues("lru", "success").Observe(time.Since(start).Seconds())
 		return newEntry.Identity, false, nil
 	}
 	return nil, false, fmt.Errorf("unexpected control-flow error")
