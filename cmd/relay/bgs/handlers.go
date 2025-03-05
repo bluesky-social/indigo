@@ -112,8 +112,8 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, l
 		events.AccountStatusDeactivated, events.AccountStatusSuspended, events.AccountStatusTakendown)
 
 	// Load the users
-	users := []*User{}
-	if err := s.db.Model(&User{}).Where(q, cursor).Order("id").Limit(limit).Find(&users).Error; err != nil {
+	users := []*Account{}
+	if err := s.db.Model(&Account{}).Where(q, cursor).Order("id").Limit(limit).Find(&users).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return &comatprototypes.SyncListRepos_Output{}, nil
 		}
@@ -189,7 +189,7 @@ func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did strin
 		return nil, fmt.Errorf("account is suspended by its PDS")
 	}
 
-	var prevState UserPreviousState
+	var prevState AccountPreviousState
 	err = s.db.First(&prevState, u.ID).Error
 	if err == nil {
 		// okay!

@@ -132,11 +132,11 @@ func (bgs *BGS) handleAdminListRepoTakeDowns(e echo.Context) error {
 		haveMinId = true
 	}
 	limit := 1000
-	wat := bgs.db.Model(User{}).WithContext(ctx).Select("id", "did").Where("taken_down = TRUE")
+	wat := bgs.db.Model(Account{}).WithContext(ctx).Select("id", "did").Where("taken_down = TRUE")
 	if haveMinId {
 		wat = wat.Where("id > ?", minId)
 	}
-	//var users []User
+	//var users []Account
 	rows, err := wat.Order("id").Limit(limit).Rows()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "oops").WithInternal(err)

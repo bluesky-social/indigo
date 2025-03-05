@@ -69,8 +69,8 @@ type BGS struct {
 	nextConsumerID uint64
 	consumers      map[uint64]*SocketConsumer
 
-	// User cache
-	userCache *lru.Cache[string, *User]
+	// Account cache
+	userCache *lru.Cache[string, *Account]
 
 	// nextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
 	nextCrawlers []*url.URL
@@ -125,14 +125,14 @@ func NewBGS(db *gorm.DB, repoman *repomgr.RepoManager, evtman *events.EventManag
 	if err := db.AutoMigrate(models.PDS{}); err != nil {
 		panic(err)
 	}
-	if err := db.AutoMigrate(User{}); err != nil {
+	if err := db.AutoMigrate(Account{}); err != nil {
 		panic(err)
 	}
-	if err := db.AutoMigrate(UserPreviousState{}); err != nil {
+	if err := db.AutoMigrate(AccountPreviousState{}); err != nil {
 		panic(err)
 	}
 
-	uc, _ := lru.New[string, *User](1_000_000)
+	uc, _ := lru.New[string, *Account](1_000_000)
 
 	bgs := &BGS{
 		db: db,
@@ -359,7 +359,7 @@ func (bgs *BGS) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-type User struct {
+type Account struct {
 	ID        models.Uid `gorm:"primarykey;index:idx_user_id_active,where:taken_down = false AND tombstoned = false"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -379,73 +379,73 @@ type User struct {
 	lk sync.Mutex
 }
 
-func (u *User) GetDid() string {
-	return u.Did
+func (account *Account) GetDid() string {
+	return account.Did
 }
 
-func (u *User) GetUid() models.Uid {
-	return u.ID
+func (account *Account) GetUid() models.Uid {
+	return account.ID
 }
 
-func (u *User) SetTakenDown(v bool) {
-	u.lk.Lock()
-	defer u.lk.Unlock()
-	u.TakenDown = v
+func (account *Account) SetTakenDown(v bool) {
+	account.lk.Lock()
+	defer account.lk.Unlock()
+	account.TakenDown = v
 }
 
-func (u *User) GetTakenDown() bool {
-	u.lk.Lock()
-	defer u.lk.Unlock()
-	return u.TakenDown
+func (account *Account) GetTakenDown() bool {
+	account.lk.Lock()
+	defer account.lk.Unlock()
+	return account.TakenDown
 }
 
-func (u *User) SetPDS(pdsId uint) {
-	u.lk.Lock()
-	defer u.lk.Unlock()
-	u.PDS = pdsId
+func (account *Account) SetPDS(pdsId uint) {
+	account.lk.Lock()
+	defer account.lk.Unlock()
+	account.PDS = pdsId
 }
 
-func (u *User) GetPDS() uint {
-	u.lk.Lock()
-	defer u.lk.Unlock()
-	return u.PDS
+func (account *Account) GetPDS() uint {
+	account.lk.Lock()
+	defer account.lk.Unlock()
+	return account.PDS
 }
 
-func (u *User) SetTombstoned(v bool) {
-	u.lk.Lock()
-	defer u.lk.Unlock()
-	u.Tombstoned = v
+func (account *Account) SetTombstoned(v bool) {
+	account.lk.Lock()
+	defer account.lk.Unlock()
+	account.Tombstoned = v
 }
 
-func (u *User) GetTombstoned() bool {
-	u.lk.Lock()
-	defer u.lk.Unlock()
-	return u.Tombstoned
+func (account *Account) GetTombstoned() bool {
+	account.lk.Lock()
+	defer account.lk.Unlock()
+	return account.Tombstoned
 }
 
-func (u *User) SetUpstreamStatus(v string) {
-	u.lk.Lock()
-	defer u.lk.Unlock()
-	u.UpstreamStatus = v
+func (account *Account) SetUpstreamStatus(v string) {
+	account.lk.Lock()
+	defer account.lk.Unlock()
+	account.UpstreamStatus = v
 }
 
-func (u *User) GetUpstreamStatus() string {
-	u.lk.Lock()
-	defer u.lk.Unlock()
-	return u.UpstreamStatus
+func (account *Account) GetUpstreamStatus() string {
+	account.lk.Lock()
+	defer account.lk.Unlock()
+	return account.UpstreamStatus
 }
 
-type UserPreviousState struct {
+type AccountPreviousState struct {
 	Uid models.Uid   `gorm:"column:uid;primaryKey"`
 	Cid models.DbCID `gorm:"column:cid"`
 	Rev string       `gorm:"column:rev"`
 	Seq int64        `gorm:"column:seq"`
 }
 
-func (ups *UserPreviousState) GetCid() cid.Cid {
+func (ups *AccountPreviousState) GetCid() cid.Cid {
 	return ups.Cid.CID
 }
-func (ups *UserPreviousState) GetRev() syntax.TID {
+func (ups *AccountPreviousState) GetRev() syntax.TID {
 	xt, _ := syntax.ParseTID(ups.Rev)
 	return xt
 }
@@ -687,7 +687,7 @@ func (bgs *BGS) DidToUid(ctx context.Context, did string) (models.Uid, error) {
 	return xu.ID, nil
 }
 
-func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) {
+func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*Account, error) {
 	ctx, span := tracer.Start(ctx, "lookupUserByDid")
 	defer span.End()
 
@@ -696,7 +696,7 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 		return cu, nil
 	}
 
-	var u User
+	var u Account
 	if err := bgs.db.Find(&u, "did = ?", did).Error; err != nil {
 		return nil, err
 	}
@@ -710,11 +710,11 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 	return &u, nil
 }
 
-func (bgs *BGS) lookupUserByUID(ctx context.Context, uid models.Uid) (*User, error) {
+func (bgs *BGS) lookupUserByUID(ctx context.Context, uid models.Uid) (*Account, error) {
 	ctx, span := tracer.Start(ctx, "lookupUserByUID")
 	defer span.End()
 
-	var u User
+	var u Account
 	if err := bgs.db.Find(&u, "id = ?", uid).Error; err != nil {
 		return nil, err
 	}
@@ -938,7 +938,7 @@ func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatpr
 	if account.GetTombstoned() {
 		// TODO: reevaluate user lifecycle - tombstoned -- bolson 2025
 		// we've checked the authority of the users PDS, so reinstate the account
-		if err := bgs.db.Model(&User{}).Where("id = ?", account.ID).UpdateColumn("tombstoned", false).Error; err != nil {
+		if err := bgs.db.Model(&Account{}).Where("id = ?", account.ID).UpdateColumn("tombstoned", false).Error; err != nil {
 			repoCommitsResultCounter.WithLabelValues(host.Host, "tomb").Inc()
 			return fmt.Errorf("failed to un-tombstone a user: %w", err)
 		}
@@ -956,7 +956,7 @@ func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatpr
 		// TODO: fall through and just handle the event and the right thing should happen? -- bolson 2025 unsure
 	}
 
-	var prevState UserPreviousState
+	var prevState AccountPreviousState
 	err = bgs.db.First(&prevState, account.ID).Error
 	//prevP := &prevState
 	var prevP repomgr.UserPrev = &prevState
@@ -1039,7 +1039,7 @@ func (bgs *BGS) purgeDidCache(ctx context.Context, did string) {
 // did is the user
 // host is the PDS we received this from, not necessarily the canonical PDS in the DID document
 // cachedAccount is (optionally) the account that we have already looked up from cache or database
-func (bgs *BGS) syncPDSAccount(ctx context.Context, did string, host *models.PDS, cachedAccount *User) (*User, error) {
+func (bgs *BGS) syncPDSAccount(ctx context.Context, did string, host *models.PDS, cachedAccount *Account) (*Account, error) {
 	ctx, span := tracer.Start(ctx, "syncPDSAccount")
 	defer span.End()
 
@@ -1160,14 +1160,14 @@ func (bgs *BGS) syncPDSAccount(ctx context.Context, did string, host *models.PDS
 	if cachedAccount != nil {
 		caPDS := cachedAccount.GetPDS()
 		if caPDS != canonicalHost.ID {
-			// User is now on a different PDS, update
+			// Account is now on a different PDS, update
 			err = bgs.db.Transaction(func(tx *gorm.DB) error {
 				if caPDS != 0 {
 					// decrement prior PDS's account count
 					tx.Model(&models.PDS{}).Where("id = ?", caPDS).Update("repo_count", gorm.Expr("repo_count - 1"))
 				}
 				// update user's PDS ID
-				res := tx.Model(User{}).Where("id = ?", cachedAccount.ID).Update("pds", canonicalHost.ID)
+				res := tx.Model(Account{}).Where("id = ?", cachedAccount.ID).Update("pds", canonicalHost.ID)
 				if res.Error != nil {
 					return fmt.Errorf("failed to update users pds: %w", res.Error)
 				}
@@ -1181,7 +1181,7 @@ func (bgs *BGS) syncPDSAccount(ctx context.Context, did string, host *models.PDS
 		return cachedAccount, nil
 	}
 
-	newAccount := User{
+	newAccount := Account{
 		Did: did,
 		PDS: canonicalHost.ID,
 	}
@@ -1224,29 +1224,29 @@ func (bgs *BGS) UpdateAccountStatus(ctx context.Context, did string, status stri
 	switch status {
 	case events.AccountStatusActive:
 		// Unset the PDS-specific status flags
-		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusActive).Error; err != nil {
+		if err := bgs.db.Model(Account{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusActive).Error; err != nil {
 			return fmt.Errorf("failed to set user active status: %w", err)
 		}
 		u.SetUpstreamStatus(events.AccountStatusActive)
 	case events.AccountStatusDeactivated:
-		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusDeactivated).Error; err != nil {
+		if err := bgs.db.Model(Account{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusDeactivated).Error; err != nil {
 			return fmt.Errorf("failed to set user deactivation status: %w", err)
 		}
 		u.SetUpstreamStatus(events.AccountStatusDeactivated)
 	case events.AccountStatusSuspended:
-		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusSuspended).Error; err != nil {
+		if err := bgs.db.Model(Account{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusSuspended).Error; err != nil {
 			return fmt.Errorf("failed to set user suspension status: %w", err)
 		}
 		u.SetUpstreamStatus(events.AccountStatusSuspended)
 	case events.AccountStatusTakendown:
-		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusTakendown).Error; err != nil {
+		if err := bgs.db.Model(Account{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusTakendown).Error; err != nil {
 			return fmt.Errorf("failed to set user taken down status: %w", err)
 		}
 		u.SetUpstreamStatus(events.AccountStatusTakendown)
-		// TODO: set User takedown in db? -- bolson 2025
+		// TODO: set Account takedown in db? -- bolson 2025
 	case events.AccountStatusDeleted:
 		// TODO: tweak model to mark user deleted? -- bolson 2025
-		if err := bgs.db.Model(&User{}).Where("id = ?", u.ID).UpdateColumns(map[string]any{
+		if err := bgs.db.Model(&Account{}).Where("id = ?", u.ID).UpdateColumns(map[string]any{
 			"tombstoned":      true,
 			"handle":          nil,
 			"upstream_status": events.AccountStatusDeleted,
@@ -1265,7 +1265,7 @@ func (bgs *BGS) TakeDownRepo(ctx context.Context, did string) error {
 		return err
 	}
 
-	if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("taken_down", true).Error; err != nil {
+	if err := bgs.db.Model(Account{}).Where("id = ?", u.ID).Update("taken_down", true).Error; err != nil {
 		return err
 	}
 	u.SetTakenDown(true)
@@ -1283,7 +1283,7 @@ func (bgs *BGS) ReverseTakedown(ctx context.Context, did string) error {
 		return err
 	}
 
-	if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("taken_down", false).Error; err != nil {
+	if err := bgs.db.Model(Account{}).Where("id = ?", u.ID).Update("taken_down", false).Error; err != nil {
 		return err
 	}
 	u.SetTakenDown(false)
@@ -1292,7 +1292,7 @@ func (bgs *BGS) ReverseTakedown(ctx context.Context, did string) error {
 }
 
 func (bgs *BGS) GetRepoRoot(ctx context.Context, user models.Uid) (cid.Cid, error) {
-	var prevState UserPreviousState
+	var prevState AccountPreviousState
 	err := bgs.db.First(&prevState, user).Error
 	if err == nil {
 		return prevState.Cid.CID, nil
