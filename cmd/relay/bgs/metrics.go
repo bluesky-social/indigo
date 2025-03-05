@@ -86,6 +86,29 @@ var newUserDiscoveryDuration = promauto.NewHistogram(prometheus.HistogramOpts{
 	Buckets: prometheus.ExponentialBuckets(0.001, 2, 15),
 })
 
+var commitVerifyStarts = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "validator_commit_verify_starts",
+})
+
+var commitVerifyWarnings = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "validator_commit_verify_warnings",
+}, []string{"host", "warn"})
+
+// verify error and short code for why
+var commitVerifyErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "validator_commit_verify_errors",
+}, []string{"host", "err"})
+
+// ok and *fully verified*
+var commitVerifyOk = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "validator_commit_verify_ok",
+}, []string{"host"})
+
+// it's ok, but... {old protocol, no previous root cid, ...}
+var commitVerifyOkish = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "validator_commit_verify_okish",
+}, []string{"host", "but"})
+
 // MetricsMiddleware defines handler function for metrics middleware
 func MetricsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {

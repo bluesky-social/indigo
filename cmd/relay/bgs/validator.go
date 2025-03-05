@@ -1,4 +1,4 @@
-package repomgr
+package bgs
 
 import (
 	"bytes"
@@ -28,7 +28,7 @@ func NewValidator(directory identity.Directory, inductionTraceLog *slog.Logger) 
 
 	return &Validator{
 		userLocks:         make(map[models.Uid]*userLock),
-		log:               slog.Default().With("system", "repomgr"),
+		log:               slog.Default().With("system", "validator"),
 		inductionTraceLog: inductionTraceLog,
 		directory:         directory,
 
@@ -42,8 +42,7 @@ func (rm *Validator) SetEventManager(events *events.EventManager) {
 	rm.events = events
 }
 
-// Validator is a poorly defined chunk of code
-// TODO: Validator should probably merge with what calls it or what it calls; probably move HandleCommit into bgs.go
+// Validator contains the context and code necessary to validate #commit and #sync messages
 type Validator struct {
 	lklk      sync.Mutex
 	userLocks map[models.Uid]*userLock
@@ -110,18 +109,8 @@ func (rm *Validator) lockUser(ctx context.Context, user models.Uid) func() {
 	}
 }
 
-type IUser interface {
-	GetUid() models.Uid
-	GetDid() string
-}
-
-type UserPrev interface {
-	GetCid() cid.Cid
-	GetRev() syntax.TID
-}
-
-func (rm *Validator) HandleCommit(ctx context.Context, host *models.PDS, user IUser, commit *atproto.SyncSubscribeRepos_Commit, prevRoot UserPrev) (newRoot *cid.Cid, err error) {
-	uid := user.GetUid()
+func (rm *Validator) HandleCommit(ctx context.Context, host *models.PDS, account *Account, commit *atproto.SyncSubscribeRepos_Commit, prevRoot *AccountPreviousState) (newRoot *cid.Cid, err error) {
+	uid := account.GetUid()
 	unlock := rm.lockUser(ctx, uid)
 	defer unlock()
 	repoFragment, err := rm.VerifyCommitMessage(ctx, host, commit, prevRoot)
@@ -147,7 +136,7 @@ func (rm *Validator) HandleCommit(ctx context.Context, host *models.PDS, user IU
 
 var ErrNewRevBeforePrevRev = errors.New("new rev is before previous rev")
 
-func (rm *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS, msg *atproto.SyncSubscribeRepos_Commit, prevRoot UserPrev) (*atrepo.Repo, error) {
+func (rm *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS, msg *atproto.SyncSubscribeRepos_Commit, prevRoot *AccountPreviousState) (*atrepo.Repo, error) {
 	hostname := host.Host
 	hasWarning := false
 	commitVerifyStarts.Inc()

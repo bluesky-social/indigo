@@ -22,7 +22,6 @@ import (
 
 	libbgs "github.com/bluesky-social/indigo/cmd/relay/bgs"
 	"github.com/bluesky-social/indigo/cmd/relay/events"
-	"github.com/bluesky-social/indigo/cmd/relay/repomgr"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -294,7 +293,8 @@ func runRelay(cctx *cli.Context) error {
 	}
 	cacheDir := identity.NewCacheDirectory(&baseDir, cctx.Int("did-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
 
-	repoman := repomgr.NewValidator(&cacheDir, inductionTraceLog)
+	// TODO: rename repoman
+	repoman := libbgs.NewValidator(&cacheDir, inductionTraceLog)
 
 	var persister events.EventPersistence
 

@@ -21,7 +21,6 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/cmd/relay/events"
 	"github.com/bluesky-social/indigo/cmd/relay/models"
-	"github.com/bluesky-social/indigo/cmd/relay/repomgr"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -61,7 +60,7 @@ type BGS struct {
 	// is overly broad, but i dont expect it to be a bottleneck for now
 	extUserLk sync.Mutex
 
-	repoman *repomgr.Validator
+	repoman *Validator
 
 	// Management of Socket Consumers
 	consumersLk    sync.RWMutex
@@ -113,7 +112,7 @@ func DefaultBGSConfig() *BGSConfig {
 	}
 }
 
-func NewBGS(db *gorm.DB, repoman *repomgr.Validator, evtman *events.EventManager, didd identity.Directory, config *BGSConfig) (*BGS, error) {
+func NewBGS(db *gorm.DB, repoman *Validator, evtman *events.EventManager, didd identity.Directory, config *BGSConfig) (*BGS, error) {
 
 	if config == nil {
 		config = DefaultBGSConfig()
@@ -957,8 +956,7 @@ func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatpr
 
 	var prevState AccountPreviousState
 	err = bgs.db.First(&prevState, account.ID).Error
-	//prevP := &prevState
-	var prevP repomgr.UserPrev = &prevState
+	prevP := &prevState
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		prevP = nil
 	} else if err != nil {
