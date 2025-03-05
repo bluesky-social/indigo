@@ -22,7 +22,8 @@ import (
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/bgs"
-	events "github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/pebblepersist"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -36,7 +37,7 @@ import (
 
 type Splitter struct {
 	erb    *EventRingBuffer
-	pp     *events.PebblePersist
+	pp     *pebblepersist.PebblePersist
 	events *events.EventManager
 
 	// Management of Socket Consumers
@@ -55,7 +56,7 @@ type Splitter struct {
 type SplitterConfig struct {
 	UpstreamHost  string
 	CursorFile    string
-	PebbleOptions *events.PebblePersistOptions
+	PebbleOptions *pebblepersist.PebblePersistOptions
 }
 
 func (sc *SplitterConfig) XrpcRootUrl() string {
@@ -103,7 +104,7 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 		s.erb = erb
 		s.events = events.NewEventManager(erb)
 	} else {
-		pp, err := events.NewPebblePersistance(conf.PebbleOptions)
+		pp, err := pebblepersist.NewPebblePersistance(conf.PebbleOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -115,7 +116,7 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 	return s, nil
 }
 func NewDiskSplitter(host, path string, persistHours float64, maxBytes int64) (*Splitter, error) {
-	ppopts := events.PebblePersistOptions{
+	ppopts := pebblepersist.PebblePersistOptions{
 		DbPath:          path,
 		PersistDuration: time.Duration(float64(time.Hour) * persistHours),
 		GCPeriod:        5 * time.Minute,
@@ -126,7 +127,7 @@ func NewDiskSplitter(host, path string, persistHours float64, maxBytes int64) (*
 		CursorFile:    "cursor-file",
 		PebbleOptions: &ppopts,
 	}
-	pp, err := events.NewPebblePersistance(&ppopts)
+	pp, err := pebblepersist.NewPebblePersistance(&ppopts)
 	if err != nil {
 		return nil, err
 	}
@@ -644,7 +645,7 @@ func (s *Splitter) getLastCursor() (int64, error) {
 		if err == nil {
 			s.log.Debug("got last cursor from pebble", "seq", seq, "millis", millis)
 			return seq, nil
-		} else if errors.Is(err, events.ErrNoLast) {
+		} else if errors.Is(err, pebblepersist.ErrNoLast) {
 			s.log.Info("pebble no last")
 		} else {
 			s.log.Error("pebble seq fail", "err", err)

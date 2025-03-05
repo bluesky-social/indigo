@@ -19,6 +19,8 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/dbpersist"
+	"github.com/bluesky-social/indigo/events/diskpersist"
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
@@ -426,15 +428,15 @@ func runBigsky(cctx *cli.Context) error {
 	if dpd := cctx.String("disk-persister-dir"); dpd != "" {
 		slog.Info("setting up disk persister")
 
-		pOpts := events.DefaultDiskPersistOptions()
+		pOpts := diskpersist.DefaultDiskPersistOptions()
 		pOpts.Retention = cctx.Duration("event-playback-ttl")
-		dp, err := events.NewDiskPersistence(dpd, "", db, pOpts)
+		dp, err := diskpersist.NewDiskPersistence(dpd, "", db, pOpts)
 		if err != nil {
 			return fmt.Errorf("setting up disk persister: %w", err)
 		}
 		persister = dp
 	} else {
-		dbp, err := events.NewDbPersistence(db, cstore, nil)
+		dbp, err := dbpersist.NewDbPersistence(db, cstore, nil)
 		if err != nil {
 			return fmt.Errorf("setting up db event persistence: %w", err)
 		}
