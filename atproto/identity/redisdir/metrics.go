@@ -5,32 +5,24 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-var handleCacheHits = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "atproto_redis_directory_handle_cache_hits",
-	Help: "Number of cache hits for ATProto handle lookups",
-})
+var handleResolution = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "atproto_identity_redisdir_resolve_handle",
+	Help: "ATProto handle resolutions",
+}, []string{"directory", "status"})
 
-var handleCacheMisses = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "atproto_redis_directory_handle_cache_misses",
-	Help: "Number of cache misses for ATProto handle lookups",
-})
+var handleResolutionDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "atproto_identity_redisdir_resolve_handle_duration",
+	Help:    "Time to resolve a handle",
+	Buckets: prometheus.ExponentialBucketsRange(0.001, 2, 15),
+}, []string{"directory", "status"})
 
-var identityCacheHits = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "atproto_redis_directory_identity_cache_hits",
-	Help: "Number of cache hits for ATProto identity lookups",
-})
+var didResolution = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "atproto_identity_redisdir_resolve_did",
+	Help: "ATProto DID resolutions",
+}, []string{"directory", "status"})
 
-var identityCacheMisses = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "atproto_redis_directory_identity_cache_misses",
-	Help: "Number of cache misses for ATProto identity lookups",
-})
-
-var identityRequestsCoalesced = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "atproto_redis_directory_identity_requests_coalesced",
-	Help: "Number of identity requests coalesced",
-})
-
-var handleRequestsCoalesced = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "atproto_redis_directory_handle_requests_coalesced",
-	Help: "Number of handle requests coalesced",
-})
+var didResolutionDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "atproto_identity_redisdir_resolve_did_duration",
+	Help:    "Time to resolve a DID",
+	Buckets: prometheus.ExponentialBucketsRange(0.001, 2, 15),
+}, []string{"directory", "status"})

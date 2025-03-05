@@ -89,6 +89,10 @@ run-dev-relay: .env ## Runs 'bigsky' Relay for local dev
 	GOLOG_LOG_LEVEL=info go run ./cmd/bigsky --admin-key localdev
 # --crawl-insecure-ws
 
+.PHONY: run-dev-ident
+run-dev-ident: .env ## Runs 'bluepages' identity directory for local dev
+	GOLOG_LOG_LEVEL=info go run ./cmd/bluepages serve
+
 .PHONY: build-relay-image
 build-relay-image: ## Builds 'bigsky' Relay docker image
 	docker build -t bigsky -f cmd/bigsky/Dockerfile .
