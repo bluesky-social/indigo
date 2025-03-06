@@ -135,6 +135,7 @@ func (cr *Crawler) CrawlPDSRepoCollections() error {
 		if err != nil {
 			return fmt.Errorf("%s: sync repos: %w", cr.RpcClient.Host, err)
 		}
+		pdsRepoPages.Inc()
 		slog.Debug("got repo list", "count", len(repos.Repos))
 		for _, xr := range repos.Repos {
 			limiter.Wait(cr.Ctx)
@@ -148,6 +149,7 @@ func (cr *Crawler) CrawlPDSRepoCollections() error {
 				}
 				continue
 			}
+			pdsReposDescribed.Inc()
 			for _, collection := range desc.Collections {
 				cr.Results <- DidCollection{Did: xr.Did, Collection: collection}
 			}
