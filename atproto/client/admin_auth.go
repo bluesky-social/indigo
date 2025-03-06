@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"encoding/base64"
 	"net/http"
 
@@ -17,7 +16,7 @@ func NewAdminAuth(password string) AdminAuth {
 	return AdminAuth{basicAuthHeader: header}
 }
 
-func (a *AdminAuth) DoWithAuth(ctx context.Context, req *http.Request, httpClient *http.Client) (*http.Response, error) {
+func (a *AdminAuth) DoWithAuth(req *http.Request, httpClient *http.Client) (*http.Response, error) {
 	req.Header.Set("Authorization", a.basicAuthHeader)
 	return httpClient.Do(req)
 }
