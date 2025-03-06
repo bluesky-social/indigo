@@ -56,8 +56,6 @@ type Slurper struct {
 	shutdownResult chan []error
 
 	ssl bool
-
-	log *slog.Logger
 }
 
 type Limiters struct {
@@ -75,7 +73,6 @@ type SlurperOptions struct {
 	DefaultRepoLimit      int64
 	ConcurrencyPerPDS     int64
 	MaxQueuePerPDS        int64
-	Logger                *slog.Logger
 }
 
 func DefaultSlurperOptions() *SlurperOptions {
@@ -88,7 +85,6 @@ func DefaultSlurperOptions() *SlurperOptions {
 		DefaultRepoLimit:      100,
 		ConcurrencyPerPDS:     100,
 		MaxQueuePerPDS:        1_000,
-		Logger:                slog.Default(),
 	}
 }
 
@@ -119,7 +115,6 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, opts *SlurperOptions) (*Slurper, 
 		ssl:                   opts.SSL,
 		shutdownChan:          make(chan bool),
 		shutdownResult:        make(chan []error),
-		log:                   opts.Logger,
 	}
 	if err := s.loadConfig(); err != nil {
 		return nil, err

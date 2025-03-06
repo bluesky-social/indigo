@@ -178,7 +178,6 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	slOpts.DefaultRepoLimit = config.DefaultRepoLimit
 	slOpts.ConcurrencyPerPDS = config.ConcurrencyPerPDS
 	slOpts.MaxQueuePerPDS = config.MaxQueuePerPDS
-	slOpts.Logger = bgs.log
 	s, err := NewSlurper(db, bgs.handleFedEvent, slOpts)
 	if err != nil {
 		return nil, err

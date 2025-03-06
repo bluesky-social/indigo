@@ -126,7 +126,6 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 	go func() {
 		t := time.NewTicker(time.Second * 30)
 		defer t.Stop()
-		failcount := 0
 
 		for {
 
@@ -134,12 +133,6 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 			case <-t.C:
 				if err := con.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(time.Second*10)); err != nil {
 					log.Warn("failed to ping", "err", err)
-					failcount++
-					if failcount >= 4 {
-						log.Error("too many ping fails", "count", failcount)
-						con.Close()
-						return
-					}
 				}
 			case <-ctx.Done():
 				con.Close()
@@ -176,7 +169,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 
 		mt, rawReader, err := con.NextReader()
 		if err != nil {
-			return fmt.Errorf("con err at read: %w", err)
+			return err
 		}
 
 		switch mt {
