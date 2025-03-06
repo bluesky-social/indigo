@@ -78,7 +78,7 @@ type userLock struct {
 
 // lockUser re-serializes access per-user after events may have been fanned out to many worker threads by events/schedulers/parallel
 func (val *Validator) lockUser(ctx context.Context, user models.Uid) func() {
-	ctx, span := otel.Tracer("repoman").Start(ctx, "userLock")
+	ctx, span := otel.Tracer("validator").Start(ctx, "userLock")
 	defer span.End()
 
 	val.lklk.Lock()
@@ -310,6 +310,55 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS,
 	}
 
 	return repoFragment, nil
+}
+
+// HandleSync checks signed commit from a #sync message
+func (val *Validator) HandleSync(ctx context.Context, host *models.PDS, msg *atproto.SyncSubscribeRepos_Sync) (newRoot *cid.Cid, err error) {
+	hostname := host.Host
+	hasWarning := false
+
+	did, err := syntax.ParseDID(msg.Did)
+	if err != nil {
+		syncVerifyErrors.WithLabelValues(hostname, "did").Inc()
+		return nil, err
+	}
+	rev, err := syntax.ParseTID(msg.Rev)
+	if err != nil {
+		syncVerifyErrors.WithLabelValues(hostname, "tid").Inc()
+		return nil, err
+	}
+	if rev.Time().After(time.Now().Add(val.maxRevFuture)) {
+		syncVerifyErrors.WithLabelValues(hostname, "revf").Inc()
+		return nil, val.ErrRevTooFarFuture
+	}
+	_, err = syntax.ParseDatetime(msg.Time)
+	if err != nil {
+		syncVerifyErrors.WithLabelValues(hostname, "time").Inc()
+		return nil, err
+	}
+
+	commit, _, err := atrepo.LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
+	if err != nil {
+		commitVerifyErrors.WithLabelValues(hostname, "car").Inc()
+		return nil, err
+	}
+
+	if commit.Rev != rev.String() {
+		commitVerifyErrors.WithLabelValues(hostname, "rev").Inc()
+		return nil, fmt.Errorf("rev did not match commit")
+	}
+	if commit.DID != did.String() {
+		commitVerifyErrors.WithLabelValues(hostname, "did2").Inc()
+		return nil, fmt.Errorf("rev did not match commit")
+	}
+
+	err = val.VerifyCommitSignature(ctx, commit, hostname, &hasWarning)
+	if err != nil {
+		// signature errors are metrics counted inside VerifyCommitSignature()
+		return nil, err
+	}
+
+	return &commit.Data, nil
 }
 
 // TODO: lift back to indigo/atproto/repo util code?

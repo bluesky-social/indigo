@@ -60,7 +60,7 @@ type BGS struct {
 	// is overly broad, but i dont expect it to be a bottleneck for now
 	extUserLk sync.Mutex
 
-	repoman *Validator
+	validator *Validator
 
 	// Management of Socket Consumers
 	consumersLk    sync.RWMutex
@@ -112,7 +112,7 @@ func DefaultBGSConfig() *BGSConfig {
 	}
 }
 
-func NewBGS(db *gorm.DB, repoman *Validator, evtman *events.EventManager, didd identity.Directory, config *BGSConfig) (*BGS, error) {
+func NewBGS(db *gorm.DB, validator *Validator, evtman *events.EventManager, didd identity.Directory, config *BGSConfig) (*BGS, error) {
 
 	if config == nil {
 		config = DefaultBGSConfig()
@@ -135,10 +135,10 @@ func NewBGS(db *gorm.DB, repoman *Validator, evtman *events.EventManager, didd i
 	bgs := &BGS{
 		db: db,
 
-		repoman: repoman,
-		events:  evtman,
-		didd:    didd,
-		ssl:     config.SSL,
+		validator: validator,
+		events:    evtman,
+		didd:      didd,
+		ssl:       config.SSL,
 
 		consumersLk: sync.RWMutex{},
 		consumers:   make(map[uint64]*SocketConsumer),
@@ -358,20 +358,20 @@ func (bgs *BGS) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 type Account struct {
-	ID        models.Uid `gorm:"primarykey;index:idx_user_id_active,where:taken_down = false AND tombstoned = false"`
+	ID        models.Uid `gorm:"primarykey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 	Did       string         `gorm:"uniqueIndex"`
 	PDS       uint           // foreign key on models.PDS.ID
 
-	// TakenDown is set to true if the user in question has been taken down.
+	// TakenDown is set to true if the user in question has been taken down by an admin action at this relay.
 	// A user in this state will have all future events related to it dropped
 	// and no data about this user will be served.
-	TakenDown  bool
-	Tombstoned bool
+	TakenDown bool
 
-	// UpstreamStatus is the state of the user as reported by the upstream PDS
+	// UpstreamStatus is the state of the user as reported by the upstream PDS through #account messages.
+	// Additionally, the non-standard string "active" is set to represent an upstream #account message with the active bool true.
 	UpstreamStatus string `gorm:"index"`
 
 	lk sync.Mutex
@@ -407,18 +407,6 @@ func (account *Account) GetPDS() uint {
 	account.lk.Lock()
 	defer account.lk.Unlock()
 	return account.PDS
-}
-
-func (account *Account) SetTombstoned(v bool) {
-	account.lk.Lock()
-	defer account.lk.Unlock()
-	account.Tombstoned = v
-}
-
-func (account *Account) GetTombstoned() bool {
-	account.lk.Lock()
-	defer account.lk.Unlock()
-	return account.Tombstoned
 }
 
 func (account *Account) SetUpstreamStatus(v string) {
@@ -749,6 +737,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		repoCommitsReceivedCounter.WithLabelValues(host.Host).Add(1)
 		return bgs.handleCommit(ctx, host, env.RepoCommit)
 	case env.RepoSync != nil:
+		repoSyncReceivedCounter.WithLabelValues(host.Host).Add(1)
 		return bgs.handleSync(ctx, host, env.RepoSync)
 	case env.RepoHandle != nil:
 		eventsWarningsCounter.WithLabelValues(host.Host, "handle").Add(1)
@@ -790,8 +779,13 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		if env.RepoAccount.Status != nil {
 			span.SetAttributes(attribute.String("repo_status", *env.RepoAccount.Status))
 		}
-
 		bgs.log.Info("bgs got account event", "did", env.RepoAccount.Did)
+
+		if !env.RepoAccount.Active && env.RepoAccount.Status == nil {
+			accountVerifyWarnings.WithLabelValues(host.Host, "nostat").Inc()
+			return nil
+		}
+
 		// Flush any cached DID documents for this user
 		bgs.purgeDidCache(ctx, env.RepoAccount.Did)
 
@@ -829,12 +823,8 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		shouldBeActive := env.RepoAccount.Active
 		status := env.RepoAccount.Status
-		u, err := bgs.lookupUserByDid(ctx, env.RepoAccount.Did)
-		if err != nil {
-			return fmt.Errorf("failed to look up user by did: %w", err)
-		}
 
-		if u.GetTakenDown() {
+		if account.GetTakenDown() {
 			shouldBeActive = false
 			status = &events.AccountStatusTakendown
 		}
@@ -842,11 +832,11 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		// Broadcast the account event to all consumers
 		err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
 			RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+				Active: shouldBeActive,
 				Did:    env.RepoAccount.Did,
 				Seq:    env.RepoAccount.Seq,
-				Time:   env.RepoAccount.Time,
-				Active: shouldBeActive,
 				Status: status,
+				Time:   env.RepoAccount.Time,
 			},
 		})
 		if err != nil {
@@ -868,6 +858,18 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	}
 }
 
+func (bgs *BGS) newUser(ctx context.Context, host *models.PDS, did string) (*Account, error) {
+	newUsersDiscovered.Inc()
+	start := time.Now()
+	account, err := bgs.syncPDSAccount(ctx, did, host, nil)
+	newUserDiscoveryDuration.Observe(time.Since(start).Seconds())
+	if err != nil {
+		repoCommitsResultCounter.WithLabelValues(host.Host, "uerr").Inc()
+		return nil, fmt.Errorf("fed event create external user: %w", err)
+	}
+	return account, nil
+}
+
 func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatproto.SyncSubscribeRepos_Commit) error {
 	bgs.log.Debug("bgs got repo append event", "seq", evt.Seq, "pdsHost", host.Host, "repo", evt.Repo)
 
@@ -878,16 +880,7 @@ func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatpr
 			return fmt.Errorf("looking up event user: %w", err)
 		}
 
-		newUsersDiscovered.Inc()
-		start := time.Now()
-		subj, err := bgs.syncPDSAccount(ctx, evt.Repo, host, account)
-		newUserDiscoveryDuration.Observe(time.Since(start).Seconds())
-		if err != nil {
-			repoCommitsResultCounter.WithLabelValues(host.Host, "uerr").Inc()
-			return fmt.Errorf("fed event create external user: %w", err)
-		}
-
-		account = subj
+		account, err = bgs.newUser(ctx, host, evt.Repo)
 	}
 
 	ustatus := account.GetUpstreamStatus()
@@ -933,27 +926,6 @@ func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatpr
 		}
 	}
 
-	if account.GetTombstoned() {
-		// TODO: reevaluate user lifecycle - tombstoned -- bolson 2025
-		// we've checked the authority of the users PDS, so reinstate the account
-		if err := bgs.db.Model(&Account{}).Where("id = ?", account.ID).UpdateColumn("tombstoned", false).Error; err != nil {
-			repoCommitsResultCounter.WithLabelValues(host.Host, "tomb").Inc()
-			return fmt.Errorf("failed to un-tombstone a user: %w", err)
-		}
-		account.SetTombstoned(false)
-
-		//ai, err := bgs.Index.LookupUser(ctx, account.ID)
-		//if err != nil {
-		//	repoCommitsResultCounter.WithLabelValues(host.Host, "nou2").Inc()
-		//	return fmt.Errorf("failed to look up user (tombstone recover): %w", err)
-		//}
-
-		// Now a simple re-crawl should suffice to bring the user back online
-		//repoCommitsResultCounter.WithLabelValues(host.Host, "catchupt").Inc()
-		//return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
-		// TODO: fall through and just handle the event and the right thing should happen? -- bolson 2025 unsure
-	}
-
 	var prevState AccountPreviousState
 	err = bgs.db.First(&prevState, account.ID).Error
 	prevP := &prevState
@@ -978,7 +950,7 @@ func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatpr
 	if evt.PrevData != nil {
 		evtPrevDataStr = ((*cid.Cid)(evt.PrevData)).String()
 	}
-	newRootCid, err := bgs.repoman.HandleCommit(ctx, host, account, evt, prevP)
+	newRootCid, err := bgs.validator.HandleCommit(ctx, host, account, evt, prevP)
 	if err != nil {
 		bgs.inductionTraceLog.Error("commit bad", "seq", evt.Seq, "pseq", dbPrevSeqStr, "pdsHost", host.Host, "repo", evt.Repo, "prev", evtPrevDataStr, "dbprev", dbPrevRootStr, "err", err)
 		bgs.log.Warn("failed handling event", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", account.Did, "commit", evt.Commit.String())
@@ -1009,10 +981,31 @@ func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatpr
 }
 
 func (bgs *BGS) handleSync(ctx context.Context, host *models.PDS, evt *comatproto.SyncSubscribeRepos_Sync) error {
-	// TODO: actually do something with #sync event
+	account, err := bgs.lookupUserByDid(ctx, evt.Did)
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			repoCommitsResultCounter.WithLabelValues(host.Host, "nou").Inc()
+			return fmt.Errorf("looking up event user: %w", err)
+		}
+
+		account, err = bgs.newUser(ctx, host, evt.Did)
+	}
+	if err != nil {
+		return fmt.Errorf("could not get user for did %#v: %w", evt.Did, err)
+	}
+
+	newRootCid, err := bgs.validator.HandleSync(ctx, host, evt)
+	if err != nil {
+		return err
+	}
+	// update
+	err = bgs.db.Exec("INSERT INTO account_previous_state (uid, cid, rev, seq) VALUES (?, ?, ?, ?) ON CONFLICT uid SET cid = EXCLUDED.cid, rev = EXCLUDED.rev, seq = EXCLUDED.seq", account.ID, newRootCid, evt.Rev, evt.Seq).Error
+	if err != nil {
+		return fmt.Errorf("could not sync set previous state uid=%d: %w", account.ID, err)
+	}
 
 	// Broadcast the identity event to all consumers
-	err := bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
+	err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoSync: evt,
 	})
 	if err != nil {
@@ -1204,6 +1197,7 @@ func (bgs *BGS) syncPDSAccount(ctx context.Context, did string, host *models.PDS
 	return &newAccount, nil
 }
 
+// UpdateAccountStatus is the database portion of receiving a #account message
 func (bgs *BGS) UpdateAccountStatus(ctx context.Context, did string, status string) error {
 	ctx, span := tracer.Start(ctx, "UpdateAccountStatus")
 	defer span.End()

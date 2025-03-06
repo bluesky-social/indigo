@@ -29,7 +29,11 @@ var eventsHandleDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 
 var repoCommitsReceivedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "repo_commits_received_counter",
-	Help: "The total number of events received",
+	Help: "The total number of commit events received",
+}, []string{"pds"})
+var repoSyncReceivedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "repo_sync_received_counter",
+	Help: "The total number of sync events received",
 }, []string{"pds"})
 
 var repoCommitsResultCounter = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -108,6 +112,16 @@ var commitVerifyOk = promauto.NewCounterVec(prometheus.CounterOpts{
 var commitVerifyOkish = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "validator_commit_verify_okish",
 }, []string{"host", "but"})
+
+// verify error and short code for why
+var syncVerifyErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "validator_sync_verify_errors",
+}, []string{"host", "err"})
+
+var accountVerifyWarnings = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "validator_account_verify_warnings",
+	Help: "things that have been a little bit wrong with account messages",
+}, []string{"host", "warn"})
 
 // MetricsMiddleware defines handler function for metrics middleware
 func MetricsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {

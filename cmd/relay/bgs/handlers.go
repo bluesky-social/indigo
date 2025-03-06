@@ -168,10 +168,6 @@ func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did strin
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
-	if u.GetTombstoned() {
-		return nil, fmt.Errorf("account was deleted")
-	}
-
 	if u.GetTakenDown() {
 		return nil, fmt.Errorf("account was taken down by the Relay")
 	}
