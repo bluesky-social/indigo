@@ -108,7 +108,7 @@ func (c *APIClient) Do(ctx context.Context, req APIRequest) (*http.Response, err
 
 	var resp *http.Response
 	if c.Auth != nil {
-		resp, err = c.Auth.DoWithAuth(ctx, httpReq, c.HTTPClient)
+		resp, err = c.Auth.DoWithAuth(httpReq, c.HTTPClient)
 	} else {
 		resp, err = c.HTTPClient.Do(httpReq)
 	}
