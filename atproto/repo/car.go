@@ -15,7 +15,7 @@ import (
 func LoadFromCAR(ctx context.Context, r io.Reader) (*Commit, *Repo, error) {
 
 	//bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
-	bs := &TinyBlockstore{}
+	bs := NewTinyBlockstore()
 
 	cr, err := car.NewCarReader(r)
 	if err != nil {

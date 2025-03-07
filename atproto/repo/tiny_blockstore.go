@@ -9,26 +9,25 @@ import (
 )
 
 type TinyBlockstore struct {
-	blocks []blocks.Block
+	blocks map[string]blocks.Block
+}
+
+func NewTinyBlockstore() *TinyBlockstore {
+	return &TinyBlockstore{blocks: make(map[string]blocks.Block, 20)}
 }
 
 func (tb *TinyBlockstore) Put(_ context.Context, block blocks.Block) error {
 	ncid := block.Cid()
-	for i := range tb.blocks {
-		if tb.blocks[i].Cid().Equals(ncid) {
-			tb.blocks[i] = block
-			return nil
-		}
-	}
-	tb.blocks = append(tb.blocks, block)
+	key := ncid.KeyString()
+	tb.blocks[key] = block
 	return nil
 }
 
 func (tb *TinyBlockstore) Get(_ context.Context, ncid cid.Cid) (blocks.Block, error) {
-	for i := range tb.blocks {
-		if tb.blocks[i].Cid().Equals(ncid) {
-			return tb.blocks[i], nil
-		}
+	key := ncid.KeyString()
+	block, found := tb.blocks[key]
+	if found {
+		return block, nil
 	}
 	return nil, &ipld.ErrNotFound{Cid: ncid}
 }
