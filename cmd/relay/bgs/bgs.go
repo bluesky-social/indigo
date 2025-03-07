@@ -870,6 +870,8 @@ func (bgs *BGS) newUser(ctx context.Context, host *models.PDS, did string) (*Acc
 	return account, nil
 }
 
+var ErrCommitNoUser = errors.New("commit no user")
+
 func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatproto.SyncSubscribeRepos_Commit) error {
 	bgs.log.Debug("bgs got repo append event", "seq", evt.Seq, "pdsHost", host.Host, "repo", evt.Repo)
 
@@ -881,6 +883,14 @@ func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatpr
 		}
 
 		account, err = bgs.newUser(ctx, host, evt.Repo)
+		if err != nil {
+			repoCommitsResultCounter.WithLabelValues(host.Host, "nuerr").Inc()
+			return err
+		}
+	}
+	if account == nil {
+		repoCommitsResultCounter.WithLabelValues(host.Host, "nou2").Inc()
+		return ErrCommitNoUser
 	}
 
 	ustatus := account.GetUpstreamStatus()
