@@ -3,7 +3,6 @@ package bgs
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -134,7 +133,15 @@ func (val *Validator) HandleCommit(ctx context.Context, host *models.PDS, accoun
 	return newRootCid, nil
 }
 
-var ErrNewRevBeforePrevRev = errors.New("new rev is before previous rev")
+type revOutOfOrderError struct {
+	dt time.Duration
+}
+
+func (roooe *revOutOfOrderError) Error() string {
+	return fmt.Sprintf("new rev is before previous rev by %s", roooe.dt.String())
+}
+
+var ErrNewRevBeforePrevRev = &revOutOfOrderError{}
 
 func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS, msg *atproto.SyncSubscribeRepos_Commit, prevRoot *AccountPreviousState) (*atrepo.Repo, error) {
 	hostname := host.Host
@@ -159,7 +166,7 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS,
 		if curTime.Before(prevTime) {
 			commitVerifyErrors.WithLabelValues(hostname, "revb").Inc()
 			dt := prevTime.Sub(curTime)
-			return nil, fmt.Errorf("new rev is before previous rev by %s", dt.String())
+			return nil, &revOutOfOrderError{dt}
 		}
 	}
 	if rev.Time().After(time.Now().Add(val.maxRevFuture)) {
