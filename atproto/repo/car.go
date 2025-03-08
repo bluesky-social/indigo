@@ -9,14 +9,13 @@ import (
 	"github.com/bluesky-social/indigo/atproto/repo/mst"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
-	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car"
 )
 
 func LoadFromCAR(ctx context.Context, r io.Reader) (*Commit, *Repo, error) {
 
-	bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
+	//bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
+	bs := NewTinyBlockstore()
 
 	cr, err := car.NewCarReader(r)
 	if err != nil {
