@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block main_content %}
+<h2>Recent Crawls</h2>
+
+<table>
+	<thead>
+		<tr><th>When</th>
+		    <th>Reason</th>
+		    <th>NSID</th>
+		    <th>Record CID</th>
+	</thead>
+	<tbody>
+    {% for crawl in history %}
+		<tr><td>{{ crawl.CreatedAt|date:"2006-01-02T15:04:05Z" }}</td>
+		    <td>{{ crawl.Reason }}</td>
+        <td><code><a href="/lexicon/{{ crawl.NSID }}">{{ crawl.NSID }}</a></code></td>
+        <td style="max-width: 5em; text-overflow: ellipsis; overflow: hidden;"><code>{{ crawl.RecordCID }}</code></td>
+		{% endfor %}
+	</tbody>
+</table>
+
+{% endblock %}
