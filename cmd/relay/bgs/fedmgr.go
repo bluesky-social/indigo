@@ -134,8 +134,6 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, opts *SlurperOptions) (*Slurper, 
 			case <-s.shutdownChan:
 				s.log.Info("flushing PDS cursors on shutdown")
 				ctx := context.Background()
-				//ctx, span := otel.Tracer("feedmgr").Start(ctx, "CursorFlusherShutdown")
-				//defer span.End()
 				var errs []error
 				if errs = s.flushCursors(ctx); len(errs) > 0 {
 					for _, err := range errs {
@@ -148,8 +146,6 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, opts *SlurperOptions) (*Slurper, 
 			case <-time.After(time.Second * 10):
 				s.log.Debug("flushing PDS cursors")
 				ctx := context.Background()
-				//ctx, span := otel.Tracer("feedmgr").Start(ctx, "CursorFlusher")
-				//defer span.End()
 				if errs := s.flushCursors(ctx); len(errs) > 0 {
 					for _, err := range errs {
 						s.log.Error("failed to flush cursors", "err", err)

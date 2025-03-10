@@ -190,11 +190,11 @@ type XRPCStreamEvent struct {
 	Error         *ErrorFrame
 	RepoCommit    *comatproto.SyncSubscribeRepos_Commit
 	RepoSync      *comatproto.SyncSubscribeRepos_Sync
-	RepoHandle    *comatproto.SyncSubscribeRepos_Handle
+	RepoHandle    *comatproto.SyncSubscribeRepos_Handle // DEPRECATED
 	RepoIdentity  *comatproto.SyncSubscribeRepos_Identity
 	RepoInfo      *comatproto.SyncSubscribeRepos_Info
-	RepoMigrate   *comatproto.SyncSubscribeRepos_Migrate
-	RepoTombstone *comatproto.SyncSubscribeRepos_Tombstone
+	RepoMigrate   *comatproto.SyncSubscribeRepos_Migrate   // DEPRECATED
+	RepoTombstone *comatproto.SyncSubscribeRepos_Tombstone // DEPRECATED
 	RepoAccount   *comatproto.SyncSubscribeRepos_Account
 	LabelLabels   *comatproto.LabelSubscribeLabels_Labels
 	LabelInfo     *comatproto.LabelSubscribeLabels_Info
@@ -270,6 +270,7 @@ func (xevt *XRPCStreamEvent) Deserialize(r io.Reader) error {
 			}
 			xevt.RepoSync = &evt
 		case "#handle":
+			// TODO: DEPRECATED message; warning/counter; drop message
 			var evt comatproto.SyncSubscribeRepos_Handle
 			if err := evt.UnmarshalCBOR(r); err != nil {
 				return err
@@ -295,12 +296,14 @@ func (xevt *XRPCStreamEvent) Deserialize(r io.Reader) error {
 			}
 			xevt.RepoInfo = &evt
 		case "#migrate":
+			// TODO: DEPRECATED message; warning/counter; drop message
 			var evt comatproto.SyncSubscribeRepos_Migrate
 			if err := evt.UnmarshalCBOR(r); err != nil {
 				return err
 			}
 			xevt.RepoMigrate = &evt
 		case "#tombstone":
+			// TODO: DEPRECATED message; warning/counter; drop message
 			var evt comatproto.SyncSubscribeRepos_Tombstone
 			if err := evt.UnmarshalCBOR(r); err != nil {
 				return err
