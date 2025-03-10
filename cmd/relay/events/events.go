@@ -266,7 +266,7 @@ func (xevt *XRPCStreamEvent) Deserialize(r io.Reader) error {
 		case "#sync":
 			var evt comatproto.SyncSubscribeRepos_Sync
 			if err := evt.UnmarshalCBOR(r); err != nil {
-				return fmt.Errorf("reading repoCommit event: %w", err)
+				return fmt.Errorf("reading repoSync event: %w", err)
 			}
 			xevt.RepoSync = &evt
 		case "#handle":
@@ -472,6 +472,8 @@ func (evt *XRPCStreamEvent) Sequence() int64 {
 		return -1
 	case evt.RepoCommit != nil:
 		return evt.RepoCommit.Seq
+	case evt.RepoSync != nil:
+		return evt.RepoSync.Seq
 	case evt.RepoHandle != nil:
 		return evt.RepoHandle.Seq
 	case evt.RepoMigrate != nil:
@@ -497,6 +499,8 @@ func (evt *XRPCStreamEvent) GetSequence() (int64, bool) {
 		return -1, false
 	case evt.RepoCommit != nil:
 		return evt.RepoCommit.Seq, true
+	case evt.RepoSync != nil:
+		return evt.RepoSync.Seq, true
 	case evt.RepoHandle != nil:
 		return evt.RepoHandle.Seq, true
 	case evt.RepoMigrate != nil:

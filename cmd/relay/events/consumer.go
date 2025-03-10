@@ -33,7 +33,7 @@ func (rsc *RepoStreamCallbacks) EventHandler(ctx context.Context, xev *XRPCStrea
 	switch {
 	case xev.RepoCommit != nil && rsc.RepoCommit != nil:
 		return rsc.RepoCommit(xev.RepoCommit)
-	case xev.RepoSync != nil && rsc.RepoCommit != nil:
+	case xev.RepoSync != nil && rsc.RepoSync != nil:
 		return rsc.RepoSync(xev.RepoSync)
 	case xev.RepoHandle != nil && rsc.RepoHandle != nil:
 		return rsc.RepoHandle(xev.RepoHandle)
@@ -227,7 +227,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 			case "#sync":
 				var evt comatproto.SyncSubscribeRepos_Sync
 				if err := evt.UnmarshalCBOR(r); err != nil {
-					return fmt.Errorf("reading repoCommit event: %w", err)
+					return fmt.Errorf("reading repoSync event: %w", err)
 				}
 
 				if evt.Seq < lastSeq {
