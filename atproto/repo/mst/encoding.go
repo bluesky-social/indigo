@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"sync"
 
 	bf "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
@@ -29,18 +30,16 @@ type EntryData struct {
 }
 
 // Encodes a single `NodeData` struct as CBOR bytes. Does not recursively encode or update children.
-func (d *NodeData) Bytes() ([]byte, *cid.Cid, error) {
-	buf := new(bytes.Buffer)
+func (d *NodeData) Bytes(buf *bytes.Buffer) (*cid.Cid, error) {
 	if err := d.MarshalCBOR(buf); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	b := buf.Bytes()
 	builder := cid.NewPrefixV1(cid.DagCBOR, multihash.SHA2_256)
-	c, err := builder.Sum(b)
+	c, err := builder.Sum(buf.Bytes())
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return b, &c, nil
+	return &c, nil
 }
 
 // Parses CBOR bytes in to `NodeData` struct
@@ -53,13 +52,19 @@ func NodeDataFromCBOR(r io.Reader) (*NodeData, error) {
 	return &nd, nil
 }
 
+var bufPool = &sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
+
 // Transforms `Node` struct to `NodeData`, which is the format used for encoding to CBOR.
 //
 // Will panic if any entries are missing a CID (must compute those first)
 func (n *Node) NodeData() NodeData {
 	d := NodeData{
 		Left:    nil,
-		Entries: []EntryData{}, // TODO perf: pre-allocate an array
+		Entries: []EntryData{},
 	}
 
 	prevKey := []byte{}
@@ -96,7 +101,7 @@ func (d *NodeData) Node(c *cid.Cid) Node {
 	n := Node{
 		CID:     c,
 		Dirty:   c == nil,
-		Entries: []NodeEntry{}, // TODO: pre-allocate
+		Entries: []NodeEntry{},
 	}
 
 	if d.Left != nil {
@@ -177,7 +182,9 @@ func (n *Node) writeBlocks(ctx context.Context, bs blockstore.Blockstore, onlyDi
 
 	// compute this block
 	nd := n.NodeData()
-	b, c, err := nd.Bytes()
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	c, err := nd.Bytes(buf)
 	if err != nil {
 		return nil, err
 	}
@@ -186,13 +193,15 @@ func (n *Node) writeBlocks(ctx context.Context, bs blockstore.Blockstore, onlyDi
 	n.Dirty = false
 
 	if bs != nil {
-		blk, err := bf.NewBlockWithCid(b, *c)
+		blk, err := bf.NewBlockWithCid(buf.Bytes(), *c)
 		if err != nil {
 			return nil, err
 		}
 		if err := bs.Put(ctx, blk); err != nil {
 			return nil, err
 		}
+	} else {
+		bufPool.Put(buf)
 	}
 	return c, nil
 }
