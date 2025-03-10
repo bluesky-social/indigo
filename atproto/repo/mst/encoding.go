@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 
 	bf "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
@@ -104,10 +105,7 @@ func (d *NodeData) Node(c *cid.Cid) Node {
 
 	var prevKey []byte
 	for _, e := range d.Entries {
-		// TODO perf: pre-allocate
-		key := []byte{}
-		key = append(key, prevKey[:e.PrefixLen]...)
-		key = append(key, e.KeySuffix...)
+		key := slices.Concat(prevKey[:e.PrefixLen], e.KeySuffix)
 		n.Entries = append(n.Entries, NodeEntry{
 			Key:   key,
 			Value: &e.Value,
