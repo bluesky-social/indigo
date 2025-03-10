@@ -302,6 +302,7 @@ const (
 	evtKindTombstone = 3
 	evtKindIdentity  = 4
 	evtKindAccount   = 5
+	evtKindSync      = 6
 )
 
 var emptyHeader = make([]byte, headerSize)
@@ -485,6 +486,10 @@ func (dp *DiskPersistence) doPersist(ctx context.Context, j persistJob) error {
 		cc := *e.RepoCommit
 		cc.Seq = seq
 		j.Evt.RepoCommit = &cc
+	case e.RepoSync != nil:
+		cc := *e.RepoSync
+		cc.Seq = seq
+		j.Evt.RepoSync = &cc
 	case e.RepoHandle != nil:
 		hc := *e.RepoHandle
 		hc.Seq = seq
@@ -546,6 +551,12 @@ func (dp *DiskPersistence) Persist(ctx context.Context, e *events.XRPCStreamEven
 		evtKind = evtKindCommit
 		did = e.RepoCommit.Repo
 		if err := e.RepoCommit.MarshalCBOR(cw); err != nil {
+			return fmt.Errorf("failed to marshal: %w", err)
+		}
+	case e.RepoSync != nil:
+		evtKind = evtKindSync
+		did = e.RepoSync.Did
+		if err := e.RepoSync.MarshalCBOR(cw); err != nil {
 			return fmt.Errorf("failed to marshal: %w", err)
 		}
 	case e.RepoHandle != nil:
@@ -796,6 +807,15 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 			}
 			evt.Seq = h.Seq
 			if err := cb(&events.XRPCStreamEvent{RepoCommit: &evt}); err != nil {
+				return nil, err
+			}
+		case evtKindSync:
+			var evt atproto.SyncSubscribeRepos_Sync
+			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
+				return nil, err
+			}
+			evt.Seq = h.Seq
+			if err := cb(&events.XRPCStreamEvent{RepoSync: &evt}); err != nil {
 				return nil, err
 			}
 		case evtKindHandle:
