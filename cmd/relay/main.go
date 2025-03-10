@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/cmd/relay/events/diskpersist"
 	"gorm.io/gorm"
 	"io"
 	"log/slog"
@@ -40,11 +41,6 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"gorm.io/plugin/opentelemetry/tracing"
 )
-
-func init() {
-	// control log level using, eg, GOLOG_LOG_LEVEL=debug
-	//logging.SetAllLoggers(logging.LevelDebug)
-}
 
 func main() {
 	if err := run(os.Args); err != nil {
@@ -309,7 +305,7 @@ func runRelay(cctx *cli.Context) error {
 	}
 	logger.Info("setting up disk persister", "dir", dpd)
 
-	pOpts := events.DefaultDiskPersistOptions()
+	pOpts := diskpersist.DefaultDiskPersistOptions()
 	pOpts.Retention = cctx.Duration("event-playback-ttl")
 	pOpts.TimeSequence = cctx.Bool("time-seq")
 
@@ -328,7 +324,7 @@ func runRelay(cctx *cli.Context) error {
 		}
 	}
 
-	dp, err := events.NewDiskPersistence(dpd, "", db, pOpts)
+	dp, err := diskpersist.NewDiskPersistence(dpd, "", db, pOpts)
 	if err != nil {
 		return fmt.Errorf("setting up disk persister: %w", err)
 	}

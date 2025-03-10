@@ -1,4 +1,4 @@
-package events
+package diskpersist
 
 import (
 	"bufio"
@@ -7,7 +7,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/bluesky-social/indigo/cmd/relay/events"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -31,7 +33,7 @@ type DiskPersistence struct {
 
 	meta *gorm.DB
 
-	broadcast func(*XRPCStreamEvent)
+	broadcast func(*events.XRPCStreamEvent)
 
 	logfi *os.File
 
@@ -52,12 +54,14 @@ type DiskPersistence struct {
 
 	shutdown chan struct{}
 
+	log *slog.Logger
+
 	lk sync.Mutex
 }
 
 type persistJob struct {
 	Bytes  []byte
-	Evt    *XRPCStreamEvent
+	Evt    *events.XRPCStreamEvent
 	Buffer *bytes.Buffer // so we can put it back in the pool when we're done
 }
 
@@ -71,7 +75,7 @@ const (
 	EvtFlagRebased
 )
 
-var _ (EventPersistence) = (*DiskPersistence)(nil)
+var _ (events.EventPersistence) = (*DiskPersistence)(nil)
 
 type DiskPersistOptions struct {
 	UIDCacheSize    int
@@ -79,6 +83,8 @@ type DiskPersistOptions struct {
 	EventsPerFile   int64
 	WriteBufferSize int
 	Retention       time.Duration
+
+	Logger *slog.Logger
 
 	TimeSequence bool
 }
@@ -141,6 +147,10 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 		writeBufferSize: opts.WriteBufferSize,
 		shutdown:        make(chan struct{}),
 		timeSequence:    opts.TimeSequence,
+		log:             opts.Logger,
+	}
+	if dp.log == nil {
+		dp.log = slog.Default().With("system", "diskpersist")
 	}
 
 	if err := dp.resumeLog(); err != nil {
@@ -326,7 +336,7 @@ func (dp *DiskPersistence) flushRoutine() {
 			dp.lk.Lock()
 			if err := dp.flushLog(ctx); err != nil {
 				// TODO: this happening is quite bad. Need a recovery strategy
-				log.Error("failed to flush disk log", "err", err)
+				dp.log.Error("failed to flush disk log", "err", err)
 			}
 			dp.lk.Unlock()
 		}
@@ -368,7 +378,7 @@ func (dp *DiskPersistence) garbageCollectRoutine() {
 		case <-t.C:
 			if errs := dp.garbageCollect(ctx); len(errs) > 0 {
 				for _, err := range errs {
-					log.Error("garbage collection error", "err", err)
+					dp.log.Error("garbage collection error", "err", err)
 				}
 			}
 		}
@@ -422,7 +432,7 @@ func (dp *DiskPersistence) garbageCollect(ctx context.Context) []error {
 
 		if filepath.Join(dp.primaryDir, r.Path) == currentLogfile {
 			// Don't delete the current log file
-			log.Info("skipping deletion of current log file")
+			dp.log.Info("skipping deletion of current log file")
 			continue
 		}
 
@@ -444,7 +454,7 @@ func (dp *DiskPersistence) garbageCollect(ctx context.Context) []error {
 	refsGarbageCollected.WithLabelValues().Add(float64(refsDeleted))
 	filesGarbageCollected.WithLabelValues().Add(float64(filesDeleted))
 
-	log.Info("garbage collection complete",
+	dp.log.Info("garbage collection complete",
 		"filesDeleted", filesDeleted,
 		"refsDeleted", refsDeleted,
 		"oldRefsFound", oldRefsFound,
@@ -520,7 +530,7 @@ func (dp *DiskPersistence) doPersist(ctx context.Context, j persistJob) error {
 	return nil
 }
 
-func (dp *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
+func (dp *DiskPersistence) Persist(ctx context.Context, e *events.XRPCStreamEvent) error {
 	buffer := dp.buffers.Get().(*bytes.Buffer)
 	cw := dp.writers.Get().(*cbg.CborWriter)
 	cw.SetWriter(buffer)
@@ -664,7 +674,7 @@ func (dp *DiskPersistence) uidForDid(ctx context.Context, did string) (models.Ui
 	return uid, nil
 }
 
-func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
+func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*events.XRPCStreamEvent) error) error {
 	var logs []LogFileRef
 	needslogs := true
 	if since != 0 {
@@ -705,7 +715,7 @@ func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*X
 	return nil
 }
 
-func (dp *DiskPersistence) PlaybackLogfiles(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error, logFiles []LogFileRef) (*int64, error) {
+func (dp *DiskPersistence) PlaybackLogfiles(ctx context.Context, since int64, cb func(*events.XRPCStreamEvent) error, logFiles []LogFileRef) (*int64, error) {
 	for i, lf := range logFiles {
 		lastSeq, err := dp.readEventsFrom(ctx, since, filepath.Join(dp.primaryDir, lf.Path), cb)
 		if err != nil {
@@ -731,7 +741,7 @@ func postDoNotEmit(flags uint32) bool {
 	return false
 }
 
-func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn string, cb func(*XRPCStreamEvent) error) (*int64, error) {
+func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn string, cb func(*events.XRPCStreamEvent) error) (*int64, error) {
 	fi, err := os.OpenFile(fn, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, err
@@ -743,7 +753,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 			return nil, err
 		}
 		if since > lastSeq {
-			log.Error("playback cursor is greater than last seq of file checked",
+			dp.log.Error("playback cursor is greater than last seq of file checked",
 				"since", since,
 				"lastSeq", lastSeq,
 				"filename", fn,
@@ -785,7 +795,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 				return nil, err
 			}
 			evt.Seq = h.Seq
-			if err := cb(&XRPCStreamEvent{RepoCommit: &evt}); err != nil {
+			if err := cb(&events.XRPCStreamEvent{RepoCommit: &evt}); err != nil {
 				return nil, err
 			}
 		case evtKindHandle:
@@ -794,7 +804,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 				return nil, err
 			}
 			evt.Seq = h.Seq
-			if err := cb(&XRPCStreamEvent{RepoHandle: &evt}); err != nil {
+			if err := cb(&events.XRPCStreamEvent{RepoHandle: &evt}); err != nil {
 				return nil, err
 			}
 		case evtKindIdentity:
@@ -803,7 +813,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 				return nil, err
 			}
 			evt.Seq = h.Seq
-			if err := cb(&XRPCStreamEvent{RepoIdentity: &evt}); err != nil {
+			if err := cb(&events.XRPCStreamEvent{RepoIdentity: &evt}); err != nil {
 				return nil, err
 			}
 		case evtKindAccount:
@@ -812,7 +822,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 				return nil, err
 			}
 			evt.Seq = h.Seq
-			if err := cb(&XRPCStreamEvent{RepoAccount: &evt}); err != nil {
+			if err := cb(&events.XRPCStreamEvent{RepoAccount: &evt}); err != nil {
 				return nil, err
 			}
 		case evtKindTombstone:
@@ -821,11 +831,11 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 				return nil, err
 			}
 			evt.Seq = h.Seq
-			if err := cb(&XRPCStreamEvent{RepoTombstone: &evt}); err != nil {
+			if err := cb(&events.XRPCStreamEvent{RepoTombstone: &evt}); err != nil {
 				return nil, err
 			}
 		default:
-			log.Warn("unrecognized event kind coming from log file", "seq", h.Seq, "kind", h.Kind)
+			dp.log.Warn("unrecognized event kind coming from log file", "seq", h.Seq, "kind", h.Kind)
 			return nil, fmt.Errorf("halting on unrecognized event kind")
 		}
 	}
@@ -978,6 +988,6 @@ func (dp *DiskPersistence) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func (dp *DiskPersistence) SetEventBroadcaster(f func(*XRPCStreamEvent)) {
+func (dp *DiskPersistence) SetEventBroadcaster(f func(*events.XRPCStreamEvent)) {
 	dp.broadcast = f
 }

@@ -107,21 +107,17 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 }
 
 func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, limit int) (*comatprototypes.SyncListRepos_Output, error) {
-	// Filter out tombstoned, taken down, and deactivated accounts
-	q := fmt.Sprintf("id > ? AND NOT tombstoned AND NOT taken_down AND (upstream_status is NULL OR (upstream_status != '%s' AND upstream_status != '%s' AND upstream_status != '%s'))",
-		events.AccountStatusDeactivated, events.AccountStatusSuspended, events.AccountStatusTakendown)
-
-	// Load the users
-	users := []*Account{}
-	if err := s.db.Model(&Account{}).Where(q, cursor).Order("id").Limit(limit).Find(&users).Error; err != nil {
+	// Load the accounts
+	accounts := []*Account{}
+	if err := s.db.Model(&Account{}).Where("id > ? AND NOT taken_down AND (upstream_status IS NULL OR upstream_status = 'active')", cursor).Order("id").Limit(limit).Find(&accounts).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return &comatprototypes.SyncListRepos_Output{}, nil
 		}
-		s.log.Error("failed to query users", "err", err)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to query users")
+		s.log.Error("failed to query accounts", "err", err)
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to query accounts")
 	}
 
-	if len(users) == 0 {
+	if len(accounts) == 0 {
 		// resp.Repos is an explicit empty array, not just 'nil'
 		return &comatprototypes.SyncListRepos_Output{
 			Repos: []*comatprototypes.SyncListRepos_Repo{},
@@ -129,12 +125,12 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, l
 	}
 
 	resp := &comatprototypes.SyncListRepos_Output{
-		Repos: make([]*comatprototypes.SyncListRepos_Repo, len(users)),
+		Repos: make([]*comatprototypes.SyncListRepos_Repo, len(accounts)),
 	}
 
 	// Fetch the repo roots for each user
-	for i := range users {
-		user := users[i]
+	for i := range accounts {
+		user := accounts[i]
 
 		root, err := s.GetRepoRoot(ctx, user.ID)
 		if err != nil {
@@ -149,8 +145,8 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, l
 	}
 
 	// If this is not the last page, set the cursor
-	if len(users) >= limit && len(users) > 1 {
-		nextCursor := fmt.Sprintf("%d", users[len(users)-1].ID)
+	if len(accounts) >= limit && len(accounts) > 1 {
+		nextCursor := fmt.Sprintf("%d", accounts[len(accounts)-1].ID)
 		resp.Cursor = &nextCursor
 	}
 

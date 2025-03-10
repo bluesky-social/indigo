@@ -322,12 +322,13 @@ func (bgs *BGS) HandleHealthCheck(c echo.Context) error {
 }
 
 var homeMessage string = `
-d8888b. d888888b  d888b  .d8888. db   dD db    db
-88  '8D   '88'   88' Y8b 88'  YP 88 ,8P' '8b  d8'
-88oooY'    88    88      '8bo.   88,8P    '8bd8'
-88~~~b.    88    88  ooo   'Y8b. 88'8b      88
-88   8D   .88.   88. ~8~ db   8D 88 '88.    88
-Y8888P' Y888888P  Y888P  '8888Y' YP   YD    YP
+.########..########.##..........###....##....##
+.##.....##.##.......##.........##.##....##..##.
+.##.....##.##.......##........##...##....####..
+.########..######...##.......##.....##....##...
+.##...##...##.......##.......#########....##...
+.##....##..##.......##.......##.....##....##...
+.##.....##.########.########.##.....##....##...
 
 This is an atproto [https://atproto.com] relay instance, running the 'bigsky' codebase [https://github.com/bluesky-social/indigo]
 
@@ -815,7 +816,8 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			repoStatus = *env.RepoAccount.Status
 		}
 
-		err = bgs.UpdateAccountStatus(ctx, env.RepoAccount.Did, repoStatus)
+		account.SetUpstreamStatus(repoStatus)
+		err = bgs.db.Save(account).Error
 		if err != nil {
 			span.RecordError(err)
 			return fmt.Errorf("failed to update account status: %w", err)
@@ -824,6 +826,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		shouldBeActive := env.RepoAccount.Active
 		status := env.RepoAccount.Status
 
+		// override with local status
 		if account.GetTakenDown() {
 			shouldBeActive = false
 			status = &events.AccountStatusTakendown
@@ -1205,59 +1208,6 @@ func (bgs *BGS) syncPDSAccount(ctx context.Context, did string, host *models.PDS
 	bgs.userCache.Add(did, &newAccount)
 
 	return &newAccount, nil
-}
-
-// UpdateAccountStatus is the database portion of receiving a #account message
-func (bgs *BGS) UpdateAccountStatus(ctx context.Context, did string, status string) error {
-	ctx, span := tracer.Start(ctx, "UpdateAccountStatus")
-	defer span.End()
-
-	span.SetAttributes(
-		attribute.String("did", did),
-		attribute.String("status", status),
-	)
-
-	u, err := bgs.lookupUserByDid(ctx, did)
-	if err != nil {
-		return err
-	}
-
-	switch status {
-	case events.AccountStatusActive:
-		// Unset the PDS-specific status flags
-		if err := bgs.db.Model(Account{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusActive).Error; err != nil {
-			return fmt.Errorf("failed to set user active status: %w", err)
-		}
-		u.SetUpstreamStatus(events.AccountStatusActive)
-	case events.AccountStatusDeactivated:
-		if err := bgs.db.Model(Account{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusDeactivated).Error; err != nil {
-			return fmt.Errorf("failed to set user deactivation status: %w", err)
-		}
-		u.SetUpstreamStatus(events.AccountStatusDeactivated)
-	case events.AccountStatusSuspended:
-		if err := bgs.db.Model(Account{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusSuspended).Error; err != nil {
-			return fmt.Errorf("failed to set user suspension status: %w", err)
-		}
-		u.SetUpstreamStatus(events.AccountStatusSuspended)
-	case events.AccountStatusTakendown:
-		if err := bgs.db.Model(Account{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusTakendown).Error; err != nil {
-			return fmt.Errorf("failed to set user taken down status: %w", err)
-		}
-		u.SetUpstreamStatus(events.AccountStatusTakendown)
-		// TODO: set Account takedown in db? -- bolson 2025
-	case events.AccountStatusDeleted:
-		// TODO: tweak model to mark user deleted? -- bolson 2025
-		if err := bgs.db.Model(&Account{}).Where("id = ?", u.ID).UpdateColumns(map[string]any{
-			"tombstoned":      true,
-			"handle":          nil,
-			"upstream_status": events.AccountStatusDeleted,
-		}).Error; err != nil {
-			return err
-		}
-		u.SetUpstreamStatus(events.AccountStatusDeleted)
-	}
-
-	return nil
 }
 
 func (bgs *BGS) TakeDownRepo(ctx context.Context, did string) error {
