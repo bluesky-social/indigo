@@ -80,12 +80,12 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 		switch o.Action {
 		case "delete":
 			if o.Prev == nil {
-				logger.Info("can't invert legacy op", "action", o.Action)
+				logger.Debug("can't invert legacy op", "action", o.Action)
 				return repo, nil
 			}
 		case "update":
 			if o.Prev == nil {
-				logger.Info("can't invert legacy op", "action", o.Action)
+				logger.Debug("can't invert legacy op", "action", o.Action)
 				return repo, nil
 			}
 		}
@@ -119,10 +119,10 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 		}
 		logger.Debug("prevData matched", "prevData", c.String(), "computed", computed.String())
 	} else {
-		logger.Info("prevData was null; skipping tree root check")
+		logger.Debug("prevData was null; skipping tree root check")
 	}
 
-	logger.Info("success")
+	logger.Debug("success")
 	return repo, nil
 }
 
