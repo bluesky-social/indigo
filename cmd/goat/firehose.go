@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -78,7 +79,18 @@ func runFirehose(cctx *cli.Context) error {
 		CollectionFilter: cctx.StringSlice("collection"),
 	}
 
-	relayHost := cctx.String("relay-host")
+	var relayHost string
+	if cctx.IsSet("relay-host") {
+		relayHost = cctx.String("relay-host")
+	} else {
+		if cctx.Args().Len() == 1 {
+			relayHost = cctx.Args().First()
+		} else if cctx.Args().Len() > 1 {
+			return errors.New("can only have at most one relay-host")
+		} else {
+			relayHost = cctx.String("relay-host")
+		}
+	}
 
 	dialer := websocket.DefaultDialer
 	u, err := url.Parse(relayHost)
