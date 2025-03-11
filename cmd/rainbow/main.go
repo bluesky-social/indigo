@@ -93,6 +93,12 @@ func run(args []string) {
 			Usage:   "forward POST requestCrawl to this url, should be machine root url and not xrpc/requestCrawl, comma separated list",
 			EnvVars: []string{"RELAY_NEXT_CRAWLER"},
 		},
+		&cli.IntFlag{
+			Name:    "max-request-crawl-errors",
+			Usage:   "maximum number of errors a requestCrawl forwarding target may fail before we give up",
+			EnvVars: []string{"RAINBOW_RC_ERR_LIMIT"},
+			Value:   10,
+		},
 	}
 
 	// TODO: slog.SetDefault and set module `var log *slog.Logger` based on flags and env
@@ -161,16 +167,18 @@ func Splitter(cctx *cli.Context) error {
 			MaxBytes:        uint64(cctx.Int64("persist-bytes")),
 		}
 		conf := splitter.SplitterConfig{
-			UpstreamHost:  upstreamHost,
-			CursorFile:    cctx.String("cursor-file"),
-			PebbleOptions: &ppopts,
+			UpstreamHost:                 upstreamHost,
+			CursorFile:                   cctx.String("cursor-file"),
+			PebbleOptions:                &ppopts,
+			MaxRequestCrawlForwardErrors: cctx.Int("max-request-crawl-errors"),
 		}
 		spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	} else {
 		log.Info("building in-memory splitter")
 		conf := splitter.SplitterConfig{
-			UpstreamHost: upstreamHost,
-			CursorFile:   cctx.String("cursor-file"),
+			UpstreamHost:                 upstreamHost,
+			CursorFile:                   cctx.String("cursor-file"),
+			MaxRequestCrawlForwardErrors: cctx.Int("max-request-crawl-errors"),
 		}
 		spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	}
