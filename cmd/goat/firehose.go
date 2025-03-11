@@ -81,6 +81,9 @@ func runFirehose(cctx *cli.Context) error {
 
 	var relayHost string
 	if cctx.IsSet("relay-host") {
+		if cctx.Args().Len() != 0 {
+			return errors.New("error: unused positional args")
+		}
 		relayHost = cctx.String("relay-host")
 	} else {
 		if cctx.Args().Len() == 1 {
