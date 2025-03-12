@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -23,6 +24,7 @@ type APIDirectory struct {
 	Host      string
 	UserAgent string
 	Fallback  *identity.BaseDirectory
+	Logger    *slog.Logger
 }
 
 var _ identity.Directory = (*APIDirectory)(nil)
@@ -139,6 +141,7 @@ func (dir *APIDirectory) ResolveDIDRaw(ctx context.Context, did syntax.DID) (jso
 		didResolution.WithLabelValues("apidir", "error").Inc()
 		didResolutionDuration.WithLabelValues("apidir", "error").Observe(time.Since(start).Seconds())
 		if dir.Fallback != nil {
+			dir.Logger.Info("attempting fallback DID resolution", "did", did, "apiError", err)
 			start = time.Now()
 			raw, err := dir.Fallback.ResolveDIDRaw(ctx, did)
 			didResolution.WithLabelValues("apidir", "fallback").Inc()
@@ -176,6 +179,7 @@ func (dir *APIDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle
 		handleResolution.WithLabelValues("apidir", "error").Inc()
 		handleResolutionDuration.WithLabelValues("apidir", "error").Observe(time.Since(start).Seconds())
 		if dir.Fallback != nil {
+			dir.Logger.Info("attempting fallback handle resolution", "handle", handle, "apiError", err)
 			start = time.Now()
 			h, err := dir.Fallback.ResolveHandle(ctx, handle)
 			handleResolution.WithLabelValues("apidir", "fallback").Inc()
@@ -219,6 +223,7 @@ func (dir *APIDirectory) apiLookup(ctx context.Context, atid syntax.AtIdentifier
 func (dir *APIDirectory) Lookup(ctx context.Context, atid syntax.AtIdentifier) (*identity.Identity, error) {
 	ident, err := dir.apiLookup(ctx, atid)
 	if err != nil && dir.Fallback != nil && (errors.Is(err, identity.ErrDIDResolutionFailed) || errors.Is(err, identity.ErrHandleResolutionFailed)) {
+		dir.Logger.Info("attempting fallback identity lookup", "identifier", atid, "apiError", err)
 		start := time.Now()
 		ident, err = dir.Fallback.Lookup(ctx, atid)
 		identityResolution.WithLabelValues("apidir", "fallback").Inc()
@@ -231,6 +236,7 @@ func (dir *APIDirectory) Lookup(ctx context.Context, atid syntax.AtIdentifier) (
 func (dir *APIDirectory) LookupHandle(ctx context.Context, handle syntax.Handle) (*identity.Identity, error) {
 	ident, err := dir.apiLookup(ctx, handle.AtIdentifier())
 	if err != nil && dir.Fallback != nil && (errors.Is(err, identity.ErrDIDResolutionFailed) || errors.Is(err, identity.ErrHandleResolutionFailed)) {
+		dir.Logger.Info("attempting fallback handle lookup", "handle", handle, "apiError", err)
 		start := time.Now()
 		ident, err = dir.Fallback.LookupHandle(ctx, handle)
 		identityResolution.WithLabelValues("apidir", "fallback").Inc()
@@ -243,6 +249,7 @@ func (dir *APIDirectory) LookupHandle(ctx context.Context, handle syntax.Handle)
 func (dir *APIDirectory) LookupDID(ctx context.Context, did syntax.DID) (*identity.Identity, error) {
 	ident, err := dir.apiLookup(ctx, did.AtIdentifier())
 	if err != nil && dir.Fallback != nil && (errors.Is(err, identity.ErrDIDResolutionFailed) || errors.Is(err, identity.ErrHandleResolutionFailed)) {
+		dir.Logger.Info("attempting fallback DID lookup", "did", did, "apiError", err)
 		start := time.Now()
 		ident, err = dir.Fallback.LookupDID(ctx, did)
 		identityResolution.WithLabelValues("apidir", "fallback").Inc()
