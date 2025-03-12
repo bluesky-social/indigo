@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/identity/apidir"
 	"github.com/bluesky-social/indigo/atproto/identity/redisdir"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/capture"
@@ -52,6 +53,11 @@ func run(args []string) error {
 			Usage:   "method, hostname, and port of PLC registry",
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
+		},
+		&cli.StringFlag{
+			Name:    "identity-directory-host",
+			Usage:   "method, hostname, and port of identity resolution service (optional)",
+			EnvVars: []string{"IDENTITY_DIRECTORY_HOST"},
 		},
 		&cli.StringFlag{
 			Name:    "atp-bsky-host",
@@ -214,7 +220,11 @@ func configDirectory(cctx *cli.Context) (identity.Directory, error) {
 		SkipDNSDomainSuffixes: []string{".bsky.social", ".staging.bsky.dev"},
 	}
 	var dir identity.Directory
-	if cctx.String("redis-url") != "" {
+	if cctx.String("identity-directory-host") != "" {
+		adir := apidir.NewAPIDirectory(cctx.String("identity-directory-host"))
+		adir.Fallback = &baseDir
+		dir = &adir
+	} else if cctx.String("redis-url") != "" {
 		rdir, err := redisdir.NewRedisDirectory(&baseDir, cctx.String("redis-url"), time.Hour*24, time.Minute*2, time.Minute*5, 10_000)
 		if err != nil {
 			return nil, err
