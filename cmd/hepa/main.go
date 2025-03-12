@@ -142,7 +142,7 @@ func run(args []string) error {
 		},
 		&cli.IntFlag{
 			Name:    "firehose-parallelism",
-			Usage:   "force a fixed number of parallel firehose workers. default (or 0) for auto-scaling; 200 works for a large instance",
+			Usage:   "force a fixed number of parallel firehose workers. 200 works for a large instance",
 			EnvVars: []string{"HEPA_FIREHOSE_PARALLELISM"},
 		},
 		&cli.StringFlag{
