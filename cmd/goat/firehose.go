@@ -34,7 +34,7 @@ var cmdFirehose = &cli.Command{
 			Name:    "relay-host",
 			Usage:   "method, hostname, and port of Relay instance (websocket)",
 			Value:   "wss://bsky.network",
-			EnvVars: []string{"ATP_RELAY_HOST"},
+			EnvVars: []string{"ATP_RELAY_HOST", "RELAY_HOST"},
 		},
 		&cli.IntFlag{
 			Name:  "cursor",
