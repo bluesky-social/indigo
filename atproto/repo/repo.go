@@ -48,17 +48,17 @@ func (repo *Repo) GetRecordCID(ctx context.Context, collection syntax.NSID, rkey
 	return c, nil
 }
 
-func (repo *Repo) GetRecordBytes(ctx context.Context, collection syntax.NSID, rkey syntax.RecordKey) ([]byte, error) {
+func (repo *Repo) GetRecordBytes(ctx context.Context, collection syntax.NSID, rkey syntax.RecordKey) ([]byte, *cid.Cid, error) {
 	c, err := repo.GetRecordCID(ctx, collection, rkey)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	blk, err := repo.RecordStore.Get(ctx, *c)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// TODO: not verifying CID
-	return blk.RawData(), nil
+	return blk.RawData(), c, nil
 }
 
 // Snapshots the current state of the repository, resulting in a new (unsigned) `Commit` struct.
