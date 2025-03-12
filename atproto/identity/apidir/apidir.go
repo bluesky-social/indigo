@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +22,7 @@ type APIDirectory struct {
 	// API service to make queries to. Includes schema, hostname, and port, but no path or trailing slash. Eg: "http://localhost:6600"
 	Host      string
 	UserAgent string
+	Fallback  *identity.BaseDirectory
 }
 
 var _ identity.Directory = (*APIDirectory)(nil)
@@ -136,6 +138,13 @@ func (dir *APIDirectory) ResolveDIDRaw(ctx context.Context, did syntax.DID) (jso
 	if err != nil {
 		didResolution.WithLabelValues("apidir", "error").Inc()
 		didResolutionDuration.WithLabelValues("apidir", "error").Observe(time.Since(start).Seconds())
+		if dir.Fallback != nil {
+			start = time.Now()
+			raw, err := dir.Fallback.ResolveDIDRaw(ctx, did)
+			didResolution.WithLabelValues("apidir", "fallback").Inc()
+			didResolutionDuration.WithLabelValues("apidir", "fallback").Observe(time.Since(start).Seconds())
+			return raw, err
+		}
 		return nil, err
 	}
 	didResolution.WithLabelValues("apidir", "success").Inc()
@@ -166,6 +175,13 @@ func (dir *APIDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle
 	if err != nil {
 		handleResolution.WithLabelValues("apidir", "error").Inc()
 		handleResolutionDuration.WithLabelValues("apidir", "error").Observe(time.Since(start).Seconds())
+		if dir.Fallback != nil {
+			start = time.Now()
+			h, err := dir.Fallback.ResolveHandle(ctx, handle)
+			handleResolution.WithLabelValues("apidir", "fallback").Inc()
+			handleResolutionDuration.WithLabelValues("apidir", "fallback").Observe(time.Since(start).Seconds())
+			return h, err
+		}
 		return "", err
 	}
 	handleResolution.WithLabelValues("apidir", "success").Inc()
@@ -174,7 +190,7 @@ func (dir *APIDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle
 	return body.DID, nil
 }
 
-func (dir *APIDirectory) Lookup(ctx context.Context, atid syntax.AtIdentifier) (*identity.Identity, error) {
+func (dir *APIDirectory) apiLookup(ctx context.Context, atid syntax.AtIdentifier) (*identity.Identity, error) {
 	var body identityBody
 	u := dir.Host + "/xrpc/com.atproto.identity.resolveIdentity?identifier=" + atid.String()
 
@@ -200,12 +216,40 @@ func (dir *APIDirectory) Lookup(ctx context.Context, atid syntax.AtIdentifier) (
 	return &ident, nil
 }
 
+func (dir *APIDirectory) Lookup(ctx context.Context, atid syntax.AtIdentifier) (*identity.Identity, error) {
+	ident, err := dir.apiLookup(ctx, atid)
+	if err != nil && dir.Fallback != nil && (errors.Is(err, identity.ErrDIDResolutionFailed) || errors.Is(err, identity.ErrHandleResolutionFailed)) {
+		start := time.Now()
+		ident, err = dir.Fallback.Lookup(ctx, atid)
+		identityResolution.WithLabelValues("apidir", "fallback").Inc()
+		identityResolutionDuration.WithLabelValues("apidir", "fallback").Observe(time.Since(start).Seconds())
+		return ident, err
+	}
+	return ident, err
+}
+
 func (dir *APIDirectory) LookupHandle(ctx context.Context, handle syntax.Handle) (*identity.Identity, error) {
-	return dir.Lookup(ctx, handle.AtIdentifier())
+	ident, err := dir.apiLookup(ctx, handle.AtIdentifier())
+	if err != nil && dir.Fallback != nil && (errors.Is(err, identity.ErrDIDResolutionFailed) || errors.Is(err, identity.ErrHandleResolutionFailed)) {
+		start := time.Now()
+		ident, err = dir.Fallback.LookupHandle(ctx, handle)
+		identityResolution.WithLabelValues("apidir", "fallback").Inc()
+		identityResolutionDuration.WithLabelValues("apidir", "fallback").Observe(time.Since(start).Seconds())
+		return ident, err
+	}
+	return ident, err
 }
 
 func (dir *APIDirectory) LookupDID(ctx context.Context, did syntax.DID) (*identity.Identity, error) {
-	return dir.Lookup(ctx, did.AtIdentifier())
+	ident, err := dir.apiLookup(ctx, did.AtIdentifier())
+	if err != nil && dir.Fallback != nil && (errors.Is(err, identity.ErrDIDResolutionFailed) || errors.Is(err, identity.ErrHandleResolutionFailed)) {
+		start := time.Now()
+		ident, err = dir.Fallback.LookupDID(ctx, did)
+		identityResolution.WithLabelValues("apidir", "fallback").Inc()
+		identityResolutionDuration.WithLabelValues("apidir", "fallback").Observe(time.Since(start).Seconds())
+		return ident, err
+	}
+	return ident, err
 }
 
 func (dir *APIDirectory) Purge(ctx context.Context, atid syntax.AtIdentifier) error {
