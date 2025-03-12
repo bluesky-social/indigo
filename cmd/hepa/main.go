@@ -209,7 +209,7 @@ func run(args []string) error {
 	return app.Run(args)
 }
 
-func configDirectory(cctx *cli.Context) (identity.Directory, error) {
+func configDirectory(cctx *cli.Context, logger *slog.Logger) (identity.Directory, error) {
 	baseDir := identity.BaseDirectory{
 		PLCURL: cctx.String("atp-plc-host"),
 		HTTPClient: http.Client{
@@ -223,6 +223,7 @@ func configDirectory(cctx *cli.Context) (identity.Directory, error) {
 	if cctx.String("identity-directory-host") != "" {
 		adir := apidir.NewAPIDirectory(cctx.String("identity-directory-host"))
 		adir.Fallback = &baseDir
+		adir.Logger = logger
 		dir = &adir
 	} else if cctx.String("redis-url") != "" {
 		rdir, err := redisdir.NewRedisDirectory(&baseDir, cctx.String("redis-url"), time.Hour*24, time.Minute*2, time.Minute*5, 10_000)
@@ -280,7 +281,7 @@ var runCmd = &cli.Command{
 		logger := configLogger(cctx, os.Stdout)
 		configOTEL("hepa")
 
-		dir, err := configDirectory(cctx)
+		dir, err := configDirectory(cctx, logger)
 		if err != nil {
 			return fmt.Errorf("failed to configure identity directory: %v", err)
 		}
@@ -381,7 +382,7 @@ func configEphemeralServer(cctx *cli.Context) (*Server, error) {
 	// NOTE: using stderr not stdout because some commands print to stdout
 	logger := configLogger(cctx, os.Stderr)
 
-	dir, err := configDirectory(cctx)
+	dir, err := configDirectory(cctx, logger)
 	if err != nil {
 		return nil, err
 	}
