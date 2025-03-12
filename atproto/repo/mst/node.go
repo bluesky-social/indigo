@@ -291,6 +291,25 @@ func (n *Node) writeToMap(m map[string]cid.Cid) error {
 	return nil
 }
 
+func (n *Node) walk(f func(key []byte, val cid.Cid) error) error {
+	if n == nil {
+		return fmt.Errorf("nil tree pointer")
+	}
+	for _, e := range n.Entries {
+		if e.IsValue() {
+			if err := f(e.Key, *e.Value); err != nil {
+				return err
+			}
+		}
+		if e.Child != nil {
+			if err := e.Child.walk(f); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // Reads the value (CID) corresponding to the key. If key is not in the tree, returns (nil, nil).
 //
 // n: Node at top of sub-tree to operate on. Must not be nil.
