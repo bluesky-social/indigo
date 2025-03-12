@@ -122,6 +122,13 @@ func runFirehose(cctx *cli.Context) error {
 			}
 			return nil
 		},
+		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
+			slog.Debug("sync event", "did", evt.Did, "seq", evt.Seq)
+			if !gfc.AccountsOnly && !gfc.OpsMode {
+				return gfc.handleSyncEvent(ctx, evt)
+			}
+			return nil
+		},
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
 			slog.Debug("identity event", "did", evt.Did, "seq", evt.Seq)
 			if !gfc.OpsMode {
@@ -163,6 +170,18 @@ func (gfc *GoatFirehoseConsumer) handleIdentityEvent(ctx context.Context, evt *c
 func (gfc *GoatFirehoseConsumer) handleAccountEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Account) error {
 	out := make(map[string]interface{})
 	out["type"] = "account"
+	out["payload"] = evt
+	b, err := json.Marshal(out)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(b))
+	return nil
+}
+
+func (gfc *GoatFirehoseConsumer) handleSyncEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync) error {
+	out := make(map[string]interface{})
+	out["type"] = "sync"
 	out["payload"] = evt
 	b, err := json.Marshal(out)
 	if err != nil {
