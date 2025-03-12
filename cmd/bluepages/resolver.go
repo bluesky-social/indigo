@@ -118,8 +118,10 @@ func (d *RedisResolver) refreshHandle(ctx context.Context, h syntax.Handle) hand
 
 	he := handleEntry{
 		Updated: time.Now(),
-		DID:     &did,
 		Err:     err,
+	}
+	if did != "" {
+		he.DID = &did
 	}
 	err = d.handleCache.Set(&cache.Item{
 		Ctx:   ctx,
