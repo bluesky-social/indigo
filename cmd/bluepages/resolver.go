@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -104,13 +105,20 @@ func (d *RedisResolver) refreshHandle(ctx context.Context, h syntax.Handle) hand
 	did, err := d.Inner.ResolveHandle(ctx, h)
 	duration := time.Since(start)
 
+	segment := "default"
+	if strings.HasSuffix(segment, ".bsky.social") {
+		segment = "bskysocial"
+	}
+
 	if err != nil {
 		d.Logger.Info("handle resolution failed", "handle", h, "duration", duration.String(), "err", err)
 		handleResolution.WithLabelValues("bluepages", "error").Inc()
 		handleResolutionDuration.WithLabelValues("bluepages", "error").Observe(time.Since(start).Seconds())
+		handleExternalResolutionDuration.WithLabelValues(segment, "error").Observe(time.Since(start).Seconds())
 	} else {
 		handleResolution.WithLabelValues("bluepages", "success").Inc()
 		handleResolutionDuration.WithLabelValues("bluepages", "success").Observe(time.Since(start).Seconds())
+		handleExternalResolutionDuration.WithLabelValues(segment, "success").Observe(time.Since(start).Seconds())
 	}
 	if duration.Seconds() > 5.0 {
 		d.Logger.Info("slow handle resolution", "handle", h, "duration", duration.String())

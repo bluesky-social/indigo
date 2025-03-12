@@ -16,6 +16,12 @@ var handleResolutionDuration = promauto.NewHistogramVec(prometheus.HistogramOpts
 	Buckets: prometheus.ExponentialBucketsRange(0.0001, 2, 20),
 }, []string{"directory", "status"})
 
+var handleExternalResolutionDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "atproto_identity_bluepages_resolve_external_handle_duration",
+	Help:    "Time to resolve a handle from live network, segmented by type",
+	Buckets: prometheus.ExponentialBucketsRange(0.0001, 2, 20),
+}, []string{"segment", "status"})
+
 var didResolution = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "atproto_identity_bluepages_resolve_did",
 	Help: "ATProto DID resolutions",
