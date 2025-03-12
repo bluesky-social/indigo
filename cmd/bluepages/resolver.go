@@ -105,7 +105,7 @@ func (d *RedisResolver) refreshHandle(ctx context.Context, h syntax.Handle) hand
 	duration := time.Since(start)
 
 	if err != nil {
-		d.Logger.Info("handle resolution failed", "handle", h, "duration", duration, "err", err)
+		d.Logger.Info("handle resolution failed", "handle", h, "duration", duration.String(), "err", err)
 		handleResolution.WithLabelValues("bluepages", "error").Inc()
 		handleResolutionDuration.WithLabelValues("bluepages", "error").Observe(time.Since(start).Seconds())
 	} else {
@@ -113,7 +113,7 @@ func (d *RedisResolver) refreshHandle(ctx context.Context, h syntax.Handle) hand
 		handleResolutionDuration.WithLabelValues("bluepages", "success").Observe(time.Since(start).Seconds())
 	}
 	if duration.Seconds() > 5.0 {
-		d.Logger.Info("slow handle resolution", "handle", h, "duration", duration)
+		d.Logger.Info("slow handle resolution", "handle", h, "duration", duration.String())
 	}
 
 	he := handleEntry{
@@ -139,7 +139,7 @@ func (d *RedisResolver) refreshDID(ctx context.Context, did syntax.DID) didEntry
 	duration := time.Since(start)
 
 	if err != nil {
-		d.Logger.Info("DID resolution failed", "did", did, "duration", duration, "err", err)
+		d.Logger.Info("DID resolution failed", "did", did, "duration", duration.String(), "err", err)
 		didResolution.WithLabelValues("bluepages", "error").Inc()
 		didResolutionDuration.WithLabelValues("bluepages", "error").Observe(time.Since(start).Seconds())
 	} else {
@@ -147,7 +147,7 @@ func (d *RedisResolver) refreshDID(ctx context.Context, did syntax.DID) didEntry
 		didResolutionDuration.WithLabelValues("bluepages", "success").Observe(time.Since(start).Seconds())
 	}
 	if duration.Seconds() > 5.0 {
-		d.Logger.Info("slow DID resolution", "did", did, "duration", duration)
+		d.Logger.Info("slow DID resolution", "did", did, "duration", duration.String())
 	}
 
 	// persist the DID lookup error, instead of processing it immediately
