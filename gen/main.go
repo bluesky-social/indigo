@@ -95,6 +95,7 @@ func main() {
 		atproto.LexiconSchema{},
 		atproto.RepoStrongRef{},
 		atproto.SyncSubscribeRepos_Commit{},
+		atproto.SyncSubscribeRepos_Sync{},
 		atproto.SyncSubscribeRepos_Handle{},
 		atproto.SyncSubscribeRepos_Identity{},
 		atproto.SyncSubscribeRepos_Account{},

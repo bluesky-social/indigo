@@ -338,18 +338,12 @@ func Reload(cctx *cli.Context) error {
 				case evt.RepoCommit != nil:
 					header.MsgType = "#commit"
 					obj = evt.RepoCommit
-				case evt.RepoHandle != nil:
-					header.MsgType = "#handle"
-					obj = evt.RepoHandle
+				case evt.RepoSync != nil:
+					header.MsgType = "#sync"
+					obj = evt.RepoSync
 				case evt.RepoInfo != nil:
 					header.MsgType = "#info"
 					obj = evt.RepoInfo
-				case evt.RepoMigrate != nil:
-					header.MsgType = "#migrate"
-					obj = evt.RepoMigrate
-				case evt.RepoTombstone != nil:
-					header.MsgType = "#tombstone"
-					obj = evt.RepoTombstone
 				default:
 					logger.Error("unrecognized event kind")
 					continue
