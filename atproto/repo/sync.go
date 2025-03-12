@@ -61,16 +61,13 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 			if err != nil {
 				return nil, fmt.Errorf("invalid repo path in ops list: %w", err)
 			}
-			val, err := repo.GetRecordCID(ctx, nsid, rkey)
+			// don't use the returned bytes, but do actually read them out of store (not just CID)
+			_, val, err := repo.GetRecordBytes(ctx, nsid, rkey)
 			if err != nil {
 				return nil, err
 			}
 			if *c != *val {
 				return nil, fmt.Errorf("record op doesn't match MST tree value")
-			}
-			_, err = repo.GetRecordBytes(ctx, nsid, rkey)
-			if err != nil {
-				return nil, err
 			}
 		}
 	}
