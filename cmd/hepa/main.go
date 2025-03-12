@@ -224,7 +224,8 @@ func configDirectory(cctx *cli.Context, logger *slog.Logger) (identity.Directory
 		adir := apidir.NewAPIDirectory(cctx.String("identity-directory-host"))
 		adir.Fallback = &baseDir
 		adir.Logger = logger
-		dir = &adir
+		cdir := identity.NewCacheDirectory(&adir, 1_500_000, time.Hour*1, time.Minute*2, time.Minute*5)
+		dir = &cdir
 	} else if cctx.String("redis-url") != "" {
 		rdir, err := redisdir.NewRedisDirectory(&baseDir, cctx.String("redis-url"), time.Hour*24, time.Minute*2, time.Minute*5, 10_000)
 		if err != nil {
