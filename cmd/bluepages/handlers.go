@@ -16,7 +16,14 @@ import (
 func (srv *Server) ResolveHandle(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	hdl, err := syntax.ParseHandle(c.QueryParam("handle"))
+	raw := c.QueryParam("handle")
+	if raw == "" {
+		return c.JSON(400, GenericError{
+			Error:   "InvalidRequest",
+			Message: "query parameter missing or empty: handle",
+		})
+	}
+	hdl, err := syntax.ParseHandle(raw)
 	if err != nil {
 		return c.JSON(400, GenericError{
 			Error:   "InvalidHandleSyntax",
@@ -45,7 +52,14 @@ func (srv *Server) ResolveHandle(c echo.Context) error {
 func (srv *Server) ResolveDid(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	did, err := syntax.ParseDID(c.QueryParam("did"))
+	raw := c.QueryParam("did")
+	if raw == "" {
+		return c.JSON(400, GenericError{
+			Error:   "InvalidRequest",
+			Message: "query parameter missing or empty: did",
+		})
+	}
+	did, err := syntax.ParseDID(raw)
 	if err != nil {
 		return c.JSON(400, GenericError{
 			Error:   "InvalidDidSyntax",
@@ -172,7 +186,14 @@ func (srv *Server) resolveIdentityFromDID(c echo.Context, did syntax.DID) error 
 // GET /xrpc/com.atproto.identity.resolveIdentity
 func (srv *Server) ResolveIdentity(c echo.Context) error {
 	// we partially re-implement the "Lookup()" logic here, but returning the full DID document, not `identity.Identity`
-	atid, err := syntax.ParseAtIdentifier(c.QueryParam("identifier"))
+	raw := c.QueryParam("identifier")
+	if raw == "" {
+		return c.JSON(400, GenericError{
+			Error:   "InvalidRequest",
+			Message: "query parameter missing or empty: identifier",
+		})
+	}
+	atid, err := syntax.ParseAtIdentifier(raw)
 	if err != nil {
 		return c.JSON(400, GenericError{
 			Error:   "InvalidIdentifierSyntax",
