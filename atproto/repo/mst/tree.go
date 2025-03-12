@@ -79,6 +79,11 @@ func (t *Tree) Get(key []byte) (*cid.Cid, error) {
 	return t.Root.getCID(key, -1)
 }
 
+// Walks the Tree, invoking the callback function on each key/value pair.
+func (t *Tree) Walk(f func(key []byte, val cid.Cid) error) error {
+	return t.Root.walk(f)
+}
+
 // Creates a new Tree by loading key/value pairs from a map.
 func LoadTreeFromMap(m map[string]cid.Cid) (*Tree, error) {
 	if m == nil {
