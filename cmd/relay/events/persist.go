@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/bluesky-social/indigo/models"
+	"github.com/bluesky-social/indigo/cmd/relay/models"
 )
 
 // Note that this interface looks generic, but some persisters might only work with RepoAppend or LabelLabels
 type EventPersistence interface {
-	// Persist may mutate contents of *XRPCStreamEvent and what it points to
 	Persist(ctx context.Context, e *XRPCStreamEvent) error
 	Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error
 	TakeDownRepo(ctx context.Context, usr models.Uid) error
