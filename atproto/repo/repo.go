@@ -7,9 +7,8 @@ import (
 	"github.com/bluesky-social/indigo/atproto/repo/mst"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
+	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 )
 
 // Version of the repo data format implemented in this package
@@ -20,21 +19,26 @@ type Repo struct {
 	DID   syntax.DID
 	Clock *syntax.TIDClock
 
-	RecordStore blockstore.Blockstore
+	RecordStore RepoBlockSource // formerly blockstore.Blockstore
 	MST         mst.Tree
+}
+
+// subset of Blockstore that we actually need
+type RepoBlockSource interface {
+	Get(ctx context.Context, cid cid.Cid) (blocks.Block, error)
 }
 
 var ErrNotFound = errors.New("record not found in repository")
 
-func NewEmptyRepo(did syntax.DID) Repo {
-	clk := syntax.NewTIDClock(0)
-	return Repo{
-		DID:         did,
-		Clock:       &clk,
-		RecordStore: blockstore.NewBlockstore(datastore.NewMapDatastore()),
-		MST:         mst.NewEmptyTree(),
-	}
-}
+//func NewEmptyRepo(did syntax.DID) Repo {
+//	clk := syntax.NewTIDClock(0)
+//	return Repo{
+//		DID:         did,
+//		Clock:       &clk,
+//		RecordStore: blockstore.NewBlockstore(datastore.NewMapDatastore()),
+//		MST:         mst.NewEmptyTree(),
+//	}
+//}
 
 func (repo *Repo) GetRecordCID(ctx context.Context, collection syntax.NSID, rkey syntax.RecordKey) (*cid.Cid, error) {
 	path := collection.String() + "/" + rkey.String()
