@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,7 +16,8 @@ import (
 
 // GET /xrpc/com.atproto.identity.resolveHandle
 func (srv *Server) ResolveHandle(c echo.Context) error {
-	ctx := c.Request().Context()
+	ctx, cancel := context.WithTimeout(context.Background(), srv.requestTimeout)
+	defer cancel()
 
 	raw := c.QueryParam("handle")
 	if raw == "" {
@@ -56,7 +58,8 @@ func (srv *Server) ResolveHandle(c echo.Context) error {
 
 // GET /xrpc/com.atproto.identity.resolveDid
 func (srv *Server) ResolveDid(c echo.Context) error {
-	ctx := c.Request().Context()
+	ctx, cancel := context.WithTimeout(context.Background(), srv.requestTimeout)
+	defer cancel()
 
 	raw := c.QueryParam("did")
 	if raw == "" {
@@ -97,7 +100,8 @@ func (srv *Server) ResolveDid(c echo.Context) error {
 
 // helper for resolveIdentity
 func (srv *Server) resolveIdentityFromHandle(c echo.Context, handle syntax.Handle) error {
-	ctx := c.Request().Context()
+	ctx, cancel := context.WithTimeout(context.Background(), srv.requestTimeout)
+	defer cancel()
 
 	did, err := srv.dir.ResolveHandle(ctx, handle)
 	if err != nil && errors.Is(err, identity.ErrHandleNotFound) {
@@ -162,7 +166,8 @@ func (srv *Server) resolveIdentityFromHandle(c echo.Context, handle syntax.Handl
 
 // helper for resolveIdentity
 func (srv *Server) resolveIdentityFromDID(c echo.Context, did syntax.DID) error {
-	ctx := c.Request().Context()
+	ctx, cancel := context.WithTimeout(context.Background(), srv.requestTimeout)
+	defer cancel()
 
 	rawDoc, err := srv.dir.ResolveDIDRaw(ctx, did)
 	if err != nil && errors.Is(err, identity.ErrDIDNotFound) {
@@ -240,7 +245,8 @@ func (srv *Server) ResolveIdentity(c echo.Context) error {
 
 // POST /xrpc/com.atproto.identity.refreshIdentity
 func (srv *Server) RefreshIdentity(c echo.Context) error {
-	ctx := c.Request().Context()
+	ctx, cancel := context.WithTimeout(context.Background(), srv.requestTimeout)
+	defer cancel()
 
 	var body comatproto.IdentityRefreshIdentity_Input
 	if err := c.Bind(&body); err != nil {

@@ -36,6 +36,8 @@ type Server struct {
 	// The value is best-effort (the stream handling itself is concurrent, so event numbers may not be monotonic),
 	// but nonetheless, you must use atomics when updating or reading this (to avoid data races).
 	lastSeq int64
+
+	requestTimeout time.Duration
 }
 
 type Config struct {
@@ -105,10 +107,11 @@ func NewServer(config Config) (*Server, error) {
 	)
 
 	srv := &Server{
-		echo:        e,
-		dir:         redisDir,
-		logger:      logger,
-		redisClient: redisClient,
+		echo:           e,
+		dir:            redisDir,
+		logger:         logger,
+		redisClient:    redisClient,
+		requestTimeout: 30 * time.Second,
 	}
 
 	srv.httpd = &http.Server{
