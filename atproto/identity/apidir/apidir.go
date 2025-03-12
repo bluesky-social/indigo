@@ -60,6 +60,7 @@ func NewAPIDirectory(host string) APIDirectory {
 		},
 		Host:      host,
 		UserAgent: "indigo-apidir/" + versioninfo.Short(),
+		Logger:    slog.Default(),
 	}
 }
 
