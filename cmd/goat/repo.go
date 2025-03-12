@@ -12,8 +12,8 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -184,13 +184,13 @@ func runRepoList(cctx *cli.Context) error {
 	}
 
 	// read repository tree in to memory
-	r, err := repo.ReadRepoFromCar(ctx, fi)
+	_, r, err := repo.LoadFromCAR(ctx, fi)
 	if err != nil {
 		return fmt.Errorf("failed to parse repo CAR file: %w", err)
 	}
 
-	err = r.ForEach(ctx, "", func(k string, v cid.Cid) error {
-		fmt.Printf("%s\t%s\n", k, v.String())
+	err = r.MST.Walk(func(k []byte, v cid.Cid) error {
+		fmt.Printf("%s\t%s\n", string(k), v.String())
 		return nil
 	})
 	if err != nil {
@@ -211,17 +211,16 @@ func runRepoInspect(cctx *cli.Context) error {
 	}
 
 	// read repository tree in to memory
-	r, err := repo.ReadRepoFromCar(ctx, fi)
+	c, _, err := repo.LoadFromCAR(ctx, fi)
 	if err != nil {
 		return err
 	}
 
-	sc := r.SignedCommit()
-	fmt.Printf("ATProto Repo Spec Version: %d\n", sc.Version)
-	fmt.Printf("DID: %s\n", sc.Did)
-	fmt.Printf("Data CID: %s\n", sc.Data)
-	fmt.Printf("Prev CID: %s\n", sc.Prev)
-	fmt.Printf("Revision: %s\n", sc.Rev)
+	fmt.Printf("ATProto Repo Spec Version: %d\n", c.Version)
+	fmt.Printf("DID: %s\n", c.DID)
+	fmt.Printf("Data CID: %s\n", c.Data)
+	fmt.Printf("Prev CID: %s\n", c.Prev)
+	fmt.Printf("Revision: %s\n", c.Rev)
 	// TODO: Signature?
 
 	return nil
@@ -256,14 +255,13 @@ func runRepoUnpack(cctx *cli.Context) error {
 		return err
 	}
 
-	r, err := repo.ReadRepoFromCar(ctx, fi)
+	c, r, err := repo.LoadFromCAR(ctx, fi)
 	if err != nil {
 		return err
 	}
 
 	// extract DID from repo commit
-	sc := r.SignedCommit()
-	did, err := syntax.ParseDID(sc.Did)
+	did, err := syntax.ParseDID(c.DID)
 	if err != nil {
 		return err
 	}
@@ -277,7 +275,7 @@ func runRepoUnpack(cctx *cli.Context) error {
 	// first the commit object as a meta file
 	commitPath := topDir + "/_commit.json"
 	os.MkdirAll(filepath.Dir(commitPath), os.ModePerm)
-	commitJSON, err := json.MarshalIndent(sc, "", "  ")
+	commitJSON, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -286,18 +284,22 @@ func runRepoUnpack(cctx *cli.Context) error {
 	}
 
 	// then all the actual records
-	err = r.ForEach(ctx, "", func(k string, v cid.Cid) error {
-		_, recBytes, err := r.GetRecordBytes(ctx, k)
+	err = r.MST.Walk(func(k []byte, v cid.Cid) error {
+		col, rkey, err := syntax.ParseRepoPath(string(k))
+		if err != nil {
+			return err
+		}
+		recBytes, _, err := r.GetRecordBytes(ctx, col, rkey)
 		if err != nil {
 			return err
 		}
 
-		rec, err := data.UnmarshalCBOR(*recBytes)
+		rec, err := data.UnmarshalCBOR(recBytes)
 		if err != nil {
 			return err
 		}
 
-		recPath := topDir + "/" + k
+		recPath := topDir + "/" + string(k)
 		fmt.Printf("%s.json\n", recPath)
 		os.MkdirAll(filepath.Dir(recPath), os.ModePerm)
 		if err != nil {
