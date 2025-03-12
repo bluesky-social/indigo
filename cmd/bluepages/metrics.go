@@ -26,3 +26,9 @@ var didResolutionDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Help:    "Time to resolve a DID",
 	Buckets: prometheus.ExponentialBucketsRange(0.0001, 2, 20),
 }, []string{"directory", "status"})
+
+var didExternalResolutionDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "atproto_identity_bluepages_resolve_external_did_duration",
+	Help:    "Time to resolve a DID from live network, by method",
+	Buckets: prometheus.ExponentialBucketsRange(0.0001, 2, 20),
+}, []string{"method", "status"})

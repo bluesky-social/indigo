@@ -136,6 +136,7 @@ func (d *RedisResolver) refreshHandle(ctx context.Context, h syntax.Handle) hand
 }
 
 func (d *RedisResolver) refreshDID(ctx context.Context, did syntax.DID) didEntry {
+	method := did.Method()
 	start := time.Now()
 	rawDoc, err := d.Inner.ResolveDIDRaw(ctx, did)
 	duration := time.Since(start)
@@ -144,12 +145,14 @@ func (d *RedisResolver) refreshDID(ctx context.Context, did syntax.DID) didEntry
 		d.Logger.Info("DID resolution failed", "did", did, "duration", duration.String(), "err", err)
 		didResolution.WithLabelValues("bluepages", "error").Inc()
 		didResolutionDuration.WithLabelValues("bluepages", "error").Observe(time.Since(start).Seconds())
+		didExternalResolutionDuration.WithLabelValues(method, "error").Observe(time.Since(start).Seconds())
 	} else {
 		didResolution.WithLabelValues("bluepages", "success").Inc()
 		didResolutionDuration.WithLabelValues("bluepages", "success").Observe(time.Since(start).Seconds())
+		didExternalResolutionDuration.WithLabelValues(method, "success").Observe(time.Since(start).Seconds())
 	}
 	if duration.Seconds() > 5.0 {
-		d.Logger.Info("slow DID resolution", "did", did, "duration", duration.String())
+		d.Logger.Info("slow DID resolution", "did", did, "duration", duration.String(), "method", method)
 	}
 
 	// persist the DID lookup error, instead of processing it immediately
