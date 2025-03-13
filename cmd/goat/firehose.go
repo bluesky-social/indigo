@@ -14,12 +14,11 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/repomgr"
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/gorilla/websocket"
@@ -123,6 +122,13 @@ func runFirehose(cctx *cli.Context) error {
 			}
 			return nil
 		},
+		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
+			slog.Debug("sync event", "did", evt.Did, "seq", evt.Seq)
+			if !gfc.AccountsOnly && !gfc.OpsMode {
+				return gfc.handleSyncEvent(ctx, evt)
+			}
+			return nil
+		},
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
 			slog.Debug("identity event", "did", evt.Did, "seq", evt.Seq)
 			if !gfc.OpsMode {
@@ -164,6 +170,18 @@ func (gfc *GoatFirehoseConsumer) handleIdentityEvent(ctx context.Context, evt *c
 func (gfc *GoatFirehoseConsumer) handleAccountEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Account) error {
 	out := make(map[string]interface{})
 	out["type"] = "account"
+	out["payload"] = evt
+	b, err := json.Marshal(out)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(b))
+	return nil
+}
+
+func (gfc *GoatFirehoseConsumer) handleSyncEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync) error {
+	out := make(map[string]interface{})
+	out["type"] = "sync"
 	out["payload"] = evt
 	b, err := json.Marshal(out)
 	if err != nil {
@@ -221,7 +239,7 @@ func (gfc *GoatFirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *
 		return nil
 	}
 
-	rr, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
+	_, rr, err := repo.LoadFromCAR(ctx, bytes.NewReader(evt.Blocks))
 	if err != nil {
 		logger.Error("failed to read repo from car", "err", err)
 		return nil
@@ -255,30 +273,25 @@ func (gfc *GoatFirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *
 		out["collection"] = collection
 		out["rkey"] = rkey
 
-		ek := repomgr.EventKind(op.Action)
-		switch ek {
-		case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
+		switch op.Action {
+		case "create", "update":
+			coll, rkey, err := syntax.ParseRepoPath(op.Path)
+			if err != nil {
+				return err
+			}
 			// read the record bytes from blocks, and verify CID
-			rc, recCBOR, err := rr.GetRecordBytes(ctx, op.Path)
+			recBytes, rc, err := rr.GetRecordBytes(ctx, coll, rkey)
 			if err != nil {
 				logger.Error("reading record from event blocks (CAR)", "err", err)
 				break
 			}
-			if op.Cid == nil || lexutil.LexLink(rc) != *op.Cid {
+			if op.Cid == nil || lexutil.LexLink(*rc) != *op.Cid {
 				logger.Error("mismatch between commit op CID and record block", "recordCID", rc, "opCID", op.Cid)
 				break
 			}
 
-			switch ek {
-			case repomgr.EvtKindCreateRecord:
-				out["action"] = "create"
-			case repomgr.EvtKindUpdateRecord:
-				out["action"] = "update"
-			default:
-				logger.Error("impossible event kind", "kind", ek)
-				break
-			}
-			d, err := data.UnmarshalCBOR(*recCBOR)
+			out["action"] = op.Action
+			d, err := data.UnmarshalCBOR(recBytes)
 			if err != nil {
 				slog.Warn("failed to parse record CBOR")
 				continue
@@ -290,7 +303,7 @@ func (gfc *GoatFirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *
 				return err
 			}
 			fmt.Println(string(b))
-		case repomgr.EvtKindDeleteRecord:
+		case "delete":
 			out["action"] = "delete"
 			b, err := json.Marshal(out)
 			if err != nil {

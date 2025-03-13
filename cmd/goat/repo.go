@@ -8,22 +8,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/mst"
-	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/ipfs/go-cid"
-	cbor "github.com/ipfs/go-ipld-cbor"
-	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/urfave/cli/v2"
-	"github.com/xlab/treeprint"
 )
 
 var cmdRepo = &cli.Command{
@@ -189,13 +184,13 @@ func runRepoList(cctx *cli.Context) error {
 	}
 
 	// read repository tree in to memory
-	r, err := repo.ReadRepoFromCar(ctx, fi)
+	_, r, err := repo.LoadFromCAR(ctx, fi)
 	if err != nil {
 		return fmt.Errorf("failed to parse repo CAR file: %w", err)
 	}
 
-	err = r.ForEach(ctx, "", func(k string, v cid.Cid) error {
-		fmt.Printf("%s\t%s\n", k, v.String())
+	err = r.MST.Walk(func(k []byte, v cid.Cid) error {
+		fmt.Printf("%s\t%s\n", string(k), v.String())
 		return nil
 	})
 	if err != nil {
@@ -216,17 +211,16 @@ func runRepoInspect(cctx *cli.Context) error {
 	}
 
 	// read repository tree in to memory
-	r, err := repo.ReadRepoFromCar(ctx, fi)
+	c, _, err := repo.LoadFromCAR(ctx, fi)
 	if err != nil {
 		return err
 	}
 
-	sc := r.SignedCommit()
-	fmt.Printf("ATProto Repo Spec Version: %d\n", sc.Version)
-	fmt.Printf("DID: %s\n", sc.Did)
-	fmt.Printf("Data CID: %s\n", sc.Data)
-	fmt.Printf("Prev CID: %s\n", sc.Prev)
-	fmt.Printf("Revision: %s\n", sc.Rev)
+	fmt.Printf("ATProto Repo Spec Version: %d\n", c.Version)
+	fmt.Printf("DID: %s\n", c.DID)
+	fmt.Printf("Data CID: %s\n", c.Data)
+	fmt.Printf("Prev CID: %s\n", c.Prev)
+	fmt.Printf("Revision: %s\n", c.Rev)
 	// TODO: Signature?
 
 	return nil
@@ -247,111 +241,7 @@ func runRepoMST(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	// read repository tree in to memory
-	r, err := repo.ReadRepoFromCar(ctx, inputCAR)
-	if err != nil {
-		return err
-	}
-	cst := util.CborStore(r.Blockstore())
-	// determine which root cid to use, defaulting to repo data root
-	rootCID := r.DataCid()
-	if opts.root != "" {
-		optsRootCID, err := cid.Decode(opts.root)
-		if err != nil {
-			return err
-		}
-		rootCID = optsRootCID
-	}
-	// start walking mst
-	exists, err := nodeExists(ctx, cst, rootCID)
-	if err != nil {
-		return err
-	}
-	tree := treeprint.NewWithRoot(displayCID(&rootCID, exists, opts))
-	if exists {
-		if err := walkMST(ctx, cst, rootCID, tree, opts); err != nil {
-			return err
-		}
-	}
-	// print tree
-	fmt.Println(tree.String())
-	return nil
-}
-
-func walkMST(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid, tree treeprint.Tree, opts repoMSTOptions) error {
-	var node mst.NodeData
-	if err := cst.Get(ctx, cid, &node); err != nil {
-		return err
-	}
-	if node.Left != nil {
-		exists, err := nodeExists(ctx, cst, *node.Left)
-		if err != nil {
-			return err
-		}
-		subtree := tree.AddBranch(displayCID(node.Left, exists, opts))
-		if exists {
-			if err := walkMST(ctx, cst, *node.Left, subtree, opts); err != nil {
-				return err
-			}
-		}
-	}
-	for _, entry := range node.Entries {
-		exists, err := nodeExists(ctx, cst, entry.Val)
-		if err != nil {
-			return err
-		}
-		tree.AddNode(displayEntryVal(&entry, exists, opts))
-		if entry.Tree != nil {
-			exists, err := nodeExists(ctx, cst, *entry.Tree)
-			if err != nil {
-				return err
-			}
-			subtree := tree.AddBranch(displayCID(entry.Tree, exists, opts))
-			if exists {
-				if err := walkMST(ctx, cst, *entry.Tree, subtree, opts); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func displayEntryVal(entry *mst.TreeEntry, exists bool, opts repoMSTOptions) string {
-	key := string(entry.KeySuffix)
-	divider := " "
-	if opts.fullCID {
-		divider = "\n"
-	}
-	return strings.Repeat("∙", int(entry.PrefixLen)) + key + divider + displayCID(&entry.Val, exists, opts)
-}
-
-func displayCID(cid *cid.Cid, exists bool, opts repoMSTOptions) string {
-	cidDisplay := cid.String()
-	if !opts.fullCID {
-		cidDisplay = "…" + string(cidDisplay[len(cidDisplay)-7:])
-	}
-	connector := "─◉"
-	if !exists {
-		connector = "─◌"
-	}
-	return "[" + cidDisplay + "]" + connector
-}
-
-type repoMSTOptions struct {
-	carPath string
-	fullCID bool
-	root    string
-}
-
-func nodeExists(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid) (bool, error) {
-	if _, err := cst.Blocks.Get(ctx, cid); err != nil {
-		if errors.Is(err, ipld.ErrNotFound{}) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
+	return prettyMST(ctx, inputCAR, opts)
 }
 
 func runRepoUnpack(cctx *cli.Context) error {
@@ -365,14 +255,13 @@ func runRepoUnpack(cctx *cli.Context) error {
 		return err
 	}
 
-	r, err := repo.ReadRepoFromCar(ctx, fi)
+	c, r, err := repo.LoadFromCAR(ctx, fi)
 	if err != nil {
 		return err
 	}
 
 	// extract DID from repo commit
-	sc := r.SignedCommit()
-	did, err := syntax.ParseDID(sc.Did)
+	did, err := syntax.ParseDID(c.DID)
 	if err != nil {
 		return err
 	}
@@ -386,7 +275,7 @@ func runRepoUnpack(cctx *cli.Context) error {
 	// first the commit object as a meta file
 	commitPath := topDir + "/_commit.json"
 	os.MkdirAll(filepath.Dir(commitPath), os.ModePerm)
-	commitJSON, err := json.MarshalIndent(sc, "", "  ")
+	commitJSON, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -395,18 +284,22 @@ func runRepoUnpack(cctx *cli.Context) error {
 	}
 
 	// then all the actual records
-	err = r.ForEach(ctx, "", func(k string, v cid.Cid) error {
-		_, recBytes, err := r.GetRecordBytes(ctx, k)
+	err = r.MST.Walk(func(k []byte, v cid.Cid) error {
+		col, rkey, err := syntax.ParseRepoPath(string(k))
+		if err != nil {
+			return err
+		}
+		recBytes, _, err := r.GetRecordBytes(ctx, col, rkey)
 		if err != nil {
 			return err
 		}
 
-		rec, err := data.UnmarshalCBOR(*recBytes)
+		rec, err := data.UnmarshalCBOR(recBytes)
 		if err != nil {
 			return err
 		}
 
-		recPath := topDir + "/" + k
+		recPath := topDir + "/" + string(k)
 		fmt.Printf("%s.json\n", recPath)
 		os.MkdirAll(filepath.Dir(recPath), os.ModePerm)
 		if err != nil {
