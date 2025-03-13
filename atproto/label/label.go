@@ -25,6 +25,31 @@ type Label struct {
 	Sig       data.Bytes `json:"sig,omitempty" cborgen:"sig,omitempty"`
 }
 
+// converts to map[string]any for printing as JSON
+func (l *Label) Data() map[string]any {
+	d := map[string]any{
+		"cid": c.CID,
+		"cts": c.CreatedAt,
+		"src": c.SourceDID,
+		"uri": c.URI,
+		"val": c.Val,
+		"ver": c.Version,
+	}
+	if c.CID != nil {
+		d["cid"] = c.CID
+	}
+	if c.ExpiresAt != nil {
+		d["exp"] = c.ExpiresAt
+	}
+	if c.Negated != nil {
+		d["neg"] = c.Negated
+	}
+	if c.Sig != nil {
+		d["sig"] = data.Bytes(c.Sig)
+	}
+	return d
+}
+
 // does basic checks on syntax and structure
 func (l *Label) VerifySyntax() error {
 	if l.Version != ATPROTO_LABEL_VERSION {
