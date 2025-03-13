@@ -180,8 +180,14 @@ func (gfc *GoatFirehoseConsumer) handleAccountEvent(ctx context.Context, evt *co
 }
 
 func (gfc *GoatFirehoseConsumer) handleSyncEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync) error {
+	commit, err := repo.LoadCommitFromCAR(ctx, bytes.NewReader(evt.Blocks))
+	if err != nil {
+		return err
+	}
+	evt.Blocks = nil
 	out := make(map[string]interface{})
 	out["type"] = "sync"
+	out["commit"] = commit.AsData()
 	out["payload"] = evt
 	b, err := json.Marshal(out)
 	if err != nil {
