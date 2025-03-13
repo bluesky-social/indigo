@@ -561,9 +561,8 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			}); err != nil {
 				log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
 			}
-			*lastCursor = evt.Seq
 
-			if err := s.updateCursor(sub, *lastCursor); err != nil {
+			if err := s.updateCursor(sub, lastCursor, evt.Seq); err != nil {
 				return fmt.Errorf("updating cursor: %w", err)
 			}
 
@@ -576,9 +575,8 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			}); err != nil {
 				log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
 			}
-			*lastCursor = evt.Seq
 
-			if err := s.updateCursor(sub, *lastCursor); err != nil {
+			if err := s.updateCursor(sub, lastCursor, evt.Seq); err != nil {
 				return fmt.Errorf("updating cursor: %w", err)
 			}
 
@@ -591,9 +589,8 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			}); err != nil {
 				log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
 			}
-			*lastCursor = evt.Seq
 
-			if err := s.updateCursor(sub, *lastCursor); err != nil {
+			if err := s.updateCursor(sub, lastCursor, evt.Seq); err != nil {
 				return fmt.Errorf("updating cursor: %w", err)
 			}
 
@@ -606,9 +603,8 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			}); err != nil {
 				log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
 			}
-			*lastCursor = evt.Seq
 
-			if err := s.updateCursor(sub, *lastCursor); err != nil {
+			if err := s.updateCursor(sub, lastCursor, evt.Seq); err != nil {
 				return fmt.Errorf("updating cursor: %w", err)
 			}
 
@@ -625,9 +621,8 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			}); err != nil {
 				log.Error("failed handling event", "host", host.Host, "seq", ident.Seq, "err", err)
 			}
-			*lastCursor = ident.Seq
 
-			if err := s.updateCursor(sub, *lastCursor); err != nil {
+			if err := s.updateCursor(sub, lastCursor, ident.Seq); err != nil {
 				return fmt.Errorf("updating cursor: %w", err)
 			}
 
@@ -640,9 +635,8 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			}); err != nil {
 				log.Error("failed handling event", "host", host.Host, "seq", acct.Seq, "err", err)
 			}
-			*lastCursor = acct.Seq
 
-			if err := s.updateCursor(sub, *lastCursor); err != nil {
+			if err := s.updateCursor(sub, lastCursor, acct.Seq); err != nil {
 				return fmt.Errorf("updating cursor: %w", err)
 			}
 
@@ -657,7 +651,10 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 					return err
 				}
 
+				sub.lk.Lock()
 				*lastCursor = 0
+				sub.lk.Unlock()
+
 				return fmt.Errorf("got FutureCursor frame, reset cursor tracking for host")
 			default:
 				return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
@@ -684,10 +681,11 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 	return events.HandleRepoStream(ctx, con, pool, nil)
 }
 
-func (s *Slurper) updateCursor(sub *activeSub, curs int64) error {
+func (s *Slurper) updateCursor(sub *activeSub, curs *int64, newCurs int64) error {
 	sub.lk.Lock()
 	defer sub.lk.Unlock()
-	sub.pds.Cursor = curs
+	*curs = newCurs
+	sub.pds.Cursor = *curs
 	return nil
 }
 
