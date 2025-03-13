@@ -75,6 +75,22 @@ func (sc *SplitterConfig) XrpcRootUrl() string {
 	return "https://" + sc.UpstreamHost
 }
 
+func (sc *SplitterConfig) UpstreamUrl() string {
+	if strings.HasPrefix(sc.UpstreamHost, "http://") {
+		return "http://" + sc.UpstreamHost[7:]
+	}
+	if strings.HasPrefix(sc.UpstreamHost, "https://") {
+		return "https://" + sc.UpstreamHost[8:]
+	}
+	if strings.HasPrefix(sc.UpstreamHost, "ws://") {
+		return sc.UpstreamHost
+	}
+	if strings.HasPrefix(sc.UpstreamHost, "wss://") {
+		return sc.UpstreamHost
+	}
+	return "wss://" + sc.UpstreamHost
+}
+
 func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) {
 	var nextCrawlerURLs []*url.URL
 	log := slog.Default().With("system", "splitter")
@@ -88,6 +104,11 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 			}
 			log.Info("configuring relay for requestCrawl", "host", nextCrawlerURLs[i])
 		}
+	}
+
+	_, err := url.Parse(conf.UpstreamUrl())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse upstream url %#v: %w", conf.UpstreamUrl(), err)
 	}
 
 	s := &Splitter{
@@ -153,7 +174,7 @@ func (s *Splitter) Start(addr string) error {
 		return fmt.Errorf("loading cursor failed: %w", err)
 	}
 
-	go s.subscribeWithRedialer(context.Background(), s.conf.UpstreamHost, curs)
+	go s.subscribeWithRedialer(context.Background(), curs)
 
 	li, err := lc.Listen(ctx, "tcp", addr)
 	if err != nil {
@@ -570,10 +591,14 @@ func sleepForBackoff(b int) time.Duration {
 	return time.Second * 5
 }
 
-func (s *Splitter) subscribeWithRedialer(ctx context.Context, host string, cursor int64) {
+func (s *Splitter) subscribeWithRedialer(ctx context.Context, cursor int64) {
 	d := websocket.Dialer{}
 
-	protocol := "wss"
+	upstreamUrl, err := url.Parse(s.conf.UpstreamUrl())
+	if err != nil {
+		panic(err) // this should have been checked in NewSplitter
+	}
+	upstreamUrl = upstreamUrl.JoinPath("/xrpc/com.atproto.sync.subscribeRepos")
 
 	var backoff int
 	for {
@@ -587,15 +612,17 @@ func (s *Splitter) subscribeWithRedialer(ctx context.Context, host string, curso
 			"User-Agent": []string{"bgs-rainbow-v0"},
 		}
 
-		var url string
+		var uurl string
 		if cursor < 0 {
-			url = fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeRepos", protocol, host)
+			upstreamUrl.RawQuery = ""
+			uurl = upstreamUrl.String()
 		} else {
-			url = fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", protocol, host, cursor)
+			upstreamUrl.RawQuery = fmt.Sprintf("cursor=%d", cursor)
+			uurl = upstreamUrl.String()
 		}
-		con, res, err := d.DialContext(ctx, url, header)
+		con, res, err := d.DialContext(ctx, uurl, header)
 		if err != nil {
-			s.log.Warn("dialing failed", "host", host, "err", err, "backoff", backoff)
+			s.log.Warn("dialing failed", "host", uurl, "err", err, "backoff", backoff)
 			time.Sleep(sleepForBackoff(backoff))
 			backoff++
 
@@ -604,13 +631,13 @@ func (s *Splitter) subscribeWithRedialer(ctx context.Context, host string, curso
 
 		s.log.Info("event subscription response", "code", res.StatusCode)
 
-		if err := s.handleConnection(ctx, host, con, &cursor); err != nil {
-			s.log.Warn("connection failed", "host", host, "err", err)
+		if err := s.handleConnection(ctx, con, &cursor); err != nil {
+			s.log.Warn("connection failed", "host", uurl, "err", err)
 		}
 	}
 }
 
-func (s *Splitter) handleConnection(ctx context.Context, host string, con *websocket.Conn, lastCursor *int64) error {
+func (s *Splitter) handleConnection(ctx context.Context, con *websocket.Conn, lastCursor *int64) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
