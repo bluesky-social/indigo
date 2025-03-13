@@ -29,9 +29,8 @@ func TestFirehoseMergePartialNodes(t *testing.T) {
 	//testCommitFile(t, "testdata/firehose_commit_4621332152.json")
 }
 
-func testCommitFile(t *testing.T, p string) {
+func loadCommitFile(t testing.TB, p string) comatproto.SyncSubscribeRepos_Commit {
 	assert := assert.New(t)
-	ctx := context.Background()
 
 	body, err := os.ReadFile(p)
 	assert.NoError(err)
@@ -43,8 +42,15 @@ func testCommitFile(t *testing.T, p string) {
 	if err := json.Unmarshal(body, &msg); err != nil {
 		t.Fail()
 	}
+	return msg
+}
 
-	_, err = VerifyCommitMessage(ctx, &msg)
+func testCommitFile(t *testing.T, p string) {
+	assert := assert.New(t)
+	ctx := context.Background()
+	msg := loadCommitFile(t, p)
+
+	_, err := VerifyCommitMessage(ctx, &msg)
 	assert.NoError(err)
 	if err != nil {
 		_, repo, err := LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
@@ -52,5 +58,16 @@ func testCommitFile(t *testing.T, p string) {
 			t.Fail()
 		}
 		mst.DebugPrintTree(repo.MST.Root, 0)
+	}
+}
+
+func BenchmarkCommitFile(b *testing.B) {
+	ctx := context.Background()
+
+	msg := loadCommitFile(b, "testdata/firehose_commit_4623075231.json")
+	b.ReportAllocs()
+
+	for b.Loop() {
+		VerifyCommitMessage(ctx, &msg)
 	}
 }
