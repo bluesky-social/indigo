@@ -11,8 +11,8 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/cmd/relay/models"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/models"
 	"github.com/prometheus/client_golang/prometheus"
 
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -67,6 +67,7 @@ func (em *EventManager) Shutdown(ctx context.Context) error {
 	return em.persister.Shutdown(ctx)
 }
 
+// broadcastEvent is the target for EventPersistence.SetEventBroadcaster()
 func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 	// the main thing we do is send it out, so MarshalCBOR once
 	if err := evt.Preserialize(); err != nil {
@@ -88,7 +89,9 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 			s.enqueuedCounter.Inc()
 			select {
 			case s.outgoing <- evt:
+				// sent evt on this subscriber's chan! yay!
 			case <-s.done:
+				// this subscriber is closing, quickly do nothing
 			default:
 				// filter out all future messages that would be
 				// sent to this subscriber, but wait for it to
@@ -363,6 +366,7 @@ var (
 )
 
 func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func(*XRPCStreamEvent) bool, since *int64) (<-chan *XRPCStreamEvent, func(), error) {
+	// TODO: the only known filters are 'true' and 'false', replace the function pointer with a bool
 	if filter == nil {
 		filter = func(*XRPCStreamEvent) bool { return true }
 	}

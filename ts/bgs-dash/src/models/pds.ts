@@ -16,7 +16,6 @@ interface PDS {
   Blocked: boolean;
   HasActiveConnection: boolean;
   EventsSeenSinceStartup?: number;
-  CrawlRate: RateLimit;
   PerSecondEventRate: RateLimit;
   PerHourEventRate: RateLimit;
   PerDayEventRate: RateLimit;

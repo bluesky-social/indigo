@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 )
@@ -148,7 +149,7 @@ func (t *Tree) Copy() Tree {
 	}
 }
 
-func LoadTreeFromStore(ctx context.Context, bs blockstore.Blockstore, root cid.Cid) (*Tree, error) {
+func LoadTreeFromStore(ctx context.Context, bs MSTBlockSource, root cid.Cid) (*Tree, error) {
 	n, err := loadNodeFromStore(ctx, bs, root)
 	if err != nil {
 		return nil, err
@@ -157,6 +158,11 @@ func LoadTreeFromStore(ctx context.Context, bs blockstore.Blockstore, root cid.C
 	return &Tree{
 		Root: n,
 	}, nil
+}
+
+// subset of Blockstore that we actually need
+type MSTBlockSource interface {
+	Get(ctx context.Context, cid cid.Cid) (blocks.Block, error)
 }
 
 // Walks the tree, encodes any "dirty" nodes as CBOR data, and writes that data as blocks to the provided blockstore. Returns root CID.
