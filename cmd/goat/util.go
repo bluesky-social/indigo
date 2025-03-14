@@ -3,10 +3,14 @@ package main
 import (
 	"context"
 	"io"
+	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+
+	"github.com/urfave/cli/v2"
 )
 
 func resolveIdent(ctx context.Context, arg string) (*identity.Identity, error) {
@@ -41,4 +45,25 @@ func getFileOrStdout(path string) (io.WriteCloser, error) {
 		return nil, err
 	}
 	return file, nil
+}
+
+func configLogger(cctx *cli.Context, writer io.Writer) *slog.Logger {
+	var level slog.Level
+	switch strings.ToLower(cctx.String("log-level")) {
+	case "error":
+		level = slog.LevelError
+	case "warn":
+		level = slog.LevelWarn
+	case "info":
+		level = slog.LevelInfo
+	case "debug":
+		level = slog.LevelDebug
+	default:
+		level = slog.LevelInfo
+	}
+	logger := slog.New(slog.NewJSONHandler(writer, &slog.HandlerOptions{
+		Level: level,
+	}))
+	slog.SetDefault(logger)
+	return logger
 }

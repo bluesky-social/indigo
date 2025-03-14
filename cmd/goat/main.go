@@ -23,6 +23,13 @@ func run(args []string) error {
 		Name:    "goat",
 		Usage:   "Go AT protocol CLI tool",
 		Version: versioninfo.Short(),
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "log-level",
+				Usage:   "log verbosity level (eg: warn, info, debug)",
+				EnvVars: []string{"GOAT_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"},
+			},
+		},
 	}
 	app.Commands = []*cli.Command{
 		cmdRecordGet,
