@@ -76,10 +76,10 @@ func (sc *SplitterConfig) XrpcRootUrl() string {
 }
 
 func (sc *SplitterConfig) UpstreamUrl() string {
-	if strings.HasPrefix(sc.UpstreamHost, "http://") {
+	if strings.HasPrefix(sc.UpstreamHost, "ws://") {
 		return "http://" + sc.UpstreamHost[7:]
 	}
-	if strings.HasPrefix(sc.UpstreamHost, "https://") {
+	if strings.HasPrefix(sc.UpstreamHost, "wss://") {
 		return "https://" + sc.UpstreamHost[8:]
 	}
 	if strings.HasPrefix(sc.UpstreamHost, "ws://") {
@@ -622,7 +622,7 @@ func (s *Splitter) subscribeWithRedialer(ctx context.Context, cursor int64) {
 		}
 		con, res, err := d.DialContext(ctx, uurl, header)
 		if err != nil {
-			s.log.Warn("dialing failed", "host", uurl, "err", err, "backoff", backoff)
+			s.log.Warn("dialing failed", "url", uurl, "err", err, "backoff", backoff)
 			time.Sleep(sleepForBackoff(backoff))
 			backoff++
 
@@ -632,7 +632,7 @@ func (s *Splitter) subscribeWithRedialer(ctx context.Context, cursor int64) {
 		s.log.Info("event subscription response", "code", res.StatusCode)
 
 		if err := s.handleConnection(ctx, con, &cursor); err != nil {
-			s.log.Warn("connection failed", "host", uurl, "err", err)
+			s.log.Warn("connection failed", "url", uurl, "err", err)
 		}
 	}
 }
