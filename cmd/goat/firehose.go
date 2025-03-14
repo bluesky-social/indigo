@@ -11,9 +11,11 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
@@ -49,6 +51,23 @@ var cmdFirehose = &cli.Command{
 			Usage: "only print account and identity events",
 		},
 		&cli.BoolFlag{
+			Name:    "quiet",
+			Aliases: []string{"q"},
+			Usage:   "don't actually print events to stdout (eg, errors only)",
+		},
+		&cli.BoolFlag{
+			Name:  "verify-basic",
+			Usage: "parse events and do basic syntax and structure checks",
+		},
+		&cli.BoolFlag{
+			Name:  "verify-sig",
+			Usage: "verify account signatures on commits",
+		},
+		&cli.BoolFlag{
+			Name:  "verify-mst",
+			Usage: "run inductive verification of ops and MST structure",
+		},
+		&cli.BoolFlag{
 			Name:    "ops",
 			Aliases: []string{"records"},
 			Usage:   "instead of printing entire events, print individual record ops",
@@ -58,24 +77,41 @@ var cmdFirehose = &cli.Command{
 }
 
 type GoatFirehoseConsumer struct {
-	// for pretty-printing events to stdout
-	EventLogger  *slog.Logger
 	OpsMode      bool
 	AccountsOnly bool
+	Quiet        bool
+	VerifyBasic  bool
+	VerifySig    bool
+	VerifyMST    bool
 	// filter to specified collections
 	CollectionFilter []string
+	// for signature verification
+	Dir identity.Directory
 }
 
 func runFirehose(cctx *cli.Context) error {
 	ctx := context.Background()
 
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
+	slog.SetDefault(configLogger(cctx, os.Stderr))
+
+	// main thing is skipping handle verification
+	bdir := identity.BaseDirectory{
+		SkipHandleVerification: true,
+		TryAuthoritativeDNS:    false,
+		SkipDNSDomainSuffixes:  []string{".bsky.social"},
+		UserAgent:              "goat/" + versioninfo.Short(),
+	}
+	cdir := identity.NewCacheDirectory(&bdir, 1_000_000, time.Hour*24, time.Minute*2, time.Minute*5)
 
 	gfc := GoatFirehoseConsumer{
-		EventLogger:      slog.New(slog.NewJSONHandler(os.Stdout, nil)),
 		OpsMode:          cctx.Bool("ops"),
 		AccountsOnly:     cctx.Bool("account-events"),
 		CollectionFilter: cctx.StringSlice("collection"),
+		Quiet:            cctx.Bool("quiet"),
+		VerifyBasic:      cctx.Bool("verify-basic"),
+		VerifySig:        cctx.Bool("verify-sig"),
+		VerifyMST:        cctx.Bool("verify-mst"),
+		Dir:              &cdir,
 	}
 
 	var relayHost string
@@ -104,7 +140,6 @@ func runFirehose(cctx *cli.Context) error {
 		u.RawQuery = fmt.Sprintf("cursor=%d", cctx.Int("cursor"))
 	}
 	urlString := u.String()
-	slog.Debug("GET", "url", urlString)
 	con, _, err := dialer.Dial(urlString, http.Header{
 		"User-Agent": []string{fmt.Sprintf("goat/%s", versioninfo.Short())},
 	})
@@ -114,7 +149,7 @@ func runFirehose(cctx *cli.Context) error {
 
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
-			slog.Debug("commit event", "did", evt.Repo, "seq", evt.Seq)
+			//slog.Debug("commit event", "did", evt.Repo, "seq", evt.Seq)
 			if !gfc.AccountsOnly && !gfc.OpsMode {
 				return gfc.handleCommitEvent(ctx, evt)
 			} else if !gfc.AccountsOnly && gfc.OpsMode {
@@ -123,23 +158,41 @@ func runFirehose(cctx *cli.Context) error {
 			return nil
 		},
 		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
-			slog.Debug("sync event", "did", evt.Did, "seq", evt.Seq)
+			//slog.Debug("sync event", "did", evt.Did, "seq", evt.Seq)
 			if !gfc.AccountsOnly && !gfc.OpsMode {
 				return gfc.handleSyncEvent(ctx, evt)
 			}
 			return nil
 		},
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
-			slog.Debug("identity event", "did", evt.Did, "seq", evt.Seq)
+			//slog.Debug("identity event", "did", evt.Did, "seq", evt.Seq)
 			if !gfc.OpsMode {
 				return gfc.handleIdentityEvent(ctx, evt)
 			}
 			return nil
 		},
 		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
-			slog.Debug("account event", "did", evt.Did, "seq", evt.Seq)
+			//slog.Debug("account event", "did", evt.Did, "seq", evt.Seq)
 			if !gfc.OpsMode {
 				return gfc.handleAccountEvent(ctx, evt)
+			}
+			return nil
+		},
+		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
+			if gfc.VerifyBasic {
+				slog.Info("deprecated event type", "eventType", "handle", "did", evt.Did, "seq", evt.Seq)
+			}
+			return nil
+		},
+		RepoMigrate: func(evt *comatproto.SyncSubscribeRepos_Migrate) error {
+			if gfc.VerifyBasic {
+				slog.Info("deprecated event type", "eventType", "migrate", "did", evt.Did, "seq", evt.Seq)
+			}
+			return nil
+		},
+		RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
+			if gfc.VerifyBasic {
+				slog.Info("deprecated event type", "eventType", "handle", "did", evt.Did, "seq", evt.Seq)
 			}
 			return nil
 		},
@@ -156,6 +209,21 @@ func runFirehose(cctx *cli.Context) error {
 }
 
 func (gfc *GoatFirehoseConsumer) handleIdentityEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Identity) error {
+	if gfc.VerifySig {
+		did, err := syntax.ParseDID(evt.Did)
+		if err != nil {
+			return err
+		}
+		gfc.Dir.Purge(ctx, did.AtIdentifier())
+	}
+	if gfc.VerifyBasic {
+		if _, err := syntax.ParseDID(evt.Did); err != nil {
+			slog.Warn("invalid DID", "eventType", "identity", "did", evt.Did, "seq", evt.Seq)
+		}
+	}
+	if gfc.Quiet {
+		return nil
+	}
 	out := make(map[string]interface{})
 	out["type"] = "identity"
 	out["payload"] = evt
@@ -168,6 +236,14 @@ func (gfc *GoatFirehoseConsumer) handleIdentityEvent(ctx context.Context, evt *c
 }
 
 func (gfc *GoatFirehoseConsumer) handleAccountEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Account) error {
+	if gfc.VerifyBasic {
+		if _, err := syntax.ParseDID(evt.Did); err != nil {
+			slog.Warn("invalid DID", "eventType", "account", "did", evt.Did, "seq", evt.Seq)
+		}
+	}
+	if gfc.Quiet {
+		return nil
+	}
 	out := make(map[string]interface{})
 	out["type"] = "account"
 	out["payload"] = evt
@@ -184,6 +260,17 @@ func (gfc *GoatFirehoseConsumer) handleSyncEvent(ctx context.Context, evt *comat
 	if err != nil {
 		return err
 	}
+	if gfc.VerifyBasic {
+		if err := commit.VerifyStructure(); err != nil {
+			slog.Warn("bad commit object", "eventType", "sync", "did", evt.Did, "seq", evt.Seq, "err", err)
+		}
+		if _, err := syntax.ParseDID(evt.Did); err != nil {
+			slog.Warn("invalid DID", "eventType", "account", "did", evt.Did, "seq", evt.Seq)
+		}
+	}
+	if gfc.Quiet {
+		return nil
+	}
 	evt.Blocks = nil
 	out := make(map[string]interface{})
 	out["type"] = "sync"
@@ -199,6 +286,83 @@ func (gfc *GoatFirehoseConsumer) handleSyncEvent(ctx context.Context, evt *comat
 
 // this is the simple version, when not in "records" mode: print the event as JSON, but don't include blocks
 func (gfc *GoatFirehoseConsumer) handleCommitEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
+
+	if gfc.VerifyBasic || gfc.VerifySig || gfc.VerifyMST {
+
+		logger := slog.With("eventType", "commit", "did", evt.Repo, "seq", evt.Seq, "rev", evt.Rev)
+
+		did, err := syntax.ParseDID(evt.Repo)
+		if err != nil {
+			return err
+		}
+
+		commit, err := repo.LoadCommitFromCAR(ctx, bytes.NewReader(evt.Blocks))
+		if err != nil {
+			return err
+		}
+
+		if gfc.VerifySig {
+			ident, err := gfc.Dir.LookupDID(ctx, did)
+			if err != nil {
+				return err
+			}
+			pubkey, err := ident.PublicKey()
+			if err != nil {
+				return err
+			}
+			logger = logger.With("pds", ident.PDSEndpoint())
+			if err := commit.VerifySignature(pubkey); err != nil {
+				logger.Warn("commit signature validation failed", "err", err)
+			}
+		}
+
+		if len(evt.Blocks) == 0 {
+			logger.Warn("commit message missing blocks")
+		}
+
+		if gfc.VerifyBasic {
+			// the commit itself
+			if err := commit.VerifyStructure(); err != nil {
+				logger.Warn("bad commit object", "err", err)
+			}
+			// the event fields
+			rev, err := syntax.ParseTID(evt.Rev)
+			if err != nil {
+				logger.Warn("bad TID syntax in commit rev", "err", err)
+			}
+			if rev.String() != commit.Rev {
+				logger.Warn("event rev != commit rev", "commitRev", commit.Rev)
+			}
+			if did.String() != commit.DID {
+				logger.Warn("event DID != commit DID", "commitDID", commit.DID)
+			}
+			_, err = syntax.ParseDatetime(evt.Time)
+			if err != nil {
+				logger.Warn("bad datetime syntax in commit time", "time", evt.Time, "err", err)
+			}
+			if evt.TooBig {
+				logger.Warn("deprecated tooBig commit flag set")
+			}
+			if evt.Rebase {
+				logger.Warn("deprecated rebase commit flag set")
+			}
+		}
+
+		if gfc.VerifyMST {
+			if evt.PrevData == nil {
+				logger.Warn("prevData is nil, skipping MST check")
+			} else {
+				// TODO: break out this function in to smaller chunks
+				if _, err := repo.VerifyCommitMessage(ctx, evt); err != nil {
+					logger.Warn("failed to invert commit MST", "err", err)
+				}
+			}
+		}
+	}
+
+	if gfc.Quiet {
+		return nil
+	}
 
 	// apply collections filter
 	if len(gfc.CollectionFilter) > 0 {
@@ -308,14 +472,18 @@ func (gfc *GoatFirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *
 			if err != nil {
 				return err
 			}
-			fmt.Println(string(b))
+			if !gfc.Quiet {
+				fmt.Println(string(b))
+			}
 		case "delete":
 			out["action"] = "delete"
 			b, err := json.Marshal(out)
 			if err != nil {
 				return err
 			}
-			fmt.Println(string(b))
+			if !gfc.Quiet {
+				fmt.Println(string(b))
+			}
 		default:
 			logger.Error("unexpected record op kind")
 		}
