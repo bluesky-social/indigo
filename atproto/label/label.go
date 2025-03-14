@@ -28,24 +28,24 @@ type Label struct {
 // converts to map[string]any for printing as JSON
 func (l *Label) Data() map[string]any {
 	d := map[string]any{
-		"cid": c.CID,
-		"cts": c.CreatedAt,
-		"src": c.SourceDID,
-		"uri": c.URI,
-		"val": c.Val,
-		"ver": c.Version,
+		"cid": l.CID,
+		"cts": l.CreatedAt,
+		"src": l.SourceDID,
+		"uri": l.URI,
+		"val": l.Val,
+		"ver": l.Version,
 	}
-	if c.CID != nil {
-		d["cid"] = c.CID
+	if l.CID != nil {
+		d["cid"] = l.CID
 	}
-	if c.ExpiresAt != nil {
-		d["exp"] = c.ExpiresAt
+	if l.ExpiresAt != nil {
+		d["exp"] = l.ExpiresAt
 	}
-	if c.Negated != nil {
-		d["neg"] = c.Negated
+	if l.Negated != nil {
+		d["neg"] = l.Negated
 	}
-	if c.Sig != nil {
-		d["sig"] = data.Bytes(c.Sig)
+	if l.Sig != nil {
+		d["sig"] = data.Bytes(l.Sig)
 	}
 	return d
 }
