@@ -14,7 +14,7 @@ import (
 	"github.com/ipld/go-car"
 )
 
-func LoadFromCAR(ctx context.Context, r io.Reader) (*Commit, *Repo, error) {
+func loadFlexFromCAR(ctx context.Context, r io.Reader, includeTree bool) (*Commit, *Repo, error) {
 
 	bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
 
@@ -57,6 +57,9 @@ func LoadFromCAR(ctx context.Context, r io.Reader) (*Commit, *Repo, error) {
 	if err := commit.VerifyStructure(); err != nil {
 		return nil, nil, fmt.Errorf("parsing commit block from CAR file: %w", err)
 	}
+	if !includeTree {
+		return &commit, nil, nil
+	}
 
 	tree, err := mst.LoadTreeFromStore(ctx, bs, commit.Data)
 	if err != nil {
@@ -70,4 +73,13 @@ func LoadFromCAR(ctx context.Context, r io.Reader) (*Commit, *Repo, error) {
 		RecordStore: bs, // TODO: put just records in a smaller blockstore?
 	}
 	return &commit, &repo, nil
+}
+
+func LoadCommitFromCAR(ctx context.Context, r io.Reader) (*Commit, error) {
+	c, _, err := loadFlexFromCAR(ctx, r, false)
+	return c, err
+}
+
+func LoadFromCAR(ctx context.Context, r io.Reader) (*Commit, *Repo, error) {
+	return loadFlexFromCAR(ctx, r, true)
 }

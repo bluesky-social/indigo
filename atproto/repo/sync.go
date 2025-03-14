@@ -119,7 +119,6 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 		logger.Info("prevData was null; skipping tree root check")
 	}
 
-	logger.Info("success")
 	return repo, nil
 }
 
