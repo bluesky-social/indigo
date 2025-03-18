@@ -21,7 +21,6 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/cmd/relay/events"
 	"github.com/bluesky-social/indigo/cmd/relay/models"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/gorilla/websocket"
@@ -711,14 +710,6 @@ func (bgs *BGS) lookupUserByUID(ctx context.Context, uid models.Uid) (*Account, 
 	}
 
 	return &u, nil
-}
-
-func stringLink(lnk *lexutil.LexLink) string {
-	if lnk == nil {
-		return "<nil>"
-	}
-
-	return lnk.String()
 }
 
 // handleFedEvent() is the callback passed to Slurper called from Slurper.handleConnection()
