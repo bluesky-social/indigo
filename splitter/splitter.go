@@ -71,6 +71,10 @@ type SplitterConfig struct {
 	PebbleOptions *pebblepersist.PebblePersistOptions
 
 	MaxRequestCrawlForwardErrors int
+
+	AuthTokens []string
+
+	SkipRequestCrawlPing bool
 }
 
 func (sc *SplitterConfig) XrpcRootUrl() string {
@@ -352,19 +356,23 @@ func (s *Splitter) RequestCrawlHandler(c echo.Context) error {
 
 	clientHost := fmt.Sprintf("%s://%s", u.Scheme, host)
 
-	xrpcC := &xrpc.Client{
-		Host:   clientHost,
-		Client: http.DefaultClient, // not using the client that auto-retries
-	}
+	if s.conf.SkipRequestCrawlPing {
+		s.log.Warn("development mode, skipping pds describeServer ping")
+	} else {
+		xrpcC := &xrpc.Client{
+			Host:   clientHost,
+			Client: http.DefaultClient, // not using the client that auto-retries
+		}
 
-	desc, err := atproto.ServerDescribeServer(ctx, xrpcC)
-	if err != nil {
-		errMsg := fmt.Sprintf("requested host (%s) failed to respond to describe request", clientHost)
-		return echo.NewHTTPError(http.StatusBadRequest, errMsg)
-	}
+		desc, err := atproto.ServerDescribeServer(ctx, xrpcC)
+		if err != nil {
+			errMsg := fmt.Sprintf("requested host (%s) failed to respond to describe request", clientHost)
+			return echo.NewHTTPError(http.StatusBadRequest, errMsg)
+		}
 
-	// Maybe we could do something with this response later
-	_ = desc
+		// Maybe we could do something with this response later
+		_ = desc
+	}
 
 	bodyBlob, err := json.Marshal(body)
 	if err != nil {
@@ -399,6 +407,17 @@ type RequestRequestCrawlRequest struct {
 // POST /v1/requestRequestCrawl body={"url":""}
 // URL path will be replaced with /xrpc/com.atproto.sync.requestCrawl to receieve forwarded requestCrawl messages
 func (s *Splitter) RequestRequestCrawlHandler(c echo.Context) error {
+	authHeader := c.Request().Header.Get("Authorization")
+	authorized := false
+	for _, token := range s.conf.AuthTokens {
+		if strings.Contains(authHeader, token) {
+			authorized = true
+			break
+		}
+	}
+	if !authorized {
+		return c.JSON(http.StatusUnauthorized, MessageResponse{Message: "nope"})
+	}
 	var requestBody RequestRequestCrawlRequest
 	err := c.Bind(&requestBody)
 	if err != nil {
@@ -722,6 +741,9 @@ func (s *Splitter) getLastCursor() (int64, error) {
 		}
 	}
 
+	if s.conf.CursorFile == "" {
+		return -1, nil
+	}
 	fi, err := os.Open(s.conf.CursorFile)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -744,6 +766,9 @@ func (s *Splitter) getLastCursor() (int64, error) {
 }
 
 func (s *Splitter) writeCursor(curs int64) error {
+	if s.conf.CursorFile == "" {
+		return nil
+	}
 	return os.WriteFile(s.conf.CursorFile, []byte(fmt.Sprint(curs)), 0664)
 }
 
@@ -764,6 +789,16 @@ func (s *Splitter) unregisterRCClient(rcc *rcClient) {
 
 var ErrDuplicateClient = errors.New("duplicate client")
 
+var requestCrawlPath *url.URL
+
+func init() {
+	var err error
+	requestCrawlPath, err = url.Parse("/xrpc/com.atproto.sync.requestCrawl")
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (s *Splitter) newRCClient(baseUrl string, permanent bool) error {
 	xu, err := url.Parse(baseUrl)
 	if err != nil {
@@ -771,7 +806,7 @@ func (s *Splitter) newRCClient(baseUrl string, permanent bool) error {
 	}
 	ctx, cancel := context.WithCancel(s.ctx)
 	rcc := &rcClient{
-		requestCrawlUrl: xu.JoinPath("/xrpc/com.atproto.sync.requestCrawl").String(),
+		requestCrawlUrl: xu.ResolveReference(requestCrawlPath).String(),
 		postBodies:      make(chan []byte, 100),
 		log:             s.log,
 		splitter:        s,
@@ -787,6 +822,7 @@ func (s *Splitter) newRCClient(baseUrl string, permanent bool) error {
 		}
 	}
 	s.requestCrawlClients = append(s.requestCrawlClients, rcc)
+	s.log.Info("new rcc", "url", rcc.requestCrawlUrl)
 	go rcc.forwarderThread()
 	return nil
 }
