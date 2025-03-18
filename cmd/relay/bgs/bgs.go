@@ -1205,7 +1205,7 @@ func (bgs *BGS) syncPDSAccount(ctx context.Context, did string, host *models.PDS
 		if res.Error != nil {
 			return fmt.Errorf("failed to increment repo count for pds %q: %w", canonicalHost.Host, res.Error)
 		}
-		if terr := bgs.db.Create(&newAccount).Error; terr != nil {
+		if terr := tx.Create(&newAccount).Error; terr != nil {
 			bgs.log.Error("failed to create user", "did", newAccount.Did, "err", terr)
 			return fmt.Errorf("failed to create other pds user: %w", terr)
 		}
