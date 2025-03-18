@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/ipfs/go-cid"
@@ -37,6 +38,23 @@ func (c *Commit) VerifyStructure() error {
 		return fmt.Errorf("invalid commit data: %w", err)
 	}
 	return nil
+}
+
+// returns a representation of the commit object as atproto data (eg, for JSON serialization)
+func (c *Commit) AsData() map[string]any {
+	d := map[string]any{
+		"did":     c.DID,
+		"version": c.Version,
+		"prev":    (*data.CIDLink)(c.Prev),
+		"data":    data.CIDLink(c.Data),
+	}
+	if c.Sig != nil {
+		d["sig"] = data.Bytes(c.Sig)
+	}
+	if c.Rev != "" {
+		d["rev"] = c.Rev
+	}
+	return d
 }
 
 // Encodes the commit object as DAG-CBOR, without the signature field. Used for signing or validating signatures.
