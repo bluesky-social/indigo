@@ -8,7 +8,7 @@ Some Bluesky software is developed in Typescript, and lives in the [bluesky-soci
 
 **Go Services:**
 
-- **bigsky** ([README](./cmd/bigsky/README.md)): "Big Graph Service" (BGS) reference implementation, running at `bsky.network`
+- **bigsky** ([README](./cmd/bigsky/README.md)): relay reference implementation, running at `bsky.network`
 - **palomar** ([README](./cmd/palomar/README.md)): fulltext search service for <https://bsky.app>
 - **hepa** ([README](./cmd/hepa/README.md)): auto-moderation bot for [Ozone](https://ozone.tools)
 
