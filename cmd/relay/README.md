@@ -186,26 +186,6 @@ POST `{"did": "did:..."}` to take-down a bad repo; deletes all local data for th
 
 POST `?did={did:...}` to reverse a repo take-down
 
-### /admin/repo/compact
-
-POST `?did={did:...}` to compact a repo. Optionally `&fast=true`. HTTP blocks until the compaction finishes.
-
-### /admin/repo/compactAll
-
-POST to begin compaction of all repos. Optional query params:
-
- * `fast=true`
- * `limit={int}` maximum number of repos to compact (biggest first) (default 50)
- * `threhsold={int}` minimum number of shard files a repo must have on disk to merit compaction (default 20)
-
-### /admin/repo/reset
-
-POST `?did={did:...}` deletes all local data for the repo
-
-### /admin/repo/verify
-
-POST  `?did={did:...}` checks that all repo data is accessible. HTTP blocks until done.
-
 ### /admin/pds/requestCrawl
 
 POST `{"hostname":"pds host"}` to start crawling a PDS
@@ -236,37 +216,6 @@ GET returns JSON list of records
   "CrawlRate": {"Max": float, "Window": float seconds},
   "UserCount": int,
 }, ...]
-```
-
-### /admin/pds/resync
-
-POST `?host={host}` to start a resync of a PDS
-
-GET `?host={host}` to get status of a PDS resync, return
-
-```json
-{"resync": {
-  "pds": {
-    "Host": string,
-    "Did": string,
-    "SSL": bool,
-    "Cursor": int,
-    "Registered": bool,
-    "Blocked": bool,
-    "RateLimit": float,
-    "CrawlRateLimit": float,
-    "RepoCount": int,
-    "RepoLimit": int,
-    "HourlyEventLimit": int,
-    "DailyEventLimit": int,
-  },
-  "numRepoPages": int,
-  "numRepos": int,
-  "numReposChecked": int,
-  "numReposToResync": int,
-  "status": string,
-  "statusChangedAt": time,
-}}
 ```
 
 ### /admin/pds/changeLimits
