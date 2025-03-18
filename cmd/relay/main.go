@@ -64,7 +64,7 @@ func run(args []string) error {
 		&cli.StringFlag{
 			Name:    "db-url",
 			Usage:   "database connection string for BGS database",
-			Value:   "sqlite://./data/bigsky/bgs.sqlite",
+			Value:   "sqlite://./data/relay/relay.sqlite",
 			EnvVars: []string{"DATABASE_URL"},
 		},
 		&cli.BoolFlag{

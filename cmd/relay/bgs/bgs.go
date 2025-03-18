@@ -329,7 +329,7 @@ var homeMessage string = `
 .##....##..##.......##.......##.....##....##...
 .##.....##.########.########.##.....##....##...
 
-This is an atproto [https://atproto.com] relay instance, running the 'bigsky' codebase [https://github.com/bluesky-social/indigo]
+This is an atproto [https://atproto.com] relay instance, running the 'relay' codebase [https://github.com/bluesky-social/indigo]
 
 The firehose WebSocket path is at:  /xrpc/com.atproto.sync.subscribeRepos
 `
