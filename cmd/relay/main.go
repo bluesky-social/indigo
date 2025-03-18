@@ -5,11 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/cmd/relay/events/diskpersist"
 	"io"
 	"log/slog"
-	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"os/signal"
@@ -18,14 +15,17 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/joho/godotenv/autoload"
+	_ "go.uber.org/automaxprocs"
+	_ "net/http/pprof"
+
+	"github.com/bluesky-social/indigo/atproto/identity"
 	libbgs "github.com/bluesky-social/indigo/cmd/relay/bgs"
 	"github.com/bluesky-social/indigo/cmd/relay/events"
+	"github.com/bluesky-social/indigo/cmd/relay/events/diskpersist"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
-
-	_ "github.com/joho/godotenv/autoload"
-	_ "go.uber.org/automaxprocs"
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/urfave/cli/v2"
