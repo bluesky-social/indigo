@@ -52,7 +52,7 @@ func run(args []string) error {
 		},
 		&cli.StringFlag{
 			Name:    "db-url",
-			Usage:   "database connection string for BGS database",
+			Usage:   "database connection string for relay database",
 			Value:   "sqlite://./data/relay/relay.sqlite",
 			EnvVars: []string{"DATABASE_URL"},
 		},
@@ -157,7 +157,6 @@ func run(args []string) error {
 	return app.Run(os.Args)
 }
 
-
 func runRelay(cctx *cli.Context) error {
 	// Trap SIGINT to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
@@ -257,7 +256,7 @@ func runRelay(cctx *cli.Context) error {
 
 	ratelimitBypass := cctx.String("bsky-social-rate-limit-skip")
 
-	logger.Info("constructing bgs")
+	logger.Info("constructing relay service")
 	bgsConfig := libbgs.DefaultBGSConfig()
 	bgsConfig.SSL = !cctx.Bool("crawl-insecure-ws")
 	bgsConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
@@ -313,16 +312,16 @@ func runRelay(cctx *cli.Context) error {
 		logger.Info("received shutdown signal")
 		errs := bgs.Shutdown()
 		for err := range errs {
-			logger.Error("error during BGS shutdown", "err", err)
+			logger.Error("error during shutdown", "err", err)
 		}
 	case err := <-bgsErr:
 		if err != nil {
-			logger.Error("error during BGS startup", "err", err)
+			logger.Error("error during startup", "err", err)
 		}
 		logger.Info("shutting down")
 		errs := bgs.Shutdown()
 		for err := range errs {
-			logger.Error("error during BGS shutdown", "err", err)
+			logger.Error("error during shutdown", "err", err)
 		}
 	}
 
