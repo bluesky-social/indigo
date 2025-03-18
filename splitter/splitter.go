@@ -14,10 +14,19 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	promclient "github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	dto "github.com/prometheus/client_model/go"
+	etcd "go.etcd.io/etcd/client/v3"
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -27,12 +36,6 @@ import (
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
-	"github.com/gorilla/websocket"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	promclient "github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	dto "github.com/prometheus/client_model/go"
 )
 
 type Splitter struct {
@@ -75,6 +78,9 @@ type SplitterConfig struct {
 	AuthTokens []string
 
 	SkipRequestCrawlPing bool
+
+	EtcdAddresses []string
+	EtcdPrefix    string
 }
 
 func (sc *SplitterConfig) XrpcRootUrl() string {
@@ -141,10 +147,15 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 	}
 
 	for _, nextCrawlerURL := range nextCrawlers {
-		err = s.newRCClient(nextCrawlerURL, true)
+		err = s.newRCClient(nextCrawlerURL, true, nextCrawlerURL)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if len(s.conf.EtcdAddresses) >= 1 && s.conf.EtcdPrefix != "" {
+		s.clientWg.Add(1)
+		go s.etcdWatcher()
 	}
 
 	if conf.PebbleOptions == nil {
@@ -163,33 +174,6 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 	}
 
 	return s, nil
-}
-func NewDiskSplitter(host, path string, persistHours float64, maxBytes int64) (*Splitter, error) {
-	ppopts := pebblepersist.PebblePersistOptions{
-		DbPath:          path,
-		PersistDuration: time.Duration(float64(time.Hour) * persistHours),
-		GCPeriod:        5 * time.Minute,
-		MaxBytes:        uint64(maxBytes),
-	}
-	conf := SplitterConfig{
-		UpstreamHost:  host,
-		CursorFile:    "cursor-file",
-		PebbleOptions: &ppopts,
-	}
-	pp, err := pebblepersist.NewPebblePersistance(&ppopts)
-	if err != nil {
-		return nil, err
-	}
-
-	go pp.GCThread(context.Background())
-	em := events.NewEventManager(pp)
-	return &Splitter{
-		conf:      conf,
-		pp:        pp,
-		events:    em,
-		consumers: make(map[uint64]*SocketConsumer),
-		log:       slog.Default().With("system", "splitter"),
-	}, nil
 }
 
 func (s *Splitter) Start(addr string) error {
@@ -424,7 +408,7 @@ func (s *Splitter) RequestRequestCrawlHandler(c echo.Context) error {
 		s.log.Info("rrc bad body", "err", err)
 		return c.JSON(http.StatusBadRequest, MessageResponse{Message: "failed to unpack json struct"})
 	}
-	err = s.newRCClient(requestBody.Url, false)
+	err = s.newRCClient(requestBody.Url, false, requestBody.Url)
 	if err != nil {
 		s.log.Info("rrc bad url", "err", err)
 		return c.JSON(http.StatusBadRequest, MessageResponse{Message: "bad url, " + err.Error()})
@@ -775,7 +759,11 @@ func (s *Splitter) writeCursor(curs int64) error {
 func (s *Splitter) unregisterRCClient(rcc *rcClient) {
 	s.forwardingLock.Lock()
 	defer s.forwardingLock.Unlock()
+	s.unregisterRCClientInner(rcc)
+}
 
+// unregisterRCClientInner assumes s.forwardingLock is held
+func (s *Splitter) unregisterRCClientInner(rcc *rcClient) {
 	for i, fwd := range s.requestCrawlClients {
 		if fwd == rcc {
 			lasti := len(s.requestCrawlClients) - 1
@@ -799,10 +787,13 @@ func init() {
 	}
 }
 
-func (s *Splitter) newRCClient(baseUrl string, permanent bool) error {
+func (s *Splitter) newRCClient(baseUrl string, permanent bool, key string) error {
 	xu, err := url.Parse(baseUrl)
 	if err != nil {
 		return fmt.Errorf("bad base url, %w", err)
+	}
+	if key == "" {
+		key = baseUrl
 	}
 	ctx, cancel := context.WithCancel(s.ctx)
 	rcc := &rcClient{
@@ -813,6 +804,7 @@ func (s *Splitter) newRCClient(baseUrl string, permanent bool) error {
 		permanent:       permanent,
 		ctx:             ctx,
 		cancel:          cancel,
+		key:             key,
 	}
 	s.forwardingLock.Lock()
 	defer s.forwardingLock.Unlock()
@@ -823,7 +815,27 @@ func (s *Splitter) newRCClient(baseUrl string, permanent bool) error {
 	}
 	s.requestCrawlClients = append(s.requestCrawlClients, rcc)
 	s.log.Info("new rcc", "url", rcc.requestCrawlUrl)
+	s.clientWg.Add(1)
 	go rcc.forwarderThread()
+	return nil
+}
+
+func (s *Splitter) cancelRCClientByKey(key string) error {
+	s.forwardingLock.Lock()
+	defer s.forwardingLock.Unlock()
+	notDone := true
+	for notDone {
+		notDone = false
+		for _, rcc := range s.requestCrawlClients {
+			if rcc.key == key {
+				rcc.cancel()
+				s.unregisterRCClientInner(rcc)
+				notDone = true
+				// break out of this loop over clients since the array was changed, start over
+				break
+			}
+		}
+	}
 	return nil
 }
 
@@ -832,6 +844,9 @@ type rcClient struct {
 	firstSeen time.Time
 	lastGood  time.Time
 	errCount  int
+
+	// key is a unique identifier, probably from etcd, by which we can search and shut down a client
+	key string
 
 	requestCrawlUrl string // e.g. http://host:port/xrpc/com.atproto.sync.requestCrawl
 
@@ -892,6 +907,64 @@ func (rcc *rcClient) forwarderThread() {
 		} else if rcc.errCount > maxErrCount {
 			rcc.log.Error("too many errors, giving up on destination", "url", rcc.requestCrawlUrl)
 			return
+		}
+	}
+}
+
+func (s *Splitter) etcdWatcher() {
+	defer s.clientWg.Done()
+	done := s.ctx.Done()
+
+	etcdClient, err := etcd.New(etcd.Config{
+		Endpoints:   s.conf.EtcdAddresses,
+		DialTimeout: 5 * time.Second,
+	})
+
+	if err != nil {
+		s.log.Error("etcd client init failed", "err", err)
+		panic("etcd client init failed")
+	}
+
+	etcdRequestCrawlPrefix := path.Join(s.conf.EtcdPrefix, "requestCrawl") + "/"
+	s.log.Info("getting requestCrawl conf from etcd", "prefix", etcdRequestCrawlPrefix)
+
+	var resp *etcd.GetResponse
+	for {
+		select {
+		case <-done:
+			return
+		default:
+		}
+		resp, err = etcdClient.Get(s.ctx, etcdRequestCrawlPrefix, etcd.WithPrefix())
+		if err != nil {
+			s.log.Error("etcd initial fetch failed, retry in 5s", "err", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		for _, kv := range resp.Kvs {
+			s.log.Info("etcd get start client", "key", string(kv.Key), "url", string(kv.Value))
+			s.newRCClient(string(kv.Value), false, string(kv.Key))
+		}
+		break
+	}
+
+	watchChan := etcdClient.Watch(s.ctx, etcdRequestCrawlPrefix, etcd.WithPrefix(), etcd.WithRev(resp.Header.Revision+1))
+	for {
+		select {
+		case <-done:
+			return
+		case wr := <-watchChan:
+			for _, event := range wr.Events {
+				switch event.Type {
+				case etcd.EventTypePut:
+					s.log.Info("etcd watch start client", "key", string(event.Kv.Key), "url", string(event.Kv.Value))
+					s.newRCClient(string(event.Kv.Value), false, string(event.Kv.Key))
+				case etcd.EventTypeDelete:
+					s.log.Info("etcd watch lost client", "key", string(event.Kv.Key))
+					s.cancelRCClientByKey(string(event.Kv.Key))
+				}
+			}
 		}
 	}
 }

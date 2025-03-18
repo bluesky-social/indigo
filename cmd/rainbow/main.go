@@ -108,6 +108,16 @@ func run(args []string) {
 			Name:  "skip-request-crawl-ping",
 			Usage: "development flag to not bother the world with development",
 		},
+		&cli.StringSliceFlag{
+			Name:    "etcd-addresses",
+			Usage:   "addresses for etcd client",
+			EnvVars: []string{"RAINBOW_ETCD_ADDRESSES"},
+		},
+		&cli.StringFlag{
+			Name:  "etcd-prefix",
+			Usage: "etcd prefix to watch for requestCrawl forwarding destinations, e.g. {prefix}/requestCrawl/{abc123}",
+			Value: "rainbow",
+		},
 	}
 
 	// TODO: slog.SetDefault and set module `var log *slog.Logger` based on flags and env
@@ -173,6 +183,9 @@ func Splitter(cctx *cli.Context) error {
 		MaxRequestCrawlForwardErrors: cctx.Int("max-request-crawl-errors"),
 		AuthTokens:                   cctx.StringSlice("auth-tokens"),
 		SkipRequestCrawlPing:         cctx.Bool("skip-request-crawl-ping"),
+
+		EtcdAddresses: cctx.StringSlice("etcd-addresses"),
+		EtcdPrefix:    cctx.String("etcd-prefix"),
 	}
 	if persistPath != "" {
 		log.Info("building splitter with storage at", "path", persistPath)
