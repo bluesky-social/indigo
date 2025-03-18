@@ -18,6 +18,7 @@ help: ## Print info about all commands
 build: ## Build all executables
 	go build ./cmd/gosky
 	go build ./cmd/bigsky
+	go build ./cmd/relay
 	go build ./cmd/beemo
 	go build ./cmd/lexgen
 	go build ./cmd/stress
