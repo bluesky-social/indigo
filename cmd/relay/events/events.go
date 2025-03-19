@@ -13,8 +13,8 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/cmd/relay/models"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/prometheus/client_golang/prometheus"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 )

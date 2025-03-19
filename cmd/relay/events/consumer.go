@@ -8,11 +8,11 @@ import (
 	"net"
 	"time"
 
-	"github.com/RussellLuo/slidingwindow"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/RussellLuo/slidingwindow"
 	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type RepoStreamCallbacks struct {

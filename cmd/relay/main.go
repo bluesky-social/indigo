@@ -1,44 +1,33 @@
 package main
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"errors"
 	"fmt"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/cmd/relay/events/diskpersist"
-	"gorm.io/gorm"
 	"io"
 	"log/slog"
-	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
+	_ "github.com/joho/godotenv/autoload"
+	_ "go.uber.org/automaxprocs"
+	_ "net/http/pprof"
+
+	"github.com/bluesky-social/indigo/atproto/identity"
 	libbgs "github.com/bluesky-social/indigo/cmd/relay/bgs"
 	"github.com/bluesky-social/indigo/cmd/relay/events"
+	"github.com/bluesky-social/indigo/cmd/relay/events/diskpersist"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	_ "github.com/joho/godotenv/autoload"
-	_ "go.uber.org/automaxprocs"
-
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/urfave/cli/v2"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/jaeger"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/sdk/resource"
-	tracesdk "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"gorm.io/plugin/opentelemetry/tracing"
 )
 
@@ -63,8 +52,8 @@ func run(args []string) error {
 		},
 		&cli.StringFlag{
 			Name:    "db-url",
-			Usage:   "database connection string for BGS database",
-			Value:   "sqlite://./data/bigsky/bgs.sqlite",
+			Usage:   "database connection string for relay database",
+			Value:   "sqlite://./data/relay/relay.sqlite",
 			EnvVars: []string{"DATABASE_URL"},
 		},
 		&cli.BoolFlag{
@@ -168,73 +157,6 @@ func run(args []string) error {
 	return app.Run(os.Args)
 }
 
-func setupOTEL(cctx *cli.Context) error {
-
-	env := cctx.String("env")
-	if env == "" {
-		env = "dev"
-	}
-	if cctx.Bool("jaeger") {
-		jaegerUrl := "http://localhost:14268/api/traces"
-		exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(jaegerUrl)))
-		if err != nil {
-			return err
-		}
-		tp := tracesdk.NewTracerProvider(
-			// Always be sure to batch in production.
-			tracesdk.WithBatcher(exp),
-			// Record information about this application in a Resource.
-			tracesdk.WithResource(resource.NewWithAttributes(
-				semconv.SchemaURL,
-				semconv.ServiceNameKey.String("bgs"),
-				attribute.String("env", env),         // DataDog
-				attribute.String("environment", env), // Others
-				attribute.Int64("ID", 1),
-			)),
-		)
-
-		otel.SetTracerProvider(tp)
-	}
-
-	// Enable OTLP HTTP exporter
-	// For relevant environment variables:
-	// https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace#readme-environment-variables
-	// At a minimum, you need to set
-	// OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-	if ep := cctx.String("otel-exporter-otlp-endpoint"); ep != "" {
-		slog.Info("setting up trace exporter", "endpoint", ep)
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		exp, err := otlptracehttp.New(ctx)
-		if err != nil {
-			slog.Error("failed to create trace exporter", "error", err)
-			os.Exit(1)
-		}
-		defer func() {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
-			if err := exp.Shutdown(ctx); err != nil {
-				slog.Error("failed to shutdown trace exporter", "error", err)
-			}
-		}()
-
-		tp := tracesdk.NewTracerProvider(
-			tracesdk.WithBatcher(exp),
-			tracesdk.WithResource(resource.NewWithAttributes(
-				semconv.SchemaURL,
-				semconv.ServiceNameKey.String("bgs"),
-				attribute.String("env", env),         // DataDog
-				attribute.String("environment", env), // Others
-				attribute.Int64("ID", 1),
-			)),
-		)
-		otel.SetTracerProvider(tp)
-	}
-
-	return nil
-}
-
 func runRelay(cctx *cli.Context) error {
 	// Trap SIGINT to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
@@ -334,7 +256,7 @@ func runRelay(cctx *cli.Context) error {
 
 	ratelimitBypass := cctx.String("bsky-social-rate-limit-skip")
 
-	logger.Info("constructing bgs")
+	logger.Info("constructing relay service")
 	bgsConfig := libbgs.DefaultBGSConfig()
 	bgsConfig.SSL = !cctx.Bool("crawl-insecure-ws")
 	bgsConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
@@ -390,16 +312,16 @@ func runRelay(cctx *cli.Context) error {
 		logger.Info("received shutdown signal")
 		errs := bgs.Shutdown()
 		for err := range errs {
-			logger.Error("error during BGS shutdown", "err", err)
+			logger.Error("error during shutdown", "err", err)
 		}
 	case err := <-bgsErr:
 		if err != nil {
-			logger.Error("error during BGS startup", "err", err)
+			logger.Error("error during startup", "err", err)
 		}
 		logger.Info("shutting down")
 		errs := bgs.Shutdown()
 		for err := range errs {
-			logger.Error("error during BGS shutdown", "err", err)
+			logger.Error("error during shutdown", "err", err)
 		}
 	}
 
@@ -425,54 +347,4 @@ func makePdsClientSetup(ratelimitBypass string) func(c *xrpc.Client) {
 			c.Client.Timeout = time.Minute * 1
 		}
 	}
-}
-
-// RelaySetting is a gorm model
-type RelaySetting struct {
-	Name  string `gorm:"primarykey"`
-	Value string
-}
-
-func getRelaySetting(db *gorm.DB, name string) (value string, found bool, err error) {
-	var setting RelaySetting
-	dbResult := db.First(&setting, "name = ?", name)
-	if errors.Is(dbResult.Error, gorm.ErrRecordNotFound) {
-		return "", false, nil
-	}
-	if dbResult.Error != nil {
-		return "", false, dbResult.Error
-	}
-	return setting.Value, true, nil
-}
-
-func setRelaySetting(db *gorm.DB, name string, value string) error {
-	return db.Transaction(func(tx *gorm.DB) error {
-		var setting RelaySetting
-		found := tx.First(&setting, "name = ?", name)
-		if errors.Is(found.Error, gorm.ErrRecordNotFound) {
-			// ok! create it
-			setting.Name = name
-			setting.Value = value
-			return tx.Create(&setting).Error
-		} else if found.Error != nil {
-			return found.Error
-		}
-		setting.Value = value
-		return tx.Save(&setting).Error
-	})
-}
-
-func getRelaySettingBool(db *gorm.DB, name string) (value bool, found bool, err error) {
-	strval, found, err := getRelaySetting(db, name)
-	if err != nil || !found {
-		return false, found, err
-	}
-	value, err = strconv.ParseBool(strval)
-	if err != nil {
-		return false, false, err
-	}
-	return value, true, nil
-}
-func setRelaySettingBool(db *gorm.DB, name string, value bool) error {
-	return setRelaySetting(db, name, strconv.FormatBool(value))
 }
