@@ -151,6 +151,12 @@ func run(args []string) error {
 			Value:   false,
 			Usage:   "make outbound firehose sequence number approximately unix microseconds",
 		},
+		&cli.BoolFlag{
+			Name:    "sync11-errors-are-warnings",
+			EnvVars: []string{"RELAY_SYNC11_JUST_WARN"},
+			Value:   true,
+			Usage:   "don't fail traffic on sync1.1 errors",
+		},
 	}
 
 	app.Action = runRelay
@@ -211,9 +217,6 @@ func runRelay(cctx *cli.Context) error {
 	}
 	cacheDir := identity.NewCacheDirectory(&baseDir, cctx.Int("did-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
 
-	// TODO: rename repoman
-	repoman := libbgs.NewValidator(&cacheDir, inductionTraceLog)
-
 	var persister events.EventPersistence
 
 	dpd := cctx.String("disk-persister-dir")
@@ -264,6 +267,7 @@ func runRelay(cctx *cli.Context) error {
 	bgsConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
 	bgsConfig.ApplyPDSClientSettings = makePdsClientSetup(ratelimitBypass)
 	bgsConfig.InductionTraceLog = inductionTraceLog
+	bgsConfig.Sync11ErrorsAreWarnings = cctx.Bool("sync11-errors-are-warnings")
 	nextCrawlers := cctx.StringSlice("next-crawler")
 	if len(nextCrawlers) != 0 {
 		nextCrawlerUrls := make([]*url.URL, len(nextCrawlers))
@@ -285,7 +289,7 @@ func runRelay(cctx *cli.Context) error {
 		bgsConfig.AdminToken = base64.URLEncoding.EncodeToString(rblob[:])
 		logger.Info("generated random admin key", "header", "Authorization: Bearer "+bgsConfig.AdminToken)
 	}
-	bgs, err := libbgs.NewBGS(db, repoman, evtman, &cacheDir, bgsConfig)
+	bgs, err := libbgs.NewBGS(db, evtman, &cacheDir, bgsConfig)
 	if err != nil {
 		return err
 	}

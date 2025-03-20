@@ -100,6 +100,8 @@ type BGSConfig struct {
 
 	// AdminToken checked against "Authorization: Bearer {}" header
 	AdminToken string
+
+	Sync11ErrorsAreWarnings bool
 }
 
 func DefaultBGSConfig() *BGSConfig {
@@ -111,7 +113,7 @@ func DefaultBGSConfig() *BGSConfig {
 	}
 }
 
-func NewBGS(db *gorm.DB, validator *Validator, evtman *events.EventManager, didd identity.Directory, config *BGSConfig) (*BGS, error) {
+func NewBGS(db *gorm.DB, evtman *events.EventManager, didd identity.Directory, config *BGSConfig) (*BGS, error) {
 
 	if config == nil {
 		config = DefaultBGSConfig()
@@ -130,6 +132,8 @@ func NewBGS(db *gorm.DB, validator *Validator, evtman *events.EventManager, didd
 	}
 
 	uc, _ := lru.New[string, *Account](1_000_000)
+
+	validator := NewValidator(didd, config.InductionTraceLog, config.Sync11ErrorsAreWarnings)
 
 	bgs := &BGS{
 		db: db,
