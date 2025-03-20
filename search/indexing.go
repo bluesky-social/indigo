@@ -480,7 +480,7 @@ func (idx *Indexer) indexProfiles(ctx context.Context, jobs []*ProfileIndexJob) 
 	return nil
 }
 
-// updateProfilePagranks uses the OpenSearch bulk API to update the pageranks for the given DIDs
+// indexPageranks uses the OpenSearch bulk API to update the pageranks for the given DIDs
 func (idx *Indexer) indexPageranks(ctx context.Context, pageranks []*PagerankIndexJob) error {
 	ctx, span := tracer.Start(ctx, "indexPageranks")
 	defer span.End()

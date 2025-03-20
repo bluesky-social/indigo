@@ -10,7 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// ParseQuery takes a query string and pulls out some facet patterns ("from:handle.net") as filters
+// ParsePostQuery takes a query string and pulls out some facet patterns ("from:handle.net") as filters
 func ParsePostQuery(ctx context.Context, dir identity.Directory, raw string, viewer *syntax.DID) PostSearchParams {
 	quoted := false
 	parts := strings.FieldsFunc(raw, func(r rune) bool {
