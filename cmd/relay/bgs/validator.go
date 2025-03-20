@@ -436,11 +436,7 @@ func (val *Validator) HandleSync(ctx context.Context, host *models.PDS, msg *atp
 	err = val.VerifyCommitSignature(ctx, commit, hostname, &hasWarning)
 	if err != nil {
 		// signature errors are metrics counted inside VerifyCommitSignature()
-		if !val.Sync11ErrorsAreWarnings {
-			return nil, err
-		} else {
-			logger.Warn("invalid sig", "err", err)
-		}
+		logger.Warn("invalid sig", "err", err)
 	}
 
 	return &commit.Data, nil
