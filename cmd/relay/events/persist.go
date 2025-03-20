@@ -11,6 +11,7 @@ type EventPersistence interface {
 	Persist(ctx context.Context, e *XRPCStreamEvent) error
 	Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error
 	TakeDownRepo(ctx context.Context, usr models.Uid) error
+	ReverseTakeDownRepo(ctx context.Context, usr models.Uid) error
 	Flush(context.Context) error
 	Shutdown(context.Context) error
 
