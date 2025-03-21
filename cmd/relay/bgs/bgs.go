@@ -1241,7 +1241,7 @@ func (bgs *BGS) ReverseTakedown(ctx context.Context, did string) error {
 	}
 	u.SetTakenDown(false)
 
-	return nil
+	return bgs.events.ReverseTakeDownRepo(ctx, u.ID)
 }
 
 func (bgs *BGS) GetRepoRoot(ctx context.Context, user models.Uid) (cid.Cid, error) {
