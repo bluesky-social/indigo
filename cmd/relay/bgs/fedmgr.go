@@ -525,7 +525,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS, s
 			continue
 		}
 
-		s.log.Info("event subscription response", "code", res.StatusCode, "url", url)
+		s.log.Info("event subscription response", "code", res.StatusCode, "pds", host.Host, "url", url)
 
 		curCursor := cursor
 		if err := s.handleConnection(ctx, host, con, &cursor, sub); err != nil {
@@ -689,7 +689,8 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 	pool := parallel.NewScheduler(
 		100,
 		1_000,
-		con.RemoteAddr().String(),
+		"pds",
+		host.Host,
 		instrumentedRSC.EventHandler,
 	)
 	return events.HandleRepoStream(ctx, con, pool, nil)

@@ -24,7 +24,8 @@ type Scheduler struct {
 	lk     sync.Mutex
 	active map[string][]*consumerTask
 
-	ident string
+	identLogKey string
+	ident       string
 
 	// metrics
 	itemsAdded     prometheus.Counter
@@ -35,7 +36,7 @@ type Scheduler struct {
 	log *slog.Logger
 }
 
-func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events.XRPCStreamEvent) error) *Scheduler {
+func NewScheduler(maxC, maxQ int, identLogKey, ident string, do func(context.Context, *events.XRPCStreamEvent) error) *Scheduler {
 	p := &Scheduler{
 		maxConcurrency: maxC,
 		maxQueue:       maxQ,
@@ -46,7 +47,8 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 		active: make(map[string][]*consumerTask),
 		out:    make(chan struct{}),
 
-		ident: ident,
+		identLogKey: identLogKey,
+		ident:       ident,
 
 		itemsAdded:     schedulers.WorkItemsAdded.WithLabelValues(ident, "parallel"),
 		itemsProcessed: schedulers.WorkItemsProcessed.WithLabelValues(ident, "parallel"),
@@ -66,7 +68,7 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 }
 
 func (p *Scheduler) Shutdown() {
-	p.log.Info("shutting down parallel scheduler", "ident", p.ident)
+	p.log.Info("shutting down parallel scheduler", p.identLogKey, p.ident)
 
 	for i := 0; i < p.maxConcurrency; i++ {
 		p.feeder <- &consumerTask{
@@ -80,7 +82,7 @@ func (p *Scheduler) Shutdown() {
 		<-p.out
 	}
 
-	p.log.Info("parallel scheduler shutdown complete")
+	p.log.Info("parallel scheduler shutdown complete", p.identLogKey, p.ident)
 }
 
 type consumerTask struct {
