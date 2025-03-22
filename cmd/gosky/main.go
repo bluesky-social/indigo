@@ -672,7 +672,7 @@ var listAllRecordsCmd = &cli.Command{
 		vals := cctx.Bool("values")
 		cids := cctx.Bool("cids")
 
-		if err := repo.StreamRepoRecords(ctx, bytes.NewReader(repob), collection, func(k string, cc cid.Cid, v []byte) error {
+		if _, err := repo.StreamRepoRecords(ctx, bytes.NewReader(repob), collection, func(k string, cc cid.Cid, v []byte) error {
 			if !strings.HasPrefix(k, collection) {
 				return repo.ErrDoneIterating
 			}

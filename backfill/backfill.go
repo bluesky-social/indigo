@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -301,6 +302,7 @@ func (b *Backfiller) FlushBuffer(ctx context.Context, job Job) int {
 type recordQueueItem struct {
 	recordPath string
 	nodeCid    cid.Cid
+	data       []byte
 }
 
 type recordResult struct {
@@ -323,8 +325,8 @@ func (e *FetchRepoError) Error() string {
 	return fmt.Sprintf("failed to get repo: %s (%d)", reason, e.StatusCode)
 }
 
-// Fetches a repo CAR file over HTTP from the indicated host. If successful, parses the CAR and returns repo.Repo
-func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (*repo.Repo, error) {
+// Fetches a repo CAR file over HTTP from the indicated host.
+func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (io.ReadCloser, error) {
 	url := fmt.Sprintf("%s/xrpc/com.atproto.sync.getRepo?did=%s", host, did)
 
 	if since != "" {
@@ -366,13 +368,7 @@ func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (*r
 		counter: backfillBytesProcessed.WithLabelValues(b.Name),
 	}
 
-	defer instrumentedReader.Close()
-
-	repo, err := repo.ReadRepoFromCar(ctx, instrumentedReader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse repo from CAR file: %w", err)
-	}
-	return repo, nil
+	return &instrumentedReader, nil
 }
 
 // BackfillRepo backfills a repo
@@ -390,7 +386,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 	}
 	log.Info(fmt.Sprintf("processing backfill for %s", repoDID))
 
-	var r *repo.Repo
+	var r io.ReadCloser
 	if b.tryRelayRepoFetch {
 		rr, err := b.fetchRepo(ctx, repoDID, job.Rev(), b.RelayHost)
 		if err != nil {
@@ -426,19 +422,21 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 	recordQueue := make(chan recordQueueItem, numRoutines)
 	recordResults := make(chan recordResult, numRoutines)
 
+	var rev string
 	// Producer routine
 	go func() {
 		defer close(recordQueue)
-		if err := r.ForEach(ctx, b.NSIDFilter, func(recordPath string, nodeCid cid.Cid) error {
+		rrev, err := repo.StreamRepoRecords(ctx, r, b.NSIDFilter, func(recordPath string, nodeCid cid.Cid, data []byte) error {
 			numRecords++
-			recordQueue <- recordQueueItem{recordPath: recordPath, nodeCid: nodeCid}
+			recordQueue <- recordQueueItem{recordPath: recordPath, nodeCid: nodeCid, data: data}
 			return nil
-		}); err != nil {
+		})
+		if err != nil {
 			log.Error("failed to iterate records in repo", "err", err)
 		}
-	}()
 
-	rev := r.SignedCommit().Rev
+		rev = rrev
+	}()
 
 	// Consumer routines
 	wg := sync.WaitGroup{}
@@ -447,15 +445,10 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 		go func() {
 			defer wg.Done()
 			for item := range recordQueue {
-				blk, err := r.Blockstore().Get(ctx, item.nodeCid)
-				if err != nil {
-					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to get blocks for record: %w", err)}
-					continue
-				}
 
-				raw := blk.RawData()
+				raw := item.data
 
-				err = b.HandleCreateRecord(ctx, repoDID, rev, item.recordPath, &raw, &item.nodeCid)
+				err := b.HandleCreateRecord(ctx, repoDID, rev, item.recordPath, &raw, &item.nodeCid)
 				if err != nil {
 					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to handle create record: %w", err)}
 					continue
@@ -483,7 +476,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 	close(recordResults)
 	resultWG.Wait()
 
-	if err := job.SetRev(ctx, r.SignedCommit().Rev); err != nil {
+	if err := job.SetRev(ctx, rev); err != nil {
 		log.Error("failed to update rev after backfilling repo", "err", err)
 	}
 
