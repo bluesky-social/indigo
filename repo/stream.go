@@ -15,20 +15,23 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-type waitingBlockstore struct {
+type readStreamBlockstore struct {
 	otherBlocks    map[cid.Cid]block.Block
 	streamComplete bool
 
 	r *carutil.Reader
+
+	lastBlockRead block.Block
 }
 
-func newWaitingBlockstore() *waitingBlockstore {
-	return &waitingBlockstore{
+func newStreamingBlockstore(r *carutil.Reader) *readStreamBlockstore {
+	return &readStreamBlockstore{
 		otherBlocks: make(map[cid.Cid]block.Block),
+		r:           r,
 	}
 }
 
-func (bs *waitingBlockstore) readUntilBlock(ctx context.Context, cc cid.Cid) (block.Block, error) {
+func (bs *readStreamBlockstore) readUntilBlock(ctx context.Context, cc cid.Cid) (block.Block, error) {
 	for {
 		blk, err := bs.r.NextBlock(repoBlockBufferPool, repoBlockBufferSize)
 		if err != nil {
@@ -50,9 +53,15 @@ func (bs *waitingBlockstore) readUntilBlock(ctx context.Context, cc cid.Cid) (bl
 	return nil, io.EOF
 }
 
-func (bs *waitingBlockstore) Get(ctx context.Context, cc cid.Cid) (block.Block, error) {
+func (bs *readStreamBlockstore) Get(ctx context.Context, cc cid.Cid) (block.Block, error) {
+	if bs.lastBlockRead != nil {
+		freeRepoBlock(bs.lastBlockRead)
+		bs.lastBlockRead = nil
+	}
+
 	if blk, ok := bs.otherBlocks[cc]; ok {
 		delete(bs.otherBlocks, cc)
+		bs.lastBlockRead = blk
 		return blk, nil
 	}
 
@@ -65,27 +74,14 @@ func (bs *waitingBlockstore) Get(ctx context.Context, cc cid.Cid) (block.Block, 
 		return nil, err
 	}
 
+	bs.lastBlockRead = blk
 	return blk, nil
 }
 
 var ErrMissingBlock = fmt.Errorf("block was missing from archive")
 
-func (bs *waitingBlockstore) Put(ctx context.Context, blk block.Block) error {
+func (bs *readStreamBlockstore) Put(ctx context.Context, blk block.Block) error {
 	return fmt.Errorf("put is not needed")
-	/*
-		bw, ok := bs.blockWaits[blk.Cid()]
-		if ok {
-			bw <- blk
-			delete(bs.blockWaits, blk.Cid())
-			return nil
-		}
-
-		bs.otherBlocks[blk.Cid()] = blk.(*block.BasicBlock)
-		return nil
-	*/
-}
-
-func (bs *waitingBlockstore) Complete() {
 }
 
 func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, cb func(k string, c cid.Cid, v []byte) error) error {
@@ -97,9 +93,7 @@ func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, cb func(
 		return fmt.Errorf("opening CAR block reader: %w", err)
 	}
 
-	bs := newWaitingBlockstore()
-
-	bs.r = br
+	bs := newStreamingBlockstore(br)
 
 	cst := util.CborStore(bs)
 
