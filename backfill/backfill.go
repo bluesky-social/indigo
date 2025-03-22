@@ -417,6 +417,8 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 		}
 	}
 
+	defer r.Close()
+
 	numRecords := 0
 	numRoutines := b.ParallelRecordCreates
 	recordQueue := make(chan recordQueueItem, numRoutines)
