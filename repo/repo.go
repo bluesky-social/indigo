@@ -12,7 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
-	"github.com/ipld/go-car/v2"
+	"github.com/ipld/go-car"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 )
@@ -77,7 +77,7 @@ func IngestRepo(ctx context.Context, bs cbor.IpldBlockstore, r io.Reader) (cid.C
 	ctx, span := otel.Tracer("repo").Start(ctx, "Ingest")
 	defer span.End()
 
-	br, err := car.NewBlockReader(r)
+	br, err := car.NewCarReader(r)
 	if err != nil {
 		return cid.Undef, fmt.Errorf("opening CAR block reader: %w", err)
 	}
@@ -96,7 +96,7 @@ func IngestRepo(ctx context.Context, bs cbor.IpldBlockstore, r io.Reader) (cid.C
 		}
 	}
 
-	return br.Roots[0], nil
+	return br.Header.Roots[0], nil
 }
 
 func ReadRepoFromCar(ctx context.Context, r io.Reader) (*Repo, error) {
