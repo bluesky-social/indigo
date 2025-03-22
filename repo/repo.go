@@ -14,6 +14,7 @@ import (
 	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo/carutil"
 	"github.com/bluesky-social/indigo/util"
+	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -84,6 +85,17 @@ var repoBlockBufferPool = &sync.Pool{
 	New: func() any {
 		return make([]byte, repoBlockBufferSize)
 	},
+}
+
+func freeRepoBlock(b blocks.Block) {
+	bb, ok := b.(*blocks.BasicBlock)
+	if !ok {
+		return
+	}
+
+	if cap(bb.RawData()) == repoBlockBufferSize {
+		repoBlockBufferPool.Put(bb.RawData()[:repoBlockBufferSize])
+	}
 }
 
 func IngestRepo(ctx context.Context, bs cbor.IpldBlockstore, r io.Reader) (cid.Cid, error) {
