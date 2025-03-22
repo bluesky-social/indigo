@@ -20,8 +20,6 @@ type readStreamBlockstore struct {
 	streamComplete bool
 
 	r *carutil.Reader
-
-	lastBlockRead block.Block
 }
 
 func newStreamingBlockstore(r *carutil.Reader) *readStreamBlockstore {
@@ -54,14 +52,8 @@ func (bs *readStreamBlockstore) readUntilBlock(ctx context.Context, cc cid.Cid) 
 }
 
 func (bs *readStreamBlockstore) Get(ctx context.Context, cc cid.Cid) (block.Block, error) {
-	if bs.lastBlockRead != nil {
-		freeRepoBlock(bs.lastBlockRead)
-		bs.lastBlockRead = nil
-	}
-
 	if blk, ok := bs.otherBlocks[cc]; ok {
 		delete(bs.otherBlocks, cc)
-		bs.lastBlockRead = blk
 		return blk, nil
 	}
 
@@ -74,8 +66,21 @@ func (bs *readStreamBlockstore) Get(ctx context.Context, cc cid.Cid) (block.Bloc
 		return nil, err
 	}
 
-	bs.lastBlockRead = blk
 	return blk, nil
+}
+
+func (bs *readStreamBlockstore) View(cc cid.Cid, cb func([]byte) error) error {
+	blk, err := bs.Get(context.TODO(), cc)
+	if err != nil {
+		return err
+	}
+
+	if err := cb(blk.RawData()); err != nil {
+		return err
+	}
+
+	FreeRepoBlock(blk.RawData())
+	return nil
 }
 
 var ErrMissingBlock = fmt.Errorf("block was missing from archive")
@@ -84,13 +89,13 @@ func (bs *readStreamBlockstore) Put(ctx context.Context, blk block.Block) error 
 	return fmt.Errorf("put is not needed")
 }
 
-func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, cb func(k string, c cid.Cid, v []byte) error) error {
+func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, cb func(k string, c cid.Cid, v []byte) error) (string, error) {
 	ctx, span := otel.Tracer("repo").Start(ctx, "RepoStream")
 	defer span.End()
 
 	br, root, err := carutil.NewReader(bufio.NewReader(r))
 	if err != nil {
-		return fmt.Errorf("opening CAR block reader: %w", err)
+		return "", fmt.Errorf("opening CAR block reader: %w", err)
 	}
 
 	bs := newStreamingBlockstore(br)
@@ -99,11 +104,11 @@ func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, cb func(
 
 	var sc SignedCommit
 	if err := cst.Get(ctx, root, &sc); err != nil {
-		return fmt.Errorf("loading root from blockstore: %w", err)
+		return "", fmt.Errorf("loading root from blockstore: %w", err)
 	}
 
 	if sc.Version != ATP_REPO_VERSION && sc.Version != ATP_REPO_VERSION_2 {
-		return fmt.Errorf("unsupported repo version: %d", sc.Version)
+		return "", fmt.Errorf("unsupported repo version: %d", sc.Version)
 	}
 	// TODO: verify that signature
 
@@ -118,8 +123,8 @@ func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, cb func(
 
 		return cb(k, val, blk.RawData())
 	}); err != nil {
-		return fmt.Errorf("failed to walk mst: %w", err)
+		return "", fmt.Errorf("failed to walk mst: %w", err)
 	}
 
-	return nil
+	return sc.Rev, nil
 }
