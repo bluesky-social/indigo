@@ -9,6 +9,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util/cliutil"
+	"github.com/bluesky-social/indigo/xrpc"
 
 	cli "github.com/urfave/cli/v2"
 )
@@ -53,11 +54,10 @@ var syncGetRepoCmd = &cli.Command{
 			carPath = ident.DID.String() + ".car"
 		}
 
-		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
-		if err != nil {
-			return err
+		xrpcc := &xrpc.Client{
+			Host: ident.PDSEndpoint(),
 		}
-		xrpcc.Host = ident.PDSEndpoint()
+
 		if xrpcc.Host == "" {
 			return fmt.Errorf("no PDS endpoint for identity")
 		}
