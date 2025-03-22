@@ -6,12 +6,11 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/bluesky-social/indigo/atproto/repo"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/ipld/go-car/v2"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -101,7 +100,7 @@ func IngestRepo(ctx context.Context, bs cbor.IpldBlockstore, r io.Reader) (cid.C
 }
 
 func ReadRepoFromCar(ctx context.Context, r io.Reader) (*Repo, error) {
-	bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
+	bs := repo.NewTinyBlockstore()
 	root, err := IngestRepo(ctx, bs, r)
 	if err != nil {
 		return nil, fmt.Errorf("ReadRepoFromCar:IngestRepo: %w", err)
