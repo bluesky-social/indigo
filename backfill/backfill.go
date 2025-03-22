@@ -454,6 +454,8 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 					continue
 				}
 
+				repo.FreeRepoBlock(raw)
+
 				backfillRecordsProcessed.WithLabelValues(b.Name).Inc()
 				recordResults <- recordResult{recordPath: item.recordPath, err: err}
 			}
