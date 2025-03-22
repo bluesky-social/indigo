@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"sync"
 
 	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo/carutil"
@@ -17,82 +16,76 @@ import (
 )
 
 type waitingBlockstore struct {
-	lk             sync.Mutex
-	blockWaits     map[cid.Cid]chan block.Block
 	otherBlocks    map[cid.Cid]block.Block
 	streamComplete bool
+
+	r *carutil.Reader
 }
 
 func newWaitingBlockstore() *waitingBlockstore {
 	return &waitingBlockstore{
-		blockWaits:  make(map[cid.Cid]chan block.Block),
 		otherBlocks: make(map[cid.Cid]block.Block),
 	}
 }
 
-func (bs *waitingBlockstore) Get(ctx context.Context, cc cid.Cid) (block.Block, error) {
-	bs.lk.Lock()
+func (bs *waitingBlockstore) readUntilBlock(ctx context.Context, cc cid.Cid) (block.Block, error) {
+	for {
+		blk, err := bs.r.NextBlock(repoBlockBufferPool, repoBlockBufferSize)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, fmt.Errorf("reading block from CAR: %w", err)
+		}
 
+		if blk.Cid() == cc {
+			return blk, nil
+		}
+
+		bs.otherBlocks[blk.Cid()] = blk
+	}
+
+	bs.streamComplete = true
+
+	return nil, io.EOF
+}
+
+func (bs *waitingBlockstore) Get(ctx context.Context, cc cid.Cid) (block.Block, error) {
 	if blk, ok := bs.otherBlocks[cc]; ok {
 		delete(bs.otherBlocks, cc)
-		bs.lk.Unlock()
 		return blk, nil
 	}
 
 	if bs.streamComplete {
-		bs.lk.Unlock()
 		return nil, ErrMissingBlock
 	}
 
-	bw, ok := bs.blockWaits[cc]
-	if ok {
-		bs.lk.Unlock()
-		return nil, fmt.Errorf("somehow already have active wait for block in question: %s", cc)
+	blk, err := bs.readUntilBlock(ctx, cc)
+	if err != nil {
+		return nil, err
 	}
 
-	bw = make(chan block.Block, 1)
-
-	bs.blockWaits[cc] = bw
-
-	bs.lk.Unlock()
-
-	select {
-	case blk, ok := <-bw:
-		if !ok {
-			return nil, ErrMissingBlock
-		}
-
-		return blk, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-
-	}
+	return blk, nil
 }
 
 var ErrMissingBlock = fmt.Errorf("block was missing from archive")
 
 func (bs *waitingBlockstore) Put(ctx context.Context, blk block.Block) error {
-	bs.lk.Lock()
-	defer bs.lk.Unlock()
+	return fmt.Errorf("put is not needed")
+	/*
+		bw, ok := bs.blockWaits[blk.Cid()]
+		if ok {
+			bw <- blk
+			delete(bs.blockWaits, blk.Cid())
+			return nil
+		}
 
-	bw, ok := bs.blockWaits[blk.Cid()]
-	if ok {
-		bw <- blk
-		delete(bs.blockWaits, blk.Cid())
+		bs.otherBlocks[blk.Cid()] = blk.(*block.BasicBlock)
 		return nil
-	}
-
-	bs.otherBlocks[blk.Cid()] = blk.(*block.BasicBlock)
-	return nil
+	*/
 }
 
 func (bs *waitingBlockstore) Complete() {
-	bs.lk.Lock()
-	defer bs.lk.Unlock()
-	bs.streamComplete = true
-	for _, ch := range bs.blockWaits {
-		close(ch)
-	}
 }
 
 func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, cb func(k string, c cid.Cid, v []byte) error) error {
@@ -105,58 +98,34 @@ func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, cb func(
 	}
 
 	bs := newWaitingBlockstore()
+
+	bs.r = br
+
 	cst := util.CborStore(bs)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	var walkErr error
-	go func() {
-		defer wg.Done()
-
-		var sc SignedCommit
-		if err := cst.Get(ctx, root, &sc); err != nil {
-			walkErr = fmt.Errorf("loading root from blockstore: %w", err)
-			return
-		}
-
-		if sc.Version != ATP_REPO_VERSION && sc.Version != ATP_REPO_VERSION_2 {
-			walkErr = fmt.Errorf("unsupported repo version: %d", sc.Version)
-			return
-		}
-		// TODO: verify that signature
-
-		t := mst.LoadMST(cst, sc.Data)
-
-		if err := t.WalkLeavesFrom(ctx, prefix, func(k string, val cid.Cid) error {
-			blk, err := bs.Get(ctx, val)
-			if err != nil {
-				slog.Error("failed to get record from tree", "key", k, "cid", val, "error", err)
-				return nil
-			}
-
-			return cb(k, val, blk.RawData())
-		}); err != nil {
-			walkErr = fmt.Errorf("failed to walk mst: %w", err)
-		}
-	}()
-
-	for {
-		blk, err := br.NextBlock(repoBlockBufferPool, repoBlockBufferSize)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return fmt.Errorf("reading block from CAR: %w", err)
-		}
-
-		if err := bs.Put(ctx, blk); err != nil {
-			return fmt.Errorf("copying block to store: %w", err)
-		}
+	var sc SignedCommit
+	if err := cst.Get(ctx, root, &sc); err != nil {
+		return fmt.Errorf("loading root from blockstore: %w", err)
 	}
 
-	bs.Complete()
+	if sc.Version != ATP_REPO_VERSION && sc.Version != ATP_REPO_VERSION_2 {
+		return fmt.Errorf("unsupported repo version: %d", sc.Version)
+	}
+	// TODO: verify that signature
 
-	wg.Wait()
+	t := mst.LoadMST(cst, sc.Data)
 
-	return walkErr
+	if err := t.WalkLeavesFrom(ctx, prefix, func(k string, val cid.Cid) error {
+		blk, err := bs.Get(ctx, val)
+		if err != nil {
+			slog.Error("failed to get record from tree", "key", k, "cid", val, "error", err)
+			return nil
+		}
+
+		return cb(k, val, blk.RawData())
+	}); err != nil {
+		return fmt.Errorf("failed to walk mst: %w", err)
+	}
+
+	return nil
 }
