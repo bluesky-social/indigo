@@ -547,3 +547,7 @@ func (em *EventManager) addSubscriber(sub *Subscriber) {
 func (em *EventManager) TakeDownRepo(ctx context.Context, user models.Uid) error {
 	return em.persister.TakeDownRepo(ctx, user)
 }
+
+func (em *EventManager) ReverseTakeDownRepo(ctx context.Context, user models.Uid) error {
+	return em.persister.ReverseTakeDownRepo(ctx, user)
+}

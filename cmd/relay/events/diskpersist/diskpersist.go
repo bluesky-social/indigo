@@ -12,7 +12,9 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluesky-social/indigo/api/atproto"
@@ -57,6 +59,11 @@ type DiskPersistence struct {
 	log *slog.Logger
 
 	lk sync.Mutex
+
+	// takenDownCache is only written with a newly allocated slice; it is always safe to grab a reference to it and use that until done
+	// takenDownUpdateLock is held when generating a new slice
+	takenDownUpdateLock sync.Mutex
+	takenDownCache      atomic.Pointer[[]models.Uid]
 }
 
 type persistJob struct {
@@ -118,7 +125,14 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 		return nil, fmt.Errorf("failed to create did cache: %w", err)
 	}
 
-	db.AutoMigrate(&LogFileRef{})
+	err = db.AutoMigrate(&LogFileRef{})
+	if err != nil {
+		return nil, fmt.Errorf("gorm setup LogFileRef: %w", err)
+	}
+	err = db.AutoMigrate(&DiskPersistTakedown{})
+	if err != nil {
+		return nil, fmt.Errorf("gorm setup DiskPersistTakedown: %w", err)
+	}
 
 	bufpool := &sync.Pool{
 		New: func() any {
@@ -169,6 +183,11 @@ type LogFileRef struct {
 	Path     string
 	Archived bool
 	SeqStart int64
+}
+
+type DiskPersistTakedown struct {
+	gorm.Model
+	Uid models.Uid `gorm:"unique"`
 }
 
 func (dp *DiskPersistence) SetUidSource(uids UidSource) {
@@ -544,37 +563,37 @@ func (dp *DiskPersistence) Persist(ctx context.Context, xevt *events.XRPCStreamE
 		evtKind = evtKindCommit
 		did = xevt.RepoCommit.Repo
 		if err := xevt.RepoCommit.MarshalCBOR(cw); err != nil {
-			return fmt.Errorf("failed to marshal: %w", err)
+			return fmt.Errorf("failed to marshal commit: %w", err)
 		}
 	case xevt.RepoSync != nil:
 		evtKind = evtKindSync
 		did = xevt.RepoSync.Did
 		if err := xevt.RepoSync.MarshalCBOR(cw); err != nil {
-			return fmt.Errorf("failed to marshal: %w", err)
+			return fmt.Errorf("failed to marshal sync: %w", err)
 		}
 	case xevt.RepoHandle != nil:
 		evtKind = evtKindHandle
 		did = xevt.RepoHandle.Did
 		if err := xevt.RepoHandle.MarshalCBOR(cw); err != nil {
-			return fmt.Errorf("failed to marshal: %w", err)
+			return fmt.Errorf("failed to marshal handle: %w", err)
 		}
 	case xevt.RepoIdentity != nil:
 		evtKind = evtKindIdentity
 		did = xevt.RepoIdentity.Did
 		if err := xevt.RepoIdentity.MarshalCBOR(cw); err != nil {
-			return fmt.Errorf("failed to marshal: %w", err)
+			return fmt.Errorf("failed to marshal ident: %w", err)
 		}
 	case xevt.RepoAccount != nil:
 		evtKind = evtKindAccount
 		did = xevt.RepoAccount.Did
 		if err := xevt.RepoAccount.MarshalCBOR(cw); err != nil {
-			return fmt.Errorf("failed to marshal: %w", err)
+			return fmt.Errorf("failed to marshal account: %w", err)
 		}
 	case xevt.RepoTombstone != nil:
 		evtKind = evtKindTombstone
 		did = xevt.RepoTombstone.Did
 		if err := xevt.RepoTombstone.MarshalCBOR(cw); err != nil {
-			return fmt.Errorf("failed to marshal: %w", err)
+			return fmt.Errorf("failed to marshal tombstone: %w", err)
 		}
 	default:
 		return nil
@@ -679,6 +698,16 @@ func (dp *DiskPersistence) uidForDid(ctx context.Context, did string) (models.Ui
 	return uid, nil
 }
 
+type takedownSet []models.Uid
+
+func (ts *takedownSet) isTakendown(uid models.Uid) bool {
+	if ts == nil {
+		return false
+	}
+	_, found := slices.BinarySearch(*ts, uid)
+	return found
+}
+
 func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*events.XRPCStreamEvent) error) error {
 	var logs []LogFileRef
 	needslogs := true
@@ -693,6 +722,9 @@ func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*e
 		}
 	}
 
+	var takedownUids *takedownSet
+	takedownUids = (*takedownSet)(dp.takenDownCache.Load())
+
 	// playback data from all the log files we found, then check the db to see if more were written during playback.
 	// repeat a few times but not unboundedly.
 	// don't decrease '10' below 2 because we should always do two passes through this if the above before-chunk query was used.
@@ -703,7 +735,7 @@ func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*e
 			}
 		}
 
-		lastSeq, err := dp.PlaybackLogfiles(ctx, since, cb, logs)
+		lastSeq, err := dp.playbackLogfiles(ctx, since, cb, logs, takedownUids)
 		if err != nil {
 			return err
 		}
@@ -720,9 +752,9 @@ func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*e
 	return nil
 }
 
-func (dp *DiskPersistence) PlaybackLogfiles(ctx context.Context, since int64, cb func(*events.XRPCStreamEvent) error, logFiles []LogFileRef) (*int64, error) {
+func (dp *DiskPersistence) playbackLogfiles(ctx context.Context, since int64, cb func(*events.XRPCStreamEvent) error, logFiles []LogFileRef, takedownUids *takedownSet) (*int64, error) {
 	for i, lf := range logFiles {
-		lastSeq, err := dp.readEventsFrom(ctx, since, filepath.Join(dp.primaryDir, lf.Path), cb)
+		lastSeq, err := dp.readEventsFrom(ctx, since, filepath.Join(dp.primaryDir, lf.Path), cb, takedownUids)
 		if err != nil {
 			return nil, err
 		}
@@ -746,7 +778,7 @@ func postDoNotEmit(flags uint32) bool {
 	return false
 }
 
-func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn string, cb func(*events.XRPCStreamEvent) error) (*int64, error) {
+func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn string, cb func(*events.XRPCStreamEvent) error, takedownUids *takedownSet) (*int64, error) {
 	fi, err := os.OpenFile(fn, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, err
@@ -784,9 +816,9 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 
 		lastSeq = h.Seq
 
-		if postDoNotEmit(h.Flags) {
+		if takedownUids.isTakendown(h.Usr) || postDoNotEmit(h.Flags) {
 			// event taken down, skip
-			_, err := io.CopyN(io.Discard, bufr, h.Len64()) // would be really nice if the buffered reader had a 'skip' method that does a seek under the hood
+			_, err := bufr.Discard(int(h.Len))
 			if err != nil {
 				return nil, fmt.Errorf("failed while skipping event (seq: %d, fn: %q): %w", h.Seq, fn, err)
 			}
@@ -855,132 +887,102 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 	}
 }
 
-type UserAction struct {
-	gorm.Model
+func (dp *DiskPersistence) dbSetRepoTakedown(ctx context.Context, usr models.Uid) error {
+	td := DiskPersistTakedown{
+		Uid: usr,
+	}
+	err := dp.meta.Create(&td).Error
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		// already there, okay!
+		return nil
+	}
+	return err
+}
+func (dp *DiskPersistence) dbClearRepoTakedown(ctx context.Context, usr models.Uid) error {
+	var takedown DiskPersistTakedown
+	dp.meta.Model(&takedown).Delete(&takedown)
+	result := dp.meta.Model(&takedown).First(&takedown, "uid = ?", usr)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			// already gone, no problem
+			return nil
+		}
+	}
+	return result.Error
+}
 
-	Usr      models.Uid
-	RebaseAt int64
-	Takedown bool
+// return []Uid slice with new Uid in it
+func copyUidSliceWithInsert(uids []models.Uid, newUid models.Uid) (newUids []models.Uid, alreadyThere bool) {
+	insertPos, found := slices.BinarySearch(uids, newUid)
+	if found {
+		// TODO: log error, we were expecting it to not already be in the list
+		return uids, true
+	}
+	out := make([]models.Uid, len(uids)+1)
+	copy(out[:insertPos], uids[:insertPos])
+	out[insertPos] = newUid
+	copy(out[insertPos+1:], uids[insertPos:])
+	return out, false
 }
 
 func (dp *DiskPersistence) TakeDownRepo(ctx context.Context, usr models.Uid) error {
-	/*
-		if err := p.meta.Create(&UserAction{
-			Usr:      usr,
-			Takedown: true,
-		}).Error; err != nil {
-			return err
+	takedownsP := dp.takenDownCache.Load()
+	if takedownsP != nil {
+		_, found := slices.BinarySearch(*takedownsP, usr)
+		if found {
+			// already in cache, okay
+			return nil
 		}
-	*/
-
-	return dp.forEachShardWithUserEvents(ctx, usr, func(ctx context.Context, fn string) error {
-		if err := dp.deleteEventsForUser(ctx, usr, fn); err != nil {
-			return err
-		}
-
-		return nil
-	})
-}
-
-func (dp *DiskPersistence) forEachShardWithUserEvents(ctx context.Context, usr models.Uid, cb func(context.Context, string) error) error {
-	var refs []LogFileRef
-	if err := dp.meta.Order("created_at desc").Find(&refs).Error; err != nil {
+	}
+	err := dp.dbSetRepoTakedown(ctx, usr)
+	if err != nil {
 		return err
 	}
-
-	for _, r := range refs {
-		mhas, err := dp.refMaybeHasUserEvents(ctx, usr, r)
-		if err != nil {
-			return err
+	dp.takenDownUpdateLock.Lock()
+	defer dp.takenDownUpdateLock.Unlock()
+	takedownsP = dp.takenDownCache.Load()
+	if takedownsP == nil {
+		newTakedowns := make([]models.Uid, 1)
+		newTakedowns[0] = usr
+		dp.takenDownCache.Store(&newTakedowns)
+	} else {
+		newTakedowns, alreadyThere := copyUidSliceWithInsert(*takedownsP, usr)
+		if alreadyThere {
+			return nil
 		}
-
-		if mhas {
-			var path string
-			if r.Archived {
-				path = filepath.Join(dp.archiveDir, r.Path)
-			} else {
-				path = filepath.Join(dp.primaryDir, r.Path)
-			}
-
-			if err := cb(ctx, path); err != nil {
-				return err
-			}
-		}
+		dp.takenDownCache.Store(&newTakedowns)
 	}
-
 	return nil
 }
-
-func (dp *DiskPersistence) refMaybeHasUserEvents(ctx context.Context, usr models.Uid, ref LogFileRef) (bool, error) {
-	// TODO: lazily computed bloom filters for users in each logfile
-	return true, nil
-}
-
-type zeroReader struct{}
-
-func (zr *zeroReader) Read(p []byte) (n int, err error) {
-	for i := range p {
-		p[i] = 0
+func (dp *DiskPersistence) ReverseTakeDownRepo(ctx context.Context, usr models.Uid) error {
+	takedownsP := dp.takenDownCache.Load()
+	if takedownsP == nil {
+		// nothing is there, ignore
+		return nil
 	}
-	return len(p), nil
-}
-
-func (dp *DiskPersistence) deleteEventsForUser(ctx context.Context, usr models.Uid, fn string) error {
-	return dp.mutateUserEventsInLog(ctx, usr, fn, EvtFlagTakedown, true)
-}
-
-func (dp *DiskPersistence) mutateUserEventsInLog(ctx context.Context, usr models.Uid, fn string, flag uint32, zeroEvts bool) error {
-	fi, err := os.OpenFile(fn, os.O_RDWR, 0)
+	foundPos, found := slices.BinarySearch(*takedownsP, usr)
+	if !found {
+		// already gone, okay
+		return nil
+	}
+	err := dp.dbClearRepoTakedown(ctx, usr)
 	if err != nil {
-		return fmt.Errorf("failed to open log file: %w", err)
+		return err
 	}
-	defer fi.Close()
-	defer fi.Sync()
-
-	scratch := make([]byte, headerSize)
-	var offset int64
-	for {
-		h, err := readHeader(fi, scratch)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-
-			return err
-		}
-
-		if h.Usr == usr && h.Flags&flag == 0 {
-			nflag := h.Flags | flag
-
-			binary.LittleEndian.PutUint32(scratch, nflag)
-
-			if _, err := fi.WriteAt(scratch[:4], offset); err != nil {
-				return fmt.Errorf("failed to write updated flag value: %w", err)
-			}
-
-			if zeroEvts {
-				// sync that write before blanking the event data
-				if err := fi.Sync(); err != nil {
-					return err
-				}
-
-				if _, err := fi.Seek(offset+headerSize, io.SeekStart); err != nil {
-					return fmt.Errorf("failed to seek: %w", err)
-				}
-
-				_, err := io.CopyN(fi, &zeroReader{}, h.Len64())
-				if err != nil {
-					return err
-				}
-			}
-		}
-
-		offset += headerSize + h.Len64()
-		_, err = fi.Seek(offset, io.SeekStart)
-		if err != nil {
-			return fmt.Errorf("failed to seek: %w", err)
-		}
+	dp.takenDownUpdateLock.Lock()
+	defer dp.takenDownUpdateLock.Unlock()
+	takedownsP = dp.takenDownCache.Load()
+	foundPos, found = slices.BinarySearch(*takedownsP, usr)
+	if !found {
+		// already gone, okay
+		return nil
 	}
+	oldTakedowns := *takedownsP
+	newTakedowns := make([]models.Uid, len(oldTakedowns)-1)
+	copy(newTakedowns[:foundPos], oldTakedowns[:foundPos])
+	copy(newTakedowns[foundPos:], oldTakedowns[foundPos+1:])
+	dp.takenDownCache.Store(&newTakedowns)
+	return nil
 }
 
 func (dp *DiskPersistence) Flush(ctx context.Context) error {
