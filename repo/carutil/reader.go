@@ -15,8 +15,6 @@ import (
 
 type Reader struct {
 	r *bufio.Reader
-
-	bufs [][]byte
 }
 
 func NewReader(r *bufio.Reader) (*Reader, cid.Cid, error) {
@@ -34,16 +32,8 @@ func NewReader(r *bufio.Reader) (*Reader, cid.Cid, error) {
 	}
 
 	return &Reader{
-		r:    r,
-		bufs: make([][]byte, 0, 10),
+		r: r,
 	}, h.Roots[0], nil
-}
-
-func (r *Reader) Free(alloc *sync.Pool) {
-	for _, b := range r.bufs {
-		alloc.Put(b)
-	}
-	r.bufs = nil
 }
 
 const MaxAllowedSectionSize = 32 << 20
@@ -53,8 +43,6 @@ func (r *Reader) NextBlock(allocator *sync.Pool, allocMax uint64) (blocks.Block,
 	if err != nil {
 		return nil, err
 	}
-
-	r.bufs = append(r.bufs, data)
 
 	n, c, err := cid.CidFromBytes(data)
 	if err != nil {
