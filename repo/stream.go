@@ -16,7 +16,7 @@ import (
 )
 
 type readStreamBlockstore struct {
-	otherBlocks    map[cid.Cid]block.Block
+	otherBlocks    map[cid.Cid]*carutil.BasicBlock
 	streamComplete bool
 
 	r *carutil.Reader
@@ -24,12 +24,12 @@ type readStreamBlockstore struct {
 
 func newStreamingBlockstore(r *carutil.Reader) *readStreamBlockstore {
 	return &readStreamBlockstore{
-		otherBlocks: make(map[cid.Cid]block.Block),
+		otherBlocks: make(map[cid.Cid]*carutil.BasicBlock),
 		r:           r,
 	}
 }
 
-func (bs *readStreamBlockstore) readUntilBlock(ctx context.Context, cc cid.Cid) (block.Block, error) {
+func (bs *readStreamBlockstore) readUntilBlock(ctx context.Context, cc cid.Cid) (*carutil.BasicBlock, error) {
 	for {
 		blk, err := bs.r.NextBlock(repoBlockBufferPool, repoBlockBufferSize)
 		if err != nil {
@@ -52,6 +52,10 @@ func (bs *readStreamBlockstore) readUntilBlock(ctx context.Context, cc cid.Cid) 
 }
 
 func (bs *readStreamBlockstore) Get(ctx context.Context, cc cid.Cid) (block.Block, error) {
+	return bs.get(ctx, cc)
+}
+
+func (bs *readStreamBlockstore) get(ctx context.Context, cc cid.Cid) (*carutil.BasicBlock, error) {
 	if blk, ok := bs.otherBlocks[cc]; ok {
 		delete(bs.otherBlocks, cc)
 		return blk, nil
@@ -70,7 +74,7 @@ func (bs *readStreamBlockstore) Get(ctx context.Context, cc cid.Cid) (block.Bloc
 }
 
 func (bs *readStreamBlockstore) View(cc cid.Cid, cb func([]byte) error) error {
-	blk, err := bs.Get(context.TODO(), cc)
+	blk, err := bs.get(context.TODO(), cc)
 	if err != nil {
 		return err
 	}
@@ -79,7 +83,7 @@ func (bs *readStreamBlockstore) View(cc cid.Cid, cb func([]byte) error) error {
 		return err
 	}
 
-	FreeRepoBlock(blk.RawData())
+	FreeRepoBlock(blk.BaseBuffer())
 	return nil
 }
 

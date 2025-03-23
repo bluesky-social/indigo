@@ -8,7 +8,6 @@ import (
 	"io"
 	"sync"
 
-	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	car "github.com/ipld/go-car"
 )
@@ -38,7 +37,7 @@ func NewReader(r *bufio.Reader) (*Reader, cid.Cid, error) {
 
 const MaxAllowedSectionSize = 32 << 20
 
-func (r *Reader) NextBlock(allocator *sync.Pool, allocMax uint64) (blocks.Block, error) {
+func (r *Reader) NextBlock(allocator *sync.Pool, allocMax uint64) (*BasicBlock, error) {
 	data, err := ldRead(r.r, allocator, allocMax)
 	if err != nil {
 		return nil, err
@@ -49,7 +48,7 @@ func (r *Reader) NextBlock(allocator *sync.Pool, allocMax uint64) (blocks.Block,
 		return nil, err
 	}
 
-	return blocks.NewBlockWithCid(data[n:], c)
+	return NewBlockWithCid(data[n:], data, c), nil
 }
 
 func ldRead(r *bufio.Reader, alloc *sync.Pool, allocMax uint64) ([]byte, error) {
@@ -87,4 +86,40 @@ func ldRead(r *bufio.Reader, alloc *sync.Pool, allocMax uint64) ([]byte, error) 
 	}
 
 	return buf, nil
+}
+
+type BasicBlock struct {
+	cid  cid.Cid
+	data []byte
+	base []byte
+}
+
+func NewBlockWithCid(data, base []byte, c cid.Cid) *BasicBlock {
+	return &BasicBlock{data: data, cid: c, base: base}
+}
+
+// RawData returns the block raw contents as a byte slice.
+func (b *BasicBlock) RawData() []byte {
+	return b.data
+}
+
+// Cid returns the content identifier of the block.
+func (b *BasicBlock) Cid() cid.Cid {
+	return b.cid
+}
+
+// String provides a human-readable representation of the block CID.
+func (b *BasicBlock) String() string {
+	return fmt.Sprintf("[Block %s]", b.Cid())
+}
+
+// Loggable returns a go-log loggable item.
+func (b *BasicBlock) Loggable() map[string]interface{} {
+	return map[string]interface{}{
+		"block": b.Cid().String(),
+	}
+}
+
+func (b *BasicBlock) BaseBuffer() []byte {
+	return b.base
 }
