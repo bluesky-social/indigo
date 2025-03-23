@@ -31,7 +31,7 @@ func newStreamingBlockstore(r *carutil.Reader) *readStreamBlockstore {
 
 func (bs *readStreamBlockstore) readUntilBlock(ctx context.Context, cc cid.Cid) (*carutil.BasicBlock, error) {
 	for {
-		blk, err := bs.r.NextBlock(repoBlockBufferPool, repoBlockBufferSize)
+		blk, err := bs.r.NextBlock()
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -83,7 +83,6 @@ func (bs *readStreamBlockstore) View(cc cid.Cid, cb func([]byte) error) error {
 		return err
 	}
 
-	FreeRepoBlock(blk.BaseBuffer())
 	return nil
 }
 
