@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sync"
 
 	"github.com/ipfs/go-cid"
 	car "github.com/ipld/go-car"
@@ -37,8 +36,8 @@ func NewReader(r *bufio.Reader) (*Reader, cid.Cid, error) {
 
 const MaxAllowedSectionSize = 32 << 20
 
-func (r *Reader) NextBlock(allocator *sync.Pool, allocMax uint64) (*BasicBlock, error) {
-	data, err := ldRead(r.r, allocator, allocMax)
+func (r *Reader) NextBlock() (*BasicBlock, error) {
+	data, err := ldRead(r.r)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +50,7 @@ func (r *Reader) NextBlock(allocator *sync.Pool, allocMax uint64) (*BasicBlock, 
 	return NewBlockWithCid(data[n:], data, c), nil
 }
 
-func ldRead(r *bufio.Reader, alloc *sync.Pool, allocMax uint64) ([]byte, error) {
+func ldRead(r *bufio.Reader) ([]byte, error) {
 	if _, err := r.Peek(1); err != nil { // no more blocks, likely clean io.EOF
 		return nil, err
 	}
@@ -68,19 +67,8 @@ func ldRead(r *bufio.Reader, alloc *sync.Pool, allocMax uint64) ([]byte, error) 
 		return nil, errors.New("malformed car; header is bigger than util.MaxAllowedSectionSize")
 	}
 
-	if l > allocMax {
-		// direct allocation, not great
-		buf := make([]byte, l)
-		if _, err := io.ReadFull(r, buf); err != nil {
-			return nil, err
-		}
-
-		return buf, nil
-	}
-
-	buf := alloc.Get().([]byte)
-	buf = buf[:l]
-
+	// direct allocation, not great
+	buf := make([]byte, l)
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return nil, err
 	}
