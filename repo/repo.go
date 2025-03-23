@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sync"
 
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -78,20 +77,6 @@ func (uc *UnsignedCommit) BytesForSigning() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-const repoBlockBufferSize = 128 << 10
-
-var repoBlockBufferPool = &sync.Pool{
-	New: func() any {
-		return make([]byte, repoBlockBufferSize)
-	},
-}
-
-func FreeRepoBlock(b []byte) {
-	if cap(b) == repoBlockBufferSize {
-		repoBlockBufferPool.Put(b[:repoBlockBufferSize])
-	}
-}
-
 func IngestRepo(ctx context.Context, bs cbor.IpldBlockstore, r io.Reader) (cid.Cid, error) {
 	ctx, span := otel.Tracer("repo").Start(ctx, "Ingest")
 	defer span.End()
@@ -102,7 +87,7 @@ func IngestRepo(ctx context.Context, bs cbor.IpldBlockstore, r io.Reader) (cid.C
 	}
 
 	for {
-		blk, err := br.NextBlock(repoBlockBufferPool, repoBlockBufferSize)
+		blk, err := br.NextBlock()
 		if err != nil {
 			if err == io.EOF {
 				break
