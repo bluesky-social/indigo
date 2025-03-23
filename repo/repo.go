@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -77,11 +78,20 @@ func (uc *UnsignedCommit) BytesForSigning() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+var bufrPool = &sync.Pool{
+	New: func() any {
+		return bufio.NewReader(nil)
+	},
+}
+
 func IngestRepo(ctx context.Context, bs cbor.IpldBlockstore, r io.Reader) (cid.Cid, error) {
 	ctx, span := otel.Tracer("repo").Start(ctx, "Ingest")
 	defer span.End()
 
-	br, root, err := carutil.NewReader(bufio.NewReader(r))
+	bufr := bufrPool.Get().(*bufio.Reader)
+	bufr.Reset(r)
+
+	br, root, err := carutil.NewReader(bufr)
 	if err != nil {
 		return cid.Undef, fmt.Errorf("opening CAR block reader: %w", err)
 	}
@@ -99,6 +109,8 @@ func IngestRepo(ctx context.Context, bs cbor.IpldBlockstore, r io.Reader) (cid.C
 			return cid.Undef, fmt.Errorf("copying block to store: %w", err)
 		}
 	}
+
+	bufrPool.Put(bufr)
 
 	return root, nil
 }
