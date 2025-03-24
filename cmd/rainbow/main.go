@@ -93,6 +93,31 @@ func run(args []string) {
 			Usage:   "forward POST requestCrawl to this url, should be machine root url and not xrpc/requestCrawl, comma separated list",
 			EnvVars: []string{"RELAY_NEXT_CRAWLER"},
 		},
+		&cli.IntFlag{
+			Name:    "max-request-crawl-errors",
+			Usage:   "maximum number of errors a requestCrawl forwarding target may fail before we give up",
+			EnvVars: []string{"RAINBOW_RC_ERR_LIMIT"},
+			Value:   10,
+		},
+		&cli.StringSliceFlag{
+			Name:    "auth-tokens",
+			Usage:   "strings to find in Authorization: HTTP header to allow requestRequestCrawl (comma separated list)",
+			EnvVars: []string{"RAINBOW_AUTH_TOKENS"},
+		},
+		&cli.BoolFlag{
+			Name:  "skip-request-crawl-ping",
+			Usage: "development flag to not bother the world with development",
+		},
+		&cli.StringSliceFlag{
+			Name:    "etcd-addresses",
+			Usage:   "addresses for etcd client",
+			EnvVars: []string{"RAINBOW_ETCD_ADDRESSES"},
+		},
+		&cli.StringFlag{
+			Name:  "etcd-prefix",
+			Usage: "etcd prefix to watch for requestCrawl forwarding destinations, e.g. {prefix}/requestCrawl/{abc123}",
+			Value: "rainbow",
+		},
 	}
 
 	// TODO: slog.SetDefault and set module `var log *slog.Logger` based on flags and env
@@ -152,28 +177,28 @@ func Splitter(cctx *cli.Context) error {
 
 	var spl *splitter.Splitter
 	var err error
+	conf := splitter.SplitterConfig{
+		UpstreamHost:                 upstreamHost,
+		CursorFile:                   cctx.String("cursor-file"),
+		MaxRequestCrawlForwardErrors: cctx.Int("max-request-crawl-errors"),
+		AuthTokens:                   cctx.StringSlice("auth-tokens"),
+		SkipRequestCrawlPing:         cctx.Bool("skip-request-crawl-ping"),
+
+		EtcdAddresses: cctx.StringSlice("etcd-addresses"),
+		EtcdPrefix:    cctx.String("etcd-prefix"),
+	}
 	if persistPath != "" {
 		log.Info("building splitter with storage at", "path", persistPath)
-		ppopts := pebblepersist.PebblePersistOptions{
+		conf.PebbleOptions = &pebblepersist.PebblePersistOptions{
 			DbPath:          persistPath,
 			PersistDuration: time.Duration(float64(time.Hour) * cctx.Float64("persist-hours")),
 			GCPeriod:        5 * time.Minute,
 			MaxBytes:        uint64(cctx.Int64("persist-bytes")),
 		}
-		conf := splitter.SplitterConfig{
-			UpstreamHost:  upstreamHost,
-			CursorFile:    cctx.String("cursor-file"),
-			PebbleOptions: &ppopts,
-		}
-		spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	} else {
 		log.Info("building in-memory splitter")
-		conf := splitter.SplitterConfig{
-			UpstreamHost: upstreamHost,
-			CursorFile:   cctx.String("cursor-file"),
-		}
-		spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	}
+	spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	if err != nil {
 		log.Error("failed to create splitter", "path", persistPath, "error", err)
 		os.Exit(1)
