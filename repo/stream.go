@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"sync"
 
 	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo/carutil"
@@ -15,34 +16,53 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
+const bufPoolBlockSize = 512
+
+var smallBlockPool = &sync.Pool{
+	New: func() any {
+		return make([]byte, bufPoolBlockSize)
+	},
+}
+
 type readStreamBlockstore struct {
 	otherBlocks    map[cid.Cid]*carutil.BasicBlock
 	streamComplete bool
 
 	r *carutil.Reader
+
+	outOfOrder  int
+	totalBlocks int
 }
 
 func newStreamingBlockstore(r *carutil.Reader) *readStreamBlockstore {
 	return &readStreamBlockstore{
-		otherBlocks: make(map[cid.Cid]*carutil.BasicBlock),
+		otherBlocks: make(map[cid.Cid]*carutil.BasicBlock, 20),
 		r:           r,
 	}
 }
 
 func (bs *readStreamBlockstore) readUntilBlock(ctx context.Context, cc cid.Cid) (*carutil.BasicBlock, error) {
 	for {
-		blk, err := bs.r.NextBlock()
+		buf := smallBlockPool.Get().([]byte)
+		blk, used, err := bs.r.NextBlockBuf(buf)
 		if err != nil {
+			smallBlockPool.Put(buf)
 			if err == io.EOF {
 				break
 			}
 			return nil, fmt.Errorf("reading block from CAR: %w", err)
 		}
 
+		if !used {
+			smallBlockPool.Put(buf)
+		}
+
+		bs.totalBlocks++
 		if blk.Cid() == cc {
 			return blk, nil
 		}
 
+		bs.outOfOrder++
 		bs.otherBlocks[blk.Cid()] = blk
 	}
 
@@ -83,6 +103,10 @@ func (bs *readStreamBlockstore) View(cc cid.Cid, cb func([]byte) error) error {
 		return err
 	}
 
+	if len(blk.BaseBuffer()) == bufPoolBlockSize {
+		smallBlockPool.Put(blk.BaseBuffer())
+	}
+
 	return nil
 }
 
@@ -113,21 +137,24 @@ func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, cb func(
 	if sc.Version != ATP_REPO_VERSION && sc.Version != ATP_REPO_VERSION_2 {
 		return "", fmt.Errorf("unsupported repo version: %d", sc.Version)
 	}
+
 	// TODO: verify that signature
 
 	t := mst.LoadMST(cst, sc.Data)
 
 	if err := t.WalkLeavesFrom(ctx, prefix, func(k string, val cid.Cid) error {
-		blk, err := bs.Get(ctx, val)
-		if err != nil {
+		if err := bs.View(val, func(data []byte) error {
+			return cb(k, val, data)
+		}); err != nil {
 			slog.Error("failed to get record from tree", "key", k, "cid", val, "error", err)
 			return nil
 		}
 
-		return cb(k, val, blk.RawData())
+		return nil
 	}); err != nil {
 		return "", fmt.Errorf("failed to walk mst: %w", err)
 	}
 
+	fmt.Println("out of order blocks: ", bs.outOfOrder, bs.totalBlocks)
 	return sc.Rev, nil
 }

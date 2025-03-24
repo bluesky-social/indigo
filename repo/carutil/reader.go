@@ -37,43 +37,63 @@ func NewReader(r *bufio.Reader) (*Reader, cid.Cid, error) {
 const MaxAllowedSectionSize = 32 << 20
 
 func (r *Reader) NextBlock() (*BasicBlock, error) {
-	data, err := ldRead(r.r)
+	blk, _, err := r.NextBlockBuf(nil)
 	if err != nil {
 		return nil, err
+	}
+
+	return blk, nil
+}
+
+func (r *Reader) NextBlockBuf(buf []byte) (*BasicBlock, bool, error) {
+	data, usedBuf, err := ldRead(r.r, buf)
+	if err != nil {
+		return nil, false, err
 	}
 
 	n, c, err := cid.CidFromBytes(data)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	return NewBlockWithCid(data[n:], data, c), nil
+	return NewBlockWithCid(data[n:], data, c), usedBuf, nil
 }
 
-func ldRead(r *bufio.Reader) ([]byte, error) {
+// reads a length delimited value off of the given reader into the the given buf if its big enough, otherwise allocates a new buffer.
+// returns whether or not the passed in buffer was used
+func ldRead(r *bufio.Reader, buf []byte) ([]byte, bool, error) {
 	if _, err := r.Peek(1); err != nil { // no more blocks, likely clean io.EOF
-		return nil, err
+		return nil, false, err
 	}
 
 	l, err := binary.ReadUvarint(r)
 	if err != nil {
 		if err == io.EOF {
-			return nil, io.ErrUnexpectedEOF // don't silently pretend this is a clean EOF
+			return nil, false, io.ErrUnexpectedEOF // don't silently pretend this is a clean EOF
 		}
-		return nil, err
+		return nil, false, err
 	}
 
 	if l > uint64(MaxAllowedSectionSize) { // Don't OOM
-		return nil, errors.New("malformed car; header is bigger than util.MaxAllowedSectionSize")
+		return nil, false, errors.New("malformed car; header is bigger than util.MaxAllowedSectionSize")
 	}
 
-	// direct allocation, not great
-	buf := make([]byte, l)
+	if l > uint64(len(buf)) {
+		// direct allocation, not great
+		buf := make([]byte, l)
+		if _, err := io.ReadFull(r, buf); err != nil {
+			return nil, false, err
+		}
+
+		return buf, false, nil
+	}
+
+	buf = buf[:l]
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	return buf, nil
+	return buf, true, nil
 }
 
 type BasicBlock struct {
