@@ -66,13 +66,13 @@ func layerForEntries(entries []nodeEntry) int {
 }
 
 // Typescript: deserializeNodeData(storage, data, layer)
-func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, layer int, noCache bool) ([]nodeEntry, error) {
+func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, layer int) ([]nodeEntry, error) {
 	entries := []nodeEntry{}
 	if nd.Left != nil {
 		// Note: like Typescript, this is actually a lazy load
 		entries = append(entries, nodeEntry{
 			Kind: entryTree,
-			Tree: createMST(cst, *nd.Left, nil, layer-1, noCache),
+			Tree: createMST(cst, *nd.Left, nil, layer-1),
 		})
 	}
 
@@ -100,7 +100,7 @@ func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, 
 		if e.Tree != nil {
 			entries = append(entries, nodeEntry{
 				Kind: entryTree,
-				Tree: createMST(cst, *e.Tree, nil, layer-1, noCache),
+				Tree: createMST(cst, *e.Tree, nil, layer-1),
 				Key:  keyStr,
 			})
 		}

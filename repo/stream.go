@@ -137,9 +137,7 @@ func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, cb func(
 
 	t := mst.LoadMST(cst, sc.Data)
 
-	t.SetNoCache(true)
-
-	if err := t.WalkLeavesFrom(ctx, prefix, func(k string, val cid.Cid) error {
+	if err := t.WalkLeavesFromNocache(ctx, prefix, func(k string, val cid.Cid) error {
 		if err := bs.View(val, func(data []byte) error {
 			return cb(k, val, data)
 		}); err != nil {
