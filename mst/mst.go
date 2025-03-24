@@ -137,21 +137,24 @@ type MerkleSearchTree struct {
 	layer    int
 	pointer  cid.Cid
 	validPtr bool
+
+	noCache bool
 }
 
 // NewEmptyMST reports a new empty MST using cst as its storage.
 func NewEmptyMST(cst cbor.IpldStore) *MerkleSearchTree {
-	return createMST(cst, cid.Undef, []nodeEntry{}, 0)
+	return createMST(cst, cid.Undef, []nodeEntry{}, 0, false)
 }
 
 // Typescript: MST.create(storage, entries, layer, fanout) -> MST
-func createMST(cst cbor.IpldStore, ptr cid.Cid, entries []nodeEntry, layer int) *MerkleSearchTree {
+func createMST(cst cbor.IpldStore, ptr cid.Cid, entries []nodeEntry, layer int, noCache bool) *MerkleSearchTree {
 	mst := &MerkleSearchTree{
 		cst:      cst,
 		pointer:  ptr,
 		layer:    layer,
 		entries:  entries,
 		validPtr: ptr.Defined(),
+		noCache:  noCache,
 	}
 
 	return mst
@@ -162,7 +165,11 @@ func createMST(cst cbor.IpldStore, ptr cid.Cid, entries []nodeEntry, layer int) 
 // This is poorly named in both implementations, because it is lazy
 // Typescript: MST.load(storage, cid, layer=null, fanout) -> MST
 func LoadMST(cst cbor.IpldStore, root cid.Cid) *MerkleSearchTree {
-	return createMST(cst, root, nil, -1)
+	return createMST(cst, root, nil, -1, false)
+}
+
+func (mst *MerkleSearchTree) SetNoCache(v bool) {
+	mst.noCache = v
 }
 
 // === "Immutability" ===
@@ -173,7 +180,7 @@ func (mst *MerkleSearchTree) newTree(entries []nodeEntry) *MerkleSearchTree {
 	if entries == nil {
 		panic("nil entries passed to newTree")
 	}
-	return createMST(mst.cst, cid.Undef, entries, mst.layer)
+	return createMST(mst.cst, cid.Undef, entries, mst.layer, false)
 }
 
 // === "Getters (lazy load)" ===
@@ -195,14 +202,16 @@ func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]nodeEntry, error
 		}
 		// NOTE(bnewbold): Typescript version computes layer in-place here, but
 		// the entriesFromNodeData() helper does that for us in golang
-		entries, err := entriesFromNodeData(ctx, &nd, mst.cst)
+		entries, err := entriesFromNodeData(ctx, &nd, mst.cst, mst.noCache)
 		if err != nil {
 			return nil, err
 		}
 		if entries == nil {
 			panic("got nil entries from node data decoding")
 		}
-		mst.entries = entries
+		if !mst.noCache {
+			mst.entries = entries
+		}
 		return entries, nil
 	}
 
@@ -210,7 +219,7 @@ func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]nodeEntry, error
 }
 
 // golang-specific helper that calls in to deserializeNodeData
-func entriesFromNodeData(ctx context.Context, nd *NodeData, cst cbor.IpldStore) ([]nodeEntry, error) {
+func entriesFromNodeData(ctx context.Context, nd *NodeData, cst cbor.IpldStore, noCache bool) ([]nodeEntry, error) {
 	layer := -1
 	if len(nd.Entries) > 0 {
 		// NOTE(bnewbold): can compute the layer on the first KeySuffix, because for the first entry that field is a complete key
@@ -218,7 +227,7 @@ func entriesFromNodeData(ctx context.Context, nd *NodeData, cst cbor.IpldStore) 
 		layer = leadingZerosOnHashBytes(firstLeaf.KeySuffix)
 	}
 
-	entries, err := deserializeNodeData(ctx, cst, nd, layer)
+	entries, err := deserializeNodeData(ctx, cst, nd, layer, noCache)
 	if err != nil {
 		return nil, err
 	}
@@ -468,7 +477,7 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 		}
 
 		checkTreeInvariant(updated)
-		newRoot := createMST(mst.cst, cid.Undef, updated, keyZeros)
+		newRoot := createMST(mst.cst, cid.Undef, updated, keyZeros, mst.noCache)
 
 		// NOTE(bnewbold): We do want to invalid the CID (because this node has
 		// changed, and we are "lazy" about recomputing). Setting this flag
@@ -898,7 +907,7 @@ func (mst *MerkleSearchTree) createChild(ctx context.Context) (*MerkleSearchTree
 		return nil, err
 	}
 
-	return createMST(mst.cst, cid.Undef, []nodeEntry{}, layer-1), nil
+	return createMST(mst.cst, cid.Undef, []nodeEntry{}, layer-1, mst.noCache), nil
 }
 
 func (mst *MerkleSearchTree) createParent(ctx context.Context) (*MerkleSearchTree, error) {
@@ -907,7 +916,7 @@ func (mst *MerkleSearchTree) createParent(ctx context.Context) (*MerkleSearchTre
 		return nil, err
 	}
 
-	return createMST(mst.cst, cid.Undef, []nodeEntry{mkTreeEntry(mst)}, layer+1), nil
+	return createMST(mst.cst, cid.Undef, []nodeEntry{mkTreeEntry(mst)}, layer+1, mst.noCache), nil
 }
 
 // === "Finding insertion points" ===
