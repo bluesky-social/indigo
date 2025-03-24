@@ -652,7 +652,6 @@ var listAllRecordsCmd = &cli.Command{
 				return err
 			}
 			repob = rrb
-			fmt.Println("GOT REPO BYTES")
 		} else {
 			if len(arg) == 0 {
 				return cli.Exit("must specify DID string or repo path", 127)
