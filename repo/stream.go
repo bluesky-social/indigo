@@ -16,7 +16,7 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-const bufPoolBlockSize = 512
+const bufPoolBlockSize = 1024
 
 var smallBlockPool = &sync.Pool{
 	New: func() any {
@@ -29,9 +29,6 @@ type readStreamBlockstore struct {
 	streamComplete bool
 
 	r *carutil.Reader
-
-	outOfOrder  int
-	totalBlocks int
 }
 
 func newStreamingBlockstore(r *carutil.Reader) *readStreamBlockstore {
@@ -57,12 +54,10 @@ func (bs *readStreamBlockstore) readUntilBlock(ctx context.Context, cc cid.Cid) 
 			smallBlockPool.Put(buf)
 		}
 
-		bs.totalBlocks++
 		if blk.Cid() == cc {
 			return blk, nil
 		}
 
-		bs.outOfOrder++
 		bs.otherBlocks[blk.Cid()] = blk
 	}
 
@@ -142,6 +137,8 @@ func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, cb func(
 
 	t := mst.LoadMST(cst, sc.Data)
 
+	t.SetNoCache(true)
+
 	if err := t.WalkLeavesFrom(ctx, prefix, func(k string, val cid.Cid) error {
 		if err := bs.View(val, func(data []byte) error {
 			return cb(k, val, data)
@@ -155,6 +152,5 @@ func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, cb func(
 		return "", fmt.Errorf("failed to walk mst: %w", err)
 	}
 
-	fmt.Println("out of order blocks: ", bs.outOfOrder, bs.totalBlocks)
 	return sc.Rev, nil
 }
