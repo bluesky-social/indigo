@@ -435,7 +435,7 @@ func (cs *collectionServer) StartApiServer(ctx context.Context, addr string) err
 
 const statsCacheDuration = time.Second * 300
 
-func getLimit(c echo.Context, min, defaultLim, max int) int {
+func getLimit(c echo.Context, minVal, defaultLim, maxVal int) int {
 	limstr := c.QueryParam("limit")
 	if limstr == "" {
 		return defaultLim
@@ -445,13 +445,7 @@ func getLimit(c echo.Context, min, defaultLim, max int) int {
 		return defaultLim
 	}
 	lv := int(lvx)
-	if lv < min {
-		return min
-	}
-	if lv > max {
-		return max
-	}
-	return lv
+	return min(max(lv, minVal), maxVal)
 }
 
 // /xrpc/com.atproto.sync.listReposByCollection?collection={}&cursor={}&limit={50<=N<=1000}
