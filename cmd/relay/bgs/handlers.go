@@ -61,8 +61,6 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 		return echo.NewHTTPError(http.StatusUnauthorized, "domain is banned")
 	}
 
-	s.log.Warn("TODO: better host validation for crawl requests")
-
 	clientHost := fmt.Sprintf("%s://%s", u.Scheme, host)
 
 	c := &xrpc.Client{
