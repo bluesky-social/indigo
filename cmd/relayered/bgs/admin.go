@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/cmd/relay/models"
+	"github.com/bluesky-social/indigo/cmd/relayered/models"
 	"github.com/labstack/echo/v4"
 	dto "github.com/prometheus/client_model/go"
 	"gorm.io/gorm"

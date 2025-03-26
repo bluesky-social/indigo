@@ -19,8 +19,8 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/relay/events"
-	"github.com/bluesky-social/indigo/cmd/relay/models"
+	"github.com/bluesky-social/indigo/cmd/relayered/events"
+	"github.com/bluesky-social/indigo/cmd/relayered/models"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/gorilla/websocket"
