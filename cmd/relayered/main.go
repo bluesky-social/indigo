@@ -20,8 +20,8 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	libbgs "github.com/bluesky-social/indigo/cmd/relayered/bgs"
-	"github.com/bluesky-social/indigo/cmd/relayered/persist"
-	"github.com/bluesky-social/indigo/cmd/relayered/persist/diskpersist"
+	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist"
+	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist/diskpersist"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
