@@ -1,4 +1,4 @@
-package bgs
+package relay
 
 import (
 	"errors"
@@ -16,7 +16,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func (bgs *BGS) handleAdminSetSubsEnabled(e echo.Context) error {
+func (svc *Service) handleAdminSetSubsEnabled(e echo.Context) error {
 	enabled, err := strconv.ParseBool(e.QueryParam("enabled"))
 	if err != nil {
 		return &echo.HTTPError{
@@ -25,23 +25,23 @@ func (bgs *BGS) handleAdminSetSubsEnabled(e echo.Context) error {
 		}
 	}
 
-	return bgs.slurper.SetNewSubsDisabled(!enabled)
+	return svc.slurper.SetNewSubsDisabled(!enabled)
 }
 
-func (bgs *BGS) handleAdminGetSubsEnabled(e echo.Context) error {
+func (svc *Service) handleAdminGetSubsEnabled(e echo.Context) error {
 	return e.JSON(200, map[string]bool{
-		"enabled": !bgs.slurper.GetNewSubsDisabledState(),
+		"enabled": !svc.slurper.GetNewSubsDisabledState(),
 	})
 }
 
-func (bgs *BGS) handleAdminGetNewPDSPerDayRateLimit(e echo.Context) error {
-	limit := bgs.slurper.GetNewPDSPerDayLimit()
+func (svc *Service) handleAdminGetNewPDSPerDayRateLimit(e echo.Context) error {
+	limit := svc.slurper.GetNewPDSPerDayLimit()
 	return e.JSON(200, map[string]int64{
 		"limit": limit,
 	})
 }
 
-func (bgs *BGS) handleAdminSetNewPDSPerDayRateLimit(e echo.Context) error {
+func (svc *Service) handleAdminSetNewPDSPerDayRateLimit(e echo.Context) error {
 	limit, err := strconv.ParseInt(e.QueryParam("limit"), 10, 64)
 	if err != nil {
 		return &echo.HTTPError{
@@ -50,7 +50,7 @@ func (bgs *BGS) handleAdminSetNewPDSPerDayRateLimit(e echo.Context) error {
 		}
 	}
 
-	err = bgs.slurper.SetNewPDSPerDayLimit(limit)
+	err = svc.slurper.SetNewPDSPerDayLimit(limit)
 	if err != nil {
 		return &echo.HTTPError{
 			Code:    500,
@@ -61,7 +61,7 @@ func (bgs *BGS) handleAdminSetNewPDSPerDayRateLimit(e echo.Context) error {
 	return nil
 }
 
-func (bgs *BGS) handleAdminTakeDownRepo(e echo.Context) error {
+func (svc *Service) handleAdminTakeDownRepo(e echo.Context) error {
 	ctx := e.Request().Context()
 
 	var body map[string]string
@@ -76,7 +76,7 @@ func (bgs *BGS) handleAdminTakeDownRepo(e echo.Context) error {
 		}
 	}
 
-	err := bgs.TakeDownRepo(ctx, did)
+	err := svc.TakeDownRepo(ctx, did)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &echo.HTTPError{
@@ -92,10 +92,10 @@ func (bgs *BGS) handleAdminTakeDownRepo(e echo.Context) error {
 	return nil
 }
 
-func (bgs *BGS) handleAdminReverseTakedown(e echo.Context) error {
+func (svc *Service) handleAdminReverseTakedown(e echo.Context) error {
 	did := e.QueryParam("did")
 	ctx := e.Request().Context()
-	err := bgs.ReverseTakedown(ctx, did)
+	err := svc.ReverseTakedown(ctx, did)
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -118,7 +118,7 @@ type ListTakedownsResponse struct {
 	Cursor int64    `json:"cursor,omitempty"`
 }
 
-func (bgs *BGS) handleAdminListRepoTakeDowns(e echo.Context) error {
+func (svc *Service) handleAdminListRepoTakeDowns(e echo.Context) error {
 	ctx := e.Request().Context()
 	haveMinId := false
 	minId := int64(-1)
@@ -132,7 +132,7 @@ func (bgs *BGS) handleAdminListRepoTakeDowns(e echo.Context) error {
 		haveMinId = true
 	}
 	limit := 1000
-	wat := bgs.db.Model(Account{}).WithContext(ctx).Select("id", "did").Where("taken_down = TRUE")
+	wat := svc.db.Model(Account{}).WithContext(ctx).Select("id", "did").Where("taken_down = TRUE")
 	if haveMinId {
 		wat = wat.Where("id > ?", minId)
 	}
@@ -158,8 +158,8 @@ func (bgs *BGS) handleAdminListRepoTakeDowns(e echo.Context) error {
 	return e.JSON(200, out)
 }
 
-func (bgs *BGS) handleAdminGetUpstreamConns(e echo.Context) error {
-	return e.JSON(200, bgs.slurper.GetActiveList())
+func (svc *Service) handleAdminGetUpstreamConns(e echo.Context) error {
+	return e.JSON(200, svc.slurper.GetActiveList())
 }
 
 type rateLimit struct {
@@ -182,15 +182,15 @@ type UserCount struct {
 	UserCount int64 `gorm:"column:user_count"`
 }
 
-func (bgs *BGS) handleListPDSs(e echo.Context) error {
+func (svc *Service) handleListPDSs(e echo.Context) error {
 	var pds []models.PDS
-	if err := bgs.db.Find(&pds).Error; err != nil {
+	if err := svc.db.Find(&pds).Error; err != nil {
 		return err
 	}
 
 	enrichedPDSs := make([]enrichedPDS, len(pds))
 
-	activePDSHosts := bgs.slurper.GetActiveList()
+	activePDSHosts := svc.slurper.GetActiveList()
 
 	for i, p := range pds {
 		enrichedPDSs[i].PDS = p
@@ -235,12 +235,12 @@ type consumer struct {
 	ConnectedAt    time.Time `json:"connected_at"`
 }
 
-func (bgs *BGS) handleAdminListConsumers(e echo.Context) error {
-	bgs.consumersLk.RLock()
-	defer bgs.consumersLk.RUnlock()
+func (svc *Service) handleAdminListConsumers(e echo.Context) error {
+	svc.consumersLk.RLock()
+	defer svc.consumersLk.RUnlock()
 
-	consumers := make([]consumer, 0, len(bgs.consumers))
-	for id, c := range bgs.consumers {
+	consumers := make([]consumer, 0, len(svc.consumers))
+	for id, c := range svc.consumers {
 		var m = &dto.Metric{}
 		if err := c.EventsSent.Write(m); err != nil {
 			continue
@@ -257,7 +257,7 @@ func (bgs *BGS) handleAdminListConsumers(e echo.Context) error {
 	return e.JSON(200, consumers)
 }
 
-func (bgs *BGS) handleAdminKillUpstreamConn(e echo.Context) error {
+func (svc *Service) handleAdminKillUpstreamConn(e echo.Context) error {
 	host := strings.TrimSpace(e.QueryParam("host"))
 	if host == "" {
 		return &echo.HTTPError{
@@ -268,7 +268,7 @@ func (bgs *BGS) handleAdminKillUpstreamConn(e echo.Context) error {
 
 	block := strings.ToLower(e.QueryParam("block")) == "true"
 
-	if err := bgs.slurper.KillUpstreamConnection(host, block); err != nil {
+	if err := svc.slurper.KillUpstreamConnection(host, block); err != nil {
 		if errors.Is(err, ErrNoActiveConnection) {
 			return &echo.HTTPError{
 				Code:    400,
@@ -283,7 +283,7 @@ func (bgs *BGS) handleAdminKillUpstreamConn(e echo.Context) error {
 	})
 }
 
-func (bgs *BGS) handleBlockPDS(e echo.Context) error {
+func (svc *Service) handleBlockPDS(e echo.Context) error {
 	host := strings.TrimSpace(e.QueryParam("host"))
 	if host == "" {
 		return &echo.HTTPError{
@@ -293,19 +293,19 @@ func (bgs *BGS) handleBlockPDS(e echo.Context) error {
 	}
 
 	// Set the block flag to true in the DB
-	if err := bgs.db.Model(&models.PDS{}).Where("host = ?", host).Update("blocked", true).Error; err != nil {
+	if err := svc.db.Model(&models.PDS{}).Where("host = ?", host).Update("blocked", true).Error; err != nil {
 		return err
 	}
 
 	// don't care if this errors, but we should try to disconnect something we just blocked
-	_ = bgs.slurper.KillUpstreamConnection(host, false)
+	_ = svc.slurper.KillUpstreamConnection(host, false)
 
 	return e.JSON(200, map[string]any{
 		"success": "true",
 	})
 }
 
-func (bgs *BGS) handleUnblockPDS(e echo.Context) error {
+func (svc *Service) handleUnblockPDS(e echo.Context) error {
 	host := strings.TrimSpace(e.QueryParam("host"))
 	if host == "" {
 		return &echo.HTTPError{
@@ -315,7 +315,7 @@ func (bgs *BGS) handleUnblockPDS(e echo.Context) error {
 	}
 
 	// Set the block flag to false in the DB
-	if err := bgs.db.Model(&models.PDS{}).Where("host = ?", host).Update("blocked", false).Error; err != nil {
+	if err := svc.db.Model(&models.PDS{}).Where("host = ?", host).Update("blocked", false).Error; err != nil {
 		return err
 	}
 
@@ -328,9 +328,9 @@ type bannedDomains struct {
 	BannedDomains []string `json:"banned_domains"`
 }
 
-func (bgs *BGS) handleAdminListDomainBans(c echo.Context) error {
+func (svc *Service) handleAdminListDomainBans(c echo.Context) error {
 	var all []DomainBan
-	if err := bgs.db.Find(&all).Error; err != nil {
+	if err := svc.db.Find(&all).Error; err != nil {
 		return err
 	}
 
@@ -348,7 +348,7 @@ type banDomainBody struct {
 	Domain string
 }
 
-func (bgs *BGS) handleAdminBanDomain(c echo.Context) error {
+func (svc *Service) handleAdminBanDomain(c echo.Context) error {
 	var body banDomainBody
 	if err := c.Bind(&body); err != nil {
 		return err
@@ -356,14 +356,14 @@ func (bgs *BGS) handleAdminBanDomain(c echo.Context) error {
 
 	// Check if the domain is already banned
 	var existing DomainBan
-	if err := bgs.db.Where("domain = ?", body.Domain).First(&existing).Error; err == nil {
+	if err := svc.db.Where("domain = ?", body.Domain).First(&existing).Error; err == nil {
 		return &echo.HTTPError{
 			Code:    400,
 			Message: "domain is already banned",
 		}
 	}
 
-	if err := bgs.db.Create(&DomainBan{
+	if err := svc.db.Create(&DomainBan{
 		Domain: body.Domain,
 	}).Error; err != nil {
 		return err
@@ -374,13 +374,13 @@ func (bgs *BGS) handleAdminBanDomain(c echo.Context) error {
 	})
 }
 
-func (bgs *BGS) handleAdminUnbanDomain(c echo.Context) error {
+func (svc *Service) handleAdminUnbanDomain(c echo.Context) error {
 	var body banDomainBody
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
 
-	if err := bgs.db.Where("domain = ?", body.Domain).Delete(&DomainBan{}).Error; err != nil {
+	if err := svc.db.Where("domain = ?", body.Domain).Delete(&DomainBan{}).Error; err != nil {
 		return err
 	}
 
@@ -418,7 +418,7 @@ type RateLimitChangeRequest struct {
 	PDSRates
 }
 
-func (bgs *BGS) handleAdminChangePDSRateLimits(e echo.Context) error {
+func (svc *Service) handleAdminChangePDSRateLimits(e echo.Context) error {
 	var body RateLimitChangeRequest
 	if err := e.Bind(&body); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid body: %s", err))
@@ -426,7 +426,7 @@ func (bgs *BGS) handleAdminChangePDSRateLimits(e echo.Context) error {
 
 	// Get the PDS from the DB
 	var pds models.PDS
-	if err := bgs.db.Where("host = ?", body.Host).First(&pds).Error; err != nil {
+	if err := svc.db.Where("host = ?", body.Host).First(&pds).Error; err != nil {
 		return err
 	}
 
@@ -436,12 +436,12 @@ func (bgs *BGS) handleAdminChangePDSRateLimits(e echo.Context) error {
 	pds.DailyEventLimit = body.PerDay
 	pds.RepoLimit = body.RepoLimit
 
-	if err := bgs.db.Save(&pds).Error; err != nil {
+	if err := svc.db.Save(&pds).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf("failed to save rate limit changes: %w", err))
 	}
 
 	// Update the rate limit in the limiter
-	limits := bgs.slurper.GetOrCreateLimiters(pds.ID, body.PerSecond, body.PerHour, body.PerDay)
+	limits := svc.slurper.GetOrCreateLimiters(pds.ID, body.PerSecond, body.PerHour, body.PerDay)
 	limits.PerSecond.SetLimit(body.PerSecond)
 	limits.PerHour.SetLimit(body.PerHour)
 	limits.PerDay.SetLimit(body.PerDay)
@@ -451,14 +451,14 @@ func (bgs *BGS) handleAdminChangePDSRateLimits(e echo.Context) error {
 	})
 }
 
-func (bgs *BGS) handleAdminAddTrustedDomain(e echo.Context) error {
+func (svc *Service) handleAdminAddTrustedDomain(e echo.Context) error {
 	domain := e.QueryParam("domain")
 	if domain == "" {
 		return fmt.Errorf("must specify domain in query parameter")
 	}
 
 	// Check if the domain is already trusted
-	trustedDomains := bgs.slurper.GetTrustedDomains()
+	trustedDomains := svc.slurper.GetTrustedDomains()
 	if slices.Contains(trustedDomains, domain) {
 		return &echo.HTTPError{
 			Code:    400,
@@ -466,7 +466,7 @@ func (bgs *BGS) handleAdminAddTrustedDomain(e echo.Context) error {
 		}
 	}
 
-	if err := bgs.slurper.AddTrustedDomain(domain); err != nil {
+	if err := svc.slurper.AddTrustedDomain(domain); err != nil {
 		return err
 	}
 
@@ -482,7 +482,7 @@ type AdminRequestCrawlRequest struct {
 	PDSRates
 }
 
-func (bgs *BGS) handleAdminRequestCrawl(e echo.Context) error {
+func (svc *Service) handleAdminRequestCrawl(e echo.Context) error {
 	ctx := e.Request().Context()
 
 	var body AdminRequestCrawlRequest
@@ -496,7 +496,7 @@ func (bgs *BGS) handleAdminRequestCrawl(e echo.Context) error {
 	}
 
 	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
-		if bgs.ssl {
+		if svc.ssl {
 			host = "https://" + host
 		} else {
 			host = "http://" + host
@@ -508,11 +508,11 @@ func (bgs *BGS) handleAdminRequestCrawl(e echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "failed to parse hostname")
 	}
 
-	if u.Scheme == "http" && bgs.ssl {
+	if u.Scheme == "http" && svc.ssl {
 		return echo.NewHTTPError(http.StatusBadRequest, "this server requires https")
 	}
 
-	if u.Scheme == "https" && !bgs.ssl {
+	if u.Scheme == "https" && !svc.ssl {
 		return echo.NewHTTPError(http.StatusBadRequest, "this server does not support https")
 	}
 
@@ -526,14 +526,14 @@ func (bgs *BGS) handleAdminRequestCrawl(e echo.Context) error {
 
 	host = u.Host // potentially hostname:port
 
-	banned, err := bgs.domainIsBanned(ctx, host)
+	banned, err := svc.domainIsBanned(ctx, host)
 	if banned {
 		return echo.NewHTTPError(http.StatusUnauthorized, "domain is banned")
 	}
 
 	// Skip checking if the server is online for now
 	rateOverrides := body.PDSRates
-	rateOverrides.FromSlurper(bgs.slurper)
+	rateOverrides.FromSlurper(svc.slurper)
 
-	return bgs.slurper.SubscribeToPds(ctx, host, true, true, &rateOverrides) // Override Trusted Domain Check
+	return svc.slurper.SubscribeToPds(ctx, host, true, true, &rateOverrides) // Override Trusted Domain Check
 }

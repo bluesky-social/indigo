@@ -1,4 +1,4 @@
-package bgs
+package relay
 
 import (
 	"errors"
@@ -17,18 +17,18 @@ type XRPCError struct {
 	Message string `json:"message"`
 }
 
-func (s *BGS) RegisterHandlersAppBsky(e *echo.Echo) error {
+func (s *Service) RegisterHandlersAppBsky(e *echo.Echo) error {
 	return nil
 }
 
-func (s *BGS) RegisterHandlersComAtproto(e *echo.Echo) error {
+func (s *Service) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.GET("/xrpc/com.atproto.sync.getLatestCommit", s.HandleComAtprotoSyncGetLatestCommit)
 	e.GET("/xrpc/com.atproto.sync.listRepos", s.HandleComAtprotoSyncListRepos)
 	e.POST("/xrpc/com.atproto.sync.requestCrawl", s.HandleComAtprotoSyncRequestCrawl)
 	return nil
 }
 
-func (s *BGS) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
+func (s *Service) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetLatestCommit")
 	defer span.End()
 	did := c.QueryParam("did")
@@ -40,7 +40,7 @@ func (s *BGS) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
 
 	var out *comatprototypes.SyncGetLatestCommit_Output
 	var handleErr error
-	// func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context,did string) (*comatprototypes.SyncGetLatestCommit_Output, error)
+	// func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context,did string) (*comatprototypes.SyncGetLatestCommit_Output, error)
 	out, handleErr = s.handleComAtprotoSyncGetLatestCommit(ctx, did)
 	if handleErr != nil {
 		return handleErr
@@ -48,7 +48,7 @@ func (s *BGS) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *BGS) HandleComAtprotoSyncListRepos(c echo.Context) error {
+func (s *Service) HandleComAtprotoSyncListRepos(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncListRepos")
 	defer span.End()
 
@@ -82,7 +82,7 @@ func (s *BGS) HandleComAtprotoSyncListRepos(c echo.Context) error {
 
 // HandleComAtprotoSyncGetRepo handles /xrpc/com.atproto.sync.getRepo
 // returns 3xx to same URL at source PDS
-func (s *BGS) HandleComAtprotoSyncGetRepo(c echo.Context) error {
+func (s *Service) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	// no request object, only params
 	params := c.QueryParams()
 	var did string
@@ -124,7 +124,7 @@ func (s *BGS) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	return c.Redirect(http.StatusFound, nextUrl.String())
 }
 
-func (s *BGS) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
+func (s *Service) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncRequestCrawl")
 	defer span.End()
 
@@ -133,7 +133,7 @@ func (s *BGS) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid body: %s", err)})
 	}
 	var handleErr error
-	// func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context,body *comatprototypes.SyncRequestCrawl_Input) error
+	// func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context,body *comatprototypes.SyncRequestCrawl_Input) error
 	handleErr = s.handleComAtprotoSyncRequestCrawl(ctx, &body)
 	if handleErr != nil {
 		return handleErr

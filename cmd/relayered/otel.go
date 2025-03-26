@@ -34,7 +34,7 @@ func setupOTEL(cctx *cli.Context) error {
 			// Record information about this application in a Resource.
 			tracesdk.WithResource(resource.NewWithAttributes(
 				semconv.SchemaURL,
-				semconv.ServiceNameKey.String("bgs"),
+				semconv.ServiceNameKey.String("relayered"),
 				attribute.String("env", env),         // DataDog
 				attribute.String("environment", env), // Others
 				attribute.Int64("ID", 1),
@@ -71,7 +71,7 @@ func setupOTEL(cctx *cli.Context) error {
 			tracesdk.WithBatcher(exp),
 			tracesdk.WithResource(resource.NewWithAttributes(
 				semconv.SchemaURL,
-				semconv.ServiceNameKey.String("bgs"),
+				semconv.ServiceNameKey.String("relayered"),
 				attribute.String("env", env),         // DataDog
 				attribute.String("environment", env), // Others
 				attribute.Int64("ID", 1),

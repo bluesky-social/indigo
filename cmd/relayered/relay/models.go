@@ -1,4 +1,4 @@
-package bgs
+package relay
 
 import "gorm.io/gorm"
 

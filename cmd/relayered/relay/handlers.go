@@ -1,4 +1,4 @@
-package bgs
+package relay
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatprototypes.SyncRequestCrawl_Input) error {
+func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatprototypes.SyncRequestCrawl_Input) error {
 	host := body.Hostname
 	if host == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname")
@@ -105,7 +105,7 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 	return s.slurper.SubscribeToPds(ctx, host, true, false, nil)
 }
 
-func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, limit int) (*comatprototypes.SyncListRepos_Output, error) {
+func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, limit int) (*comatprototypes.SyncListRepos_Output, error) {
 	// Load the accounts
 	accounts := []*Account{}
 	if err := s.db.Model(&Account{}).Where("id > ? AND NOT taken_down AND (upstream_status IS NULL OR upstream_status = 'active')", cursor).Order("id").Limit(limit).Find(&accounts).Error; err != nil {
@@ -154,7 +154,7 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, l
 
 var ErrUserStatusUnavailable = errors.New("user status unavailable")
 
-func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatprototypes.SyncGetLatestCommit_Output, error) {
+func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatprototypes.SyncGetLatestCommit_Output, error) {
 	u, err := s.lookupUserByDid(ctx, did)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

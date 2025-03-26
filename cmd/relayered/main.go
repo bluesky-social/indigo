@@ -19,7 +19,7 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
-	libbgs "github.com/bluesky-social/indigo/cmd/relayered/bgs"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist/diskpersist"
 	"github.com/bluesky-social/indigo/util"
@@ -77,7 +77,7 @@ func run(args []string) error {
 		&cli.StringFlag{
 			Name:    "metrics-listen",
 			Value:   ":2471",
-			EnvVars: []string{"RELAY_METRICS_LISTEN", "BGS_METRICS_LISTEN"},
+			EnvVars: []string{"RELAY_METRICS_LISTEN"},
 		},
 		&cli.StringFlag{
 			Name:    "disk-persister-dir",
@@ -86,7 +86,7 @@ func run(args []string) error {
 		},
 		&cli.StringFlag{
 			Name:    "admin-key",
-			EnvVars: []string{"RELAY_ADMIN_KEY", "BGS_ADMIN_KEY"},
+			EnvVars: []string{"RELAY_ADMIN_KEY"},
 		},
 		&cli.IntFlag{
 			Name:    "max-metadb-connections",
@@ -212,7 +212,7 @@ func runRelay(cctx *cli.Context) error {
 	cacheDir := identity.NewCacheDirectory(&baseDir, cctx.Int("did-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
 
 	// TODO: rename repoman
-	repoman := libbgs.NewValidator(&cacheDir, inductionTraceLog)
+	repoman := relay.NewValidator(&cacheDir, inductionTraceLog)
 
 	var persister persist.EventPersistence
 
@@ -252,18 +252,18 @@ func runRelay(cctx *cli.Context) error {
 	}
 	persister = dp
 
-	evtman := libbgs.NewEventManager(persister)
+	evtman := relay.NewEventManager(persister)
 
 	ratelimitBypass := cctx.String("bsky-social-rate-limit-skip")
 
 	logger.Info("constructing relay service")
-	bgsConfig := libbgs.DefaultBGSConfig()
-	bgsConfig.SSL = !cctx.Bool("crawl-insecure-ws")
-	bgsConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
-	bgsConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
-	bgsConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
-	bgsConfig.ApplyPDSClientSettings = makePdsClientSetup(ratelimitBypass)
-	bgsConfig.InductionTraceLog = inductionTraceLog
+	svcConfig := relay.DefaultRelayConfig()
+	svcConfig.SSL = !cctx.Bool("crawl-insecure-ws")
+	svcConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
+	svcConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
+	svcConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
+	svcConfig.ApplyPDSClientSettings = makePdsClientSetup(ratelimitBypass)
+	svcConfig.InductionTraceLog = inductionTraceLog
 	nextCrawlers := cctx.StringSlice("next-crawler")
 	if len(nextCrawlers) != 0 {
 		nextCrawlerUrls := make([]*url.URL, len(nextCrawlers))
@@ -275,51 +275,51 @@ func runRelay(cctx *cli.Context) error {
 			}
 			logger.Info("configuring relay for requestCrawl", "host", nextCrawlerUrls[i])
 		}
-		bgsConfig.NextCrawlers = nextCrawlerUrls
+		svcConfig.NextCrawlers = nextCrawlerUrls
 	}
 	if cctx.IsSet("admin-key") {
-		bgsConfig.AdminToken = cctx.String("admin-key")
+		svcConfig.AdminToken = cctx.String("admin-key")
 	} else {
 		var rblob [10]byte
 		_, _ = rand.Read(rblob[:])
-		bgsConfig.AdminToken = base64.URLEncoding.EncodeToString(rblob[:])
-		logger.Info("generated random admin key", "header", "Authorization: Bearer "+bgsConfig.AdminToken)
+		svcConfig.AdminToken = base64.URLEncoding.EncodeToString(rblob[:])
+		logger.Info("generated random admin key", "header", "Authorization: Bearer "+svcConfig.AdminToken)
 	}
-	bgs, err := libbgs.NewBGS(db, repoman, evtman, &cacheDir, bgsConfig)
+	svc, err := relay.NewService(db, repoman, evtman, &cacheDir, svcConfig)
 	if err != nil {
 		return err
 	}
-	dp.SetUidSource(bgs)
+	dp.SetUidSource(svc)
 
 	// set up metrics endpoint
 	go func() {
-		if err := bgs.StartMetrics(cctx.String("metrics-listen")); err != nil {
+		if err := svc.StartMetrics(cctx.String("metrics-listen")); err != nil {
 			logger.Error("failed to start metrics endpoint", "err", err)
 			os.Exit(1)
 		}
 	}()
 
-	bgsErr := make(chan error, 1)
+	svcErr := make(chan error, 1)
 
 	go func() {
-		err := bgs.Start(cctx.String("api-listen"), logWriter)
-		bgsErr <- err
+		err := svc.Start(cctx.String("api-listen"), logWriter)
+		svcErr <- err
 	}()
 
 	logger.Info("startup complete")
 	select {
 	case <-signals:
 		logger.Info("received shutdown signal")
-		errs := bgs.Shutdown()
+		errs := svc.Shutdown()
 		for err := range errs {
 			logger.Error("error during shutdown", "err", err)
 		}
-	case err := <-bgsErr:
+	case err := <-svcErr:
 		if err != nil {
 			logger.Error("error during startup", "err", err)
 		}
 		logger.Info("shutting down")
-		errs := bgs.Shutdown()
+		errs := svc.Shutdown()
 		for err := range errs {
 			logger.Error("error during shutdown", "err", err)
 		}
