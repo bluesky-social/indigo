@@ -1,10 +1,10 @@
 
-atproto Relay Service
-===============================
+relayered: an atproto relay
+===========================
 
 *NOTE: "relays" used to be called "Big Graph Servers", or "BGS", or "bigsky". Many variables and packages still reference "bgs"*
 
-This is the implementation of an atproto relay which is running in the production network, written and operated by Bluesky.
+This is a reference implementation of an atproto relay, written and operated by Bluesky.
 
 In atproto, a relay subscribes to multiple PDS hosts and outputs a combined "firehose" event stream. Downstream services can subscribe to this single firehose a get all relevant events for the entire network, or a specific sub-graph of the network. The relay maintains a mirror of repo data from all accounts on the upstream PDS instances, and verifies repo data structure integrity and identity signatures. It is agnostic to applications, and does not validate data against atproto Lexicon schemas.
 
@@ -35,20 +35,20 @@ To re-build and run the relay locally:
 
 You can re-build and run the command directly to get a list of configuration flags and env vars; env vars will be loaded from `.env` if that file exists:
 
-    RELAY_ADMIN_KEY=localdev go run ./cmd/relay/ --help
+    RELAY_ADMIN_KEY=localdev go run ./cmd/relayered/ --help
 
-By default, the daemon will use sqlite for databases (in the directory `./data/relay/`) and the HTTP API will be bound to localhost port 2470.
+By default, the daemon will use sqlite for databases (in the directory `./data/relayered/`) and the HTTP API will be bound to localhost port 2470.
 
 When the daemon isn't running, sqlite database files can be inspected with:
 
-    sqlite3 data/relay/relay.sqlite
+    sqlite3 data/relayered/relayered.sqlite
     [...]
     sqlite> .schema
 
 Wipe all local data:
 
     # careful! double-check this destructive command
-    rm -rf ./data/relay/*
+    rm -rf ./data/relayered/*
 
 There is a basic web dashboard, though it will not be included unless built and copied to a local directory `./public/`. Run `make build-relay-ui`, and then when running the daemon the dashboard will be available at: <http://localhost:2470/dash/>. Paste in the admin key, eg `localdev`.
 
@@ -65,8 +65,8 @@ Request crawl of an individual PDS instance like:
 
 One way to deploy is running a docker image. You can pull and/or run a specific version of relay, referenced by git commit, from the Bluesky Github container registry. For example:
 
-    docker pull ghcr.io/bluesky-social/indigo:relay-fd66f93ce1412a3678a1dd3e6d53320b725978a6
-    docker run ghcr.io/bluesky-social/indigo:relay-fd66f93ce1412a3678a1dd3e6d53320b725978a6
+    docker pull ghcr.io/bluesky-social/indigo:relayered-fd66f93ce1412a3678a1dd3e6d53320b725978a6
+    docker run ghcr.io/bluesky-social/indigo:relayered-fd66f93ce1412a3678a1dd3e6d53320b725978a6
 
 There is a Dockerfile in this directory, which can be used to build customized/patched versions of the relay as a container, republish them, run locally, deploy to servers, deploy to an orchestrated cluster, etc. See docs and guides for docker and cluster management systems for details.
 
@@ -77,10 +77,10 @@ PostgreSQL and Sqlite are both supported. Database configuration is passed via t
 
 For PostgreSQL, the user and database must already be configured. Some example SQL commands are:
 
-    CREATE DATABASE relay;
+    CREATE DATABASE relayered;
 
     CREATE USER ${username} WITH PASSWORD '${password}';
-    GRANT ALL PRIVILEGES ON DATABASE relay TO ${username};
+    GRANT ALL PRIVILEGES ON DATABASE relayered TO ${username};
 
 This service currently uses `gorm` to automatically run database migrations as the regular user. There is no concept of running a separate set of migrations under more privileged database user.
 
@@ -131,7 +131,7 @@ The relay has a number of admin HTTP API endpoints. Given a relay setup listenin
 
 ```
 RELAY_ADMIN_PASSWORD=$(openssl rand --hex 16)
-relay  --api-listen :2470 --admin-key ${RELAY_ADMIN_PASSWORD} ...
+relayered  --api-listen :2470 --admin-key ${RELAY_ADMIN_PASSWORD} ...
 ```
 
 One can, for example, begin compaction of all repos
