@@ -12,16 +12,16 @@ import (
 
 	"github.com/RussellLuo/slidingwindow"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/relayered/events"
-	"github.com/bluesky-social/indigo/cmd/relayered/events/schedulers/parallel"
 	"github.com/bluesky-social/indigo/cmd/relayered/models"
+	"github.com/bluesky-social/indigo/cmd/relayered/stream"
+	"github.com/bluesky-social/indigo/cmd/relayered/stream/schedulers/parallel"
 
 	"github.com/gorilla/websocket"
 	pq "github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
-type IndexCallback func(context.Context, *models.PDS, *events.XRPCStreamEvent) error
+type IndexCallback func(context.Context, *models.PDS, *stream.XRPCStreamEvent) error
 
 type Slurper struct {
 	cb IndexCallback
@@ -563,10 +563,10 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	rsc := &events.RepoStreamCallbacks{
+	rsc := &stream.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 			s.log.Debug("got remote repo event", "pdsHost", host.Host, "repo", evt.Repo, "seq", evt.Seq)
-			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+			if err := s.cb(context.TODO(), host, &stream.XRPCStreamEvent{
 				RepoCommit: evt,
 			}); err != nil {
 				s.log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
@@ -579,7 +579,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
 			s.log.Debug("got remote repo event", "pdsHost", host.Host, "repo", evt.Did, "seq", evt.Seq)
-			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+			if err := s.cb(context.TODO(), host, &stream.XRPCStreamEvent{
 				RepoSync: evt,
 			}); err != nil {
 				s.log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
@@ -592,7 +592,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
 			s.log.Debug("got remote handle update event", "pdsHost", host.Host, "did", evt.Did, "handle", evt.Handle)
-			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+			if err := s.cb(context.TODO(), host, &stream.XRPCStreamEvent{
 				RepoHandle: evt,
 			}); err != nil {
 				s.log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
@@ -605,7 +605,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 		RepoMigrate: func(evt *comatproto.SyncSubscribeRepos_Migrate) error {
 			s.log.Debug("got remote repo migrate event", "pdsHost", host.Host, "did", evt.Did, "migrateTo", evt.MigrateTo)
-			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+			if err := s.cb(context.TODO(), host, &stream.XRPCStreamEvent{
 				RepoMigrate: evt,
 			}); err != nil {
 				s.log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
@@ -618,7 +618,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 		RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
 			s.log.Debug("got remote repo tombstone event", "pdsHost", host.Host, "did", evt.Did)
-			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+			if err := s.cb(context.TODO(), host, &stream.XRPCStreamEvent{
 				RepoTombstone: evt,
 			}); err != nil {
 				s.log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
@@ -635,7 +635,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 		RepoIdentity: func(ident *comatproto.SyncSubscribeRepos_Identity) error {
 			s.log.Debug("identity event", "did", ident.Did)
-			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+			if err := s.cb(context.TODO(), host, &stream.XRPCStreamEvent{
 				RepoIdentity: ident,
 			}); err != nil {
 				s.log.Error("failed handling event", "host", host.Host, "seq", ident.Seq, "err", err)
@@ -648,7 +648,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 		RepoAccount: func(acct *comatproto.SyncSubscribeRepos_Account) error {
 			s.log.Debug("account event", "did", acct.Did, "status", acct.Status)
-			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+			if err := s.cb(context.TODO(), host, &stream.XRPCStreamEvent{
 				RepoAccount: acct,
 			}); err != nil {
 				s.log.Error("failed handling event", "host", host.Host, "seq", acct.Seq, "err", err)
@@ -660,7 +660,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			return nil
 		},
 		// TODO: all the other event types (handle change, migration, etc)
-		Error: func(errf *events.ErrorFrame) error {
+		Error: func(errf *stream.ErrorFrame) error {
 			switch errf.Error {
 			case "FutureCursor":
 				// if we get a FutureCursor frame, reset our sequence number for this host
@@ -684,7 +684,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		lims.PerDay,
 	}
 
-	instrumentedRSC := events.NewInstrumentedRepoStreamCallbacks(limiters, rsc.EventHandler)
+	instrumentedRSC := stream.NewInstrumentedRepoStreamCallbacks(limiters, rsc.EventHandler)
 
 	pool := parallel.NewScheduler(
 		100,
@@ -692,7 +692,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		con.RemoteAddr().String(),
 		instrumentedRSC.EventHandler,
 	)
-	return events.HandleRepoStream(ctx, con, pool, nil)
+	return stream.HandleRepoStream(ctx, con, pool, nil)
 }
 
 type cursorSnapshot struct {

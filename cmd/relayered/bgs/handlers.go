@@ -12,7 +12,6 @@ import (
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/relayered/events"
 	"gorm.io/gorm"
 
 	"github.com/bluesky-social/indigo/xrpc"
@@ -169,15 +168,15 @@ func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did strin
 	}
 
 	ustatus := u.GetUpstreamStatus()
-	if ustatus == events.AccountStatusTakendown {
+	if ustatus == AccountStatusTakendown {
 		return nil, fmt.Errorf("account was taken down by its PDS")
 	}
 
-	if ustatus == events.AccountStatusDeactivated {
+	if ustatus == AccountStatusDeactivated {
 		return nil, fmt.Errorf("account is temporarily deactivated")
 	}
 
-	if ustatus == events.AccountStatusSuspended {
+	if ustatus == AccountStatusSuspended {
 		return nil, fmt.Errorf("account is suspended by its PDS")
 	}
 

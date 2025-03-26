@@ -20,8 +20,8 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	libbgs "github.com/bluesky-social/indigo/cmd/relayered/bgs"
-	"github.com/bluesky-social/indigo/cmd/relayered/events"
-	"github.com/bluesky-social/indigo/cmd/relayered/events/diskpersist"
+	"github.com/bluesky-social/indigo/cmd/relayered/persist"
+	"github.com/bluesky-social/indigo/cmd/relayered/persist/diskpersist"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -214,7 +214,7 @@ func runRelay(cctx *cli.Context) error {
 	// TODO: rename repoman
 	repoman := libbgs.NewValidator(&cacheDir, inductionTraceLog)
 
-	var persister events.EventPersistence
+	var persister persist.EventPersistence
 
 	dpd := cctx.String("disk-persister-dir")
 	if dpd == "" {
@@ -252,7 +252,7 @@ func runRelay(cctx *cli.Context) error {
 	}
 	persister = dp
 
-	evtman := events.NewEventManager(persister)
+	evtman := libbgs.NewEventManager(persister)
 
 	ratelimitBypass := cctx.String("bsky-social-rate-limit-skip")
 
