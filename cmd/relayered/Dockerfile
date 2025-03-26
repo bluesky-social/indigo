@@ -1,6 +1,6 @@
 # Run this dockerfile from the top level of the indigo git repository like:
 #
-#   podman build -f ./cmd/relay/Dockerfile -t relay .
+#   podman build -f ./cmd/relayered/Dockerfile -t relayered .
 
 ### Compile stage
 FROM golang:1.23-alpine3.20 AS build-env
@@ -12,7 +12,7 @@ WORKDIR /dockerbuild
 # timezone data for alpine builds
 ENV GOEXPERIMENT=loopvar
 RUN GIT_VERSION=$(git describe --tags --long --always) && \
-    go build -tags timetzdata -o /relay ./cmd/relay
+    go build -tags timetzdata -o /relayered ./cmd/relayered
 
 ### Build Frontend stage
 FROM node:18-alpine as web-builder
@@ -32,8 +32,8 @@ RUN apk add --no-cache --update dumb-init ca-certificates runit
 ENTRYPOINT ["dumb-init", "--"]
 
 WORKDIR /
-RUN mkdir -p data/relay
-COPY --from=build-env /relay /
+RUN mkdir -p data/relayered
+COPY --from=build-env /relayered /
 COPY --from=web-builder /app/dist/ public/
 
 # small things to make golang binaries work well under alpine
@@ -42,7 +42,7 @@ ENV TZ=Etc/UTC
 
 EXPOSE 2470
 
-CMD ["/relay"]
+CMD ["/relayered"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
 LABEL org.opencontainers.image.description="atproto Relay"
