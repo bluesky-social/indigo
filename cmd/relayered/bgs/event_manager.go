@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/cmd/relayered/models"
-	"github.com/bluesky-social/indigo/cmd/relayered/persist"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream"
+	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist"
 
 	"go.opentelemetry.io/otel"
 )

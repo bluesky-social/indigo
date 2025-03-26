@@ -16,8 +16,8 @@ import (
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/cmd/relayered/models"
-	"github.com/bluesky-social/indigo/cmd/relayered/persist"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream"
+	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist"
 	arc "github.com/hashicorp/golang-lru/arc/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
