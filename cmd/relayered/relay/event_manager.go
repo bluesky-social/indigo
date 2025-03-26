@@ -1,4 +1,4 @@
-package bgs
+package relay
 
 import (
 	"context"
@@ -59,7 +59,7 @@ func (em *EventManager) broadcastEvent(evt *stream.XRPCStreamEvent) {
 	// for subsets of the subscriber set, and tiered channels to distribute
 	// events out to them, or some similar architecture
 	// Alternatively, we might just want to not allow too many subscribers
-	// directly to the bgs, and have rebroadcasting proxies instead
+	// directly to the relay, and have rebroadcasting proxies instead
 	for _, s := range em.subs {
 		if s.filter(evt) {
 			s.enqueuedCounter.Inc()
