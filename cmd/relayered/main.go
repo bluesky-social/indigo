@@ -19,9 +19,9 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
-	libbgs "github.com/bluesky-social/indigo/cmd/relay/bgs"
-	"github.com/bluesky-social/indigo/cmd/relay/events"
-	"github.com/bluesky-social/indigo/cmd/relay/events/diskpersist"
+	libbgs "github.com/bluesky-social/indigo/cmd/relayered/bgs"
+	"github.com/bluesky-social/indigo/cmd/relayered/events"
+	"github.com/bluesky-social/indigo/cmd/relayered/events/diskpersist"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"

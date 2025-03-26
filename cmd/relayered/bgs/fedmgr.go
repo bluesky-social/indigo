@@ -12,9 +12,9 @@ import (
 
 	"github.com/RussellLuo/slidingwindow"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/relay/events"
-	"github.com/bluesky-social/indigo/cmd/relay/events/schedulers/parallel"
-	"github.com/bluesky-social/indigo/cmd/relay/models"
+	"github.com/bluesky-social/indigo/cmd/relayered/events"
+	"github.com/bluesky-social/indigo/cmd/relayered/events/schedulers/parallel"
+	"github.com/bluesky-social/indigo/cmd/relayered/models"
 
 	"github.com/gorilla/websocket"
 	pq "github.com/lib/pq"
