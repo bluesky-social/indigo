@@ -19,8 +19,8 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/relayered/events"
 	"github.com/bluesky-social/indigo/cmd/relayered/models"
+	"github.com/bluesky-social/indigo/cmd/relayered/stream"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/gorilla/websocket"
@@ -47,7 +47,7 @@ const serverListenerBootTimeout = 5 * time.Second
 type BGS struct {
 	db      *gorm.DB
 	slurper *Slurper
-	events  *events.EventManager
+	events  *EventManager
 	didd    identity.Directory
 
 	// TODO: work on doing away with this flag in favor of more pluggable
@@ -111,7 +111,7 @@ func DefaultBGSConfig() *BGSConfig {
 	}
 }
 
-func NewBGS(db *gorm.DB, validator *Validator, evtman *events.EventManager, didd identity.Directory, config *BGSConfig) (*BGS, error) {
+func NewBGS(db *gorm.DB, validator *Validator, evtman *EventManager, didd identity.Directory, config *BGSConfig) (*BGS, error) {
 
 	if config == nil {
 		config = DefaultBGSConfig()
@@ -549,7 +549,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 
 	ident := c.RealIP() + "-" + c.Request().UserAgent()
 
-	evts, cleanup, err := bgs.events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool { return true }, since)
+	evts, cleanup, err := bgs.events.Subscribe(ctx, ident, func(evt *stream.XRPCStreamEvent) bool { return true }, since)
 	if err != nil {
 		return err
 	}
@@ -713,7 +713,7 @@ func (bgs *BGS) lookupUserByUID(ctx context.Context, uid models.Uid) (*Account, 
 }
 
 // handleFedEvent() is the callback passed to Slurper called from Slurper.handleConnection()
-func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *events.XRPCStreamEvent) error {
+func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *stream.XRPCStreamEvent) error {
 	ctx, span := tracer.Start(ctx, "handleFedEvent")
 	defer span.End()
 
@@ -747,7 +747,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		// Broadcast the identity event to all consumers
-		err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
+		err = bgs.events.AddEvent(ctx, &stream.XRPCStreamEvent{
 			RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
 				Did:    env.RepoIdentity.Did,
 				Seq:    env.RepoIdentity.Seq,
@@ -803,7 +803,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		// Process the account status change
-		repoStatus := events.AccountStatusActive
+		repoStatus := AccountStatusActive
 		if !env.RepoAccount.Active && env.RepoAccount.Status != nil {
 			repoStatus = *env.RepoAccount.Status
 		}
@@ -821,11 +821,11 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		// override with local status
 		if account.GetTakenDown() {
 			shouldBeActive = false
-			status = &events.AccountStatusTakendown
+			status = &AccountStatusTakendown
 		}
 
 		// Broadcast the account event to all consumers
-		err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
+		err = bgs.events.AddEvent(ctx, &stream.XRPCStreamEvent{
 			RepoAccount: &comatproto.SyncSubscribeRepos_Account{
 				Active: shouldBeActive,
 				Did:    env.RepoAccount.Did,
@@ -891,19 +891,19 @@ func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatpr
 
 	ustatus := account.GetUpstreamStatus()
 
-	if account.GetTakenDown() || ustatus == events.AccountStatusTakendown {
+	if account.GetTakenDown() || ustatus == AccountStatusTakendown {
 		bgs.log.Debug("dropping commit event from taken down user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 		repoCommitsResultCounter.WithLabelValues(host.Host, "tdu").Inc()
 		return nil
 	}
 
-	if ustatus == events.AccountStatusSuspended {
+	if ustatus == AccountStatusSuspended {
 		bgs.log.Debug("dropping commit event from suspended user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 		repoCommitsResultCounter.WithLabelValues(host.Host, "susu").Inc()
 		return nil
 	}
 
-	if ustatus == events.AccountStatusDeactivated {
+	if ustatus == AccountStatusDeactivated {
 		bgs.log.Debug("dropping commit event from deactivated user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 		repoCommitsResultCounter.WithLabelValues(host.Host, "du").Inc()
 		return nil
@@ -974,7 +974,7 @@ func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatpr
 
 	// Broadcast the identity event to all consumers
 	commitCopy := *evt
-	err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
+	err = bgs.events.AddEvent(ctx, &stream.XRPCStreamEvent{
 		RepoCommit: &commitCopy,
 		PrivUid:    account.GetUid(),
 	})
@@ -1012,7 +1012,7 @@ func (bgs *BGS) handleSync(ctx context.Context, host *models.PDS, evt *comatprot
 
 	// Broadcast the sync event to all consumers
 	evtCopy := *evt
-	err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
+	err = bgs.events.AddEvent(ctx, &stream.XRPCStreamEvent{
 		RepoSync: &evtCopy,
 	})
 	if err != nil {
