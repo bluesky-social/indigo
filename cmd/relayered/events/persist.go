@@ -3,7 +3,7 @@ package events
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/cmd/relay/models"
+	"github.com/bluesky-social/indigo/cmd/relayered/models"
 )
 
 // Note that this interface looks generic, but some persisters might only work with RepoAppend or LabelLabels

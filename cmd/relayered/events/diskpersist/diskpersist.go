@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/bluesky-social/indigo/cmd/relay/events"
+	"github.com/bluesky-social/indigo/cmd/relayered/events"
 	"io"
 	"log/slog"
 	"os"
@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/relay/models"
+	"github.com/bluesky-social/indigo/cmd/relayered/models"
 	arc "github.com/hashicorp/golang-lru/arc/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
