@@ -12,7 +12,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -63,7 +62,7 @@ type DiskPersistence struct {
 	// takenDownCache is only written with a newly allocated slice; it is always safe to grab a reference to it and use that until done
 	// takenDownUpdateLock is held when generating a new slice
 	takenDownUpdateLock sync.Mutex
-	takenDownCache      atomic.Pointer[[]models.Uid]
+	takenDownCache      atomic.Pointer[map[models.Uid]struct{}]
 }
 
 type persistJob struct {
@@ -698,13 +697,13 @@ func (dp *DiskPersistence) uidForDid(ctx context.Context, did string) (models.Ui
 	return uid, nil
 }
 
-type takedownSet []models.Uid
+type takedownSet map[models.Uid]struct{}
 
 func (ts *takedownSet) isTakendown(uid models.Uid) bool {
 	if ts == nil {
 		return false
 	}
-	_, found := slices.BinarySearch(*ts, uid)
+	_, found := (*ts)[uid]
 	return found
 }
 
@@ -911,24 +910,10 @@ func (dp *DiskPersistence) dbClearRepoTakedown(ctx context.Context, usr models.U
 	return result.Error
 }
 
-// return []Uid slice with new Uid in it
-func copyUidSliceWithInsert(uids []models.Uid, newUid models.Uid) (newUids []models.Uid, alreadyThere bool) {
-	insertPos, found := slices.BinarySearch(uids, newUid)
-	if found {
-		// TODO: log error, we were expecting it to not already be in the list
-		return uids, true
-	}
-	out := make([]models.Uid, len(uids)+1)
-	copy(out[:insertPos], uids[:insertPos])
-	out[insertPos] = newUid
-	copy(out[insertPos+1:], uids[insertPos:])
-	return out, false
-}
-
 func (dp *DiskPersistence) TakeDownRepo(ctx context.Context, usr models.Uid) error {
 	takedownsP := dp.takenDownCache.Load()
 	if takedownsP != nil {
-		_, found := slices.BinarySearch(*takedownsP, usr)
+		_, found := (*takedownsP)[usr]
 		if found {
 			// already in cache, okay
 			return nil
@@ -942,14 +927,15 @@ func (dp *DiskPersistence) TakeDownRepo(ctx context.Context, usr models.Uid) err
 	defer dp.takenDownUpdateLock.Unlock()
 	takedownsP = dp.takenDownCache.Load()
 	if takedownsP == nil {
-		newTakedowns := make([]models.Uid, 1)
-		newTakedowns[0] = usr
+		newTakedowns := make(map[models.Uid]struct{}, 1)
+		newTakedowns[usr] = struct{}{}
 		dp.takenDownCache.Store(&newTakedowns)
 	} else {
-		newTakedowns, alreadyThere := copyUidSliceWithInsert(*takedownsP, usr)
-		if alreadyThere {
-			return nil
+		newTakedowns := make(map[models.Uid]struct{}, len(*takedownsP)+1)
+		for xu, _ := range *takedownsP {
+			newTakedowns[xu] = struct{}{}
 		}
+		newTakedowns[usr] = struct{}{}
 		dp.takenDownCache.Store(&newTakedowns)
 	}
 	return nil
@@ -960,7 +946,7 @@ func (dp *DiskPersistence) ReverseTakeDownRepo(ctx context.Context, usr models.U
 		// nothing is there, ignore
 		return nil
 	}
-	foundPos, found := slices.BinarySearch(*takedownsP, usr)
+	_, found := (*takedownsP)[usr]
 	if !found {
 		// already gone, okay
 		return nil
@@ -972,15 +958,18 @@ func (dp *DiskPersistence) ReverseTakeDownRepo(ctx context.Context, usr models.U
 	dp.takenDownUpdateLock.Lock()
 	defer dp.takenDownUpdateLock.Unlock()
 	takedownsP = dp.takenDownCache.Load()
-	foundPos, found = slices.BinarySearch(*takedownsP, usr)
+	_, found = (*takedownsP)[usr]
 	if !found {
 		// already gone, okay
 		return nil
 	}
 	oldTakedowns := *takedownsP
-	newTakedowns := make([]models.Uid, len(oldTakedowns)-1)
-	copy(newTakedowns[:foundPos], oldTakedowns[:foundPos])
-	copy(newTakedowns[foundPos:], oldTakedowns[foundPos+1:])
+	newTakedowns := make(map[models.Uid]struct{}, len(oldTakedowns)-1)
+	for xu, _ := range oldTakedowns {
+		if xu != usr {
+			newTakedowns[xu] = struct{}{}
+		}
+	}
 	dp.takenDownCache.Store(&newTakedowns)
 	return nil
 }
