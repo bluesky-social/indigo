@@ -81,8 +81,9 @@ func run(args []string) error {
 		},
 		&cli.StringFlag{
 			Name:    "disk-persister-dir",
-			Usage:   "set directory for disk persister (default: \"./data/event-buffer\")",
+			Usage:   "set directory for disk persister",
 			EnvVars: []string{"RELAY_PERSISTER_DIR"},
+			Value:   "./data/event-buffer",
 		},
 		&cli.StringFlag{
 			Name:    "admin-key",

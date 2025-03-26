@@ -688,7 +688,6 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 
 	pool := parallel.NewScheduler(
 		100,
-		1_000,
 		"pds",
 		host.Host,
 		instrumentedRSC.EventHandler,
