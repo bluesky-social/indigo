@@ -1,4 +1,4 @@
-package bgs
+package relay
 
 var (
 	// AccountStatusActive is not in the spec but used internally

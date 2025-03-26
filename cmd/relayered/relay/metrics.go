@@ -1,4 +1,4 @@
-package bgs
+package relay
 
 import (
 	"errors"
@@ -47,17 +47,17 @@ var eventsSentCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 }, []string{"remote_addr", "user_agent"})
 
 var externalUserCreationAttempts = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "bgs_external_user_creation_attempts",
+	Name: "relay_external_user_creation_attempts",
 	Help: "The total number of external users created",
 })
 
 var connectedInbound = promauto.NewGauge(prometheus.GaugeOpts{
-	Name: "bgs_connected_inbound",
+	Name: "relay_connected_inbound",
 	Help: "Number of inbound firehoses we are consuming",
 })
 
 var newUsersDiscovered = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "bgs_new_users_discovered",
+	Name: "relay_new_users_discovered",
 	Help: "The total number of new users discovered directly from the firehose (not from refs)",
 })
 
