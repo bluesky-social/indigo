@@ -42,9 +42,9 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 
 		do: do,
 
-		feeder: make(chan *consumerTask),
+		feeder: make(chan *consumerTask, maxC),
 		active: make(map[string][]*consumerTask),
-		out:    make(chan struct{}),
+		out:    make(chan struct{}, maxC),
 
 		ident: ident,
 
