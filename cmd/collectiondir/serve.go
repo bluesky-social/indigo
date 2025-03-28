@@ -6,8 +6,6 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	lru "github.com/hashicorp/golang-lru/v2"
 	"log/slog"
 	"net"
 	"net/http"
@@ -24,9 +22,11 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/xrpc"
 
+	"github.com/hashicorp/golang-lru/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/carlmjohnson/versioninfo"
-	"github.com/urfave/cli/v2"
 	"io"
 	"log/slog"
 	"net/http"
@@ -18,6 +16,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/carlmjohnson/versioninfo"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
