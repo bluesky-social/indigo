@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
-	"github.com/bluesky-social/indigo/util"
-	"golang.org/x/time/rate"
 	"io"
 	"log/slog"
 	"net/url"
@@ -13,10 +11,12 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/urfave/cli/v2"
-
 	"github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+
+	"github.com/urfave/cli/v2"
+	"golang.org/x/time/rate"
 )
 
 type DidCollection struct {
