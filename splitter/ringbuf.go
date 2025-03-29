@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	events "github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/models"
 )
 
