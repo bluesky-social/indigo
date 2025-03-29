@@ -15,7 +15,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
@@ -23,6 +22,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
+	"github.com/bluesky-social/indigo/handles"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
@@ -194,7 +194,7 @@ var readRepoStreamCmd = &cli.Command{
 		}()
 
 		didr := cliutil.GetDidResolver(cctx)
-		hr := &api.ProdHandleResolver{}
+		hr := &handles.ProdHandleResolver{}
 		resolveHandles := cctx.Bool("resolve-handles")
 
 		cache, _ := lru.New[string, *cachedHandle](10000)
@@ -206,7 +206,7 @@ var readRepoStreamCmd = &cli.Command{
 				}
 			}
 
-			h, _, err := api.ResolveDidToHandle(ctx, didr, hr, did)
+			h, _, err := handles.ResolveDidToHandle(ctx, didr, hr, did)
 			if err != nil {
 				return "", err
 			}
