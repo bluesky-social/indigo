@@ -3,7 +3,6 @@ package main
 import (
 	"reflect"
 
-	"github.com/bluesky-social/indigo/api"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	chat "github.com/bluesky-social/indigo/api/chat"
@@ -14,6 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/mst"
+	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util/labels"
 
@@ -38,7 +38,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := genCfg.WriteMapEncodersToFile("api/cbor_gen.go", "api", api.CreateOp{}); err != nil {
+	if err := genCfg.WriteMapEncodersToFile("plc/cbor_gen.go", "plc", plc.CreateOp{}); err != nil {
 		panic(err)
 	}
 
