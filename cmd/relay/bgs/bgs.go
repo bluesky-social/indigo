@@ -736,7 +736,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		// TODO: rate limit warnings per PDS before we (temporarily?) block them
 		return nil
 	case env.RepoIdentity != nil:
-		bgs.log.Info("bgs got identity event", "did", env.RepoIdentity.Did)
+		bgs.log.Info("bgs got identity event", "pds", host.Host, "did", env.RepoIdentity.Did)
 		// Flush any cached DID documents for this user
 		bgs.purgeDidCache(ctx, env.RepoIdentity.Did)
 
@@ -772,7 +772,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		if env.RepoAccount.Status != nil {
 			span.SetAttributes(attribute.String("repo_status", *env.RepoAccount.Status))
 		}
-		bgs.log.Info("bgs got account event", "did", env.RepoAccount.Did)
+		bgs.log.Info("bgs got account event", "pds", host.Host, "did", env.RepoAccount.Did)
 
 		if !env.RepoAccount.Active && env.RepoAccount.Status == nil {
 			accountVerifyWarnings.WithLabelValues(host.Host, "nostat").Inc()

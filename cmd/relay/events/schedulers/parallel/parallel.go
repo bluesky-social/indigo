@@ -14,7 +14,6 @@ import (
 // Scheduler is a parallel scheduler that will run work on a fixed number of workers
 type Scheduler struct {
 	maxConcurrency int
-	maxQueue       int
 
 	do func(context.Context, *events.XRPCStreamEvent) error
 
@@ -23,8 +22,6 @@ type Scheduler struct {
 
 	lk     sync.Mutex
 	active map[string][]*consumerTask
-
-	ident string
 
 	// metrics
 	itemsAdded     prometheus.Counter
@@ -35,10 +32,11 @@ type Scheduler struct {
 	log *slog.Logger
 }
 
-func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events.XRPCStreamEvent) error) *Scheduler {
+// NewScheduler builds a worker pool of maxC threads calling the do() function pointer
+// info and error logs include {"system":"parallel-scheduler", hostLogKey: host}
+func NewScheduler(maxC int, hostLogKey, host string, do func(context.Context, *events.XRPCStreamEvent) error) *Scheduler {
 	p := &Scheduler{
 		maxConcurrency: maxC,
-		maxQueue:       maxQ,
 
 		do: do,
 
@@ -46,14 +44,12 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 		active: make(map[string][]*consumerTask),
 		out:    make(chan struct{}),
 
-		ident: ident,
+		itemsAdded:     schedulers.WorkItemsAdded.WithLabelValues(host, "parallel"),
+		itemsProcessed: schedulers.WorkItemsProcessed.WithLabelValues(host, "parallel"),
+		itemsActive:    schedulers.WorkItemsActive.WithLabelValues(host, "parallel"),
+		workesActive:   schedulers.WorkersActive.WithLabelValues(host, "parallel"),
 
-		itemsAdded:     schedulers.WorkItemsAdded.WithLabelValues(ident, "parallel"),
-		itemsProcessed: schedulers.WorkItemsProcessed.WithLabelValues(ident, "parallel"),
-		itemsActive:    schedulers.WorkItemsActive.WithLabelValues(ident, "parallel"),
-		workesActive:   schedulers.WorkersActive.WithLabelValues(ident, "parallel"),
-
-		log: slog.Default().With("system", "parallel-scheduler"),
+		log: slog.Default().With("system", "parallel-scheduler", hostLogKey, host),
 	}
 
 	for i := 0; i < maxC; i++ {
@@ -66,7 +62,7 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 }
 
 func (p *Scheduler) Shutdown() {
-	p.log.Info("shutting down parallel scheduler", "ident", p.ident)
+	p.log.Info("shutting down parallel scheduler")
 
 	for i := 0; i < p.maxConcurrency; i++ {
 		p.feeder <- &consumerTask{
