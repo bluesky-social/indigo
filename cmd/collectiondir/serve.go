@@ -24,6 +24,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/util/svcutil"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/hashicorp/golang-lru/v2"
@@ -405,7 +406,7 @@ func (cs *collectionServer) StartApiServer(ctx context.Context, addr string) err
 	e := echo.New()
 	e.HideBanner = true
 
-	e.Use(MetricsMiddleware)
+	e.Use(svcutil.MetricsMiddleware)
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
