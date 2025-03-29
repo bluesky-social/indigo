@@ -22,12 +22,18 @@ Packages:
 
 - `api`: mostly output of lexgen (codegen) for lexicons: structs, CBOR marshaling. some higher-level code, and a PLC client (may rename)
     - `api/atproto`: generated types for `com.atproto` lexicon
+    - `api/agnostic`: variants of `com.atproto` types which work better with unknown lexicon data
     - `api/bsky`: generated types for `app.bsky` lexicon
+    - `api/chat`: generated types for `chat.bsky` lexicon
+    - `api/ozone`: generated types for `tools.ozone` lexicon
 - `atproto/crypto`: crytographic helpers (signing, key generation and serialization)
 - `atproto/syntax`: string types and parsers for identifiers, datetimes, etc
 - `atproto/identity`: DID and handle resolution
+- `atproto/data`: helpers for atproto data as JSON or CBOR with unknown schema
+- `atproto/lexicon`: lexicon validation of generic data
+- `atproto/repo`: repo and MST implementation
 - `automod`: moderation and anti-spam rules engine
-- `bgs`: relay server implementation for crawling, etc
+- `bgs`: relay server implementation for crawling, etc (for bigsky implementation)
 - `carstore`: library for storing repo data in CAR files on disk, plus a metadata SQL db
 - `events`: types, codegen CBOR helpers, and persistence for event feeds
 - `indexer`: aggregator, handling like counts etc in SQL database
