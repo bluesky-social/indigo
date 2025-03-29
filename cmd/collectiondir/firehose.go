@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/gorilla/websocket"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/bluesky-social/indigo/events"
+
+	"github.com/gorilla/websocket"
 )
 
 type Firehose struct {

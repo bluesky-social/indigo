@@ -6,10 +6,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/cockroachdb/pebble"
 	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/cockroachdb/pebble"
 )
 
 func makeCollectionInternKey(collection string) []byte {

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"go.opentelemetry.io/otel"
 	"io"
 	"log/slog"
 	"math/rand"
@@ -27,12 +26,14 @@ import (
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	promclient "github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
+	"go.opentelemetry.io/otel"
 )
 
 type Splitter struct {
@@ -544,7 +545,7 @@ type SocketConsumer struct {
 	UserAgent   string
 	RemoteAddr  string
 	ConnectedAt time.Time
-	EventsSent  promclient.Counter
+	EventsSent  prometheus.Counter
 }
 
 func (s *Splitter) registerConsumer(c *SocketConsumer) uint64 {
