@@ -20,7 +20,7 @@ import (
 
 const defaultMaxRevFuture = time.Hour
 
-func NewValidator(directory identity.Directory, inductionTraceLog *slog.Logger) *Validator {
+func NewValidator(directory identity.Directory, inductionTraceLog *slog.Logger, sync11ErrorsAreWarnings bool) *Validator {
 	maxRevFuture := defaultMaxRevFuture // TODO: configurable
 	ErrRevTooFarFuture := fmt.Errorf("new rev is > %s in the future", maxRevFuture)
 
@@ -30,9 +30,10 @@ func NewValidator(directory identity.Directory, inductionTraceLog *slog.Logger) 
 		inductionTraceLog: inductionTraceLog,
 		directory:         directory,
 
-		maxRevFuture:           maxRevFuture,
-		ErrRevTooFarFuture:     ErrRevTooFarFuture,
-		AllowSignatureNotFound: true, // TODO: configurable
+		maxRevFuture:            maxRevFuture,
+		ErrRevTooFarFuture:      ErrRevTooFarFuture,
+		AllowSignatureNotFound:  true, // TODO: configurable
+		Sync11ErrorsAreWarnings: sync11ErrorsAreWarnings,
 	}
 }
 
@@ -56,6 +57,8 @@ type Validator struct {
 	// AllowSignatureNotFound enables counting messages without findable public key to pass through with a warning counter
 	// TODO: refine this for what kind of 'not found' we accept.
 	AllowSignatureNotFound bool
+
+	Sync11ErrorsAreWarnings bool
 }
 
 type NextCommitHandler interface {
@@ -129,17 +132,17 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS,
 	hostname := host.Host
 	hasWarning := false
 	commitVerifyStarts.Inc()
-	logger := slog.Default().With("did", msg.Repo, "rev", msg.Rev, "seq", msg.Seq, "time", msg.Time)
+	logger := slog.Default().With("host", hostname, "did", msg.Repo, "rev", msg.Rev, "seq", msg.Seq, "time", msg.Time)
 
 	did, err := syntax.ParseDID(msg.Repo)
 	if err != nil {
 		commitVerifyErrors.WithLabelValues(hostname, "did").Inc()
-		return nil, err
+		return nil, fmt.Errorf("invalid DID, %w", err)
 	}
 	rev, err := syntax.ParseTID(msg.Rev)
 	if err != nil {
 		commitVerifyErrors.WithLabelValues(hostname, "tid").Inc()
-		return nil, err
+		return nil, fmt.Errorf("invalid rev TID, %w", err)
 	}
 	if prevRoot != nil {
 		prevRev := prevRoot.GetRev()
@@ -147,18 +150,30 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS,
 		prevTime := prevRev.Time()
 		if curTime.Before(prevTime) {
 			commitVerifyErrors.WithLabelValues(hostname, "revb").Inc()
-			dt := prevTime.Sub(curTime)
-			return nil, &revOutOfOrderError{dt}
+			if !val.Sync11ErrorsAreWarnings {
+				dt := prevTime.Sub(curTime)
+				return nil, &revOutOfOrderError{dt}
+			} else {
+				logger.Warn("new rev before old rev", "prev rev", prevRev, "rev", rev)
+			}
 		}
 	}
 	if rev.Time().After(time.Now().Add(val.maxRevFuture)) {
 		commitVerifyErrors.WithLabelValues(hostname, "revf").Inc()
-		return nil, val.ErrRevTooFarFuture
+		if !val.Sync11ErrorsAreWarnings {
+			return nil, val.ErrRevTooFarFuture
+		} else {
+			logger.Warn("far future rev", "now", time.Now(), "rev", rev.Time(), "err", err)
+		}
 	}
 	_, err = syntax.ParseDatetime(msg.Time)
 	if err != nil {
 		commitVerifyErrors.WithLabelValues(hostname, "time").Inc()
-		return nil, err
+		if !val.Sync11ErrorsAreWarnings {
+			return nil, err
+		} else {
+			logger.Warn("invalid time", "err", err)
+		}
 	}
 
 	if msg.TooBig {
@@ -177,16 +192,27 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS,
 	commit, repoFragment, err := atrepo.LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
 	if err != nil {
 		commitVerifyErrors.WithLabelValues(hostname, "car").Inc()
-		return nil, err
+		if val.Sync11ErrorsAreWarnings {
+			logger.Warn("invalid car", "err", err)
+		}
+		return nil, fmt.Errorf("invalid car, %w", err)
 	}
 
 	if commit.Rev != rev.String() {
 		commitVerifyErrors.WithLabelValues(hostname, "rev").Inc()
-		return nil, fmt.Errorf("rev did not match commit")
+		if !val.Sync11ErrorsAreWarnings {
+			return nil, fmt.Errorf("message rev != commit.rev")
+		} else {
+			logger.Warn("message rev != commit.rev")
+		}
 	}
 	if commit.DID != did.String() {
 		commitVerifyErrors.WithLabelValues(hostname, "did2").Inc()
-		return nil, fmt.Errorf("rev did not match commit")
+		if !val.Sync11ErrorsAreWarnings {
+			return nil, fmt.Errorf("message did != commit.did")
+		} else {
+			logger.Warn("message did != commit.did")
+		}
 	}
 
 	err = val.VerifyCommitSignature(ctx, commit, hostname, &hasWarning)
@@ -197,27 +223,10 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS,
 
 	// load out all the records
 	for _, op := range msg.Ops {
-		if (op.Action == "create" || op.Action == "update") && op.Cid != nil {
-			c := (*cid.Cid)(op.Cid)
-			nsid, rkey, err := syntax.ParseRepoPath(op.Path)
-			if err != nil {
-				commitVerifyErrors.WithLabelValues(hostname, "opp").Inc()
-				return nil, fmt.Errorf("invalid repo path in ops list: %w", err)
-			}
-			val, err := repoFragment.GetRecordCID(ctx, nsid, rkey)
-			if err != nil {
-				commitVerifyErrors.WithLabelValues(hostname, "rcid").Inc()
-				return nil, err
-			}
-			if *c != *val {
-				commitVerifyErrors.WithLabelValues(hostname, "opc").Inc()
-				return nil, fmt.Errorf("record op doesn't match MST tree value")
-			}
-			_, _, err = repoFragment.GetRecordBytes(ctx, nsid, rkey)
-			if err != nil {
-				commitVerifyErrors.WithLabelValues(hostname, "rec").Inc()
-				return nil, err
-			}
+		err = val.verifyCommitMessageOp(ctx, op, hostname, repoFragment, logger)
+		if err != nil {
+			// Sync11ErrorsAreWarnings is handled within verifyCommitMessageOp(), at this level, errors are errors
+			return nil, err
 		}
 	}
 
@@ -242,56 +251,10 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS,
 	}
 
 	if msg.PrevData != nil {
-		c := (*cid.Cid)(msg.PrevData)
-		if prevRoot != nil {
-			if *c != prevRoot.GetCid() {
-				commitVerifyWarnings.WithLabelValues(hostname, "pr").Inc()
-				val.inductionTraceLog.Warn("commit prevData mismatch", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
-				hasWarning = true
-			}
-		} else {
-			// see counter below for okish "new"
-		}
-
-		// check internal consistency that claimed previous root matches the rest of this message
-		ops, err := ParseCommitOps(msg.Ops)
+		err = val.verifyCommitMessagePrevData(msg, prevRoot, host, logger, repoFragment, hasWarning)
 		if err != nil {
-			commitVerifyErrors.WithLabelValues(hostname, "pop").Inc()
+			// Sync11ErrorsAreWarnings is handled within, at this level errors are errors
 			return nil, err
-		}
-		ops, err = atrepo.NormalizeOps(ops)
-		if err != nil {
-			commitVerifyErrors.WithLabelValues(hostname, "nop").Inc()
-			return nil, err
-		}
-
-		invTree := repoFragment.MST.Copy()
-		for _, op := range ops {
-			if err := atrepo.InvertOp(&invTree, &op); err != nil {
-				commitVerifyErrors.WithLabelValues(hostname, "inv").Inc()
-				return nil, err
-			}
-		}
-		computed, err := invTree.RootCID()
-		if err != nil {
-			commitVerifyErrors.WithLabelValues(hostname, "it").Inc()
-			return nil, err
-		}
-		if *computed != *c {
-			// this is self-inconsistent malformed data
-			commitVerifyErrors.WithLabelValues(hostname, "pd").Inc()
-			return nil, fmt.Errorf("inverted tree root didn't match prevData")
-		}
-		//logger.Debug("prevData matched", "prevData", c.String(), "computed", computed.String())
-
-		if prevRoot == nil {
-			commitVerifyOkish.WithLabelValues(hostname, "new").Inc()
-		} else if hasWarning {
-			commitVerifyOkish.WithLabelValues(hostname, "warn").Inc()
-		} else {
-			// TODO: would it be better to make everything "okish"?
-			// commitVerifyOkish.WithLabelValues(hostname, "ok").Inc()
-			commitVerifyOk.WithLabelValues(hostname).Inc()
 		}
 	} else {
 		// this source is still on old protocol without new prevData field
@@ -301,44 +264,191 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS,
 	return repoFragment, nil
 }
 
+func (val *Validator) verifyCommitMessageOp(ctx context.Context, op *atproto.SyncSubscribeRepos_RepoOp, hostname string, repoFragment *atrepo.Repo, logger *slog.Logger) error {
+	if (op.Action == "create" || op.Action == "update") && op.Cid != nil {
+		c := (*cid.Cid)(op.Cid)
+		nsid, rkey, err := syntax.ParseRepoPath(op.Path)
+		if err != nil {
+			commitVerifyErrors.WithLabelValues(hostname, "opp").Inc()
+			if !val.Sync11ErrorsAreWarnings {
+				return fmt.Errorf("invalid repo path in ops list: %w", err)
+			} else {
+				logger.Warn("invalid repo path", "err", err)
+				return nil
+			}
+		}
+		rcid, err := repoFragment.GetRecordCID(ctx, nsid, rkey)
+		if err != nil {
+			commitVerifyErrors.WithLabelValues(hostname, "rcid").Inc()
+			if !val.Sync11ErrorsAreWarnings {
+				return err
+			} else {
+				logger.Warn("could not get record cid for nsid/rkey path", "err", err, "nsid", nsid, "rkey", rkey)
+				return nil
+			}
+		}
+		if *c != *rcid {
+			commitVerifyErrors.WithLabelValues(hostname, "opc").Inc()
+			if !val.Sync11ErrorsAreWarnings {
+				return fmt.Errorf("record op doesn't match MST tree value")
+			} else {
+				logger.Warn("record op doesn't match MST tree value")
+				return nil
+			}
+		}
+		_, _, err = repoFragment.GetRecordBytes(ctx, nsid, rkey)
+		if err != nil {
+			commitVerifyErrors.WithLabelValues(hostname, "rec").Inc()
+			if !val.Sync11ErrorsAreWarnings {
+				return err
+			} else {
+				logger.Warn("could not get record bytes", "err", err, "nsid", nsid, "rkey", rkey)
+				return nil
+			}
+		}
+	}
+	return nil
+}
+
+func (val *Validator) verifyCommitMessagePrevData(msg *atproto.SyncSubscribeRepos_Commit, prevRoot *AccountPreviousState, host *models.PDS, logger *slog.Logger, repoFragment *atrepo.Repo, hasWarning bool) error {
+	hostname := host.Host
+	c := (*cid.Cid)(msg.PrevData)
+	if prevRoot != nil {
+		if *c != prevRoot.GetCid() {
+			commitVerifyWarnings.WithLabelValues(hostname, "pr").Inc()
+			val.inductionTraceLog.Warn("commit prevData mismatch", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+			hasWarning = true
+		}
+	} else {
+		// see counter below for okish "new"
+	}
+
+	// check internal consistency that claimed previous root matches the rest of this message
+	ops, err := ParseCommitOps(msg.Ops)
+	if err != nil {
+		commitVerifyErrors.WithLabelValues(hostname, "pop").Inc()
+		if !val.Sync11ErrorsAreWarnings {
+			return err
+		} else {
+			logger.Warn("invalid commit ops", "err", err)
+			return nil
+		}
+	}
+	ops, err = atrepo.NormalizeOps(ops)
+	if err != nil {
+		commitVerifyErrors.WithLabelValues(hostname, "nop").Inc()
+		if !val.Sync11ErrorsAreWarnings {
+			return err
+		} else {
+			logger.Warn("could not normalize ops", "err", err)
+			return nil
+		}
+	}
+
+	invTree := repoFragment.MST.Copy()
+	for _, op := range ops {
+		if err := atrepo.InvertOp(&invTree, &op); err != nil {
+			commitVerifyErrors.WithLabelValues(hostname, "inv").Inc()
+			if !val.Sync11ErrorsAreWarnings {
+				return err
+			} else {
+				logger.Warn("could not invert op", "err", err)
+				return nil
+			}
+		}
+	}
+	computed, err := invTree.RootCID()
+	if err != nil {
+		commitVerifyErrors.WithLabelValues(hostname, "it").Inc()
+		if !val.Sync11ErrorsAreWarnings {
+			return err
+		} else {
+			logger.Warn("inverted tree could not get root cid", "err", err)
+			return nil
+		}
+	}
+	if *computed != *c {
+		// this is self-inconsistent malformed data
+		commitVerifyErrors.WithLabelValues(hostname, "pd").Inc()
+		if !val.Sync11ErrorsAreWarnings {
+			return fmt.Errorf("inverted tree root didn't match prevData")
+		} else {
+			logger.Warn("inverted tree root didn't match prevData")
+			return nil
+		}
+	}
+	//logger.Debug("prevData matched", "prevData", c.String(), "computed", computed.String())
+
+	if prevRoot == nil {
+		commitVerifyOkish.WithLabelValues(hostname, "new").Inc()
+	} else if hasWarning {
+		commitVerifyOkish.WithLabelValues(hostname, "warn").Inc()
+	} else {
+		// TODO: would it be better to make everything "okish"?
+		// commitVerifyOkish.WithLabelValues(hostname, "ok").Inc()
+		commitVerifyOk.WithLabelValues(hostname).Inc()
+	}
+	return nil
+}
+
 // HandleSync checks signed commit from a #sync message
 func (val *Validator) HandleSync(ctx context.Context, host *models.PDS, msg *atproto.SyncSubscribeRepos_Sync) (newRoot *cid.Cid, err error) {
 	hostname := host.Host
 	hasWarning := false
+	logger := slog.Default().With("host", hostname, "did", msg.Did, "rev", msg.Rev, "seq", msg.Seq, "time", msg.Time)
 
 	did, err := syntax.ParseDID(msg.Did)
 	if err != nil {
 		syncVerifyErrors.WithLabelValues(hostname, "did").Inc()
-		return nil, err
+		return nil, fmt.Errorf("invalid DID, %w", err)
 	}
 	rev, err := syntax.ParseTID(msg.Rev)
 	if err != nil {
 		syncVerifyErrors.WithLabelValues(hostname, "tid").Inc()
-		return nil, err
+		return nil, fmt.Errorf("invalid rev TID, %w", err)
 	}
 	if rev.Time().After(time.Now().Add(val.maxRevFuture)) {
 		syncVerifyErrors.WithLabelValues(hostname, "revf").Inc()
-		return nil, val.ErrRevTooFarFuture
+		if !val.Sync11ErrorsAreWarnings {
+			return nil, val.ErrRevTooFarFuture
+		} else {
+			logger.Warn("invalid rev too far future", "now", time.Now(), "rev", rev.Time())
+		}
 	}
 	_, err = syntax.ParseDatetime(msg.Time)
 	if err != nil {
 		syncVerifyErrors.WithLabelValues(hostname, "time").Inc()
-		return nil, err
+		if !val.Sync11ErrorsAreWarnings {
+			return nil, err
+		} else {
+			logger.Warn("invalid time", "err", err)
+		}
 	}
 
 	commit, err := atrepo.LoadCARCommit(ctx, bytes.NewReader([]byte(msg.Blocks)))
 	if err != nil {
 		commitVerifyErrors.WithLabelValues(hostname, "car").Inc()
-		return nil, err
+		if val.Sync11ErrorsAreWarnings {
+			logger.Warn("invalid car", "err", err)
+		}
+		return nil, fmt.Errorf("invalid car, %w", err)
 	}
 
 	if commit.Rev != rev.String() {
 		commitVerifyErrors.WithLabelValues(hostname, "rev").Inc()
-		return nil, fmt.Errorf("rev did not match commit")
+		if !val.Sync11ErrorsAreWarnings {
+			return nil, fmt.Errorf("rev did not match commit")
+		} else {
+			logger.Warn("message rev != commit.rev")
+		}
 	}
 	if commit.DID != did.String() {
 		commitVerifyErrors.WithLabelValues(hostname, "did2").Inc()
-		return nil, fmt.Errorf("rev did not match commit")
+		if !val.Sync11ErrorsAreWarnings {
+			return nil, fmt.Errorf("did did not match commit")
+		} else {
+			logger.Warn("message did != commit.did")
+		}
 	}
 
 	err = val.VerifyCommitSignature(ctx, commit, hostname, &hasWarning)
