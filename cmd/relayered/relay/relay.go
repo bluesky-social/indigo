@@ -21,6 +21,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/cmd/relayered/models"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream"
+	"github.com/bluesky-social/indigo/cmd/relayered/stream/eventmgr"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/gorilla/websocket"
@@ -47,7 +48,7 @@ const serverListenerBootTimeout = 5 * time.Second
 type Service struct {
 	db      *gorm.DB
 	slurper *Slurper
-	events  *EventManager
+	events  *eventmgr.EventManager
 	didd    identity.Directory
 
 	// TODO: work on doing away with this flag in favor of more pluggable
@@ -111,7 +112,7 @@ func DefaultRelayConfig() *RelayConfig {
 	}
 }
 
-func NewService(db *gorm.DB, validator *Validator, evtman *EventManager, didd identity.Directory, config *RelayConfig) (*Service, error) {
+func NewService(db *gorm.DB, validator *Validator, evtman *eventmgr.EventManager, didd identity.Directory, config *RelayConfig) (*Service, error) {
 
 	if config == nil {
 		config = DefaultRelayConfig()
