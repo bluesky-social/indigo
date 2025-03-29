@@ -100,6 +100,7 @@ func run(args []string) {
 		syncCmd,
 		createFeedGeneratorCmd,
 		getRecordCmd,
+		deleteRecordCmd,
 		listAllRecordsCmd,
 		readRepoStreamCmd,
 		parseRkey,
@@ -811,6 +812,82 @@ var listLabelsCmd = &cli.Command{
 				break
 			}
 		}
+		return nil
+	},
+}
+
+func permissiveParseUri(uri string) (*util.ParsedUri, error) {
+	if strings.HasPrefix(uri, "at://") {
+		puri, err := util.ParseAtUri(uri)
+		if err != nil {
+			return nil, err
+		}
+
+		return puri, nil
+	} else if strings.HasPrefix(uri, "https://bsky.app") {
+		parts := strings.Split(uri, "/")
+		if len(parts) < 4 {
+			return nil, fmt.Errorf("invalid post url")
+		}
+
+		rkey := parts[len(parts)-1]
+		did := parts[len(parts)-3]
+
+		var collection string
+		switch parts[len(parts)-2] {
+		case "post":
+			collection = "app.bsky.feed.post"
+		case "profile":
+			collection = "app.bsky.actor.profile"
+			did = rkey
+			rkey = "self"
+		case "feed":
+			collection = "app.bsky.feed.generator"
+		default:
+			return nil, fmt.Errorf("unrecognized link")
+		}
+
+		return &util.ParsedUri{
+			Did:        did,
+			Collection: collection,
+			Rkey:       rkey,
+		}, nil
+
+	} else {
+		return nil, fmt.Errorf("unrecognized uri format")
+	}
+}
+
+var deleteRecordCmd = &cli.Command{
+	Name:  "delete-record",
+	Flags: []cli.Flag{},
+	Action: func(cctx *cli.Context) error {
+
+		ctx := context.TODO()
+
+		nsid := cctx.Args().First()
+
+		puri, err := permissiveParseUri(nsid)
+		if err != nil {
+			return err
+		}
+
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		resp, err := atproto.RepoDeleteRecord(ctx, xrpcc, &atproto.RepoDeleteRecord_Input{
+			Collection: puri.Collection,
+			Repo:       puri.Did,
+			Rkey:       puri.Rkey,
+		})
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("success: ", resp.Commit.Rev)
+
 		return nil
 	},
 }
