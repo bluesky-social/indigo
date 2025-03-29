@@ -399,7 +399,7 @@ func runBigsky(cctx *cli.Context) error {
 	{
 		mr := did.NewMultiResolver()
 
-		didr := &api.PLCServer{Host: cctx.String("plc-host")}
+		didr := &plc.PLCServer{Host: cctx.String("plc-host")}
 		mr.AddHandler("plc", didr)
 
 		webr := did.WebResolver{}

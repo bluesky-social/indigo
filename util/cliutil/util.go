@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/did"
+	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/xrpc"
 	slogGorm "github.com/orandin/slog-gorm"
 	"github.com/urfave/cli/v2"
@@ -28,7 +28,7 @@ import (
 
 func GetDidResolver(cctx *cli.Context) did.Resolver {
 	mr := did.NewMultiResolver()
-	mr.AddHandler("plc", &api.PLCServer{
+	mr.AddHandler("plc", &plc.PLCServer{
 		Host: cctx.String("plc"),
 	})
 	mr.AddHandler("web", &did.WebResolver{})
@@ -36,8 +36,8 @@ func GetDidResolver(cctx *cli.Context) did.Resolver {
 	return mr
 }
 
-func GetPLCClient(cctx *cli.Context) *api.PLCServer {
-	return &api.PLCServer{
+func GetPLCClient(cctx *cli.Context) *plc.PLCServer {
+	return &plc.PLCServer{
 		Host: cctx.String("plc"),
 	}
 }

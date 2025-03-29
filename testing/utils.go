@@ -50,7 +50,7 @@ import (
 type TestPDS struct {
 	dir    string
 	server *pds.Server
-	plc    *api.PLCServer
+	plc    *plc.PLCServer
 
 	listener net.Listener
 
