@@ -20,6 +20,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay"
+	"github.com/bluesky-social/indigo/cmd/relayered/stream/eventmgr"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist/diskpersist"
 	"github.com/bluesky-social/indigo/util"
@@ -252,7 +253,7 @@ func runRelay(cctx *cli.Context) error {
 	}
 	persister = dp
 
-	evtman := relay.NewEventManager(persister)
+	evtman := eventmgr.NewEventManager(persister)
 
 	ratelimitBypass := cctx.String("bsky-social-rate-limit-skip")
 

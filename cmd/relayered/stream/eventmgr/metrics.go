@@ -1,4 +1,4 @@
-package relay
+package eventmgr
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
