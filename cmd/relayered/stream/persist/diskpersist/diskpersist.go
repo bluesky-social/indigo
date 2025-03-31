@@ -40,7 +40,6 @@ type DiskPersistence struct {
 
 	eventCounter int64
 	curSeq       int64
-	timeSequence bool
 
 	uids     UidSource
 	uidCache *arc.ARCCache[models.Uid, string] // TODO: unused
@@ -86,8 +85,6 @@ type DiskPersistOptions struct {
 	Retention       time.Duration
 
 	Logger *slog.Logger
-
-	TimeSequence bool
 }
 
 func DefaultDiskPersistOptions() *DiskPersistOptions {
@@ -147,7 +144,6 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 		outbuf:          new(bytes.Buffer),
 		writeBufferSize: opts.WriteBufferSize,
 		shutdown:        make(chan struct{}),
-		timeSequence:    opts.TimeSequence,
 		log:             opts.Logger,
 	}
 	if dp.log == nil {
@@ -198,7 +194,7 @@ func (dp *DiskPersistence) resumeLog() error {
 		return fmt.Errorf("failed to scan log file for last seqno: %w", err)
 	}
 
-	dp.log.Info("loaded seq", "seq", seq, "now", time.Now().UnixMicro(), "time-seq", dp.timeSequence)
+	dp.log.Info("loaded seq", "seq", seq, "now", time.Now().UnixMicro())
 
 	dp.curSeq = seq + 1
 	dp.logfi = fi
@@ -469,15 +465,7 @@ func (dp *DiskPersistence) garbageCollect(ctx context.Context) []error {
 
 func (dp *DiskPersistence) doPersist(ctx context.Context, pjob persistJob) error {
 	seq := dp.curSeq
-	if dp.timeSequence {
-		seq = time.Now().UnixMicro()
-		if seq < dp.curSeq {
-			seq = dp.curSeq
-		}
-		dp.curSeq = seq + 1
-	} else {
-		dp.curSeq++
-	}
+	dp.curSeq++
 
 	// Set sequence number in event header
 	// the rest of the header is set in DiskPersistence.Persist()

@@ -444,7 +444,7 @@ func (svc *Service) handleAdminRequestCrawl(e echo.Context) error {
 	}
 
 	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
-		if svc.ssl {
+		if svc.relay.Config.SSL {
 			host = "https://" + host
 		} else {
 			host = "http://" + host
@@ -456,11 +456,11 @@ func (svc *Service) handleAdminRequestCrawl(e echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "failed to parse hostname")
 	}
 
-	if u.Scheme == "http" && svc.ssl {
+	if u.Scheme == "http" && svc.relay.Config.SSL {
 		return echo.NewHTTPError(http.StatusBadRequest, "this server requires https")
 	}
 
-	if u.Scheme == "https" && !svc.ssl {
+	if u.Scheme == "https" && !svc.relay.Config.SSL {
 		return echo.NewHTTPError(http.StatusBadRequest, "this server does not support https")
 	}
 
