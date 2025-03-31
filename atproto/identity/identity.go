@@ -76,7 +76,7 @@ func ParseIdentity(doc *DIDDocument) Identity {
 	}
 	return Identity{
 		DID:         doc.DID,
-		Handle:      syntax.Handle("invalid.handle"),
+		Handle:      syntax.HandleInvalid,
 		AlsoKnownAs: doc.AlsoKnownAs,
 		Services:    svc,
 		Keys:        keys,
