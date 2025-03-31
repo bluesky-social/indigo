@@ -107,9 +107,8 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *co
 }
 
 func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, limit int) (*comatproto.SyncListRepos_Output, error) {
-	// Load the accounts
-	accounts := []*slurper.Account{}
-	if err := s.db.Model(&slurper.Account{}).Where("id > ? AND NOT taken_down AND (upstream_status IS NULL OR upstream_status = 'active')", cursor).Order("id").Limit(limit).Find(&accounts).Error; err != nil {
+	accounts, err := s.relay.ListAccounts(ctx, cursor, limit)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return &comatproto.SyncListRepos_Output{}, nil
 		}
@@ -179,13 +178,11 @@ func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did s
 		return nil, fmt.Errorf("account is suspended by its PDS")
 	}
 
-	var prevState slurper.AccountPreviousState
-	err = s.db.First(&prevState, u.ID).Error
-	if err == nil {
-		// okay!
-	} else if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, relay.ErrUserStatusUnavailable
-	} else {
+	prevState, err := s.relay.GetAccountPreviousState(ctx, u.ID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, relay.ErrUserStatusUnavailable
+		}
 		s.log.Error("user db err", "err", err)
 		return nil, fmt.Errorf("user prev db err, %w", err)
 	}

@@ -122,6 +122,11 @@ func (r *Relay) MigrateDatabase() error {
 	return nil
 }
 
+// simple check of connection to database
+func (r *Relay) Healthcheck() error {
+	return r.db.Exec("SELECT 1").Error
+}
+
 type SocketConsumer struct {
 	UserAgent   string
 	RemoteAddr  string

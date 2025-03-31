@@ -290,6 +290,18 @@ func (r *Relay) ReverseTakedown(ctx context.Context, did string) error {
 	return nil
 }
 
+func (r *Relay) GetAccountPreviousState(ctx context.Context, uid models.Uid) (*slurper.AccountPreviousState, error) {
+	var prevState slurper.AccountPreviousState
+	if err := r.db.First(&prevState, uid).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserStatusUnavailable
+		}
+		r.Logger.Error("user db err", "err", err)
+		return nil, err
+	}
+	return &prevState, nil
+}
+
 func (r *Relay) GetRepoRoot(ctx context.Context, user models.Uid) (cid.Cid, error) {
 	var prevState slurper.AccountPreviousState
 	err := r.db.First(&prevState, user).Error
@@ -301,4 +313,23 @@ func (r *Relay) GetRepoRoot(ctx context.Context, user models.Uid) (cid.Cid, erro
 		r.Logger.Error("user db err", "err", err)
 		return cid.Cid{}, fmt.Errorf("user prev db err, %w", err)
 	}
+}
+
+func (r *Relay) GetHostForDID(ctx context.Context, did string) (string, error) {
+	var pdsHostname string
+	// TODO: use gorm, not "Raw"
+	err := r.db.Raw("SELECT pds.host FROM users JOIN pds ON users.pds = pds.id WHERE users.did = ?", did).Scan(&pdsHostname).Error
+	if err != nil {
+		return "", err
+	}
+	return pdsHostname, nil
+}
+
+func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*slurper.Account, error) {
+
+	accounts := []*slurper.Account{}
+	if err := r.db.Model(&slurper.Account{}).Where("id > ? AND NOT taken_down AND (upstream_status IS NULL OR upstream_status = 'active')", cursor).Order("id").Limit(limit).Find(&accounts).Error; err != nil {
+		return nil, err
+	}
+	return accounts, nil
 }
