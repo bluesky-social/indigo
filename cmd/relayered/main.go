@@ -200,9 +200,6 @@ func runRelay(cctx *cli.Context) error {
 			return err
 		}
 	}
-	if err := db.AutoMigrate(RelaySetting{}); err != nil {
-		panic(err)
-	}
 
 	// TODO: add shared external cache
 	baseDir := identity.BaseDirectory{
@@ -231,21 +228,6 @@ func runRelay(cctx *cli.Context) error {
 	pOpts := diskpersist.DefaultDiskPersistOptions()
 	pOpts.Retention = cctx.Duration("event-playback-ttl")
 	pOpts.TimeSequence = cctx.Bool("time-seq")
-
-	// ensure that time-ish sequence stays consistent within a server context
-	storedTimeSeq, hadStoredTimeSeq, err := getRelaySettingBool(db, "time-seq")
-	if err != nil {
-		return err
-	}
-	if !hadStoredTimeSeq {
-		if err := setRelaySettingBool(db, "time-seq", pOpts.TimeSequence); err != nil {
-			return err
-		}
-	} else {
-		if pOpts.TimeSequence != storedTimeSeq {
-			return fmt.Errorf("time-seq stored as %v but param/env set as %v", storedTimeSeq, pOpts.TimeSequence)
-		}
-	}
 
 	dp, err := diskpersist.NewDiskPersistence(dpd, "", db, pOpts)
 	if err != nil {
