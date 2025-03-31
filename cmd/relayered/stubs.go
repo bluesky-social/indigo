@@ -115,7 +115,7 @@ func (s *Service) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.JSON(http.StatusNotFound, XRPCError{Message: "NULL"})
 		}
-		s.log.Error("user.pds.host lookup", "err", err)
+		s.logger.Error("user.pds.host lookup", "err", err)
 		return c.JSON(http.StatusInternalServerError, XRPCError{Message: "sorry"})
 	}
 

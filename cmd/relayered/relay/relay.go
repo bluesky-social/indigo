@@ -3,7 +3,6 @@ package relay
 import (
 	"log/slog"
 	"sync"
-	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
@@ -11,8 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/eventmgr"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	lru "github.com/hashicorp/golang-lru/v2"
-	promclient "github.com/prometheus/client_golang/prometheus"
+	"github.com/hashicorp/golang-lru/v2"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
@@ -20,14 +18,13 @@ import (
 var tracer = otel.Tracer("relay")
 
 type Relay struct {
-	db  *gorm.DB
-	dir identity.Directory
-
+	db        *gorm.DB
+	dir       identity.Directory
+	Logger    *slog.Logger
 	Slurper   *slurper.Slurper
 	Events    *eventmgr.EventManager
 	Validator *validator.Validator
-
-	Config RelayConfig
+	Config    RelayConfig
 
 	// extUserLk serializes a section of syncPDSAccount()
 	// TODO: at some point we will want to lock specific DIDs, this lock as is
@@ -41,7 +38,6 @@ type Relay struct {
 
 	// Account cache
 	userCache *lru.Cache[string, *slurper.Account]
-	Logger    *slog.Logger
 }
 
 type RelayConfig struct {
@@ -67,21 +63,24 @@ func NewRelay(db *gorm.DB, vldtr *validator.Validator, evtman *eventmgr.EventMan
 		config = DefaultRelayConfig()
 	}
 
-	uc, _ := lru.New[string, *slurper.Account](1_000_000)
+	uc, _ := lru.New[string, *slurper.Account](2_000_000)
 
 	r := &Relay{
 		db:        db,
+		dir:       dir,
+		Logger:    slog.Default().With("system", "relay"),
 		Events:    evtman,
 		Validator: vldtr,
-		dir:       dir,
 		Config:    *config,
 
 		consumersLk: sync.RWMutex{},
 		consumers:   make(map[uint64]*SocketConsumer),
 
 		userCache: uc,
+	}
 
-		Logger: slog.Default().With("system", "relay"),
+	if err := r.MigrateDatabase(); err != nil {
+		return nil, err
 	}
 
 	slOpts := slurper.DefaultSlurperOptions()
@@ -97,10 +96,6 @@ func NewRelay(db *gorm.DB, vldtr *validator.Validator, evtman *eventmgr.EventMan
 	r.Slurper = s
 
 	if err := r.Slurper.RestartAll(); err != nil {
-		return nil, err
-	}
-
-	if err := r.MigrateDatabase(); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -125,11 +120,4 @@ func (r *Relay) MigrateDatabase() error {
 // simple check of connection to database
 func (r *Relay) Healthcheck() error {
 	return r.db.Exec("SELECT 1").Error
-}
-
-type SocketConsumer struct {
-	UserAgent   string
-	RemoteAddr  string
-	ConnectedAt time.Time
-	EventsSent  promclient.Counter
 }
