@@ -18,7 +18,7 @@ type DomainBan struct {
 
 type AccountPreviousState struct {
 	Uid models.Uid   `gorm:"column:uid;primaryKey"`
-	Cid models.DbCID `gorm:"column:cid"`
+	Cid DbCID `gorm:"column:cid"`
 	Rev string       `gorm:"column:rev"`
 	Seq int64        `gorm:"column:seq"`
 }
