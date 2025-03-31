@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
 
 	"github.com/labstack/echo/v4"
 	dto "github.com/prometheus/client_model/go"

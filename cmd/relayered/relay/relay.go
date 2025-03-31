@@ -7,6 +7,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/validator"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/eventmgr"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -19,15 +20,14 @@ import (
 var tracer = otel.Tracer("relay")
 
 type Relay struct {
-	db      *gorm.DB
-	dir     identity.Directory
+	db  *gorm.DB
+	dir identity.Directory
 
-	Slurper *slurper.Slurper
-	Events  *eventmgr.EventManager
-	Validator *slurper.Validator
+	Slurper   *slurper.Slurper
+	Events    *eventmgr.EventManager
+	Validator *validator.Validator
 
 	Config RelayConfig
-
 
 	// extUserLk serializes a section of syncPDSAccount()
 	// TODO: at some point we will want to lock specific DIDs, this lock as is
@@ -41,14 +41,14 @@ type Relay struct {
 
 	// Account cache
 	userCache *lru.Cache[string, *slurper.Account]
-	Logger            *slog.Logger
+	Logger    *slog.Logger
 }
 
 type RelayConfig struct {
-	SSL               bool
-	DefaultRepoLimit  int64
-	ConcurrencyPerPDS int64
-	MaxQueuePerPDS    int64
+	SSL                    bool
+	DefaultRepoLimit       int64
+	ConcurrencyPerPDS      int64
+	MaxQueuePerPDS         int64
 	ApplyPDSClientSettings func(c *xrpc.Client)
 }
 
@@ -61,7 +61,7 @@ func DefaultRelayConfig() *RelayConfig {
 	}
 }
 
-func NewRelay(db *gorm.DB, validator *slurper.Validator, evtman *eventmgr.EventManager, dir identity.Directory, config *RelayConfig) (*Relay, error) {
+func NewRelay(db *gorm.DB, vldtr *validator.Validator, evtman *eventmgr.EventManager, dir identity.Directory, config *RelayConfig) (*Relay, error) {
 
 	if config == nil {
 		config = DefaultRelayConfig()
@@ -70,11 +70,11 @@ func NewRelay(db *gorm.DB, validator *slurper.Validator, evtman *eventmgr.EventM
 	uc, _ := lru.New[string, *slurper.Account](1_000_000)
 
 	r := &Relay{
-		db: db,
-		Events: evtman,
-		Validator: validator,
+		db:        db,
+		Events:    evtman,
+		Validator: vldtr,
 		dir:       dir,
-		Config: *config,
+		Config:    *config,
 
 		consumersLk: sync.RWMutex{},
 		consumers:   make(map[uint64]*SocketConsumer),
@@ -106,7 +106,7 @@ func NewRelay(db *gorm.DB, validator *slurper.Validator, evtman *eventmgr.EventM
 	return r, nil
 }
 
-func (r *Relay) MigrateDatabase() error  {
+func (r *Relay) MigrateDatabase() error {
 	if err := r.db.AutoMigrate(slurper.DomainBan{}); err != nil {
 		return err
 	}

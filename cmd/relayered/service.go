@@ -27,20 +27,19 @@ import (
 const serverListenerBootTimeout = 5 * time.Second
 
 type Service struct {
-	db      *gorm.DB // XXX
-	relay   *relay.Relay
-	dir     identity.Directory
+	db    *gorm.DB // XXX
+	relay *relay.Relay
+	dir   identity.Directory
 
 	// TODO: work on doing away with this flag in favor of more pluggable
 	// pieces that abstract the need for explicit ssl checks
 	ssl bool
 
-
 	// nextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
 	nextCrawlers []*url.URL
 	httpClient   http.Client
 
-	log               *slog.Logger
+	log *slog.Logger
 
 	config ServiceConfig
 }
@@ -64,10 +63,10 @@ func NewService(db *gorm.DB, r *relay.Relay, dir identity.Directory, config *Ser
 	}
 
 	svc := &Service{
-		db: db,
+		db:    db,
 		relay: r,
-		dir:       dir,
-		ssl:       r.Config.SSL,
+		dir:   dir,
+		ssl:   r.Config.SSL,
 
 		log: slog.Default().With("system", "relay"),
 
