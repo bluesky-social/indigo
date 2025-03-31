@@ -49,7 +49,7 @@ type Service struct {
 	db      *gorm.DB
 	slurper *Slurper
 	events  *eventmgr.EventManager
-	didd    identity.Directory
+	dir     identity.Directory
 
 	// TODO: work on doing away with this flag in favor of more pluggable
 	// pieces that abstract the need for explicit ssl checks
@@ -112,7 +112,7 @@ func DefaultRelayConfig() *RelayConfig {
 	}
 }
 
-func NewService(db *gorm.DB, validator *Validator, evtman *eventmgr.EventManager, didd identity.Directory, config *RelayConfig) (*Service, error) {
+func NewService(db *gorm.DB, validator *Validator, evtman *eventmgr.EventManager, dir identity.Directory, config *RelayConfig) (*Service, error) {
 
 	if config == nil {
 		config = DefaultRelayConfig()
@@ -137,7 +137,7 @@ func NewService(db *gorm.DB, validator *Validator, evtman *eventmgr.EventManager
 
 		validator: validator,
 		events:    evtman,
-		didd:      didd,
+		dir:       dir,
 		ssl:       config.SSL,
 
 		consumersLk: sync.RWMutex{},
@@ -1037,7 +1037,7 @@ func (svc *Service) purgeDidCache(ctx context.Context, did string) {
 	if err != nil {
 		return
 	}
-	_ = svc.didd.Purge(ctx, *ati)
+	_ = svc.dir.Purge(ctx, *ati)
 }
 
 // syncPDSAccount ensures that a DID has an account record in the database attached to a PDS record in the database
@@ -1058,7 +1058,7 @@ func (svc *Service) syncPDSAccount(ctx context.Context, did string, host *models
 	if err != nil {
 		return nil, fmt.Errorf("bad did %#v, %w", did, err)
 	}
-	ident, err := svc.didd.LookupDID(ctx, pdid)
+	ident, err := svc.dir.LookupDID(ctx, pdid)
 	if err != nil {
 		return nil, fmt.Errorf("no ident for did %s, %w", did, err)
 	}
