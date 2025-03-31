@@ -26,7 +26,7 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *co
 	}
 
 	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
-		if s.ssl {
+		if s.relay.Config.SSL {
 			host = "https://" + host
 		} else {
 			host = "http://" + host
@@ -38,11 +38,11 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *co
 		return echo.NewHTTPError(http.StatusBadRequest, "failed to parse hostname")
 	}
 
-	if u.Scheme == "http" && s.ssl {
+	if u.Scheme == "http" && s.relay.Config.SSL {
 		return echo.NewHTTPError(http.StatusBadRequest, "this server requires https")
 	}
 
-	if u.Scheme == "https" && !s.ssl {
+	if u.Scheme == "https" && !s.relay.Config.SSL {
 		return echo.NewHTTPError(http.StatusBadRequest, "this server does not support https")
 	}
 
@@ -61,7 +61,7 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *co
 		return echo.NewHTTPError(http.StatusUnauthorized, "domain is banned")
 	}
 
-	s.log.Warn("TODO: better host validation for crawl requests")
+	s.logger.Warn("TODO: better host validation for crawl requests")
 
 	clientHost := fmt.Sprintf("%s://%s", u.Scheme, host)
 
@@ -79,24 +79,24 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *co
 	// Maybe we could do something with this response later
 	_ = desc
 
-	if len(s.nextCrawlers) != 0 {
+	if len(s.config.NextCrawlers) != 0 {
 		blob, err := json.Marshal(body)
 		if err != nil {
-			s.log.Warn("could not forward requestCrawl, json err", "err", err)
+			s.logger.Warn("could not forward requestCrawl, json err", "err", err)
 		} else {
 			go func(bodyBlob []byte) {
-				for _, rpu := range s.nextCrawlers {
+				for _, rpu := range s.config.NextCrawlers {
 					pu := rpu.JoinPath("/xrpc/com.atproto.sync.requestCrawl")
-					response, err := s.httpClient.Post(pu.String(), "application/json", bytes.NewReader(bodyBlob))
+					response, err := s.crawlForwardClient.Post(pu.String(), "application/json", bytes.NewReader(bodyBlob))
 					if response != nil && response.Body != nil {
 						response.Body.Close()
 					}
 					if err != nil || response == nil {
-						s.log.Warn("requestCrawl forward failed", "host", rpu, "err", err)
+						s.logger.Warn("requestCrawl forward failed", "host", rpu, "err", err)
 					} else if response.StatusCode != http.StatusOK {
-						s.log.Warn("requestCrawl forward failed", "host", rpu, "status", response.Status)
+						s.logger.Warn("requestCrawl forward failed", "host", rpu, "status", response.Status)
 					} else {
-						s.log.Info("requestCrawl forward successful", "host", rpu)
+						s.logger.Info("requestCrawl forward successful", "host", rpu)
 					}
 				}
 			}(blob)
@@ -112,7 +112,7 @@ func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int6
 		if err == gorm.ErrRecordNotFound {
 			return &comatproto.SyncListRepos_Output{}, nil
 		}
-		s.log.Error("failed to query accounts", "err", err)
+		s.logger.Error("failed to query accounts", "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to query accounts")
 	}
 
@@ -133,7 +133,7 @@ func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int6
 
 		root, err := s.relay.GetRepoRoot(ctx, user.ID)
 		if err != nil {
-			s.log.Error("failed to get repo root", "err", err, "did", user.Did)
+			s.logger.Error("failed to get repo root", "err", err, "did", user.Did)
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get repo root for (%s): %v", user.Did, err.Error()))
 		}
 
@@ -181,9 +181,9 @@ func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did s
 	prevState, err := s.relay.GetAccountPreviousState(ctx, u.ID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, relay.ErrUserStatusUnavailable
+			return nil, relay.ErrAccountLastUnavailable
 		}
-		s.log.Error("user db err", "err", err)
+		s.logger.Error("user db err", "err", err)
 		return nil, fmt.Errorf("user prev db err, %w", err)
 	}
 
@@ -191,4 +191,36 @@ func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did s
 		Cid: prevState.Cid.CID.String(),
 		Rev: prevState.Rev,
 	}, nil
+}
+
+type HealthStatus struct {
+	Status  string `json:"status"`
+	Message string `json:"msg,omitempty"`
+}
+
+func (svc *Service) HandleHealthCheck(c echo.Context) error {
+	if err := svc.relay.Healthcheck(); err != nil {
+		svc.logger.Error("healthcheck can't connect to database", "err", err)
+		return c.JSON(500, HealthStatus{Status: "error", Message: "can't connect to database"})
+	} else {
+		return c.JSON(200, HealthStatus{Status: "ok"})
+	}
+}
+
+var homeMessage string = `
+.########..########.##..........###....##....##
+.##.....##.##.......##.........##.##....##..##.
+.##.....##.##.......##........##...##....####..
+.########..######...##.......##.....##....##...
+.##...##...##.......##.......#########....##...
+.##....##..##.......##.......##.....##....##...
+.##.....##.########.########.##.....##....##...
+
+This is an atproto [https://atproto.com] relay instance, running the 'relayered' codebase [https://github.com/bluesky-social/indigo]
+
+The firehose WebSocket path is at:  /xrpc/com.atproto.sync.subscribeRepos
+`
+
+func (svc *Service) HandleHomeMessage(c echo.Context) error {
+	return c.String(http.StatusOK, homeMessage)
 }

@@ -12,8 +12,16 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
+	promclient "github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 )
+
+type SocketConsumer struct {
+	UserAgent   string
+	RemoteAddr  string
+	ConnectedAt time.Time
+	EventsSent  promclient.Counter
+}
 
 func (r *Relay) registerConsumer(c *SocketConsumer) uint64 {
 	r.consumersLk.Lock()

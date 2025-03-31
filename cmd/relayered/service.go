@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"io"
+	"encoding/base64"
 	"log/slog"
 	"net"
 	"net/http"
@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay"
 
 	"github.com/labstack/echo/v4"
@@ -19,62 +18,46 @@ import (
 	"gorm.io/gorm"
 )
 
-// serverListenerBootTimeout is how long to wait for the requested server socket
-// to become available for use. This is an arbitrary timeout that should be safe
-// on any platform, but there's no great way to weave this timeout without
-// adding another parameter to the (at time of writing) long signature of
-// NewServer.
-const serverListenerBootTimeout = 5 * time.Second
-
 type Service struct {
-	db    *gorm.DB // XXX
-	relay *relay.Relay
-	dir   identity.Directory
-
-	// TODO: work on doing away with this flag in favor of more pluggable
-	// pieces that abstract the need for explicit ssl checks
-	ssl bool
-
-	// nextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
-	nextCrawlers []*url.URL
-	httpClient   http.Client
-
-	log *slog.Logger
-
+	db     *gorm.DB // XXX
+	logger *slog.Logger
+	relay  *relay.Relay
 	config ServiceConfig
+
+	crawlForwardClient http.Client
 }
 
 type ServiceConfig struct {
 	// NextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
 	NextCrawlers []*url.URL
 
-	// AdminToken checked against "Authorization: Bearer {}" header
-	AdminToken string
+	// verified against Basic admin auth
+	AdminPassword string
+
+	// how long to wait for the requested server socket to become available for use
+	ListenerBootTimeout time.Duration
 }
 
 func DefaultServiceConfig() *ServiceConfig {
-	return &ServiceConfig{}
+	return &ServiceConfig{
+		ListenerBootTimeout: 5 * time.Second,
+	}
 }
 
-func NewService(db *gorm.DB, r *relay.Relay, dir identity.Directory, config *ServiceConfig) (*Service, error) {
+func NewService(db *gorm.DB, r *relay.Relay, config *ServiceConfig) (*Service, error) {
 
 	if config == nil {
 		config = DefaultServiceConfig()
 	}
 
 	svc := &Service{
-		db:    db,
-		relay: r,
-		dir:   dir,
-		ssl:   r.Config.SSL,
-
-		log: slog.Default().With("system", "relay"),
-
-		config: *config,
+		db:                 db,
+		logger:             slog.Default().With("system", "relay"),
+		relay:              r,
+		config:             *config,
+		crawlForwardClient: http.Client{},
 	}
-
-	svc.nextCrawlers = config.NextCrawlers
-	svc.httpClient.Timeout = time.Second * 5
+	svc.crawlForwardClient.Timeout = time.Second * 5
 
 	return svc, nil
 }
@@ -84,21 +67,20 @@ func (svc *Service) StartMetrics(listen string) error {
 	return http.ListenAndServe(listen, nil)
 }
 
-func (svc *Service) Start(addr string, logWriter io.Writer) error {
+func (svc *Service) StartAPI(bind string) error {
 	var lc net.ListenConfig
-	ctx, cancel := context.WithTimeout(context.Background(), serverListenerBootTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), svc.config.ListenerBootTimeout)
 	defer cancel()
 
-	li, err := lc.Listen(ctx, "tcp", addr)
+	li, err := lc.Listen(ctx, "tcp", bind)
 	if err != nil {
 		return err
 	}
-	return svc.StartWithListener(li, logWriter)
+	return svc.startWithListener(li)
 }
 
-func (svc *Service) StartWithListener(listen net.Listener, logWriter io.Writer) error {
+func (svc *Service) startWithListener(listen net.Listener) error {
 	e := echo.New()
-	e.Logger.SetOutput(logWriter)
 	e.HideBanner = true
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
@@ -106,7 +88,7 @@ func (svc *Service) StartWithListener(listen net.Listener, logWriter io.Writer) 
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	if !svc.ssl {
+	if !svc.relay.Config.SSL {
 		e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 			Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
 		}))
@@ -128,7 +110,7 @@ func (svc *Service) StartWithListener(listen net.Listener, logWriter io.Writer) 
 			if err2 := ctx.JSON(err.Code, map[string]any{
 				"error": err.Message,
 			}); err2 != nil {
-				svc.log.Error("Failed to write http error", "err", err2)
+				svc.logger.Error("Failed to write http error", "err", err2)
 			}
 		default:
 			sendHeader := true
@@ -136,7 +118,7 @@ func (svc *Service) StartWithListener(listen net.Listener, logWriter io.Writer) 
 				sendHeader = false
 			}
 
-			svc.log.Warn("HANDLER ERROR: (%s) %s", ctx.Path(), err)
+			svc.logger.Warn("HANDLER ERROR: (%s) %s", ctx.Path(), err)
 
 			if strings.HasPrefix(ctx.Path(), "/admin/") {
 				ctx.JSON(500, map[string]any{
@@ -152,6 +134,9 @@ func (svc *Service) StartWithListener(listen net.Listener, logWriter io.Writer) 
 	}
 
 	// TODO: this API is temporary until we formalize what we want here
+	e.GET("/", svc.HandleHomeMessage)
+	e.GET("/_health", svc.HandleHealthCheck)
+	e.GET("/xrpc/_health", svc.HandleHealthCheck)
 
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", svc.relay.EventsHandler)
 
@@ -159,9 +144,6 @@ func (svc *Service) StartWithListener(listen net.Listener, logWriter io.Writer) 
 	e.GET("/xrpc/com.atproto.sync.listRepos", svc.HandleComAtprotoSyncListRepos)
 	e.GET("/xrpc/com.atproto.sync.getRepo", svc.HandleComAtprotoSyncGetRepo) // just returns 3xx redirect to source PDS
 	e.GET("/xrpc/com.atproto.sync.getLatestCommit", svc.HandleComAtprotoSyncGetLatestCommit)
-	e.GET("/xrpc/_health", svc.HandleHealthCheck)
-	e.GET("/_health", svc.HandleHealthCheck)
-	e.GET("/", svc.HandleHomeMessage)
 
 	admin := e.Group("/admin", svc.checkAdminAuth)
 
@@ -212,53 +194,12 @@ func (svc *Service) Shutdown() []error {
 	return errs
 }
 
-type HealthStatus struct {
-	Status  string `json:"status"`
-	Message string `json:"msg,omitempty"`
-}
-
-func (svc *Service) HandleHealthCheck(c echo.Context) error {
-	if err := svc.relay.Healthcheck(); err != nil {
-		svc.log.Error("healthcheck can't connect to database", "err", err)
-		return c.JSON(500, HealthStatus{Status: "error", Message: "can't connect to database"})
-	} else {
-		return c.JSON(200, HealthStatus{Status: "ok"})
-	}
-}
-
-var homeMessage string = `
-.########..########.##..........###....##....##
-.##.....##.##.......##.........##.##....##..##.
-.##.....##.##.......##........##...##....####..
-.########..######...##.......##.....##....##...
-.##...##...##.......##.......#########....##...
-.##....##..##.......##.......##.....##....##...
-.##.....##.########.########.##.....##....##...
-
-This is an atproto [https://atproto.com] relay instance, running the 'relay' codebase [https://github.com/bluesky-social/indigo]
-
-The firehose WebSocket path is at:  /xrpc/com.atproto.sync.subscribeRepos
-`
-
-func (svc *Service) HandleHomeMessage(c echo.Context) error {
-	return c.String(http.StatusOK, homeMessage)
-}
-
-const authorizationBearerPrefix = "Bearer "
-
 func (svc *Service) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
+	headerVal := "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:"+svc.config.AdminPassword))
 	return func(e echo.Context) error {
-		authheader := e.Request().Header.Get("Authorization")
-		if !strings.HasPrefix(authheader, authorizationBearerPrefix) {
+		if svc.config.AdminPassword != headerVal {
 			return echo.ErrForbidden
 		}
-
-		token := authheader[len(authorizationBearerPrefix):]
-
-		if svc.config.AdminToken != token {
-			return echo.ErrForbidden
-		}
-
 		return next(e)
 	}
 }

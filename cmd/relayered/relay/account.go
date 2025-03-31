@@ -18,8 +18,11 @@ import (
 	"gorm.io/gorm"
 )
 
-var ErrNotFound = errors.New("not found")
-var ErrUserStatusUnavailable = errors.New("user status unavailable")
+var (
+	ErrAccountNotFound        = errors.New("account not found")
+	ErrAccountLastUnavailable = errors.New("account last commit not available")
+	ErrCommitNoUser           = errors.New("commit no user") // TODO
+)
 
 func (r *Relay) DidToUid(ctx context.Context, did string) (models.Uid, error) {
 	xu, err := r.LookupUserByDid(ctx, did)
@@ -27,7 +30,7 @@ func (r *Relay) DidToUid(ctx context.Context, did string) (models.Uid, error) {
 		return 0, err
 	}
 	if xu == nil {
-		return 0, ErrNotFound
+		return 0, ErrAccountNotFound
 	}
 	return xu.ID, nil
 }
@@ -82,8 +85,6 @@ func (r *Relay) newUser(ctx context.Context, host *slurper.PDS, did string) (*sl
 	}
 	return account, nil
 }
-
-var ErrCommitNoUser = errors.New("commit no user")
 
 // syncPDSAccount ensures that a DID has an account record in the database attached to a PDS record in the database
 // Some fields may be updated if needed.
@@ -202,7 +203,7 @@ func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *slurper.PD
 	if cachedAccount == nil {
 		cachedAccount, err = r.LookupUserByDid(ctx, did)
 	}
-	if errors.Is(err, ErrNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, ErrAccountNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
 		err = nil
 	}
 	if err != nil {
@@ -294,7 +295,7 @@ func (r *Relay) GetAccountPreviousState(ctx context.Context, uid models.Uid) (*s
 	var prevState slurper.AccountPreviousState
 	if err := r.db.First(&prevState, uid).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrUserStatusUnavailable
+			return nil, ErrAccountLastUnavailable
 		}
 		r.Logger.Error("user db err", "err", err)
 		return nil, err
@@ -308,7 +309,7 @@ func (r *Relay) GetRepoRoot(ctx context.Context, user models.Uid) (cid.Cid, erro
 	if err == nil {
 		return prevState.Cid.CID, nil
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
-		return cid.Cid{}, ErrUserStatusUnavailable
+		return cid.Cid{}, ErrAccountLastUnavailable
 	} else {
 		r.Logger.Error("user db err", "err", err)
 		return cid.Cid{}, fmt.Errorf("user prev db err, %w", err)

@@ -22,7 +22,8 @@ func setupOTEL(cctx *cli.Context) error {
 	if env == "" {
 		env = "dev"
 	}
-	if cctx.Bool("jaeger") {
+
+	if cctx.Bool("enable-jaeger-tracing") {
 		jaegerUrl := "http://localhost:14268/api/traces"
 		exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(jaegerUrl)))
 		if err != nil {
@@ -49,7 +50,8 @@ func setupOTEL(cctx *cli.Context) error {
 	// https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace#readme-environment-variables
 	// At a minimum, you need to set
 	// OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-	if ep := cctx.String("otel-exporter-otlp-endpoint"); ep != "" {
+	if cctx.Bool("enable-otel-tracing") {
+		ep := cctx.String("otel-exporter-otlp-endpoint")
 		slog.Info("setting up trace exporter", "endpoint", ep)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
