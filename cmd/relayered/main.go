@@ -19,7 +19,7 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/cmd/relayered/relay"
+	"github.com/bluesky-social/indigo/cmd/relayered/slurper"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/eventmgr"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist/diskpersist"
@@ -210,7 +210,7 @@ func runRelay(cctx *cli.Context) error {
 	cacheDir := identity.NewCacheDirectory(&baseDir, cctx.Int("did-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
 
 	// TODO: rename repoman
-	repoman := relay.NewValidator(&cacheDir, inductionTraceLog)
+	repoman := slurper.NewValidator(&cacheDir, inductionTraceLog)
 
 	var persister persist.EventPersistence
 
@@ -240,7 +240,7 @@ func runRelay(cctx *cli.Context) error {
 	ratelimitBypass := cctx.String("bsky-social-rate-limit-skip")
 
 	logger.Info("constructing relay service")
-	svcConfig := relay.DefaultRelayConfig()
+	svcConfig := DefaultRelayConfig()
 	svcConfig.SSL = !cctx.Bool("crawl-insecure-ws")
 	svcConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
 	svcConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
@@ -268,7 +268,7 @@ func runRelay(cctx *cli.Context) error {
 		svcConfig.AdminToken = base64.URLEncoding.EncodeToString(rblob[:])
 		logger.Info("generated random admin key", "header", "Authorization: Bearer "+svcConfig.AdminToken)
 	}
-	svc, err := relay.NewService(db, repoman, evtman, &cacheDir, svcConfig)
+	svc, err := NewService(db, repoman, evtman, &cacheDir, svcConfig)
 	if err != nil {
 		return err
 	}

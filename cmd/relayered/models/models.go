@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/ipfs/go-cid"
-	"gorm.io/gorm"
 )
 
 type Uid uint64
@@ -62,22 +61,4 @@ func (dbc *DbCID) UnmarshalJSON(b []byte) error {
 
 func (dbc *DbCID) GormDataType() string {
 	return "bytes"
-}
-
-type PDS struct {
-	gorm.Model
-
-	Host       string `gorm:"unique"`
-	SSL        bool
-	Cursor     int64
-	Registered bool
-	Blocked    bool
-
-	RateLimit float64
-
-	RepoCount int64
-	RepoLimit int64
-
-	HourlyEventLimit int64
-	DailyEventLimit  int64
 }
