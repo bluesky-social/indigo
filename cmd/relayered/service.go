@@ -2,31 +2,22 @@ package main
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/cmd/relayered/slurper"
-	"github.com/bluesky-social/indigo/cmd/relayered/stream/eventmgr"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay"
 
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	promclient "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
-
-var tracer = otel.Tracer("relay")
 
 // serverListenerBootTimeout is how long to wait for the requested server socket
 // to become available for use. This is an arbitrary timeout that should be safe
@@ -36,127 +27,51 @@ var tracer = otel.Tracer("relay")
 const serverListenerBootTimeout = 5 * time.Second
 
 type Service struct {
-	db      *gorm.DB
-	slurper *slurper.Slurper
-	events  *eventmgr.EventManager
+	db      *gorm.DB // XXX
+	relay   *relay.Relay
 	dir     identity.Directory
 
 	// TODO: work on doing away with this flag in favor of more pluggable
 	// pieces that abstract the need for explicit ssl checks
 	ssl bool
 
-	// extUserLk serializes a section of syncPDSAccount()
-	// TODO: at some point we will want to lock specific DIDs, this lock as is
-	// is overly broad, but i dont expect it to be a bottleneck for now
-	extUserLk sync.Mutex
-
-	validator *slurper.Validator
-
-	// Management of Socket Consumers
-	consumersLk    sync.RWMutex
-	nextConsumerID uint64
-	consumers      map[uint64]*SocketConsumer
-
-	// Account cache
-	userCache *lru.Cache[string, *slurper.Account]
 
 	// nextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
 	nextCrawlers []*url.URL
 	httpClient   http.Client
 
 	log               *slog.Logger
-	inductionTraceLog *slog.Logger
 
 	config ServiceConfig
 }
 
-type SocketConsumer struct {
-	UserAgent   string
-	RemoteAddr  string
-	ConnectedAt time.Time
-	EventsSent  promclient.Counter
-}
-
 type ServiceConfig struct {
-	SSL               bool
-	DefaultRepoLimit  int64
-	ConcurrencyPerPDS int64
-	MaxQueuePerPDS    int64
-
 	// NextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
 	NextCrawlers []*url.URL
-
-	ApplyPDSClientSettings func(c *xrpc.Client)
-	InductionTraceLog      *slog.Logger
 
 	// AdminToken checked against "Authorization: Bearer {}" header
 	AdminToken string
 }
 
 func DefaultServiceConfig() *ServiceConfig {
-	return &ServiceConfig{
-		SSL:               true,
-		DefaultRepoLimit:  100,
-		ConcurrencyPerPDS: 100,
-		MaxQueuePerPDS:    1_000,
-	}
+	return &ServiceConfig{}
 }
 
-func NewService(db *gorm.DB, validator *slurper.Validator, evtman *eventmgr.EventManager, dir identity.Directory, config *ServiceConfig) (*Service, error) {
+func NewService(db *gorm.DB, r *relay.Relay, dir identity.Directory, config *ServiceConfig) (*Service, error) {
 
 	if config == nil {
 		config = DefaultServiceConfig()
 	}
-	if err := db.AutoMigrate(slurper.DomainBan{}); err != nil {
-		panic(err)
-	}
-	if err := db.AutoMigrate(slurper.PDS{}); err != nil {
-		panic(err)
-	}
-	if err := db.AutoMigrate(slurper.Account{}); err != nil {
-		panic(err)
-	}
-	if err := db.AutoMigrate(slurper.AccountPreviousState{}); err != nil {
-		panic(err)
-	}
-
-	uc, _ := lru.New[string, *slurper.Account](1_000_000)
 
 	svc := &Service{
 		db: db,
-
-		validator: validator,
-		events:    evtman,
+		relay: r,
 		dir:       dir,
-		ssl:       config.SSL,
-
-		consumersLk: sync.RWMutex{},
-		consumers:   make(map[uint64]*SocketConsumer),
-
-		userCache: uc,
+		ssl:       r.Config.SSL,
 
 		log: slog.Default().With("system", "relay"),
 
 		config: *config,
-
-		inductionTraceLog: config.InductionTraceLog,
-	}
-
-	slOpts := slurper.DefaultSlurperOptions()
-	slOpts.SSL = config.SSL
-	slOpts.DefaultRepoLimit = config.DefaultRepoLimit
-	slOpts.ConcurrencyPerPDS = config.ConcurrencyPerPDS
-	slOpts.MaxQueuePerPDS = config.MaxQueuePerPDS
-	slOpts.Logger = svc.log
-	s, err := slurper.NewSlurper(db, svc.handleFedEvent, slOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	svc.slurper = s
-
-	if err := svc.slurper.RestartAll(); err != nil {
-		return nil, err
 	}
 
 	svc.nextCrawlers = config.NextCrawlers
@@ -239,7 +154,8 @@ func (svc *Service) StartWithListener(listen net.Listener, logWriter io.Writer) 
 
 	// TODO: this API is temporary until we formalize what we want here
 
-	e.GET("/xrpc/com.atproto.sync.subscribeRepos", svc.EventsHandler)
+	e.GET("/xrpc/com.atproto.sync.subscribeRepos", svc.relay.EventsHandler)
+
 	e.POST("/xrpc/com.atproto.sync.requestCrawl", svc.HandleComAtprotoSyncRequestCrawl)
 	e.GET("/xrpc/com.atproto.sync.listRepos", svc.HandleComAtprotoSyncListRepos)
 	e.GET("/xrpc/com.atproto.sync.getRepo", svc.HandleComAtprotoSyncGetRepo) // just returns 3xx redirect to source PDS
@@ -288,9 +204,9 @@ func (svc *Service) StartWithListener(listen net.Listener, logWriter io.Writer) 
 }
 
 func (svc *Service) Shutdown() []error {
-	errs := svc.slurper.Shutdown()
+	errs := svc.relay.Slurper.Shutdown()
 
-	if err := svc.events.Shutdown(context.TODO()); err != nil {
+	if err := svc.relay.Events.Shutdown(context.TODO()); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -347,5 +263,3 @@ func (svc *Service) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
 		return next(e)
 	}
 }
-
-var ErrNotFound = errors.New("not found")
