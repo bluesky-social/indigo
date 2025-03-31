@@ -83,6 +83,8 @@ func (s *Service) HandleComAtprotoSyncListRepos(c echo.Context) error {
 // HandleComAtprotoSyncGetRepo handles /xrpc/com.atproto.sync.getRepo
 // returns 3xx to same URL at source PDS
 func (s *Service) HandleComAtprotoSyncGetRepo(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetRepo")
+	defer span.End()
 	// no request object, only params
 	params := c.QueryParams()
 	var did string
@@ -106,8 +108,9 @@ func (s *Service) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, XRPCError{Message: "need did param"})
 	}
 
-	var pdsHostname string
-	err := s.db.Raw("SELECT pds.host FROM users JOIN pds ON users.pds = pds.id WHERE users.did = ?", did).Scan(&pdsHostname).Error
+	pdsHostname, err := s.relay.GetHostForDID(ctx, did)
+
+	// TODO: proper error responses
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.JSON(http.StatusNotFound, XRPCError{Message: "NULL"})

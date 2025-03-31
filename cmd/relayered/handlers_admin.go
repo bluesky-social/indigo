@@ -178,11 +178,6 @@ type enrichedPDS struct {
 	UserCount              int64     `json:"UserCount"`
 }
 
-type UserCount struct {
-	PDSID     uint  `gorm:"column:pds"`
-	UserCount int64 `gorm:"column:user_count"`
-}
-
 func (svc *Service) handleListPDSs(e echo.Context) error {
 	var pds []slurper.PDS
 	if err := svc.db.Find(&pds).Error; err != nil {
