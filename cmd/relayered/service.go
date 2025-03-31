@@ -218,7 +218,7 @@ type HealthStatus struct {
 }
 
 func (svc *Service) HandleHealthCheck(c echo.Context) error {
-	if err := svc.db.Exec("SELECT 1").Error; err != nil {
+	if err := svc.relay.Healthcheck(); err != nil {
 		svc.log.Error("healthcheck can't connect to database", "err", err)
 		return c.JSON(500, HealthStatus{Status: "error", Message: "can't connect to database"})
 	} else {
