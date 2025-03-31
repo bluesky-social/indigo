@@ -1,4 +1,4 @@
-package slurper
+package validator
 
 import (
 	"bytes"
@@ -9,11 +9,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	atproto "github.com/bluesky-social/indigo/api/atproto"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
-	atrepo "github.com/bluesky-social/indigo/atproto/repo"
+	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/relayered/models"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
+
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel"
 )
@@ -25,9 +27,9 @@ func NewValidator(directory identity.Directory) *Validator {
 	ErrRevTooFarFuture := fmt.Errorf("new rev is > %s in the future", maxRevFuture)
 
 	return &Validator{
-		userLocks:         make(map[models.Uid]*userLock),
-		log:               slog.Default().With("system", "validator"),
-		directory:         directory,
+		userLocks: make(map[models.Uid]*userLock),
+		log:       slog.Default().With("system", "validator"),
+		directory: directory,
 
 		maxRevFuture:           maxRevFuture,
 		ErrRevTooFarFuture:     ErrRevTooFarFuture,
@@ -40,7 +42,7 @@ type Validator struct {
 	lklk      sync.Mutex
 	userLocks map[models.Uid]*userLock
 
-	log               *slog.Logger
+	log *slog.Logger
 
 	directory identity.Directory
 
@@ -57,7 +59,7 @@ type Validator struct {
 }
 
 type NextCommitHandler interface {
-	HandleCommit(ctx context.Context, host *PDS, uid models.Uid, did string, commit *atproto.SyncSubscribeRepos_Commit) error
+	HandleCommit(ctx context.Context, host *slurper.PDS, uid models.Uid, did string, commit *comatproto.SyncSubscribeRepos_Commit) error
 }
 
 type userLock struct {
@@ -98,7 +100,7 @@ func (val *Validator) lockUser(ctx context.Context, user models.Uid) func() {
 	}
 }
 
-func (val *Validator) HandleCommit(ctx context.Context, host *PDS, account *Account, commit *atproto.SyncSubscribeRepos_Commit, prevRoot *AccountPreviousState) (newRoot *cid.Cid, err error) {
+func (val *Validator) HandleCommit(ctx context.Context, host *slurper.PDS, account *slurper.Account, commit *comatproto.SyncSubscribeRepos_Commit, prevRoot *slurper.AccountPreviousState) (newRoot *cid.Cid, err error) {
 	uid := account.GetUid()
 	unlock := val.lockUser(ctx, uid)
 	defer unlock()
@@ -123,7 +125,7 @@ func (roooe *revOutOfOrderError) Error() string {
 
 var ErrNewRevBeforePrevRev = &revOutOfOrderError{}
 
-func (val *Validator) VerifyCommitMessage(ctx context.Context, host *PDS, msg *atproto.SyncSubscribeRepos_Commit, prevRoot *AccountPreviousState) (*atrepo.Repo, error) {
+func (val *Validator) VerifyCommitMessage(ctx context.Context, host *slurper.PDS, msg *comatproto.SyncSubscribeRepos_Commit, prevRoot *slurper.AccountPreviousState) (*repo.Repo, error) {
 	hostname := host.Host
 	hasWarning := false
 	commitVerifyStarts.Inc()
@@ -262,7 +264,7 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *PDS, msg *a
 			commitVerifyErrors.WithLabelValues(hostname, "pop").Inc()
 			return nil, err
 		}
-		ops, err = atrepo.NormalizeOps(ops)
+		ops, err = repo.NormalizeOps(ops)
 		if err != nil {
 			commitVerifyErrors.WithLabelValues(hostname, "nop").Inc()
 			return nil, err
@@ -270,7 +272,7 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *PDS, msg *a
 
 		invTree := repoFragment.MST.Copy()
 		for _, op := range ops {
-			if err := atrepo.InvertOp(&invTree, &op); err != nil {
+			if err := repo.InvertOp(&invTree, &op); err != nil {
 				commitVerifyErrors.WithLabelValues(hostname, "inv").Inc()
 				return nil, err
 			}
@@ -305,7 +307,7 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *PDS, msg *a
 }
 
 // HandleSync checks signed commit from a #sync message
-func (val *Validator) HandleSync(ctx context.Context, host *PDS, msg *atproto.SyncSubscribeRepos_Sync) (newRoot *cid.Cid, err error) {
+func (val *Validator) HandleSync(ctx context.Context, host *slurper.PDS, msg *comatproto.SyncSubscribeRepos_Sync) (newRoot *cid.Cid, err error) {
 	hostname := host.Host
 	hasWarning := false
 
@@ -354,15 +356,15 @@ func (val *Validator) HandleSync(ctx context.Context, host *PDS, msg *atproto.Sy
 }
 
 // TODO: lift back to indigo/atproto/repo util code?
-func ParseCommitOps(ops []*atproto.SyncSubscribeRepos_RepoOp) ([]atrepo.Operation, error) {
-	out := []atrepo.Operation{}
+func ParseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]repo.Operation, error) {
+	out := []repo.Operation{}
 	for _, rop := range ops {
 		switch rop.Action {
 		case "create":
 			if rop.Cid == nil || rop.Prev != nil {
 				return nil, fmt.Errorf("invalid repoOp: create")
 			}
-			op := atrepo.Operation{
+			op := repo.Operation{
 				Path:  rop.Path,
 				Prev:  nil,
 				Value: (*cid.Cid)(rop.Cid),
@@ -372,7 +374,7 @@ func ParseCommitOps(ops []*atproto.SyncSubscribeRepos_RepoOp) ([]atrepo.Operatio
 			if rop.Cid != nil || rop.Prev == nil {
 				return nil, fmt.Errorf("invalid repoOp: delete")
 			}
-			op := atrepo.Operation{
+			op := repo.Operation{
 				Path:  rop.Path,
 				Prev:  (*cid.Cid)(rop.Prev),
 				Value: nil,
@@ -382,7 +384,7 @@ func ParseCommitOps(ops []*atproto.SyncSubscribeRepos_RepoOp) ([]atrepo.Operatio
 			if rop.Cid == nil || rop.Prev == nil {
 				return nil, fmt.Errorf("invalid repoOp: update")
 			}
-			op := atrepo.Operation{
+			op := repo.Operation{
 				Path:  rop.Path,
 				Prev:  (*cid.Cid)(rop.Prev),
 				Value: (*cid.Cid)(rop.Cid),
@@ -397,7 +399,7 @@ func ParseCommitOps(ops []*atproto.SyncSubscribeRepos_RepoOp) ([]atrepo.Operatio
 
 // VerifyCommitSignature get's repo's registered public key from Identity Directory, verifies Commit
 // hostname is just for metrics in case of error
-func (val *Validator) VerifyCommitSignature(ctx context.Context, commit *atrepo.Commit, hostname string, hasWarning *bool) error {
+func (val *Validator) VerifyCommitSignature(ctx context.Context, commit *repo.Commit, hostname string, hasWarning *bool) error {
 	if val.directory == nil {
 		return nil
 	}

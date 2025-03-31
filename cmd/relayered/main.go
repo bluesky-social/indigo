@@ -19,7 +19,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay"
-	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/validator"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/eventmgr"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist/diskpersist"
@@ -188,8 +188,7 @@ func runRelay(cctx *cli.Context) error {
 	}
 	cacheDir := identity.NewCacheDirectory(&baseDir, cctx.Int("did-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
 
-	// TODO: rename repoman
-	repoman := slurper.NewValidator(&cacheDir)
+	vldtr := validator.NewValidator(&cacheDir)
 
 	var persister persist.EventPersistence
 
@@ -248,7 +247,7 @@ func runRelay(cctx *cli.Context) error {
 		logger.Info("generated random admin key", "header", "Authorization: Bearer "+svcConfig.AdminToken)
 	}
 
-	r, err := relay.NewRelay(db, repoman, evtman, &cacheDir, relayConfig)
+	r, err := relay.NewRelay(db, vldtr, evtman, &cacheDir, relayConfig)
 	if err != nil {
 		return err
 	}

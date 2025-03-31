@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/labstack/echo/v4"

@@ -1,6 +1,5 @@
 package models
 
-import (
-)
+import ()
 
 type Uid uint64

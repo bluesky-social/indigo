@@ -17,10 +17,10 @@ type DomainBan struct {
 }
 
 type AccountPreviousState struct {
-	Uid models.Uid   `gorm:"column:uid;primaryKey"`
-	Cid DbCID `gorm:"column:cid"`
-	Rev string       `gorm:"column:rev"`
-	Seq int64        `gorm:"column:seq"`
+	Uid models.Uid `gorm:"column:uid;primaryKey"`
+	Cid DbCID      `gorm:"column:cid"`
+	Rev string     `gorm:"column:rev"`
+	Seq int64      `gorm:"column:seq"`
 }
 
 func (ups *AccountPreviousState) GetCid() cid.Cid {
