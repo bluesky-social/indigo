@@ -154,12 +154,12 @@ func (srv *Server) resolveIdentityFromDID(c echo.Context, did syntax.DID) error 
 	handle, err := ident.DeclaredHandle()
 	if err != nil {
 		// no handle declared, or invalid syntax
-		handle = syntax.Handle("handle.invalid")
+		handle = syntax.HandleInvalid
 	}
 
 	checkDID, err := srv.dir.ResolveHandle(ctx, handle)
 	if err != nil || checkDID != did {
-		handle = syntax.Handle("handle.invalid")
+		handle = syntax.HandleInvalid
 	}
 
 	return c.JSON(200, comatproto.IdentityDefs_IdentityInfo{
