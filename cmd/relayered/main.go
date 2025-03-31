@@ -240,7 +240,7 @@ func runRelay(cctx *cli.Context) error {
 	ratelimitBypass := cctx.String("bsky-social-rate-limit-skip")
 
 	logger.Info("constructing relay service")
-	svcConfig := DefaultRelayConfig()
+	svcConfig := DefaultServiceConfig()
 	svcConfig.SSL = !cctx.Bool("crawl-insecure-ws")
 	svcConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
 	svcConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
