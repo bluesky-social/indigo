@@ -1,4 +1,4 @@
-package relay
+package main
 
 import (
 	"errors"
@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/cmd/relayered/models"
+	"github.com/bluesky-social/indigo/cmd/relayered/slurper"
 	"github.com/labstack/echo/v4"
 	dto "github.com/prometheus/client_model/go"
 	"gorm.io/gorm"
@@ -132,11 +132,11 @@ func (svc *Service) handleAdminListRepoTakeDowns(e echo.Context) error {
 		haveMinId = true
 	}
 	limit := 1000
-	wat := svc.db.Model(Account{}).WithContext(ctx).Select("id", "did").Where("taken_down = TRUE")
+	wat := svc.db.Model(slurper.Account{}).WithContext(ctx).Select("id", "did").Where("taken_down = TRUE")
 	if haveMinId {
 		wat = wat.Where("id > ?", minId)
 	}
-	//var users []Account
+	//var users []slurper.Account
 	rows, err := wat.Order("id").Limit(limit).Rows()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "oops").WithInternal(err)
@@ -168,7 +168,7 @@ type rateLimit struct {
 }
 
 type enrichedPDS struct {
-	models.PDS
+	slurper.PDS
 	HasActiveConnection    bool      `json:"HasActiveConnection"`
 	EventsSeenSinceStartup uint64    `json:"EventsSeenSinceStartup"`
 	PerSecondEventRate     rateLimit `json:"PerSecondEventRate"`
@@ -183,7 +183,7 @@ type UserCount struct {
 }
 
 func (svc *Service) handleListPDSs(e echo.Context) error {
-	var pds []models.PDS
+	var pds []slurper.PDS
 	if err := svc.db.Find(&pds).Error; err != nil {
 		return err
 	}
@@ -269,7 +269,7 @@ func (svc *Service) handleAdminKillUpstreamConn(e echo.Context) error {
 	block := strings.ToLower(e.QueryParam("block")) == "true"
 
 	if err := svc.slurper.KillUpstreamConnection(host, block); err != nil {
-		if errors.Is(err, ErrNoActiveConnection) {
+		if errors.Is(err, slurper.ErrNoActiveConnection) {
 			return &echo.HTTPError{
 				Code:    400,
 				Message: "no active connection to given host",
@@ -293,7 +293,7 @@ func (svc *Service) handleBlockPDS(e echo.Context) error {
 	}
 
 	// Set the block flag to true in the DB
-	if err := svc.db.Model(&models.PDS{}).Where("host = ?", host).Update("blocked", true).Error; err != nil {
+	if err := svc.db.Model(&slurper.PDS{}).Where("host = ?", host).Update("blocked", true).Error; err != nil {
 		return err
 	}
 
@@ -315,7 +315,7 @@ func (svc *Service) handleUnblockPDS(e echo.Context) error {
 	}
 
 	// Set the block flag to false in the DB
-	if err := svc.db.Model(&models.PDS{}).Where("host = ?", host).Update("blocked", false).Error; err != nil {
+	if err := svc.db.Model(&slurper.PDS{}).Where("host = ?", host).Update("blocked", false).Error; err != nil {
 		return err
 	}
 
@@ -329,7 +329,7 @@ type bannedDomains struct {
 }
 
 func (svc *Service) handleAdminListDomainBans(c echo.Context) error {
-	var all []DomainBan
+	var all []slurper.DomainBan
 	if err := svc.db.Find(&all).Error; err != nil {
 		return err
 	}
@@ -355,7 +355,7 @@ func (svc *Service) handleAdminBanDomain(c echo.Context) error {
 	}
 
 	// Check if the domain is already banned
-	var existing DomainBan
+	var existing slurper.DomainBan
 	if err := svc.db.Where("domain = ?", body.Domain).First(&existing).Error; err == nil {
 		return &echo.HTTPError{
 			Code:    400,
@@ -363,7 +363,7 @@ func (svc *Service) handleAdminBanDomain(c echo.Context) error {
 		}
 	}
 
-	if err := svc.db.Create(&DomainBan{
+	if err := svc.db.Create(&slurper.DomainBan{
 		Domain: body.Domain,
 	}).Error; err != nil {
 		return err
@@ -380,7 +380,7 @@ func (svc *Service) handleAdminUnbanDomain(c echo.Context) error {
 		return err
 	}
 
-	if err := svc.db.Where("domain = ?", body.Domain).Delete(&DomainBan{}).Error; err != nil {
+	if err := svc.db.Where("domain = ?", body.Domain).Delete(&slurper.DomainBan{}).Error; err != nil {
 		return err
 	}
 
@@ -389,33 +389,9 @@ func (svc *Service) handleAdminUnbanDomain(c echo.Context) error {
 	})
 }
 
-type PDSRates struct {
-	// core event rate, counts firehose events
-	PerSecond int64 `json:"per_second,omitempty"`
-	PerHour   int64 `json:"per_hour,omitempty"`
-	PerDay    int64 `json:"per_day,omitempty"`
-
-	RepoLimit int64 `json:"repo_limit,omitempty"`
-}
-
-func (pr *PDSRates) FromSlurper(s *Slurper) {
-	if pr.PerSecond == 0 {
-		pr.PerHour = s.DefaultPerSecondLimit
-	}
-	if pr.PerHour == 0 {
-		pr.PerHour = s.DefaultPerHourLimit
-	}
-	if pr.PerDay == 0 {
-		pr.PerDay = s.DefaultPerDayLimit
-	}
-	if pr.RepoLimit == 0 {
-		pr.RepoLimit = s.DefaultRepoLimit
-	}
-}
-
 type RateLimitChangeRequest struct {
 	Host string `json:"host"`
-	PDSRates
+	slurper.PDSRates
 }
 
 func (svc *Service) handleAdminChangePDSRateLimits(e echo.Context) error {
@@ -425,7 +401,7 @@ func (svc *Service) handleAdminChangePDSRateLimits(e echo.Context) error {
 	}
 
 	// Get the PDS from the DB
-	var pds models.PDS
+	var pds slurper.PDS
 	if err := svc.db.Where("host = ?", body.Host).First(&pds).Error; err != nil {
 		return err
 	}
@@ -479,7 +455,7 @@ type AdminRequestCrawlRequest struct {
 	Hostname string `json:"hostname"`
 
 	// optional:
-	PDSRates
+	slurper.PDSRates
 }
 
 func (svc *Service) handleAdminRequestCrawl(e echo.Context) error {

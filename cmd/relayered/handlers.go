@@ -1,4 +1,4 @@
-package relay
+package main
 
 import (
 	"bytes"
@@ -10,15 +10,15 @@ import (
 	"net/url"
 	"strings"
 
-	atproto "github.com/bluesky-social/indigo/api/atproto"
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"gorm.io/gorm"
-
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/cmd/relayered/slurper"
 	"github.com/bluesky-social/indigo/xrpc"
+
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 )
 
-func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatprototypes.SyncRequestCrawl_Input) error {
+func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatproto.SyncRequestCrawl_Input) error {
 	host := body.Hostname
 	if host == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname")
@@ -69,7 +69,7 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *co
 		Client: http.DefaultClient, // not using the client that auto-retries
 	}
 
-	desc, err := atproto.ServerDescribeServer(ctx, c)
+	desc, err := comatproto.ServerDescribeServer(ctx, c)
 	if err != nil {
 		errMsg := fmt.Sprintf("requested host (%s) failed to respond to describe request", clientHost)
 		return echo.NewHTTPError(http.StatusBadRequest, errMsg)
@@ -105,12 +105,12 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *co
 	return s.slurper.SubscribeToPds(ctx, host, true, false, nil)
 }
 
-func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, limit int) (*comatprototypes.SyncListRepos_Output, error) {
+func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, limit int) (*comatproto.SyncListRepos_Output, error) {
 	// Load the accounts
-	accounts := []*Account{}
-	if err := s.db.Model(&Account{}).Where("id > ? AND NOT taken_down AND (upstream_status IS NULL OR upstream_status = 'active')", cursor).Order("id").Limit(limit).Find(&accounts).Error; err != nil {
+	accounts := []*slurper.Account{}
+	if err := s.db.Model(&slurper.Account{}).Where("id > ? AND NOT taken_down AND (upstream_status IS NULL OR upstream_status = 'active')", cursor).Order("id").Limit(limit).Find(&accounts).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &comatprototypes.SyncListRepos_Output{}, nil
+			return &comatproto.SyncListRepos_Output{}, nil
 		}
 		s.log.Error("failed to query accounts", "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to query accounts")
@@ -118,13 +118,13 @@ func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int6
 
 	if len(accounts) == 0 {
 		// resp.Repos is an explicit empty array, not just 'nil'
-		return &comatprototypes.SyncListRepos_Output{
-			Repos: []*comatprototypes.SyncListRepos_Repo{},
+		return &comatproto.SyncListRepos_Output{
+			Repos: []*comatproto.SyncListRepos_Repo{},
 		}, nil
 	}
 
-	resp := &comatprototypes.SyncListRepos_Output{
-		Repos: make([]*comatprototypes.SyncListRepos_Repo, len(accounts)),
+	resp := &comatproto.SyncListRepos_Output{
+		Repos: make([]*comatproto.SyncListRepos_Repo, len(accounts)),
 	}
 
 	// Fetch the repo roots for each user
@@ -137,7 +137,7 @@ func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int6
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get repo root for (%s): %v", user.Did, err.Error()))
 		}
 
-		resp.Repos[i] = &comatprototypes.SyncListRepos_Repo{
+		resp.Repos[i] = &comatproto.SyncListRepos_Repo{
 			Did:  user.Did,
 			Head: root.String(),
 		}
@@ -154,7 +154,7 @@ func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int6
 
 var ErrUserStatusUnavailable = errors.New("user status unavailable")
 
-func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatprototypes.SyncGetLatestCommit_Output, error) {
+func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatproto.SyncGetLatestCommit_Output, error) {
 	u, err := s.lookupUserByDid(ctx, did)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -168,19 +168,19 @@ func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did s
 	}
 
 	ustatus := u.GetUpstreamStatus()
-	if ustatus == AccountStatusTakendown {
+	if ustatus == slurper.AccountStatusTakendown {
 		return nil, fmt.Errorf("account was taken down by its PDS")
 	}
 
-	if ustatus == AccountStatusDeactivated {
+	if ustatus == slurper.AccountStatusDeactivated {
 		return nil, fmt.Errorf("account is temporarily deactivated")
 	}
 
-	if ustatus == AccountStatusSuspended {
+	if ustatus == slurper.AccountStatusSuspended {
 		return nil, fmt.Errorf("account is suspended by its PDS")
 	}
 
-	var prevState AccountPreviousState
+	var prevState slurper.AccountPreviousState
 	err = s.db.First(&prevState, u.ID).Error
 	if err == nil {
 		// okay!
@@ -191,7 +191,7 @@ func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did s
 		return nil, fmt.Errorf("user prev db err, %w", err)
 	}
 
-	return &comatprototypes.SyncGetLatestCommit_Output{
+	return &comatproto.SyncGetLatestCommit_Output{
 		Cid: prevState.Cid.CID.String(),
 		Rev: prevState.Rev,
 	}, nil

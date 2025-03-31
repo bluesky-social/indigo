@@ -1,4 +1,4 @@
-package relay
+package main
 
 import (
 	"context"
@@ -20,6 +20,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/cmd/relayered/models"
+	"github.com/bluesky-social/indigo/cmd/relayered/slurper"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/eventmgr"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -47,7 +48,7 @@ const serverListenerBootTimeout = 5 * time.Second
 
 type Service struct {
 	db      *gorm.DB
-	slurper *Slurper
+	slurper *slurper.Slurper
 	events  *eventmgr.EventManager
 	dir     identity.Directory
 
@@ -60,7 +61,7 @@ type Service struct {
 	// is overly broad, but i dont expect it to be a bottleneck for now
 	extUserLk sync.Mutex
 
-	validator *Validator
+	validator *slurper.Validator
 
 	// Management of Socket Consumers
 	consumersLk    sync.RWMutex
@@ -68,7 +69,7 @@ type Service struct {
 	consumers      map[uint64]*SocketConsumer
 
 	// Account cache
-	userCache *lru.Cache[string, *Account]
+	userCache *lru.Cache[string, *slurper.Account]
 
 	// nextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
 	nextCrawlers []*url.URL
@@ -112,25 +113,25 @@ func DefaultRelayConfig() *RelayConfig {
 	}
 }
 
-func NewService(db *gorm.DB, validator *Validator, evtman *eventmgr.EventManager, dir identity.Directory, config *RelayConfig) (*Service, error) {
+func NewService(db *gorm.DB, validator *slurper.Validator, evtman *eventmgr.EventManager, dir identity.Directory, config *RelayConfig) (*Service, error) {
 
 	if config == nil {
 		config = DefaultRelayConfig()
 	}
-	if err := db.AutoMigrate(DomainBan{}); err != nil {
+	if err := db.AutoMigrate(slurper.DomainBan{}); err != nil {
 		panic(err)
 	}
-	if err := db.AutoMigrate(models.PDS{}); err != nil {
+	if err := db.AutoMigrate(slurper.PDS{}); err != nil {
 		panic(err)
 	}
-	if err := db.AutoMigrate(Account{}); err != nil {
+	if err := db.AutoMigrate(slurper.Account{}); err != nil {
 		panic(err)
 	}
-	if err := db.AutoMigrate(AccountPreviousState{}); err != nil {
+	if err := db.AutoMigrate(slurper.AccountPreviousState{}); err != nil {
 		panic(err)
 	}
 
-	uc, _ := lru.New[string, *Account](1_000_000)
+	uc, _ := lru.New[string, *slurper.Account](1_000_000)
 
 	svc := &Service{
 		db: db,
@@ -152,13 +153,13 @@ func NewService(db *gorm.DB, validator *Validator, evtman *eventmgr.EventManager
 		inductionTraceLog: config.InductionTraceLog,
 	}
 
-	slOpts := DefaultSlurperOptions()
+	slOpts := slurper.DefaultSlurperOptions()
 	slOpts.SSL = config.SSL
 	slOpts.DefaultRepoLimit = config.DefaultRepoLimit
 	slOpts.ConcurrencyPerPDS = config.ConcurrencyPerPDS
 	slOpts.MaxQueuePerPDS = config.MaxQueuePerPDS
 	slOpts.Logger = svc.log
-	s, err := NewSlurper(db, svc.handleFedEvent, slOpts)
+	s, err := slurper.NewSlurper(db, svc.handleFedEvent, slOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -356,85 +357,6 @@ func (svc *Service) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
 
 		return next(e)
 	}
-}
-
-type Account struct {
-	ID        models.Uid `gorm:"primarykey"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
-	Did       string         `gorm:"uniqueIndex"`
-	PDS       uint           // foreign key on models.PDS.ID
-
-	// TakenDown is set to true if the user in question has been taken down by an admin action at this relay.
-	// A user in this state will have all future events related to it dropped
-	// and no data about this user will be served.
-	TakenDown bool
-
-	// UpstreamStatus is the state of the user as reported by the upstream PDS through #account messages.
-	// Additionally, the non-standard string "active" is set to represent an upstream #account message with the active bool true.
-	UpstreamStatus string `gorm:"index"`
-
-	lk sync.Mutex
-}
-
-func (account *Account) GetDid() string {
-	return account.Did
-}
-
-func (account *Account) GetUid() models.Uid {
-	return account.ID
-}
-
-func (account *Account) SetTakenDown(v bool) {
-	account.lk.Lock()
-	defer account.lk.Unlock()
-	account.TakenDown = v
-}
-
-func (account *Account) GetTakenDown() bool {
-	account.lk.Lock()
-	defer account.lk.Unlock()
-	return account.TakenDown
-}
-
-func (account *Account) SetPDS(pdsId uint) {
-	account.lk.Lock()
-	defer account.lk.Unlock()
-	account.PDS = pdsId
-}
-
-func (account *Account) GetPDS() uint {
-	account.lk.Lock()
-	defer account.lk.Unlock()
-	return account.PDS
-}
-
-func (account *Account) SetUpstreamStatus(v string) {
-	account.lk.Lock()
-	defer account.lk.Unlock()
-	account.UpstreamStatus = v
-}
-
-func (account *Account) GetUpstreamStatus() string {
-	account.lk.Lock()
-	defer account.lk.Unlock()
-	return account.UpstreamStatus
-}
-
-type AccountPreviousState struct {
-	Uid models.Uid   `gorm:"column:uid;primaryKey"`
-	Cid models.DbCID `gorm:"column:cid"`
-	Rev string       `gorm:"column:rev"`
-	Seq int64        `gorm:"column:seq"`
-}
-
-func (ups *AccountPreviousState) GetCid() cid.Cid {
-	return ups.Cid.CID
-}
-func (ups *AccountPreviousState) GetRev() syntax.TID {
-	xt, _ := syntax.ParseTID(ups.Rev)
-	return xt
 }
 
 type addTargetBody struct {
@@ -649,7 +571,7 @@ func (s *Service) domainIsBanned(ctx context.Context, host string) (bool, error)
 }
 
 func (s *Service) findDomainBan(ctx context.Context, host string) (bool, error) {
-	var db DomainBan
+	var db slurper.DomainBan
 	if err := s.db.Find(&db, "domain = ?", host).Error; err != nil {
 		return false, err
 	}
@@ -674,7 +596,7 @@ func (svc *Service) DidToUid(ctx context.Context, did string) (models.Uid, error
 	return xu.ID, nil
 }
 
-func (svc *Service) lookupUserByDid(ctx context.Context, did string) (*Account, error) {
+func (svc *Service) lookupUserByDid(ctx context.Context, did string) (*slurper.Account, error) {
 	ctx, span := tracer.Start(ctx, "lookupUserByDid")
 	defer span.End()
 
@@ -683,7 +605,7 @@ func (svc *Service) lookupUserByDid(ctx context.Context, did string) (*Account, 
 		return cu, nil
 	}
 
-	var u Account
+	var u slurper.Account
 	if err := svc.db.Find(&u, "did = ?", did).Error; err != nil {
 		return nil, err
 	}
@@ -697,11 +619,11 @@ func (svc *Service) lookupUserByDid(ctx context.Context, did string) (*Account, 
 	return &u, nil
 }
 
-func (svc *Service) lookupUserByUID(ctx context.Context, uid models.Uid) (*Account, error) {
+func (svc *Service) lookupUserByUID(ctx context.Context, uid models.Uid) (*slurper.Account, error) {
 	ctx, span := tracer.Start(ctx, "lookupUserByUID")
 	defer span.End()
 
-	var u Account
+	var u slurper.Account
 	if err := svc.db.Find(&u, "id = ?", uid).Error; err != nil {
 		return nil, err
 	}
@@ -714,7 +636,7 @@ func (svc *Service) lookupUserByUID(ctx context.Context, uid models.Uid) (*Accou
 }
 
 // handleFedEvent() is the callback passed to Slurper called from Slurper.handleConnection()
-func (svc *Service) handleFedEvent(ctx context.Context, host *models.PDS, env *stream.XRPCStreamEvent) error {
+func (svc *Service) handleFedEvent(ctx context.Context, host *slurper.PDS, env *stream.XRPCStreamEvent) error {
 	ctx, span := tracer.Start(ctx, "handleFedEvent")
 	defer span.End()
 
@@ -804,7 +726,7 @@ func (svc *Service) handleFedEvent(ctx context.Context, host *models.PDS, env *s
 		}
 
 		// Process the account status change
-		repoStatus := AccountStatusActive
+		repoStatus := slurper.AccountStatusActive
 		if !env.RepoAccount.Active && env.RepoAccount.Status != nil {
 			repoStatus = *env.RepoAccount.Status
 		}
@@ -822,7 +744,7 @@ func (svc *Service) handleFedEvent(ctx context.Context, host *models.PDS, env *s
 		// override with local status
 		if account.GetTakenDown() {
 			shouldBeActive = false
-			status = &AccountStatusTakendown
+			status = &slurper.AccountStatusTakendown
 		}
 
 		// Broadcast the account event to all consumers
@@ -855,7 +777,7 @@ func (svc *Service) handleFedEvent(ctx context.Context, host *models.PDS, env *s
 	}
 }
 
-func (svc *Service) newUser(ctx context.Context, host *models.PDS, did string) (*Account, error) {
+func (svc *Service) newUser(ctx context.Context, host *slurper.PDS, did string) (*slurper.Account, error) {
 	newUsersDiscovered.Inc()
 	start := time.Now()
 	account, err := svc.syncPDSAccount(ctx, did, host, nil)
@@ -869,7 +791,7 @@ func (svc *Service) newUser(ctx context.Context, host *models.PDS, did string) (
 
 var ErrCommitNoUser = errors.New("commit no user")
 
-func (svc *Service) handleCommit(ctx context.Context, host *models.PDS, evt *comatproto.SyncSubscribeRepos_Commit) error {
+func (svc *Service) handleCommit(ctx context.Context, host *slurper.PDS, evt *comatproto.SyncSubscribeRepos_Commit) error {
 	svc.log.Debug("relay got repo append event", "seq", evt.Seq, "pdsHost", host.Host, "repo", evt.Repo)
 
 	account, err := svc.lookupUserByDid(ctx, evt.Repo)
@@ -892,19 +814,19 @@ func (svc *Service) handleCommit(ctx context.Context, host *models.PDS, evt *com
 
 	ustatus := account.GetUpstreamStatus()
 
-	if account.GetTakenDown() || ustatus == AccountStatusTakendown {
+	if account.GetTakenDown() || ustatus == slurper.AccountStatusTakendown {
 		svc.log.Debug("dropping commit event from taken down user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 		repoCommitsResultCounter.WithLabelValues(host.Host, "tdu").Inc()
 		return nil
 	}
 
-	if ustatus == AccountStatusSuspended {
+	if ustatus == slurper.AccountStatusSuspended {
 		svc.log.Debug("dropping commit event from suspended user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 		repoCommitsResultCounter.WithLabelValues(host.Host, "susu").Inc()
 		return nil
 	}
 
-	if ustatus == AccountStatusDeactivated {
+	if ustatus == slurper.AccountStatusDeactivated {
 		svc.log.Debug("dropping commit event from deactivated user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 		repoCommitsResultCounter.WithLabelValues(host.Host, "du").Inc()
 		return nil
@@ -933,7 +855,7 @@ func (svc *Service) handleCommit(ctx context.Context, host *models.PDS, evt *com
 		}
 	}
 
-	var prevState AccountPreviousState
+	var prevState slurper.AccountPreviousState
 	err = svc.db.First(&prevState, account.ID).Error
 	prevP := &prevState
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -988,7 +910,7 @@ func (svc *Service) handleCommit(ctx context.Context, host *models.PDS, evt *com
 }
 
 // handleSync processes #sync messages
-func (svc *Service) handleSync(ctx context.Context, host *models.PDS, evt *comatproto.SyncSubscribeRepos_Sync) error {
+func (svc *Service) handleSync(ctx context.Context, host *slurper.PDS, evt *comatproto.SyncSubscribeRepos_Sync) error {
 	account, err := svc.lookupUserByDid(ctx, evt.Did)
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1045,7 +967,7 @@ func (svc *Service) purgeDidCache(ctx context.Context, did string) {
 // did is the user
 // host is the PDS we received this from, not necessarily the canonical PDS in the DID document
 // cachedAccount is (optionally) the account that we have already looked up from cache or database
-func (svc *Service) syncPDSAccount(ctx context.Context, did string, host *models.PDS, cachedAccount *Account) (*Account, error) {
+func (svc *Service) syncPDSAccount(ctx context.Context, did string, host *slurper.PDS, cachedAccount *slurper.Account) (*slurper.Account, error) {
 	ctx, span := tracer.Start(ctx, "syncPDSAccount")
 	defer span.End()
 
@@ -1087,14 +1009,14 @@ func (svc *Service) syncPDSAccount(ctx context.Context, did string, host *models
 		durl.Scheme = "http"
 	}
 
-	var canonicalHost *models.PDS
+	var canonicalHost *slurper.PDS
 	if host.Host == durl.Host {
 		// we got the message from the canonical PDS, convenient!
 		canonicalHost = host
 	} else {
 		// we got the message from an intermediate relay
 		// check our db for info on canonical PDS
-		var peering models.PDS
+		var peering slurper.PDS
 		if err := svc.db.Find(&peering, "host = ?", durl.Host).Error; err != nil {
 			svc.log.Error("failed to find pds", "host", durl.Host)
 			return nil, err
@@ -1170,15 +1092,15 @@ func (svc *Service) syncPDSAccount(ctx context.Context, did string, host *models
 			err = svc.db.Transaction(func(tx *gorm.DB) error {
 				if caPDS != 0 {
 					// decrement prior PDS's account count
-					tx.Model(&models.PDS{}).Where("id = ?", caPDS).Update("repo_count", gorm.Expr("repo_count - 1"))
+					tx.Model(&slurper.PDS{}).Where("id = ?", caPDS).Update("repo_count", gorm.Expr("repo_count - 1"))
 				}
 				// update user's PDS ID
-				res := tx.Model(Account{}).Where("id = ?", cachedAccount.ID).Update("pds", canonicalHost.ID)
+				res := tx.Model(slurper.Account{}).Where("id = ?", cachedAccount.ID).Update("pds", canonicalHost.ID)
 				if res.Error != nil {
 					return fmt.Errorf("failed to update users pds: %w", res.Error)
 				}
 				// increment new PDS's account count
-				res = tx.Model(&models.PDS{}).Where("id = ? AND repo_count < repo_limit", canonicalHost.ID).Update("repo_count", gorm.Expr("repo_count + 1"))
+				res = tx.Model(&slurper.PDS{}).Where("id = ? AND repo_count < repo_limit", canonicalHost.ID).Update("repo_count", gorm.Expr("repo_count + 1"))
 				return nil
 			})
 
@@ -1187,13 +1109,13 @@ func (svc *Service) syncPDSAccount(ctx context.Context, did string, host *models
 		return cachedAccount, nil
 	}
 
-	newAccount := Account{
+	newAccount := slurper.Account{
 		Did: did,
 		PDS: canonicalHost.ID,
 	}
 
 	err = svc.db.Transaction(func(tx *gorm.DB) error {
-		res := tx.Model(&models.PDS{}).Where("id = ? AND repo_count < repo_limit", canonicalHost.ID).Update("repo_count", gorm.Expr("repo_count + 1"))
+		res := tx.Model(&slurper.PDS{}).Where("id = ? AND repo_count < repo_limit", canonicalHost.ID).Update("repo_count", gorm.Expr("repo_count + 1"))
 		if res.Error != nil {
 			return fmt.Errorf("failed to increment repo count for pds %q: %w", canonicalHost.Host, res.Error)
 		}
@@ -1219,7 +1141,7 @@ func (svc *Service) TakeDownRepo(ctx context.Context, did string) error {
 		return err
 	}
 
-	if err := svc.db.Model(Account{}).Where("id = ?", u.ID).Update("taken_down", true).Error; err != nil {
+	if err := svc.db.Model(slurper.Account{}).Where("id = ?", u.ID).Update("taken_down", true).Error; err != nil {
 		return err
 	}
 	u.SetTakenDown(true)
@@ -1237,7 +1159,7 @@ func (svc *Service) ReverseTakedown(ctx context.Context, did string) error {
 		return err
 	}
 
-	if err := svc.db.Model(Account{}).Where("id = ?", u.ID).Update("taken_down", false).Error; err != nil {
+	if err := svc.db.Model(slurper.Account{}).Where("id = ?", u.ID).Update("taken_down", false).Error; err != nil {
 		return err
 	}
 	u.SetTakenDown(false)
@@ -1246,7 +1168,7 @@ func (svc *Service) ReverseTakedown(ctx context.Context, did string) error {
 }
 
 func (svc *Service) GetRepoRoot(ctx context.Context, user models.Uid) (cid.Cid, error) {
-	var prevState AccountPreviousState
+	var prevState slurper.AccountPreviousState
 	err := svc.db.First(&prevState, user).Error
 	if err == nil {
 		return prevState.Cid.CID, nil

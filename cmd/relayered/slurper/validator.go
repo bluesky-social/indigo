@@ -1,4 +1,4 @@
-package relay
+package slurper
 
 import (
 	"bytes"
@@ -59,7 +59,7 @@ type Validator struct {
 }
 
 type NextCommitHandler interface {
-	HandleCommit(ctx context.Context, host *models.PDS, uid models.Uid, did string, commit *atproto.SyncSubscribeRepos_Commit) error
+	HandleCommit(ctx context.Context, host *PDS, uid models.Uid, did string, commit *atproto.SyncSubscribeRepos_Commit) error
 }
 
 type userLock struct {
@@ -100,7 +100,7 @@ func (val *Validator) lockUser(ctx context.Context, user models.Uid) func() {
 	}
 }
 
-func (val *Validator) HandleCommit(ctx context.Context, host *models.PDS, account *Account, commit *atproto.SyncSubscribeRepos_Commit, prevRoot *AccountPreviousState) (newRoot *cid.Cid, err error) {
+func (val *Validator) HandleCommit(ctx context.Context, host *PDS, account *Account, commit *atproto.SyncSubscribeRepos_Commit, prevRoot *AccountPreviousState) (newRoot *cid.Cid, err error) {
 	uid := account.GetUid()
 	unlock := val.lockUser(ctx, uid)
 	defer unlock()
@@ -125,7 +125,7 @@ func (roooe *revOutOfOrderError) Error() string {
 
 var ErrNewRevBeforePrevRev = &revOutOfOrderError{}
 
-func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS, msg *atproto.SyncSubscribeRepos_Commit, prevRoot *AccountPreviousState) (*atrepo.Repo, error) {
+func (val *Validator) VerifyCommitMessage(ctx context.Context, host *PDS, msg *atproto.SyncSubscribeRepos_Commit, prevRoot *AccountPreviousState) (*atrepo.Repo, error) {
 	hostname := host.Host
 	hasWarning := false
 	commitVerifyStarts.Inc()
@@ -302,7 +302,7 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS,
 }
 
 // HandleSync checks signed commit from a #sync message
-func (val *Validator) HandleSync(ctx context.Context, host *models.PDS, msg *atproto.SyncSubscribeRepos_Sync) (newRoot *cid.Cid, err error) {
+func (val *Validator) HandleSync(ctx context.Context, host *PDS, msg *atproto.SyncSubscribeRepos_Sync) (newRoot *cid.Cid, err error) {
 	hostname := host.Host
 	hasWarning := false
 

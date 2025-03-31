@@ -1,4 +1,4 @@
-package relay
+package slurper
 
 var (
 	// AccountStatusActive is not in the spec but used internally
