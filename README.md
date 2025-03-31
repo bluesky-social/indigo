@@ -12,6 +12,10 @@ Some Bluesky software is developed in Typescript, and lives in the [bluesky-soci
 - **palomar** ([README](./cmd/palomar/README.md)): fulltext search service for <https://bsky.app>
 - **hepa** ([README](./cmd/hepa/README.md)): auto-moderation bot for [Ozone](https://ozone.tools)
 
+**Developer Tools:**
+
+**goat** ([README](./cmd/goat/README.md)): CLI for interacting with network: CAR files, firehose, APIs, etc
+
 **Go Packages:**
 
 > ⚠️ All the packages in this repository are under active development. Features and software interfaces have not stabilized and may break or be removed.
@@ -23,6 +27,7 @@ Some Bluesky software is developed in Typescript, and lives in the [bluesky-soci
 | `atproto/crypto`: crytographic signing and key serialization | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/crypto)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/crypto)     |
 | `atproto/identity`: DID and handle resolution                | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/identity)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/identity) |
 | `atproto/syntax`: string types and parsers for identifiers   | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/syntax)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/syntax)     |
+| `atproto/lexicon`: schema validation of data                 | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/lexicon)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/lexicon)     |
 | `mst`: Merkle Search Tree implementation                     | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/mst)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/mst)                           |
 | `repo`: account data storage                                 | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/repo)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/repo)                         |
 | `xrpc`: HTTP API client                                      | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/xrpc)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/xrpc)                         |
