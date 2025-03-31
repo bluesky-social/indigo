@@ -1,4 +1,4 @@
-package main
+package relay
 
 import (
 	"context"
@@ -15,40 +15,40 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-func (svc *Service) registerConsumer(c *SocketConsumer) uint64 {
-	svc.consumersLk.Lock()
-	defer svc.consumersLk.Unlock()
+func (r *Relay) registerConsumer(c *SocketConsumer) uint64 {
+	r.consumersLk.Lock()
+	defer r.consumersLk.Unlock()
 
-	id := svc.nextConsumerID
-	svc.nextConsumerID++
+	id := r.nextConsumerID
+	r.nextConsumerID++
 
-	svc.consumers[id] = c
+	r.consumers[id] = c
 
 	return id
 }
 
-func (svc *Service) cleanupConsumer(id uint64) {
-	svc.consumersLk.Lock()
-	defer svc.consumersLk.Unlock()
+func (r *Relay) cleanupConsumer(id uint64) {
+	r.consumersLk.Lock()
+	defer r.consumersLk.Unlock()
 
-	c := svc.consumers[id]
+	c := r.consumers[id]
 
 	var m = &dto.Metric{}
 	if err := c.EventsSent.Write(m); err != nil {
-		svc.log.Error("failed to get sent counter", "err", err)
+		r.Logger.Error("failed to get sent counter", "err", err)
 	}
 
-	svc.log.Info("consumer disconnected",
+	r.Logger.Info("consumer disconnected",
 		"consumer_id", id,
 		"remote_addr", c.RemoteAddr,
 		"user_agent", c.UserAgent,
 		"events_sent", m.Counter.GetValue())
 
-	delete(svc.consumers, id)
+	delete(r.consumers, id)
 }
 
 // GET+websocket /xrpc/com.atproto.sync.subscribeRepos
-func (svc *Service) EventsHandler(c echo.Context) error {
+func (r *Relay) EventsHandler(c echo.Context) error {
 	var since *int64
 	if sinceVal := c.QueryParam("cursor"); sinceVal != "" {
 		sval, err := strconv.ParseInt(sinceVal, 10, 64)
@@ -90,7 +90,7 @@ func (svc *Service) EventsHandler(c echo.Context) error {
 				}
 
 				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
-					svc.log.Warn("failed to ping client", "err", err)
+					r.Logger.Warn("failed to ping client", "err", err)
 					cancel()
 					return
 				}
@@ -115,7 +115,7 @@ func (svc *Service) EventsHandler(c echo.Context) error {
 		for {
 			_, _, err := conn.ReadMessage()
 			if err != nil {
-				svc.log.Warn("failed to read message from client", "err", err)
+				r.Logger.Warn("failed to read message from client", "err", err)
 				cancel()
 				return
 			}
@@ -124,7 +124,7 @@ func (svc *Service) EventsHandler(c echo.Context) error {
 
 	ident := c.RealIP() + "-" + c.Request().UserAgent()
 
-	evts, cleanup, err := svc.events.Subscribe(ctx, ident, func(evt *stream.XRPCStreamEvent) bool { return true }, since)
+	evts, cleanup, err := r.Events.Subscribe(ctx, ident, func(evt *stream.XRPCStreamEvent) bool { return true }, since)
 	if err != nil {
 		return err
 	}
@@ -139,10 +139,10 @@ func (svc *Service) EventsHandler(c echo.Context) error {
 	sentCounter := eventsSentCounter.WithLabelValues(consumer.RemoteAddr, consumer.UserAgent)
 	consumer.EventsSent = sentCounter
 
-	consumerID := svc.registerConsumer(&consumer)
-	defer svc.cleanupConsumer(consumerID)
+	consumerID := r.registerConsumer(&consumer)
+	defer r.cleanupConsumer(consumerID)
 
-	logger := svc.log.With(
+	logger := r.Logger.With(
 		"consumer_id", consumerID,
 		"remote_addr", consumer.RemoteAddr,
 		"user_agent", consumer.UserAgent,
@@ -186,4 +186,33 @@ func (svc *Service) EventsHandler(c echo.Context) error {
 			return nil
 		}
 	}
+}
+
+type ConsumerInfo struct {
+	ID             uint64    `json:"id"`
+	RemoteAddr     string    `json:"remote_addr"`
+	UserAgent      string    `json:"user_agent"`
+	EventsConsumed uint64    `json:"events_consumed"`
+	ConnectedAt    time.Time `json:"connected_at"`
+}
+
+func (r *Relay) ListConsumers() []ConsumerInfo {
+	r.consumersLk.RLock()
+	defer r.consumersLk.RUnlock()
+
+	info := make([]ConsumerInfo, 0, len(r.consumers))
+	for id, c := range r.consumers {
+		var m = &dto.Metric{}
+		if err := c.EventsSent.Write(m); err != nil {
+			continue
+		}
+		info = append(info, ConsumerInfo{
+			ID:             id,
+			RemoteAddr:     c.RemoteAddr,
+			UserAgent:      c.UserAgent,
+			EventsConsumed: uint64(m.Counter.GetValue()),
+			ConnectedAt:    c.ConnectedAt,
+		})
+	}
+	return info
 }

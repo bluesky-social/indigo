@@ -20,14 +20,13 @@ import (
 
 const defaultMaxRevFuture = time.Hour
 
-func NewValidator(directory identity.Directory, inductionTraceLog *slog.Logger) *Validator {
+func NewValidator(directory identity.Directory) *Validator {
 	maxRevFuture := defaultMaxRevFuture // TODO: configurable
 	ErrRevTooFarFuture := fmt.Errorf("new rev is > %s in the future", maxRevFuture)
 
 	return &Validator{
 		userLocks:         make(map[models.Uid]*userLock),
 		log:               slog.Default().With("system", "validator"),
-		inductionTraceLog: inductionTraceLog,
 		directory:         directory,
 
 		maxRevFuture:           maxRevFuture,
@@ -42,7 +41,6 @@ type Validator struct {
 	userLocks map[models.Uid]*userLock
 
 	log               *slog.Logger
-	inductionTraceLog *slog.Logger
 
 	directory identity.Directory
 
@@ -164,13 +162,15 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *PDS, msg *a
 	if msg.TooBig {
 		//logger.Warn("event with tooBig flag set")
 		commitVerifyWarnings.WithLabelValues(hostname, "big").Inc()
-		val.inductionTraceLog.Warn("commit tooBig", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+		// XXX: induction trace log
+		val.log.Warn("commit tooBig", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
 		hasWarning = true
 	}
 	if msg.Rebase {
 		//logger.Warn("event with rebase flag set")
 		commitVerifyWarnings.WithLabelValues(hostname, "reb").Inc()
-		val.inductionTraceLog.Warn("commit rebase", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+		// XXX: induction trace log
+		val.log.Warn("commit rebase", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
 		hasWarning = true
 	}
 
@@ -227,14 +227,16 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *PDS, msg *a
 		case "delete":
 			if o.Prev == nil {
 				logger.Debug("can't invert legacy op", "action", o.Action)
-				val.inductionTraceLog.Warn("commit delete op", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+				// XXX: induction trace log
+				val.log.Warn("commit delete op", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
 				commitVerifyOkish.WithLabelValues(hostname, "del").Inc()
 				return repoFragment, nil
 			}
 		case "update":
 			if o.Prev == nil {
 				logger.Debug("can't invert legacy op", "action", o.Action)
-				val.inductionTraceLog.Warn("commit update op", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+				// XXX: induction trace log
+				val.log.Warn("commit update op", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
 				commitVerifyOkish.WithLabelValues(hostname, "up").Inc()
 				return repoFragment, nil
 			}
@@ -246,7 +248,8 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *PDS, msg *a
 		if prevRoot != nil {
 			if *c != prevRoot.GetCid() {
 				commitVerifyWarnings.WithLabelValues(hostname, "pr").Inc()
-				val.inductionTraceLog.Warn("commit prevData mismatch", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+				// XXX: induction trace log
+				val.log.Warn("commit prevData mismatch", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
 				hasWarning = true
 			}
 		} else {

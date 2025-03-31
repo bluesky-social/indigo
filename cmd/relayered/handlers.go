@@ -11,7 +11,8 @@ import (
 	"strings"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/relayered/slurper"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/labstack/echo/v4"
@@ -55,7 +56,7 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *co
 
 	host = u.Host // potentially hostname:port
 
-	banned, err := s.domainIsBanned(ctx, host)
+	banned, err := s.relay.DomainIsBanned(ctx, host)
 	if banned {
 		return echo.NewHTTPError(http.StatusUnauthorized, "domain is banned")
 	}
@@ -102,7 +103,7 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *co
 		}
 	}
 
-	return s.slurper.SubscribeToPds(ctx, host, true, false, nil)
+	return s.relay.Slurper.SubscribeToPds(ctx, host, true, false, nil)
 }
 
 func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, limit int) (*comatproto.SyncListRepos_Output, error) {
@@ -131,7 +132,7 @@ func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int6
 	for i := range accounts {
 		user := accounts[i]
 
-		root, err := s.GetRepoRoot(ctx, user.ID)
+		root, err := s.relay.GetRepoRoot(ctx, user.ID)
 		if err != nil {
 			s.log.Error("failed to get repo root", "err", err, "did", user.Did)
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get repo root for (%s): %v", user.Did, err.Error()))
@@ -152,10 +153,8 @@ func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int6
 	return resp, nil
 }
 
-var ErrUserStatusUnavailable = errors.New("user status unavailable")
-
 func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatproto.SyncGetLatestCommit_Output, error) {
-	u, err := s.lookupUserByDid(ctx, did)
+	u, err := s.relay.LookupUserByDid(ctx, did)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "user not found")
@@ -185,7 +184,7 @@ func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did s
 	if err == nil {
 		// okay!
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrUserStatusUnavailable
+		return nil, relay.ErrUserStatusUnavailable
 	} else {
 		s.log.Error("user db err", "err", err)
 		return nil, fmt.Errorf("user prev db err, %w", err)

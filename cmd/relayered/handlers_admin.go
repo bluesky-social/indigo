@@ -8,9 +8,10 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/bluesky-social/indigo/cmd/relayered/slurper"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay"
+
 	"github.com/labstack/echo/v4"
 	dto "github.com/prometheus/client_model/go"
 	"gorm.io/gorm"
@@ -25,17 +26,17 @@ func (svc *Service) handleAdminSetSubsEnabled(e echo.Context) error {
 		}
 	}
 
-	return svc.slurper.SetNewSubsDisabled(!enabled)
+	return svc.relay.Slurper.SetNewSubsDisabled(!enabled)
 }
 
 func (svc *Service) handleAdminGetSubsEnabled(e echo.Context) error {
 	return e.JSON(200, map[string]bool{
-		"enabled": !svc.slurper.GetNewSubsDisabledState(),
+		"enabled": !svc.relay.Slurper.GetNewSubsDisabledState(),
 	})
 }
 
 func (svc *Service) handleAdminGetNewPDSPerDayRateLimit(e echo.Context) error {
-	limit := svc.slurper.GetNewPDSPerDayLimit()
+	limit := svc.relay.Slurper.GetNewPDSPerDayLimit()
 	return e.JSON(200, map[string]int64{
 		"limit": limit,
 	})
@@ -50,7 +51,7 @@ func (svc *Service) handleAdminSetNewPDSPerDayRateLimit(e echo.Context) error {
 		}
 	}
 
-	err = svc.slurper.SetNewPDSPerDayLimit(limit)
+	err = svc.relay.Slurper.SetNewPDSPerDayLimit(limit)
 	if err != nil {
 		return &echo.HTTPError{
 			Code:    500,
@@ -76,7 +77,7 @@ func (svc *Service) handleAdminTakeDownRepo(e echo.Context) error {
 		}
 	}
 
-	err := svc.TakeDownRepo(ctx, did)
+	err := svc.relay.TakeDownRepo(ctx, did)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &echo.HTTPError{
@@ -95,7 +96,7 @@ func (svc *Service) handleAdminTakeDownRepo(e echo.Context) error {
 func (svc *Service) handleAdminReverseTakedown(e echo.Context) error {
 	did := e.QueryParam("did")
 	ctx := e.Request().Context()
-	err := svc.ReverseTakedown(ctx, did)
+	err := svc.relay.ReverseTakedown(ctx, did)
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -159,7 +160,7 @@ func (svc *Service) handleAdminListRepoTakeDowns(e echo.Context) error {
 }
 
 func (svc *Service) handleAdminGetUpstreamConns(e echo.Context) error {
-	return e.JSON(200, svc.slurper.GetActiveList())
+	return e.JSON(200, svc.relay.Slurper.GetActiveList())
 }
 
 type rateLimit struct {
@@ -190,7 +191,7 @@ func (svc *Service) handleListPDSs(e echo.Context) error {
 
 	enrichedPDSs := make([]enrichedPDS, len(pds))
 
-	activePDSHosts := svc.slurper.GetActiveList()
+	activePDSHosts := svc.relay.Slurper.GetActiveList()
 
 	for i, p := range pds {
 		enrichedPDSs[i].PDS = p
@@ -202,7 +203,7 @@ func (svc *Service) handleListPDSs(e echo.Context) error {
 			}
 		}
 		var m = &dto.Metric{}
-		if err := eventsReceivedCounter.WithLabelValues(p.Host).Write(m); err != nil {
+		if err := relay.EventsReceivedCounter.WithLabelValues(p.Host).Write(m); err != nil {
 			enrichedPDSs[i].EventsSeenSinceStartup = 0
 			continue
 		}
@@ -227,33 +228,9 @@ func (svc *Service) handleListPDSs(e echo.Context) error {
 	return e.JSON(200, enrichedPDSs)
 }
 
-type consumer struct {
-	ID             uint64    `json:"id"`
-	RemoteAddr     string    `json:"remote_addr"`
-	UserAgent      string    `json:"user_agent"`
-	EventsConsumed uint64    `json:"events_consumed"`
-	ConnectedAt    time.Time `json:"connected_at"`
-}
-
 func (svc *Service) handleAdminListConsumers(e echo.Context) error {
-	svc.consumersLk.RLock()
-	defer svc.consumersLk.RUnlock()
 
-	consumers := make([]consumer, 0, len(svc.consumers))
-	for id, c := range svc.consumers {
-		var m = &dto.Metric{}
-		if err := c.EventsSent.Write(m); err != nil {
-			continue
-		}
-		consumers = append(consumers, consumer{
-			ID:             id,
-			RemoteAddr:     c.RemoteAddr,
-			UserAgent:      c.UserAgent,
-			EventsConsumed: uint64(m.Counter.GetValue()),
-			ConnectedAt:    c.ConnectedAt,
-		})
-	}
-
+	consumers := svc.relay.ListConsumers()
 	return e.JSON(200, consumers)
 }
 
@@ -268,7 +245,7 @@ func (svc *Service) handleAdminKillUpstreamConn(e echo.Context) error {
 
 	block := strings.ToLower(e.QueryParam("block")) == "true"
 
-	if err := svc.slurper.KillUpstreamConnection(host, block); err != nil {
+	if err := svc.relay.Slurper.KillUpstreamConnection(host, block); err != nil {
 		if errors.Is(err, slurper.ErrNoActiveConnection) {
 			return &echo.HTTPError{
 				Code:    400,
@@ -298,7 +275,7 @@ func (svc *Service) handleBlockPDS(e echo.Context) error {
 	}
 
 	// don't care if this errors, but we should try to disconnect something we just blocked
-	_ = svc.slurper.KillUpstreamConnection(host, false)
+	_ = svc.relay.Slurper.KillUpstreamConnection(host, false)
 
 	return e.JSON(200, map[string]any{
 		"success": "true",
@@ -417,7 +394,7 @@ func (svc *Service) handleAdminChangePDSRateLimits(e echo.Context) error {
 	}
 
 	// Update the rate limit in the limiter
-	limits := svc.slurper.GetOrCreateLimiters(pds.ID, body.PerSecond, body.PerHour, body.PerDay)
+	limits := svc.relay.Slurper.GetOrCreateLimiters(pds.ID, body.PerSecond, body.PerHour, body.PerDay)
 	limits.PerSecond.SetLimit(body.PerSecond)
 	limits.PerHour.SetLimit(body.PerHour)
 	limits.PerDay.SetLimit(body.PerDay)
@@ -434,7 +411,7 @@ func (svc *Service) handleAdminAddTrustedDomain(e echo.Context) error {
 	}
 
 	// Check if the domain is already trusted
-	trustedDomains := svc.slurper.GetTrustedDomains()
+	trustedDomains := svc.relay.Slurper.GetTrustedDomains()
 	if slices.Contains(trustedDomains, domain) {
 		return &echo.HTTPError{
 			Code:    400,
@@ -442,7 +419,7 @@ func (svc *Service) handleAdminAddTrustedDomain(e echo.Context) error {
 		}
 	}
 
-	if err := svc.slurper.AddTrustedDomain(domain); err != nil {
+	if err := svc.relay.Slurper.AddTrustedDomain(domain); err != nil {
 		return err
 	}
 
@@ -502,14 +479,14 @@ func (svc *Service) handleAdminRequestCrawl(e echo.Context) error {
 
 	host = u.Host // potentially hostname:port
 
-	banned, err := svc.domainIsBanned(ctx, host)
+	banned, err := svc.relay.DomainIsBanned(ctx, host)
 	if banned {
 		return echo.NewHTTPError(http.StatusUnauthorized, "domain is banned")
 	}
 
 	// Skip checking if the server is online for now
 	rateOverrides := body.PDSRates
-	rateOverrides.FromSlurper(svc.slurper)
+	rateOverrides.FromSlurper(svc.relay.Slurper)
 
-	return svc.slurper.SubscribeToPds(ctx, host, true, true, &rateOverrides) // Override Trusted Domain Check
+	return svc.relay.Slurper.SubscribeToPds(ctx, host, true, true, &rateOverrides) // Override Trusted Domain Check
 }
