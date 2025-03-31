@@ -1,11 +1,12 @@
-package main
+package relay
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-var eventsReceivedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+// TODO: expose an accessor instead of exporting
+var EventsReceivedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "events_received_counter",
 	Help: "The total number of events received",
 }, []string{"pds"})

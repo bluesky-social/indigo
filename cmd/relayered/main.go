@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/url"
 	"os"
@@ -19,7 +18,8 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/cmd/relayered/slurper"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/eventmgr"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist/diskpersist"
@@ -141,11 +141,6 @@ func run(args []string) error {
 			Usage:   "forward POST requestCrawl to this url, should be machine root url and not xrpc/requestCrawl, comma separated list",
 			EnvVars: []string{"RELAY_NEXT_CRAWLER"},
 		},
-		&cli.StringFlag{
-			Name:    "trace-induction",
-			Usage:   "file path to log debug trace stuff about induction firehose",
-			EnvVars: []string{"RELAY_TRACE_INDUCTION"},
-		},
 		&cli.BoolFlag{
 			Name:    "time-seq",
 			EnvVars: []string{"RELAY_TIME_SEQUENCE"},
@@ -166,22 +161,6 @@ func runRelay(cctx *cli.Context) error {
 	logger, logWriter, err := cliutil.SetupSlog(cliutil.LogOptions{})
 	if err != nil {
 		return err
-	}
-
-	var inductionTraceLog *slog.Logger
-
-	if cctx.IsSet("trace-induction") {
-		traceFname := cctx.String("trace-induction")
-		traceFout, err := os.OpenFile(traceFname, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return fmt.Errorf("%s: could not open trace file: %w", traceFname, err)
-		}
-		defer traceFout.Close()
-		if traceFname != "" {
-			inductionTraceLog = slog.New(slog.NewJSONHandler(traceFout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-		}
-	} else {
-		inductionTraceLog = slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.Level(999)}))
 	}
 
 	// start observability/tracing (OTEL and jaeger)
@@ -210,7 +189,7 @@ func runRelay(cctx *cli.Context) error {
 	cacheDir := identity.NewCacheDirectory(&baseDir, cctx.Int("did-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
 
 	// TODO: rename repoman
-	repoman := slurper.NewValidator(&cacheDir, inductionTraceLog)
+	repoman := slurper.NewValidator(&cacheDir)
 
 	var persister persist.EventPersistence
 
@@ -241,12 +220,12 @@ func runRelay(cctx *cli.Context) error {
 
 	logger.Info("constructing relay service")
 	svcConfig := DefaultServiceConfig()
-	svcConfig.SSL = !cctx.Bool("crawl-insecure-ws")
-	svcConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
-	svcConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
-	svcConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
-	svcConfig.ApplyPDSClientSettings = makePdsClientSetup(ratelimitBypass)
-	svcConfig.InductionTraceLog = inductionTraceLog
+	relayConfig := relay.DefaultRelayConfig()
+	relayConfig.SSL = !cctx.Bool("crawl-insecure-ws")
+	relayConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
+	relayConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
+	relayConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
+	relayConfig.ApplyPDSClientSettings = makePdsClientSetup(ratelimitBypass)
 	nextCrawlers := cctx.StringSlice("next-crawler")
 	if len(nextCrawlers) != 0 {
 		nextCrawlerUrls := make([]*url.URL, len(nextCrawlers))
@@ -268,11 +247,17 @@ func runRelay(cctx *cli.Context) error {
 		svcConfig.AdminToken = base64.URLEncoding.EncodeToString(rblob[:])
 		logger.Info("generated random admin key", "header", "Authorization: Bearer "+svcConfig.AdminToken)
 	}
-	svc, err := NewService(db, repoman, evtman, &cacheDir, svcConfig)
+
+	r, err := relay.NewRelay(db, repoman, evtman, &cacheDir, relayConfig)
 	if err != nil {
 		return err
 	}
-	dp.SetUidSource(svc)
+
+	svc, err := NewService(db, r, &cacheDir, svcConfig)
+	if err != nil {
+		return err
+	}
+	dp.SetUidSource(r)
 
 	// set up metrics endpoint
 	go func() {

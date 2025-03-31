@@ -1,4 +1,4 @@
-package main
+package relay
 
 import (
 	"context"
@@ -11,15 +11,18 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/relayered/models"
-	"github.com/bluesky-social/indigo/cmd/relayered/slurper"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/ipfs/go-cid"
 	"gorm.io/gorm"
 )
 
-func (svc *Service) DidToUid(ctx context.Context, did string) (models.Uid, error) {
-	xu, err := svc.lookupUserByDid(ctx, did)
+var ErrNotFound = errors.New("not found")
+var ErrUserStatusUnavailable = errors.New("user status unavailable")
+
+func (r *Relay) DidToUid(ctx context.Context, did string) (models.Uid, error) {
+	xu, err := r.LookupUserByDid(ctx, did)
 	if err != nil {
 		return 0, err
 	}
@@ -29,17 +32,17 @@ func (svc *Service) DidToUid(ctx context.Context, did string) (models.Uid, error
 	return xu.ID, nil
 }
 
-func (svc *Service) lookupUserByDid(ctx context.Context, did string) (*slurper.Account, error) {
+func (r *Relay) LookupUserByDid(ctx context.Context, did string) (*slurper.Account, error) {
 	ctx, span := tracer.Start(ctx, "lookupUserByDid")
 	defer span.End()
 
-	cu, ok := svc.userCache.Get(did)
+	cu, ok := r.userCache.Get(did)
 	if ok {
 		return cu, nil
 	}
 
 	var u slurper.Account
-	if err := svc.db.Find(&u, "did = ?", did).Error; err != nil {
+	if err := r.db.Find(&u, "did = ?", did).Error; err != nil {
 		return nil, err
 	}
 
@@ -47,17 +50,17 @@ func (svc *Service) lookupUserByDid(ctx context.Context, did string) (*slurper.A
 		return nil, gorm.ErrRecordNotFound
 	}
 
-	svc.userCache.Add(did, &u)
+	r.userCache.Add(did, &u)
 
 	return &u, nil
 }
 
-func (svc *Service) lookupUserByUID(ctx context.Context, uid models.Uid) (*slurper.Account, error) {
+func (r *Relay) LookupUserByUID(ctx context.Context, uid models.Uid) (*slurper.Account, error) {
 	ctx, span := tracer.Start(ctx, "lookupUserByUID")
 	defer span.End()
 
 	var u slurper.Account
-	if err := svc.db.Find(&u, "id = ?", uid).Error; err != nil {
+	if err := r.db.Find(&u, "id = ?", uid).Error; err != nil {
 		return nil, err
 	}
 
@@ -68,10 +71,10 @@ func (svc *Service) lookupUserByUID(ctx context.Context, uid models.Uid) (*slurp
 	return &u, nil
 }
 
-func (svc *Service) newUser(ctx context.Context, host *slurper.PDS, did string) (*slurper.Account, error) {
+func (r *Relay) newUser(ctx context.Context, host *slurper.PDS, did string) (*slurper.Account, error) {
 	newUsersDiscovered.Inc()
 	start := time.Now()
-	account, err := svc.syncPDSAccount(ctx, did, host, nil)
+	account, err := r.syncPDSAccount(ctx, did, host, nil)
 	newUserDiscoveryDuration.Observe(time.Since(start).Seconds())
 	if err != nil {
 		repoCommitsResultCounter.WithLabelValues(host.Host, "uerr").Inc()
@@ -87,37 +90,37 @@ var ErrCommitNoUser = errors.New("commit no user")
 // did is the user
 // host is the PDS we received this from, not necessarily the canonical PDS in the DID document
 // cachedAccount is (optionally) the account that we have already looked up from cache or database
-func (svc *Service) syncPDSAccount(ctx context.Context, did string, host *slurper.PDS, cachedAccount *slurper.Account) (*slurper.Account, error) {
+func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *slurper.PDS, cachedAccount *slurper.Account) (*slurper.Account, error) {
 	ctx, span := tracer.Start(ctx, "syncPDSAccount")
 	defer span.End()
 
 	externalUserCreationAttempts.Inc()
 
-	svc.log.Debug("create external user", "did", did)
+	r.Logger.Debug("create external user", "did", did)
 
 	// lookup identity so that we know a DID's canonical source PDS
 	pdid, err := syntax.ParseDID(did)
 	if err != nil {
 		return nil, fmt.Errorf("bad did %#v, %w", did, err)
 	}
-	ident, err := svc.dir.LookupDID(ctx, pdid)
+	ident, err := r.dir.LookupDID(ctx, pdid)
 	if err != nil {
 		return nil, fmt.Errorf("no ident for did %s, %w", did, err)
 	}
 	if len(ident.Services) == 0 {
 		return nil, fmt.Errorf("no services for did %s", did)
 	}
-	pdsService, ok := ident.Services["atproto_pds"]
+	pdsRelay, ok := ident.Services["atproto_pds"]
 	if !ok {
 		return nil, fmt.Errorf("no atproto_pds service for did %s", did)
 	}
-	durl, err := url.Parse(pdsService.URL)
+	durl, err := url.Parse(pdsRelay.URL)
 	if err != nil {
-		return nil, fmt.Errorf("pds bad url %#v, %w", pdsService.URL, err)
+		return nil, fmt.Errorf("pds bad url %#v, %w", pdsRelay.URL, err)
 	}
 
 	// is the canonical PDS banned?
-	ban, err := svc.domainIsBanned(ctx, durl.Host)
+	ban, err := r.DomainIsBanned(ctx, durl.Host)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check pds ban status: %w", err)
 	}
@@ -137,8 +140,8 @@ func (svc *Service) syncPDSAccount(ctx context.Context, did string, host *slurpe
 		// we got the message from an intermediate relay
 		// check our db for info on canonical PDS
 		var peering slurper.PDS
-		if err := svc.db.Find(&peering, "host = ?", durl.Host).Error; err != nil {
-			svc.log.Error("failed to find pds", "host", durl.Host)
+		if err := r.db.Find(&peering, "host = ?", durl.Host).Error; err != nil {
+			r.Logger.Error("failed to find pds", "host", durl.Host)
 			return nil, err
 		}
 		canonicalHost = &peering
@@ -152,11 +155,11 @@ func (svc *Service) syncPDSAccount(ctx context.Context, did string, host *slurpe
 		// we got an event from a non-canonical PDS (an intermediate relay)
 		// a non-canonical PDS we haven't seen before; ping it to make sure it's real
 		// TODO: what do we actually want to track about the source we immediately got this message from vs the canonical PDS?
-		svc.log.Warn("pds discovered in new user flow", "pds", durl.String(), "did", did)
+		r.Logger.Warn("pds discovered in new user flow", "pds", durl.String(), "did", did)
 
 		// Do a trivial API request against the PDS to verify that it exists
 		pclient := &xrpc.Client{Host: durl.String()}
-		svc.config.ApplyPDSClientSettings(pclient)
+		r.Config.ApplyPDSClientSettings(pclient)
 		cfg, err := comatproto.ServerDescribeServer(ctx, pclient)
 		if err != nil {
 			// TODO: failing this shouldn't halt our indexing
@@ -169,16 +172,16 @@ func (svc *Service) syncPDSAccount(ctx context.Context, did string, host *slurpe
 		// could check other things, a valid response is good enough for now
 		canonicalHost.Host = durl.Host
 		canonicalHost.SSL = (durl.Scheme == "https")
-		canonicalHost.RateLimit = float64(svc.slurper.DefaultPerSecondLimit)
-		canonicalHost.HourlyEventLimit = svc.slurper.DefaultPerHourLimit
-		canonicalHost.DailyEventLimit = svc.slurper.DefaultPerDayLimit
-		canonicalHost.RepoLimit = svc.slurper.DefaultRepoLimit
+		canonicalHost.RateLimit = float64(r.Slurper.DefaultPerSecondLimit)
+		canonicalHost.HourlyEventLimit = r.Slurper.DefaultPerHourLimit
+		canonicalHost.DailyEventLimit = r.Slurper.DefaultPerDayLimit
+		canonicalHost.RepoLimit = r.Slurper.DefaultRepoLimit
 
-		if svc.ssl && !canonicalHost.SSL {
-			return nil, fmt.Errorf("did references non-ssl PDS, this is disallowed in prod: %q %q", did, pdsService.URL)
+		if r.Config.SSL && !canonicalHost.SSL {
+			return nil, fmt.Errorf("did references non-ssl PDS, this is disallowed in prod: %q %q", did, pdsRelay.URL)
 		}
 
-		if err := svc.db.Create(&canonicalHost).Error; err != nil {
+		if err := r.db.Create(&canonicalHost).Error; err != nil {
 			return nil, err
 		}
 	}
@@ -193,11 +196,11 @@ func (svc *Service) syncPDSAccount(ctx context.Context, did string, host *slurpe
 	}
 
 	// this lock just governs the lower half of this function
-	svc.extUserLk.Lock()
-	defer svc.extUserLk.Unlock()
+	r.extUserLk.Lock()
+	defer r.extUserLk.Unlock()
 
 	if cachedAccount == nil {
-		cachedAccount, err = svc.lookupUserByDid(ctx, did)
+		cachedAccount, err = r.LookupUserByDid(ctx, did)
 	}
 	if errors.Is(err, ErrNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
 		err = nil
@@ -209,7 +212,7 @@ func (svc *Service) syncPDSAccount(ctx context.Context, did string, host *slurpe
 		caPDS := cachedAccount.GetPDS()
 		if caPDS != canonicalHost.ID {
 			// Account is now on a different PDS, update
-			err = svc.db.Transaction(func(tx *gorm.DB) error {
+			err = r.db.Transaction(func(tx *gorm.DB) error {
 				if caPDS != 0 {
 					// decrement prior PDS's account count
 					tx.Model(&slurper.PDS{}).Where("id = ?", caPDS).Update("repo_count", gorm.Expr("repo_count - 1"))
@@ -234,52 +237,52 @@ func (svc *Service) syncPDSAccount(ctx context.Context, did string, host *slurpe
 		PDS: canonicalHost.ID,
 	}
 
-	err = svc.db.Transaction(func(tx *gorm.DB) error {
+	err = r.db.Transaction(func(tx *gorm.DB) error {
 		res := tx.Model(&slurper.PDS{}).Where("id = ? AND repo_count < repo_limit", canonicalHost.ID).Update("repo_count", gorm.Expr("repo_count + 1"))
 		if res.Error != nil {
 			return fmt.Errorf("failed to increment repo count for pds %q: %w", canonicalHost.Host, res.Error)
 		}
 		if terr := tx.Create(&newAccount).Error; terr != nil {
-			svc.log.Error("failed to create user", "did", newAccount.Did, "err", terr)
+			r.Logger.Error("failed to create user", "did", newAccount.Did, "err", terr)
 			return fmt.Errorf("failed to create other pds user: %w", terr)
 		}
 		return nil
 	})
 	if err != nil {
-		svc.log.Error("user create and pds inc err", "err", err)
+		r.Logger.Error("user create and pds inc err", "err", err)
 		return nil, err
 	}
 
-	svc.userCache.Add(did, &newAccount)
+	r.userCache.Add(did, &newAccount)
 
 	return &newAccount, nil
 }
 
-func (svc *Service) TakeDownRepo(ctx context.Context, did string) error {
-	u, err := svc.lookupUserByDid(ctx, did)
+func (r *Relay) TakeDownRepo(ctx context.Context, did string) error {
+	u, err := r.LookupUserByDid(ctx, did)
 	if err != nil {
 		return err
 	}
 
-	if err := svc.db.Model(slurper.Account{}).Where("id = ?", u.ID).Update("taken_down", true).Error; err != nil {
+	if err := r.db.Model(slurper.Account{}).Where("id = ?", u.ID).Update("taken_down", true).Error; err != nil {
 		return err
 	}
 	u.SetTakenDown(true)
 
-	if err := svc.events.TakeDownRepo(ctx, u.ID); err != nil {
+	if err := r.Events.TakeDownRepo(ctx, u.ID); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (svc *Service) ReverseTakedown(ctx context.Context, did string) error {
-	u, err := svc.lookupUserByDid(ctx, did)
+func (r *Relay) ReverseTakedown(ctx context.Context, did string) error {
+	u, err := r.LookupUserByDid(ctx, did)
 	if err != nil {
 		return err
 	}
 
-	if err := svc.db.Model(slurper.Account{}).Where("id = ?", u.ID).Update("taken_down", false).Error; err != nil {
+	if err := r.db.Model(slurper.Account{}).Where("id = ?", u.ID).Update("taken_down", false).Error; err != nil {
 		return err
 	}
 	u.SetTakenDown(false)
@@ -287,15 +290,15 @@ func (svc *Service) ReverseTakedown(ctx context.Context, did string) error {
 	return nil
 }
 
-func (svc *Service) GetRepoRoot(ctx context.Context, user models.Uid) (cid.Cid, error) {
+func (r *Relay) GetRepoRoot(ctx context.Context, user models.Uid) (cid.Cid, error) {
 	var prevState slurper.AccountPreviousState
-	err := svc.db.First(&prevState, user).Error
+	err := r.db.First(&prevState, user).Error
 	if err == nil {
 		return prevState.Cid.CID, nil
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
 		return cid.Cid{}, ErrUserStatusUnavailable
 	} else {
-		svc.log.Error("user db err", "err", err)
+		r.Logger.Error("user db err", "err", err)
 		return cid.Cid{}, fmt.Errorf("user prev db err, %w", err)
 	}
 }
