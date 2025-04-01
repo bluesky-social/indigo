@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluesky-social/indigo/api"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/bgs"
@@ -27,6 +26,7 @@ import (
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/diskpersist"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
+	"github.com/bluesky-social/indigo/handles"
 	"github.com/bluesky-social/indigo/indexer"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
@@ -50,7 +50,7 @@ import (
 type TestPDS struct {
 	dir    string
 	server *pds.Server
-	plc    *api.PLCServer
+	plc    *plc.PLCServer
 
 	listener net.Listener
 
@@ -496,7 +496,7 @@ func TestPLC(t *testing.T) *plc.FakeDid {
 
 type TestRelay struct {
 	bgs *bgs.BGS
-	tr  *api.TestHandleResolver
+	tr  *handles.TestHandleResolver
 	db  *gorm.DB
 
 	// listener is owned by by the Relay structure and should be closed by
@@ -578,7 +578,7 @@ func SetupRelay(ctx context.Context, didr plc.PLCClient, archive bool) (*TestRel
 		}
 	}, true) // TODO: actually want this to be false, but some tests use this to confirm the Relay has seen certain records
 
-	tr := &api.TestHandleResolver{}
+	tr := &handles.TestHandleResolver{}
 
 	bgsConfig := bgs.DefaultBGSConfig()
 	bgsConfig.SSL = false
