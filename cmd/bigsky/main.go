@@ -14,13 +14,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/api"
 	libbgs "github.com/bluesky-social/indigo/bgs"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/dbpersist"
 	"github.com/bluesky-social/indigo/events/diskpersist"
+	"github.com/bluesky-social/indigo/handles"
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
@@ -399,7 +399,7 @@ func runBigsky(cctx *cli.Context) error {
 	{
 		mr := did.NewMultiResolver()
 
-		didr := &api.PLCServer{Host: cctx.String("plc-host")}
+		didr := &plc.PLCServer{Host: cctx.String("plc-host")}
 		mr.AddHandler("plc", didr)
 
 		webr := did.WebResolver{}
@@ -478,7 +478,7 @@ func runBigsky(cctx *cli.Context) error {
 		}
 	}, false)
 
-	prodHR, err := api.NewProdHandleResolver(100_000, cctx.String("resolve-address"), cctx.Bool("force-dns-udp"))
+	prodHR, err := handles.NewProdHandleResolver(100_000, cctx.String("resolve-address"), cctx.Bool("force-dns-udp"))
 	if err != nil {
 		return fmt.Errorf("failed to set up handle resolver: %w", err)
 	}
@@ -491,9 +491,9 @@ func runBigsky(cctx *cli.Context) error {
 		}
 	}
 
-	var hr api.HandleResolver = prodHR
+	var hr handles.HandleResolver = prodHR
 	if cctx.StringSlice("handle-resolver-hosts") != nil {
-		hr = &api.TestHandleResolver{
+		hr = &handles.TestHandleResolver{
 			TrialHosts: cctx.StringSlice("handle-resolver-hosts"),
 		}
 	}
