@@ -24,6 +24,7 @@ import (
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/util/svcutil"
 	"github.com/bluesky-social/indigo/xrpc"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"golang.org/x/sync/semaphore"
@@ -237,7 +238,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	e.File("/dash/*", "public/index.html")
 	e.Static("/assets", "public/assets")
 
-	e.Use(MetricsMiddleware)
+	e.Use(svcutil.MetricsMiddleware)
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
 		switch err := err.(type) {

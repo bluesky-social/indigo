@@ -20,11 +20,11 @@ import (
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/bgs"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/pebblepersist"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/util/svcutil"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/gorilla/websocket"
@@ -212,7 +212,7 @@ func (s *Splitter) StartWithListener(listen net.Listener) error {
 		}
 	*/
 
-	e.Use(bgs.MetricsMiddleware)
+	e.Use(svcutil.MetricsMiddleware)
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
 		switch err := err.(type) {
