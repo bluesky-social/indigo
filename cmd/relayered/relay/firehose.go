@@ -9,7 +9,6 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/relayered/models"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream"
 
@@ -318,11 +317,11 @@ func (r *Relay) handleSync(ctx context.Context, host *slurper.PDS, evt *comatpro
 	return nil
 }
 
-func (r *Relay) upsertPrevState(accountID models.Uid, newRootCid *cid.Cid, rev string, seq int64) error {
+func (r *Relay) upsertPrevState(uid uint64, newRootCid *cid.Cid, rev string, seq int64) error {
 	cidBytes := newRootCid.Bytes()
 	return r.db.Exec(
 		"INSERT INTO account_previous_states (uid, cid, rev, seq) VALUES (?, ?, ?, ?) ON CONFLICT (uid) DO UPDATE SET cid = EXCLUDED.cid, rev = EXCLUDED.rev, seq = EXCLUDED.seq",
-		accountID, cidBytes, rev, seq,
+		uid, cidBytes, rev, seq,
 	).Error
 }
 

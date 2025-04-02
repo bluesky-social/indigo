@@ -13,7 +13,6 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/relayered/models"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
 
 	"github.com/ipfs/go-cid"
@@ -27,7 +26,7 @@ func NewValidator(directory identity.Directory) *Validator {
 	ErrRevTooFarFuture := fmt.Errorf("new rev is > %s in the future", maxRevFuture)
 
 	return &Validator{
-		userLocks: make(map[models.Uid]*userLock),
+		userLocks: make(map[uint64]*userLock),
 		log:       slog.Default().With("system", "validator"),
 		directory: directory,
 
@@ -40,7 +39,7 @@ func NewValidator(directory identity.Directory) *Validator {
 // Validator contains the context and code necessary to validate #commit and #sync messages
 type Validator struct {
 	lklk      sync.Mutex
-	userLocks map[models.Uid]*userLock
+	userLocks map[uint64]*userLock
 
 	log *slog.Logger
 
@@ -59,7 +58,7 @@ type Validator struct {
 }
 
 type NextCommitHandler interface {
-	HandleCommit(ctx context.Context, host *slurper.PDS, uid models.Uid, did string, commit *comatproto.SyncSubscribeRepos_Commit) error
+	HandleCommit(ctx context.Context, host *slurper.PDS, uid uint64, did string, commit *comatproto.SyncSubscribeRepos_Commit) error
 }
 
 type userLock struct {
@@ -68,16 +67,16 @@ type userLock struct {
 }
 
 // lockUser re-serializes access per-user after events may have been fanned out to many worker threads by events/schedulers/parallel
-func (val *Validator) lockUser(ctx context.Context, user models.Uid) func() {
+func (val *Validator) lockUser(ctx context.Context, uid uint64) func() {
 	ctx, span := otel.Tracer("validator").Start(ctx, "userLock")
 	defer span.End()
 
 	val.lklk.Lock()
 
-	ulk, ok := val.userLocks[user]
+	ulk, ok := val.userLocks[uid]
 	if !ok {
 		ulk = &userLock{}
-		val.userLocks[user] = ulk
+		val.userLocks[uid] = ulk
 	}
 
 	ulk.waiters.Add(1)
@@ -95,7 +94,7 @@ func (val *Validator) lockUser(ctx context.Context, user models.Uid) func() {
 		nv := ulk.waiters.Add(-1)
 
 		if nv == 0 {
-			delete(val.userLocks, user)
+			delete(val.userLocks, uid)
 		}
 	}
 }

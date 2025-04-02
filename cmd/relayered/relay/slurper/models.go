@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/relayered/models"
 
 	"github.com/ipfs/go-cid"
 	"gorm.io/gorm"
@@ -17,10 +16,10 @@ type DomainBan struct {
 }
 
 type AccountPreviousState struct {
-	Uid models.Uid `gorm:"column:uid;primaryKey"`
-	Cid DbCID      `gorm:"column:cid"`
-	Rev string     `gorm:"column:rev"`
-	Seq int64      `gorm:"column:seq"`
+	Uid uint64 `gorm:"column:uid;primaryKey"`
+	Cid DbCID  `gorm:"column:cid"`
+	Rev string `gorm:"column:rev"`
+	Seq int64  `gorm:"column:seq"`
 }
 
 func (ups *AccountPreviousState) GetCid() cid.Cid {
@@ -50,7 +49,7 @@ type PDS struct {
 }
 
 type Account struct {
-	ID        models.Uid `gorm:"primarykey"`
+	ID        uint64 `gorm:"primarykey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
@@ -73,7 +72,7 @@ func (account *Account) GetDid() string {
 	return account.Did
 }
 
-func (account *Account) GetUid() models.Uid {
+func (account *Account) GetUid() uint64 {
 	return account.ID
 }
 
