@@ -271,9 +271,7 @@ func (r *Relay) TakeDownRepo(ctx context.Context, did string) error {
 	}
 	u.SetTakenDown(true)
 
-	if err := r.Events.TakeDownRepo(ctx, u.ID); err != nil {
-		return err
-	}
+	// NOTE: not wiping events for user from backfill window
 
 	return nil
 }
