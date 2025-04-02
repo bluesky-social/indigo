@@ -31,6 +31,7 @@ func MustSimpleRelay(dir identity.Directory, tmpd string) *SimpleRelay {
 
 	relayConfig := relay.DefaultRelayConfig()
 	relayConfig.SSL = false
+	relayConfig.SkipAccountHostCheck = true
 
 	db, err := cliutil.SetupDatabase("sqlite://:memory:", 40)
 	if err != nil {

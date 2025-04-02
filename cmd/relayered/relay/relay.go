@@ -46,6 +46,7 @@ type RelayConfig struct {
 	ConcurrencyPerPDS      int64
 	MaxQueuePerPDS         int64
 	ApplyPDSClientSettings func(c *xrpc.Client)
+	SkipAccountHostCheck   bool // XXX: only used for testing
 }
 
 func DefaultRelayConfig() *RelayConfig {
