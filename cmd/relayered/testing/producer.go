@@ -4,17 +4,17 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"sync"
 
-	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/cmd/relayered/stream"
 
 	"github.com/gorilla/websocket"
 )
 
 // testing helper which outputs a sequence of events over a websocket
 type Producer struct {
-	Bind       string
 	BufferSize int
 	mux        *http.ServeMux
 	subs       []*Subscriber
@@ -22,14 +22,13 @@ type Producer struct {
 }
 
 type Subscriber struct {
-	outgoing chan *events.XRPCStreamEvent
+	outgoing chan *stream.XRPCStreamEvent
 	done     chan struct{}
 }
 
-func NewProducer(bind string) *Producer {
+func NewProducer() *Producer {
 	mux := http.NewServeMux()
 	p := Producer{
-		Bind:       bind,
 		BufferSize: 1024,
 		mux:        mux,
 	}
@@ -38,7 +37,6 @@ func NewProducer(bind string) *Producer {
 }
 
 func (p *Producer) handleSubscribeRepos(resp http.ResponseWriter, req *http.Request) {
-	slog.Info("XXX: subscribeRepos")
 
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
@@ -54,7 +52,7 @@ func (p *Producer) handleSubscribeRepos(resp http.ResponseWriter, req *http.Requ
 		for {
 			_, _, err := conn.ReadMessage()
 			if err != nil {
-				slog.Warn("failed to read message from client", "err", err)
+				slog.Debug("failed to read message from client", "err", err)
 				cancel()
 				return
 			}
@@ -72,7 +70,7 @@ func (p *Producer) handleSubscribeRepos(resp http.ResponseWriter, req *http.Requ
 		select {
 		case evt, ok := <-evts:
 			if !ok {
-				slog.Error("event stream closed unexpectedly")
+				slog.Debug("event stream closed unexpectedly")
 				return
 			}
 
@@ -99,17 +97,24 @@ func (p *Producer) handleSubscribeRepos(resp http.ResponseWriter, req *http.Requ
 		case <-ctx.Done():
 			return
 		}
-		slog.Info("XXX: emitted event")
 	}
 }
 
-func (p *Producer) Listen() {
+func (p *Producer) ListenRandom() int {
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		panic(err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	slog.Info("starting test producer", "port", port)
 	go func() {
-		err := http.ListenAndServe(p.Bind, p.mux)
+		defer listener.Close()
+		err := http.Serve(listener, p.mux)
 		if err != nil {
-			slog.Error("test producer shutdown", "err", err)
+			slog.Warn("test producer shutting down", "err", err)
 		}
 	}()
+	return port
 }
 
 func (p *Producer) Shutdown() {
@@ -121,11 +126,10 @@ func (p *Producer) Shutdown() {
 	}
 }
 
-func (p *Producer) AddSubscriber(ctx context.Context) (<-chan *events.XRPCStreamEvent, error) {
+func (p *Producer) AddSubscriber(ctx context.Context) (<-chan *stream.XRPCStreamEvent, error) {
 
-	slog.Info("XXX: adding subscriber")
 	sub := &Subscriber{
-		outgoing: make(chan *events.XRPCStreamEvent, p.BufferSize),
+		outgoing: make(chan *stream.XRPCStreamEvent, p.BufferSize),
 		done:     make(chan struct{}),
 	}
 
@@ -136,7 +140,7 @@ func (p *Producer) AddSubscriber(ctx context.Context) (<-chan *events.XRPCStream
 	return sub.outgoing, nil
 }
 
-func (p *Producer) Emit(evt *events.XRPCStreamEvent) error {
+func (p *Producer) Emit(evt *stream.XRPCStreamEvent) error {
 	if err := evt.Preserialize(); err != nil {
 		return err
 	}
@@ -148,7 +152,6 @@ func (p *Producer) Emit(evt *events.XRPCStreamEvent) error {
 		slog.Warn("sending event, but no subscribers")
 	}
 	for _, s := range p.subs {
-		slog.Info("XXX: outgoing")
 		select {
 		case s.outgoing <- evt:
 			// sent evt on this subscriber's chan! yay!

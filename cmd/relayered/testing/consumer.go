@@ -8,8 +8,8 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/schedulers/sequential"
+	"github.com/bluesky-social/indigo/cmd/relayered/stream"
+	"github.com/bluesky-social/indigo/cmd/relayered/stream/schedulers/sequential"
 
 	"github.com/gorilla/websocket"
 )
@@ -17,7 +17,7 @@ import (
 // testing helper which receives a set of firehose events
 type Consumer struct {
 	Host     string
-	Events   []*events.XRPCStreamEvent
+	Events   []*stream.XRPCStreamEvent
 	LastSeq  int64
 	Timeout  time.Duration
 	eventsLk sync.Mutex
@@ -32,33 +32,33 @@ func NewConsumer(host string) *Consumer {
 	return &c
 }
 
-func (c *Consumer) eventCallbacks() *events.RepoStreamCallbacks {
-	rsc := &events.RepoStreamCallbacks{
+func (c *Consumer) eventCallbacks() *stream.RepoStreamCallbacks {
+	rsc := &stream.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 			c.eventsLk.Lock()
 			defer c.eventsLk.Unlock()
-			c.Events = append(c.Events, &events.XRPCStreamEvent{RepoCommit: evt})
+			c.Events = append(c.Events, &stream.XRPCStreamEvent{RepoCommit: evt})
 			c.LastSeq = evt.Seq
 			return nil
 		},
 		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
 			c.eventsLk.Lock()
 			defer c.eventsLk.Unlock()
-			c.Events = append(c.Events, &events.XRPCStreamEvent{RepoSync: evt})
+			c.Events = append(c.Events, &stream.XRPCStreamEvent{RepoSync: evt})
 			c.LastSeq = evt.Seq
 			return nil
 		},
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
 			c.eventsLk.Lock()
 			defer c.eventsLk.Unlock()
-			c.Events = append(c.Events, &events.XRPCStreamEvent{RepoIdentity: evt})
+			c.Events = append(c.Events, &stream.XRPCStreamEvent{RepoIdentity: evt})
 			c.LastSeq = evt.Seq
 			return nil
 		},
 		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
 			c.eventsLk.Lock()
 			defer c.eventsLk.Unlock()
-			c.Events = append(c.Events, &events.XRPCStreamEvent{RepoAccount: evt})
+			c.Events = append(c.Events, &stream.XRPCStreamEvent{RepoAccount: evt})
 			c.LastSeq = evt.Seq
 			return nil
 		},
@@ -66,7 +66,7 @@ func (c *Consumer) eventCallbacks() *events.RepoStreamCallbacks {
 		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
 			c.eventsLk.Lock()
 			defer c.eventsLk.Unlock()
-			c.Events = append(c.Events, &events.XRPCStreamEvent{RepoHandle: evt})
+			c.Events = append(c.Events, &stream.XRPCStreamEvent{RepoHandle: evt})
 			c.LastSeq = evt.Seq
 			return nil
 		},
@@ -101,8 +101,8 @@ func (c *Consumer) Connect(ctx context.Context, cursor int) error {
 
 	seqScheduler := sequential.NewScheduler("test", c.eventCallbacks().EventHandler)
 	go func() {
-		if err := events.HandleRepoStream(ctx, conn, seqScheduler, nil); err != nil {
-			slog.Error("consumer failed processing event", "err", err)
+		if err := stream.HandleRepoStream(ctx, conn, seqScheduler, nil); err != nil {
+			slog.Debug("consumer failed processing event", "err", err)
 			cancel()
 		}
 	}()
@@ -119,7 +119,7 @@ func (c *Consumer) Count() int {
 func (c *Consumer) Clear() {
 	c.eventsLk.Lock()
 	defer c.eventsLk.Unlock()
-	c.Events = []*events.XRPCStreamEvent{}
+	c.Events = []*stream.XRPCStreamEvent{}
 }
 
 func (c *Consumer) Shutdown() {
@@ -131,7 +131,7 @@ func (c *Consumer) Shutdown() {
 // connects to host and consumes 'count' events, then returns them. will try up to 'c.Timeout', and error if not enough events are seen
 //
 // cursor: pass -1 to consume from current
-func (c *Consumer) ConsumeEvents(count int) ([]*events.XRPCStreamEvent, error) {
+func (c *Consumer) ConsumeEvents(count int) ([]*stream.XRPCStreamEvent, error) {
 	// poll until we have enough events
 	start := time.Now()
 	for {
