@@ -13,25 +13,25 @@ import (
 
 // Represents an atproto identity. Could be a regular user account, or a service account (eg, feed generator)
 type Identity struct {
-	DID syntax.DID
+	DID syntax.DID `json:"did"`
 
 	// Handle/DID mapping must be bi-directionally verified. If that fails, the Handle should be the special 'handle.invalid' value
-	Handle syntax.Handle
+	Handle syntax.Handle `json:"handle"`
 
 	// These fields represent a parsed subset of a DID document. They are all nullable. Note that the services and keys maps do not preserve order, so they don't exactly round-trip DID documents.
-	AlsoKnownAs []string
-	Services    map[string]Service
-	Keys        map[string]Key
+	AlsoKnownAs []string           `json:"alsoKnownAs"`
+	Services    map[string]Service `json:"services"`
+	Keys        map[string]Key     `json:"keys"`
 }
 
 type Key struct {
-	Type               string
-	PublicKeyMultibase string
+	Type               string `json:"type"`
+	PublicKeyMultibase string `json:"publicKeyMultibase"`
 }
 
 type Service struct {
-	Type string
-	URL  string
+	Type string `json:"type"`
+	URL  string `json:"url"`
 }
 
 // Extracts the information relevant to atproto from an arbitrary DID document.
