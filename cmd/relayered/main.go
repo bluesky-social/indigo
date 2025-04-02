@@ -19,7 +19,6 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay"
-	"github.com/bluesky-social/indigo/cmd/relayered/relay/validator"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/eventmgr"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist/diskpersist"
 	"github.com/bluesky-social/indigo/util"
@@ -250,7 +249,7 @@ func runRelay(cctx *cli.Context) error {
 	}
 
 	evtman := eventmgr.NewEventManager(persister)
-	vldtr := validator.NewValidator(&dir)
+	vldtr := relay.NewValidator(&dir)
 
 	logger.Info("constructing relay service")
 	r, err := relay.NewRelay(db, vldtr, evtman, &dir, relayConfig)

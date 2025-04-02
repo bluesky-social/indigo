@@ -5,9 +5,7 @@ import (
 	"sync"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay/models"
-	"github.com/bluesky-social/indigo/cmd/relayered/relay/validator"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/eventmgr"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -22,9 +20,9 @@ type Relay struct {
 	db        *gorm.DB
 	dir       identity.Directory
 	Logger    *slog.Logger
-	Slurper   *slurper.Slurper
+	Slurper   *Slurper
 	Events    *eventmgr.EventManager
-	Validator *validator.Validator
+	Validator *Validator
 	Config    RelayConfig
 
 	// extUserLk serializes a section of syncPDSAccount()
@@ -59,7 +57,7 @@ func DefaultRelayConfig() *RelayConfig {
 	}
 }
 
-func NewRelay(db *gorm.DB, vldtr *validator.Validator, evtman *eventmgr.EventManager, dir identity.Directory, config *RelayConfig) (*Relay, error) {
+func NewRelay(db *gorm.DB, vldtr *Validator, evtman *eventmgr.EventManager, dir identity.Directory, config *RelayConfig) (*Relay, error) {
 
 	if config == nil {
 		config = DefaultRelayConfig()
@@ -85,12 +83,12 @@ func NewRelay(db *gorm.DB, vldtr *validator.Validator, evtman *eventmgr.EventMan
 		return nil, err
 	}
 
-	slOpts := slurper.DefaultSlurperConfig()
+	slOpts := DefaultSlurperConfig()
 	slOpts.SSL = config.SSL
 	slOpts.DefaultRepoLimit = config.DefaultRepoLimit
 	slOpts.ConcurrencyPerPDS = config.ConcurrencyPerPDS
 	slOpts.MaxQueuePerPDS = config.MaxQueuePerPDS
-	s, err := slurper.NewSlurper(db, r.handleFedEvent, slOpts, r.Logger)
+	s, err := NewSlurper(db, r.handleFedEvent, slOpts, r.Logger)
 	if err != nil {
 		return nil, err
 	}

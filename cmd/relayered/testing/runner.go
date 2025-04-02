@@ -12,7 +12,6 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay"
-	"github.com/bluesky-social/indigo/cmd/relayered/relay/validator"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/eventmgr"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist/diskpersist"
@@ -43,7 +42,7 @@ func MustSimpleRelay(dir identity.Directory, tmpd string) *SimpleRelay {
 	if err != nil {
 		panic(err)
 	}
-	vldtr := validator.NewValidator(dir)
+	vldtr := relay.NewValidator(dir)
 	evtman := eventmgr.NewEventManager(persister)
 
 	r, err := relay.NewRelay(db, vldtr, evtman, dir, relayConfig)
