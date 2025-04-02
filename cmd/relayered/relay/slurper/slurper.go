@@ -13,13 +13,14 @@ import (
 	"github.com/RussellLuo/slidingwindow"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/models"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/schedulers/parallel"
 
 	"github.com/gorilla/websocket"
 	"gorm.io/gorm"
 )
 
-type IndexCallback func(context.Context, *PDS, *stream.XRPCStreamEvent) error
+type IndexCallback func(context.Context, *models.PDS, *stream.XRPCStreamEvent) error
 
 type Slurper struct {
 	cb     IndexCallback
@@ -76,7 +77,7 @@ func DefaultSlurperConfig() *SlurperConfig {
 }
 
 type activeSub struct {
-	pds    *PDS
+	pds    *models.PDS
 	lk     sync.RWMutex
 	ctx    context.Context
 	cancel func()
@@ -245,7 +246,7 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adm
 		return nil
 	}
 
-	var peering PDS
+	var peering models.PDS
 	if err := s.db.Find(&peering, "host = ?", host).Error; err != nil {
 		return err
 	}
@@ -261,7 +262,7 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adm
 			return ErrNewSubsDisabled
 		}
 		// New PDS!
-		npds := PDS{
+		npds := models.PDS{
 			Host:             host,
 			SSL:              s.Config.SSL,
 			Registered:       reg,
@@ -286,7 +287,7 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adm
 
 	if !peering.Registered && reg {
 		peering.Registered = true
-		if err := s.db.Model(PDS{}).Where("id = ?", peering.ID).Update("registered", true).Error; err != nil {
+		if err := s.db.Model(models.PDS{}).Where("id = ?", peering.ID).Update("registered", true).Error; err != nil {
 			return err
 		}
 	}
@@ -310,7 +311,7 @@ func (s *Slurper) RestartAll() error {
 	s.lk.Lock()
 	defer s.lk.Unlock()
 
-	var all []PDS
+	var all []models.PDS
 	if err := s.db.Find(&all, "registered = true AND blocked = false").Error; err != nil {
 		return err
 	}
@@ -334,7 +335,7 @@ func (s *Slurper) RestartAll() error {
 	return nil
 }
 
-func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *PDS, sub *activeSub, newHost bool) {
+func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS, sub *activeSub, newHost bool) {
 	defer func() {
 		s.lk.Lock()
 		defer s.lk.Unlock()
@@ -384,7 +385,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *PDS, sub *act
 
 			if backoff > 15 {
 				s.log.Warn("pds does not appear to be online, disabling for now", "pdsHost", host.Host)
-				if err := s.db.Model(&PDS{}).Where("id = ?", host.ID).Update("registered", false).Error; err != nil {
+				if err := s.db.Model(&models.PDS{}).Where("id = ?", host.ID).Update("registered", false).Error; err != nil {
 					s.log.Error("failed to unregister failing pds", "err", err)
 				}
 
@@ -428,7 +429,7 @@ var ErrTimeoutShutdown = fmt.Errorf("timed out waiting for new events")
 
 var EventsTimeout = time.Minute
 
-func (s *Slurper) handleConnection(ctx context.Context, host *PDS, con *websocket.Conn, lastCursor *int64, sub *activeSub) error {
+func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *websocket.Conn, lastCursor *int64, sub *activeSub) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -594,7 +595,7 @@ func (s *Slurper) flushCursors(ctx context.Context) []error {
 
 	tx := s.db.WithContext(ctx).Begin()
 	for _, cursor := range cursors {
-		if err := tx.WithContext(ctx).Model(PDS{}).Where("id = ?", cursor.id).UpdateColumn("cursor", cursor.cursor).Error; err != nil {
+		if err := tx.WithContext(ctx).Model(models.PDS{}).Where("id = ?", cursor.id).UpdateColumn("cursor", cursor.cursor).Error; err != nil {
 			errs = append(errs, err)
 		} else {
 			okcount++
@@ -634,7 +635,7 @@ func (s *Slurper) KillUpstreamConnection(host string, block bool) error {
 	// cleanup in the run thread subscribeWithRedialer() will delete(s.active, host)
 
 	if block {
-		if err := s.db.Model(PDS{}).Where("id = ?", ac.pds.ID).UpdateColumn("blocked", true).Error; err != nil {
+		if err := s.db.Model(models.PDS{}).Where("id = ?", ac.pds.ID).UpdateColumn("blocked", true).Error; err != nil {
 			return fmt.Errorf("failed to set host as blocked: %w", err)
 		}
 	}

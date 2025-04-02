@@ -10,7 +10,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/models"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/ipfs/go-cid"
@@ -34,7 +34,7 @@ func (r *Relay) DidToUid(ctx context.Context, did string) (uint64, error) {
 	return xu.ID, nil
 }
 
-func (r *Relay) LookupUserByDid(ctx context.Context, did string) (*slurper.Account, error) {
+func (r *Relay) LookupUserByDid(ctx context.Context, did string) (*models.Account, error) {
 	ctx, span := tracer.Start(ctx, "lookupUserByDid")
 	defer span.End()
 
@@ -43,7 +43,7 @@ func (r *Relay) LookupUserByDid(ctx context.Context, did string) (*slurper.Accou
 		return cu, nil
 	}
 
-	var u slurper.Account
+	var u models.Account
 	if err := r.db.Find(&u, "did = ?", did).Error; err != nil {
 		return nil, err
 	}
@@ -57,11 +57,11 @@ func (r *Relay) LookupUserByDid(ctx context.Context, did string) (*slurper.Accou
 	return &u, nil
 }
 
-func (r *Relay) LookupUserByUID(ctx context.Context, uid uint64) (*slurper.Account, error) {
+func (r *Relay) LookupUserByUID(ctx context.Context, uid uint64) (*models.Account, error) {
 	ctx, span := tracer.Start(ctx, "lookupUserByUID")
 	defer span.End()
 
-	var u slurper.Account
+	var u models.Account
 	if err := r.db.Find(&u, "id = ?", uid).Error; err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (r *Relay) LookupUserByUID(ctx context.Context, uid uint64) (*slurper.Accou
 	return &u, nil
 }
 
-func (r *Relay) newUser(ctx context.Context, host *slurper.PDS, did string) (*slurper.Account, error) {
+func (r *Relay) newUser(ctx context.Context, host *models.PDS, did string) (*models.Account, error) {
 	newUsersDiscovered.Inc()
 	start := time.Now()
 	account, err := r.syncPDSAccount(ctx, did, host, nil)
@@ -90,7 +90,7 @@ func (r *Relay) newUser(ctx context.Context, host *slurper.PDS, did string) (*sl
 // did is the user
 // host is the PDS we received this from, not necessarily the canonical PDS in the DID document
 // cachedAccount is (optionally) the account that we have already looked up from cache or database
-func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *slurper.PDS, cachedAccount *slurper.Account) (*slurper.Account, error) {
+func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *models.PDS, cachedAccount *models.Account) (*models.Account, error) {
 	ctx, span := tracer.Start(ctx, "syncPDSAccount")
 	defer span.End()
 
@@ -132,14 +132,14 @@ func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *slurper.PD
 		durl.Scheme = "http"
 	}
 
-	var canonicalHost *slurper.PDS
+	var canonicalHost *models.PDS
 	if host.Host == durl.Host {
 		// we got the message from the canonical PDS, convenient!
 		canonicalHost = host
 	} else {
 		// we got the message from an intermediate relay
 		// check our db for info on canonical PDS
-		var peering slurper.PDS
+		var peering models.PDS
 		if err := r.db.Find(&peering, "host = ?", durl.Host).Error; err != nil {
 			r.Logger.Error("failed to find pds", "host", durl.Host)
 			return nil, err
@@ -217,15 +217,15 @@ func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *slurper.PD
 			err = r.db.Transaction(func(tx *gorm.DB) error {
 				if caPDS != 0 {
 					// decrement prior PDS's account count
-					tx.Model(&slurper.PDS{}).Where("id = ?", caPDS).Update("repo_count", gorm.Expr("repo_count - 1"))
+					tx.Model(&models.PDS{}).Where("id = ?", caPDS).Update("repo_count", gorm.Expr("repo_count - 1"))
 				}
 				// update user's PDS ID
-				res := tx.Model(slurper.Account{}).Where("id = ?", cachedAccount.ID).Update("pds", canonicalHost.ID)
+				res := tx.Model(models.Account{}).Where("id = ?", cachedAccount.ID).Update("pds", canonicalHost.ID)
 				if res.Error != nil {
 					return fmt.Errorf("failed to update users pds: %w", res.Error)
 				}
 				// increment new PDS's account count
-				res = tx.Model(&slurper.PDS{}).Where("id = ? AND repo_count < repo_limit", canonicalHost.ID).Update("repo_count", gorm.Expr("repo_count + 1"))
+				res = tx.Model(&models.PDS{}).Where("id = ? AND repo_count < repo_limit", canonicalHost.ID).Update("repo_count", gorm.Expr("repo_count + 1"))
 				return nil
 			})
 
@@ -234,13 +234,13 @@ func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *slurper.PD
 		return cachedAccount, nil
 	}
 
-	newAccount := slurper.Account{
+	newAccount := models.Account{
 		Did: did,
 		PDS: canonicalHost.ID,
 	}
 
 	err = r.db.Transaction(func(tx *gorm.DB) error {
-		res := tx.Model(&slurper.PDS{}).Where("id = ? AND repo_count < repo_limit", canonicalHost.ID).Update("repo_count", gorm.Expr("repo_count + 1"))
+		res := tx.Model(&models.PDS{}).Where("id = ? AND repo_count < repo_limit", canonicalHost.ID).Update("repo_count", gorm.Expr("repo_count + 1"))
 		if res.Error != nil {
 			return fmt.Errorf("failed to increment repo count for pds %q: %w", canonicalHost.Host, res.Error)
 		}
@@ -266,7 +266,7 @@ func (r *Relay) TakeDownRepo(ctx context.Context, did string) error {
 		return err
 	}
 
-	if err := r.db.Model(slurper.Account{}).Where("id = ?", u.ID).Update("taken_down", true).Error; err != nil {
+	if err := r.db.Model(models.Account{}).Where("id = ?", u.ID).Update("taken_down", true).Error; err != nil {
 		return err
 	}
 	u.SetTakenDown(true)
@@ -282,7 +282,7 @@ func (r *Relay) ReverseTakedown(ctx context.Context, did string) error {
 		return err
 	}
 
-	if err := r.db.Model(slurper.Account{}).Where("id = ?", u.ID).Update("taken_down", false).Error; err != nil {
+	if err := r.db.Model(models.Account{}).Where("id = ?", u.ID).Update("taken_down", false).Error; err != nil {
 		return err
 	}
 	u.SetTakenDown(false)
@@ -290,8 +290,8 @@ func (r *Relay) ReverseTakedown(ctx context.Context, did string) error {
 	return nil
 }
 
-func (r *Relay) GetAccountPreviousState(ctx context.Context, uid uint64) (*slurper.AccountPreviousState, error) {
-	var prevState slurper.AccountPreviousState
+func (r *Relay) GetAccountPreviousState(ctx context.Context, uid uint64) (*models.AccountPreviousState, error) {
+	var prevState models.AccountPreviousState
 	if err := r.db.First(&prevState, uid).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrAccountLastUnavailable
@@ -303,7 +303,7 @@ func (r *Relay) GetAccountPreviousState(ctx context.Context, uid uint64) (*slurp
 }
 
 func (r *Relay) GetRepoRoot(ctx context.Context, uid uint64) (cid.Cid, error) {
-	var prevState slurper.AccountPreviousState
+	var prevState models.AccountPreviousState
 	err := r.db.First(&prevState, uid).Error
 	if err == nil {
 		return prevState.Cid.CID, nil
@@ -325,10 +325,10 @@ func (r *Relay) GetHostForDID(ctx context.Context, did string) (string, error) {
 	return pdsHostname, nil
 }
 
-func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*slurper.Account, error) {
+func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*models.Account, error) {
 
-	accounts := []*slurper.Account{}
-	if err := r.db.Model(&slurper.Account{}).Where("id > ? AND NOT taken_down AND (upstream_status IS NULL OR upstream_status = 'active')", cursor).Order("id").Limit(limit).Find(&accounts).Error; err != nil {
+	accounts := []*models.Account{}
+	if err := r.db.Model(&models.Account{}).Where("id > ? AND NOT taken_down AND (upstream_status IS NULL OR upstream_status = 'active')", cursor).Order("id").Limit(limit).Find(&accounts).Error; err != nil {
 		return nil, err
 	}
 	return accounts, nil

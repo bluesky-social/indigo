@@ -1,4 +1,4 @@
-package slurper
+package models
 
 import (
 	"sync"
@@ -13,21 +13,6 @@ import (
 type DomainBan struct {
 	gorm.Model
 	Domain string `gorm:"unique"`
-}
-
-type AccountPreviousState struct {
-	Uid uint64 `gorm:"column:uid;primaryKey"`
-	Cid DbCID  `gorm:"column:cid"`
-	Rev string `gorm:"column:rev"`
-	Seq int64  `gorm:"column:seq"`
-}
-
-func (ups *AccountPreviousState) GetCid() cid.Cid {
-	return ups.Cid.CID
-}
-func (ups *AccountPreviousState) GetRev() syntax.TID {
-	xt, _ := syntax.ParseTID(ups.Rev)
-	return xt
 }
 
 type PDS struct {
@@ -110,4 +95,19 @@ func (account *Account) GetUpstreamStatus() string {
 	account.lk.Lock()
 	defer account.lk.Unlock()
 	return account.UpstreamStatus
+}
+
+type AccountPreviousState struct {
+	Uid uint64 `gorm:"column:uid;primaryKey"`
+	Cid DbCID  `gorm:"column:cid"`
+	Rev string `gorm:"column:rev"`
+	Seq int64  `gorm:"column:seq"`
+}
+
+func (ups *AccountPreviousState) GetCid() cid.Cid {
+	return ups.Cid.CID
+}
+func (ups *AccountPreviousState) GetRev() syntax.TID {
+	xt, _ := syntax.ParseTID(ups.Rev)
+	return xt
 }

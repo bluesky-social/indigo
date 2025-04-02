@@ -1,4 +1,4 @@
-package slurper
+package models
 
 import (
 	"database/sql/driver"

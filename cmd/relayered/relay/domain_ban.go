@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/models"
 )
 
 // DomainIsBanned checks if the given host is banned, starting with the host
@@ -42,12 +42,12 @@ func (r *Relay) DomainIsBanned(ctx context.Context, host string) (bool, error) {
 }
 
 func (r *Relay) findDomainBan(ctx context.Context, host string) (bool, error) {
-	var db slurper.DomainBan
-	if err := r.db.Find(&db, "domain = ?", host).Error; err != nil {
+	var ban models.DomainBan
+	if err := r.db.Find(&ban, "domain = ?", host).Error; err != nil {
 		return false, err
 	}
 
-	if db.ID == 0 {
+	if ban.ID == 0 {
 		return false, nil
 	}
 
