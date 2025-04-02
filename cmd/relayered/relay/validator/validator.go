@@ -13,7 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/models"
 
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel"
@@ -58,7 +58,7 @@ type Validator struct {
 }
 
 type NextCommitHandler interface {
-	HandleCommit(ctx context.Context, host *slurper.PDS, uid uint64, did string, commit *comatproto.SyncSubscribeRepos_Commit) error
+	HandleCommit(ctx context.Context, host *models.PDS, uid uint64, did string, commit *comatproto.SyncSubscribeRepos_Commit) error
 }
 
 type userLock struct {
@@ -99,11 +99,11 @@ func (val *Validator) lockUser(ctx context.Context, uid uint64) func() {
 	}
 }
 
-func (val *Validator) HandleCommit(ctx context.Context, host *slurper.PDS, account *slurper.Account, commit *comatproto.SyncSubscribeRepos_Commit, prevRoot *slurper.AccountPreviousState) (newRoot *cid.Cid, err error) {
+func (val *Validator) HandleCommit(ctx context.Context, host *models.PDS, account *models.Account, commit *comatproto.SyncSubscribeRepos_Commit, prevRev *syntax.TID, prevData *cid.Cid) (newRoot *cid.Cid, err error) {
 	uid := account.GetUid()
 	unlock := val.lockUser(ctx, uid)
 	defer unlock()
-	repoFragment, err := val.VerifyCommitMessage(ctx, host, commit, prevRoot)
+	repoFragment, err := val.VerifyCommitMessage(ctx, host, commit, prevRev, prevData)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (roooe *revOutOfOrderError) Error() string {
 
 var ErrNewRevBeforePrevRev = &revOutOfOrderError{}
 
-func (val *Validator) VerifyCommitMessage(ctx context.Context, host *slurper.PDS, msg *comatproto.SyncSubscribeRepos_Commit, prevRoot *slurper.AccountPreviousState) (*repo.Repo, error) {
+func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS, msg *comatproto.SyncSubscribeRepos_Commit, prevRev *syntax.TID, prevData *cid.Cid) (*repo.Repo, error) {
 	hostname := host.Host
 	hasWarning := false
 	commitVerifyStarts.Inc()
@@ -140,8 +140,7 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *slurper.PDS
 		commitVerifyErrors.WithLabelValues(hostname, "tid").Inc()
 		return nil, err
 	}
-	if prevRoot != nil {
-		prevRev := prevRoot.GetRev()
+	if prevRev != nil {
 		curTime := rev.Time()
 		prevTime := prevRev.Time()
 		if curTime.Before(prevTime) {
@@ -246,8 +245,8 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *slurper.PDS
 
 	if msg.PrevData != nil {
 		c := (*cid.Cid)(msg.PrevData)
-		if prevRoot != nil {
-			if *c != prevRoot.GetCid() {
+		if prevData != nil {
+			if *c != *prevData {
 				commitVerifyWarnings.WithLabelValues(hostname, "pr").Inc()
 				// XXX: induction trace log
 				val.log.Warn("commit prevData mismatch", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
@@ -288,7 +287,7 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *slurper.PDS
 		}
 		//logger.Debug("prevData matched", "prevData", c.String(), "computed", computed.String())
 
-		if prevRoot == nil {
+		if prevData == nil {
 			commitVerifyOkish.WithLabelValues(hostname, "new").Inc()
 		} else if hasWarning {
 			commitVerifyOkish.WithLabelValues(hostname, "warn").Inc()
@@ -306,7 +305,7 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *slurper.PDS
 }
 
 // HandleSync checks signed commit from a #sync message
-func (val *Validator) HandleSync(ctx context.Context, host *slurper.PDS, msg *comatproto.SyncSubscribeRepos_Sync) (newRoot *cid.Cid, err error) {
+func (val *Validator) HandleSync(ctx context.Context, host *models.PDS, msg *comatproto.SyncSubscribeRepos_Sync) (newRoot *cid.Cid, err error) {
 	hostname := host.Host
 	hasWarning := false
 

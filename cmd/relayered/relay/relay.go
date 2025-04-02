@@ -6,6 +6,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/models"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay/validator"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/eventmgr"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -37,7 +38,7 @@ type Relay struct {
 	consumers      map[uint64]*SocketConsumer
 
 	// Account cache
-	userCache *lru.Cache[string, *slurper.Account]
+	userCache *lru.Cache[string, *models.Account]
 }
 
 type RelayConfig struct {
@@ -64,7 +65,7 @@ func NewRelay(db *gorm.DB, vldtr *validator.Validator, evtman *eventmgr.EventMan
 		config = DefaultRelayConfig()
 	}
 
-	uc, _ := lru.New[string, *slurper.Account](2_000_000)
+	uc, _ := lru.New[string, *models.Account](2_000_000)
 
 	r := &Relay{
 		db:        db,
@@ -102,16 +103,16 @@ func NewRelay(db *gorm.DB, vldtr *validator.Validator, evtman *eventmgr.EventMan
 }
 
 func (r *Relay) MigrateDatabase() error {
-	if err := r.db.AutoMigrate(slurper.DomainBan{}); err != nil {
+	if err := r.db.AutoMigrate(models.DomainBan{}); err != nil {
 		return err
 	}
-	if err := r.db.AutoMigrate(slurper.PDS{}); err != nil {
+	if err := r.db.AutoMigrate(models.PDS{}); err != nil {
 		return err
 	}
-	if err := r.db.AutoMigrate(slurper.Account{}); err != nil {
+	if err := r.db.AutoMigrate(models.Account{}); err != nil {
 		return err
 	}
-	if err := r.db.AutoMigrate(slurper.AccountPreviousState{}); err != nil {
+	if err := r.db.AutoMigrate(models.AccountPreviousState{}); err != nil {
 		return err
 	}
 	return nil
