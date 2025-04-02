@@ -97,7 +97,7 @@ func (r *Relay) handleFedEvent(ctx context.Context, host *slurper.PDS, env *stre
 
 		// Check if the PDS is still authoritative
 		// if not we don't want to be propagating this account event
-		if account.GetPDS() != host.ID {
+		if account.GetPDS() != host.ID && !r.Config.SkipAccountHostCheck {
 			r.Logger.Error("account event from non-authoritative pds",
 				"seq", env.RepoAccount.Seq,
 				"did", env.RepoAccount.Did,
@@ -218,7 +218,7 @@ func (r *Relay) handleCommit(ctx context.Context, host *slurper.PDS, evt *comatp
 			return err
 		}
 
-		if account.GetPDS() != host.ID {
+		if account.GetPDS() != host.ID && !r.Config.SkipAccountHostCheck {
 			repoCommitsResultCounter.WithLabelValues(host.Host, "noauth").Inc()
 			return fmt.Errorf("event from non-authoritative pds")
 		}
