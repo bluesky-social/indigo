@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/bluesky-social/indigo/cmd/relayered/stream"
-	"github.com/bluesky-social/indigo/events/schedulers"
+	"github.com/bluesky-social/indigo/cmd/relayered/stream/schedulers"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
