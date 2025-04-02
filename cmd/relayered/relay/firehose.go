@@ -110,7 +110,7 @@ func (r *Relay) handleFedEvent(ctx context.Context, host *models.PDS, env *strea
 		}
 
 		// Process the account status change
-		repoStatus := AccountStatusActive
+		repoStatus := models.AccountStatusActive
 		if !env.RepoAccount.Active && env.RepoAccount.Status != nil {
 			repoStatus = *env.RepoAccount.Status
 		}
@@ -128,7 +128,7 @@ func (r *Relay) handleFedEvent(ctx context.Context, host *models.PDS, env *strea
 		// override with local status
 		if account.GetTakenDown() {
 			shouldBeActive = false
-			status = &AccountStatusTakendown
+			status = &models.AccountStatusTakendown
 		}
 
 		// Broadcast the account event to all consumers
@@ -184,19 +184,19 @@ func (r *Relay) handleCommit(ctx context.Context, host *models.PDS, evt *comatpr
 
 	ustatus := account.GetUpstreamStatus()
 
-	if account.GetTakenDown() || ustatus == AccountStatusTakendown {
+	if account.GetTakenDown() || ustatus == models.AccountStatusTakendown {
 		r.Logger.Debug("dropping commit event from taken down user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 		repoCommitsResultCounter.WithLabelValues(host.Host, "tdu").Inc()
 		return nil
 	}
 
-	if ustatus == AccountStatusSuspended {
+	if ustatus == models.AccountStatusSuspended {
 		r.Logger.Debug("dropping commit event from suspended user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 		repoCommitsResultCounter.WithLabelValues(host.Host, "susu").Inc()
 		return nil
 	}
 
-	if ustatus == AccountStatusDeactivated {
+	if ustatus == models.AccountStatusDeactivated {
 		r.Logger.Debug("dropping commit event from deactivated user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 		repoCommitsResultCounter.WithLabelValues(host.Host, "du").Inc()
 		return nil

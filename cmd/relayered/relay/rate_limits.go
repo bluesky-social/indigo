@@ -1,4 +1,4 @@
-package slurper
+package relay
 
 type PDSRates struct {
 	// core event rate, counts firehose events

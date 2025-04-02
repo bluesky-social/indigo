@@ -1,4 +1,4 @@
-package validator
+package relay
 
 import (
 	"bytes"
