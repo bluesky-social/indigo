@@ -23,8 +23,8 @@ const (
 )
 
 type EventHeader struct {
-	Op      int64  `cborgen:"op"`
-	MsgType string `cborgen:"t,omitempty"`
+	Op      int64  `json:"op" cborgen:"op"`
+	MsgType string `json:"t,omitempty" cborgen:"t,omitempty"`
 }
 
 type XRPCStreamEvent struct {
