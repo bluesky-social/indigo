@@ -9,7 +9,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/models"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream"
 
 	"github.com/ipfs/go-cid"
@@ -18,7 +18,7 @@ import (
 )
 
 // handleFedEvent() is the callback passed to Slurper called from Slurper.handleConnection()
-func (r *Relay) handleFedEvent(ctx context.Context, host *slurper.PDS, env *stream.XRPCStreamEvent) error {
+func (r *Relay) handleFedEvent(ctx context.Context, host *models.PDS, env *stream.XRPCStreamEvent) error {
 	ctx, span := tracer.Start(ctx, "handleFedEvent")
 	defer span.End()
 
@@ -110,7 +110,7 @@ func (r *Relay) handleFedEvent(ctx context.Context, host *slurper.PDS, env *stre
 		}
 
 		// Process the account status change
-		repoStatus := slurper.AccountStatusActive
+		repoStatus := AccountStatusActive
 		if !env.RepoAccount.Active && env.RepoAccount.Status != nil {
 			repoStatus = *env.RepoAccount.Status
 		}
@@ -128,7 +128,7 @@ func (r *Relay) handleFedEvent(ctx context.Context, host *slurper.PDS, env *stre
 		// override with local status
 		if account.GetTakenDown() {
 			shouldBeActive = false
-			status = &slurper.AccountStatusTakendown
+			status = &AccountStatusTakendown
 		}
 
 		// Broadcast the account event to all consumers
@@ -161,7 +161,7 @@ func (r *Relay) handleFedEvent(ctx context.Context, host *slurper.PDS, env *stre
 	}
 }
 
-func (r *Relay) handleCommit(ctx context.Context, host *slurper.PDS, evt *comatproto.SyncSubscribeRepos_Commit) error {
+func (r *Relay) handleCommit(ctx context.Context, host *models.PDS, evt *comatproto.SyncSubscribeRepos_Commit) error {
 	r.Logger.Debug("relay got repo append event", "seq", evt.Seq, "pdsHost", host.Host, "repo", evt.Repo)
 
 	account, err := r.LookupUserByDid(ctx, evt.Repo)
@@ -184,19 +184,19 @@ func (r *Relay) handleCommit(ctx context.Context, host *slurper.PDS, evt *comatp
 
 	ustatus := account.GetUpstreamStatus()
 
-	if account.GetTakenDown() || ustatus == slurper.AccountStatusTakendown {
+	if account.GetTakenDown() || ustatus == AccountStatusTakendown {
 		r.Logger.Debug("dropping commit event from taken down user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 		repoCommitsResultCounter.WithLabelValues(host.Host, "tdu").Inc()
 		return nil
 	}
 
-	if ustatus == slurper.AccountStatusSuspended {
+	if ustatus == AccountStatusSuspended {
 		r.Logger.Debug("dropping commit event from suspended user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 		repoCommitsResultCounter.WithLabelValues(host.Host, "susu").Inc()
 		return nil
 	}
 
-	if ustatus == slurper.AccountStatusDeactivated {
+	if ustatus == AccountStatusDeactivated {
 		r.Logger.Debug("dropping commit event from deactivated user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 		repoCommitsResultCounter.WithLabelValues(host.Host, "du").Inc()
 		return nil
@@ -225,7 +225,8 @@ func (r *Relay) handleCommit(ctx context.Context, host *slurper.PDS, evt *comatp
 		}
 	}
 
-	var prevState slurper.AccountPreviousState
+	// TODO: very messy fetch code here
+	var prevState models.AccountPreviousState
 	err = r.db.First(&prevState, account.ID).Error
 	prevP := &prevState
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -236,12 +237,17 @@ func (r *Relay) handleCommit(ctx context.Context, host *slurper.PDS, evt *comatp
 	}
 	dbPrevRootStr := ""
 	dbPrevSeqStr := ""
+	var prevRev *syntax.TID
+	var prevData *cid.Cid
 	if prevP != nil {
 		if prevState.Seq >= evt.Seq && ((prevState.Seq - evt.Seq) < 2000) {
 			// ignore catchup overlap of 200 on some subscribeRepos restarts
 			repoCommitsResultCounter.WithLabelValues(host.Host, "dup").Inc()
 			return nil
 		}
+		prevData = &prevState.Cid.CID
+		t := syntax.TID(prevState.Rev)
+		prevRev = &t
 		dbPrevRootStr = prevState.Cid.CID.String()
 		dbPrevSeqStr = strconv.FormatInt(prevState.Seq, 10)
 	}
@@ -249,7 +255,7 @@ func (r *Relay) handleCommit(ctx context.Context, host *slurper.PDS, evt *comatp
 	if evt.PrevData != nil {
 		evtPrevDataStr = ((*cid.Cid)(evt.PrevData)).String()
 	}
-	newRootCid, err := r.Validator.HandleCommit(ctx, host, account, evt, prevP)
+	newRootCid, err := r.Validator.HandleCommit(ctx, host, account, evt, prevRev, prevData)
 	if err != nil {
 		// XXX: induction trace log
 		r.Logger.Error("commit bad", "seq", evt.Seq, "pseq", dbPrevSeqStr, "pdsHost", host.Host, "repo", evt.Repo, "prev", evtPrevDataStr, "dbprev", dbPrevRootStr, "err", err)
@@ -281,7 +287,7 @@ func (r *Relay) handleCommit(ctx context.Context, host *slurper.PDS, evt *comatp
 }
 
 // handleSync processes #sync messages
-func (r *Relay) handleSync(ctx context.Context, host *slurper.PDS, evt *comatproto.SyncSubscribeRepos_Sync) error {
+func (r *Relay) handleSync(ctx context.Context, host *models.PDS, evt *comatproto.SyncSubscribeRepos_Sync) error {
 	account, err := r.LookupUserByDid(ctx, evt.Did)
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
