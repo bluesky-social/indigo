@@ -28,6 +28,39 @@
       "frame": {
         "header": {
           "op": 1,
+          "t": "#identity"
+        },
+        "body": {
+          "did": "did:plc:44ybard66vv44zksje25o7dz",
+          "seq": 7278969008,
+          "time": "2025-04-01T04:01:30.384Z"
+        }
+      },
+      "drop": false,
+      "invalid": false,
+      "update": false
+    },
+    {
+      "frame": {
+        "header": {
+          "op": 1,
+          "t": "#account"
+        },
+        "body": {
+          "did": "did:plc:44ybard66vv44zksje25o7dz",
+          "active": true,
+          "seq": 7278969009,
+          "time": "2025-04-01T04:01:31.384Z"
+        }
+      },
+      "drop": false,
+      "invalid": false,
+      "update": false
+    },
+    {
+      "frame": {
+        "header": {
+          "op": 1,
           "t": "#commit"
         },
         "body": {
