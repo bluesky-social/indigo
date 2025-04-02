@@ -10,7 +10,6 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/relayered/models"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay/slurper"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -24,7 +23,7 @@ var (
 	ErrCommitNoUser           = errors.New("commit no user") // TODO
 )
 
-func (r *Relay) DidToUid(ctx context.Context, did string) (models.Uid, error) {
+func (r *Relay) DidToUid(ctx context.Context, did string) (uint64, error) {
 	xu, err := r.LookupUserByDid(ctx, did)
 	if err != nil {
 		return 0, err
@@ -58,7 +57,7 @@ func (r *Relay) LookupUserByDid(ctx context.Context, did string) (*slurper.Accou
 	return &u, nil
 }
 
-func (r *Relay) LookupUserByUID(ctx context.Context, uid models.Uid) (*slurper.Account, error) {
+func (r *Relay) LookupUserByUID(ctx context.Context, uid uint64) (*slurper.Account, error) {
 	ctx, span := tracer.Start(ctx, "lookupUserByUID")
 	defer span.End()
 
@@ -293,7 +292,7 @@ func (r *Relay) ReverseTakedown(ctx context.Context, did string) error {
 	return nil
 }
 
-func (r *Relay) GetAccountPreviousState(ctx context.Context, uid models.Uid) (*slurper.AccountPreviousState, error) {
+func (r *Relay) GetAccountPreviousState(ctx context.Context, uid uint64) (*slurper.AccountPreviousState, error) {
 	var prevState slurper.AccountPreviousState
 	if err := r.db.First(&prevState, uid).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -305,9 +304,9 @@ func (r *Relay) GetAccountPreviousState(ctx context.Context, uid models.Uid) (*s
 	return &prevState, nil
 }
 
-func (r *Relay) GetRepoRoot(ctx context.Context, user models.Uid) (cid.Cid, error) {
+func (r *Relay) GetRepoRoot(ctx context.Context, uid uint64) (cid.Cid, error) {
 	var prevState slurper.AccountPreviousState
-	err := r.db.First(&prevState, user).Error
+	err := r.db.First(&prevState, uid).Error
 	if err == nil {
 		return prevState.Cid.CID, nil
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {

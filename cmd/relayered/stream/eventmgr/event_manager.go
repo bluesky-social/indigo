@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/cmd/relayered/models"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist"
 
@@ -236,8 +235,8 @@ func (em *EventManager) addSubscriber(sub *Subscriber) {
 	em.subs = append(em.subs, sub)
 }
 
-func (em *EventManager) TakeDownRepo(ctx context.Context, user models.Uid) error {
-	return em.persister.TakeDownRepo(ctx, user)
+func (em *EventManager) TakeDownRepo(ctx context.Context, uid uint64) error {
+	return em.persister.TakeDownRepo(ctx, uid)
 }
 
 // TODO: remove this?

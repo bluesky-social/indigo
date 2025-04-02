@@ -8,7 +8,6 @@ import (
 	"log/slog"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/relayered/models"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -41,10 +40,10 @@ type XRPCStreamEvent struct {
 	LabelInfo     *comatproto.LabelSubscribeLabels_Info
 
 	// some private fields for internal routing perf
-	PrivUid         models.Uid `json:"-" cborgen:"-"`
-	PrivPdsId       uint       `json:"-" cborgen:"-"`
-	PrivRelevantPds []uint     `json:"-" cborgen:"-"`
-	Preserialized   []byte     `json:"-" cborgen:"-"`
+	PrivUid         uint64 `json:"-" cborgen:"-"`
+	PrivPdsId       uint   `json:"-" cborgen:"-"`
+	PrivRelevantPds []uint `json:"-" cborgen:"-"`
+	Preserialized   []byte `json:"-" cborgen:"-"`
 }
 
 func (evt *XRPCStreamEvent) Serialize(wc io.Writer) error {
