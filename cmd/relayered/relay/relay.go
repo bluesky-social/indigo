@@ -84,13 +84,12 @@ func NewRelay(db *gorm.DB, vldtr *validator.Validator, evtman *eventmgr.EventMan
 		return nil, err
 	}
 
-	slOpts := slurper.DefaultSlurperOptions()
+	slOpts := slurper.DefaultSlurperConfig()
 	slOpts.SSL = config.SSL
 	slOpts.DefaultRepoLimit = config.DefaultRepoLimit
 	slOpts.ConcurrencyPerPDS = config.ConcurrencyPerPDS
 	slOpts.MaxQueuePerPDS = config.MaxQueuePerPDS
-	slOpts.Logger = r.Logger
-	s, err := slurper.NewSlurper(db, r.handleFedEvent, slOpts)
+	s, err := slurper.NewSlurper(db, r.handleFedEvent, slOpts, r.Logger)
 	if err != nil {
 		return nil, err
 	}

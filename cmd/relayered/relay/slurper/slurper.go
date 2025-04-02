@@ -16,25 +16,21 @@ import (
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/schedulers/parallel"
 
 	"github.com/gorilla/websocket"
-	pq "github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
 type IndexCallback func(context.Context, *PDS, *stream.XRPCStreamEvent) error
 
 type Slurper struct {
-	cb IndexCallback
-
-	db *gorm.DB
+	cb     IndexCallback
+	db     *gorm.DB
+	Config *SlurperConfig
 
 	lk     sync.Mutex
 	active map[string]*activeSub
 
-	LimitMux              sync.RWMutex
-	Limiters              map[uint]*Limiters
-	DefaultPerSecondLimit int64
-	DefaultPerHourLimit   int64
-	DefaultPerDayLimit    int64
+	LimitMux sync.RWMutex
+	Limiters map[uint]*Limiters
 
 	DefaultRepoLimit  int64
 	ConcurrencyPerPDS int64
@@ -42,13 +38,8 @@ type Slurper struct {
 
 	NewPDSPerDayLimiter *slidingwindow.Limiter
 
-	newSubsDisabled bool
-	trustedDomains  []string
-
 	shutdownChan   chan bool
 	shutdownResult chan []error
-
-	ssl bool
 
 	log *slog.Logger
 }
@@ -59,7 +50,7 @@ type Limiters struct {
 	PerDay    *slidingwindow.Limiter
 }
 
-type SlurperOptions struct {
+type SlurperConfig struct {
 	SSL                   bool
 	DefaultPerSecondLimit int64
 	DefaultPerHourLimit   int64
@@ -67,12 +58,13 @@ type SlurperOptions struct {
 	DefaultRepoLimit      int64
 	ConcurrencyPerPDS     int64
 	MaxQueuePerPDS        int64
-
-	Logger *slog.Logger
+	NewSubsDisabled       bool
+	TrustedDomains        []string
+	NewPDSPerDayLimit     int64
 }
 
-func DefaultSlurperOptions() *SlurperOptions {
-	return &SlurperOptions{
+func DefaultSlurperConfig() *SlurperConfig {
+	return &SlurperConfig{
 		SSL:                   false,
 		DefaultPerSecondLimit: 50,
 		DefaultPerHourLimit:   2500,
@@ -80,8 +72,6 @@ func DefaultSlurperOptions() *SlurperOptions {
 		DefaultRepoLimit:      100,
 		ConcurrencyPerPDS:     100,
 		MaxQueuePerPDS:        1_000,
-
-		Logger: slog.Default(),
 	}
 }
 
@@ -98,32 +88,27 @@ func (sub *activeSub) updateCursor(curs int64) {
 	sub.pds.Cursor = curs
 }
 
-func NewSlurper(db *gorm.DB, cb IndexCallback, opts *SlurperOptions) (*Slurper, error) {
-	if opts == nil {
-		opts = DefaultSlurperOptions()
+func NewSlurper(db *gorm.DB, cb IndexCallback, config *SlurperConfig, logger *slog.Logger) (*Slurper, error) {
+	if config == nil {
+		config = DefaultSlurperConfig()
 	}
-	err := db.AutoMigrate(&SlurpConfig{})
-	if err != nil {
-		return nil, err
+	if logger == nil {
+		logger = slog.Default()
 	}
+
+	// NOTE: unused second argument is not an 'error
+	newPDSPerDayLimiter, _ := slidingwindow.NewLimiter(time.Hour*24, config.NewPDSPerDayLimit, windowFunc)
+
 	s := &Slurper{
-		cb:                    cb,
-		db:                    db,
-		active:                make(map[string]*activeSub),
-		Limiters:              make(map[uint]*Limiters),
-		DefaultPerSecondLimit: opts.DefaultPerSecondLimit,
-		DefaultPerHourLimit:   opts.DefaultPerHourLimit,
-		DefaultPerDayLimit:    opts.DefaultPerDayLimit,
-		DefaultRepoLimit:      opts.DefaultRepoLimit,
-		ConcurrencyPerPDS:     opts.ConcurrencyPerPDS,
-		MaxQueuePerPDS:        opts.MaxQueuePerPDS,
-		ssl:                   opts.SSL,
-		shutdownChan:          make(chan bool),
-		shutdownResult:        make(chan []error),
-		log:                   opts.Logger,
-	}
-	if err := s.loadConfig(); err != nil {
-		return nil, err
+		cb:                  cb,
+		db:                  db,
+		Config:              config,
+		active:              make(map[string]*activeSub),
+		Limiters:            make(map[uint]*Limiters),
+		shutdownChan:        make(chan bool),
+		shutdownResult:      make(chan []error),
+		NewPDSPerDayLimiter: newPDSPerDayLimiter,
+		log:                 logger,
 	}
 
 	// Start a goroutine to flush cursors to the DB every 30s
@@ -222,121 +207,6 @@ func (s *Slurper) Shutdown() []error {
 	return errs
 }
 
-func (s *Slurper) loadConfig() error {
-	var sc SlurpConfig
-	if err := s.db.Find(&sc).Error; err != nil {
-		return err
-	}
-
-	if sc.ID == 0 {
-		if err := s.db.Create(&SlurpConfig{}).Error; err != nil {
-			return err
-		}
-	}
-
-	s.newSubsDisabled = sc.NewSubsDisabled
-	s.trustedDomains = sc.TrustedDomains
-
-	s.NewPDSPerDayLimiter, _ = slidingwindow.NewLimiter(time.Hour*24, sc.NewPDSPerDayLimit, windowFunc)
-
-	return nil
-}
-
-type SlurpConfig struct {
-	gorm.Model
-
-	NewSubsDisabled   bool
-	TrustedDomains    pq.StringArray `gorm:"type:text[]"`
-	NewPDSPerDayLimit int64
-}
-
-func (s *Slurper) SetNewSubsDisabled(dis bool) error {
-	s.lk.Lock()
-	defer s.lk.Unlock()
-
-	if err := s.db.Model(SlurpConfig{}).Where("id = 1").Update("new_subs_disabled", dis).Error; err != nil {
-		return err
-	}
-
-	s.newSubsDisabled = dis
-	return nil
-}
-
-func (s *Slurper) GetNewSubsDisabledState() bool {
-	s.lk.Lock()
-	defer s.lk.Unlock()
-	return s.newSubsDisabled
-}
-
-func (s *Slurper) SetNewPDSPerDayLimit(limit int64) error {
-	s.lk.Lock()
-	defer s.lk.Unlock()
-
-	if err := s.db.Model(SlurpConfig{}).Where("id = 1").Update("new_pds_per_day_limit", limit).Error; err != nil {
-		return err
-	}
-
-	s.NewPDSPerDayLimiter.SetLimit(limit)
-	return nil
-}
-
-func (s *Slurper) GetNewPDSPerDayLimit() int64 {
-	s.lk.Lock()
-	defer s.lk.Unlock()
-	return s.NewPDSPerDayLimiter.Limit()
-}
-
-func (s *Slurper) AddTrustedDomain(domain string) error {
-	s.lk.Lock()
-	defer s.lk.Unlock()
-
-	if err := s.db.Model(SlurpConfig{}).Where("id = 1").Update("trusted_domains", gorm.Expr("array_append(trusted_domains, ?)", domain)).Error; err != nil {
-		return err
-	}
-
-	s.trustedDomains = append(s.trustedDomains, domain)
-	return nil
-}
-
-func (s *Slurper) RemoveTrustedDomain(domain string) error {
-	s.lk.Lock()
-	defer s.lk.Unlock()
-
-	if err := s.db.Model(SlurpConfig{}).Where("id = 1").Update("trusted_domains", gorm.Expr("array_remove(trusted_domains, ?)", domain)).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
-		return err
-	}
-
-	for i, d := range s.trustedDomains {
-		if d == domain {
-			s.trustedDomains = append(s.trustedDomains[:i], s.trustedDomains[i+1:]...)
-			break
-		}
-	}
-
-	return nil
-}
-
-func (s *Slurper) SetTrustedDomains(domains []string) error {
-	s.lk.Lock()
-	defer s.lk.Unlock()
-
-	if err := s.db.Model(SlurpConfig{}).Where("id = 1").Update("trusted_domains", domains).Error; err != nil {
-		return err
-	}
-
-	s.trustedDomains = domains
-	return nil
-}
-
-func (s *Slurper) GetTrustedDomains() []string {
-	s.lk.Lock()
-	defer s.lk.Unlock()
-	return s.trustedDomains
-}
-
 var ErrNewSubsDisabled = fmt.Errorf("new subscriptions temporarily disabled")
 
 // Checks whether a host is allowed to be subscribed to
@@ -348,7 +218,7 @@ func (s *Slurper) canSlurpHost(host string) bool {
 	}
 
 	// Check if the host is a trusted domain
-	for _, d := range s.trustedDomains {
+	for _, d := range s.Config.TrustedDomains {
 		// If the domain starts with a *., it's a wildcard
 		if strings.HasPrefix(d, "*.") {
 			// Cut off the * so we have .domain.com
@@ -362,7 +232,7 @@ func (s *Slurper) canSlurpHost(host string) bool {
 		}
 	}
 
-	return !s.newSubsDisabled
+	return !s.Config.NewSubsDisabled
 }
 
 func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adminOverride bool, rateOverrides *PDSRates) error {
@@ -393,12 +263,12 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adm
 		// New PDS!
 		npds := PDS{
 			Host:             host,
-			SSL:              s.ssl,
+			SSL:              s.Config.SSL,
 			Registered:       reg,
-			RateLimit:        float64(s.DefaultPerSecondLimit),
-			HourlyEventLimit: s.DefaultPerHourLimit,
-			DailyEventLimit:  s.DefaultPerDayLimit,
-			RepoLimit:        s.DefaultRepoLimit,
+			RateLimit:        float64(s.Config.DefaultPerSecondLimit),
+			HourlyEventLimit: s.Config.DefaultPerHourLimit,
+			DailyEventLimit:  s.Config.DefaultPerDayLimit,
+			RepoLimit:        s.Config.DefaultRepoLimit,
 		}
 		if rateOverrides != nil {
 			npds.RateLimit = float64(rateOverrides.PerSecond)
@@ -477,7 +347,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *PDS, sub *act
 	}
 
 	protocol := "ws"
-	if s.ssl {
+	if s.Config.SSL {
 		protocol = "wss"
 	}
 

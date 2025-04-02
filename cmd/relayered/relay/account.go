@@ -174,10 +174,10 @@ func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *slurper.PD
 		// could check other things, a valid response is good enough for now
 		canonicalHost.Host = durl.Host
 		canonicalHost.SSL = (durl.Scheme == "https")
-		canonicalHost.RateLimit = float64(r.Slurper.DefaultPerSecondLimit)
-		canonicalHost.HourlyEventLimit = r.Slurper.DefaultPerHourLimit
-		canonicalHost.DailyEventLimit = r.Slurper.DefaultPerDayLimit
-		canonicalHost.RepoLimit = r.Slurper.DefaultRepoLimit
+		canonicalHost.RateLimit = float64(r.Slurper.Config.DefaultPerSecondLimit)
+		canonicalHost.HourlyEventLimit = r.Slurper.Config.DefaultPerHourLimit
+		canonicalHost.DailyEventLimit = r.Slurper.Config.DefaultPerDayLimit
+		canonicalHost.RepoLimit = r.Slurper.Config.DefaultRepoLimit
 
 		if r.Config.SSL && !canonicalHost.SSL {
 			return nil, fmt.Errorf("did references non-ssl PDS, this is disallowed in prod: %q %q", did, pdsRelay.URL)
