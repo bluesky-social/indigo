@@ -160,7 +160,9 @@ func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *slurper.PD
 
 		// Do a trivial API request against the PDS to verify that it exists
 		pclient := &xrpc.Client{Host: durl.String()}
-		r.Config.ApplyPDSClientSettings(pclient)
+		if r.Config.ApplyPDSClientSettings != nil {
+			r.Config.ApplyPDSClientSettings(pclient)
+		}
 		cfg, err := comatproto.ServerDescribeServer(ctx, pclient)
 		if err != nil {
 			// TODO: failing this shouldn't halt our indexing

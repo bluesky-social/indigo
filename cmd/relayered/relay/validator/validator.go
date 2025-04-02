@@ -406,7 +406,7 @@ func (val *Validator) VerifyCommitSignature(ctx context.Context, commit *repo.Co
 	xdid, err := syntax.ParseDID(commit.DID)
 	if err != nil {
 		commitVerifyErrors.WithLabelValues(hostname, "sig1").Inc()
-		return fmt.Errorf("bad car DID, %w", err)
+		return fmt.Errorf("bad car DID: %w", err)
 	}
 	ident, err := val.directory.LookupDID(ctx, xdid)
 	if err != nil {
@@ -419,18 +419,18 @@ func (val *Validator) VerifyCommitSignature(ctx context.Context, commit *repo.Co
 			return nil
 		}
 		commitVerifyErrors.WithLabelValues(hostname, "sig2").Inc()
-		return fmt.Errorf("DID lookup failed, %w", err)
+		return fmt.Errorf("DID lookup failed: %w", err)
 	}
-	pk, err := ident.GetPublicKey("atproto")
+	pk, err := ident.PublicKey()
 	if err != nil {
 		commitVerifyErrors.WithLabelValues(hostname, "sig3").Inc()
-		return fmt.Errorf("no atproto pubkey, %w", err)
+		return fmt.Errorf("no atproto pubkey: %w", err)
 	}
 	err = commit.VerifySignature(pk)
 	if err != nil {
 		// TODO: if the DID document was stale, force re-fetch from source and re-try if pubkey has changed
 		commitVerifyErrors.WithLabelValues(hostname, "sig4").Inc()
-		return fmt.Errorf("invalid signature, %w", err)
+		return fmt.Errorf("invalid signature: %w", err)
 	}
 	return nil
 }

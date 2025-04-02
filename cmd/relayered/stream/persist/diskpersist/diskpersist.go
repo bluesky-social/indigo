@@ -658,6 +658,9 @@ func (dp *DiskPersistence) uidForDid(ctx context.Context, did string) (models.Ui
 		return uid, nil
 	}
 
+	if dp.uids == nil {
+		return 0, fmt.Errorf("DiskPersistence has no UID resolver registered")
+	}
 	uid, err := dp.uids.DidToUid(ctx, did)
 	if err != nil {
 		return 0, err
