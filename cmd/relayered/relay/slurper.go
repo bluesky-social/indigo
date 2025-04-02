@@ -1,4 +1,4 @@
-package slurper
+package relay
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 
 	"github.com/RussellLuo/slidingwindow"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/relayered/stream"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay/models"
+	"github.com/bluesky-social/indigo/cmd/relayered/stream"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/schedulers/parallel"
 
 	"github.com/gorilla/websocket"

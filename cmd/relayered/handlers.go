@@ -12,6 +12,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay"
+	"github.com/bluesky-social/indigo/cmd/relayered/relay/models"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/labstack/echo/v4"
@@ -165,15 +166,15 @@ func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did s
 	}
 
 	ustatus := u.GetUpstreamStatus()
-	if ustatus == relay.AccountStatusTakendown {
+	if ustatus == models.AccountStatusTakendown {
 		return nil, fmt.Errorf("account was taken down by its PDS")
 	}
 
-	if ustatus == relay.AccountStatusDeactivated {
+	if ustatus == models.AccountStatusDeactivated {
 		return nil, fmt.Errorf("account is temporarily deactivated")
 	}
 
-	if ustatus == relay.AccountStatusSuspended {
+	if ustatus == models.AccountStatusSuspended {
 		return nil, fmt.Errorf("account is suspended by its PDS")
 	}
 
