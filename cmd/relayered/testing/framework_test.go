@@ -66,8 +66,8 @@ func TestScenarioLoad(t *testing.T) {
 	assert.Equal("https://morel.us-east.host.bsky.network", s.Accounts[0].Identity.PDSEndpoint())
 	_, err = s.Accounts[0].Identity.PublicKey()
 	assert.NoError(err)
-	assert.Equal(1, len(s.Messages))
-	msg, err := s.Messages[0].Frame.XRPCStreamEvent()
+	assert.Equal(3, len(s.Messages))
+	msg, err := s.Messages[2].Frame.XRPCStreamEvent()
 	if err != nil {
 		t.Fatal(err)
 	}

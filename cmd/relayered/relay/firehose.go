@@ -81,6 +81,8 @@ func (r *Relay) handleFedEvent(ctx context.Context, host *slurper.PDS, env *stre
 		r.Logger.Info("relay got account event", "did", env.RepoAccount.Did)
 
 		if !env.RepoAccount.Active && env.RepoAccount.Status == nil {
+			// TODO: semantics here aren't really clear
+			r.Logger.Warn("dropping invalid account event", "did", env.RepoAccount.Did, "active", env.RepoAccount.Active, "status", env.RepoAccount.Status)
 			accountVerifyWarnings.WithLabelValues(host.Host, "nostat").Inc()
 			return nil
 		}
