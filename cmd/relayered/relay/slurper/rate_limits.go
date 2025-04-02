@@ -11,15 +11,15 @@ type PDSRates struct {
 
 func (pr *PDSRates) FromSlurper(s *Slurper) {
 	if pr.PerSecond == 0 {
-		pr.PerHour = s.DefaultPerSecondLimit
+		pr.PerHour = s.Config.DefaultPerSecondLimit
 	}
 	if pr.PerHour == 0 {
-		pr.PerHour = s.DefaultPerHourLimit
+		pr.PerHour = s.Config.DefaultPerHourLimit
 	}
 	if pr.PerDay == 0 {
-		pr.PerDay = s.DefaultPerDayLimit
+		pr.PerDay = s.Config.DefaultPerDayLimit
 	}
 	if pr.RepoLimit == 0 {
-		pr.RepoLimit = s.DefaultRepoLimit
+		pr.RepoLimit = s.Config.DefaultRepoLimit
 	}
 }
