@@ -145,6 +145,7 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 	e.GET("/xrpc/com.atproto.sync.getRepo", svc.HandleComAtprotoSyncGetRepo) // just returns 3xx redirect to source PDS
 	e.GET("/xrpc/com.atproto.sync.getLatestCommit", svc.HandleComAtprotoSyncGetLatestCommit)
 
+	/* XXX: disabled while refactoring
 	admin := e.Group("/admin", svc.checkAdminAuth)
 
 	// Slurper-related Admin API
@@ -175,6 +176,7 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 
 	// Consumer-related Admin API
 	admin.GET("/consumers/list", svc.handleAdminListConsumers)
+	*/
 
 	// In order to support booting on random ports in tests, we need to tell the
 	// Echo instance it's already got a port, and then use its StartServer
