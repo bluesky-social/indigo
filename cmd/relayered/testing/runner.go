@@ -119,7 +119,8 @@ func LoadAndRunScenario(ctx context.Context, fpath string) error {
 	}
 	defer c.Shutdown()
 
-	for _, msg := range s.Messages {
+	for i, msg := range s.Messages {
+		slog.Info("sending test message", "index", i)
 		c.Clear()
 		evt, err := msg.Frame.XRPCStreamEvent()
 		if err != nil {
@@ -135,6 +136,8 @@ func LoadAndRunScenario(ctx context.Context, fpath string) error {
 				return fmt.Errorf("consumed unexpected events")
 			}
 			if !EqualEvents(evt, evts[0]) {
+				//evt.RepoCommit.Blocks = nil
+				//evts[0].RepoCommit.Blocks = nil
 				fmt.Printf("%+v\n", evt.RepoCommit)
 				fmt.Printf("%+v\n", evts[0].RepoCommit)
 				return fmt.Errorf("events didn't match")
@@ -146,27 +149,56 @@ func LoadAndRunScenario(ctx context.Context, fpath string) error {
 	return nil
 }
 
+// checks if two XRPCStreamEvent are equal, ignoring sequence numbers and timestamps
 func EqualEvents(a, b *stream.XRPCStreamEvent) bool {
-	// TODO: these are pretty partial checks (only some messages, not all reflect)
+	// TODO: this method is pretty manual, and should probably live next to the XRPCStreamEvent code
 	if a.RepoCommit != nil {
-		a.RepoCommit.Seq = 0
-		if b.RepoCommit != nil {
-			b.RepoCommit.Seq = 0
+		if b.RepoCommit == nil {
+			return false
 		}
-		return reflect.DeepEqual(a.RepoCommit, b.RepoCommit)
+		if a.RepoCommit.Repo != b.RepoCommit.Repo ||
+			a.RepoCommit.Commit != b.RepoCommit.Commit ||
+			!reflect.DeepEqual(a.RepoCommit.Blocks, b.RepoCommit.Blocks) ||
+			!reflect.DeepEqual(a.RepoCommit.Blobs, b.RepoCommit.Blobs) ||
+			!reflect.DeepEqual(a.RepoCommit.Ops, b.RepoCommit.Ops) ||
+			!reflect.DeepEqual(a.RepoCommit.Since, b.RepoCommit.Since) ||
+			a.RepoCommit.PrevData != b.RepoCommit.PrevData ||
+			a.RepoCommit.Rebase != b.RepoCommit.Rebase ||
+			a.RepoCommit.Rev != b.RepoCommit.Rev ||
+			a.RepoCommit.TooBig != b.RepoCommit.TooBig {
+			return false
+		}
+		return true
+	} else if a.RepoSync != nil {
+		if b.RepoSync == nil {
+			return false
+		}
+		if a.RepoSync.Did != b.RepoSync.Did ||
+			!reflect.DeepEqual(a.RepoSync.Blocks, b.RepoSync.Blocks) ||
+			a.RepoSync.Rev != b.RepoSync.Rev {
+			return false
+		}
+		return true
+	} else if a.RepoIdentity != nil {
+		if b.RepoIdentity == nil {
+			return false
+		}
+		if a.RepoIdentity.Did != b.RepoIdentity.Did ||
+			!reflect.DeepEqual(a.RepoIdentity.Handle, b.RepoIdentity.Handle) {
+			return false
+		}
+		return true
+	} else if a.RepoAccount != nil {
+		if b.RepoAccount == nil {
+			return false
+		}
+		if a.RepoAccount.Did != b.RepoAccount.Did ||
+			a.RepoAccount.Active != b.RepoAccount.Active ||
+			!reflect.DeepEqual(a.RepoAccount.Status, b.RepoAccount.Status) {
+			return false
+		}
+		return true
 	}
-	// TODO: all these need to check seq
-	if a.RepoSync != b.RepoSync {
-		return false
-	}
-	if a.RepoIdentity != b.RepoIdentity {
-		return false
-	}
-	if a.RepoAccount != b.RepoAccount {
-		return false
-	}
-	if a.Error != b.Error {
-		return false
-	}
-	return true
+	// NOTE: doesn't support all event types
+	return false
 }
