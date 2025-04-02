@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/relayered/models"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist"
 	arc "github.com/hashicorp/golang-lru/arc/v2"
@@ -42,8 +41,8 @@ type DiskPersistence struct {
 	curSeq       int64
 
 	uids     UidSource
-	uidCache *arc.ARCCache[models.Uid, string] // TODO: unused
-	didCache *arc.ARCCache[string, models.Uid]
+	uidCache *arc.ARCCache[uint64, string]
+	didCache *arc.ARCCache[string, uint64]
 
 	writers *sync.Pool
 	buffers *sync.Pool
@@ -98,7 +97,7 @@ func DefaultDiskPersistOptions() *DiskPersistOptions {
 }
 
 type UidSource interface {
-	DidToUid(ctx context.Context, did string) (models.Uid, error)
+	DidToUid(ctx context.Context, did string) (uint64, error)
 }
 
 func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPersistOptions) (*DiskPersistence, error) {
@@ -106,12 +105,12 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 		opts = DefaultDiskPersistOptions()
 	}
 
-	uidCache, err := arc.NewARC[models.Uid, string](opts.UIDCacheSize)
+	uidCache, err := arc.NewARC[uint64, string](opts.UIDCacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create uid cache: %w", err)
 	}
 
-	didCache, err := arc.NewARC[string, models.Uid](opts.DIDCacheSize)
+	didCache, err := arc.NewARC[string, uint64](opts.DIDCacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create did cache: %w", err)
 	}
@@ -570,7 +569,7 @@ func (dp *DiskPersistence) Persist(ctx context.Context, xevt *stream.XRPCStreamE
 		// only those two get peristed right now
 	}
 
-	usr, err := dp.uidForDid(ctx, did)
+	uid, err := dp.uidForDid(ctx, did)
 	if err != nil {
 		return err
 	}
@@ -584,7 +583,7 @@ func (dp *DiskPersistence) Persist(ctx context.Context, xevt *stream.XRPCStreamE
 	// Set event length in header
 	binary.LittleEndian.PutUint32(b[8:], uint32(len(b)-headerSize))
 	// Set user UID in header
-	binary.LittleEndian.PutUint64(b[12:], uint64(usr))
+	binary.LittleEndian.PutUint64(b[12:], uint64(uid))
 	// set seq at [20:] inside mutex section inside doPersist
 
 	return dp.addJobToQueue(ctx, persistJob{
@@ -598,7 +597,7 @@ type evtHeader struct {
 	Flags uint32
 	Kind  uint32
 	Seq   int64
-	Usr   models.Uid
+	Usr   uint64
 	Len   uint32
 }
 
@@ -622,14 +621,14 @@ func readHeader(r io.Reader, scratch []byte) (*evtHeader, error) {
 	flags := binary.LittleEndian.Uint32(scratch[:4])
 	kind := binary.LittleEndian.Uint32(scratch[4:8])
 	l := binary.LittleEndian.Uint32(scratch[8:12])
-	usr := binary.LittleEndian.Uint64(scratch[12:20])
+	uid := binary.LittleEndian.Uint64(scratch[12:20])
 	seq := binary.LittleEndian.Uint64(scratch[20:28])
 
 	return &evtHeader{
 		Flags: flags,
 		Kind:  kind,
 		Len:   l,
-		Usr:   models.Uid(usr),
+		Usr:   uid,
 		Seq:   int64(seq),
 	}, nil
 }
@@ -653,7 +652,7 @@ func (dp *DiskPersistence) writeHeader(ctx context.Context, flags uint32, kind u
 	return nil
 }
 
-func (dp *DiskPersistence) uidForDid(ctx context.Context, did string) (models.Uid, error) {
+func (dp *DiskPersistence) uidForDid(ctx context.Context, did string) (uint64, error) {
 	if uid, ok := dp.didCache.Get(did); ok {
 		return uid, nil
 	}
@@ -850,23 +849,23 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 type UserAction struct {
 	gorm.Model
 
-	Usr      models.Uid
+	Usr      int64
 	RebaseAt int64
 	Takedown bool
 }
 
-func (dp *DiskPersistence) TakeDownRepo(ctx context.Context, usr models.Uid) error {
+func (dp *DiskPersistence) TakeDownRepo(ctx context.Context, uid uint64) error {
 	/*
 		if err := p.meta.Create(&UserAction{
-			Usr:      usr,
+			Usr:      uid,
 			Takedown: true,
 		}).Error; err != nil {
 			return err
 		}
 	*/
 
-	return dp.forEachShardWithUserEvents(ctx, usr, func(ctx context.Context, fn string) error {
-		if err := dp.deleteEventsForUser(ctx, usr, fn); err != nil {
+	return dp.forEachShardWithUserEvents(ctx, uid, func(ctx context.Context, fn string) error {
+		if err := dp.deleteEventsForUser(ctx, uid, fn); err != nil {
 			return err
 		}
 
@@ -874,14 +873,14 @@ func (dp *DiskPersistence) TakeDownRepo(ctx context.Context, usr models.Uid) err
 	})
 }
 
-func (dp *DiskPersistence) forEachShardWithUserEvents(ctx context.Context, usr models.Uid, cb func(context.Context, string) error) error {
+func (dp *DiskPersistence) forEachShardWithUserEvents(ctx context.Context, uid uint64, cb func(context.Context, string) error) error {
 	var refs []LogFileRef
 	if err := dp.meta.Order("created_at desc").Find(&refs).Error; err != nil {
 		return err
 	}
 
 	for _, r := range refs {
-		mhas, err := dp.refMaybeHasUserEvents(ctx, usr, r)
+		mhas, err := dp.refMaybeHasUserEvents(ctx, uid, r)
 		if err != nil {
 			return err
 		}
@@ -903,7 +902,7 @@ func (dp *DiskPersistence) forEachShardWithUserEvents(ctx context.Context, usr m
 	return nil
 }
 
-func (dp *DiskPersistence) refMaybeHasUserEvents(ctx context.Context, usr models.Uid, ref LogFileRef) (bool, error) {
+func (dp *DiskPersistence) refMaybeHasUserEvents(ctx context.Context, uid uint64, ref LogFileRef) (bool, error) {
 	// TODO: lazily computed bloom filters for users in each logfile
 	return true, nil
 }
@@ -917,11 +916,11 @@ func (zr *zeroReader) Read(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func (dp *DiskPersistence) deleteEventsForUser(ctx context.Context, usr models.Uid, fn string) error {
-	return dp.mutateUserEventsInLog(ctx, usr, fn, EvtFlagTakedown, true)
+func (dp *DiskPersistence) deleteEventsForUser(ctx context.Context, uid uint64, fn string) error {
+	return dp.mutateUserEventsInLog(ctx, uid, fn, EvtFlagTakedown, true)
 }
 
-func (dp *DiskPersistence) mutateUserEventsInLog(ctx context.Context, usr models.Uid, fn string, flag uint32, zeroEvts bool) error {
+func (dp *DiskPersistence) mutateUserEventsInLog(ctx context.Context, uid uint64, fn string, flag uint32, zeroEvts bool) error {
 	fi, err := os.OpenFile(fn, os.O_RDWR, 0)
 	if err != nil {
 		return fmt.Errorf("failed to open log file: %w", err)
@@ -941,7 +940,7 @@ func (dp *DiskPersistence) mutateUserEventsInLog(ctx context.Context, usr models
 			return err
 		}
 
-		if h.Usr == usr && h.Flags&flag == 0 {
+		if h.Usr == uid && h.Flags&flag == 0 {
 			nflag := h.Flags | flag
 
 			binary.LittleEndian.PutUint32(scratch, nflag)
