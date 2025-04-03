@@ -11,7 +11,6 @@ import (
 	"github.com/bluesky-social/indigo/cmd/rerelay/relay/models"
 	"github.com/bluesky-social/indigo/cmd/rerelay/stream"
 
-	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
 )
@@ -65,6 +64,7 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 	if err != nil {
 		return fmt.Errorf("invalid DID in message: %w", err)
 	}
+
 	// XXX: did = did.Normalize()
 	account, err := r.GetAccount(ctx, did)
 	if err != nil {
@@ -81,6 +81,7 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 			return err
 		}
 	}
+
 	if account == nil {
 		return ErrAccountNotFound
 	}
@@ -134,45 +135,36 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 		}
 	}
 
-	// TODO: very messy fetch code here
-	var repo *models.AccountRepo
-	err = r.db.First(repo, account.UID).Error
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		logger.Error("failed to get previous root", "err", err)
-		repo = nil
+	ident, err := r.dir.LookupDID(ctx, did)
+	if err != nil {
+		// XXX: handle more granularly (eg, true not-founds vs errors); and add tests
+		logger.Warn("failed to load identity")
 	}
-	var prevRev *syntax.TID
-	var prevData *cid.Cid
-	if repo != nil {
-		c, err := cid.Parse(repo.CommitData)
-		if err != nil {
-			return fmt.Errorf("parsing commitDataCID from database: %w", err)
+
+	var prevRepo *models.AccountRepo
+	err = r.db.First(prevRepo, account.UID).Error
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			// TODO: should this be a hard error?
+			logger.Error("failed to read previous repo state", "err", err)
 		}
-		prevData = &c
-		t := syntax.TID(repo.Rev)
-		prevRev = &t
-	}
-	evtPrevDataStr := ""
-	if evt.PrevData != nil {
-		evtPrevDataStr = ((*cid.Cid)(evt.PrevData)).String()
-	}
-	commitDataCID, err := r.Validator.HandleCommit(ctx, hostname, account, evt, prevRev, prevData)
-	if err != nil {
-		// XXX: induction trace log
-		logger.Error("commit bad", "prevData", evtPrevDataStr, "err", err)
-		logger.Warn("failed handling event", "err", err, "commitCID", evt.Commit.String())
-		return fmt.Errorf("handle user event failed: %w", err)
+		prevRepo = nil
 	}
 
-	// TID syntax has been verified by validator
-	rev := syntax.TID(evt.Rev)
-
-	err = r.UpsertAccountRepo(account.UID, rev, cid.Cid(evt.Commit), *commitDataCID)
+	// most commit validation happens in this method. Note that is handles lenient/strict modes.
+	newRepo, err := r.VerifyRepoCommit(ctx, evt, ident, prevRepo, hostname)
 	if err != nil {
-		return fmt.Errorf("failed to set previous root uid=%d: %w", account.UID, err)
+		logger.Warn("commit message failed verification", "err", err)
+		return err
+	}
+
+	err = r.UpsertAccountRepo(account.UID, syntax.TID(newRepo.Rev), newRepo.CommitCID, newRepo.CommitData)
+	if err != nil {
+		return fmt.Errorf("failed to upsert account repo (%s): %w", account.DID, err)
 	}
 
 	// Broadcast the identity event to all consumers
+	// TODO: is this copy important?
 	commitCopy := *evt
 	err = r.Events.AddEvent(ctx, &stream.XRPCStreamEvent{
 		RepoCommit: &commitCopy,
@@ -209,15 +201,19 @@ func (r *Relay) processSyncEvent(ctx context.Context, evt *comatproto.SyncSubscr
 		return fmt.Errorf("could not get user for did %#v: %w", evt.Did, err)
 	}
 
-	commitCID, commitDataCID, err := r.Validator.HandleSync(ctx, hostname, evt)
+	ident, err := r.dir.LookupDID(ctx, did)
+	if err != nil {
+		// XXX: handle more granularly (eg, true not-founds vs errors); and add tests
+		logger.Warn("failed to load identity")
+	}
+
+	newRepo, err := r.VerifyRepoSync(ctx, evt, ident, hostname)
 	if err != nil {
 		return err
 	}
-	// TID syntax has been verified by validator
-	rev := syntax.TID(evt.Rev)
 
 	// TODO: should this happen before or after firehose persist/broadcast?
-	err = r.UpsertAccountRepo(account.UID, rev, *commitCID, *commitDataCID)
+	err = r.UpsertAccountRepo(account.UID, syntax.TID(newRepo.Rev), newRepo.CommitCID, newRepo.CommitData)
 	if err != nil {
 		return fmt.Errorf("failed to upsert repo state (uid %d): %w", account.UID, err)
 	}

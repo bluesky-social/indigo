@@ -11,7 +11,6 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/rerelay/relay/models"
 
-	"github.com/ipfs/go-cid"
 	"gorm.io/gorm"
 )
 
@@ -261,8 +260,8 @@ func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*m
 	return accounts, nil
 }
 
-func (r *Relay) UpsertAccountRepo(uid uint64, rev syntax.TID, commitCID, commitDataCID cid.Cid) error {
-	return r.db.Exec("INSERT INTO account_repo (uid, rev, commit_cid, commit_data) VALUES (?, ?, ?, ?) ON CONFLICT (uid) DO UPDATE SET rev = EXCLUDED.rev, commit_cid = EXCLUDED.commit_cid, commit_data = EXCLUDED.commit_data", uid, rev, commitCID.String(), commitDataCID.String()).Error
+func (r *Relay) UpsertAccountRepo(uid uint64, rev syntax.TID, commitCID, commitDataCID string) error {
+	return r.db.Exec("INSERT INTO account_repo (uid, rev, commit_cid, commit_data) VALUES (?, ?, ?, ?) ON CONFLICT (uid) DO UPDATE SET rev = EXCLUDED.rev, commit_cid = EXCLUDED.commit_cid, commit_data = EXCLUDED.commit_data", uid, rev, commitCID, commitDataCID).Error
 }
 
 // this function with exact name and args implements the `diskpersist.UidSource` interface
