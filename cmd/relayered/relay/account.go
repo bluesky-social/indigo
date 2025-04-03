@@ -30,28 +30,6 @@ func (r *Relay) DidToUid(ctx context.Context, did string) (uint64, error) {
 	return xu.UID, nil
 }
 
-/* XXX: unused?
-func (r *Relay) GetAccountByUID(ctx context.Context, uid uint64) (*models.Account, error) {
-	ctx, span := tracer.Start(ctx, "getAccount")
-	defer span.End()
-
-	var acc models.Account
-	if err := r.db.First(&acc, uid).Error; err != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, ErrAccountNotFound
-		}
-		return nil, err
-	}
-
-	// TODO: is this further check needed?
-	if acc.ID == 0 {
-		return nil, ErrAccountNotFound
-	}
-
-	return &acc, nil
-}
-*/
-
 func (r *Relay) GetAccount(ctx context.Context, did syntax.DID) (*models.Account, error) {
 	ctx, span := tracer.Start(ctx, "getAccount")
 	defer span.End()
@@ -64,7 +42,6 @@ func (r *Relay) GetAccount(ctx context.Context, did syntax.DID) (*models.Account
 	*/
 
 	var acc models.Account
-	// XXX: this needs to be a "find where"
 	if err := r.db.Where("did = ?", did).First(&acc).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrAccountNotFound
@@ -266,7 +243,6 @@ func (r *Relay) syncHostAccount(ctx context.Context, did syntax.DID, host *model
 		if res.Error != nil {
 			return fmt.Errorf("failed to increment repo count for pds %q: %w", canonicalHost.Hostname, res.Error)
 		}
-		r.Logger.Warn("XXX creating new account", "did", newAccount.DID)
 		if terr := tx.Create(&newAccount).Error; terr != nil {
 			r.Logger.Error("failed to create user", "did", newAccount.DID, "err", terr)
 			return fmt.Errorf("failed to create other pds user: %w", terr)
@@ -292,38 +268,10 @@ func (r *Relay) UpdateAccountStatus(ctx context.Context, did syntax.DID, status 
 	if err := r.db.Model(models.Account{}).Where("uid = ?", acc.UID).Update("status", status).Error; err != nil {
 		return err
 	}
-	// XXX: u.SetTakenDown(true)
 
 	// NOTE: not wiping events for user from persister (backfill window)
 	return nil
 }
-
-/* XXX
-func (r *Relay) GetRepoRoot(ctx context.Context, uid uint64) (cid.Cid, error) {
-	var prevState models.AccountPreviousState
-	err := r.db.First(&prevState, uid).Error
-	if err == nil {
-		return prevState.Cid.CID, nil
-	} else if errors.Is(err, gorm.ErrRecordNotFound) {
-		return cid.Cid{}, ErrAccountRepoNotFound
-	} else {
-		r.Logger.Error("user db err", "err", err)
-		return cid.Cid{}, fmt.Errorf("user prev db err, %w", err)
-	}
-}
-*/
-
-/*
-func (r *Relay) GetHostForDID(ctx context.Context, did string) (string, error) {
-	var pdsHostname string
-	// TODO: use gorm, not "Raw"
-	err := r.db.Raw("SELECT pds.host FROM users JOIN pds ON users.pds = pds.id WHERE users.did = ?", did).Scan(&pdsHostname).Error
-	if err != nil {
-		return "", err
-	}
-	return pdsHostname, nil
-}
-*/
 
 func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*models.Account, error) {
 
