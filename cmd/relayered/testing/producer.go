@@ -32,7 +32,7 @@ func NewProducer() *Producer {
 		BufferSize: 1024,
 		mux:        mux,
 	}
-	mux.HandleFunc("/xrpc/com.atproto.sync.subscribeRepos", p.handleSubscribeRepos)
+	mux.HandleFunc("GET /xrpc/com.atproto.sync.subscribeRepos", p.handleSubscribeRepos)
 	return &p
 }
 
