@@ -43,68 +43,13 @@ func run(args []string) error {
 		Name:    "rerelay",
 		Usage:   "atproto relay daemon",
 		Version: versioninfo.Short(),
-		Action:  runRelay,
 	}
 	app.Flags = []cli.Flag{
-		&cli.StringFlag{
-			Name:    "db-url",
-			Usage:   "database connection string for relay database",
-			Value:   "sqlite://data/relay/relay.sqlite",
-			EnvVars: []string{"DATABASE_URL"},
-		},
-		&cli.IntFlag{
-			Name:    "max-db-conn",
-			Usage:   "limit on size of database connection pool",
-			EnvVars: []string{"MAX_DB_CONNECTIONS", "MAX_METADB_CONNECTIONS"},
-			Value:   40,
-		},
-		&cli.StringFlag{
-			Name:    "bind",
-			Usage:   "IP or address, and port, to listen on for HTTP APIs (including firehose)",
-			Value:   ":2470",
-			EnvVars: []string{"RELAY_API_BIND", "RELAY_API_LISTEN"},
-		},
-		&cli.StringFlag{
-			Name:    "persist-dir",
-			Usage:   "local folder to store firehose playback files",
-			Value:   "data/relay/events",
-			EnvVars: []string{"RELAY_PERSIST_DIR", "RELAY_PERSISTER_DIR"},
-		},
-		&cli.DurationFlag{
-			Name:    "replay-window",
-			Usage:   "retention duration for firehose playback",
-			EnvVars: []string{"RELAY_REPLAY_WINDOW", "RELAY_EVENT_PLAYBACK_TTL"},
-			Value:   72 * time.Hour,
-		},
 		// XXX: actually disabled if empty?
 		&cli.StringFlag{
 			Name:    "admin-password",
 			Usage:   "secret password/token for accessing admin endpoints (random is used if not set)",
 			EnvVars: []string{"RELAY_ADMIN_PASSWORD", "RELAY_ADMIN_KEY"},
-		},
-		&cli.IntFlag{
-			Name:    "host-concurrency",
-			Usage:   "number of concurrent worker routines per upstream host",
-			EnvVars: []string{"RELAY_HOST_CONCURRENCY", "RELAY_CONCURRENCY_PER_PDS"},
-			Value:   100,
-		},
-		&cli.IntFlag{
-			Name:    "max-queue-per-host",
-			Value:   1_000,
-			Usage:   "size of in-process DID (identity) cache",
-			EnvVars: []string{"RELAY_MAX_QUEUE_PER_HOST", "RELAY_MAX_QUEUE_PER_PDS"},
-		},
-		&cli.IntFlag{
-			Name:    "default-account-limit",
-			Value:   100,
-			Usage:   "max number of active accounts for new upstream hosts",
-			EnvVars: []string{"RELAY_DEFAULT_ACCOUUNT_LIMIT", "RELAY_DEFAULT_REPO_LIMIT"},
-		},
-		&cli.IntFlag{
-			Name:    "did-cache-size",
-			Value:   5_000_000,
-			Usage:   "size of in-process DID (identity) cache",
-			EnvVars: []string{"RELAY_DID_CACHE_SIZE"},
 		},
 		// XXX: not used?
 		&cli.StringFlag{
@@ -113,51 +58,114 @@ func run(args []string) error {
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
-		// XXX: refactor this flag
-		&cli.BoolFlag{
-			Name:  "crawl-insecure-ws",
-			Usage: "when connecting to PDS instances, use ws:// instead of wss://",
-		},
-		&cli.StringSliceFlag{
-			Name:    "forward-crawl-requests",
-			Usage:   "comma-separated list of servers (eg https://example.com) to forward requestCrawl on to",
-			EnvVars: []string{"RELAY_FORWARD_CRAWL_REQUESTS", "RELAY_NEXT_CRAWLER"},
-		},
-		&cli.StringFlag{
-			Name:    "bsky-social-rate-limit-skip",
-			EnvVars: []string{"BSKY_SOCIAL_RATE_LIMIT_SKIP"},
-			Usage:   "ratelimit bypass secret token for *.bsky.social domains",
-		},
 		&cli.StringFlag{
 			Name:    "log-level",
 			Usage:   "log verbosity level (eg: warn, info, debug)",
 			EnvVars: []string{"BLUEPAGES_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"},
 		},
-		&cli.StringFlag{
-			Name:    "env",
-			Value:   "dev",
-			EnvVars: []string{"ENVIRONMENT"},
-			Usage:   "declared hosting environment (prod, qa, etc); used in metrics",
-		},
-		&cli.BoolFlag{
-			Name: "enable-db-tracing",
-		},
-		&cli.BoolFlag{
-			Name: "enable-jaeger-tracing",
-		},
-		&cli.BoolFlag{
-			Name: "enable-otel-tracing",
-		},
-		&cli.StringFlag{
-			Name:    "metrics-listen",
-			Usage:   "IP or address, and port, to listen on for prometheus metrics",
-			Value:   ":2471",
-			EnvVars: []string{"RELAY_METRICS_LISTEN"},
-		},
-		&cli.StringFlag{
-			Name:    "otel-exporter-otlp-endpoint",
-			Value:   "http://localhost:4328",
-			EnvVars: []string{"OTEL_EXPORTER_OTLP_ENDPOINT"},
+	}
+	app.Commands = []*cli.Command{
+		&cli.Command{
+			Name:   "serve",
+			Usage:  "run the relay daemon",
+			Action: runRelay,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "db-url",
+					Usage:   "database connection string for relay database",
+					Value:   "sqlite://data/relay/relay.sqlite",
+					EnvVars: []string{"DATABASE_URL"},
+				},
+				&cli.IntFlag{
+					Name:    "max-db-conn",
+					Usage:   "limit on size of database connection pool",
+					EnvVars: []string{"MAX_DB_CONNECTIONS", "MAX_METADB_CONNECTIONS"},
+					Value:   40,
+				},
+				&cli.StringFlag{
+					Name:    "bind",
+					Usage:   "IP or address, and port, to listen on for HTTP APIs (including firehose)",
+					Value:   ":2470",
+					EnvVars: []string{"RELAY_API_BIND", "RELAY_API_LISTEN"},
+				},
+				&cli.StringFlag{
+					Name:    "persist-dir",
+					Usage:   "local folder to store firehose playback files",
+					Value:   "data/relay/events",
+					EnvVars: []string{"RELAY_PERSIST_DIR", "RELAY_PERSISTER_DIR"},
+				},
+				&cli.DurationFlag{
+					Name:    "replay-window",
+					Usage:   "retention duration for firehose playback",
+					EnvVars: []string{"RELAY_REPLAY_WINDOW", "RELAY_EVENT_PLAYBACK_TTL"},
+					Value:   72 * time.Hour,
+				},
+				&cli.IntFlag{
+					Name:    "host-concurrency",
+					Usage:   "number of concurrent worker routines per upstream host",
+					EnvVars: []string{"RELAY_HOST_CONCURRENCY", "RELAY_CONCURRENCY_PER_PDS"},
+					Value:   100,
+				},
+				&cli.IntFlag{
+					Name:    "max-queue-per-host",
+					Value:   1_000,
+					Usage:   "size of in-process DID (identity) cache",
+					EnvVars: []string{"RELAY_MAX_QUEUE_PER_HOST", "RELAY_MAX_QUEUE_PER_PDS"},
+				},
+				&cli.IntFlag{
+					Name:    "default-account-limit",
+					Value:   100,
+					Usage:   "max number of active accounts for new upstream hosts",
+					EnvVars: []string{"RELAY_DEFAULT_ACCOUUNT_LIMIT", "RELAY_DEFAULT_REPO_LIMIT"},
+				},
+				&cli.IntFlag{
+					Name:    "did-cache-size",
+					Value:   5_000_000,
+					Usage:   "size of in-process DID (identity) cache",
+					EnvVars: []string{"RELAY_DID_CACHE_SIZE"},
+				},
+				&cli.StringFlag{
+					Name:    "env",
+					Value:   "dev",
+					EnvVars: []string{"ENVIRONMENT"},
+					Usage:   "declared hosting environment (prod, qa, etc); used in metrics",
+				},
+				&cli.BoolFlag{
+					Name: "enable-db-tracing",
+				},
+				&cli.BoolFlag{
+					Name: "enable-jaeger-tracing",
+				},
+				&cli.BoolFlag{
+					Name: "enable-otel-tracing",
+				},
+				&cli.StringFlag{
+					Name:    "metrics-listen",
+					Usage:   "IP or address, and port, to listen on for prometheus metrics",
+					Value:   ":2471",
+					EnvVars: []string{"RELAY_METRICS_LISTEN"},
+				},
+				&cli.StringFlag{
+					Name:    "otel-exporter-otlp-endpoint",
+					Value:   "http://localhost:4328",
+					EnvVars: []string{"OTEL_EXPORTER_OTLP_ENDPOINT"},
+				},
+				// XXX: refactor this flag
+				&cli.BoolFlag{
+					Name:  "crawl-insecure-ws",
+					Usage: "when connecting to PDS instances, use ws:// instead of wss://",
+				},
+				&cli.StringSliceFlag{
+					Name:    "forward-crawl-requests",
+					Usage:   "comma-separated list of servers (eg https://example.com) to forward requestCrawl on to",
+					EnvVars: []string{"RELAY_FORWARD_CRAWL_REQUESTS", "RELAY_NEXT_CRAWLER"},
+				},
+				&cli.StringFlag{
+					Name:    "bsky-social-rate-limit-skip",
+					EnvVars: []string{"BSKY_SOCIAL_RATE_LIMIT_SKIP"},
+					Usage:   "ratelimit bypass secret token for *.bsky.social domains",
+				},
+			},
 		},
 	}
 	return app.Run(os.Args)

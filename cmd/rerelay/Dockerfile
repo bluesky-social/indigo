@@ -42,7 +42,7 @@ ENV TZ=Etc/UTC
 
 EXPOSE 2470
 
-CMD ["/rerelay"]
+CMD ["/rerelay", "serve"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
 LABEL org.opencontainers.image.description="atproto Relay"
