@@ -25,7 +25,7 @@ type Relay struct {
 	Validator *Validator
 	Config    RelayConfig
 
-	// extUserLk serializes a section of syncPDSAccount()
+	// extUserLk serializes a section of syncHostAccount()
 	// TODO: at some point we will want to lock specific DIDs, this lock as is
 	// is overly broad, but i dont expect it to be a bottleneck for now
 	extUserLk sync.Mutex
@@ -36,24 +36,24 @@ type Relay struct {
 	consumers      map[uint64]*SocketConsumer
 
 	// Account cache
-	userCache *lru.Cache[string, *models.Account]
+	accountCache *lru.Cache[string, *models.Account]
 }
 
 type RelayConfig struct {
-	SSL                    bool
-	DefaultRepoLimit       int64
-	ConcurrencyPerPDS      int64
-	MaxQueuePerPDS         int64
-	ApplyPDSClientSettings func(c *xrpc.Client)
-	SkipAccountHostCheck   bool // XXX: only used for testing
+	SSL                     bool
+	DefaultRepoLimit        int64
+	ConcurrencyPerHost      int64
+	MaxQueuePerHost         int64
+	ApplyHostClientSettings func(c *xrpc.Client)
+	SkipAccountHostCheck    bool // XXX: only used for testing
 }
 
 func DefaultRelayConfig() *RelayConfig {
 	return &RelayConfig{
-		SSL:               true,
-		DefaultRepoLimit:  100,
-		ConcurrencyPerPDS: 100,
-		MaxQueuePerPDS:    1_000,
+		SSL:                true,
+		DefaultRepoLimit:   100,
+		ConcurrencyPerHost: 100,
+		MaxQueuePerHost:    1_000,
 	}
 }
 
@@ -76,7 +76,7 @@ func NewRelay(db *gorm.DB, vldtr *Validator, evtman *eventmgr.EventManager, dir 
 		consumersLk: sync.RWMutex{},
 		consumers:   make(map[uint64]*SocketConsumer),
 
-		userCache: uc,
+		accountCache: uc,
 	}
 
 	if err := r.MigrateDatabase(); err != nil {
@@ -86,8 +86,8 @@ func NewRelay(db *gorm.DB, vldtr *Validator, evtman *eventmgr.EventManager, dir 
 	slOpts := DefaultSlurperConfig()
 	slOpts.SSL = config.SSL
 	slOpts.DefaultRepoLimit = config.DefaultRepoLimit
-	slOpts.ConcurrencyPerPDS = config.ConcurrencyPerPDS
-	slOpts.MaxQueuePerPDS = config.MaxQueuePerPDS
+	slOpts.ConcurrencyPerHost = config.ConcurrencyPerHost
+	slOpts.MaxQueuePerHost = config.MaxQueuePerHost
 	s, err := NewSlurper(db, r.handleFedEvent, slOpts, r.Logger)
 	if err != nil {
 		return nil, err
@@ -104,13 +104,13 @@ func (r *Relay) MigrateDatabase() error {
 	if err := r.db.AutoMigrate(models.DomainBan{}); err != nil {
 		return err
 	}
-	if err := r.db.AutoMigrate(models.PDS{}); err != nil {
+	if err := r.db.AutoMigrate(models.Host{}); err != nil {
 		return err
 	}
 	if err := r.db.AutoMigrate(models.Account{}); err != nil {
 		return err
 	}
-	if err := r.db.AutoMigrate(models.AccountPreviousState{}); err != nil {
+	if err := r.db.AutoMigrate(models.AccountRepo{}); err != nil {
 		return err
 	}
 	return nil
