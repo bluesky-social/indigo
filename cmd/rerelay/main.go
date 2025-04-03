@@ -257,10 +257,9 @@ func runRelay(cctx *cli.Context) error {
 	}
 
 	evtman := eventmgr.NewEventManager(persister)
-	vldtr := relay.NewValidator(&dir)
 
 	logger.Info("constructing relay service")
-	r, err := relay.NewRelay(db, vldtr, evtman, &dir, relayConfig)
+	r, err := relay.NewRelay(db, evtman, &dir, relayConfig)
 	if err != nil {
 		return err
 	}

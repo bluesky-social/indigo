@@ -35,6 +35,7 @@ func MustSimpleRelay(dir identity.Directory, tmpd string) *SimpleRelay {
 	relayConfig := relay.DefaultRelayConfig()
 	relayConfig.SSL = false
 	relayConfig.SkipAccountHostCheck = true
+	relayConfig.LenientSyncValidation = true
 
 	db, err := cliutil.SetupDatabase("sqlite://:memory:", 40)
 	if err != nil {
@@ -46,10 +47,9 @@ func MustSimpleRelay(dir identity.Directory, tmpd string) *SimpleRelay {
 	if err != nil {
 		panic(err)
 	}
-	vldtr := relay.NewValidator(dir)
 	evtman := eventmgr.NewEventManager(persister)
 
-	r, err := relay.NewRelay(db, vldtr, evtman, dir, relayConfig)
+	r, err := relay.NewRelay(db, evtman, dir, relayConfig)
 	if err != nil {
 		panic(err)
 	}
