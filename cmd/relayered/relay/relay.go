@@ -47,6 +47,10 @@ type RelayConfig struct {
 	MaxQueuePerHost         int64
 	ApplyHostClientSettings func(c *xrpc.Client)
 	SkipAccountHostCheck    bool // XXX: only used for testing
+
+	// if true, ignore "requestCrawl"
+	DisableNewHosts bool
+	TrustedDomains  []string
 }
 
 func DefaultRelayConfig() *RelayConfig {
@@ -98,7 +102,8 @@ func NewRelay(db *gorm.DB, vldtr *Validator, evtman *eventmgr.EventManager, dir 
 	}
 	r.Slurper = s
 
-	if err := r.Slurper.RestartAll(); err != nil {
+	// TODO: should this happen in a separate "start" method, instead of "NewRelay()"?
+	if err := r.ResubscribeAllHosts(); err != nil {
 		return nil, err
 	}
 	return r, nil
