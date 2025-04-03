@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
-	"strings"
 	"sync"
 	"time"
 
@@ -273,9 +272,11 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		protocol = "wss"
 	}
 
-	// Special case `.host.bsky.network` Host to rewind cursor by 200 events to smooth over unclean shutdowns
-	if strings.HasSuffix(host.Hostname, ".host.bsky.network") && host.LastSeq > 200 {
+	// cursor by 200 events to smooth over unclean shutdowns
+	if host.LastSeq > 200 {
 		host.LastSeq -= 200
+	} else {
+		host.LastSeq = 0
 	}
 
 	cursor := host.LastSeq
