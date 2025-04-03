@@ -94,7 +94,7 @@ func NewSlurper(db *gorm.DB, cb ProcessMessageFunc, config *SlurperConfig, logge
 		logger = slog.Default()
 	}
 
-	// NOTE: unused second argument is not an 'error
+	// NOTE: discarded second argument is not an `error` type
 	newHostPerDayLimiter, _ := slidingwindow.NewLimiter(time.Hour*24, config.NewHostPerDayLimit, windowFunc)
 
 	s := &Slurper{
@@ -267,11 +267,6 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		HandshakeTimeout: time.Second * 5,
 	}
 
-	protocol := "ws"
-	if s.Config.SSL {
-		protocol = "wss"
-	}
-
 	// cursor by 200 events to smooth over unclean shutdowns
 	if host.LastSeq > 200 {
 		host.LastSeq -= 200
@@ -293,13 +288,11 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		default:
 		}
 
-		var url string
+		u := host.SubscribeReposURL()
 		if newHost {
-			url = fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeRepos", protocol, host.Hostname)
-		} else {
-			url = fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", protocol, host.Hostname, cursor)
+			u = fmt.Sprintf("%s?cursor=%d", u, cursor)
 		}
-		con, res, err := d.DialContext(ctx, url, nil)
+		con, res, err := d.DialContext(ctx, u, nil)
 		if err != nil {
 			s.log.Warn("dialing failed", "host", host.Hostname, "err", err, "backoff", backoff)
 			time.Sleep(sleepForBackoff(backoff))
@@ -317,7 +310,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 			continue
 		}
 
-		s.log.Info("event subscription response", "code", res.StatusCode, "url", url)
+		s.log.Info("event subscription response", "code", res.StatusCode, "url", u)
 
 		curCursor := cursor
 		if err := s.handleConnection(ctx, host, con, &cursor, sub); err != nil {

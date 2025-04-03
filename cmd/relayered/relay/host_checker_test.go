@@ -30,6 +30,7 @@ func TestMockHostChecker(t *testing.T) {
 	assert.Error(err)
 }
 
+// NOTE: this test does live network resolutions
 func TestLiveHostChecker(t *testing.T) {
 	assert := assert.New(t)
 	ctx := t.Context()
