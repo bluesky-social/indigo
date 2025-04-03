@@ -17,13 +17,14 @@ import (
 var tracer = otel.Tracer("relay")
 
 type Relay struct {
-	db        *gorm.DB
-	dir       identity.Directory
-	Logger    *slog.Logger
-	Slurper   *Slurper
-	Events    *eventmgr.EventManager
-	Validator *Validator
-	Config    RelayConfig
+	db          *gorm.DB
+	dir         identity.Directory
+	Logger      *slog.Logger
+	Slurper     *Slurper
+	Events      *eventmgr.EventManager
+	Validator   *Validator
+	HostChecker HostChecker
+	Config      RelayConfig
 
 	// extUserLk serializes a section of syncHostAccount()
 	// TODO: at some point we will want to lock specific DIDs, this lock as is
@@ -65,13 +66,16 @@ func NewRelay(db *gorm.DB, vldtr *Validator, evtman *eventmgr.EventManager, dir 
 
 	uc, _ := lru.New[string, *models.Account](2_000_000)
 
+	hc := NewHostClient("relayered") // TODO: pass-through a user-agent from config?
+
 	r := &Relay{
-		db:        db,
-		dir:       dir,
-		Logger:    slog.Default().With("system", "relay"),
-		Events:    evtman,
-		Validator: vldtr,
-		Config:    *config,
+		db:          db,
+		dir:         dir,
+		Logger:      slog.Default().With("system", "relay"),
+		Events:      evtman,
+		Validator:   vldtr,
+		HostChecker: hc,
+		Config:      *config,
 
 		consumersLk: sync.RWMutex{},
 		consumers:   make(map[uint64]*SocketConsumer),

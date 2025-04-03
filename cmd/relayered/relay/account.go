@@ -8,10 +8,8 @@ import (
 	"strings"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay/models"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/ipfs/go-cid"
 	"gorm.io/gorm"
@@ -152,19 +150,11 @@ func (r *Relay) syncHostAccount(ctx context.Context, did syntax.DID, host *model
 		// TODO: what do we actually want to track about the source we immediately got this message from vs the canonical Host?
 		r.Logger.Warn("pds discovered in new user flow", "pds", durl.String(), "did", did)
 
-		// Do a trivial API request against the Host to verify that it exists
-		pclient := &xrpc.Client{Host: durl.String()}
-		if r.Config.ApplyHostClientSettings != nil {
-			r.Config.ApplyHostClientSettings(pclient)
-		}
-		cfg, err := comatproto.ServerDescribeServer(ctx, pclient)
+		err = r.HostChecker.CheckHost(ctx, durl.String())
 		if err != nil {
 			// TODO: failing this shouldn't halt our indexing
 			return nil, fmt.Errorf("failed to check unrecognized pds: %w", err)
 		}
-
-		// since handles can be anything, checking against this list doesn't matter...
-		_ = cfg
 
 		// could check other things, a valid response is good enough for now
 		canonicalHost.Hostname = durl.Host
