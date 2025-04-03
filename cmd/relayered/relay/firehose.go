@@ -257,8 +257,11 @@ func (r *Relay) handleCommit(ctx context.Context, host *models.Host, evt *comatp
 	var prevRev *syntax.TID
 	var prevData *cid.Cid
 	if repo != nil {
-		// XXX: repo.CommitData
-		//prevData = &repo.Cid.CID
+		c, err := cid.Parse(repo.CommitData)
+		if err != nil {
+			return fmt.Errorf("parsing commitDataCID from database: %w", err)
+		}
+		prevData = &c
 		t := syntax.TID(repo.Rev)
 		prevRev = &t
 	}
@@ -266,19 +269,21 @@ func (r *Relay) handleCommit(ctx context.Context, host *models.Host, evt *comatp
 	if evt.PrevData != nil {
 		evtPrevDataStr = ((*cid.Cid)(evt.PrevData)).String()
 	}
-	newRootCid, err := r.Validator.HandleCommit(ctx, host, account, evt, prevRev, prevData)
+	commitDataCID, err := r.Validator.HandleCommit(ctx, host, account, evt, prevRev, prevData)
 	if err != nil {
 		// XXX: induction trace log
 		r.Logger.Error("commit bad", "seq", evt.Seq, "host", host.Hostname, "repo", evt.Repo, "prev", evtPrevDataStr, "err", err)
 		r.Logger.Warn("failed handling event", "err", err, "host", host.Hostname, "seq", evt.Seq, "repo", account.DID, "commit", evt.Commit.String())
 		repoCommitsResultCounter.WithLabelValues(host.Hostname, "err").Inc()
 		return fmt.Errorf("handle user event failed: %w", err)
-	} else {
-		// store now verified new repo state
-		err = r.upsertPrevState(account.UID, newRootCid, evt.Rev, evt.Seq)
-		if err != nil {
-			return fmt.Errorf("failed to set previous root uid=%d: %w", account.UID, err)
-		}
+	}
+
+	// TID syntax has been verified by validator
+	rev := syntax.TID(evt.Rev)
+
+	err = r.UpsertAccountRepo(account.UID, rev, cid.Cid(evt.Commit), *commitDataCID)
+	if err != nil {
+		return fmt.Errorf("failed to set previous root uid=%d: %w", account.UID, err)
 	}
 
 	repoCommitsResultCounter.WithLabelValues(host.Hostname, "ok").Inc()
@@ -317,13 +322,17 @@ func (r *Relay) handleSync(ctx context.Context, host *models.Host, evt *comatpro
 		return fmt.Errorf("could not get user for did %#v: %w", evt.Did, err)
 	}
 
-	newRootCid, err := r.Validator.HandleSync(ctx, host, evt)
+	commitCID, commitDataCID, err := r.Validator.HandleSync(ctx, host, evt)
 	if err != nil {
 		return err
 	}
-	err = r.upsertPrevState(account.UID, newRootCid, evt.Rev, evt.Seq)
+	// TID syntax has been verified by validator
+	rev := syntax.TID(evt.Rev)
+
+	// TODO: should this happen before or after firehose persist/broadcast?
+	err = r.UpsertAccountRepo(account.UID, rev, *commitCID, *commitDataCID)
 	if err != nil {
-		return fmt.Errorf("could not sync set previous state uid=%d: %w", account.UID, err)
+		return fmt.Errorf("failed to upsert repo state (uid %d): %w", account.UID, err)
 	}
 
 	// Broadcast the sync event to all consumers
@@ -337,14 +346,6 @@ func (r *Relay) handleSync(ctx context.Context, host *models.Host, evt *comatpro
 	}
 
 	return nil
-}
-
-func (r *Relay) upsertPrevState(uid uint64, newRootCid *cid.Cid, rev string, seq int64) error {
-	// XXX: which is this actually
-	return r.db.Exec(
-		"INSERT INTO account_repo (uid, rev, commit_data) VALUES (?, ?, ?) ON CONFLICT (uid) DO UPDATE SET commit_data = EXCLUDED.commit_data , rev = EXCLUDED.rev",
-		uid, rev, newRootCid.String(),
-	).Error
 }
 
 func (r *Relay) purgeDidCache(ctx context.Context, did string) {

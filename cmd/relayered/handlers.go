@@ -61,7 +61,7 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *co
 		return echo.NewHTTPError(http.StatusUnauthorized, "domain is banned")
 	}
 
-	s.logger.Warn("TODO: better host validation for crawl requests")
+	s.logger.Warn("XXX: better host validation for crawl requests")
 
 	clientHost := fmt.Sprintf("%s://%s", u.Scheme, host)
 
@@ -137,7 +137,7 @@ func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int6
 
 		resp.Repos[i] = &comatproto.SyncListRepos_Repo{
 			Did:  acc.DID,
-			Head: repo.CommitData, // XXX: is this what is expected here?
+			Head: repo.CommitCID,
 		}
 	}
 
@@ -185,7 +185,7 @@ func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, rawDI
 	}
 
 	return &comatproto.SyncGetLatestCommit_Output{
-		Cid: repo.CommitData, // XXX: this is probably not what is wanted here
+		Cid: repo.CommitCID,
 		Rev: repo.Rev,
 	}, nil
 }

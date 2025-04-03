@@ -79,10 +79,14 @@ func (Account) TableName() string {
 	return "account"
 }
 
+// This is a small extension table to `Account`, which holds fast-changing fields updated on every firehose event.
 type AccountRepo struct {
-	UID        uint64 `gorm:"column:uid;primarykey"`
-	Rev        string `gorm:"column:rev"`
-	CommitData string `gorm:"column:commit_data"`
+	UID uint64 `gorm:"column:uid;primarykey"`
+	Rev string `gorm:"column:rev;not null"`
+	// The CID of the entire signed commit block. Sometimes called the "head"
+	CommitCID string `gorm:"column:commit_cid;not null"`
+	// The CID of the top of the repo MST, which is the 'data' field within the commit block. This becomes 'prevData'
+	CommitData string `gorm:"column:commit_data;not null"`
 }
 
 func (AccountRepo) TableName() string {
