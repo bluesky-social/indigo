@@ -99,7 +99,7 @@ func (val *Validator) lockUser(ctx context.Context, uid uint64) func() {
 	}
 }
 
-func (val *Validator) HandleCommit(ctx context.Context, host *models.Host, account *models.Account, commit *comatproto.SyncSubscribeRepos_Commit, prevRev *syntax.TID, prevData *cid.Cid) (newRoot *cid.Cid, err error) {
+func (val *Validator) HandleCommit(ctx context.Context, host *models.Host, account *models.Account, commit *comatproto.SyncSubscribeRepos_Commit, prevRev *syntax.TID, prevData *cid.Cid) (commitDataCID *cid.Cid, err error) {
 	uid := account.UID
 	unlock := val.lockUser(ctx, uid)
 	defer unlock()
@@ -107,11 +107,11 @@ func (val *Validator) HandleCommit(ctx context.Context, host *models.Host, accou
 	if err != nil {
 		return nil, err
 	}
-	newRootCid, err := repoFragment.MST.RootCID()
+	commitDataCID, err = repoFragment.MST.RootCID()
 	if err != nil {
 		return nil, err
 	}
-	return newRootCid, nil
+	return commitDataCID, nil
 }
 
 type revOutOfOrderError struct {
@@ -174,7 +174,7 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.Host
 		hasWarning = true
 	}
 
-	commit, repoFragment, err := atrepo.LoadRepoFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
+	commit, repoFragment, err := repo.LoadRepoFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
 	if err != nil {
 		commitVerifyErrors.WithLabelValues(hostname, "car").Inc()
 		return nil, err
@@ -305,52 +305,52 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.Host
 }
 
 // HandleSync checks signed commit from a #sync message
-func (val *Validator) HandleSync(ctx context.Context, host *models.Host, msg *comatproto.SyncSubscribeRepos_Sync) (newRoot *cid.Cid, err error) {
+func (val *Validator) HandleSync(ctx context.Context, host *models.Host, msg *comatproto.SyncSubscribeRepos_Sync) (commitCID, commitDataCID *cid.Cid, err error) {
 	hostname := host.Hostname
 	hasWarning := false
 
 	did, err := syntax.ParseDID(msg.Did)
 	if err != nil {
 		syncVerifyErrors.WithLabelValues(hostname, "did").Inc()
-		return nil, err
+		return nil, nil, err
 	}
 	rev, err := syntax.ParseTID(msg.Rev)
 	if err != nil {
 		syncVerifyErrors.WithLabelValues(hostname, "tid").Inc()
-		return nil, err
+		return nil, nil, err
 	}
 	if rev.Time().After(time.Now().Add(val.maxRevFuture)) {
 		syncVerifyErrors.WithLabelValues(hostname, "revf").Inc()
-		return nil, val.ErrRevTooFarFuture
+		return nil, nil, val.ErrRevTooFarFuture
 	}
 	_, err = syntax.ParseDatetime(msg.Time)
 	if err != nil {
 		syncVerifyErrors.WithLabelValues(hostname, "time").Inc()
-		return nil, err
+		return nil, nil, err
 	}
 
-	commit, _, err := atrepo.LoadCommitFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
+	commit, commitCID, err := repo.LoadCommitFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
 	if err != nil {
 		commitVerifyErrors.WithLabelValues(hostname, "car").Inc()
-		return nil, err
+		return nil, nil, err
 	}
 
 	if commit.Rev != rev.String() {
 		commitVerifyErrors.WithLabelValues(hostname, "rev").Inc()
-		return nil, fmt.Errorf("rev did not match commit")
+		return nil, nil, fmt.Errorf("rev did not match commit")
 	}
 	if commit.DID != did.String() {
 		commitVerifyErrors.WithLabelValues(hostname, "did2").Inc()
-		return nil, fmt.Errorf("rev did not match commit")
+		return nil, nil, fmt.Errorf("rev did not match commit")
 	}
 
 	err = val.VerifyCommitSignature(ctx, commit, hostname, &hasWarning)
 	if err != nil {
 		// signature errors are metrics counted inside VerifyCommitSignature()
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &commit.Data, nil
+	return commitCID, &commit.Data, nil
 }
 
 // TODO: lift back to indigo/atproto/repo util code?
