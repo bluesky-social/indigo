@@ -15,29 +15,15 @@ import (
 	"gorm.io/gorm"
 )
 
-// this function with exact name and args implements the `diskpersist.UidSource` interface
-func (r *Relay) DidToUid(ctx context.Context, did string) (uint64, error) {
-	// NOTE: assuming DID is correct syntax (this is usually "loop back")
-	xu, err := r.GetAccount(ctx, syntax.DID(did))
-	if err != nil {
-		return 0, err
-	}
-	if xu == nil {
-		return 0, ErrAccountNotFound
-	}
-	return xu.UID, nil
-}
-
 func (r *Relay) GetAccount(ctx context.Context, did syntax.DID) (*models.Account, error) {
-	ctx, span := tracer.Start(ctx, "getAccount")
+	ctx, span := tracer.Start(ctx, "GetAccount")
 	defer span.End()
 
-	/* XXX
-	cu, ok := r.accountCache.Get(did)
+	// first try cache
+	a, ok := r.accountCache.Get(did.String())
 	if ok {
-		return cu, nil
+		return a, nil
 	}
-	*/
 
 	var acc models.Account
 	if err := r.db.Where("did = ?", did).First(&acc).Error; err != nil {
@@ -47,14 +33,12 @@ func (r *Relay) GetAccount(ctx context.Context, did syntax.DID) (*models.Account
 		return nil, err
 	}
 
-	// TODO: is this further check needed?
+	// TODO: is this zero UID check redundant?
 	if acc.UID == 0 {
 		return nil, ErrAccountNotFound
 	}
 
-	/* XXX:
-	r.accountCache.Add(did, &u)
-	*/
+	r.accountCache.Add(did.String(), &acc)
 
 	return &acc, nil
 }
@@ -78,7 +62,6 @@ func (r *Relay) CreateAccount(ctx context.Context, host *models.Host, did syntax
 	account, err := r.syncHostAccount(ctx, did, host, nil)
 	newUserDiscoveryDuration.Observe(time.Since(start).Seconds())
 	if err != nil {
-		repoCommitsResultCounter.WithLabelValues(host.Hostname, "uerr").Inc()
 		return nil, fmt.Errorf("fed event create external user: %w", err)
 	}
 	return account, nil
@@ -148,7 +131,7 @@ func (r *Relay) syncHostAccount(ctx context.Context, did syntax.DID, host *model
 		// we got an event from a non-canonical Host (an intermediate relay)
 		// a non-canonical Host we haven't seen before; ping it to make sure it's real
 		// TODO: what do we actually want to track about the source we immediately got this message from vs the canonical Host?
-		r.Logger.Warn("pds discovered in new user flow", "pds", durl.String(), "did", did)
+		r.Logger.Warn("new host discovered in create user flow", "pds", durl.String(), "did", did)
 
 		err = r.HostChecker.CheckHost(ctx, durl.String())
 		if err != nil {
@@ -183,8 +166,8 @@ func (r *Relay) syncHostAccount(ctx context.Context, did syntax.DID, host *model
 	}
 
 	// this lock just governs the lower half of this function
-	r.extUserLk.Lock()
-	defer r.extUserLk.Unlock()
+	r.accountLk.Lock()
+	defer r.accountLk.Unlock()
 
 	if cachedAccount == nil {
 		cachedAccount, err = r.GetAccount(ctx, did)
@@ -206,7 +189,7 @@ func (r *Relay) syncHostAccount(ctx context.Context, did syntax.DID, host *model
 					tx.Model(&models.Host{}).Where("id = ?", caHost).Update("account_count", gorm.Expr("account_count - 1"))
 				}
 				// update user's Host ID
-				res := tx.Model(models.Account{}).Where("id = ?", cachedAccount.UID).Update("pds", canonicalHost.ID)
+				res := tx.Model(models.Account{}).Where("uid = ?", cachedAccount.UID).Update("host_id", canonicalHost.ID)
 				if res.Error != nil {
 					return fmt.Errorf("failed to update users pds: %w", res.Error)
 				}
@@ -217,6 +200,9 @@ func (r *Relay) syncHostAccount(ctx context.Context, did syntax.DID, host *model
 
 			// XXX: cachedAccount.SetHost(canonicalHost.ID)
 			cachedAccount.HostID = canonicalHost.ID
+
+			// flush account cache
+			r.accountCache.Remove(did.String())
 		}
 		return cachedAccount, nil
 	}
@@ -259,6 +245,9 @@ func (r *Relay) UpdateAccountStatus(ctx context.Context, did syntax.DID, status 
 		return err
 	}
 
+	// clear account cache
+	r.accountCache.Remove(did.String())
+
 	// NOTE: not wiping events for user from persister (backfill window)
 	return nil
 }
@@ -266,7 +255,7 @@ func (r *Relay) UpdateAccountStatus(ctx context.Context, did syntax.DID, status 
 func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*models.Account, error) {
 
 	accounts := []*models.Account{}
-	if err := r.db.Model(&models.Account{}).Where("id > ? AND NOT taken_down AND (upstream_status IS NULL OR upstream_status = 'active')", cursor).Order("id").Limit(limit).Find(&accounts).Error; err != nil {
+	if err := r.db.Model(&models.Account{}).Where("uid > ? AND status IS NOT 'takendown' AND (upstream_status IS NULL OR upstream_status = 'active')", cursor).Order("uid").Limit(limit).Find(&accounts).Error; err != nil {
 		return nil, err
 	}
 	return accounts, nil
@@ -274,4 +263,17 @@ func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*m
 
 func (r *Relay) UpsertAccountRepo(uid uint64, rev syntax.TID, commitCID, commitDataCID cid.Cid) error {
 	return r.db.Exec("INSERT INTO account_repo (uid, rev, commit_cid, commit_data) VALUES (?, ?, ?, ?) ON CONFLICT (uid) DO UPDATE SET rev = EXCLUDED.rev, commit_cid = EXCLUDED.commit_cid, commit_data = EXCLUDED.commit_data", uid, rev, commitCID.String(), commitDataCID.String()).Error
+}
+
+// this function with exact name and args implements the `diskpersist.UidSource` interface
+func (r *Relay) DidToUid(ctx context.Context, did string) (uint64, error) {
+	// NOTE: not re-parsing DID here (this function is called "loopback" from persister)
+	xu, err := r.GetAccount(ctx, syntax.DID(did))
+	if err != nil {
+		return 0, err
+	}
+	if xu == nil {
+		return 0, ErrAccountNotFound
+	}
+	return xu.UID, nil
 }

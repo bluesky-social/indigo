@@ -26,10 +26,10 @@ type Relay struct {
 	HostChecker HostChecker
 	Config      RelayConfig
 
-	// extUserLk serializes a section of syncHostAccount()
+	// accountLk serializes a section of syncHostAccount()
 	// TODO: at some point we will want to lock specific DIDs, this lock as is
 	// is overly broad, but i dont expect it to be a bottleneck for now
-	extUserLk sync.Mutex
+	accountLk sync.Mutex
 
 	// Management of Socket Consumers
 	consumersLk    sync.RWMutex
@@ -96,7 +96,7 @@ func NewRelay(db *gorm.DB, vldtr *Validator, evtman *eventmgr.EventManager, dir 
 	slOpts.DefaultRepoLimit = config.DefaultRepoLimit
 	slOpts.ConcurrencyPerHost = config.ConcurrencyPerHost
 	slOpts.MaxQueuePerHost = config.MaxQueuePerHost
-	s, err := NewSlurper(db, r.handleFedEvent, slOpts, r.Logger)
+	s, err := NewSlurper(db, r.processRepoEvent, slOpts, r.Logger)
 	if err != nil {
 		return nil, err
 	}
