@@ -22,7 +22,6 @@ type Relay struct {
 	Logger      *slog.Logger
 	Slurper     *Slurper
 	Events      *eventmgr.EventManager
-	Validator   *Validator
 	HostChecker HostChecker
 	Config      RelayConfig
 
@@ -47,6 +46,7 @@ type RelayConfig struct {
 	MaxQueuePerHost         int64
 	ApplyHostClientSettings func(c *xrpc.Client)
 	SkipAccountHostCheck    bool // XXX: only used for testing
+	LenientSyncValidation   bool // XXX: wire through config
 
 	// if true, ignore "requestCrawl"
 	DisableNewHosts bool
@@ -62,7 +62,7 @@ func DefaultRelayConfig() *RelayConfig {
 	}
 }
 
-func NewRelay(db *gorm.DB, vldtr *Validator, evtman *eventmgr.EventManager, dir identity.Directory, config *RelayConfig) (*Relay, error) {
+func NewRelay(db *gorm.DB, evtman *eventmgr.EventManager, dir identity.Directory, config *RelayConfig) (*Relay, error) {
 
 	if config == nil {
 		config = DefaultRelayConfig()
@@ -77,7 +77,6 @@ func NewRelay(db *gorm.DB, vldtr *Validator, evtman *eventmgr.EventManager, dir 
 		dir:         dir,
 		Logger:      slog.Default().With("system", "relay"),
 		Events:      evtman,
-		Validator:   vldtr,
 		HostChecker: hc,
 		Config:      *config,
 
