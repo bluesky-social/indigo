@@ -10,17 +10,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/RussellLuo/slidingwindow"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay/models"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/schedulers/parallel"
 
+	"github.com/RussellLuo/slidingwindow"
 	"github.com/gorilla/websocket"
 	"gorm.io/gorm"
 )
-
-var ErrTimeoutShutdown = fmt.Errorf("timed out waiting for new events")
 
 type ProcessMessageFunc func(context.Context, *models.Host, *stream.XRPCStreamEvent) error
 
@@ -30,7 +28,7 @@ type Slurper struct {
 	Config *SlurperConfig
 
 	lk     sync.Mutex
-	active map[string]*Subscriber
+	active map[string]*Subscription
 
 	LimitMtx sync.RWMutex
 	Limiters map[uint64]*Limiters
@@ -57,8 +55,6 @@ type SlurperConfig struct {
 	DefaultRepoLimit      int64
 	ConcurrencyPerHost    int64
 	MaxQueuePerHost       int64
-	NewSubsDisabled       bool
-	TrustedDomains        []string
 	NewHostPerDayLimit    int64
 }
 
@@ -74,8 +70,8 @@ func DefaultSlurperConfig() *SlurperConfig {
 	}
 }
 
-// represents an active client connection
-type Subscriber struct {
+// represents an active client connection to a remote host
+type Subscription struct {
 	Host     *models.Host
 	LastSeq  int64 // XXX: switch to an atomic
 	Limiters *Limiters
@@ -85,7 +81,7 @@ type Subscriber struct {
 	cancel func()
 }
 
-func (sub *Subscriber) UpdateSeq(seq int64) {
+func (sub *Subscription) UpdateSeq(seq int64) {
 	sub.lk.Lock()
 	defer sub.lk.Unlock()
 	sub.Host.LastSeq = seq
@@ -106,7 +102,7 @@ func NewSlurper(db *gorm.DB, cb ProcessMessageFunc, config *SlurperConfig, logge
 		cb:                   cb,
 		db:                   db,
 		Config:               config,
-		active:               make(map[string]*Subscriber),
+		active:               make(map[string]*Subscription),
 		Limiters:             make(map[uint64]*Limiters),
 		shutdownChan:         make(chan bool),
 		shutdownResult:       make(chan []error),
@@ -232,133 +228,35 @@ func (s *Slurper) Shutdown() []error {
 	return errs
 }
 
-var ErrNewSubsDisabled = fmt.Errorf("new subscriptions temporarily disabled")
-
-// Checks whether a host is allowed to be subscribed to
-// must be called with the slurper lock held
-func (s *Slurper) canSlurpHost(host string) bool {
-	// Check if we're over the limit for new hosts today
-	if !s.NewHostPerDayLimiter.Allow() {
-		return false
-	}
-
-	// Check if the host is a trusted domain
-	for _, d := range s.Config.TrustedDomains {
-		// If the domain starts with a *., it's a wildcard
-		if strings.HasPrefix(d, "*.") {
-			// Cut off the * so we have .domain.com
-			if strings.HasSuffix(host, strings.TrimPrefix(d, "*")) {
-				return true
-			}
-		} else {
-			if host == d {
-				return true
-			}
-		}
-	}
-
-	return !s.Config.NewSubsDisabled
-}
-
-func (s *Slurper) SubscribeToPds(ctx context.Context, hostname string, reg bool, adminOverride bool, rateOverrides *HostRates) error {
-	// TODO: for performance, lock on the hostname instead of global
+func (s *Slurper) CheckIfSubscribed(hostname string) bool {
 	s.lk.Lock()
 	defer s.lk.Unlock()
 
 	_, ok := s.active[hostname]
-	if ok {
-		return nil
-	}
-
-	var host models.Host
-	if err := s.db.Find(&host, "hostname = ?", hostname).Error; err != nil {
-		return err
-	}
-
-	newHost := false
-
-	if host.ID == 0 {
-		if !adminOverride && !s.canSlurpHost(hostname) {
-			return ErrNewSubsDisabled
-		}
-		// New PDS!
-		npds := models.Host{
-			Hostname:     hostname,
-			NoSSL:        !s.Config.SSL,
-			Status:       models.HostStatusActive,
-			AccountLimit: s.Config.DefaultRepoLimit,
-		}
-		/* XXX
-		if rateOverrides != nil {
-			npds.RateLimit = float64(rateOverrides.PerSecond)
-			npds.HourlyEventLimit = rateOverrides.PerHour
-			npds.DailyEventLimit = rateOverrides.PerDay
-			npds.RepoLimit = rateOverrides.RepoLimit
-		}
-		*/
-		if err := s.db.Create(&npds).Error; err != nil {
-			return err
-		}
-
-		newHost = true
-		host = npds
-	} else if host.Status == models.HostStatusBanned {
-		return fmt.Errorf("cannot subscribe to banned pds")
-	}
-
-	/* XXX
-	if !host.Registered && reg {
-		host.Registered = true
-		if err := s.db.Model(models.Host{}).Where("id = ?", host.ID).Update("registered", true).Error; err != nil {
-			return err
-		}
-	}
-	*/
-
-	ctx, cancel := context.WithCancel(context.Background())
-	sub := Subscriber{
-		Host:   &host,
-		ctx:    ctx,
-		cancel: cancel,
-	}
-	s.active[hostname] = &sub
-
-	s.GetOrCreateLimiters(host.ID)
-
-	go s.subscribeWithRedialer(ctx, &host, &sub, newHost)
-
-	return nil
+	return ok
 }
 
-func (s *Slurper) RestartAll() error {
+func (s *Slurper) Subscribe(host *models.Host, newHost bool) error {
+	// TODO: for performance, lock on the hostname instead of global
 	s.lk.Lock()
 	defer s.lk.Unlock()
 
-	var all []models.Host
-	if err := s.db.Find(&all, "status = \"active\"").Error; err != nil {
-		return err
+	ctx, cancel := context.WithCancel(context.Background())
+	sub := Subscription{
+		Host:   host,
+		ctx:    ctx,
+		cancel: cancel,
 	}
+	s.active[host.Hostname] = &sub
 
-	for _, host := range all {
-		host := host
+	s.GetOrCreateLimiters(host.ID)
 
-		ctx, cancel := context.WithCancel(context.Background())
-		sub := Subscriber{
-			Host:   &host,
-			ctx:    ctx,
-			cancel: cancel,
-		}
-		s.active[host.Hostname] = &sub
-
-		// Check if we've already got a limiter for this host
-		// XXX: s.GetOrCreateLimiters(host.ID, int64(host.RateLimit), host.HourlyEventLimit, host.DailyEventLimit)
-		go s.subscribeWithRedialer(ctx, &host, &sub, false)
-	}
+	go s.subscribeWithRedialer(ctx, host, &sub, newHost)
 
 	return nil
 }
 
-func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, sub *Subscriber, newHost bool) {
+func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, sub *Subscription, newHost bool) {
 	defer func() {
 		s.lk.Lock()
 		defer s.lk.Unlock()
@@ -450,7 +348,7 @@ func sleepForBackoff(b int) time.Duration {
 
 var EventsTimeout = time.Minute
 
-func (s *Slurper) handleConnection(ctx context.Context, host *models.Host, con *websocket.Conn, lastCursor *int64, sub *Subscriber) error {
+func (s *Slurper) handleConnection(ctx context.Context, host *models.Host, con *websocket.Conn, lastCursor *int64, sub *Subscription) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -554,8 +452,9 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.Host, con *
 		Error: func(errf *stream.ErrorFrame) error {
 			switch errf.Error {
 			case "FutureCursor":
+				// XXX: need test coverage for this path
 				// if we get a FutureCursor frame, reset our sequence number for this host
-				if err := s.db.Table("pds").Where("id = ?", host.ID).Update("cursor", 0).Error; err != nil {
+				if err := s.db.Table("host").Where("id = ?", host.ID).Update("last_seq", 0).Error; err != nil {
 					return err
 				}
 
@@ -616,7 +515,7 @@ func (s *Slurper) flushCursors(ctx context.Context) []error {
 
 	tx := s.db.WithContext(ctx).Begin()
 	for _, cursor := range cursors {
-		if err := tx.WithContext(ctx).Model(models.Host{}).Where("id = ?", cursor.id).UpdateColumn("cursor", cursor.cursor).Error; err != nil {
+		if err := tx.WithContext(ctx).Model(models.Host{}).Where("id = ?", cursor.id).UpdateColumn("last_seq", cursor.cursor).Error; err != nil {
 			errs = append(errs, err)
 		} else {
 			okcount++
@@ -641,8 +540,6 @@ func (s *Slurper) GetActiveList() []string {
 
 	return out
 }
-
-var ErrNoActiveConnection = fmt.Errorf("no active connection to host")
 
 func (s *Slurper) KillUpstreamConnection(host string, block bool) error {
 	s.lk.Lock()
