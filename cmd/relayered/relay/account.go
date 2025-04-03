@@ -13,6 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/cmd/relayered/relay/models"
 	"github.com/bluesky-social/indigo/xrpc"
 
+	"github.com/ipfs/go-cid"
 	"gorm.io/gorm"
 )
 
@@ -331,4 +332,8 @@ func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*m
 		return nil, err
 	}
 	return accounts, nil
+}
+
+func (r *Relay) UpsertAccountRepo(uid uint64, rev syntax.TID, commitCID, commitDataCID cid.Cid) error {
+	return r.db.Exec("INSERT INTO account_repo (uid, rev, commit_cid, commit_data) VALUES (?, ?, ?, ?) ON CONFLICT (uid) DO UPDATE SET rev = EXCLUDED.rev, commit_cid = EXCLUDED.commit_cid, commit_data = EXCLUDED.commit_data", uid, rev, commitCID.String(), commitDataCID.String()).Error
 }
