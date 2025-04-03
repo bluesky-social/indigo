@@ -13,113 +13,129 @@ import (
 	"github.com/bluesky-social/indigo/cmd/relayered/relay/models"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	"github.com/ipfs/go-cid"
 	"gorm.io/gorm"
 )
 
-var (
-	ErrAccountNotFound        = errors.New("account not found")
-	ErrAccountLastUnavailable = errors.New("account last commit not available")
-	ErrCommitNoUser           = errors.New("commit no user") // TODO
-)
-
+// this function with exact name and args implements the `diskpersist.UidSource` interface
 func (r *Relay) DidToUid(ctx context.Context, did string) (uint64, error) {
-	xu, err := r.LookupUserByDid(ctx, did)
+	// NOTE: assuming DID is correct syntax (this is usually "loop back")
+	xu, err := r.GetAccount(ctx, syntax.DID(did))
 	if err != nil {
 		return 0, err
 	}
 	if xu == nil {
 		return 0, ErrAccountNotFound
 	}
-	return xu.ID, nil
+	return xu.UID, nil
 }
 
-func (r *Relay) LookupUserByDid(ctx context.Context, did string) (*models.Account, error) {
-	ctx, span := tracer.Start(ctx, "lookupUserByDid")
+/* XXX: unused?
+func (r *Relay) GetAccountByUID(ctx context.Context, uid uint64) (*models.Account, error) {
+	ctx, span := tracer.Start(ctx, "getAccount")
 	defer span.End()
 
-	cu, ok := r.userCache.Get(did)
+	var acc models.Account
+	if err := r.db.First(&acc, uid).Error; err != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, ErrAccountNotFound
+		}
+		return nil, err
+	}
+
+	// TODO: is this further check needed?
+	if acc.ID == 0 {
+		return nil, ErrAccountNotFound
+	}
+
+	return &acc, nil
+}
+*/
+
+func (r *Relay) GetAccount(ctx context.Context, did syntax.DID) (*models.Account, error) {
+	ctx, span := tracer.Start(ctx, "getAccount")
+	defer span.End()
+
+	/* XXX
+	cu, ok := r.accountCache.Get(did)
 	if ok {
 		return cu, nil
 	}
+	*/
 
-	var u models.Account
-	if err := r.db.Find(&u, "did = ?", did).Error; err != nil {
+	var acc models.Account
+	// XXX: this needs to be a "find where"
+	if err := r.db.Where("did = ?", did).First(&acc).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAccountNotFound
+		}
 		return nil, err
 	}
 
-	if u.ID == 0 {
-		return nil, gorm.ErrRecordNotFound
+	// TODO: is this further check needed?
+	if acc.UID == 0 {
+		return nil, ErrAccountNotFound
 	}
 
-	r.userCache.Add(did, &u)
+	/* XXX:
+	r.accountCache.Add(did, &u)
+	*/
 
-	return &u, nil
+	return &acc, nil
 }
 
-func (r *Relay) LookupUserByUID(ctx context.Context, uid uint64) (*models.Account, error) {
-	ctx, span := tracer.Start(ctx, "lookupUserByUID")
-	defer span.End()
-
-	var u models.Account
-	if err := r.db.Find(&u, "id = ?", uid).Error; err != nil {
+func (r *Relay) GetAccountRepo(ctx context.Context, uid uint64) (*models.AccountRepo, error) {
+	var repo models.AccountRepo
+	if err := r.db.First(&repo, uid).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAccountRepoNotFound
+		}
+		// TODO: log here?
 		return nil, err
 	}
-
-	if u.ID == 0 {
-		return nil, gorm.ErrRecordNotFound
-	}
-
-	return &u, nil
+	return &repo, nil
 }
 
-func (r *Relay) newUser(ctx context.Context, host *models.PDS, did string) (*models.Account, error) {
+/* XXX: refactor in to syncHostAccount? */
+func (r *Relay) CreateAccount(ctx context.Context, host *models.Host, did syntax.DID) (*models.Account, error) {
 	newUsersDiscovered.Inc()
 	start := time.Now()
-	account, err := r.syncPDSAccount(ctx, did, host, nil)
+	account, err := r.syncHostAccount(ctx, did, host, nil)
 	newUserDiscoveryDuration.Observe(time.Since(start).Seconds())
 	if err != nil {
-		repoCommitsResultCounter.WithLabelValues(host.Host, "uerr").Inc()
+		repoCommitsResultCounter.WithLabelValues(host.Hostname, "uerr").Inc()
 		return nil, fmt.Errorf("fed event create external user: %w", err)
 	}
 	return account, nil
 }
 
-// syncPDSAccount ensures that a DID has an account record in the database attached to a PDS record in the database
+// syncHostAccount ensures that a DID has an account record in the database attached to a Host record in the database
 // Some fields may be updated if needed.
 // did is the user
-// host is the PDS we received this from, not necessarily the canonical PDS in the DID document
+// host is the Host we received this from, not necessarily the canonical Host in the DID document
 // cachedAccount is (optionally) the account that we have already looked up from cache or database
-func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *models.PDS, cachedAccount *models.Account) (*models.Account, error) {
-	ctx, span := tracer.Start(ctx, "syncPDSAccount")
+func (r *Relay) syncHostAccount(ctx context.Context, did syntax.DID, host *models.Host, cachedAccount *models.Account) (*models.Account, error) {
+	ctx, span := tracer.Start(ctx, "syncHostAccount")
 	defer span.End()
 
 	externalUserCreationAttempts.Inc()
 
 	r.Logger.Debug("create external user", "did", did)
 
-	// lookup identity so that we know a DID's canonical source PDS
-	pdid, err := syntax.ParseDID(did)
-	if err != nil {
-		return nil, fmt.Errorf("bad did %#v, %w", did, err)
-	}
-	ident, err := r.dir.LookupDID(ctx, pdid)
+	// lookup identity so that we know a DID's canonical source Host
+	ident, err := r.dir.LookupDID(ctx, did)
 	if err != nil {
 		return nil, fmt.Errorf("no ident for did %s, %w", did, err)
 	}
-	if len(ident.Services) == 0 {
-		return nil, fmt.Errorf("no services for did %s", did)
+	pdsEndpoint := ident.PDSEndpoint()
+	if pdsEndpoint == "" {
+		return nil, fmt.Errorf("account has no PDS endpoint registered: %s", did)
 	}
-	pdsRelay, ok := ident.Services["atproto_pds"]
-	if !ok {
-		return nil, fmt.Errorf("no atproto_pds service for did %s", did)
-	}
-	durl, err := url.Parse(pdsRelay.URL)
+	durl, err := url.Parse(pdsEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("pds bad url %#v, %w", pdsRelay.URL, err)
+		return nil, fmt.Errorf("account has bad url (%#v): %w", pdsEndpoint, err)
 	}
 
-	// is the canonical PDS banned?
+	// is the canonical Host banned?
 	ban, err := r.DomainIsBanned(ctx, durl.Host)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check pds ban status: %w", err)
@@ -132,35 +148,36 @@ func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *models.PDS
 		durl.Scheme = "http"
 	}
 
-	var canonicalHost *models.PDS
-	if host.Host == durl.Host {
-		// we got the message from the canonical PDS, convenient!
+	var canonicalHost *models.Host
+	if host.Hostname == durl.Host {
+		// we got the message from the canonical Host, convenient!
 		canonicalHost = host
 	} else {
 		// we got the message from an intermediate relay
-		// check our db for info on canonical PDS
-		var peering models.PDS
-		if err := r.db.Find(&peering, "host = ?", durl.Host).Error; err != nil {
-			r.Logger.Error("failed to find pds", "host", durl.Host)
+		// check our db for info on canonical Host
+		// XXX: rename "peering"
+		var peering models.Host
+		if err := r.db.Find(&peering, "hostname = ?", durl.Host).Error; err != nil {
+			r.Logger.Error("failed to find host", "host", durl.Host)
 			return nil, err
 		}
 		canonicalHost = &peering
 	}
 
-	if canonicalHost.Blocked {
-		return nil, fmt.Errorf("refusing to create user with blocked PDS")
+	if canonicalHost.Status == models.HostStatusBanned {
+		return nil, fmt.Errorf("refusing to create user with banned Host")
 	}
 
 	if canonicalHost.ID == 0 {
-		// we got an event from a non-canonical PDS (an intermediate relay)
-		// a non-canonical PDS we haven't seen before; ping it to make sure it's real
-		// TODO: what do we actually want to track about the source we immediately got this message from vs the canonical PDS?
+		// we got an event from a non-canonical Host (an intermediate relay)
+		// a non-canonical Host we haven't seen before; ping it to make sure it's real
+		// TODO: what do we actually want to track about the source we immediately got this message from vs the canonical Host?
 		r.Logger.Warn("pds discovered in new user flow", "pds", durl.String(), "did", did)
 
-		// Do a trivial API request against the PDS to verify that it exists
+		// Do a trivial API request against the Host to verify that it exists
 		pclient := &xrpc.Client{Host: durl.String()}
-		if r.Config.ApplyPDSClientSettings != nil {
-			r.Config.ApplyPDSClientSettings(pclient)
+		if r.Config.ApplyHostClientSettings != nil {
+			r.Config.ApplyHostClientSettings(pclient)
 		}
 		cfg, err := comatproto.ServerDescribeServer(ctx, pclient)
 		if err != nil {
@@ -172,15 +189,15 @@ func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *models.PDS
 		_ = cfg
 
 		// could check other things, a valid response is good enough for now
-		canonicalHost.Host = durl.Host
-		canonicalHost.SSL = (durl.Scheme == "https")
-		canonicalHost.RateLimit = float64(r.Slurper.Config.DefaultPerSecondLimit)
-		canonicalHost.HourlyEventLimit = r.Slurper.Config.DefaultPerHourLimit
-		canonicalHost.DailyEventLimit = r.Slurper.Config.DefaultPerDayLimit
-		canonicalHost.RepoLimit = r.Slurper.Config.DefaultRepoLimit
+		canonicalHost.Hostname = durl.Host
+		canonicalHost.NoSSL = !(durl.Scheme == "https")
+		// XXX canonicalHost.RateLimit = float64(r.Slurper.Config.DefaultPerSecondLimit)
+		// XXX canonicalHost.HourlyEventLimit = r.Slurper.Config.DefaultPerHourLimit
+		// XXX canonicalHost.DailyEventLimit = r.Slurper.Config.DefaultPerDayLimit
+		canonicalHost.AccountLimit = r.Slurper.Config.DefaultRepoLimit
 
-		if r.Config.SSL && !canonicalHost.SSL {
-			return nil, fmt.Errorf("did references non-ssl PDS, this is disallowed in prod: %q %q", did, pdsRelay.URL)
+		if r.Config.SSL && canonicalHost.NoSSL {
+			return nil, fmt.Errorf("did references non-ssl Host, this is disallowed in prod: %q %q", did, pdsEndpoint)
 		}
 
 		if err := r.db.Create(&canonicalHost).Error; err != nil {
@@ -192,9 +209,9 @@ func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *models.PDS
 		panic("somehow failed to create a pds entry?")
 	}
 
-	if canonicalHost.RepoCount >= canonicalHost.RepoLimit {
+	if canonicalHost.AccountCount >= canonicalHost.AccountLimit {
 		// TODO: soft-limit / hard-limit ? create account in 'throttled' state, unless there are _really_ too many accounts
-		return nil, fmt.Errorf("refusing to create user on PDS at max repo limit for pds %q", canonicalHost.Host)
+		return nil, fmt.Errorf("refusing to create user on Host at max repo limit for pds %q", canonicalHost.Hostname)
 	}
 
 	// this lock just governs the lower half of this function
@@ -202,7 +219,7 @@ func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *models.PDS
 	defer r.extUserLk.Unlock()
 
 	if cachedAccount == nil {
-		cachedAccount, err = r.LookupUserByDid(ctx, did)
+		cachedAccount, err = r.GetAccount(ctx, did)
 	}
 	if errors.Is(err, ErrAccountNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
 		err = nil
@@ -211,41 +228,46 @@ func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *models.PDS
 		return nil, err
 	}
 	if cachedAccount != nil {
-		caPDS := cachedAccount.GetPDS()
-		if caPDS != canonicalHost.ID {
-			// Account is now on a different PDS, update
+		// XXX: caHost := cachedAccount.GetHost()
+		caHost := cachedAccount.HostID
+		if caHost != canonicalHost.ID {
+			// Account is now on a different Host, update
 			err = r.db.Transaction(func(tx *gorm.DB) error {
-				if caPDS != 0 {
-					// decrement prior PDS's account count
-					tx.Model(&models.PDS{}).Where("id = ?", caPDS).Update("repo_count", gorm.Expr("repo_count - 1"))
+				if caHost != 0 {
+					// decrement prior Host's account count
+					tx.Model(&models.Host{}).Where("id = ?", caHost).Update("account_count", gorm.Expr("account_count - 1"))
 				}
-				// update user's PDS ID
-				res := tx.Model(models.Account{}).Where("id = ?", cachedAccount.ID).Update("pds", canonicalHost.ID)
+				// update user's Host ID
+				res := tx.Model(models.Account{}).Where("id = ?", cachedAccount.UID).Update("pds", canonicalHost.ID)
 				if res.Error != nil {
 					return fmt.Errorf("failed to update users pds: %w", res.Error)
 				}
-				// increment new PDS's account count
-				res = tx.Model(&models.PDS{}).Where("id = ? AND repo_count < repo_limit", canonicalHost.ID).Update("repo_count", gorm.Expr("repo_count + 1"))
+				// increment new Host's account count
+				res = tx.Model(&models.Host{}).Where("id = ? AND account_count < account_limit", canonicalHost.ID).Update("account_count", gorm.Expr("account_count + 1"))
 				return nil
 			})
 
-			cachedAccount.SetPDS(canonicalHost.ID)
+			// XXX: cachedAccount.SetHost(canonicalHost.ID)
+			cachedAccount.HostID = canonicalHost.ID
 		}
 		return cachedAccount, nil
 	}
 
 	newAccount := models.Account{
-		Did: did,
-		PDS: canonicalHost.ID,
+		DID:            did.String(),
+		HostID:         canonicalHost.ID,
+		Status:         models.AccountStatusActive,
+		UpstreamStatus: models.AccountStatusActive,
 	}
 
 	err = r.db.Transaction(func(tx *gorm.DB) error {
-		res := tx.Model(&models.PDS{}).Where("id = ? AND repo_count < repo_limit", canonicalHost.ID).Update("repo_count", gorm.Expr("repo_count + 1"))
+		res := tx.Model(&models.Host{}).Where("id = ? AND account_count < account_limit", canonicalHost.ID).Update("account_count", gorm.Expr("account_count + 1"))
 		if res.Error != nil {
-			return fmt.Errorf("failed to increment repo count for pds %q: %w", canonicalHost.Host, res.Error)
+			return fmt.Errorf("failed to increment repo count for pds %q: %w", canonicalHost.Hostname, res.Error)
 		}
+		r.Logger.Warn("XXX creating new account", "did", newAccount.DID)
 		if terr := tx.Create(&newAccount).Error; terr != nil {
-			r.Logger.Error("failed to create user", "did", newAccount.Did, "err", terr)
+			r.Logger.Error("failed to create user", "did", newAccount.DID, "err", terr)
 			return fmt.Errorf("failed to create other pds user: %w", terr)
 		}
 		return nil
@@ -255,66 +277,42 @@ func (r *Relay) syncPDSAccount(ctx context.Context, did string, host *models.PDS
 		return nil, err
 	}
 
-	r.userCache.Add(did, &newAccount)
+	r.accountCache.Add(did.String(), &newAccount)
 
 	return &newAccount, nil
 }
 
-func (r *Relay) TakeDownRepo(ctx context.Context, did string) error {
-	u, err := r.LookupUserByDid(ctx, did)
+func (r *Relay) UpdateAccountStatus(ctx context.Context, did syntax.DID, status models.AccountStatus) error {
+	acc, err := r.GetAccount(ctx, did)
 	if err != nil {
 		return err
 	}
 
-	if err := r.db.Model(models.Account{}).Where("id = ?", u.ID).Update("taken_down", true).Error; err != nil {
+	if err := r.db.Model(models.Account{}).Where("uid = ?", acc.UID).Update("status", status).Error; err != nil {
 		return err
 	}
-	u.SetTakenDown(true)
+	// XXX: u.SetTakenDown(true)
 
-	// NOTE: not wiping events for user from backfill window
-
+	// NOTE: not wiping events for user from persister (backfill window)
 	return nil
 }
 
-func (r *Relay) ReverseTakedown(ctx context.Context, did string) error {
-	u, err := r.LookupUserByDid(ctx, did)
-	if err != nil {
-		return err
-	}
-
-	if err := r.db.Model(models.Account{}).Where("id = ?", u.ID).Update("taken_down", false).Error; err != nil {
-		return err
-	}
-	u.SetTakenDown(false)
-
-	return nil
-}
-
-func (r *Relay) GetAccountPreviousState(ctx context.Context, uid uint64) (*models.AccountPreviousState, error) {
-	var prevState models.AccountPreviousState
-	if err := r.db.First(&prevState, uid).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrAccountLastUnavailable
-		}
-		r.Logger.Error("user db err", "err", err)
-		return nil, err
-	}
-	return &prevState, nil
-}
-
+/* XXX
 func (r *Relay) GetRepoRoot(ctx context.Context, uid uint64) (cid.Cid, error) {
 	var prevState models.AccountPreviousState
 	err := r.db.First(&prevState, uid).Error
 	if err == nil {
 		return prevState.Cid.CID, nil
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
-		return cid.Cid{}, ErrAccountLastUnavailable
+		return cid.Cid{}, ErrAccountRepoNotFound
 	} else {
 		r.Logger.Error("user db err", "err", err)
 		return cid.Cid{}, fmt.Errorf("user prev db err, %w", err)
 	}
 }
+*/
 
+/*
 func (r *Relay) GetHostForDID(ctx context.Context, did string) (string, error) {
 	var pdsHostname string
 	// TODO: use gorm, not "Raw"
@@ -324,6 +322,7 @@ func (r *Relay) GetHostForDID(ctx context.Context, did string) (string, error) {
 	}
 	return pdsHostname, nil
 }
+*/
 
 func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*models.Account, error) {
 

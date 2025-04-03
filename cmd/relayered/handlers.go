@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/relayered/relay"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/relayered/relay/models"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -128,32 +128,34 @@ func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int6
 	}
 
 	// Fetch the repo roots for each user
-	for i := range accounts {
-		user := accounts[i]
-
-		root, err := s.relay.GetRepoRoot(ctx, user.ID)
+	for i, acc := range accounts {
+		repo, err := s.relay.GetAccountRepo(ctx, acc.UID)
 		if err != nil {
-			s.logger.Error("failed to get repo root", "err", err, "did", user.Did)
-			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get repo root for (%s): %v", user.Did, err.Error()))
+			s.logger.Error("failed to get repo root", "err", err, "did", acc.DID)
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get repo root for (%s): %v", acc.DID, err.Error()))
 		}
 
 		resp.Repos[i] = &comatproto.SyncListRepos_Repo{
-			Did:  user.Did,
-			Head: root.String(),
+			Did:  acc.DID,
+			Head: repo.CommitData, // XXX: is this what is expected here?
 		}
 	}
 
 	// If this is not the last page, set the cursor
 	if len(accounts) >= limit && len(accounts) > 1 {
-		nextCursor := fmt.Sprintf("%d", accounts[len(accounts)-1].ID)
+		nextCursor := fmt.Sprintf("%d", accounts[len(accounts)-1].UID)
 		resp.Cursor = &nextCursor
 	}
 
 	return resp, nil
 }
 
-func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatproto.SyncGetLatestCommit_Output, error) {
-	u, err := s.relay.LookupUserByDid(ctx, did)
+func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, rawDID string) (*comatproto.SyncGetLatestCommit_Output, error) {
+	did, err := syntax.ParseDID(rawDID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid DID parameter: %w", err)
+	}
+	acc, err := s.relay.GetAccount(ctx, did)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "user not found")
@@ -161,35 +163,30 @@ func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did s
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
-	if u.GetTakenDown() {
+	if acc.Status == models.AccountStatusTakendown {
 		return nil, fmt.Errorf("account was taken down by the Relay")
 	}
 
-	ustatus := u.GetUpstreamStatus()
-	if ustatus == models.AccountStatusTakendown {
+	if acc.UpstreamStatus == models.AccountStatusTakendown {
 		return nil, fmt.Errorf("account was taken down by its PDS")
 	}
 
-	if ustatus == models.AccountStatusDeactivated {
+	if acc.Status == models.AccountStatusDeactivated {
 		return nil, fmt.Errorf("account is temporarily deactivated")
 	}
 
-	if ustatus == models.AccountStatusSuspended {
+	if acc.Status == models.AccountStatusSuspended {
 		return nil, fmt.Errorf("account is suspended by its PDS")
 	}
 
-	prevState, err := s.relay.GetAccountPreviousState(ctx, u.ID)
+	repo, err := s.relay.GetAccountRepo(ctx, acc.UID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, relay.ErrAccountLastUnavailable
-		}
-		s.logger.Error("user db err", "err", err)
-		return nil, fmt.Errorf("user prev db err, %w", err)
+		return nil, err
 	}
 
 	return &comatproto.SyncGetLatestCommit_Output{
-		Cid: prevState.Cid.CID.String(),
-		Rev: prevState.Rev,
+		Cid: repo.CommitData, // XXX: this is probably not what is wanted here
+		Rev: repo.Rev,
 	}, nil
 }
 

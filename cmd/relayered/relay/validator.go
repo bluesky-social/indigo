@@ -58,7 +58,7 @@ type Validator struct {
 }
 
 type NextCommitHandler interface {
-	HandleCommit(ctx context.Context, host *models.PDS, uid uint64, did string, commit *comatproto.SyncSubscribeRepos_Commit) error
+	HandleCommit(ctx context.Context, host *models.Host, uid uint64, did string, commit *comatproto.SyncSubscribeRepos_Commit) error
 }
 
 type userLock struct {
@@ -99,8 +99,8 @@ func (val *Validator) lockUser(ctx context.Context, uid uint64) func() {
 	}
 }
 
-func (val *Validator) HandleCommit(ctx context.Context, host *models.PDS, account *models.Account, commit *comatproto.SyncSubscribeRepos_Commit, prevRev *syntax.TID, prevData *cid.Cid) (newRoot *cid.Cid, err error) {
-	uid := account.GetUid()
+func (val *Validator) HandleCommit(ctx context.Context, host *models.Host, account *models.Account, commit *comatproto.SyncSubscribeRepos_Commit, prevRev *syntax.TID, prevData *cid.Cid) (newRoot *cid.Cid, err error) {
+	uid := account.UID
 	unlock := val.lockUser(ctx, uid)
 	defer unlock()
 	repoFragment, err := val.VerifyCommitMessage(ctx, host, commit, prevRev, prevData)
@@ -124,8 +124,8 @@ func (roooe *revOutOfOrderError) Error() string {
 
 var ErrNewRevBeforePrevRev = &revOutOfOrderError{}
 
-func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS, msg *comatproto.SyncSubscribeRepos_Commit, prevRev *syntax.TID, prevData *cid.Cid) (*repo.Repo, error) {
-	hostname := host.Host
+func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.Host, msg *comatproto.SyncSubscribeRepos_Commit, prevRev *syntax.TID, prevData *cid.Cid) (*repo.Repo, error) {
+	hostname := host.Hostname
 	hasWarning := false
 	commitVerifyStarts.Inc()
 	logger := slog.Default().With("did", msg.Repo, "rev", msg.Rev, "seq", msg.Seq, "time", msg.Time)
@@ -163,14 +163,14 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS,
 		//logger.Warn("event with tooBig flag set")
 		commitVerifyWarnings.WithLabelValues(hostname, "big").Inc()
 		// XXX: induction trace log
-		val.log.Warn("commit tooBig", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+		val.log.Warn("commit tooBig", "seq", msg.Seq, "host", host.Hostname, "repo", msg.Repo)
 		hasWarning = true
 	}
 	if msg.Rebase {
 		//logger.Warn("event with rebase flag set")
 		commitVerifyWarnings.WithLabelValues(hostname, "reb").Inc()
 		// XXX: induction trace log
-		val.log.Warn("commit rebase", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+		val.log.Warn("commit rebase", "seq", msg.Seq, "host", host.Hostname, "repo", msg.Repo)
 		hasWarning = true
 	}
 
@@ -228,7 +228,7 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS,
 			if o.Prev == nil {
 				logger.Debug("can't invert legacy op", "action", o.Action)
 				// XXX: induction trace log
-				val.log.Warn("commit delete op", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+				val.log.Warn("commit delete op", "seq", msg.Seq, "host", host.Hostname, "repo", msg.Repo)
 				commitVerifyOkish.WithLabelValues(hostname, "del").Inc()
 				return repoFragment, nil
 			}
@@ -236,7 +236,7 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS,
 			if o.Prev == nil {
 				logger.Debug("can't invert legacy op", "action", o.Action)
 				// XXX: induction trace log
-				val.log.Warn("commit update op", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+				val.log.Warn("commit update op", "seq", msg.Seq, "host", host.Hostname, "repo", msg.Repo)
 				commitVerifyOkish.WithLabelValues(hostname, "up").Inc()
 				return repoFragment, nil
 			}
@@ -249,7 +249,7 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS,
 			if *c != *prevData {
 				commitVerifyWarnings.WithLabelValues(hostname, "pr").Inc()
 				// XXX: induction trace log
-				val.log.Warn("commit prevData mismatch", "seq", msg.Seq, "pdsHost", host.Host, "repo", msg.Repo)
+				val.log.Warn("commit prevData mismatch", "seq", msg.Seq, "host", host.Hostname, "repo", msg.Repo)
 				hasWarning = true
 			}
 		} else {
@@ -305,8 +305,8 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS,
 }
 
 // HandleSync checks signed commit from a #sync message
-func (val *Validator) HandleSync(ctx context.Context, host *models.PDS, msg *comatproto.SyncSubscribeRepos_Sync) (newRoot *cid.Cid, err error) {
-	hostname := host.Host
+func (val *Validator) HandleSync(ctx context.Context, host *models.Host, msg *comatproto.SyncSubscribeRepos_Sync) (newRoot *cid.Cid, err error) {
+	hostname := host.Hostname
 	hasWarning := false
 
 	did, err := syntax.ParseDID(msg.Did)

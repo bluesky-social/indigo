@@ -85,15 +85,20 @@ func (s *Service) HandleComAtprotoSyncListRepos(c echo.Context) error {
 func (s *Service) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetRepo")
 	defer span.End()
+	// XXX: this is not how to fetch query params...
 	// no request object, only params
 	params := c.QueryParams()
-	var did string
+	var did syntax.DID
 	hasDid := false
 	for paramName, pvl := range params {
 		switch paramName {
 		case "did":
 			if len(pvl) == 1 {
-				did = pvl[0]
+				d, err := syntax.ParseDID(pvl[0])
+				if err != nil {
+					return err // XXX: better error
+				}
+				did = d
 				hasDid = true
 			} else if len(pvl) > 1 {
 				return c.JSON(http.StatusBadRequest, XRPCError{Message: "only allow one did param"})
@@ -108,7 +113,17 @@ func (s *Service) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, XRPCError{Message: "need did param"})
 	}
 
-	pdsHostname, err := s.relay.GetHostForDID(ctx, did)
+	acc, err := s.relay.GetAccount(ctx, did)
+	if err != nil {
+		// TODO: better error
+		return err
+	}
+
+	host, err := s.relay.GetHost(ctx, acc.HostID)
+	if err != nil {
+		// TODO: better error
+		return err
+	}
 
 	// TODO: proper error responses
 	if err != nil {
@@ -120,7 +135,7 @@ func (s *Service) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	}
 
 	nextUrl := *(c.Request().URL)
-	nextUrl.Host = pdsHostname
+	nextUrl.Host = host.Hostname
 	if nextUrl.Scheme == "" {
 		nextUrl.Scheme = "https"
 	}
