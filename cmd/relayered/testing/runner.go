@@ -16,14 +16,18 @@ import (
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/eventmgr"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream/persist/diskpersist"
 	"github.com/bluesky-social/indigo/util/cliutil"
-
-	"github.com/labstack/echo/v4"
 )
 
 type SimpleRelay struct {
 	Relay *relay.Relay
 	Port  int
-	echo  *echo.Echo
+}
+
+func (sr *SimpleRelay) handleSubscribeRepos(w http.ResponseWriter, r *http.Request) {
+	err := sr.Relay.HandleSubscribeRepos(w, r, nil, "0.0.0.0")
+	if err != nil {
+		slog.Error("subscribeRepos", "err", err)
+	}
 }
 
 func MustSimpleRelay(dir identity.Directory, tmpd string) *SimpleRelay {
@@ -56,25 +60,24 @@ func MustSimpleRelay(dir identity.Directory, tmpd string) *SimpleRelay {
 		panic(err)
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
+
+	sr := SimpleRelay{
+		Relay: r,
+		Port:  port,
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /xrpc/com.atproto.sync.subscribeRepos", sr.handleSubscribeRepos)
+
 	slog.Info("starting test relay", "port", port)
-
-	e := echo.New()
-	e.HideBanner = true
-	e.GET("/xrpc/com.atproto.sync.subscribeRepos", r.EventsHandler)
-	e.Listener = listener
-	srv := &http.Server{}
-
 	go func() {
 		defer listener.Close()
-		err := e.StartServer(srv)
+		err := http.Serve(listener, mux)
 		if err != nil {
 			slog.Warn("test relay shutting down", "err", err)
 		}
 	}()
-	return &SimpleRelay{
-		Relay: r,
-		Port:  port,
-	}
+	return &sr
 }
 
 func LoadAndRunScenario(ctx context.Context, fpath string) error {

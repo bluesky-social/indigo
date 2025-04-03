@@ -138,7 +138,7 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 	e.GET("/_health", svc.HandleHealthCheck)
 	e.GET("/xrpc/_health", svc.HandleHealthCheck)
 
-	e.GET("/xrpc/com.atproto.sync.subscribeRepos", svc.relay.EventsHandler)
+	e.GET("/xrpc/com.atproto.sync.subscribeRepos", svc.HandleComAtprotoSyncSubscribeRepos)
 
 	e.POST("/xrpc/com.atproto.sync.requestCrawl", svc.HandleComAtprotoSyncRequestCrawl)
 	e.GET("/xrpc/com.atproto.sync.listRepos", svc.HandleComAtprotoSyncListRepos)
