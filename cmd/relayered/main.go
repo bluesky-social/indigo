@@ -221,11 +221,11 @@ func runRelay(cctx *cli.Context) error {
 	svcConfig := DefaultServiceConfig()
 	relayConfig := relay.DefaultRelayConfig()
 	relayConfig.SSL = !cctx.Bool("crawl-insecure-ws")
-	relayConfig.ConcurrencyPerPDS = cctx.Int64("host-concurrency")
-	relayConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-host")
+	relayConfig.ConcurrencyPerHost = cctx.Int64("host-concurrency")
+	relayConfig.MaxQueuePerHost = cctx.Int64("max-queue-per-host")
 	relayConfig.DefaultRepoLimit = cctx.Int64("default-account-limit")
 	ratelimitBypass := cctx.String("bsky-social-rate-limit-skip")
-	relayConfig.ApplyPDSClientSettings = makePdsClientSetup(ratelimitBypass)
+	relayConfig.ApplyHostClientSettings = makePdsClientSetup(ratelimitBypass)
 	nextCrawlers := cctx.StringSlice("forward-crawl-requests")
 	if len(nextCrawlers) > 0 {
 		nextCrawlerUrls := make([]*url.URL, len(nextCrawlers))
@@ -324,7 +324,7 @@ func makePdsClientSetup(ratelimitBypass string) func(c *xrpc.Client) {
 				}
 			}
 		} else {
-			// Generic PDS timeout
+			// Generic host timeout
 			c.Client.Timeout = time.Minute * 1
 		}
 	}

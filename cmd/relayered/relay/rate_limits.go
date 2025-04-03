@@ -1,6 +1,6 @@
 package relay
 
-type PDSRates struct {
+type HostRates struct {
 	// core event rate, counts firehose events
 	PerSecond int64 `json:"per_second,omitempty"`
 	PerHour   int64 `json:"per_hour,omitempty"`
@@ -9,7 +9,7 @@ type PDSRates struct {
 	RepoLimit int64 `json:"repo_limit,omitempty"`
 }
 
-func (pr *PDSRates) FromSlurper(s *Slurper) {
+func (pr *HostRates) FromSlurper(s *Slurper) {
 	if pr.PerSecond == 0 {
 		pr.PerHour = s.Config.DefaultPerSecondLimit
 	}
