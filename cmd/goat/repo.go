@@ -184,7 +184,7 @@ func runRepoList(cctx *cli.Context) error {
 	}
 
 	// read repository tree in to memory
-	_, r, err := repo.LoadFromCAR(ctx, fi)
+	_, r, err := repo.LoadRepoFromCAR(ctx, fi)
 	if err != nil {
 		return fmt.Errorf("failed to parse repo CAR file: %w", err)
 	}
@@ -211,7 +211,7 @@ func runRepoInspect(cctx *cli.Context) error {
 	}
 
 	// read repository tree in to memory
-	c, _, err := repo.LoadFromCAR(ctx, fi)
+	c, _, err := repo.LoadRepoFromCAR(ctx, fi)
 	if err != nil {
 		return err
 	}
@@ -255,7 +255,7 @@ func runRepoUnpack(cctx *cli.Context) error {
 		return err
 	}
 
-	c, r, err := repo.LoadFromCAR(ctx, fi)
+	c, r, err := repo.LoadRepoFromCAR(ctx, fi)
 	if err != nil {
 		return err
 	}

@@ -256,7 +256,7 @@ func (gfc *GoatFirehoseConsumer) handleAccountEvent(ctx context.Context, evt *co
 }
 
 func (gfc *GoatFirehoseConsumer) handleSyncEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync) error {
-	commit, err := repo.LoadCARCommit(ctx, bytes.NewReader(evt.Blocks))
+	commit, _, err := repo.LoadCommitFromCAR(ctx, bytes.NewReader(evt.Blocks))
 	if err != nil {
 		return err
 	}
@@ -296,7 +296,7 @@ func (gfc *GoatFirehoseConsumer) handleCommitEvent(ctx context.Context, evt *com
 			return err
 		}
 
-		commit, err := repo.LoadCARCommit(ctx, bytes.NewReader(evt.Blocks))
+		commit, _, err := repo.LoadCommitFromCAR(ctx, bytes.NewReader(evt.Blocks))
 		if err != nil {
 			return err
 		}
@@ -409,7 +409,7 @@ func (gfc *GoatFirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *
 		return nil
 	}
 
-	_, rr, err := repo.LoadFromCAR(ctx, bytes.NewReader(evt.Blocks))
+	_, rr, err := repo.LoadRepoFromCAR(ctx, bytes.NewReader(evt.Blocks))
 	if err != nil {
 		logger.Error("failed to read repo from car", "err", err)
 		return nil
