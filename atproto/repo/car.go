@@ -11,10 +11,14 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	blocks "github.com/ipfs/go-block-format"
+	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car"
 )
 
-func LoadFromCAR(ctx context.Context, r io.Reader) (*Commit, *Repo, error) {
+var ErrNoRoot = errors.New("CAR file missing root CID")
+var ErrNoCommit = errors.New("no commit")
+
+func LoadRepoFromCAR(ctx context.Context, r io.Reader) (*Commit, *Repo, error) {
 
 	//bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
 	bs := NewTinyBlockstore()
@@ -73,21 +77,18 @@ func LoadFromCAR(ctx context.Context, r io.Reader) (*Commit, *Repo, error) {
 	return &commit, &repo, nil
 }
 
-var ErrNoRoot = errors.New("CAR file missing root CID")
-var ErrNoCommit = errors.New("no commit")
-
-// LoadCARCommit is like LoadFromCAR() but filters to only return the commit object.
-// useful for subscribeRepos/firehose `#sync` message
-func LoadCARCommit(ctx context.Context, r io.Reader) (*Commit, error) {
+// LoadCommitFromCAR is like LoadRepoFromCAR() but filters to only return the commit object.
+// Also returns the commit CID.
+func LoadCommitFromCAR(ctx context.Context, r io.Reader) (*Commit, *cid.Cid, error) {
 	cr, err := car.NewCarReader(r)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if cr.Header.Version != 1 {
-		return nil, fmt.Errorf("unsupported CAR file version: %d", cr.Header.Version)
+		return nil, nil, fmt.Errorf("unsupported CAR file version: %d", cr.Header.Version)
 	}
 	if len(cr.Header.Roots) < 1 {
-		return nil, ErrNoRoot
+		return nil, nil, ErrNoRoot
 	}
 	commitCID := cr.Header.Roots[0]
 	var commitBlock blocks.Block
@@ -97,7 +98,7 @@ func LoadCARCommit(ctx context.Context, r io.Reader) (*Commit, error) {
 			if err == io.EOF {
 				break
 			}
-			return nil, err
+			return nil, nil, err
 		}
 
 		if blk.Cid().Equals(commitCID) {
@@ -106,14 +107,14 @@ func LoadCARCommit(ctx context.Context, r io.Reader) (*Commit, error) {
 		}
 	}
 	if commitBlock == nil {
-		return nil, ErrNoCommit
+		return nil, nil, ErrNoCommit
 	}
 	var commit Commit
 	if err := commit.UnmarshalCBOR(bytes.NewReader(commitBlock.RawData())); err != nil {
-		return nil, fmt.Errorf("parsing commit block from CAR file: %w", err)
+		return nil, nil, fmt.Errorf("parsing commit block from CAR file: %w", err)
 	}
 	if err := commit.VerifyStructure(); err != nil {
-		return nil, fmt.Errorf("parsing commit block from CAR file: %w", err)
+		return nil, nil, fmt.Errorf("parsing commit block from CAR file: %w", err)
 	}
-	return &commit, nil
+	return &commit, &commitCID, nil
 }
