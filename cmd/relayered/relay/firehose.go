@@ -2,356 +2,216 @@ package relay
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"net"
+	"net/http"
+	"sync"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/relayered/relay/models"
 	"github.com/bluesky-social/indigo/cmd/relayered/stream"
 
-	"github.com/ipfs/go-cid"
-	"go.opentelemetry.io/otel/attribute"
-	"gorm.io/gorm"
+	"github.com/gorilla/websocket"
+	promclient "github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 )
 
-// handleFedEvent() is the callback passed to Slurper called from Slurper.handleConnection()
-// XXX: evt not env
-func (r *Relay) handleFedEvent(ctx context.Context, host *models.Host, env *stream.XRPCStreamEvent) error {
-	ctx, span := tracer.Start(ctx, "handleFedEvent")
-	defer span.End()
+type SocketConsumer struct {
+	UserAgent   string
+	RemoteAddr  string
+	ConnectedAt time.Time
+	EventsSent  promclient.Counter
+}
 
-	start := time.Now()
-	defer func() {
-		eventsHandleDuration.WithLabelValues(host.Hostname).Observe(time.Since(start).Seconds())
+func (r *Relay) registerConsumer(c *SocketConsumer) uint64 {
+	r.consumersLk.Lock()
+	defer r.consumersLk.Unlock()
+
+	id := r.nextConsumerID
+	r.nextConsumerID++
+
+	r.consumers[id] = c
+
+	return id
+}
+
+func (r *Relay) cleanupConsumer(id uint64) {
+	r.consumersLk.Lock()
+	defer r.consumersLk.Unlock()
+
+	c := r.consumers[id]
+
+	var m = &dto.Metric{}
+	if err := c.EventsSent.Write(m); err != nil {
+		r.Logger.Error("failed to get sent counter", "err", err)
+	}
+
+	r.Logger.Info("consumer disconnected",
+		"consumer_id", id,
+		"remote_addr", c.RemoteAddr,
+		"user_agent", c.UserAgent,
+		"events_sent", m.Counter.GetValue())
+
+	delete(r.consumers, id)
+}
+
+// Main HTTP request handler for clients connecting to the firehose (com.atproto.sync.subscribeRepos)
+func (r *Relay) HandleSubscribeRepos(resp http.ResponseWriter, req *http.Request, since *int64, realIP string) error {
+
+	ctx, cancel := context.WithCancel(req.Context())
+	defer cancel()
+
+	conn, err := websocket.Upgrade(resp, req, resp.Header(), 10<<10, 10<<10)
+	if err != nil {
+		return fmt.Errorf("upgrading websocket: %w", err)
+	}
+
+	defer conn.Close()
+
+	lastWriteLk := sync.Mutex{}
+	lastWrite := time.Now()
+
+	// Start a goroutine to ping the client every 30 seconds to check if it's
+	// still alive. If the client doesn't respond to a ping within 5 seconds,
+	// we'll close the connection and teardown the consumer.
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				lastWriteLk.Lock()
+				lw := lastWrite
+				lastWriteLk.Unlock()
+
+				if time.Since(lw) < 30*time.Second {
+					continue
+				}
+
+				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
+					r.Logger.Warn("failed to ping client", "err", err)
+					cancel()
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
 	}()
 
-	EventsReceivedCounter.WithLabelValues(host.Hostname).Add(1)
-
-	switch {
-	case env.RepoCommit != nil:
-		repoCommitsReceivedCounter.WithLabelValues(host.Hostname).Add(1)
-		return r.handleCommit(ctx, host, env.RepoCommit)
-	case env.RepoSync != nil:
-		repoSyncReceivedCounter.WithLabelValues(host.Hostname).Add(1)
-		return r.handleSync(ctx, host, env.RepoSync)
-	case env.RepoHandle != nil:
-		eventsWarningsCounter.WithLabelValues(host.Hostname, "handle").Add(1)
-		// TODO: rate limit warnings per Host before we (temporarily?) block them
-		return nil
-	case env.RepoIdentity != nil:
-		r.Logger.Info("relay got identity event", "did", env.RepoIdentity.Did)
-
-		did, err := syntax.ParseDID(env.RepoIdentity.Did)
-		if err != nil {
-			return fmt.Errorf("invalid DID in message: %w", err)
-		}
-
-		// Flush any cached DID documents for this user
-		r.purgeDidCache(ctx, did.String())
-
-		// Refetch the DID doc and update our cached keys and handle etc.
-		account, err := r.syncHostAccount(ctx, did, host, nil)
-		if err != nil {
-			return err
-		}
-
-		// Broadcast the identity event to all consumers
-		err = r.Events.AddEvent(ctx, &stream.XRPCStreamEvent{
-			RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
-				Did:    did.String(),
-				Seq:    env.RepoIdentity.Seq,
-				Time:   env.RepoIdentity.Time,
-				Handle: env.RepoIdentity.Handle,
-			},
-			PrivUid: account.UID,
-		})
-		if err != nil {
-			r.Logger.Error("failed to broadcast Identity event", "error", err, "did", did)
-			return fmt.Errorf("failed to broadcast Identity event: %w", err)
-		}
-
-		return nil
-	case env.RepoAccount != nil:
-		span.SetAttributes(
-			attribute.String("did", env.RepoAccount.Did),
-			attribute.Int64("seq", env.RepoAccount.Seq),
-			attribute.Bool("active", env.RepoAccount.Active),
-		)
-
-		did, err := syntax.ParseDID(env.RepoAccount.Did)
-		if err != nil {
-			return fmt.Errorf("invalid DID in message: %w", err)
-		}
-
-		if env.RepoAccount.Status != nil {
-			span.SetAttributes(attribute.String("repo_status", *env.RepoAccount.Status))
-		}
-		r.Logger.Info("relay got account event", "did", env.RepoAccount.Did)
-
-		if !env.RepoAccount.Active && env.RepoAccount.Status == nil {
-			// TODO: semantics here aren't really clear
-			r.Logger.Warn("dropping invalid account event", "did", env.RepoAccount.Did, "active", env.RepoAccount.Active, "status", env.RepoAccount.Status)
-			accountVerifyWarnings.WithLabelValues(host.Hostname, "nostat").Inc()
+	conn.SetPingHandler(func(message string) error {
+		err := conn.WriteControl(websocket.PongMessage, []byte(message), time.Now().Add(time.Second*60))
+		if err == websocket.ErrCloseSent {
+			return nil
+		} else if e, ok := err.(net.Error); ok && e.Temporary() {
 			return nil
 		}
-
-		// Flush any cached DID documents for this user
-		r.purgeDidCache(ctx, did.String())
-
-		// Refetch the DID doc to make sure the Host is still authoritative
-		account, err := r.syncHostAccount(ctx, did, host, nil)
-		if err != nil {
-			span.RecordError(err)
-			return err
-		}
-
-		// Check if the Host is still authoritative
-		// if not we don't want to be propagating this account event
-		// XXX: lock
-		if account.HostID != host.ID && !r.Config.SkipAccountHostCheck {
-			r.Logger.Error("account event from non-authoritative pds",
-				"seq", env.RepoAccount.Seq,
-				"did", env.RepoAccount.Did,
-				"event_from", host.Hostname,
-				"did_doc_declared_pds", account.HostID,
-				"account_evt", env.RepoAccount,
-			)
-			return fmt.Errorf("event from non-authoritative pds")
-		}
-
-		// Process the account status change
-		repoStatus := models.AccountStatusActive
-		if !env.RepoAccount.Active && env.RepoAccount.Status != nil {
-			repoStatus = models.AccountStatus(*env.RepoAccount.Status)
-		}
-
-		// XXX: lock, and parse
-		account.UpstreamStatus = models.AccountStatus(repoStatus)
-		err = r.db.Save(account).Error
-		if err != nil {
-			span.RecordError(err)
-			return fmt.Errorf("failed to update account status: %w", err)
-		}
-
-		shouldBeActive := env.RepoAccount.Active
-		status := env.RepoAccount.Status
-
-		// override with local status
-		// XXX: lock
-		if account.Status == "takendown" {
-			shouldBeActive = false
-			s := string(models.AccountStatusTakendown)
-			status = &s
-		}
-
-		// Broadcast the account event to all consumers
-		err = r.Events.AddEvent(ctx, &stream.XRPCStreamEvent{
-			RepoAccount: &comatproto.SyncSubscribeRepos_Account{
-				Active: shouldBeActive,
-				Did:    env.RepoAccount.Did,
-				Seq:    env.RepoAccount.Seq,
-				Status: status,
-				Time:   env.RepoAccount.Time,
-			},
-			PrivUid: account.UID,
-		})
-		if err != nil {
-			r.Logger.Error("failed to broadcast Account event", "error", err, "did", env.RepoAccount.Did)
-			return fmt.Errorf("failed to broadcast Account event: %w", err)
-		}
-
-		return nil
-	case env.RepoMigrate != nil:
-		eventsWarningsCounter.WithLabelValues(host.Hostname, "migrate").Add(1)
-		// TODO: rate limit warnings per Host before we (temporarily?) block them
-		return nil
-	case env.RepoTombstone != nil:
-		eventsWarningsCounter.WithLabelValues(host.Hostname, "tombstone").Add(1)
-		// TODO: rate limit warnings per Host before we (temporarily?) block them
-		return nil
-	default:
-		return fmt.Errorf("invalid fed event")
-	}
-}
-
-func (r *Relay) handleCommit(ctx context.Context, host *models.Host, evt *comatproto.SyncSubscribeRepos_Commit) error {
-	r.Logger.Debug("relay got repo append event", "seq", evt.Seq, "host", host.Hostname, "repo", evt.Repo)
-
-	did, err := syntax.ParseDID(evt.Repo)
-	if err != nil {
-		return fmt.Errorf("invalid DID in message: %w", err)
-	}
-	// XXX: did = did.Normalize()
-	account, err := r.GetAccount(ctx, did)
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			repoCommitsResultCounter.WithLabelValues(host.Hostname, "nou").Inc()
-			return fmt.Errorf("looking up event user: %w", err)
-		}
-
-		account, err = r.CreateAccount(ctx, host, did)
-		if err != nil {
-			repoCommitsResultCounter.WithLabelValues(host.Hostname, "nuerr").Inc()
-			return err
-		}
-	}
-	if account == nil {
-		repoCommitsResultCounter.WithLabelValues(host.Hostname, "nou2").Inc()
-		return ErrAccountNotFound
-	}
-
-	// XXX: lock on account
-	ustatus := account.UpstreamStatus
-
-	// XXX: lock on account
-	if account.Status == models.AccountStatusTakendown || ustatus == models.AccountStatusTakendown {
-		r.Logger.Debug("dropping commit event from taken down user", "did", evt.Repo, "seq", evt.Seq, "host", host.Hostname)
-		repoCommitsResultCounter.WithLabelValues(host.Hostname, "tdu").Inc()
-		return nil
-	}
-
-	if ustatus == models.AccountStatusSuspended {
-		r.Logger.Debug("dropping commit event from suspended user", "did", evt.Repo, "seq", evt.Seq, "host", host.Hostname)
-		repoCommitsResultCounter.WithLabelValues(host.Hostname, "susu").Inc()
-		return nil
-	}
-
-	if ustatus == models.AccountStatusDeactivated {
-		r.Logger.Debug("dropping commit event from deactivated user", "did", evt.Repo, "seq", evt.Seq, "host", host.Hostname)
-		repoCommitsResultCounter.WithLabelValues(host.Hostname, "du").Inc()
-		return nil
-	}
-
-	if evt.Rebase {
-		repoCommitsResultCounter.WithLabelValues(host.Hostname, "rebase").Inc()
-		return fmt.Errorf("rebase was true in event seq:%d,host:%s", evt.Seq, host.Hostname)
-	}
-
-	accountHostId := account.HostID
-	if host.ID != accountHostId && accountHostId != 0 {
-		r.Logger.Warn("received event for repo from different pds than expected", "repo", evt.Repo, "expPds", accountHostId, "gotPds", host.Hostname)
-		// Flush any cached DID documents for this user
-		r.purgeDidCache(ctx, evt.Repo)
-
-		account, err = r.syncHostAccount(ctx, did, host, account)
-		if err != nil {
-			repoCommitsResultCounter.WithLabelValues(host.Hostname, "uerr2").Inc()
-			return err
-		}
-
-		if account.HostID != host.ID && !r.Config.SkipAccountHostCheck {
-			repoCommitsResultCounter.WithLabelValues(host.Hostname, "noauth").Inc()
-			return fmt.Errorf("event from non-authoritative pds")
-		}
-	}
-
-	// TODO: very messy fetch code here
-	var repo *models.AccountRepo
-	err = r.db.First(repo, account.UID).Error
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		r.Logger.Error("failed to get previous root", "err", err)
-		repo = nil
-	}
-	var prevRev *syntax.TID
-	var prevData *cid.Cid
-	if repo != nil {
-		c, err := cid.Parse(repo.CommitData)
-		if err != nil {
-			return fmt.Errorf("parsing commitDataCID from database: %w", err)
-		}
-		prevData = &c
-		t := syntax.TID(repo.Rev)
-		prevRev = &t
-	}
-	evtPrevDataStr := ""
-	if evt.PrevData != nil {
-		evtPrevDataStr = ((*cid.Cid)(evt.PrevData)).String()
-	}
-	commitDataCID, err := r.Validator.HandleCommit(ctx, host, account, evt, prevRev, prevData)
-	if err != nil {
-		// XXX: induction trace log
-		r.Logger.Error("commit bad", "seq", evt.Seq, "host", host.Hostname, "repo", evt.Repo, "prev", evtPrevDataStr, "err", err)
-		r.Logger.Warn("failed handling event", "err", err, "host", host.Hostname, "seq", evt.Seq, "repo", account.DID, "commit", evt.Commit.String())
-		repoCommitsResultCounter.WithLabelValues(host.Hostname, "err").Inc()
-		return fmt.Errorf("handle user event failed: %w", err)
-	}
-
-	// TID syntax has been verified by validator
-	rev := syntax.TID(evt.Rev)
-
-	err = r.UpsertAccountRepo(account.UID, rev, cid.Cid(evt.Commit), *commitDataCID)
-	if err != nil {
-		return fmt.Errorf("failed to set previous root uid=%d: %w", account.UID, err)
-	}
-
-	repoCommitsResultCounter.WithLabelValues(host.Hostname, "ok").Inc()
-
-	// Broadcast the identity event to all consumers
-	commitCopy := *evt
-	err = r.Events.AddEvent(ctx, &stream.XRPCStreamEvent{
-		RepoCommit: &commitCopy,
-		PrivUid:    account.UID,
+		return err
 	})
-	if err != nil {
-		r.Logger.Error("failed to broadcast commit event", "error", err, "did", evt.Repo)
-		return fmt.Errorf("failed to broadcast commit event: %w", err)
-	}
 
-	return nil
-}
-
-// handleSync processes #sync messages
-func (r *Relay) handleSync(ctx context.Context, host *models.Host, evt *comatproto.SyncSubscribeRepos_Sync) error {
-	did, err := syntax.ParseDID(evt.Did)
-	if err != nil {
-		return fmt.Errorf("invalid DID in message: %s", did)
-	}
-	// XXX: did.Normalize()
-	account, err := r.GetAccount(ctx, did)
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			repoCommitsResultCounter.WithLabelValues(host.Hostname, "nou").Inc()
-			return fmt.Errorf("looking up event user: %w", err)
+	// Start a goroutine to read messages from the client and discard them.
+	go func() {
+		for {
+			_, _, err := conn.ReadMessage()
+			if err != nil {
+				r.Logger.Warn("failed to read message from client", "err", err)
+				cancel()
+				return
+			}
 		}
+	}()
 
-		account, err = r.CreateAccount(ctx, host, did)
-	}
-	if err != nil {
-		return fmt.Errorf("could not get user for did %#v: %w", evt.Did, err)
-	}
+	ident := realIP + "-" + req.UserAgent()
 
-	commitCID, commitDataCID, err := r.Validator.HandleSync(ctx, host, evt)
+	evts, cleanup, err := r.Events.Subscribe(ctx, ident, func(evt *stream.XRPCStreamEvent) bool { return true }, since)
 	if err != nil {
 		return err
 	}
-	// TID syntax has been verified by validator
-	rev := syntax.TID(evt.Rev)
+	defer cleanup()
 
-	// TODO: should this happen before or after firehose persist/broadcast?
-	err = r.UpsertAccountRepo(account.UID, rev, *commitCID, *commitDataCID)
-	if err != nil {
-		return fmt.Errorf("failed to upsert repo state (uid %d): %w", account.UID, err)
+	// Keep track of the consumer for metrics and admin endpoints
+	consumer := SocketConsumer{
+		RemoteAddr:  realIP,
+		UserAgent:   req.UserAgent(),
+		ConnectedAt: time.Now(),
 	}
+	sentCounter := eventsSentCounter.WithLabelValues(consumer.RemoteAddr, consumer.UserAgent)
+	consumer.EventsSent = sentCounter
 
-	// Broadcast the sync event to all consumers
-	evtCopy := *evt
-	err = r.Events.AddEvent(ctx, &stream.XRPCStreamEvent{
-		RepoSync: &evtCopy,
-	})
-	if err != nil {
-		r.Logger.Error("failed to broadcast sync event", "error", err, "did", evt.Did)
-		return fmt.Errorf("failed to broadcast sync event: %w", err)
+	consumerID := r.registerConsumer(&consumer)
+	defer r.cleanupConsumer(consumerID)
+
+	logger := r.Logger.With(
+		"consumer_id", consumerID,
+		"remote_addr", consumer.RemoteAddr,
+		"user_agent", consumer.UserAgent,
+	)
+
+	logger.Info("new consumer", "cursor", since)
+
+	for {
+		select {
+		case evt, ok := <-evts:
+			if !ok {
+				logger.Error("event stream closed unexpectedly")
+				return nil
+			}
+
+			wc, err := conn.NextWriter(websocket.BinaryMessage)
+			if err != nil {
+				logger.Error("failed to get next writer", "err", err)
+				return err
+			}
+
+			if evt.Preserialized != nil {
+				_, err = wc.Write(evt.Preserialized)
+			} else {
+				err = evt.Serialize(wc)
+			}
+			if err != nil {
+				return fmt.Errorf("failed to write event: %w", err)
+			}
+
+			if err := wc.Close(); err != nil {
+				logger.Warn("failed to flush-close our event write", "err", err)
+				return nil
+			}
+
+			lastWriteLk.Lock()
+			lastWrite = time.Now()
+			lastWriteLk.Unlock()
+			sentCounter.Inc()
+		case <-ctx.Done():
+			return nil
+		}
 	}
-
-	return nil
 }
 
-func (r *Relay) purgeDidCache(ctx context.Context, did string) {
-	ati, err := syntax.ParseAtIdentifier(did)
-	if err != nil {
-		return
+type ConsumerInfo struct {
+	ID             uint64    `json:"id"`
+	RemoteAddr     string    `json:"remote_addr"`
+	UserAgent      string    `json:"user_agent"`
+	EventsConsumed uint64    `json:"events_consumed"`
+	ConnectedAt    time.Time `json:"connected_at"`
+}
+
+func (r *Relay) ListConsumers() []ConsumerInfo {
+	r.consumersLk.RLock()
+	defer r.consumersLk.RUnlock()
+
+	info := make([]ConsumerInfo, 0, len(r.consumers))
+	for id, c := range r.consumers {
+		var m = &dto.Metric{}
+		if err := c.EventsSent.Write(m); err != nil {
+			continue
+		}
+		info = append(info, ConsumerInfo{
+			ID:             id,
+			RemoteAddr:     c.RemoteAddr,
+			UserAgent:      c.UserAgent,
+			EventsConsumed: uint64(m.Counter.GetValue()),
+			ConnectedAt:    c.ConnectedAt,
+		})
 	}
-	_ = r.dir.Purge(ctx, *ati)
+	return info
 }
