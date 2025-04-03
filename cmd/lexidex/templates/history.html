@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block main_content %}
+<h2 style="font-family: monospace;">{{ lexicon.NSID }} - Crawl History</h2>
+
+<table>
+	<thead>
+		<tr><th>When</th>
+		    <th>Reason</th>
+		    <th>Repo DID</th>
+		    <th>Repo Rev</th>
+		    <th>Record CID</th>
+	</thead>
+	<tbody>
+    {% for crawl in history %}
+		<tr><td>{{ crawl.CreatedAt|date:"2006-01-02T15:04:05Z" }}</td>
+		    <td>{{ crawl.Reason }}</td>
+            <td><code>{{ crawl.DID }}</code></td>
+            <td><code>{{ crawl.RepoRev }}</code></td>
+            <td style="max-width: 5em; text-overflow: ellipsis; overflow: hidden;"><code>{{ crawl.RecordCID }}</code></td>
+		{% endfor %}
+	</tbody>
+</table>
+
+{% endblock %}
