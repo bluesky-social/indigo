@@ -28,6 +28,18 @@ func (s *Service) RegisterHandlersComAtproto(e *echo.Echo) error {
 	return nil
 }
 
+func (s *Service) HandleComAtprotoSyncSubscribeRepos(c echo.Context) error {
+	var since *int64
+	if sinceVal := c.QueryParam("cursor"); sinceVal != "" {
+		sval, err := strconv.ParseInt(sinceVal, 10, 64)
+		if err != nil {
+			return err
+		}
+		since = &sval
+	}
+	return s.relay.HandleSubscribeRepos(c.Response(), c.Request(), since, c.RealIP())
+}
+
 func (s *Service) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetLatestCommit")
 	defer span.End()

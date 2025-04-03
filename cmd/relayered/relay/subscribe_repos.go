@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strconv"
+	"net/http"
 	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/cmd/relayered/stream"
 
 	"github.com/gorilla/websocket"
-	"github.com/labstack/echo/v4"
 	promclient "github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 )
@@ -55,21 +54,13 @@ func (r *Relay) cleanupConsumer(id uint64) {
 	delete(r.consumers, id)
 }
 
-// GET+websocket /xrpc/com.atproto.sync.subscribeRepos
-func (r *Relay) EventsHandler(c echo.Context) error {
-	var since *int64
-	if sinceVal := c.QueryParam("cursor"); sinceVal != "" {
-		sval, err := strconv.ParseInt(sinceVal, 10, 64)
-		if err != nil {
-			return err
-		}
-		since = &sval
-	}
+// Main HTTP request handler for clients connecting to the firehose (com.atproto.sync.subscribeRepos)
+func (r *Relay) HandleSubscribeRepos(resp http.ResponseWriter, req *http.Request, since *int64, realIP string) error {
 
-	ctx, cancel := context.WithCancel(c.Request().Context())
+	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
 
-	conn, err := websocket.Upgrade(c.Response(), c.Request(), c.Response().Header(), 10<<10, 10<<10)
+	conn, err := websocket.Upgrade(resp, req, resp.Header(), 10<<10, 10<<10)
 	if err != nil {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
@@ -130,7 +121,7 @@ func (r *Relay) EventsHandler(c echo.Context) error {
 		}
 	}()
 
-	ident := c.RealIP() + "-" + c.Request().UserAgent()
+	ident := realIP + "-" + req.UserAgent()
 
 	evts, cleanup, err := r.Events.Subscribe(ctx, ident, func(evt *stream.XRPCStreamEvent) bool { return true }, since)
 	if err != nil {
@@ -140,8 +131,8 @@ func (r *Relay) EventsHandler(c echo.Context) error {
 
 	// Keep track of the consumer for metrics and admin endpoints
 	consumer := SocketConsumer{
-		RemoteAddr:  c.RealIP(),
-		UserAgent:   c.Request().UserAgent(),
+		RemoteAddr:  realIP,
+		UserAgent:   req.UserAgent(),
 		ConnectedAt: time.Now(),
 	}
 	sentCounter := eventsSentCounter.WithLabelValues(consumer.RemoteAddr, consumer.UserAgent)
