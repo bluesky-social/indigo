@@ -109,7 +109,7 @@ func LoadAndRunScenario(ctx context.Context, fpath string) error {
 
 	sr := MustSimpleRelay(&dir, tmpd)
 
-	err = sr.Relay.Slurper.SubscribeToPds(ctx, fmt.Sprintf("localhost:%d", hostPort), true, true, nil)
+	err = sr.Relay.SubscribeToHost(fmt.Sprintf("localhost:%d", hostPort), true, true, nil)
 	if err != nil {
 		return err
 	}

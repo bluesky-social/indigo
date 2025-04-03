@@ -103,7 +103,7 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *co
 		}
 	}
 
-	return s.relay.Slurper.SubscribeToPds(ctx, host, true, false, nil)
+	return s.relay.SubscribeToHost(host, true, false, nil)
 }
 
 func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, limit int) (*comatproto.SyncListRepos_Output, error) {
