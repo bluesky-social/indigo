@@ -1,14 +1,14 @@
-name: container-relayered-aws
+name: container-rerelay-aws
 on: [push]
 env:
   REGISTRY: ${{ secrets.AWS_ECR_REGISTRY_USEAST2_PACKAGES_REGISTRY }}
   USERNAME: ${{ secrets.AWS_ECR_REGISTRY_USEAST2_PACKAGES_USERNAME }}
   PASSWORD: ${{ secrets.AWS_ECR_REGISTRY_USEAST2_PACKAGES_PASSWORD }}
   # github.repository as <account>/<repo>
-  IMAGE_NAME: relayered
+  IMAGE_NAME: rerelay
 
 jobs:
-  container-relayered-aws:
+  container-rerelay-aws:
     if: github.repository == 'bluesky-social/indigo'
     runs-on: ubuntu-latest
     permissions:
@@ -44,7 +44,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          file: ./cmd/relayered/Dockerfile
+          file: ./cmd/rerelay/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
