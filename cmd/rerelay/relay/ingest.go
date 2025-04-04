@@ -4,15 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/rerelay/relay/models"
 	"github.com/bluesky-social/indigo/cmd/rerelay/stream"
 
 	"go.opentelemetry.io/otel/attribute"
-	"gorm.io/gorm"
 )
 
 // This callback function gets called by Slurper on every upstream repo stream message from any host.
@@ -56,99 +57,68 @@ func (r *Relay) processRepoEvent(ctx context.Context, evt *stream.XRPCStreamEven
 	}
 }
 
-func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit, hostname string, hostID uint64) error {
-	logger := r.Logger.With("did", evt.Repo, "seq", evt.Seq, "host", hostname, "eventType", "commit", "rev", evt.Rev)
-	logger.Debug("relay got repo append event")
+// handles the shared part of event processing: that the account existing, is associated with this host, etc
+func (r *Relay) preProcessEvent(ctx context.Context, didStr string, hostname string, hostID uint64, logger *slog.Logger) (*models.Account, *identity.Identity, error) {
 
-	did, err := syntax.ParseDID(evt.Repo)
+	did, err := syntax.ParseDID(didStr)
 	if err != nil {
-		return fmt.Errorf("invalid DID in message: %w", err)
+		return nil, nil, fmt.Errorf("invalid DID in message: %w", err)
 	}
-
 	// XXX: did = did.Normalize()
-	account, err := r.GetAccount(ctx, did)
+
+	acc, err := r.GetAccount(ctx, did)
 	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return fmt.Errorf("looking up event user: %w", err)
+		if !errors.Is(err, ErrAccountNotFound) {
+			return nil, nil, fmt.Errorf("fetching account: %w", err)
 		}
 
-		host, err := r.GetHost(ctx, hostID)
+		acc, err = r.CreateHostAccount(ctx, did, hostID, hostname)
 		if err != nil {
-			return err
-		}
-		account, err = r.CreateAccount(ctx, host, did)
-		if err != nil {
-			return err
+			return nil, nil, err
 		}
 	}
 
-	if account == nil {
-		return ErrAccountNotFound
+	if acc == nil {
+		// TODO: this is defensive and could be removed
+		panic(ErrAccountNotFound)
 	}
 
-	// XXX: lock on account
-	ustatus := account.UpstreamStatus
-
-	// XXX: lock on account
-	if account.Status == models.AccountStatusTakendown || ustatus == models.AccountStatusTakendown {
-		logger.Debug("dropping commit event from taken down user")
-		return nil
+	// verify that the account is on the subscribed host (or update if it should be)
+	if err := r.EnsureAccountHost(ctx, acc, hostID, hostname); err != nil {
+		return nil, nil, err
 	}
 
-	if ustatus == models.AccountStatusSuspended {
-		logger.Debug("dropping commit event from suspended user")
-		return nil
-	}
-
-	if ustatus == models.AccountStatusDeactivated {
-		logger.Debug("dropping commit event from deactivated user")
-		return nil
-	}
-
-	if evt.Rebase {
-		return fmt.Errorf("rebase was true in event seq:%d,host:%s", evt.Seq, hostname)
-	}
-
-	accountHostId := account.HostID
-	if hostID != accountHostId && accountHostId != 0 {
-		// XXX: metter logging
-		logger.Warn("received event for repo from different pds than expected", "expectedHostID", accountHostId, "receivedHost", hostname)
-		// Flush any cached DID documents for this user
-		err = r.dir.Purge(ctx, did.AtIdentifier())
-		if err != nil {
-			logger.Error("problem purging identity directory cache", "err", err)
-		}
-
-		// XXX: shouldn't need full Host?
-		host, err := r.GetHost(ctx, hostID)
-		if err != nil {
-			return err
-		}
-
-		account, err = r.syncHostAccount(ctx, did, host, account)
-		if err != nil {
-			return err
-		}
-
-		if account.HostID != hostID && !r.Config.SkipAccountHostCheck {
-			return fmt.Errorf("event from non-authoritative pds")
-		}
+	// skip identity lookup if account is not active
+	if acc.Status != models.AccountStatusActive || acc.UpstreamStatus != models.AccountStatusActive {
+		return acc, nil, nil
 	}
 
 	ident, err := r.dir.LookupDID(ctx, did)
 	if err != nil {
-		// XXX: handle more granularly (eg, true not-founds vs errors); and add tests
+		// XXX: handle more granularly (eg, true NotFound vs other errors); and add tests
 		logger.Warn("failed to load identity")
 	}
+	return acc, ident, nil
+}
 
-	var prevRepo *models.AccountRepo
-	err = r.db.First(prevRepo, account.UID).Error
+func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit, hostname string, hostID uint64) error {
+	logger := r.Logger.With("did", evt.Repo, "seq", evt.Seq, "host", hostname, "eventType", "commit", "rev", evt.Rev)
+	logger.Debug("relay got repo append event")
+
+	acc, ident, err := r.preProcessEvent(ctx, evt.Repo, hostname, hostID, logger)
 	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			// TODO: should this be a hard error?
-			logger.Error("failed to read previous repo state", "err", err)
-		}
-		prevRepo = nil
+		return err
+	}
+
+	if acc.Status != models.AccountStatusActive || acc.UpstreamStatus != models.AccountStatusActive {
+		logger.Info("dropping commit message for non-active account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
+		return nil
+	}
+
+	prevRepo, err := r.GetAccountRepo(ctx, acc.UID)
+	if err != nil && !errors.Is(err, ErrAccountRepoNotFound) {
+		// TODO: should this be a hard error?
+		logger.Error("failed to read previous repo state", "err", err)
 	}
 
 	// most commit validation happens in this method. Note that is handles lenient/strict modes.
@@ -158,21 +128,21 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 		return err
 	}
 
-	err = r.UpsertAccountRepo(account.UID, syntax.TID(newRepo.Rev), newRepo.CommitCID, newRepo.CommitData)
+	err = r.UpsertAccountRepo(acc.UID, syntax.TID(newRepo.Rev), newRepo.CommitCID, newRepo.CommitData)
 	if err != nil {
-		return fmt.Errorf("failed to upsert account repo (%s): %w", account.DID, err)
+		return fmt.Errorf("failed to upsert account repo (%s): %w", acc.DID, err)
 	}
 
-	// Broadcast the identity event to all consumers
+	// emit the event
 	// TODO: is this copy important?
 	commitCopy := *evt
 	err = r.Events.AddEvent(ctx, &stream.XRPCStreamEvent{
 		RepoCommit: &commitCopy,
-		PrivUid:    account.UID,
+		PrivUid:    acc.UID,
 	})
 	if err != nil {
-		logger.Error("failed to broadcast commit event", "error", err)
-		return fmt.Errorf("failed to broadcast commit event: %w", err)
+		logger.Error("failed to broadcast event", "error", err)
+		return fmt.Errorf("failed to broadcast #commit event: %w", err)
 	}
 
 	return nil
@@ -180,31 +150,15 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 
 func (r *Relay) processSyncEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync, hostname string, hostID uint64) error {
 	logger := r.Logger.With("did", evt.Did, "seq", evt.Seq, "host", hostname, "eventType", "sync")
-	did, err := syntax.ParseDID(evt.Did)
-	if err != nil {
-		return fmt.Errorf("invalid DID in message: %s", did)
-	}
-	// XXX: did.Normalize()
-	account, err := r.GetAccount(ctx, did)
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return fmt.Errorf("looking up event user: %w", err)
-		}
 
-		host, err := r.GetHost(ctx, hostID)
-		if err != nil {
-			return err
-		}
-		account, err = r.CreateAccount(ctx, host, did)
-	}
+	acc, ident, err := r.preProcessEvent(ctx, evt.Did, hostname, hostID, logger)
 	if err != nil {
-		return fmt.Errorf("could not get user for did %#v: %w", evt.Did, err)
+		return err
 	}
 
-	ident, err := r.dir.LookupDID(ctx, did)
-	if err != nil {
-		// XXX: handle more granularly (eg, true not-founds vs errors); and add tests
-		logger.Warn("failed to load identity")
+	if acc.Status != models.AccountStatusActive || acc.UpstreamStatus != models.AccountStatusActive {
+		logger.Info("dropping commit message for non-active account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
+		return nil
 	}
 
 	newRepo, err := r.VerifyRepoSync(ctx, evt, ident, hostname)
@@ -212,65 +166,54 @@ func (r *Relay) processSyncEvent(ctx context.Context, evt *comatproto.SyncSubscr
 		return err
 	}
 
-	// TODO: should this happen before or after firehose persist/broadcast?
-	err = r.UpsertAccountRepo(account.UID, syntax.TID(newRepo.Rev), newRepo.CommitCID, newRepo.CommitData)
+	err = r.UpsertAccountRepo(acc.UID, syntax.TID(newRepo.Rev), newRepo.CommitCID, newRepo.CommitData)
 	if err != nil {
-		return fmt.Errorf("failed to upsert repo state (uid %d): %w", account.UID, err)
+		return fmt.Errorf("failed to upsert account repo (%s): %w", acc.DID, err)
 	}
 
-	// Broadcast the sync event to all consumers
+	// emit the event
 	evtCopy := *evt
 	err = r.Events.AddEvent(ctx, &stream.XRPCStreamEvent{
 		RepoSync: &evtCopy,
+		PrivUid:  acc.UID,
 	})
 	if err != nil {
-		logger.Error("failed to broadcast sync event", "error", err)
-		return fmt.Errorf("failed to broadcast sync event: %w", err)
+		logger.Error("failed to broadcast event", "error", err)
+		return fmt.Errorf("failed to broadcast #sync event: %w", err)
 	}
-
 	return nil
 }
 
 func (r *Relay) processIdentityEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Identity, hostname string, hostID uint64) error {
 	logger := r.Logger.With("did", evt.Did, "seq", evt.Seq, "host", hostname, "eventType", "identity")
+
+	// TODO: reduce verbosity?
 	logger.Info("relay got identity event")
 
-	did, err := syntax.ParseDID(evt.Did)
+	acc, _, err := r.preProcessEvent(ctx, evt.Did, hostname, hostID, logger)
 	if err != nil {
-		return fmt.Errorf("invalid DID in message: %w", err)
+		return err
 	}
+	did := syntax.DID(acc.DID)
 
-	// Flush any cached DID documents for this user
+	// Flush any cached DID/identity info for this user
 	r.dir.Purge(ctx, did.AtIdentifier())
 	if err != nil {
 		logger.Error("problem purging identity directory cache", "err", err)
-	}
-
-	// XXX: syncHostAccount doesn't need full Host?
-	host, err := r.GetHost(ctx, hostID)
-	if err != nil {
-		return err
-	}
-
-	// Refetch the DID doc and update our cached keys and handle etc.
-	account, err := r.syncHostAccount(ctx, did, host, nil)
-	if err != nil {
-		return err
 	}
 
 	// Broadcast the identity event to all consumers
 	err = r.Events.AddEvent(ctx, &stream.XRPCStreamEvent{
 		RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
 			Did:    did.String(),
-			Seq:    evt.Seq,
-			Time:   evt.Time,
-			Handle: evt.Handle,
+			Time:   evt.Time,   // TODO: update to now?
+			Handle: evt.Handle, // TODO: we could substitute in our handle resolution here
 		},
-		PrivUid: account.UID,
+		PrivUid: acc.UID,
 	})
 	if err != nil {
-		logger.Error("failed to broadcast Identity event", "error", err)
-		return fmt.Errorf("failed to broadcast Identity event: %w", err)
+		logger.Error("failed to broadcast identity event", "error", err)
+		return fmt.Errorf("failed to broadcast #identity event: %w", err)
 	}
 
 	return nil
@@ -287,9 +230,9 @@ func (r *Relay) processAccountEvent(ctx context.Context, evt *comatproto.SyncSub
 		attribute.Bool("active", evt.Active),
 	)
 
-	did, err := syntax.ParseDID(evt.Did)
+	acc, _, err := r.preProcessEvent(ctx, evt.Did, hostname, hostID, logger)
 	if err != nil {
-		return fmt.Errorf("invalid DID in message: %w", err)
+		return err
 	}
 
 	if evt.Status != nil {
@@ -298,82 +241,39 @@ func (r *Relay) processAccountEvent(ctx context.Context, evt *comatproto.SyncSub
 	logger.Info("relay got account event")
 
 	if !evt.Active && evt.Status == nil {
-		// TODO: semantics here aren't really clear
-		logger.Warn("dropping invalid account event", "active", evt.Active, "status", evt.Status)
-		accountVerifyWarnings.WithLabelValues(hostname, "nostat").Inc()
-		return nil
+		// XXX: what should we do here?
+		logger.Warn("invalid account event", "active", evt.Active, "status", evt.Status)
 	}
 
-	// Flush any cached DID documents for this user
-	r.dir.Purge(ctx, did.AtIdentifier())
-	if err != nil {
-		logger.Error("problem purging identity directory cache", "err", err)
-	}
-
-	// XXX: shouldn't need full host?
-	host, err := r.GetHost(ctx, hostID)
-	if err != nil {
+	// Process the upstream account status change
+	if err := r.db.Model(models.Account{}).Where("uid = ?", acc.UID).Update("upstream_status", evt.Status).Error; err != nil {
 		return err
 	}
 
-	// Refetch the DID doc to make sure the Host is still authoritative
-	account, err := r.syncHostAccount(ctx, did, host, nil)
-	if err != nil {
-		span.RecordError(err)
-		return err
+	// wrangle various status codes in to what is expected in account event
+	publicStatus := acc.Status
+	if publicStatus == models.AccountStatusActive && evt.Status != nil {
+		publicStatus = models.AccountStatus(*evt.Status)
+	}
+	publicActive := publicStatus == models.AccountStatusActive
+	ptrStatus := (*string)(&publicStatus)
+	if publicActive {
+		ptrStatus = nil
 	}
 
-	// Check if the Host is still authoritative
-	// if not we don't want to be propagating this account event
-	// XXX: lock
-	if account.HostID != hostID && !r.Config.SkipAccountHostCheck {
-		logger.Error("account event from non-authoritative pds",
-			"event_from", hostname,
-			"did_doc_declared_pds", account.HostID,
-			"account_evt", evt,
-		)
-		return fmt.Errorf("event from non-authoritative pds")
-	}
-
-	// Process the account status change
-	repoStatus := models.AccountStatusActive
-	if !evt.Active && evt.Status != nil {
-		repoStatus = models.AccountStatus(*evt.Status)
-	}
-
-	// XXX: lock, and parse
-	account.UpstreamStatus = models.AccountStatus(repoStatus)
-	err = r.db.Save(account).Error
-	if err != nil {
-		span.RecordError(err)
-		return fmt.Errorf("failed to update account status: %w", err)
-	}
-
-	shouldBeActive := evt.Active
-	status := evt.Status
-
-	// override with local status
-	// XXX: lock
-	if account.Status == "takendown" {
-		shouldBeActive = false
-		s := string(models.AccountStatusTakendown)
-		status = &s
-	}
-
-	// Broadcast the account event to all consumers
+	// emit the event
 	err = r.Events.AddEvent(ctx, &stream.XRPCStreamEvent{
 		RepoAccount: &comatproto.SyncSubscribeRepos_Account{
-			Active: shouldBeActive,
-			Did:    evt.Did,
-			Seq:    evt.Seq,
-			Status: status,
+			Active: publicActive,
+			Did:    acc.DID,
+			Status: ptrStatus, // TODO: sometimes will be "active"
 			Time:   evt.Time,
 		},
-		PrivUid: account.UID,
+		PrivUid: acc.UID,
 	})
 	if err != nil {
-		logger.Error("failed to broadcast Account event", "error", err)
-		return fmt.Errorf("failed to broadcast Account event: %w", err)
+		logger.Error("failed to broadcast event", "error", err)
+		return fmt.Errorf("failed to broadcast #account event: %w", err)
 	}
 
 	return nil
