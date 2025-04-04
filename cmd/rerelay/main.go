@@ -210,10 +210,10 @@ func runRelay(cctx *cli.Context) error {
 
 	persistDir := cctx.String("persist-dir")
 	os.MkdirAll(persistDir, os.ModePerm)
-	pOpts := diskpersist.DefaultDiskPersistOptions()
-	pOpts.Retention = cctx.Duration("replay-window")
-	logger.Info("setting up disk persister", "dir", persistDir, "replayWindow", pOpts.Retention)
-	persister, err := diskpersist.NewDiskPersistence(persistDir, "", db, pOpts)
+	persitConfig := diskpersist.DefaultDiskPersistOptions()
+	persitConfig.Retention = cctx.Duration("replay-window")
+	logger.Info("setting up disk persister", "dir", persistDir, "replayWindow", persitConfig.Retention)
+	persister, err := diskpersist.NewDiskPersistence(persistDir, "", db, persitConfig)
 	if err != nil {
 		return fmt.Errorf("setting up disk persister: %w", err)
 	}
