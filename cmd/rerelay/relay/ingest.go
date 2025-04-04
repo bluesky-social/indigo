@@ -89,7 +89,7 @@ func (r *Relay) preProcessEvent(ctx context.Context, didStr string, hostname str
 	}
 
 	// skip identity lookup if account is not active
-	if acc.Status != models.AccountStatusActive || acc.UpstreamStatus != models.AccountStatusActive {
+	if !acc.IsActive() {
 		return acc, nil, nil
 	}
 
@@ -110,7 +110,7 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 		return err
 	}
 
-	if acc.Status != models.AccountStatusActive || acc.UpstreamStatus != models.AccountStatusActive {
+	if !acc.IsActive() {
 		logger.Info("dropping commit message for non-active account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
 		return nil
 	}
@@ -156,7 +156,7 @@ func (r *Relay) processSyncEvent(ctx context.Context, evt *comatproto.SyncSubscr
 		return err
 	}
 
-	if acc.Status != models.AccountStatusActive || acc.UpstreamStatus != models.AccountStatusActive {
+	if !acc.IsActive() {
 		logger.Info("dropping commit message for non-active account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
 		return nil
 	}
@@ -229,44 +229,41 @@ func (r *Relay) processAccountEvent(ctx context.Context, evt *comatproto.SyncSub
 		attribute.Int64("seq", evt.Seq),
 		attribute.Bool("active", evt.Active),
 	)
+	logger.Info("relay got account event")
 
 	acc, _, err := r.preProcessEvent(ctx, evt.Did, hostname, hostID, logger)
 	if err != nil {
 		return err
 	}
 
-	if evt.Status != nil {
-		span.SetAttributes(attribute.String("repo_status", *evt.Status))
-	}
-	logger.Info("relay got account event")
-
 	if !evt.Active && evt.Status == nil {
-		// XXX: what should we do here?
 		logger.Warn("invalid account event", "active", evt.Active, "status", evt.Status)
 	}
 
-	// Process the upstream account status change
-	if err := r.db.Model(models.Account{}).Where("uid = ?", acc.UID).Update("upstream_status", evt.Status).Error; err != nil {
-		return err
+	newStatus := models.AccountStatusInactive
+	if evt.Active {
+		newStatus = models.AccountStatusActive
+	} else if evt.Status != nil {
+		newStatus = models.AccountStatus(*evt.Status)
 	}
 
-	// wrangle various status codes in to what is expected in account event
-	publicStatus := acc.Status
-	if publicStatus == models.AccountStatusActive && evt.Status != nil {
-		publicStatus = models.AccountStatus(*evt.Status)
-	}
-	publicActive := publicStatus == models.AccountStatusActive
-	ptrStatus := (*string)(&publicStatus)
-	if publicActive {
-		ptrStatus = nil
+	if newStatus != acc.UpstreamStatus {
+		// updates upstream status in account database
+		if err := r.db.Model(models.Account{}).Where("uid = ?", acc.UID).Update("upstream_status", newStatus).Error; err != nil {
+			return err
+		}
+		acc.UpstreamStatus = newStatus
+
+		// clear account cache
+		r.accountCache.Remove(acc.DID)
 	}
 
 	// emit the event
 	err = r.Events.AddEvent(ctx, &stream.XRPCStreamEvent{
 		RepoAccount: &comatproto.SyncSubscribeRepos_Account{
-			Active: publicActive,
+			Active: acc.IsActive(),
 			Did:    acc.DID,
-			Status: ptrStatus, // TODO: sometimes will be "active"
+			Status: acc.StatusField(),
 			Time:   evt.Time,
 		},
 		PrivUid: acc.UID,

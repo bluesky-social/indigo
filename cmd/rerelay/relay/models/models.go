@@ -64,7 +64,10 @@ var (
 	AccountStatusSuspended      = AccountStatus("suspended")
 	AccountStatusTakendown      = AccountStatus("takendown")
 	AccountStatusThrottled      = AccountStatus("throttled")
-	AccountStatusHostThrottled  = AccountStatus("host-throttled")
+	AccountStatusHostThrottled  = AccountStatus("host-throttled") // TODO: actually implement this
+
+	// generic "not active, but not known" status
+	AccountStatusInactive = AccountStatus("inactive")
 )
 
 type Account struct {
