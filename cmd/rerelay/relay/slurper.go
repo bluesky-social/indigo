@@ -16,18 +16,21 @@ import (
 
 	"github.com/RussellLuo/slidingwindow"
 	"github.com/gorilla/websocket"
-	"gorm.io/gorm"
 )
 
 type ProcessMessageFunc func(ctx context.Context, evt *stream.XRPCStreamEvent, hostname string, hostID uint64) error
+type PersistCursorFunc func(ctx context.Context, cursors *[]HostCursor) error
+type PersistHostStatusFunc func(ctx context.Context, hostID uint64, state models.HostStatus) error
 
+// `Slurper` is the sub-system of the relay which manages active websocket firehose connections to upstream hosts.
+//
+// It enforces rate-limits, tracks cursors, and retries connections. It passes recieved messages on to the main relay via a callback function. `Slurper` does not talk to the database directly, but does have some callback to persist host state (cursors and hosting status for some error conditions).
 type Slurper struct {
-	cb     ProcessMessageFunc
-	db     *gorm.DB
-	Config *SlurperConfig
+	processCallback ProcessMessageFunc
+	Config          *SlurperConfig
 
-	lk     sync.Mutex
-	active map[string]*Subscription
+	subsLk sync.Mutex
+	subs   map[string]*Subscription
 
 	LimitMtx sync.RWMutex
 	Limiters map[uint64]*Limiters
@@ -35,7 +38,7 @@ type Slurper struct {
 	NewHostPerDayLimiter *slidingwindow.Limiter
 
 	shutdownChan   chan bool
-	shutdownResult chan []error
+	shutdownResult chan error
 
 	logger *slog.Logger
 }
@@ -47,14 +50,16 @@ type Limiters struct {
 }
 
 type SlurperConfig struct {
-	SSL                   bool
-	DefaultPerSecondLimit int64
-	DefaultPerHourLimit   int64
-	DefaultPerDayLimit    int64
-	DefaultRepoLimit      int64
-	ConcurrencyPerHost    int64
-	MaxQueuePerHost       int64
-	NewHostPerDayLimit    int64
+	SSL                       bool
+	DefaultPerSecondLimit     int64
+	DefaultPerHourLimit       int64
+	DefaultPerDayLimit        int64
+	DefaultRepoLimit          int64
+	ConcurrencyPerHost        int64
+	NewHostPerDayLimit        int64
+	PersistCursorPeriod       time.Duration
+	PersistCursorCallback     PersistCursorFunc
+	PersistHostStatusCallback PersistHostStatusFunc
 }
 
 func DefaultSlurperConfig() *SlurperConfig {
@@ -64,8 +69,8 @@ func DefaultSlurperConfig() *SlurperConfig {
 		DefaultPerHourLimit:   2500,
 		DefaultPerDayLimit:    20_000,
 		DefaultRepoLimit:      100,
-		ConcurrencyPerHost:    100,
-		MaxQueuePerHost:       1_000,
+		ConcurrencyPerHost:    40,
+		PersistCursorPeriod:   time.Second * 10,
 	}
 }
 
@@ -87,7 +92,16 @@ func (sub *Subscription) UpdateSeq(seq int64) {
 	sub.LastSeq = seq
 }
 
-func NewSlurper(db *gorm.DB, cb ProcessMessageFunc, config *SlurperConfig, logger *slog.Logger) (*Slurper, error) {
+func (sub *Subscription) HostCursor() HostCursor {
+	sub.lk.Lock()
+	defer sub.lk.Unlock()
+	return HostCursor{
+		HostID:  sub.HostID,
+		LastSeq: sub.LastSeq,
+	}
+}
+
+func NewSlurper(processCallback ProcessMessageFunc, config *SlurperConfig, logger *slog.Logger) (*Slurper, error) {
 	if config == nil {
 		config = DefaultSlurperConfig()
 	}
@@ -99,42 +113,28 @@ func NewSlurper(db *gorm.DB, cb ProcessMessageFunc, config *SlurperConfig, logge
 	newHostPerDayLimiter, _ := slidingwindow.NewLimiter(time.Hour*24, config.NewHostPerDayLimit, windowFunc)
 
 	s := &Slurper{
-		cb:                   cb,
-		db:                   db,
+		processCallback:      processCallback,
 		Config:               config,
-		active:               make(map[string]*Subscription),
+		subs:                 make(map[string]*Subscription),
 		Limiters:             make(map[uint64]*Limiters),
 		shutdownChan:         make(chan bool),
-		shutdownResult:       make(chan []error),
+		shutdownResult:       make(chan error),
 		NewHostPerDayLimiter: newHostPerDayLimiter,
 		logger:               logger,
 	}
 
-	// Start a goroutine to flush cursors to the DB every 30s
+	// Start a goroutine to persist cursors (both periodically and and on shutdown)
 	go func() {
 		for {
 			select {
 			case <-s.shutdownChan:
-				s.logger.Info("flushing Host cursors on shutdown")
-				ctx := context.Background()
-				var errs []error
-				if errs = s.flushCursors(ctx); len(errs) > 0 {
-					for _, err := range errs {
-						s.logger.Error("failed to flush cursors on shutdown", "err", err)
-					}
-				}
-				s.logger.Info("done flushing Host cursors on shutdown")
-				s.shutdownResult <- errs
+				s.logger.Info("starting shutdown host cursor flush")
+				s.shutdownResult <- s.persistCursors(context.Background())
 				return
-			case <-time.After(time.Second * 10):
-				s.logger.Debug("flushing Host cursors")
-				ctx := context.Background()
-				if errs := s.flushCursors(ctx); len(errs) > 0 {
-					for _, err := range errs {
-						s.logger.Error("failed to flush cursors", "err", err)
-					}
+			case <-time.After(config.PersistCursorPeriod):
+				if err := s.persistCursors(context.Background()); err != nil {
+					s.logger.Error("failed to flush cursors", "err", err)
 				}
-				s.logger.Debug("done flushing Host cursors")
 			}
 		}
 	}()
@@ -215,31 +215,29 @@ func (s *Slurper) SetLimits(hostID uint64, perSecLimit int64, perHourLimit int64
 }
 
 // Shutdown shuts down the slurper
-func (s *Slurper) Shutdown() []error {
+func (s *Slurper) Shutdown() error {
 	s.shutdownChan <- true
 	s.logger.Info("waiting for slurper shutdown")
-	errs := <-s.shutdownResult
-	if len(errs) > 0 {
-		for _, err := range errs {
-			s.logger.Error("shutdown error", "err", err)
-		}
+	err := <-s.shutdownResult
+	if err != nil {
+		s.logger.Error("shutdown error", "err", err)
 	}
 	s.logger.Info("slurper shutdown complete")
-	return errs
+	return err
 }
 
 func (s *Slurper) CheckIfSubscribed(hostname string) bool {
-	s.lk.Lock()
-	defer s.lk.Unlock()
+	s.subsLk.Lock()
+	defer s.subsLk.Unlock()
 
-	_, ok := s.active[hostname]
+	_, ok := s.subs[hostname]
 	return ok
 }
 
 func (s *Slurper) Subscribe(host *models.Host, newHost bool) error {
 	// TODO: for performance, lock on the hostname instead of global
-	s.lk.Lock()
-	defer s.lk.Unlock()
+	s.subsLk.Lock()
+	defer s.subsLk.Unlock()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	sub := Subscription{
@@ -248,7 +246,7 @@ func (s *Slurper) Subscribe(host *models.Host, newHost bool) error {
 		ctx:      ctx,
 		cancel:   cancel,
 	}
-	s.active[host.Hostname] = &sub
+	s.subs[host.Hostname] = &sub
 
 	s.GetOrCreateLimiters(host.ID)
 
@@ -259,10 +257,10 @@ func (s *Slurper) Subscribe(host *models.Host, newHost bool) error {
 
 func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, sub *Subscription, newHost bool) {
 	defer func() {
-		s.lk.Lock()
-		defer s.lk.Unlock()
+		s.subsLk.Lock()
+		defer s.subsLk.Unlock()
 
-		delete(s.active, host.Hostname)
+		delete(s.subs, host.Hostname)
 	}()
 
 	d := websocket.Dialer{
@@ -302,10 +300,9 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 
 			if backoff > 15 {
 				s.logger.Warn("host does not appear to be online, disabling for now", "host", host.Hostname)
-				if err := s.db.Model(&models.Host{}).Where("id = ?", host.ID).Update("registered", false).Error; err != nil {
-					s.logger.Error("failed to unregister failing host", "err", err)
+				if err := s.Config.PersistHostStatusCallback(ctx, sub.HostID, models.HostStatusOffline); err != nil {
+					s.logger.Error("failed mark host as stale", "hostname", sub.Hostname, "err", err)
 				}
-
 				return
 			}
 
@@ -352,7 +349,7 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 			logger := s.logger.With("host", sub.Hostname, "did", evt.Repo, "seq", evt.Seq, "eventType", "commit")
 			logger.Debug("got remote repo event")
-			if err := s.cb(context.TODO(), &stream.XRPCStreamEvent{RepoCommit: evt}, sub.Hostname, sub.HostID); err != nil {
+			if err := s.processCallback(context.TODO(), &stream.XRPCStreamEvent{RepoCommit: evt}, sub.Hostname, sub.HostID); err != nil {
 				logger.Error("failed handling event", "err", err)
 			}
 			*lastCursor = evt.Seq
@@ -364,7 +361,7 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
 			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "sync")
 			logger.Debug("got remote repo event")
-			if err := s.cb(context.TODO(), &stream.XRPCStreamEvent{RepoSync: evt}, sub.Hostname, sub.HostID); err != nil {
+			if err := s.processCallback(context.TODO(), &stream.XRPCStreamEvent{RepoSync: evt}, sub.Hostname, sub.HostID); err != nil {
 				s.logger.Error("failed handling event", "err", err)
 			}
 			*lastCursor = evt.Seq
@@ -376,7 +373,7 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
 			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "identity")
 			logger.Debug("identity event")
-			if err := s.cb(context.TODO(), &stream.XRPCStreamEvent{RepoIdentity: evt}, sub.Hostname, sub.HostID); err != nil {
+			if err := s.processCallback(context.TODO(), &stream.XRPCStreamEvent{RepoIdentity: evt}, sub.Hostname, sub.HostID); err != nil {
 				logger.Error("failed handling event", "err", err)
 			}
 			*lastCursor = evt.Seq
@@ -388,7 +385,7 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
 			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "account")
 			s.logger.Debug("account event")
-			if err := s.cb(context.TODO(), &stream.XRPCStreamEvent{RepoAccount: evt}, sub.Hostname, sub.HostID); err != nil {
+			if err := s.processCallback(context.TODO(), &stream.XRPCStreamEvent{RepoAccount: evt}, sub.Hostname, sub.HostID); err != nil {
 				logger.Error("failed handling event", "err", err)
 			}
 			*lastCursor = evt.Seq
@@ -398,15 +395,21 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 			return nil
 		},
 		Error: func(evt *stream.ErrorFrame) error {
+			// TODO: verbose logging
 			switch evt.Error {
 			case "FutureCursor":
-				// XXX: need test coverage for this path
+				// TODO: need test coverage for this code path (including re-connect)
 				// if we get a FutureCursor frame, reset our sequence number for this host
-				if err := s.db.Table("host").Where("id = ?", sub.HostID).Update("last_seq", 0).Error; err != nil {
-					return err
+				if s.Config.PersistCursorCallback != nil {
+					hc := []HostCursor{sub.HostCursor()}
+					if err := s.Config.PersistCursorCallback(context.Background(), &hc); err != nil {
+						s.logger.Error("failed to reset cursor for host which sent FutureCursor error message", "hostname", sub.Hostname, "err", err)
+					}
+				} else {
+					s.logger.Warn("skipping FutureCursor fix because PersistCursorCallback registered", "hostname", sub.Hostname)
 				}
-
 				*lastCursor = 0
+				// TODO: should this really return an error?
 				return fmt.Errorf("got FutureCursor frame, reset cursor tracking for host")
 			default:
 				return fmt.Errorf("error frame: %s: %s", evt.Error, evt.Message)
@@ -419,7 +422,7 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error { // DEPRECATED
 			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "handle")
 			logger.Debug("got remote handle update event", "handle", evt.Handle)
-			if err := s.cb(context.TODO(), &stream.XRPCStreamEvent{RepoHandle: evt}, sub.Hostname, sub.HostID); err != nil {
+			if err := s.processCallback(context.TODO(), &stream.XRPCStreamEvent{RepoHandle: evt}, sub.Hostname, sub.HostID); err != nil {
 				logger.Error("failed handling event", "err", err)
 			}
 			*lastCursor = evt.Seq
@@ -431,7 +434,7 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 		RepoMigrate: func(evt *comatproto.SyncSubscribeRepos_Migrate) error { // DEPRECATED
 			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "migrate")
 			logger.Debug("got remote repo migrate event", "migrateTo", evt.MigrateTo)
-			if err := s.cb(context.TODO(), &stream.XRPCStreamEvent{RepoMigrate: evt}, sub.Hostname, sub.HostID); err != nil {
+			if err := s.processCallback(context.TODO(), &stream.XRPCStreamEvent{RepoMigrate: evt}, sub.Hostname, sub.HostID); err != nil {
 				logger.Error("failed handling event", "err", err)
 			}
 			*lastCursor = evt.Seq
@@ -443,7 +446,7 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 		RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error { // DEPRECATED
 			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "tombstone")
 			logger.Debug("got remote repo tombstone event")
-			if err := s.cb(context.TODO(), &stream.XRPCStreamEvent{RepoTombstone: evt}, sub.Hostname, sub.HostID); err != nil {
+			if err := s.processCallback(context.TODO(), &stream.XRPCStreamEvent{RepoTombstone: evt}, sub.Hostname, sub.HostID); err != nil {
 				logger.Error("failed handling event", "err", err)
 			}
 			*lastCursor = evt.Seq
@@ -473,56 +476,45 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 	return stream.HandleRepoStream(ctx, conn, pool, nil)
 }
 
-type cursorSnapshot struct {
-	hostID uint64
-	cursor int64
+type HostCursor struct {
+	HostID  uint64
+	LastSeq int64
 }
 
-// flushCursors updates the Host cursors in the DB for all active subscriptions
-func (s *Slurper) flushCursors(ctx context.Context) []error {
+// persistCursors sends all cursors to callback to be persisted in database (if registered)
+func (s *Slurper) persistCursors(ctx context.Context) error {
+	if s.Config.PersistCursorCallback != nil {
+		s.logger.Warn("skipping cursor persist because no PersistCursorCallback registered")
+		return nil
+	}
 	start := time.Now()
-	//ctx, span := otel.Tracer("feedmgr").Start(ctx, "flushCursors")
-	//defer span.End()
 
-	var cursors []cursorSnapshot
-
-	s.lk.Lock()
-	// Iterate over active subs and copy the current cursor
-	for _, sub := range s.active {
+	// gather cursors: lock overall set, then lock each individual subscription while gathering
+	s.subsLk.Lock()
+	cursors := make([]HostCursor, len(s.subs))
+	i := 0
+	for _, sub := range s.subs {
 		sub.lk.RLock()
-		cursors = append(cursors, cursorSnapshot{
-			hostID: sub.HostID,
-			cursor: sub.LastSeq,
-		})
-		sub.lk.RUnlock()
-	}
-	s.lk.Unlock()
-
-	errs := []error{}
-	okcount := 0
-
-	tx := s.db.WithContext(ctx).Begin()
-	for _, cursor := range cursors {
-		if err := tx.WithContext(ctx).Model(models.Host{}).Where("id = ?", cursor.hostID).UpdateColumn("last_seq", cursor.cursor).Error; err != nil {
-			errs = append(errs, err)
-		} else {
-			okcount++
+		cursors[i] = HostCursor{
+			HostID:  sub.HostID,
+			LastSeq: sub.LastSeq,
 		}
+		sub.lk.RUnlock()
+		i++
 	}
-	if err := tx.WithContext(ctx).Commit().Error; err != nil {
-		errs = append(errs, err)
-	}
-	dt := time.Since(start)
-	s.logger.Info("flushCursors", "dt", dt, "ok", okcount, "errs", len(errs))
+	s.subsLk.Unlock()
 
-	return errs
+	err := s.Config.PersistCursorCallback(ctx, &cursors)
+	s.logger.Info("finished persisting cursors", "count", len(cursors), "duration", time.Since(start), "err", err)
+	return err
 }
 
+// TODO: called from admin endpoint
 func (s *Slurper) GetActiveList() []string {
-	s.lk.Lock()
-	defer s.lk.Unlock()
+	s.subsLk.Lock()
+	defer s.subsLk.Unlock()
 	var out []string
-	for k := range s.active {
+	for k := range s.subs {
 		out = append(out, k)
 	}
 
@@ -530,18 +522,18 @@ func (s *Slurper) GetActiveList() []string {
 }
 
 func (s *Slurper) KillUpstreamConnection(hostname string, ban bool) error {
-	s.lk.Lock()
-	defer s.lk.Unlock()
+	s.subsLk.Lock()
+	defer s.subsLk.Unlock()
 
-	ac, ok := s.active[hostname]
+	sub, ok := s.subs[hostname]
 	if !ok {
 		return fmt.Errorf("killing connection %q: %w", hostname, ErrNoActiveConnection)
 	}
-	ac.cancel()
+	sub.cancel()
 	// cleanup in the run thread subscribeWithRedialer() will delete(s.active, host)
 
-	if ban {
-		if err := s.db.Model(models.Host{}).Where("id = ?", ac.HostID).UpdateColumn("status", "banned").Error; err != nil {
+	if ban && s.Config.PersistHostStatusCallback != nil {
+		if err := s.Config.PersistHostStatusCallback(context.TODO(), sub.HostID, models.HostStatusBanned); err != nil {
 			return fmt.Errorf("failed to set host as banned: %w", err)
 		}
 	}

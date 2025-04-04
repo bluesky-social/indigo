@@ -183,11 +183,15 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 	// method to re-use that listener.
 	e.Listener = listen
 	srv := &http.Server{}
+	// TODO: attach echo to Service, for shutdown?
 	return e.StartServer(srv)
 }
 
 func (svc *Service) Shutdown() []error {
-	errs := svc.relay.Slurper.Shutdown()
+	var errs []error
+	if err := svc.relay.Slurper.Shutdown(); err != nil {
+		errs = append(errs, err)
+	}
 
 	if err := svc.relay.Events.Shutdown(context.TODO()); err != nil {
 		errs = append(errs, err)
