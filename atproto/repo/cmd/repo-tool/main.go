@@ -93,7 +93,7 @@ func runVerifyCarMst(cctx *cli.Context) error {
 	}
 	defer f.Close()
 
-	commit, repo, err := repo.LoadFromCAR(ctx, f)
+	commit, repo, err := repo.LoadRepoFromCAR(ctx, f)
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func runVerifyCarSignature(cctx *cli.Context) error {
 	}
 	defer f.Close()
 
-	commit, _, err := repo.LoadFromCAR(ctx, f)
+	commit, _, err := repo.LoadRepoFromCAR(ctx, f)
 	if err != nil {
 		return err
 	}

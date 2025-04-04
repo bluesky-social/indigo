@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/schedulers"
+	"github.com/bluesky-social/indigo/cmd/rerelay/stream"
+	"github.com/bluesky-social/indigo/cmd/rerelay/stream/schedulers"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -16,7 +16,7 @@ type Scheduler struct {
 	maxConcurrency int
 	maxQueue       int
 
-	do func(context.Context, *events.XRPCStreamEvent) error
+	do func(context.Context, *stream.XRPCStreamEvent) error
 
 	feeder chan *consumerTask
 	out    chan struct{}
@@ -30,12 +30,12 @@ type Scheduler struct {
 	itemsAdded     prometheus.Counter
 	itemsProcessed prometheus.Counter
 	itemsActive    prometheus.Counter
-	workersActive  prometheus.Gauge
+	workesActive   prometheus.Gauge
 
 	log *slog.Logger
 }
 
-func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events.XRPCStreamEvent) error) *Scheduler {
+func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *stream.XRPCStreamEvent) error) *Scheduler {
 	p := &Scheduler{
 		maxConcurrency: maxC,
 		maxQueue:       maxQ,
@@ -51,7 +51,7 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 		itemsAdded:     schedulers.WorkItemsAdded.WithLabelValues(ident, "parallel"),
 		itemsProcessed: schedulers.WorkItemsProcessed.WithLabelValues(ident, "parallel"),
 		itemsActive:    schedulers.WorkItemsActive.WithLabelValues(ident, "parallel"),
-		workersActive:  schedulers.WorkersActive.WithLabelValues(ident, "parallel"),
+		workesActive:   schedulers.WorkersActive.WithLabelValues(ident, "parallel"),
 
 		log: slog.Default().With("system", "parallel-scheduler"),
 	}
@@ -60,7 +60,7 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 		go p.worker()
 	}
 
-	p.workersActive.Set(float64(maxC))
+	p.workesActive.Set(float64(maxC))
 
 	return p
 }
@@ -85,11 +85,11 @@ func (p *Scheduler) Shutdown() {
 
 type consumerTask struct {
 	repo    string
-	val     *events.XRPCStreamEvent
+	val     *stream.XRPCStreamEvent
 	control string
 }
 
-func (p *Scheduler) AddWork(ctx context.Context, repo string, val *events.XRPCStreamEvent) error {
+func (p *Scheduler) AddWork(ctx context.Context, repo string, val *stream.XRPCStreamEvent) error {
 	p.itemsAdded.Inc()
 	t := &consumerTask{
 		repo: repo,
