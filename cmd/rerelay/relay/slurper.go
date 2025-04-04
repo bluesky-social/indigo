@@ -18,6 +18,9 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// TODO: this isn't actually getting setup or used?
+var EventsTimeout = time.Minute
+
 type ProcessMessageFunc func(ctx context.Context, evt *stream.XRPCStreamEvent, hostname string, hostID uint64) error
 type PersistCursorFunc func(ctx context.Context, cursors *[]HostCursor) error
 type PersistHostStatusFunc func(ctx context.Context, hostID uint64, state models.HostStatus) error
@@ -78,8 +81,8 @@ func DefaultSlurperConfig() *SlurperConfig {
 type Subscription struct {
 	Hostname string
 	HostID   uint64
-	LastSeq  int64 // XXX: switch to an atomic
-	Limiters *Limiters
+	LastSeq  int64     // XXX: switch to an atomic instead of lock?
+	Limiters *Limiters // XXX: is this used? or only the separate limiters on Slurper?
 
 	lk     sync.RWMutex
 	ctx    context.Context
@@ -152,28 +155,6 @@ func (s *Slurper) GetLimiters(hostID uint64) *Limiters {
 	return s.Limiters[hostID]
 }
 
-/*
-XXX
-
-	func (s *Slurper) GetOrCreateLimiters(pdsID uint64, perSecLimit int64, perHourLimit int64, perDayLimit int64) *Limiters {
-		s.LimitMtx.RLock()
-		defer s.LimitMtx.RUnlock()
-		lim, ok := s.Limiters[pdsID]
-		if !ok {
-			perSec, _ := slidingwindow.NewLimiter(time.Second, perSecLimit, windowFunc)
-			perHour, _ := slidingwindow.NewLimiter(time.Hour, perHourLimit, windowFunc)
-			perDay, _ := slidingwindow.NewLimiter(time.Hour*24, perDayLimit, windowFunc)
-			lim = &Limiters{
-				PerSecond: perSec,
-				PerHour:   perHour,
-				PerDay:    perDay,
-			}
-			s.Limiters[pdsID] = lim
-		}
-
-		return lim
-	}
-*/
 func (s *Slurper) GetOrCreateLimiters(hostID uint64) *Limiters {
 	s.LimitMtx.RLock()
 	defer s.LimitMtx.RUnlock()
@@ -314,7 +295,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		curCursor := cursor
 		if err := s.handleConnection(ctx, conn, &cursor, sub); err != nil {
 			if errors.Is(err, ErrTimeoutShutdown) {
-				s.logger.Info("shutting down host subscription after timeout", "host", host.Hostname, "time", EventsTimeout)
+				s.logger.Info("shutting down host subscription after timeout", "host", host.Hostname, "time", EventsTimeout.String())
 				return
 			}
 			s.logger.Warn("connection to failed", "host", host.Hostname, "err", err)
@@ -338,8 +319,6 @@ func sleepForBackoff(b int) time.Duration {
 
 	return time.Second * 30
 }
-
-var EventsTimeout = time.Minute
 
 func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, lastCursor *int64, sub *Subscription) error {
 	ctx, cancel := context.WithCancel(ctx)
@@ -465,11 +444,12 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 		lims.PerDay,
 	}
 
+	// NOTE: this is where limiters get injected and enforced
 	instrumentedRSC := stream.NewInstrumentedRepoStreamCallbacks(limiters, rsc.EventHandler)
 
 	pool := parallel.NewScheduler(
-		100,
-		1_000,
+		100,   // XXX: concurrency
+		1_000, // XXX: max queue per host
 		conn.RemoteAddr().String(),
 		instrumentedRSC.EventHandler,
 	)
@@ -483,7 +463,7 @@ type HostCursor struct {
 
 // persistCursors sends all cursors to callback to be persisted in database (if registered)
 func (s *Slurper) persistCursors(ctx context.Context) error {
-	if s.Config.PersistCursorCallback != nil {
+	if s.Config.PersistCursorCallback == nil {
 		s.logger.Warn("skipping cursor persist because no PersistCursorCallback registered")
 		return nil
 	}
@@ -505,7 +485,7 @@ func (s *Slurper) persistCursors(ctx context.Context) error {
 	s.subsLk.Unlock()
 
 	err := s.Config.PersistCursorCallback(ctx, &cursors)
-	s.logger.Info("finished persisting cursors", "count", len(cursors), "duration", time.Since(start), "err", err)
+	s.logger.Info("finished persisting cursors", "count", len(cursors), "duration", time.Since(start).String(), "err", err)
 	return err
 }
 

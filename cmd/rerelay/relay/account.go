@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
-	"strings"
-	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/rerelay/relay/models"
@@ -54,184 +51,129 @@ func (r *Relay) GetAccountRepo(ctx context.Context, uid uint64) (*models.Account
 	return &repo, nil
 }
 
-/* XXX: refactor in to syncHostAccount? */
-func (r *Relay) CreateAccount(ctx context.Context, host *models.Host, did syntax.DID) (*models.Account, error) {
-	newUsersDiscovered.Inc()
-	start := time.Now()
-	account, err := r.syncHostAccount(ctx, did, host, nil)
-	newUserDiscoveryDuration.Observe(time.Since(start).Seconds())
-	if err != nil {
-		return nil, fmt.Errorf("fed event create external user: %w", err)
-	}
-	return account, nil
-}
+// Attempts creation of a new account associated with the given host, presumably because the account was discovered on that host's stream.
+//
+// If the account's identity doesn't match the host, this will fail. We only create accounts associated with hosts we already know of, not remote hosts (aka, no spidering).
+func (r *Relay) CreateHostAccount(ctx context.Context, did syntax.DID, hostID uint64, hostname string) (*models.Account, error) {
+	// NOTE: this method doesn't use locking. the database UNIQUE constraint should prevent duplicate account creation.
+	logger := r.Logger.With("did", did, "hostname", hostname)
 
-// syncHostAccount ensures that a DID has an account record in the database attached to a Host record in the database
-// Some fields may be updated if needed.
-// did is the user
-// host is the Host we received this from, not necessarily the canonical Host in the DID document
-// cachedAccount is (optionally) the account that we have already looked up from cache or database
-func (r *Relay) syncHostAccount(ctx context.Context, did syntax.DID, host *models.Host, cachedAccount *models.Account) (*models.Account, error) {
-	ctx, span := tracer.Start(ctx, "syncHostAccount")
-	defer span.End()
+	//newUsersDiscovered.Inc()
+	//start := time.Now()
 
-	externalUserCreationAttempts.Inc()
-
-	r.Logger.Debug("create external user", "did", did)
-
-	// lookup identity so that we know a DID's canonical source Host
 	ident, err := r.dir.LookupDID(ctx, did)
 	if err != nil {
-		return nil, fmt.Errorf("no ident for did %s, %w", did, err)
+		return nil, fmt.Errorf("new account identity resolution: %w", err)
 	}
 	pdsEndpoint := ident.PDSEndpoint()
 	if pdsEndpoint == "" {
-		return nil, fmt.Errorf("account has no PDS endpoint registered: %s", did)
+		return nil, fmt.Errorf("new account has no declared PDS: %s", did)
 	}
-	durl, err := url.Parse(pdsEndpoint)
+	pdsHostname, _, err := ParseHostname(pdsEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("account has bad url (%#v): %w", pdsEndpoint, err)
+		return nil, fmt.Errorf("new account PDS endpoint invalid: %s", pdsEndpoint)
 	}
 
-	// is the canonical Host banned?
-	ban, err := r.DomainIsBanned(ctx, durl.Host)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check pds ban status: %w", err)
-	}
-	if ban {
-		return nil, fmt.Errorf("cannot create user on pds with banned domain")
-	}
-
-	if strings.HasPrefix(durl.Host, "localhost:") {
-		durl.Scheme = "http"
-	}
-
-	var canonicalHost *models.Host
-	if host.Hostname == durl.Host {
-		// we got the message from the canonical Host, convenient!
-		canonicalHost = host
-	} else {
-		// we got the message from an intermediate relay
-		// check our db for info on canonical Host
-		// XXX: rename "peering"
-		var peering models.Host
-		if err := r.db.Find(&peering, "hostname = ?", durl.Host).Error; err != nil {
-			r.Logger.Error("failed to find host", "host", durl.Host)
-			return nil, err
-		}
-		canonicalHost = &peering
-	}
-
-	if canonicalHost.Status == models.HostStatusBanned {
-		return nil, fmt.Errorf("refusing to create user with banned Host")
-	}
-
-	if canonicalHost.ID == 0 {
-		// we got an event from a non-canonical Host (an intermediate relay)
-		// a non-canonical Host we haven't seen before; ping it to make sure it's real
-		// TODO: what do we actually want to track about the source we immediately got this message from vs the canonical Host?
-		r.Logger.Warn("new host discovered in create user flow", "pds", durl.String(), "did", did)
-
-		err = r.HostChecker.CheckHost(ctx, durl.String())
-		if err != nil {
-			// TODO: failing this shouldn't halt our indexing
-			return nil, fmt.Errorf("failed to check unrecognized pds: %w", err)
-		}
-
-		// could check other things, a valid response is good enough for now
-		canonicalHost.Hostname = durl.Host
-		canonicalHost.NoSSL = !(durl.Scheme == "https")
-		// XXX canonicalHost.RateLimit = float64(r.Slurper.Config.DefaultPerSecondLimit)
-		// XXX canonicalHost.HourlyEventLimit = r.Slurper.Config.DefaultPerHourLimit
-		// XXX canonicalHost.DailyEventLimit = r.Slurper.Config.DefaultPerDayLimit
-		canonicalHost.AccountLimit = r.Slurper.Config.DefaultRepoLimit
-
-		if r.Config.SSL && canonicalHost.NoSSL {
-			return nil, fmt.Errorf("did references non-ssl Host, this is disallowed in prod: %q %q", did, pdsEndpoint)
-		}
-
-		if err := r.db.Create(&canonicalHost).Error; err != nil {
-			return nil, err
+	if pdsHostname != hostname {
+		if r.Config.SkipAccountHostCheck {
+			logger.Warn("ignoring account host mismatch", "pdsHostname", pdsHostname)
+		} else {
+			return nil, fmt.Errorf("new account from a different host: %s", pdsHostname)
 		}
 	}
 
-	if canonicalHost.ID == 0 {
-		panic("somehow failed to create a pds entry?")
-	}
+	// TODO: fetch the full host, apply throttling or rate-limits?
 
-	if canonicalHost.AccountCount >= canonicalHost.AccountLimit {
-		// TODO: soft-limit / hard-limit ? create account in 'throttled' state, unless there are _really_ too many accounts
-		return nil, fmt.Errorf("refusing to create user on Host at max repo limit for pds %q", canonicalHost.Hostname)
-	}
-
-	// this lock just governs the lower half of this function
-	r.accountLk.Lock()
-	defer r.accountLk.Unlock()
-
-	if cachedAccount == nil {
-		cachedAccount, err = r.GetAccount(ctx, did)
-	}
-	if errors.Is(err, ErrAccountNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
-		err = nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	if cachedAccount != nil {
-		// XXX: caHost := cachedAccount.GetHost()
-		caHost := cachedAccount.HostID
-		if caHost != canonicalHost.ID {
-			// Account is now on a different Host, update
-			err = r.db.Transaction(func(tx *gorm.DB) error {
-				if caHost != 0 {
-					// decrement prior Host's account count
-					tx.Model(&models.Host{}).Where("id = ?", caHost).Update("account_count", gorm.Expr("account_count - 1"))
-				}
-				// update user's Host ID
-				res := tx.Model(models.Account{}).Where("uid = ?", cachedAccount.UID).Update("host_id", canonicalHost.ID)
-				if res.Error != nil {
-					return fmt.Errorf("failed to update users pds: %w", res.Error)
-				}
-				// increment new Host's account count
-				res = tx.Model(&models.Host{}).Where("id = ? AND account_count < account_limit", canonicalHost.ID).Update("account_count", gorm.Expr("account_count + 1"))
-				return nil
-			})
-
-			// XXX: cachedAccount.SetHost(canonicalHost.ID)
-			cachedAccount.HostID = canonicalHost.ID
-
-			// flush account cache
-			r.accountCache.Remove(did.String())
-		}
-		return cachedAccount, nil
-	}
-
-	newAccount := models.Account{
+	// TODO: could be verifying upstream status here (using r.HostChecker)
+	// XXX: limits/throttling; reach in to Slurper?
+	acc := models.Account{
 		DID:            did.String(),
-		HostID:         canonicalHost.ID,
+		HostID:         hostID,
 		Status:         models.AccountStatusActive,
 		UpstreamStatus: models.AccountStatusActive,
 	}
 
+	// create Account row and increment host count in the same transaction
 	err = r.db.Transaction(func(tx *gorm.DB) error {
-		res := tx.Model(&models.Host{}).Where("id = ? AND account_count < account_limit", canonicalHost.ID).Update("account_count", gorm.Expr("account_count + 1"))
-		if res.Error != nil {
-			return fmt.Errorf("failed to increment repo count for pds %q: %w", canonicalHost.Hostname, res.Error)
+		if err := tx.Model(&models.Host{}).Where("id = ?", hostID).Update("account_count", gorm.Expr("account_count + 1")).Error; err != nil {
+			return fmt.Errorf("failed to increment account count for host (%s): %w", hostname, err)
 		}
-		if terr := tx.Create(&newAccount).Error; terr != nil {
-			r.Logger.Error("failed to create user", "did", newAccount.DID, "err", terr)
-			return fmt.Errorf("failed to create other pds user: %w", terr)
+		if err := tx.Create(&acc).Error; err != nil {
+			return fmt.Errorf("failed to create account: %w", err)
 		}
 		return nil
 	})
 	if err != nil {
-		r.Logger.Error("user create and pds inc err", "err", err)
 		return nil, err
 	}
 
-	r.accountCache.Add(did.String(), &newAccount)
+	r.accountCache.Add(did.String(), &acc)
 
-	return &newAccount, nil
+	//newUserDiscoveryDuration.Observe(time.Since(start).Seconds())
+	return &acc, nil
+}
+
+// Checks if account matches provided hostID, and in the fast pass returns successfully. If not, checks if the account should be updated. If the account is now on the indicated host, it is updated, both in the database and struct via pointer.
+//
+// TODO: could also update to another known host, if doesn't match this hostID?
+func (r *Relay) EnsureAccountHost(ctx context.Context, acc *models.Account, hostID uint64, hostname string) error {
+	did := syntax.DID(acc.DID)
+	logger := r.Logger.With("did", did, "hostname", hostname)
+
+	if acc.HostID == hostID {
+		return nil
+	}
+
+	ident, err := r.dir.LookupDID(ctx, did)
+	if err != nil {
+		return fmt.Errorf("account identity resolution: %w", err)
+	}
+	pdsEndpoint := ident.PDSEndpoint()
+	if pdsEndpoint == "" {
+		return fmt.Errorf("account has no declared PDS: %s", did)
+	}
+	pdsHostname, _, err := ParseHostname(pdsEndpoint)
+	if err != nil {
+		return fmt.Errorf("account PDS endpoint invalid: %s", pdsEndpoint)
+	}
+
+	if pdsHostname != hostname {
+		if r.Config.SkipAccountHostCheck {
+			logger.Warn("ignoring account host mismatch", "pdsHostname", pdsHostname)
+			return nil
+		} else {
+			return fmt.Errorf("new account from a different host: %s", pdsHostname)
+		}
+	}
+
+	// TODO: could check upstream status here (using r.HostChecker)
+	// TODO: for example, a moved account might go from takendown to active
+	// XXX: limits/throttling; read in to Slurper?
+
+	// create Account row and increment host count in the same transaction
+	err = r.db.Transaction(func(tx *gorm.DB) error {
+		// decrement old host count
+		if err := tx.Model(&models.Host{}).Where("id = ?", acc.HostID).Update("account_count", gorm.Expr("account_count - 1")).Error; err != nil {
+			return fmt.Errorf("failed to decrement account count for former host (%d): %w", acc.HostID, err)
+		}
+		// increment new host count
+		if err := tx.Model(&models.Host{}).Where("id = ?", hostID).Update("account_count", gorm.Expr("account_count + 1")).Error; err != nil {
+			return fmt.Errorf("failed to increment account count for host (%s): %w", hostname, err)
+		}
+		if err := tx.Model(models.Account{}).Where("uid = ?", acc.UID).Update("host_id", hostID).Error; err != nil {
+			return fmt.Errorf("failed update account HostID: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	// evict stale record from account cache
+	r.accountCache.Remove(did.String())
+
+	acc.HostID = hostID
+	return nil
 }
 
 func (r *Relay) UpdateAccountStatus(ctx context.Context, did syntax.DID, status models.AccountStatus) error {

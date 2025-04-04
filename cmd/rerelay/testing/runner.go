@@ -140,8 +140,8 @@ func LoadAndRunScenario(ctx context.Context, fpath string) error {
 			if !EqualEvents(evt, evts[0]) {
 				//evt.RepoCommit.Blocks = nil
 				//evts[0].RepoCommit.Blocks = nil
-				fmt.Printf("%+v\n", evt.RepoCommit)
-				fmt.Printf("%+v\n", evts[0].RepoCommit)
+				fmt.Printf("%+v\n", evt.RepoAccount)
+				fmt.Printf("%+v\n", evts[0].RepoAccount)
 				return fmt.Errorf("events didn't match")
 			}
 		} else {
