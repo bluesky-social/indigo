@@ -7,7 +7,6 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/rerelay/relay/models"
 	"github.com/bluesky-social/indigo/cmd/rerelay/stream/eventmgr"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/hashicorp/golang-lru/v2"
 	"go.opentelemetry.io/otel"
@@ -40,13 +39,11 @@ type Relay struct {
 }
 
 type RelayConfig struct {
-	SSL                     bool
-	DefaultRepoLimit        int64
-	ConcurrencyPerHost      int64
-	MaxQueuePerHost         int64
-	ApplyHostClientSettings func(c *xrpc.Client)
-	SkipAccountHostCheck    bool // XXX: only used for testing
-	LenientSyncValidation   bool // XXX: wire through config
+	SSL                   bool
+	DefaultRepoLimit      int64
+	ConcurrencyPerHost    int64
+	SkipAccountHostCheck  bool // XXX: only used for testing
+	LenientSyncValidation bool // XXX: wire through config
 
 	// if true, ignore "requestCrawl"
 	DisableNewHosts bool
@@ -58,7 +55,6 @@ func DefaultRelayConfig() *RelayConfig {
 		SSL:                true,
 		DefaultRepoLimit:   100,
 		ConcurrencyPerHost: 100,
-		MaxQueuePerHost:    1_000,
 	}
 }
 
@@ -90,12 +86,15 @@ func NewRelay(db *gorm.DB, evtman *eventmgr.EventManager, dir identity.Directory
 		return nil, err
 	}
 
-	slOpts := DefaultSlurperConfig()
-	slOpts.SSL = config.SSL
-	slOpts.DefaultRepoLimit = config.DefaultRepoLimit
-	slOpts.ConcurrencyPerHost = config.ConcurrencyPerHost
-	slOpts.MaxQueuePerHost = config.MaxQueuePerHost
-	s, err := NewSlurper(db, r.processRepoEvent, slOpts, r.Logger)
+	// XXX: need to pass-through more relay configs
+	slurpConfig := DefaultSlurperConfig()
+	slurpConfig.SSL = config.SSL
+	slurpConfig.DefaultRepoLimit = config.DefaultRepoLimit
+	slurpConfig.ConcurrencyPerHost = config.ConcurrencyPerHost
+	// register callbacks to persist cursors and host state in database
+	slurpConfig.PersistCursorCallback = r.PersistHostCursors
+	slurpConfig.PersistHostStatusCallback = r.UpdateHostStatus
+	s, err := NewSlurper(r.processRepoEvent, slurpConfig, r.Logger)
 	if err != nil {
 		return nil, err
 	}
