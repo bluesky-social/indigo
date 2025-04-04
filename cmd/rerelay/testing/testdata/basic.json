@@ -1,4 +1,5 @@
 {
+  "lenient": true,
   "accounts": [
     {
       "identity": {

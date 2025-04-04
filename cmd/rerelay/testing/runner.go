@@ -30,12 +30,12 @@ func (sr *SimpleRelay) handleSubscribeRepos(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-func MustSimpleRelay(dir identity.Directory, tmpd string) *SimpleRelay {
+func MustSimpleRelay(dir identity.Directory, tmpd string, lenient bool) *SimpleRelay {
 
 	relayConfig := relay.DefaultRelayConfig()
 	relayConfig.SSL = false
 	relayConfig.SkipAccountHostCheck = true
-	relayConfig.LenientSyncValidation = true
+	relayConfig.LenientSyncValidation = lenient
 
 	db, err := cliutil.SetupDatabase("sqlite://:memory:", 40)
 	if err != nil {
@@ -82,16 +82,36 @@ func MustSimpleRelay(dir identity.Directory, tmpd string) *SimpleRelay {
 
 func LoadAndRunScenario(ctx context.Context, fpath string) error {
 
-	fixBytes, err := os.ReadFile(fpath)
+	s, err := LoadScenario(ctx, fpath)
 	if err != nil {
 		return err
+	}
+	return RunScenario(ctx, s)
+}
+
+func LoadScenario(ctx context.Context, fpath string) (*Scenario, error) {
+	fixBytes, err := os.ReadFile(fpath)
+	if err != nil {
+		return nil, err
 	}
 
 	var s Scenario
 	if err = json.Unmarshal(fixBytes, &s); err != nil {
-		return err
+		return nil, err
 	}
 
+	for i := range s.Messages {
+		e, err := s.Messages[i].Frame.XRPCStreamEvent()
+		if err != nil {
+			return nil, err
+		}
+		s.Messages[i].Frame.Event = e
+	}
+
+	return &s, nil
+}
+
+func RunScenario(ctx context.Context, s *Scenario) error {
 	dir := identity.NewMockDirectory()
 	for _, acc := range s.Accounts {
 		dir.Insert(acc.Identity)
@@ -107,7 +127,7 @@ func LoadAndRunScenario(ctx context.Context, fpath string) error {
 	hostPort := p.ListenRandom()
 	defer p.Shutdown()
 
-	sr := MustSimpleRelay(&dir, tmpd)
+	sr := MustSimpleRelay(&dir, tmpd, s.Lenient)
 
 	err = sr.Relay.SubscribeToHost(fmt.Sprintf("localhost:%d", hostPort), true, true, nil)
 	if err != nil {
@@ -135,17 +155,17 @@ func LoadAndRunScenario(ctx context.Context, fpath string) error {
 				return err
 			}
 			if len(evts) != 1 {
-				return fmt.Errorf("consumed unexpected events")
+				return fmt.Errorf("consumed unexpected additional events: %d", len(evts))
 			}
 			if !EqualEvents(evt, evts[0]) {
-				//evt.RepoCommit.Blocks = nil
-				//evts[0].RepoCommit.Blocks = nil
-				fmt.Printf("%+v\n", evt.RepoAccount)
-				fmt.Printf("%+v\n", evts[0].RepoAccount)
+				evt.RepoCommit.Blocks = nil
+				evts[0].RepoCommit.Blocks = nil
+				fmt.Printf("%+v\n", evt.RepoCommit)
+				fmt.Printf("%+v\n", evts[0].RepoCommit)
 				return fmt.Errorf("events didn't match")
 			}
 		} else {
-			// TODO: verify nothing returned?
+			// XXX: verify nothing returned? especially if last message in set
 		}
 	}
 	return nil

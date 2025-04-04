@@ -11,8 +11,10 @@ import (
 
 // represents an entire test case
 type Scenario struct {
-	Accounts []ScenarioAccount `json:"accounts"`
-	Messages []ScenarioMessage `json:"messages"`
+	Description string `json:"description"`
+	Lenient     bool
+	Accounts    []ScenarioAccount `json:"accounts"`
+	Messages    []ScenarioMessage `json:"messages"`
 }
 
 type ScenarioAccount struct {
@@ -35,11 +37,15 @@ type ScenarioMessage struct {
 
 // wrapper type appropriate for JSON encoding of firehose events
 type RepoEventFrame struct {
-	Header stream.EventHeader `json:"header"`
-	Body   json.RawMessage    `json:"body,omitempty"`
+	Header stream.EventHeader      `json:"header"`
+	Body   json.RawMessage         `json:"body,omitempty"`
+	Event  *stream.XRPCStreamEvent `json:"-"`
 }
 
 func (re *RepoEventFrame) XRPCStreamEvent() (*stream.XRPCStreamEvent, error) {
+	if re.Event != nil {
+		return re.Event, nil
+	}
 	if re.Header.Op == -1 {
 		var evt stream.ErrorFrame
 		if err := json.Unmarshal(re.Body, &evt); err != nil {
