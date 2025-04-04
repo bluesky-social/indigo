@@ -21,9 +21,7 @@ import (
 	"github.com/bluesky-social/indigo/cmd/rerelay/relay"
 	"github.com/bluesky-social/indigo/cmd/rerelay/stream/eventmgr"
 	"github.com/bluesky-social/indigo/cmd/rerelay/stream/persist/diskpersist"
-	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/urfave/cli/v2"
@@ -105,12 +103,6 @@ func run(args []string) error {
 					Usage:   "number of concurrent worker routines per upstream host",
 					EnvVars: []string{"RELAY_HOST_CONCURRENCY", "RELAY_CONCURRENCY_PER_PDS"},
 					Value:   100,
-				},
-				&cli.IntFlag{
-					Name:    "max-queue-per-host",
-					Value:   1_000,
-					Usage:   "size of in-process DID (identity) cache",
-					EnvVars: []string{"RELAY_MAX_QUEUE_PER_HOST", "RELAY_MAX_QUEUE_PER_PDS"},
 				},
 				&cli.IntFlag{
 					Name:    "default-account-limit",
@@ -230,10 +222,10 @@ func runRelay(cctx *cli.Context) error {
 	relayConfig := relay.DefaultRelayConfig()
 	relayConfig.SSL = !cctx.Bool("crawl-insecure-ws")
 	relayConfig.ConcurrencyPerHost = cctx.Int64("host-concurrency")
-	relayConfig.MaxQueuePerHost = cctx.Int64("max-queue-per-host")
 	relayConfig.DefaultRepoLimit = cctx.Int64("default-account-limit")
 	ratelimitBypass := cctx.String("bsky-social-rate-limit-skip")
-	relayConfig.ApplyHostClientSettings = makePdsClientSetup(ratelimitBypass)
+	// TODO: actually use ratelimitBypass for host checks?
+	_ = ratelimitBypass
 	nextCrawlers := cctx.StringSlice("forward-crawl-requests")
 	if len(nextCrawlers) > 0 {
 		nextCrawlerUrls := make([]*url.URL, len(nextCrawlers))
@@ -316,23 +308,4 @@ func runRelay(cctx *cli.Context) error {
 	logger.Info("shutdown complete")
 
 	return nil
-}
-
-func makePdsClientSetup(ratelimitBypass string) func(c *xrpc.Client) {
-	return func(c *xrpc.Client) {
-		if c.Client == nil {
-			c.Client = util.RobustHTTPClient()
-		}
-		if strings.HasSuffix(c.Host, ".bsky.network") {
-			c.Client.Timeout = time.Minute * 30
-			if ratelimitBypass != "" {
-				c.Headers = map[string]string{
-					"x-ratelimit-bypass": ratelimitBypass,
-				}
-			}
-		} else {
-			// Generic host timeout
-			c.Client.Timeout = time.Minute * 1
-		}
-	}
 }

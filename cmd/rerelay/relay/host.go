@@ -13,6 +13,8 @@ import (
 	"gorm.io/gorm"
 )
 
+// XXX: GetHost (by hostname) vs GetHostByID
+
 func (r *Relay) GetHost(ctx context.Context, hostID uint64) (*models.Host, error) {
 	ctx, span := tracer.Start(ctx, "getHost")
 	defer span.End()
@@ -31,6 +33,23 @@ func (r *Relay) GetHost(ctx context.Context, hostID uint64) (*models.Host, error
 	}
 
 	return &host, nil
+}
+
+func (r *Relay) UpdateHostStatus(ctx context.Context, hostID uint64, status models.HostStatus) error {
+	return r.db.Model(models.Host{}).Where("id = ?", hostID).Update("status", status).Error
+}
+
+// Persists all the host cursors in a single database transaction
+//
+// Note that in some situations this may have partial success.
+func (r *Relay) PersistHostCursors(ctx context.Context, cursors *[]HostCursor) error {
+	tx := r.db.WithContext(ctx).Begin()
+	for _, cur := range *cursors {
+		if err := tx.WithContext(ctx).Model(models.Host{}).Where("id = ?", cur.HostID).UpdateColumn("last_seq", cur.LastSeq).Error; err != nil {
+			r.Logger.Error("failed to persist host cursor", "hostID", cur.HostID, "lastSeq", cur.LastSeq)
+		}
+	}
+	return tx.WithContext(ctx).Commit().Error
 }
 
 // parses, normalizes, and validates a raw URL (HTTP or WebSocket) in to a hostname for subscriptions

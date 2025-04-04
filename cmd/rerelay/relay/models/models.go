@@ -15,9 +15,10 @@ type DomainBan struct {
 type HostStatus string
 
 const (
-	HostStatusActive = HostStatus("active")
-	HostStatusIdle   = HostStatus("idle")
-	HostStatusBanned = HostStatus("banned")
+	HostStatusActive  = HostStatus("active")
+	HostStatusIdle    = HostStatus("idle")
+	HostStatusOffline = HostStatus("offline")
+	HostStatusBanned  = HostStatus("banned")
 )
 
 type Host struct {
