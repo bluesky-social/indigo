@@ -19,6 +19,30 @@ type UnspeccedDefs_SkeletonSearchStarterPack struct {
 	Uri string `json:"uri" cborgen:"uri"`
 }
 
+// UnspeccedDefs_SkeletonTrend is a "skeletonTrend" in the app.bsky.unspecced.defs schema.
+type UnspeccedDefs_SkeletonTrend struct {
+	Category    *string  `json:"category,omitempty" cborgen:"category,omitempty"`
+	Dids        []string `json:"dids" cborgen:"dids"`
+	DisplayName string   `json:"displayName" cborgen:"displayName"`
+	Link        string   `json:"link" cborgen:"link"`
+	PostCount   int64    `json:"postCount" cborgen:"postCount"`
+	StartedAt   string   `json:"startedAt" cborgen:"startedAt"`
+	Status      *string  `json:"status,omitempty" cborgen:"status,omitempty"`
+	Topic       string   `json:"topic" cborgen:"topic"`
+}
+
+// UnspeccedDefs_TrendView is a "trendView" in the app.bsky.unspecced.defs schema.
+type UnspeccedDefs_TrendView struct {
+	Actors      []*ActorDefs_ProfileViewBasic `json:"actors" cborgen:"actors"`
+	Category    *string                       `json:"category,omitempty" cborgen:"category,omitempty"`
+	DisplayName string                        `json:"displayName" cborgen:"displayName"`
+	Link        string                        `json:"link" cborgen:"link"`
+	PostCount   int64                         `json:"postCount" cborgen:"postCount"`
+	StartedAt   string                        `json:"startedAt" cborgen:"startedAt"`
+	Status      *string                       `json:"status,omitempty" cborgen:"status,omitempty"`
+	Topic       string                        `json:"topic" cborgen:"topic"`
+}
+
 // UnspeccedDefs_TrendingTopic is a "trendingTopic" in the app.bsky.unspecced.defs schema.
 type UnspeccedDefs_TrendingTopic struct {
 	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
