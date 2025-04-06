@@ -164,8 +164,8 @@ func (srv *Server) WebRepoCollection(c echo.Context) error {
 	}
 
 	cursor := c.QueryParam("cursor")
-	// collection string, cursor string, limit int64, repo string, reverse bool, rkeyEnd string, rkeyStart string
-	resp, err := agnostic.RepoListRecords(ctx, &xrpcc, collection.String(), cursor, 100, ident.DID.String(), false, "", "")
+	// collection string, cursor string, limit int64, repo string, reverse bool
+	resp, err := agnostic.RepoListRecords(ctx, &xrpcc, collection.String(), cursor, 100, ident.DID.String(), false)
 	if err != nil {
 		return err
 	}
