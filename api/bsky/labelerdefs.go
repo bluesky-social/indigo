@@ -41,8 +41,14 @@ type LabelerDefs_LabelerViewDetailed struct {
 	Labels        []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	LikeCount     *int64                             `json:"likeCount,omitempty" cborgen:"likeCount,omitempty"`
 	Policies      *LabelerDefs_LabelerPolicies       `json:"policies" cborgen:"policies"`
-	Uri           string                             `json:"uri" cborgen:"uri"`
-	Viewer        *LabelerDefs_LabelerViewerState    `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	// reasonTypes: The set of report reason 'codes' which are in-scope for this service to review and action. These usually align to policy categories. If not defined (distinct from empty array), all reason types are allowed.
+	ReasonTypes []*string `json:"reasonTypes,omitempty" cborgen:"reasonTypes,omitempty"`
+	// subjectCollections: Set of record types (collection NSIDs) which can be reported to this service. If not defined (distinct from empty array), default is any record type.
+	SubjectCollections []string `json:"subjectCollections,omitempty" cborgen:"subjectCollections,omitempty"`
+	// subjectTypes: The set of subject types (account, record, etc) this service accepts reports on.
+	SubjectTypes []*string                       `json:"subjectTypes,omitempty" cborgen:"subjectTypes,omitempty"`
+	Uri          string                          `json:"uri" cborgen:"uri"`
+	Viewer       *LabelerDefs_LabelerViewerState `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 // LabelerDefs_LabelerViewerState is a "labelerViewerState" in the app.bsky.labeler.defs schema.

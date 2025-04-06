@@ -24,6 +24,12 @@ type LabelerService struct {
 	CreatedAt     string                       `json:"createdAt" cborgen:"createdAt"`
 	Labels        *LabelerService_Labels       `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	Policies      *LabelerDefs_LabelerPolicies `json:"policies" cborgen:"policies"`
+	// reasonTypes: The set of report reason 'codes' which are in-scope for this service to review and action. These usually align to policy categories. If not defined (distinct from empty array), all reason types are allowed.
+	ReasonTypes []*string `json:"reasonTypes,omitempty" cborgen:"reasonTypes,omitempty"`
+	// subjectCollections: Set of record types (collection NSIDs) which can be reported to this service. If not defined (distinct from empty array), default is any record type.
+	SubjectCollections []string `json:"subjectCollections,omitempty" cborgen:"subjectCollections,omitempty"`
+	// subjectTypes: The set of subject types (account, record, etc) this service accepts reports on.
+	SubjectTypes []*string `json:"subjectTypes,omitempty" cborgen:"subjectTypes,omitempty"`
 }
 
 type LabelerService_Labels struct {
