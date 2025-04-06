@@ -20,11 +20,16 @@ type ConvoGetLog_Output struct {
 }
 
 type ConvoGetLog_Output_Logs_Elem struct {
-	ConvoDefs_LogBeginConvo    *ConvoDefs_LogBeginConvo
-	ConvoDefs_LogAcceptConvo   *ConvoDefs_LogAcceptConvo
-	ConvoDefs_LogLeaveConvo    *ConvoDefs_LogLeaveConvo
-	ConvoDefs_LogCreateMessage *ConvoDefs_LogCreateMessage
-	ConvoDefs_LogDeleteMessage *ConvoDefs_LogDeleteMessage
+	ConvoDefs_LogBeginConvo     *ConvoDefs_LogBeginConvo
+	ConvoDefs_LogAcceptConvo    *ConvoDefs_LogAcceptConvo
+	ConvoDefs_LogLeaveConvo     *ConvoDefs_LogLeaveConvo
+	ConvoDefs_LogMuteConvo      *ConvoDefs_LogMuteConvo
+	ConvoDefs_LogUnmuteConvo    *ConvoDefs_LogUnmuteConvo
+	ConvoDefs_LogCreateMessage  *ConvoDefs_LogCreateMessage
+	ConvoDefs_LogDeleteMessage  *ConvoDefs_LogDeleteMessage
+	ConvoDefs_LogReadMessage    *ConvoDefs_LogReadMessage
+	ConvoDefs_LogAddReaction    *ConvoDefs_LogAddReaction
+	ConvoDefs_LogRemoveReaction *ConvoDefs_LogRemoveReaction
 }
 
 func (t *ConvoGetLog_Output_Logs_Elem) MarshalJSON() ([]byte, error) {
@@ -40,6 +45,14 @@ func (t *ConvoGetLog_Output_Logs_Elem) MarshalJSON() ([]byte, error) {
 		t.ConvoDefs_LogLeaveConvo.LexiconTypeID = "chat.bsky.convo.defs#logLeaveConvo"
 		return json.Marshal(t.ConvoDefs_LogLeaveConvo)
 	}
+	if t.ConvoDefs_LogMuteConvo != nil {
+		t.ConvoDefs_LogMuteConvo.LexiconTypeID = "chat.bsky.convo.defs#logMuteConvo"
+		return json.Marshal(t.ConvoDefs_LogMuteConvo)
+	}
+	if t.ConvoDefs_LogUnmuteConvo != nil {
+		t.ConvoDefs_LogUnmuteConvo.LexiconTypeID = "chat.bsky.convo.defs#logUnmuteConvo"
+		return json.Marshal(t.ConvoDefs_LogUnmuteConvo)
+	}
 	if t.ConvoDefs_LogCreateMessage != nil {
 		t.ConvoDefs_LogCreateMessage.LexiconTypeID = "chat.bsky.convo.defs#logCreateMessage"
 		return json.Marshal(t.ConvoDefs_LogCreateMessage)
@@ -47,6 +60,18 @@ func (t *ConvoGetLog_Output_Logs_Elem) MarshalJSON() ([]byte, error) {
 	if t.ConvoDefs_LogDeleteMessage != nil {
 		t.ConvoDefs_LogDeleteMessage.LexiconTypeID = "chat.bsky.convo.defs#logDeleteMessage"
 		return json.Marshal(t.ConvoDefs_LogDeleteMessage)
+	}
+	if t.ConvoDefs_LogReadMessage != nil {
+		t.ConvoDefs_LogReadMessage.LexiconTypeID = "chat.bsky.convo.defs#logReadMessage"
+		return json.Marshal(t.ConvoDefs_LogReadMessage)
+	}
+	if t.ConvoDefs_LogAddReaction != nil {
+		t.ConvoDefs_LogAddReaction.LexiconTypeID = "chat.bsky.convo.defs#logAddReaction"
+		return json.Marshal(t.ConvoDefs_LogAddReaction)
+	}
+	if t.ConvoDefs_LogRemoveReaction != nil {
+		t.ConvoDefs_LogRemoveReaction.LexiconTypeID = "chat.bsky.convo.defs#logRemoveReaction"
+		return json.Marshal(t.ConvoDefs_LogRemoveReaction)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -66,12 +91,27 @@ func (t *ConvoGetLog_Output_Logs_Elem) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#logLeaveConvo":
 		t.ConvoDefs_LogLeaveConvo = new(ConvoDefs_LogLeaveConvo)
 		return json.Unmarshal(b, t.ConvoDefs_LogLeaveConvo)
+	case "chat.bsky.convo.defs#logMuteConvo":
+		t.ConvoDefs_LogMuteConvo = new(ConvoDefs_LogMuteConvo)
+		return json.Unmarshal(b, t.ConvoDefs_LogMuteConvo)
+	case "chat.bsky.convo.defs#logUnmuteConvo":
+		t.ConvoDefs_LogUnmuteConvo = new(ConvoDefs_LogUnmuteConvo)
+		return json.Unmarshal(b, t.ConvoDefs_LogUnmuteConvo)
 	case "chat.bsky.convo.defs#logCreateMessage":
 		t.ConvoDefs_LogCreateMessage = new(ConvoDefs_LogCreateMessage)
 		return json.Unmarshal(b, t.ConvoDefs_LogCreateMessage)
 	case "chat.bsky.convo.defs#logDeleteMessage":
 		t.ConvoDefs_LogDeleteMessage = new(ConvoDefs_LogDeleteMessage)
 		return json.Unmarshal(b, t.ConvoDefs_LogDeleteMessage)
+	case "chat.bsky.convo.defs#logReadMessage":
+		t.ConvoDefs_LogReadMessage = new(ConvoDefs_LogReadMessage)
+		return json.Unmarshal(b, t.ConvoDefs_LogReadMessage)
+	case "chat.bsky.convo.defs#logAddReaction":
+		t.ConvoDefs_LogAddReaction = new(ConvoDefs_LogAddReaction)
+		return json.Unmarshal(b, t.ConvoDefs_LogAddReaction)
+	case "chat.bsky.convo.defs#logRemoveReaction":
+		t.ConvoDefs_LogRemoveReaction = new(ConvoDefs_LogRemoveReaction)
+		return json.Unmarshal(b, t.ConvoDefs_LogRemoveReaction)
 
 	default:
 		return nil
