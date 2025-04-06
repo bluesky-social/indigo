@@ -136,12 +136,12 @@ type ModerationDefs_ModEventAcknowledge struct {
 
 // ModerationDefs_ModEventComment is a "modEventComment" in the tools.ozone.moderation.defs schema.
 //
-// # Add a comment to a subject
+// Add a comment to a subject. An empty comment will clear any previously set sticky comment.
 //
 // RECORDTYPE: ModerationDefs_ModEventComment
 type ModerationDefs_ModEventComment struct {
-	LexiconTypeID string `json:"$type,const=tools.ozone.moderation.defs#modEventComment" cborgen:"$type,const=tools.ozone.moderation.defs#modEventComment"`
-	Comment       string `json:"comment" cborgen:"comment"`
+	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#modEventComment" cborgen:"$type,const=tools.ozone.moderation.defs#modEventComment"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	// sticky: Make the comment persistent on the subject
 	Sticky *bool `json:"sticky,omitempty" cborgen:"sticky,omitempty"`
 }
@@ -1037,6 +1037,18 @@ func (t *ModerationDefs_SubjectStatusView_Subject) UnmarshalJSON(b []byte) error
 	default:
 		return nil
 	}
+}
+
+// ModerationDefs_SubjectView is a "subjectView" in the tools.ozone.moderation.defs schema.
+//
+// Detailed view of a subject. For record subjects, the author's repo and profile will be returned.
+type ModerationDefs_SubjectView struct {
+	//Profile *ModerationDefs_SubjectView_Profile `json:"profile,omitempty" cborgen:"profile,omitempty"`
+	Record  *ModerationDefs_RecordViewDetail  `json:"record,omitempty" cborgen:"record,omitempty"`
+	Repo    *ModerationDefs_RepoViewDetail    `json:"repo,omitempty" cborgen:"repo,omitempty"`
+	Status  *ModerationDefs_SubjectStatusView `json:"status,omitempty" cborgen:"status,omitempty"`
+	Subject string                            `json:"subject" cborgen:"subject"`
+	Type    *string                           `json:"type" cborgen:"type"`
 }
 
 // ModerationDefs_VideoDetails is a "videoDetails" in the tools.ozone.moderation.defs schema.
