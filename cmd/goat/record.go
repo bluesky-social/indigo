@@ -179,8 +179,8 @@ func runRecordList(cctx *cli.Context) error {
 	for _, nsid := range collections {
 		cursor := ""
 		for {
-			// collection string, cursor string, limit int64, repo string, reverse bool, rkeyEnd string, rkeyStart string
-			resp, err := agnostic.RepoListRecords(ctx, &xrpcc, nsid, cursor, 100, ident.DID.String(), false, "", "")
+			// collection string, cursor string, limit int64, repo string, reverse bool
+			resp, err := agnostic.RepoListRecords(ctx, &xrpcc, nsid, cursor, 100, ident.DID.String(), false)
 			if err != nil {
 				return err
 			}

@@ -17,13 +17,14 @@ type TeamListMembers_Output struct {
 }
 
 // TeamListMembers calls the XRPC method "tools.ozone.team.listMembers".
-func TeamListMembers(ctx context.Context, c *xrpc.Client, cursor string, disabled bool, limit int64, roles []string) (*TeamListMembers_Output, error) {
+func TeamListMembers(ctx context.Context, c *xrpc.Client, cursor string, disabled bool, limit int64, q string, roles []string) (*TeamListMembers_Output, error) {
 	var out TeamListMembers_Output
 
 	params := map[string]interface{}{
 		"cursor":   cursor,
 		"disabled": disabled,
 		"limit":    limit,
+		"q":        q,
 		"roles":    roles,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.team.listMembers", params, nil, &out); err != nil {

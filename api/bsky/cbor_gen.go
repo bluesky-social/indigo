@@ -6921,9 +6921,21 @@ func (t *LabelerService) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 4
+	fieldCount := 7
 
 	if t.Labels == nil {
+		fieldCount--
+	}
+
+	if t.ReasonTypes == nil {
+		fieldCount--
+	}
+
+	if t.SubjectCollections == nil {
+		fieldCount--
+	}
+
+	if t.SubjectTypes == nil {
 		fieldCount--
 	}
 
@@ -7007,6 +7019,126 @@ func (t *LabelerService) MarshalCBOR(w io.Writer) error {
 	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
 		return err
 	}
+
+	// t.ReasonTypes ([]*string) (slice)
+	if t.ReasonTypes != nil {
+
+		if len("reasonTypes") > 1000000 {
+			return xerrors.Errorf("Value in field \"reasonTypes\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("reasonTypes"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("reasonTypes")); err != nil {
+			return err
+		}
+
+		if len(t.ReasonTypes) > 8192 {
+			return xerrors.Errorf("Slice value in field t.ReasonTypes was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.ReasonTypes))); err != nil {
+			return err
+		}
+		for _, v := range t.ReasonTypes {
+			if v == nil {
+				if _, err := cw.Write(cbg.CborNull); err != nil {
+					return err
+				}
+			} else {
+				if len(*v) > 1000000 {
+					return xerrors.Errorf("Value in field v was too long")
+				}
+
+				if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*v))); err != nil {
+					return err
+				}
+				if _, err := cw.WriteString(string(*v)); err != nil {
+					return err
+				}
+			}
+
+		}
+	}
+
+	// t.SubjectTypes ([]*string) (slice)
+	if t.SubjectTypes != nil {
+
+		if len("subjectTypes") > 1000000 {
+			return xerrors.Errorf("Value in field \"subjectTypes\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("subjectTypes"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("subjectTypes")); err != nil {
+			return err
+		}
+
+		if len(t.SubjectTypes) > 8192 {
+			return xerrors.Errorf("Slice value in field t.SubjectTypes was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.SubjectTypes))); err != nil {
+			return err
+		}
+		for _, v := range t.SubjectTypes {
+			if v == nil {
+				if _, err := cw.Write(cbg.CborNull); err != nil {
+					return err
+				}
+			} else {
+				if len(*v) > 1000000 {
+					return xerrors.Errorf("Value in field v was too long")
+				}
+
+				if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*v))); err != nil {
+					return err
+				}
+				if _, err := cw.WriteString(string(*v)); err != nil {
+					return err
+				}
+			}
+
+		}
+	}
+
+	// t.SubjectCollections ([]string) (slice)
+	if t.SubjectCollections != nil {
+
+		if len("subjectCollections") > 1000000 {
+			return xerrors.Errorf("Value in field \"subjectCollections\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("subjectCollections"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("subjectCollections")); err != nil {
+			return err
+		}
+
+		if len(t.SubjectCollections) > 8192 {
+			return xerrors.Errorf("Slice value in field t.SubjectCollections was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.SubjectCollections))); err != nil {
+			return err
+		}
+		for _, v := range t.SubjectCollections {
+			if len(v) > 1000000 {
+				return xerrors.Errorf("Value in field v was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(v))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(v)); err != nil {
+				return err
+			}
+
+		}
+	}
 	return nil
 }
 
@@ -7035,7 +7167,7 @@ func (t *LabelerService) UnmarshalCBOR(r io.Reader) (err error) {
 
 	n := extra
 
-	nameBuf := make([]byte, 9)
+	nameBuf := make([]byte, 18)
 	for i := uint64(0); i < n; i++ {
 		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
 		if err != nil {
@@ -7112,6 +7244,146 @@ func (t *LabelerService) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.CreatedAt = string(sval)
+			}
+			// t.ReasonTypes ([]*string) (slice)
+		case "reasonTypes":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > 8192 {
+				return fmt.Errorf("t.ReasonTypes: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.ReasonTypes = make([]*string, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+
+							sval, err := cbg.ReadStringWithMax(cr, 1000000)
+							if err != nil {
+								return err
+							}
+
+							t.ReasonTypes[i] = (*string)(&sval)
+						}
+					}
+
+				}
+			}
+			// t.SubjectTypes ([]*string) (slice)
+		case "subjectTypes":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > 8192 {
+				return fmt.Errorf("t.SubjectTypes: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.SubjectTypes = make([]*string, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+
+							sval, err := cbg.ReadStringWithMax(cr, 1000000)
+							if err != nil {
+								return err
+							}
+
+							t.SubjectTypes[i] = (*string)(&sval)
+						}
+					}
+
+				}
+			}
+			// t.SubjectCollections ([]string) (slice)
+		case "subjectCollections":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > 8192 {
+				return fmt.Errorf("t.SubjectCollections: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.SubjectCollections = make([]string, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+						sval, err := cbg.ReadStringWithMax(cr, 1000000)
+						if err != nil {
+							return err
+						}
+
+						t.SubjectCollections[i] = string(sval)
+					}
+
+				}
 			}
 
 		default:
