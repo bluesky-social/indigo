@@ -18,7 +18,8 @@ type EmbedVideo struct {
 	Alt         *string                `json:"alt,omitempty" cborgen:"alt,omitempty"`
 	AspectRatio *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`
 	Captions    []*EmbedVideo_Caption  `json:"captions,omitempty" cborgen:"captions,omitempty"`
-	Video       *util.LexBlob          `json:"video" cborgen:"video"`
+	// video: The mp4 video file. May be up to 100mb, formerly limited to 50mb.
+	Video *util.LexBlob `json:"video" cborgen:"video"`
 }
 
 // EmbedVideo_Caption is a "caption" in the app.bsky.embed.video schema.

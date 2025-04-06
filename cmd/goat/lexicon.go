@@ -242,8 +242,8 @@ func runLexList(cctx *cli.Context) error {
 	// NOTE: much of this code is copied from runRecordList
 	cursor := ""
 	for {
-		// collection string, cursor string, limit int64, repo string, reverse bool, rkeyEnd string, rkeyStart string
-		resp, err := agnostic.RepoListRecords(ctx, &xrpcc, "com.atproto.lexicon.schema", cursor, 100, ident.DID.String(), false, "", "")
+		// collection string, cursor string, limit int64, repo string, reverse bool
+		resp, err := agnostic.RepoListRecords(ctx, &xrpcc, "com.atproto.lexicon.schema", cursor, 100, ident.DID.String(), false)
 		if err != nil {
 			return err
 		}
