@@ -40,7 +40,7 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 		logger.Warn("event with rebase flag set")
 	}
 
-	commit, repo, err := LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
+	commit, repo, err := LoadRepoFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +168,7 @@ func parseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]Operation, e
 //
 // TODO: in real implementation, will want to merge this code with `VerifyCommitMessage` above, and have it hanging off some service struct with a configured `identity.Directory`
 func VerifyCommitSignature(ctx context.Context, dir identity.Directory, msg *comatproto.SyncSubscribeRepos_Commit) error {
-	commit, _, err := LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
+	commit, _, err := LoadRepoFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
 	if err != nil {
 		return err
 	}

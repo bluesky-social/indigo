@@ -174,7 +174,7 @@ func (val *Validator) VerifyCommitMessage(ctx context.Context, host *models.PDS,
 		hasWarning = true
 	}
 
-	commit, repoFragment, err := atrepo.LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
+	commit, repoFragment, err := atrepo.LoadRepoFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
 	if err != nil {
 		commitVerifyErrors.WithLabelValues(hostname, "car").Inc()
 		return nil, err
@@ -326,7 +326,7 @@ func (val *Validator) HandleSync(ctx context.Context, host *models.PDS, msg *atp
 		return nil, err
 	}
 
-	commit, err := atrepo.LoadCARCommit(ctx, bytes.NewReader([]byte(msg.Blocks)))
+	commit, _, err := atrepo.LoadCommitFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
 	if err != nil {
 		commitVerifyErrors.WithLabelValues(hostname, "car").Inc()
 		return nil, err
