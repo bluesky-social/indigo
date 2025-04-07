@@ -2,7 +2,6 @@ package events
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -19,15 +18,6 @@ var log = slog.Default().With("system", "events")
 const (
 	EvtKindErrorFrame = -1
 	EvtKindMessage    = 1
-)
-
-// TODO: unused
-var ErrNoSeq = errors.New("event has no sequence number")
-
-const (
-	opSubscribe = iota
-	opUnsubscribe
-	opSend
 )
 
 type EventHeader struct {

@@ -49,13 +49,6 @@ type Subscriber struct {
 	broadcastCounter prometheus.Counter
 }
 
-// TODO: unused type?
-type Operation struct {
-	op  int
-	sub *Subscriber
-	evt *events.XRPCStreamEvent
-}
-
 func NewEventManager(persister events.EventPersistence) *EventManager {
 	em := &EventManager{
 		bufferSize:          16 << 10,
