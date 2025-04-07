@@ -21,6 +21,7 @@ import (
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/eventmgr"
 	"github.com/bluesky-social/indigo/events/pebblepersist"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	"github.com/bluesky-social/indigo/util"
@@ -39,7 +40,7 @@ import (
 type Splitter struct {
 	erb    *EventRingBuffer
 	pp     *pebblepersist.PebblePersist
-	events *events.EventManager
+	events *eventmgr.EventManager
 
 	// Management of Socket Consumers
 	consumersLk    sync.RWMutex
@@ -124,7 +125,7 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 		// mem splitter
 		erb := NewEventRingBuffer(20_000, 10_000)
 		s.erb = erb
-		s.events = events.NewEventManager(erb)
+		s.events = eventmgr.NewEventManager(erb)
 	} else {
 		pp, err := pebblepersist.NewPebblePersistance(conf.PebbleOptions)
 		if err != nil {
@@ -132,7 +133,7 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 		}
 		go pp.GCThread(context.Background())
 		s.pp = pp
-		s.events = events.NewEventManager(pp)
+		s.events = eventmgr.NewEventManager(pp)
 	}
 
 	return s, nil
@@ -155,7 +156,7 @@ func NewDiskSplitter(host, path string, persistHours float64, maxBytes int64) (*
 	}
 
 	go pp.GCThread(context.Background())
-	em := events.NewEventManager(pp)
+	em := eventmgr.NewEventManager(pp)
 	return &Splitter{
 		conf:      conf,
 		pp:        pp,

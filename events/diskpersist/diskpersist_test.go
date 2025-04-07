@@ -15,6 +15,7 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/eventmgr"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	pds "github.com/bluesky-social/indigo/pds/data"
@@ -65,7 +66,7 @@ func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.
 	}
 
 	// Create a bunch of events
-	evtman := events.NewEventManager(dp)
+	evtman := eventmgr.NewEventManager(dp)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {
@@ -131,7 +132,7 @@ func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.
 		t.Fatal(err)
 	}
 
-	evtman2 := events.NewEventManager(dp2)
+	evtman2 := eventmgr.NewEventManager(dp2)
 
 	inEvts = make([]*events.XRPCStreamEvent, n)
 	for i := 0; i < n; i++ {
@@ -222,7 +223,7 @@ func runPersisterBenchmark(b *testing.B, cs carstore.CarStore, db *gorm.DB, p ev
 	}
 
 	// Create a bunch of events
-	evtman := events.NewEventManager(p)
+	evtman := eventmgr.NewEventManager(p)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {
@@ -336,7 +337,7 @@ func runEventManagerTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p even
 		t.Fatal(err)
 	}
 
-	evtman := events.NewEventManager(p)
+	evtman := eventmgr.NewEventManager(p)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {
@@ -446,7 +447,7 @@ func runTakedownTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p events.E
 		}
 	}
 
-	evtman := events.NewEventManager(p)
+	evtman := eventmgr.NewEventManager(p)
 
 	testSize := 100 // you can adjust this number as needed
 	inEvts := make([]*events.XRPCStreamEvent, testSize*userCount)

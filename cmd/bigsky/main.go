@@ -20,6 +20,7 @@ import (
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/dbpersist"
 	"github.com/bluesky-social/indigo/events/diskpersist"
+	"github.com/bluesky-social/indigo/events/eventmgr"
 	"github.com/bluesky-social/indigo/handles"
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/plc"
@@ -443,7 +444,7 @@ func runBigsky(cctx *cli.Context) error {
 		persister = dbp
 	}
 
-	evtman := events.NewEventManager(persister)
+	evtman := eventmgr.NewEventManager(persister)
 
 	rf := indexer.NewRepoFetcher(db, repoman, cctx.Int("max-fetch-concurrency"))
 

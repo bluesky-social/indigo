@@ -17,6 +17,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/eventmgr"
 	"github.com/bluesky-social/indigo/indexer"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
@@ -39,7 +40,7 @@ type Server struct {
 	cs             carstore.CarStore
 	repoman        *repomgr.RepoManager
 	indexer        *indexer.Indexer
-	events         *events.EventManager
+	events         *eventmgr.EventManager
 	signingKey     *did.PrivKey
 	echo           *echo.Echo
 	jwtSigningKey  []byte
@@ -64,7 +65,7 @@ func NewServer(db *gorm.DB, cs carstore.CarStore, serkey *did.PrivKey, handleSuf
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&Peering{})
 
-	evtman := events.NewEventManager(events.NewMemPersister())
+	evtman := eventmgr.NewEventManager(events.NewMemPersister())
 
 	kmgr := indexer.NewKeyManager(didr, serkey)
 

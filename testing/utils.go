@@ -25,6 +25,7 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/diskpersist"
+	"github.com/bluesky-social/indigo/events/eventmgr"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	"github.com/bluesky-social/indigo/handles"
 	"github.com/bluesky-social/indigo/indexer"
@@ -564,7 +565,7 @@ func SetupRelay(ctx context.Context, didr plc.PLCClient, archive bool) (*TestRel
 	opts.EventsPerFile = 10
 	diskpersist, err := diskpersist.NewDiskPersistence(filepath.Join(dir, "dp-primary"), filepath.Join(dir, "dp-archive"), maindb, opts)
 
-	evtman := events.NewEventManager(diskpersist)
+	evtman := eventmgr.NewEventManager(diskpersist)
 	rf := indexer.NewRepoFetcher(maindb, repoman, 10)
 
 	ix, err := indexer.NewIndexer(maindb, evtman, didr, rf, true)
