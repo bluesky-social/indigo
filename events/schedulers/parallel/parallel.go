@@ -30,7 +30,7 @@ type Scheduler struct {
 	itemsAdded     prometheus.Counter
 	itemsProcessed prometheus.Counter
 	itemsActive    prometheus.Counter
-	workesActive   prometheus.Gauge
+	workersActive  prometheus.Gauge
 
 	log *slog.Logger
 }
@@ -51,7 +51,7 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 		itemsAdded:     schedulers.WorkItemsAdded.WithLabelValues(ident, "parallel"),
 		itemsProcessed: schedulers.WorkItemsProcessed.WithLabelValues(ident, "parallel"),
 		itemsActive:    schedulers.WorkItemsActive.WithLabelValues(ident, "parallel"),
-		workesActive:   schedulers.WorkersActive.WithLabelValues(ident, "parallel"),
+		workersActive:  schedulers.WorkersActive.WithLabelValues(ident, "parallel"),
 
 		log: slog.Default().With("system", "parallel-scheduler"),
 	}
@@ -60,7 +60,7 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 		go p.worker()
 	}
 
-	p.workesActive.Set(float64(maxC))
+	p.workersActive.Set(float64(maxC))
 
 	return p
 }
