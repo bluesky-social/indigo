@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/cmd/rerelay/relay"
+	"github.com/bluesky-social/indigo/util/svcutil"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -102,7 +103,7 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 	e.File("/dash/*", "public/index.html")
 	e.Static("/assets", "public/assets")
 
-	e.Use(MetricsMiddleware)
+	e.Use(svcutil.MetricsMiddleware)
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
 		switch err := err.(type) {
