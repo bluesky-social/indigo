@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,7 +9,7 @@ import (
 
 func TestSyncScenarios(t *testing.T) {
 	assert := assert.New(t)
-	ctx := t.Context()
+	ctx := context.Background()
 
 	base, err := LoadScenario(ctx, "testdata/post_lifecycle.json")
 	if err != nil {
@@ -27,7 +28,7 @@ func TestSyncScenarios(t *testing.T) {
 
 func TestWrongKey(t *testing.T) {
 	assert := assert.New(t)
-	ctx := t.Context()
+	ctx := context.Background()
 
 	base, err := LoadScenario(ctx, "testdata/basic.json")
 	if err != nil {
@@ -45,7 +46,7 @@ func TestWrongKey(t *testing.T) {
 }
 
 func TestDeactivationScenario(t *testing.T) {
-	ctx := t.Context()
+	ctx := context.Background()
 
 	err := LoadAndRunScenario(ctx, "testdata/deactivation.json")
 	if err != nil {
