@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -16,7 +17,7 @@ import (
 // meta test for the testing framework itself. simply connects the consumer to the producer
 func TestFramework(t *testing.T) {
 	assert := assert.New(t)
-	ctx := t.Context()
+	ctx := context.Background()
 
 	p := NewProducer()
 	port := p.ListenRandom()
@@ -77,7 +78,7 @@ func TestScenarioLoad(t *testing.T) {
 }
 
 func TestBasicScenario(t *testing.T) {
-	ctx := t.Context()
+	ctx := context.Background()
 
 	err := LoadAndRunScenario(ctx, "testdata/basic.json")
 	if err != nil {

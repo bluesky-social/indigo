@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"context"
 	"testing"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -11,7 +12,7 @@ import (
 
 func TestMockHostChecker(t *testing.T) {
 	assert := assert.New(t)
-	ctx := t.Context()
+	ctx := context.Background()
 	var err error
 
 	hc := NewMockHostChecker()
@@ -33,7 +34,7 @@ func TestMockHostChecker(t *testing.T) {
 // NOTE: this test does live network resolutions
 func TestLiveHostChecker(t *testing.T) {
 	assert := assert.New(t)
-	ctx := t.Context()
+	ctx := context.Background()
 	var err error
 
 	dir := identity.DefaultDirectory()
