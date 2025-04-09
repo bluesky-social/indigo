@@ -1,84 +1,53 @@
 package main
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/cmd/rerelay/relay"
 	"github.com/bluesky-social/indigo/cmd/rerelay/relay/models"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
 )
 
-func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatproto.SyncRequestCrawl_Input) error {
-	host := body.Hostname
-	if host == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname")
+func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatproto.SyncRequestCrawl_Input) error {
+	ctx := c.Request().Context()
+
+	hostname, noSSL, err := relay.ParseHostname(body.Hostname)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("hostname field empty or invalid: %s", body.Hostname)})
 	}
 
-	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
-		if s.relay.Config.SSL {
-			host = "https://" + host
-		} else {
-			host = "http://" + host
+	if noSSL && !s.relay.Config.SSL {
+		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: "This relay requires SSL"})
+	}
+
+	// TODO: could ensure that query and path are empty
+
+	// XXX: config if new PDS instances are allowed at all
+
+	if strings.HasPrefix(hostname, "localhost:") {
+		// XXX: config if localhost connections allowed
+	} else {
+		banned, err := s.relay.DomainIsBanned(ctx, hostname)
+		if err != nil {
+			return nil
+		}
+		if banned {
+			return c.JSON(http.StatusUnauthorized, xrpc.XRPCError{ErrStr: "DomainBan", Message: "host domain is banned"})
 		}
 	}
 
-	u, err := url.Parse(host)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "failed to parse hostname")
+	if err := s.relay.HostChecker.CheckHost(ctx, hostname); err != nil {
+		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "HostNotFound", Message: fmt.Sprintf("host server unreachable: %s", err)})
 	}
 
-	if u.Scheme == "http" && s.relay.Config.SSL {
-		return echo.NewHTTPError(http.StatusBadRequest, "this server requires https")
-	}
-
-	if u.Scheme == "https" && !s.relay.Config.SSL {
-		return echo.NewHTTPError(http.StatusBadRequest, "this server does not support https")
-	}
-
-	if u.Path != "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname without path")
-	}
-
-	if u.Query().Encode() != "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname without query")
-	}
-
-	host = u.Host // potentially hostname:port
-
-	banned, err := s.relay.DomainIsBanned(ctx, host)
-	if banned {
-		return echo.NewHTTPError(http.StatusUnauthorized, "domain is banned")
-	}
-
-	s.logger.Warn("XXX: better host validation for crawl requests")
-
-	clientHost := fmt.Sprintf("%s://%s", u.Scheme, host)
-
-	c := &xrpc.Client{
-		Host:   clientHost,
-		Client: http.DefaultClient, // not using the client that auto-retries
-	}
-
-	desc, err := comatproto.ServerDescribeServer(ctx, c)
-	if err != nil {
-		errMsg := fmt.Sprintf("requested host (%s) failed to respond to describe request", clientHost)
-		return echo.NewHTTPError(http.StatusBadRequest, errMsg)
-	}
-
-	// Maybe we could do something with this response later
-	_ = desc
-
+	/* XXX: forwarding requestCrawl should be handled by rainbow, not relay itself
 	if len(s.config.NextCrawlers) != 0 {
 		blob, err := json.Marshal(body)
 		if err != nil {
@@ -102,18 +71,78 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *co
 			}(blob)
 		}
 	}
+	*/
 
-	return s.relay.SubscribeToHost(host, true, false, nil)
+	return s.relay.SubscribeToHost(hostname, noSSL, false)
 }
 
-func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, limit int) (*comatproto.SyncListRepos_Output, error) {
+func (s *Service) handleComAtprotoSyncListHosts(c echo.Context, cursor int64, limit int) (*comatproto.SyncListHosts_Output, error) {
+	ctx := c.Request().Context()
+
+	hosts, err := s.relay.ListHosts(ctx, cursor, limit)
+	if err != nil {
+		return nil, c.JSON(http.StatusInternalServerError, xrpc.XRPCError{ErrStr: "DatabaseError", Message: "failed to list hosts"})
+	}
+
+	if len(hosts) == 0 {
+		// resp.Hosts is an explicit empty array, not just 'nil'
+		return &comatproto.SyncListHosts_Output{
+			Hosts: []*comatproto.SyncListHosts_Host{},
+		}, nil
+	}
+
+	resp := &comatproto.SyncListHosts_Output{
+		Hosts: make([]*comatproto.SyncListHosts_Host, len(hosts)),
+	}
+
+	for i, host := range hosts {
+		resp.Hosts[i] = &comatproto.SyncListHosts_Host{
+			// TODO: AccountCount
+			Hostname: host.Hostname,
+			Seq:      &host.LastSeq,
+			Status:   (*string)(&host.Status),
+		}
+	}
+
+	// If this is not the last page, set the cursor
+	if len(hosts) >= limit && len(hosts) > 1 {
+		nextCursor := fmt.Sprintf("%d", hosts[len(hosts)-1].ID)
+		resp.Cursor = &nextCursor
+	}
+
+	return resp, nil
+}
+
+func (s *Service) handleComAtprotoSyncGetHostStatus(c echo.Context, hostname string) (*comatproto.SyncGetHostStatus_Output, error) {
+	ctx := c.Request().Context()
+
+	host, err := s.relay.GetHost(ctx, hostname)
+	if err != nil {
+		if errors.Is(err, relay.ErrHostNotFound) {
+			// TODO: test that not found DID is a 404
+			return nil, c.JSON(http.StatusNotFound, xrpc.XRPCError{ErrStr: "HostNotFound", Message: "host not found"})
+		}
+		return nil, c.JSON(http.StatusInternalServerError, xrpc.XRPCError{ErrStr: "DatabaseError", Message: "looking up host information"})
+	}
+
+	out := &comatproto.SyncGetHostStatus_Output{
+		// TODO: AccountCount
+		Hostname: host.Hostname,
+		Seq:      &host.LastSeq,
+		Status:   (*string)(&host.Status),
+	}
+
+	return out, nil
+}
+
+func (s *Service) handleComAtprotoSyncListRepos(c echo.Context, cursor int64, limit int) (*comatproto.SyncListRepos_Output, error) {
+	ctx := c.Request().Context()
+
+	// XXX: document that ListAccounts is ordered by UID (ascending)
 	accounts, err := s.relay.ListAccounts(ctx, cursor, limit)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return &comatproto.SyncListRepos_Output{}, nil
-		}
 		s.logger.Error("failed to query accounts", "err", err)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to query accounts")
+		return nil, c.JSON(http.StatusInternalServerError, xrpc.XRPCError{ErrStr: "DatabaseError", Message: "failed to list accounts (repos)"})
 	}
 
 	if len(accounts) == 0 {
@@ -128,6 +157,7 @@ func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int6
 	}
 
 	// Fetch the repo roots for each user
+	// TODO: would be much more efficient to do a join and have Relay.ListAccounts return these repos with the account info
 	for i, acc := range accounts {
 		repo, err := s.relay.GetAccountRepo(ctx, acc.UID)
 		if err != nil {
@@ -150,37 +180,64 @@ func (s *Service) handleComAtprotoSyncListRepos(ctx context.Context, cursor int6
 	return resp, nil
 }
 
-func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context, rawDID string) (*comatproto.SyncGetLatestCommit_Output, error) {
-	did, err := syntax.ParseDID(rawDID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid DID parameter: %w", err)
-	}
+func (s *Service) handleComAtprotoSyncGetRepoStatus(c echo.Context, did syntax.DID) (*comatproto.SyncGetRepoStatus_Output, error) {
+	ctx := c.Request().Context()
+
 	acc, err := s.relay.GetAccount(ctx, did)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, echo.NewHTTPError(http.StatusNotFound, "user not found")
+		if errors.Is(err, relay.ErrAccountNotFound) {
+			// TODO: test that not found DID is a 404
+			return nil, c.JSON(http.StatusNotFound, xrpc.XRPCError{ErrStr: "RepoNotFound", Message: "account not found"})
 		}
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
+		return nil, c.JSON(http.StatusInternalServerError, xrpc.XRPCError{ErrStr: "DatabaseError", Message: "looking up account information"})
 	}
 
-	if acc.Status == models.AccountStatusTakendown {
-		return nil, fmt.Errorf("account was taken down by the Relay")
+	out := &comatproto.SyncGetRepoStatus_Output{
+		Did:    did.String(),
+		Active: acc.IsActive(),
+		Status: acc.StatusField(),
 	}
 
-	if acc.UpstreamStatus == models.AccountStatusTakendown {
-		return nil, fmt.Errorf("account was taken down by its PDS")
+	repo, err := s.relay.GetAccountRepo(ctx, acc.UID)
+	if err != nil && !errors.Is(err, relay.ErrAccountRepoNotFound) {
+		return nil, err
 	}
 
-	if acc.Status == models.AccountStatusDeactivated {
-		return nil, fmt.Errorf("account is temporarily deactivated")
+	out.Rev = &repo.Rev
+
+	return out, nil
+}
+
+func (s *Service) handleComAtprotoSyncGetLatestCommit(c echo.Context, did syntax.DID) (*comatproto.SyncGetLatestCommit_Output, error) {
+	ctx := c.Request().Context()
+
+	acc, err := s.relay.GetAccount(ctx, did)
+	if err != nil {
+		if errors.Is(err, relay.ErrAccountNotFound) {
+			// TODO: test that not found DID is a 404
+			return nil, c.JSON(http.StatusNotFound, xrpc.XRPCError{ErrStr: "RepoNotFound", Message: "account not found"})
+		}
+		return nil, c.JSON(http.StatusInternalServerError, xrpc.XRPCError{ErrStr: "DatabaseError", Message: "looking up account information"})
 	}
 
-	if acc.Status == models.AccountStatusSuspended {
-		return nil, fmt.Errorf("account is suspended by its PDS")
+	switch acc.AccountStatus() {
+	case models.AccountStatusTakendown, models.AccountStatusSuspended:
+		return nil, c.JSON(http.StatusForbidden, xrpc.XRPCError{ErrStr: "RepoTakendown", Message: "account not active (takendown)"})
+	case models.AccountStatusDeactivated:
+		return nil, c.JSON(http.StatusForbidden, xrpc.XRPCError{ErrStr: "RepoDeactivated", Message: "account not active (deactivated)"})
+	case models.AccountStatusDeleted:
+		return nil, c.JSON(http.StatusForbidden, xrpc.XRPCError{ErrStr: "RepoDeleted", Message: "account not active (deleted)"})
+	case models.AccountStatusActive:
+		// pass
+	default:
+		return nil, c.JSON(http.StatusForbidden, xrpc.XRPCError{ErrStr: "RepoInactive", Message: fmt.Sprintf("account not active: %s", acc.AccountStatus())})
 	}
 
 	repo, err := s.relay.GetAccountRepo(ctx, acc.UID)
 	if err != nil {
+		if errors.Is(err, relay.ErrAccountRepoNotFound) {
+			// XXX: return partial result? some special error? desynchronized?
+		}
 		return nil, err
 	}
 
@@ -198,9 +255,9 @@ type HealthStatus struct {
 func (svc *Service) HandleHealthCheck(c echo.Context) error {
 	if err := svc.relay.Healthcheck(); err != nil {
 		svc.logger.Error("healthcheck can't connect to database", "err", err)
-		return c.JSON(500, HealthStatus{Status: "error", Message: "can't connect to database"})
+		return c.JSON(http.StatusInternalServerError, HealthStatus{Status: "error", Message: "can't connect to database"})
 	} else {
-		return c.JSON(200, HealthStatus{Status: "ok"})
+		return c.JSON(http.StatusOK, HealthStatus{Status: "ok"})
 	}
 }
 

@@ -13,10 +13,28 @@ import (
 	"gorm.io/gorm"
 )
 
-// XXX: GetHost (by hostname) vs GetHostByID
-
-func (r *Relay) GetHost(ctx context.Context, hostID uint64) (*models.Host, error) {
+func (r *Relay) GetHost(ctx context.Context, hostname string) (*models.Host, error) {
 	ctx, span := tracer.Start(ctx, "getHost")
+	defer span.End()
+
+	var host models.Host
+	if err := r.db.Model(models.Host{}).Where("hostname = ?", hostname).First(&host).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrHostNotFound
+		}
+		return nil, err
+	}
+
+	// TODO: is this further check needed?
+	if host.ID == 0 {
+		return nil, ErrHostNotFound
+	}
+
+	return &host, nil
+}
+
+func (r *Relay) GetHostByID(ctx context.Context, hostID uint64) (*models.Host, error) {
+	ctx, span := tracer.Start(ctx, "getHostByID")
 	defer span.End()
 
 	var host models.Host
@@ -29,10 +47,20 @@ func (r *Relay) GetHost(ctx context.Context, hostID uint64) (*models.Host, error
 
 	// TODO: is this further check needed?
 	if host.ID == 0 {
-		return nil, ErrAccountNotFound
+		return nil, ErrHostNotFound
 	}
 
 	return &host, nil
+}
+
+func (r *Relay) ListHosts(ctx context.Context, cursor int64, limit int) ([]*models.Host, error) {
+
+	// TODO: filter based on active status?
+	hosts := []*models.Host{}
+	if err := r.db.Model(&models.Host{}).Where("id > ?", cursor).Order("id").Limit(limit).Find(&hosts).Error; err != nil {
+		return nil, err
+	}
+	return hosts, nil
 }
 
 func (r *Relay) UpdateHostStatus(ctx context.Context, hostID uint64, status models.HostStatus) error {

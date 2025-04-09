@@ -140,10 +140,12 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 	e.GET("/xrpc/_health", svc.HandleHealthCheck)
 
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", svc.HandleComAtprotoSyncSubscribeRepos)
-
 	e.POST("/xrpc/com.atproto.sync.requestCrawl", svc.HandleComAtprotoSyncRequestCrawl)
+	e.GET("/xrpc/com.atproto.sync.listHosts", svc.HandleComAtprotoSyncListHosts)
+	e.GET("/xrpc/com.atproto.sync.getHostStatus", svc.HandleComAtprotoSyncGetHostStatus)
 	e.GET("/xrpc/com.atproto.sync.listRepos", svc.HandleComAtprotoSyncListRepos)
 	e.GET("/xrpc/com.atproto.sync.getRepo", svc.HandleComAtprotoSyncGetRepo) // just returns 3xx redirect to source PDS
+	e.GET("/xrpc/com.atproto.sync.getRepoStatus", svc.HandleComAtprotoSyncGetRepoStatus)
 	e.GET("/xrpc/com.atproto.sync.getLatestCommit", svc.HandleComAtprotoSyncGetLatestCommit)
 
 	/* XXX: disabled while refactoring

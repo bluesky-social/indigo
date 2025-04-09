@@ -93,7 +93,7 @@ func (r *Relay) preProcessEvent(ctx context.Context, didStr string, hostname str
 		return acc, nil, nil
 	}
 
-	ident, err := r.dir.LookupDID(ctx, did)
+	ident, err := r.Dir.LookupDID(ctx, did)
 	if err != nil {
 		// XXX: handle more granularly (eg, true NotFound vs other errors); and add tests
 		logger.Warn("failed to load identity")
@@ -197,7 +197,7 @@ func (r *Relay) processIdentityEvent(ctx context.Context, evt *comatproto.SyncSu
 	did := syntax.DID(acc.DID)
 
 	// Flush any cached DID/identity info for this user
-	r.dir.Purge(ctx, did.AtIdentifier())
+	r.Dir.Purge(ctx, did.AtIdentifier())
 	if err != nil {
 		logger.Error("problem purging identity directory cache", "err", err)
 	}
