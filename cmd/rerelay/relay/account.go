@@ -61,7 +61,7 @@ func (r *Relay) CreateHostAccount(ctx context.Context, did syntax.DID, hostID ui
 	//newUsersDiscovered.Inc()
 	//start := time.Now()
 
-	ident, err := r.dir.LookupDID(ctx, did)
+	ident, err := r.Dir.LookupDID(ctx, did)
 	if err != nil {
 		return nil, fmt.Errorf("new account identity resolution: %w", err)
 	}
@@ -124,7 +124,7 @@ func (r *Relay) EnsureAccountHost(ctx context.Context, acc *models.Account, host
 		return nil
 	}
 
-	ident, err := r.dir.LookupDID(ctx, did)
+	ident, err := r.Dir.LookupDID(ctx, did)
 	if err != nil {
 		return fmt.Errorf("account identity resolution: %w", err)
 	}
@@ -195,6 +195,7 @@ func (r *Relay) UpdateAccountStatus(ctx context.Context, did syntax.DID, status 
 
 func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*models.Account, error) {
 
+	// XXX: what status filter should be in place here? not deleted in addition to not takendown?
 	accounts := []*models.Account{}
 	if err := r.db.Model(&models.Account{}).Where("uid > ? AND status IS NOT 'takendown' AND (upstream_status IS NULL OR upstream_status = 'active')", cursor).Order("uid").Limit(limit).Find(&accounts).Error; err != nil {
 		return nil, err

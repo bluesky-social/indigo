@@ -34,28 +34,29 @@ func (r *Relay) canSlurpHost(hostname string) bool {
 	return !r.Config.DisableNewHosts
 }
 
-func (r *Relay) SubscribeToHost(hostname string, reg bool, adminOverride bool, rateOverrides *HostRates) error {
+func (r *Relay) SubscribeToHost(hostname string, noSSL, adminForce bool) error {
 
 	// if we already have an active subscription going, exit early
 	if r.Slurper.CheckIfSubscribed(hostname) {
 		return nil
 	}
 
+	// XXX: new PDS daily rate-limit
+
+	newHost := false
 	var host models.Host
 	if err := r.db.Find(&host, "hostname = ?", hostname).Error; err != nil {
 		return err
 	}
 
-	newHost := false
-
 	if host.ID == 0 {
-		if !adminOverride && !r.canSlurpHost(hostname) {
+		if !adminForce && !r.canSlurpHost(hostname) {
 			return ErrNewSubsDisabled
 		}
 		// New PDS!
 		npds := models.Host{
 			Hostname:     hostname,
-			NoSSL:        !r.Config.SSL,
+			NoSSL:        noSSL,
 			Status:       models.HostStatusActive,
 			AccountLimit: r.Config.DefaultRepoLimit,
 		}

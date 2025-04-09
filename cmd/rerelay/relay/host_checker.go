@@ -22,6 +22,8 @@ type HostChecker interface {
 	FetchAccountStatus(ctx context.Context, ident *identity.Identity) (string, error)
 }
 
+var _ HostChecker = (*HostClient)(nil)
+
 type HostClient struct {
 	Client    *http.Client
 	UserAgent string

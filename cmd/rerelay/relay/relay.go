@@ -17,7 +17,7 @@ var tracer = otel.Tracer("relay")
 
 type Relay struct {
 	db          *gorm.DB
-	dir         identity.Directory
+	Dir         identity.Directory
 	Logger      *slog.Logger
 	Slurper     *Slurper
 	Events      *eventmgr.EventManager
@@ -70,7 +70,7 @@ func NewRelay(db *gorm.DB, evtman *eventmgr.EventManager, dir identity.Directory
 
 	r := &Relay{
 		db:          db,
-		dir:         dir,
+		Dir:         dir,
 		Logger:      slog.Default().With("system", "relay"),
 		Events:      evtman,
 		HostChecker: hc,
