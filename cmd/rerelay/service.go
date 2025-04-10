@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -29,14 +28,17 @@ type Service struct {
 }
 
 type ServiceConfig struct {
-	// NextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
-	NextCrawlers []*url.URL
+	// list of hosts which get forwarded com.atproto.sync.requestCrawl (HTTP POST)
+	ForwardCrawlRequestHosts []string
 
 	// verified against Basic admin auth
 	AdminPassword string
 
 	// how long to wait for the requested server socket to become available for use
 	ListenerBootTimeout time.Duration
+
+	// if true, don't process public (unauthenticated) requestCrawl
+	DisableRequestCrawl bool
 }
 
 func DefaultServiceConfig() *ServiceConfig {
