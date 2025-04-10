@@ -51,6 +51,10 @@ var cmdFirehose = &cli.Command{
 			Usage: "only print account and identity events",
 		},
 		&cli.BoolFlag{
+			Name:  "blocks",
+			Usage: "include blocks as base64 in payload",
+		},
+		&cli.BoolFlag{
 			Name:    "quiet",
 			Aliases: []string{"q"},
 			Usage:   "don't actually print events to stdout (eg, errors only)",
@@ -80,6 +84,7 @@ type GoatFirehoseConsumer struct {
 	OpsMode      bool
 	AccountsOnly bool
 	Quiet        bool
+	Blocks       bool
 	VerifyBasic  bool
 	VerifySig    bool
 	VerifyMST    bool
@@ -108,6 +113,7 @@ func runFirehose(cctx *cli.Context) error {
 		AccountsOnly:     cctx.Bool("account-events"),
 		CollectionFilter: cctx.StringSlice("collection"),
 		Quiet:            cctx.Bool("quiet"),
+		Blocks:           cctx.Bool("blocks"),
 		VerifyBasic:      cctx.Bool("verify-basic"),
 		VerifySig:        cctx.Bool("verify-sig"),
 		VerifyMST:        cctx.Bool("verify-mst"),
@@ -389,7 +395,9 @@ func (gfc *GoatFirehoseConsumer) handleCommitEvent(ctx context.Context, evt *com
 		}
 	}
 
-	evt.Blocks = nil
+	if !gfc.Blocks {
+		evt.Blocks = nil
+	}
 	out := make(map[string]interface{})
 	out["type"] = "commit"
 	out["payload"] = evt
