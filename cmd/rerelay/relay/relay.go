@@ -41,7 +41,8 @@ type Relay struct {
 type RelayConfig struct {
 	SSL                   bool
 	DefaultRepoLimit      int64
-	ConcurrencyPerHost    int64
+	ConcurrencyPerHost    int
+	QueueDepthPerHost     int
 	SkipAccountHostCheck  bool // XXX: only used for testing
 	LenientSyncValidation bool // XXX: wire through config
 
@@ -51,10 +52,12 @@ type RelayConfig struct {
 }
 
 func DefaultRelayConfig() *RelayConfig {
+	// NOTE: many of these defaults are CLI arg defaults
 	return &RelayConfig{
 		SSL:                true,
 		DefaultRepoLimit:   100,
-		ConcurrencyPerHost: 100,
+		ConcurrencyPerHost: 40,
+		QueueDepthPerHost:  1000,
 	}
 }
 
@@ -91,6 +94,7 @@ func NewRelay(db *gorm.DB, evtman *eventmgr.EventManager, dir identity.Directory
 	slurpConfig.SSL = config.SSL
 	slurpConfig.DefaultRepoLimit = config.DefaultRepoLimit
 	slurpConfig.ConcurrencyPerHost = config.ConcurrencyPerHost
+	slurpConfig.QueueDepthPerHost = config.QueueDepthPerHost
 	// register callbacks to persist cursors and host state in database
 	slurpConfig.PersistCursorCallback = r.PersistHostCursors
 	slurpConfig.PersistHostStatusCallback = r.UpdateHostStatus

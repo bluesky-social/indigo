@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -58,7 +59,8 @@ type SlurperConfig struct {
 	DefaultPerHourLimit       int64
 	DefaultPerDayLimit        int64
 	DefaultRepoLimit          int64
-	ConcurrencyPerHost        int64
+	ConcurrencyPerHost        int
+	QueueDepthPerHost         int
 	NewHostPerDayLimit        int64
 	PersistCursorPeriod       time.Duration
 	PersistCursorCallback     PersistCursorFunc
@@ -66,6 +68,7 @@ type SlurperConfig struct {
 }
 
 func DefaultSlurperConfig() *SlurperConfig {
+	// NOTE: many of these defaults are overruled by DefaultRelayConfig, or even process CLI arg defaults
 	return &SlurperConfig{
 		SSL:                   false,
 		DefaultPerSecondLimit: 50,
@@ -73,6 +76,7 @@ func DefaultSlurperConfig() *SlurperConfig {
 		DefaultPerDayLimit:    20_000,
 		DefaultRepoLimit:      100,
 		ConcurrencyPerHost:    40,
+		QueueDepthPerHost:     1000,
 		PersistCursorPeriod:   time.Second * 10,
 	}
 }
@@ -81,7 +85,7 @@ func DefaultSlurperConfig() *SlurperConfig {
 type Subscription struct {
 	Hostname string
 	HostID   uint64
-	LastSeq  int64     // XXX: switch to an atomic instead of lock?
+	LastSeq  atomic.Int64
 	Limiters *Limiters // XXX: is this used? or only the separate limiters on Slurper?
 
 	lk     sync.RWMutex
@@ -90,9 +94,7 @@ type Subscription struct {
 }
 
 func (sub *Subscription) UpdateSeq(seq int64) {
-	sub.lk.Lock()
-	defer sub.lk.Unlock()
-	sub.LastSeq = seq
+	sub.LastSeq.Store(seq)
 }
 
 func (sub *Subscription) HostCursor() HostCursor {
@@ -100,7 +102,7 @@ func (sub *Subscription) HostCursor() HostCursor {
 	defer sub.lk.Unlock()
 	return HostCursor{
 		HostID:  sub.HostID,
-		LastSeq: sub.LastSeq,
+		LastSeq: sub.LastSeq.Load(),
 	}
 }
 
@@ -448,8 +450,8 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 	instrumentedRSC := stream.NewInstrumentedRepoStreamCallbacks(limiters, rsc.EventHandler)
 
 	pool := parallel.NewScheduler(
-		100,   // XXX: concurrency
-		1_000, // XXX: max queue per host
+		s.Config.ConcurrencyPerHost,
+		s.Config.QueueDepthPerHost,
 		conn.RemoteAddr().String(),
 		instrumentedRSC.EventHandler,
 	)
@@ -474,12 +476,10 @@ func (s *Slurper) persistCursors(ctx context.Context) error {
 	cursors := make([]HostCursor, len(s.subs))
 	i := 0
 	for _, sub := range s.subs {
-		sub.lk.RLock()
 		cursors[i] = HostCursor{
 			HostID:  sub.HostID,
-			LastSeq: sub.LastSeq,
+			LastSeq: sub.LastSeq.Load(),
 		}
-		sub.lk.RUnlock()
 		i++
 	}
 	s.subsLk.Unlock()

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -43,18 +42,16 @@ func run(args []string) error {
 		Version: versioninfo.Short(),
 	}
 	app.Flags = []cli.Flag{
-		// XXX: actually disabled if empty?
 		&cli.StringFlag{
 			Name:    "admin-password",
 			Usage:   "secret password/token for accessing admin endpoints (random is used if not set)",
 			EnvVars: []string{"RELAY_ADMIN_PASSWORD", "RELAY_ADMIN_KEY"},
 		},
-		// XXX: not used?
 		&cli.StringFlag{
 			Name:    "plc-host",
 			Usage:   "method, hostname, and port of PLC registry",
 			Value:   "https://plc.directory",
-			EnvVars: []string{"ATP_PLC_HOST"},
+			EnvVars: []string{"RELAY_PLC_HOST", "ATP_PLC_HOST"},
 		},
 		&cli.StringFlag{
 			Name:    "log-level",
@@ -102,7 +99,13 @@ func run(args []string) error {
 					Name:    "host-concurrency",
 					Usage:   "number of concurrent worker routines per upstream host",
 					EnvVars: []string{"RELAY_HOST_CONCURRENCY", "RELAY_CONCURRENCY_PER_PDS"},
-					Value:   100,
+					Value:   40,
+				},
+				&cli.IntFlag{
+					Name:    "host-queue-depth",
+					Usage:   "size of queue (channel) per-host for unprocessed events",
+					EnvVars: []string{"RELAY_HOST_QUEUE_SIZE"},
+					Value:   1000,
 				},
 				&cli.IntFlag{
 					Name:    "default-account-limit",
@@ -111,10 +114,26 @@ func run(args []string) error {
 					EnvVars: []string{"RELAY_DEFAULT_ACCOUUNT_LIMIT", "RELAY_DEFAULT_REPO_LIMIT"},
 				},
 				&cli.IntFlag{
-					Name:    "did-cache-size",
+					Name:    "ident-cache-size",
 					Value:   5_000_000,
-					Usage:   "size of in-process DID (identity) cache",
-					EnvVars: []string{"RELAY_DID_CACHE_SIZE"},
+					Usage:   "size of in-process identity cache (eg, DID docs)",
+					EnvVars: []string{"RELAY_IDENT_CACHE_SIZE", "RELAY_DID_CACHE_SIZE"},
+				},
+				&cli.BoolFlag{
+					Name:    "disable-request-crawl",
+					Usage:   "don't process public (un-authenticated) com.atproto.sync.requestCrawl",
+					EnvVars: []string{"RELAY_DISABLE_REQUEST_CRAWL"},
+				},
+				// XXX: should this be handled by rainbow instead of relays?
+				&cli.StringSliceFlag{
+					Name:    "forward-crawl-requests",
+					Usage:   "servers (eg https://example.com) to forward requestCrawl on to; multiple allowed",
+					EnvVars: []string{"RELAY_FORWARD_CRAWL_REQUESTS", "RELAY_NEXT_CRAWLER"},
+				},
+				&cli.StringSliceFlag{
+					Name:    "trusted-domains",
+					Usage:   "domain name suffixes which mark trusted hosts",
+					EnvVars: []string{"RELAY_TRUSTED_DOMAINS"},
 				},
 				&cli.StringFlag{
 					Name:    "env",
@@ -141,21 +160,6 @@ func run(args []string) error {
 					Name:    "otel-exporter-otlp-endpoint",
 					Value:   "http://localhost:4328",
 					EnvVars: []string{"OTEL_EXPORTER_OTLP_ENDPOINT"},
-				},
-				// XXX: refactor this flag
-				&cli.BoolFlag{
-					Name:  "crawl-insecure-ws",
-					Usage: "when connecting to PDS instances, use ws:// instead of wss://",
-				},
-				&cli.StringSliceFlag{
-					Name:    "forward-crawl-requests",
-					Usage:   "comma-separated list of servers (eg https://example.com) to forward requestCrawl on to",
-					EnvVars: []string{"RELAY_FORWARD_CRAWL_REQUESTS", "RELAY_NEXT_CRAWLER"},
-				},
-				&cli.StringFlag{
-					Name:    "bsky-social-rate-limit-skip",
-					EnvVars: []string{"BSKY_SOCIAL_RATE_LIMIT_SKIP"},
-					Usage:   "ratelimit bypass secret token for *.bsky.social domains",
 				},
 			},
 		},
@@ -205,8 +209,9 @@ func runRelay(cctx *cli.Context) error {
 		SkipHandleVerification: true,
 		SkipDNSDomainSuffixes:  []string{".bsky.social"},
 		TryAuthoritativeDNS:    true,
+		PLCURL:                 cctx.String("plc-host"),
 	}
-	dir := identity.NewCacheDirectory(&baseDir, cctx.Int("did-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
+	dir := identity.NewCacheDirectory(&baseDir, cctx.Int("ident-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
 
 	persistDir := cctx.String("persist-dir")
 	os.MkdirAll(persistDir, os.ModePerm)
@@ -218,26 +223,17 @@ func runRelay(cctx *cli.Context) error {
 		return fmt.Errorf("setting up disk persister: %w", err)
 	}
 
-	svcConfig := DefaultServiceConfig()
 	relayConfig := relay.DefaultRelayConfig()
-	relayConfig.SSL = !cctx.Bool("crawl-insecure-ws")
-	relayConfig.ConcurrencyPerHost = cctx.Int64("host-concurrency")
+	relayConfig.ConcurrencyPerHost = cctx.Int("host-concurrency")
+	relayConfig.QueueDepthPerHost = cctx.Int("host-queue-depth")
 	relayConfig.DefaultRepoLimit = cctx.Int64("default-account-limit")
-	ratelimitBypass := cctx.String("bsky-social-rate-limit-skip")
-	// TODO: actually use ratelimitBypass for host checks?
-	_ = ratelimitBypass
-	nextCrawlers := cctx.StringSlice("forward-crawl-requests")
-	if len(nextCrawlers) > 0 {
-		nextCrawlerUrls := make([]*url.URL, len(nextCrawlers))
-		for i, tu := range nextCrawlers {
-			var err error
-			nextCrawlerUrls[i], err = url.Parse(tu)
-			if err != nil {
-				return fmt.Errorf("invalid crawl request forwarding URL: %w", err)
-			}
-		}
-		svcConfig.NextCrawlers = nextCrawlerUrls
-		logger.Info("crawl request forwarding enabled", "servers", svcConfig.NextCrawlers)
+	relayConfig.TrustedDomains = cctx.StringSlice("trusted-domains")
+
+	svcConfig := DefaultServiceConfig()
+	svcConfig.DisableRequestCrawl = !cctx.Bool("disable-request-crawl")
+	svcConfig.ForwardCrawlRequestHosts = cctx.StringSlice("forward-crawl-requests")
+	if len(svcConfig.ForwardCrawlRequestHosts) > 0 {
+		logger.Info("crawl request forwarding enabled", "servers", svcConfig.ForwardCrawlRequestHosts)
 	}
 	if cctx.IsSet("admin-password") {
 		svcConfig.AdminPassword = cctx.String("admin-password")

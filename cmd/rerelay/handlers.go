@@ -18,6 +18,10 @@ import (
 func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatproto.SyncRequestCrawl_Input, admin bool) error {
 	ctx := c.Request().Context()
 
+	if s.config.DisableRequestCrawl && !admin {
+		return c.JSON(http.StatusForbidden, xrpc.XRPCError{ErrStr: "Forbidden", Message: "public requestCrawl not allowed on this relay"})
+	}
+
 	hostname, noSSL, err := relay.ParseHostname(body.Hostname)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("hostname field empty or invalid: %s", body.Hostname)})
