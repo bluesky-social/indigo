@@ -203,6 +203,15 @@ func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*m
 	return accounts, nil
 }
 
+func (r *Relay) ListAccountTakedowns(ctx context.Context, cursor int64, limit int) ([]*models.Account, error) {
+
+	accounts := []*models.Account{}
+	if err := r.db.Model(&models.Account{}).Where("uid > ? AND status = ?", cursor, models.AccountStatusTakendown).Order("uid").Limit(limit).Find(&accounts).Error; err != nil {
+		return nil, err
+	}
+	return accounts, nil
+}
+
 func (r *Relay) UpsertAccountRepo(uid uint64, rev syntax.TID, commitCID, commitDataCID string) error {
 	return r.db.Exec("INSERT INTO account_repo (uid, rev, commit_cid, commit_data) VALUES (?, ?, ?, ?) ON CONFLICT (uid) DO UPDATE SET rev = EXCLUDED.rev, commit_cid = EXCLUDED.commit_cid, commit_data = EXCLUDED.commit_data", uid, rev, commitCID, commitDataCID).Error
 }

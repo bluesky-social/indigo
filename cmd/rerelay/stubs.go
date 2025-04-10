@@ -41,7 +41,7 @@ func (s *Service) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 	}
 
 	// func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context,body *comatproto.SyncRequestCrawl_Input) error
-	return s.handleComAtprotoSyncRequestCrawl(c, &body)
+	return s.handleComAtprotoSyncRequestCrawl(c, &body, false)
 }
 
 func (s *Service) HandleComAtprotoSyncListHosts(c echo.Context) error {

@@ -148,16 +148,15 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 	e.GET("/xrpc/com.atproto.sync.getRepoStatus", svc.HandleComAtprotoSyncGetRepoStatus)
 	e.GET("/xrpc/com.atproto.sync.getLatestCommit", svc.HandleComAtprotoSyncGetLatestCommit)
 
-	/* XXX: disabled while refactoring
 	admin := e.Group("/admin", svc.checkAdminAuth)
 
 	// Slurper-related Admin API
 	admin.GET("/subs/getUpstreamConns", svc.handleAdminGetUpstreamConns)
-	admin.GET("/subs/getEnabled", svc.handleAdminGetSubsEnabled)
-	admin.GET("/subs/perDayLimit", svc.handleAdminGetNewPDSPerDayRateLimit)
-	admin.POST("/subs/setEnabled", svc.handleAdminSetSubsEnabled)
 	admin.POST("/subs/killUpstream", svc.handleAdminKillUpstreamConn)
-	admin.POST("/subs/setPerDayLimit", svc.handleAdminSetNewPDSPerDayRateLimit)
+	admin.GET("/subs/getEnabled", svc.handleAdminGetSubsEnabled)
+	admin.POST("/subs/setEnabled", svc.handleAdminSetSubsEnabled)
+	admin.GET("/subs/perDayLimit", svc.handleAdminGetNewHostPerDayRateLimit)
+	admin.POST("/subs/setPerDayLimit", svc.handleAdminSetNewHostPerDayRateLimit)
 
 	// Domain-related Admin API
 	admin.GET("/subs/listDomainBans", svc.handleAdminListDomainBans)
@@ -165,21 +164,20 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 	admin.POST("/subs/unbanDomain", svc.handleAdminUnbanDomain)
 
 	// Repo-related Admin API
+	admin.GET("/repo/takedowns", svc.handleAdminListRepoTakeDowns)
 	admin.POST("/repo/takeDown", svc.handleAdminTakeDownRepo)
 	admin.POST("/repo/reverseTakedown", svc.handleAdminReverseTakedown)
-	admin.GET("/repo/takedowns", svc.handleAdminListRepoTakeDowns)
 
-	// PDS-related Admin API
+	// Host-related Admin API
+	admin.GET("/pds/list", svc.handleListHosts)
 	admin.POST("/pds/requestCrawl", svc.handleAdminRequestCrawl)
-	admin.GET("/pds/list", svc.handleListPDSs)
-	admin.POST("/pds/changeLimits", svc.handleAdminChangePDSRateLimits)
-	admin.POST("/pds/block", svc.handleBlockPDS)
-	admin.POST("/pds/unblock", svc.handleUnblockPDS)
-	admin.POST("/pds/addTrustedDomain", svc.handleAdminAddTrustedDomain)
+	// TODO: admin.POST("/pds/changeLimits", svc.handleAdminChangeHostRateLimits)
+	admin.POST("/pds/block", svc.handleBlockHost)
+	admin.POST("/pds/unblock", svc.handleUnblockHost)
+	// removed: admin.POST("/pds/addTrustedDomain", svc.handleAdminAddTrustedDomain)
 
 	// Consumer-related Admin API
 	admin.GET("/consumers/list", svc.handleAdminListConsumers)
-	*/
 
 	// In order to support booting on random ports in tests, we need to tell the
 	// Echo instance it's already got a port, and then use its StartServer
