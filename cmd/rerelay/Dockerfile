@@ -19,7 +19,7 @@ FROM node:18-alpine as web-builder
 
 WORKDIR /app
 
-COPY ts/bgs-dash /app/
+COPY cmd/rerelay/relay-admin-ui /app/
 
 RUN yarn install --frozen-lockfile
 
