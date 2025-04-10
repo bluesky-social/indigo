@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -50,7 +51,7 @@ func run(args []string) error {
 		},
 		&cli.StringFlag{
 			Name:    "upstream-host",
-			Value:   "bsky.network",
+			Value:   "http://localhost:2470",
 			Usage:   "simple hostname (no URI scheme) of the upstream host (eg, relay)",
 			EnvVars: []string{"ATP_RELAY_HOST", "RAINBOW_RELAY_HOST"},
 		},
@@ -175,6 +176,7 @@ func runSplitter(cctx *cli.Context) error {
 			UpstreamHost:  upstreamHost,
 			CursorFile:    cctx.String("cursor-file"),
 			PebbleOptions: &ppopts,
+			UserAgent:     fmt.Sprintf("rainbow/%s", versioninfo.Short()),
 		}
 		spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	} else {
@@ -203,7 +205,7 @@ func runSplitter(cctx *cli.Context) error {
 	runErr := make(chan error, 1)
 
 	go func() {
-		err := spl.Start(cctx.String("api-listen"))
+		err := spl.StartAPI(cctx.String("api-listen"))
 		runErr <- err
 	}()
 
