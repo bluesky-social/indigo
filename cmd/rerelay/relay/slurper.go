@@ -489,16 +489,15 @@ func (s *Slurper) persistCursors(ctx context.Context) error {
 	return err
 }
 
-// TODO: called from admin endpoint
-func (s *Slurper) GetActiveList() []string {
+func (s *Slurper) GetActiveSubHostnames() []string {
 	s.subsLk.Lock()
 	defer s.subsLk.Unlock()
-	var out []string
-	for k := range s.subs {
-		out = append(out, k)
-	}
 
-	return out
+	var keys []string
+	for k := range s.subs {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 func (s *Slurper) KillUpstreamConnection(hostname string, ban bool) error {
