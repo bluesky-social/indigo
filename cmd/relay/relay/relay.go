@@ -39,6 +39,7 @@ type Relay struct {
 type RelayConfig struct {
 	UserAgent             string
 	DefaultRepoLimit      int64
+	TrustedRepoLimit      int64
 	ConcurrencyPerHost    int
 	QueueDepthPerHost     int
 	LenientSyncValidation bool
@@ -54,6 +55,7 @@ func DefaultRelayConfig() *RelayConfig {
 	return &RelayConfig{
 		UserAgent:          "indigo-relay",
 		DefaultRepoLimit:   100,
+		TrustedRepoLimit:   10_000_000,
 		ConcurrencyPerHost: 40,
 		QueueDepthPerHost:  1000,
 		HostPerDayLimit:    50,
@@ -93,7 +95,6 @@ func NewRelay(db *gorm.DB, evtman *eventmgr.EventManager, dir identity.Directory
 	}
 
 	slurpConfig := DefaultSlurperConfig()
-	slurpConfig.DefaultRepoLimit = config.DefaultRepoLimit
 	slurpConfig.ConcurrencyPerHost = config.ConcurrencyPerHost
 	slurpConfig.QueueDepthPerHost = config.QueueDepthPerHost
 

@@ -37,8 +37,6 @@ type Host struct {
 	// maximum number of active accounts
 	AccountLimit int64 `gorm:"column:account_limit"`
 
-	// TODO: ThrottleUntil time.Time
-
 	// indicates this is a highly trusted host (PDS), and different rate limits apply
 	Trusted bool `gorm:"column:trusted;default:false"`
 
@@ -79,9 +77,8 @@ type Account struct {
 
 	// this is a reference to the ID field on Host; but it is not an explicit foreign key
 	HostID         uint64        `gorm:"column:host_id;not null"`
-	Status         AccountStatus `gorm:"column:status;default:active"`
-	UpstreamStatus AccountStatus `gorm:"column:upstream_status;default:active"`
-	ThrottleUntil  time.Time     `gorm:"column:throttle_util"`
+	Status         AccountStatus `gorm:"column:status;not null;default:active"`
+	UpstreamStatus AccountStatus `gorm:"column:upstream_status;not null;default:active"`
 }
 
 func (Account) TableName() string {
