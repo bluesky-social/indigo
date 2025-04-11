@@ -28,7 +28,7 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatpr
 	}
 
 	if noSSL && !s.relay.Config.SSL {
-		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: "This relay requires SSL"})
+		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: "this relay requires SSL"})
 	}
 
 	// TODO: could ensure that query and path are empty
@@ -47,7 +47,12 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatpr
 		}
 	}
 
-	if err := s.relay.HostChecker.CheckHost(ctx, hostname); err != nil {
+	hostURL := "https://" + hostname
+	if noSSL {
+		hostURL = "http://" + hostname
+	}
+
+	if err := s.relay.HostChecker.CheckHost(ctx, hostURL); err != nil {
 		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "HostNotFound", Message: fmt.Sprintf("host server unreachable: %s", err)})
 	}
 

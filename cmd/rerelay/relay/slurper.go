@@ -71,6 +71,7 @@ func DefaultSlurperConfig() *SlurperConfig {
 	// NOTE: many of these defaults are overruled by DefaultRelayConfig, or even process CLI arg defaults
 	return &SlurperConfig{
 		SSL:                   false,
+		NewHostPerDayLimit:    50,
 		DefaultPerSecondLimit: 50,
 		DefaultPerHourLimit:   2500,
 		DefaultPerDayLimit:    20_000,

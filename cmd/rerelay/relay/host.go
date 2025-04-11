@@ -84,6 +84,12 @@ func (r *Relay) PersistHostCursors(ctx context.Context, cursors *[]HostCursor) e
 //
 // Hostnames much be DNS names, not IP addresses
 func ParseHostname(raw string) (hostname string, noSSL bool, err error) {
+
+	// handle case of bare hostname
+	if !strings.Contains(raw, "://") {
+		raw = "https://" + raw
+	}
+
 	u, err := url.Parse(raw)
 	noSSL = false
 	switch u.Scheme {

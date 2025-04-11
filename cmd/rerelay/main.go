@@ -230,7 +230,7 @@ func runRelay(cctx *cli.Context) error {
 	relayConfig.TrustedDomains = cctx.StringSlice("trusted-domains")
 
 	svcConfig := DefaultServiceConfig()
-	svcConfig.DisableRequestCrawl = !cctx.Bool("disable-request-crawl")
+	svcConfig.DisableRequestCrawl = cctx.Bool("disable-request-crawl")
 	svcConfig.ForwardCrawlRequestHosts = cctx.StringSlice("forward-crawl-requests")
 	if len(svcConfig.ForwardCrawlRequestHosts) > 0 {
 		logger.Info("crawl request forwarding enabled", "servers", svcConfig.ForwardCrawlRequestHosts)

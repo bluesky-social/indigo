@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -171,7 +172,21 @@ type rateLimit struct {
 }
 
 type hostInfo struct {
-	models.Host
+	// fields from old models.PDS
+	ID               uint64
+	CreatedAt        time.Time
+	Host             string
+	SSL              bool
+	Cursor           int64
+	Registered       bool
+	Blocked          bool
+	RateLimit        float64
+	CrawlRateLimit   float64
+	RepoCount        int64
+	RepoLimit        int64
+	HourlyEventLimit int64
+	DailyEventLimit  int64
+
 	HasActiveConnection    bool      `json:"HasActiveConnection"`
 	EventsSeenSinceStartup uint64    `json:"EventsSeenSinceStartup"`
 	PerSecondEventRate     rateLimit `json:"PerSecondEventRate"`
@@ -189,18 +204,33 @@ func (s *Service) handleListHosts(c echo.Context) error {
 		return err
 	}
 
-	hostInfos := make([]hostInfo, len(hosts))
-
-	var activeHosts map[string]bool
 	activeHostnames := s.relay.Slurper.GetActiveSubHostnames()
+	activeHosts := make(map[string]bool, len(activeHostnames))
 	for _, hostname := range activeHostnames {
 		activeHosts[hostname] = true
 	}
 
+	hostInfos := make([]hostInfo, len(hosts))
 	for i, host := range hosts {
-		hostInfos[i].Host = *host
 		_, isActive := activeHosts[host.Hostname]
-		hostInfos[i].HasActiveConnection = isActive
+		hostInfos[i] = hostInfo{
+			ID:         host.ID,
+			CreatedAt:  host.CreatedAt,
+			Host:       host.Hostname,
+			SSL:        !host.NoSSL,
+			Cursor:     host.LastSeq,
+			Registered: host.Status == models.HostStatusActive, // is this right?
+			Blocked:    host.Status == models.HostStatusBanned,
+			//TODO: RateLimit
+			//TODO: CrawlRateLimit
+			RepoCount: host.AccountCount,
+			RepoLimit: host.AccountLimit,
+			//HourlyEventLimit
+			//DailyEventLimit
+
+			HasActiveConnection: isActive,
+			UserCount:           host.AccountCount,
+		}
 
 		// pull event counter metrics from prometheus
 		var m = &dto.Metric{}
@@ -209,8 +239,6 @@ func (s *Service) handleListHosts(c echo.Context) error {
 			continue
 		}
 		hostInfos[i].EventsSeenSinceStartup = uint64(m.Counter.GetValue())
-
-		hostInfos[i].UserCount = host.AccountCount
 
 		/* XXX: compute these from account limit
 		hostInfos[i].PerSecondEventRate = rateLimit{
