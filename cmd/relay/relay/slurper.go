@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
+	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -39,8 +40,6 @@ type Slurper struct {
 	LimitMtx sync.RWMutex
 	Limiters map[uint64]*Limiters
 
-	NewHostPerDayLimiter *slidingwindow.Limiter
-
 	shutdownChan   chan bool
 	shutdownResult chan error
 
@@ -54,13 +53,13 @@ type Limiters struct {
 }
 
 type SlurperConfig struct {
+	UserAgent                 string
 	DefaultPerSecondLimit     int64
 	DefaultPerHourLimit       int64
 	DefaultPerDayLimit        int64
 	DefaultRepoLimit          int64
 	ConcurrencyPerHost        int
 	QueueDepthPerHost         int
-	NewHostPerDayLimit        int64
 	PersistCursorPeriod       time.Duration
 	PersistCursorCallback     PersistCursorFunc
 	PersistHostStatusCallback PersistHostStatusFunc
@@ -69,7 +68,7 @@ type SlurperConfig struct {
 func DefaultSlurperConfig() *SlurperConfig {
 	// NOTE: many of these defaults are overruled by DefaultRelayConfig, or even process CLI arg defaults
 	return &SlurperConfig{
-		NewHostPerDayLimit:    50,
+		UserAgent:             "indigo-relay",
 		DefaultPerSecondLimit: 50,
 		DefaultPerHourLimit:   2500,
 		DefaultPerDayLimit:    20_000,
@@ -113,18 +112,14 @@ func NewSlurper(processCallback ProcessMessageFunc, config *SlurperConfig, logge
 		logger = slog.Default()
 	}
 
-	// NOTE: discarded second argument is not an `error` type
-	newHostPerDayLimiter, _ := slidingwindow.NewLimiter(time.Hour*24, config.NewHostPerDayLimit, windowFunc)
-
 	s := &Slurper{
-		processCallback:      processCallback,
-		Config:               config,
-		subs:                 make(map[string]*Subscription),
-		Limiters:             make(map[uint64]*Limiters),
-		shutdownChan:         make(chan bool),
-		shutdownResult:       make(chan error),
-		NewHostPerDayLimiter: newHostPerDayLimiter,
-		logger:               logger,
+		processCallback: processCallback,
+		Config:          config,
+		subs:            make(map[string]*Subscription),
+		Limiters:        make(map[uint64]*Limiters),
+		shutdownChan:    make(chan bool),
+		shutdownResult:  make(chan error),
+		logger:          logger,
 	}
 
 	// Start a goroutine to persist cursors (both periodically and and on shutdown)
@@ -274,7 +269,9 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		if newHost {
 			u = fmt.Sprintf("%s?cursor=%d", u, cursor)
 		}
-		conn, res, err := d.DialContext(ctx, u, nil)
+		hdr := make(http.Header)
+		hdr.Add("User-Agent", s.Config.UserAgent)
+		conn, res, err := d.DialContext(ctx, u, hdr)
 		if err != nil {
 			s.logger.Warn("dialing failed", "host", host.Hostname, "err", err, "backoff", backoff)
 			time.Sleep(sleepForBackoff(backoff))

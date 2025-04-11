@@ -22,7 +22,9 @@ const (
 )
 
 type Host struct {
-	ID        uint64 `gorm:"column:id;primarykey"`
+	ID uint64 `gorm:"column:id;primarykey"`
+
+	// these fields are automatically managed by gorm (by convention)
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
@@ -37,15 +39,16 @@ type Host struct {
 
 	// TODO: ThrottleUntil time.Time
 
-	// indicates this is a highly trusted host (PDS) and different limits apply
+	// indicates this is a highly trusted host (PDS), and different rate limits apply
 	Trusted bool `gorm:"column:trusted;default:false"`
 
-	// enum of account status
 	Status HostStatus `gorm:"column:status;default:active"`
 
-	// negative number indicates no sequence recorded
-	LastSeq      int64 `gorm:"column:last_seq"`
-	AccountCount int64 `gorm:"column:account_count"`
+	// the last sequence number persisted for this host. updated periodically, and at shutdown. negative number indicates no sequence recorded
+	LastSeq int64 `gorm:"column:last_seq;default:-1"`
+
+	// represents the number of accounts on the host, minus any in "deleted" state
+	AccountCount int64 `gorm:"column:account_count;default:0"`
 }
 
 func (Host) TableName() string {
@@ -71,8 +74,10 @@ var (
 )
 
 type Account struct {
-	UID            uint64        `gorm:"column:uid;primarykey"`
-	DID            string        `gorm:"column:did;uniqueIndex;not null"`
+	UID uint64 `gorm:"column:uid;primarykey"`
+	DID string `gorm:"column:did;uniqueIndex;not null"`
+
+	// this is a reference to the ID field on Host; but it is not an explicit foreign key
 	HostID         uint64        `gorm:"column:host_id;not null"`
 	Status         AccountStatus `gorm:"column:status;default:active"`
 	UpstreamStatus AccountStatus `gorm:"column:upstream_status;default:active"`
@@ -85,10 +90,13 @@ func (Account) TableName() string {
 
 // This is a small extension table to `Account`, which holds fast-changing fields updated on every firehose event.
 type AccountRepo struct {
+	// references Account.UID, but not set up as a foreign key
 	UID uint64 `gorm:"column:uid;primarykey"`
 	Rev string `gorm:"column:rev;not null"`
+
 	// The CID of the entire signed commit block. Sometimes called the "head"
 	CommitCID string `gorm:"column:commit_cid;not null"`
+
 	// The CID of the top of the repo MST, which is the 'data' field within the commit block. This becomes 'prevData'
 	CommitData string `gorm:"column:commit_data;not null"`
 }
