@@ -233,6 +233,7 @@ func runRelay(cctx *cli.Context) error {
 	}
 
 	relayConfig := relay.DefaultRelayConfig()
+	relayConfig.UserAgent = fmt.Sprintf("indigo-relay/%s", versioninfo.Short())
 	relayConfig.ConcurrencyPerHost = cctx.Int("host-concurrency")
 	relayConfig.QueueDepthPerHost = cctx.Int("host-queue-depth")
 	relayConfig.DefaultRepoLimit = cctx.Int64("default-account-limit")

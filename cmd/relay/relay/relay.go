@@ -8,6 +8,7 @@ import (
 	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
 	"github.com/bluesky-social/indigo/cmd/relay/stream/eventmgr"
 
+	"github.com/RussellLuo/slidingwindow"
 	"github.com/hashicorp/golang-lru/v2"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
@@ -24,11 +25,6 @@ type Relay struct {
 	HostChecker HostChecker
 	Config      RelayConfig
 
-	// accountLk serializes a section of syncHostAccount()
-	// TODO: at some point we will want to lock specific DIDs, this lock as is
-	// is overly broad, but i dont expect it to be a bottleneck for now
-	accountLk sync.Mutex
-
 	// Management of Socket Consumers
 	consumersLk    sync.RWMutex
 	nextConsumerID uint64
@@ -36,14 +32,18 @@ type Relay struct {
 
 	// Account cache
 	accountCache *lru.Cache[string, *models.Account]
+
+	HostPerDayLimiter *slidingwindow.Limiter
 }
 
 type RelayConfig struct {
+	UserAgent             string
 	DefaultRepoLimit      int64
 	ConcurrencyPerHost    int
 	QueueDepthPerHost     int
 	LenientSyncValidation bool
 	TrustedDomains        []string
+	HostPerDayLimit       int64
 
 	// If true, skip validation that messages for a given account (DID) are coming from the expected upstream host (PDS). Currently only used in tests; might be used for intermediate relays in the future.
 	SkipAccountHostCheck bool
@@ -52,9 +52,11 @@ type RelayConfig struct {
 func DefaultRelayConfig() *RelayConfig {
 	// NOTE: many of these defaults are clobbered by CLI arguments
 	return &RelayConfig{
+		UserAgent:          "indigo-relay",
 		DefaultRepoLimit:   100,
 		ConcurrencyPerHost: 40,
 		QueueDepthPerHost:  1000,
+		HostPerDayLimit:    50,
 	}
 }
 
@@ -66,7 +68,9 @@ func NewRelay(db *gorm.DB, evtman *eventmgr.EventManager, dir identity.Directory
 
 	uc, _ := lru.New[string, *models.Account](2_000_000)
 
-	hc := NewHostClient("relay") // TODO: pass-through a user-agent from config?
+	hc := NewHostClient(config.UserAgent)
+
+	// NOTE: discarded second argument is not an `error` type
 
 	r := &Relay{
 		db:          db,
@@ -80,6 +84,8 @@ func NewRelay(db *gorm.DB, evtman *eventmgr.EventManager, dir identity.Directory
 		consumers:   make(map[uint64]*SocketConsumer),
 
 		accountCache: uc,
+
+		HostPerDayLimiter: perDayLimiter(config.HostPerDayLimit),
 	}
 
 	if err := r.MigrateDatabase(); err != nil {

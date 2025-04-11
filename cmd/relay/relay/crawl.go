@@ -12,7 +12,7 @@ import (
 // Must be called with the slurper lock held
 func (r *Relay) canSlurpHost(hostname string) bool {
 	// Check if we're over the limit for new hosts today
-	if !r.Slurper.NewHostPerDayLimiter.Allow() {
+	if !r.HostPerDayLimiter.Allow() {
 		return false
 	}
 

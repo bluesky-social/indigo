@@ -48,7 +48,7 @@ func (s *Service) handleAdminGetSubsEnabled(c echo.Context) error {
 
 func (s *Service) handleAdminGetNewHostPerDayRateLimit(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]int64{
-		"limit": s.relay.Slurper.NewHostPerDayLimiter.Limit(),
+		"limit": s.relay.HostPerDayLimiter.Limit(),
 	})
 }
 
@@ -58,7 +58,7 @@ func (s *Service) handleAdminSetNewHostPerDayRateLimit(c echo.Context) error {
 		return &echo.HTTPError{Code: http.StatusBadRequest, Message: fmt.Errorf("failed to parse limit: %w", err).Error()}
 	}
 
-	s.relay.Slurper.NewHostPerDayLimiter.SetLimit(limit)
+	s.relay.HostPerDayLimiter.SetLimit(limit)
 
 	// TODO: forward to SiblingRelayHosts
 	return c.JSON(http.StatusOK, map[string]any{
