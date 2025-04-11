@@ -47,11 +47,12 @@ type Splitter struct {
 }
 
 type SplitterConfig struct {
-	UpstreamHost  string
-	CursorFile    string
-	UserAgent     string
-	PebbleOptions *pebblepersist.PebblePersistOptions
-	Logger        *slog.Logger
+	UpstreamHost      string
+	CollectionDirHost string
+	CursorFile        string
+	UserAgent         string
+	PebbleOptions     *pebblepersist.PebblePersistOptions
+	Logger            *slog.Logger
 }
 
 func (sc *SplitterConfig) XrpcRootUrl() string {
@@ -197,7 +198,9 @@ func (s *Splitter) startWithListener(listen net.Listener) error {
 	e.GET("/xrpc/com.atproto.sync.listHosts", s.ProxyRequestUpstream)
 	e.GET("/xrpc/com.atproto.sync.getHostStatus", s.ProxyRequestUpstream)
 	e.GET("/xrpc/com.atproto.sync.getRepo", s.ProxyRequestUpstream)
-	// TODO: proxy listReposByCollection to a different host?
+
+	// proxy endpoint to collectiondir
+	e.GET("/xrpc/com.atproto.sync.listReposByCollection", s.ProxyRequestCollectionDir)
 
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
 	e.GET("/_health", s.HandleHealthCheck)
