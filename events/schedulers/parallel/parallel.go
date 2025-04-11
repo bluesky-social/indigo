@@ -11,7 +11,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Scheduler is a parallel scheduler that will run work on a fixed number of workers
+// Scheduler is a parallel scheduler that will run work on a fixed number of workers.
+//
+// Notably, this scheduler uses a per-DID task tracker to ensure that events are not processed concurrently for the same account. This does *not* mean that all events for the same DID are consistently processed by the same worker.
 type Scheduler struct {
 	maxConcurrency int
 	maxQueue       int
