@@ -69,11 +69,18 @@ func (r *Relay) UpdateHostStatus(ctx context.Context, hostID uint64, status mode
 
 func (r *Relay) UpdateHostAccountLimit(ctx context.Context, hostID uint64, accountLimit int64) error {
 
+	if accountLimit < 0 {
+		return fmt.Errorf("negative account limit")
+	}
+
 	host, err := r.GetHostByID(ctx, hostID)
 	if err != nil {
 		return err
 	}
 
+	// TODO: manage accounts marked as "host-throttled" when host-level account limits change (all in a transaction)
+	// If limit increased: potentially mark some "host-throttled" accounts as "active" (ordered by UID ascending)
+	// If limit decreased: potentially mark some "active" accounts as "host-throttled" (ordered by UID descending?)
 	if err := r.db.Model(models.Host{}).Where("id = ?", hostID).Update("account_limit", accountLimit).Error; err != nil {
 		return err
 	}
