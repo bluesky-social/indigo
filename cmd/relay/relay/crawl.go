@@ -2,37 +2,9 @@ package relay
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
 )
-
-// Checks whether a host is allowed to be subscribed to
-//
-// Must be called with the slurper lock held
-func (r *Relay) canSlurpHost(hostname string) bool {
-	// Check if we're over the limit for new hosts today
-	if !r.HostPerDayLimiter.Allow() {
-		return false
-	}
-
-	// Check if the host is a trusted domain
-	for _, d := range r.Config.TrustedDomains {
-		// If the domain starts with a *., it's a wildcard
-		if strings.HasPrefix(d, "*.") {
-			// Cut off the * so we have .domain.com
-			if strings.HasSuffix(hostname, strings.TrimPrefix(d, "*")) {
-				return true
-			}
-		} else {
-			if hostname == d {
-				return true
-			}
-		}
-	}
-
-	return true
-}
 
 func (r *Relay) SubscribeToHost(hostname string, noSSL, adminForce bool) error {
 
@@ -50,21 +22,28 @@ func (r *Relay) SubscribeToHost(hostname string, noSSL, adminForce bool) error {
 
 	if host.ID == 0 {
 		newHost = true
-		if !adminForce && !r.canSlurpHost(hostname) {
+
+		// check if we're over the limit for new hosts today (bypass if admin mode)
+		if !adminForce && !r.HostPerDayLimiter.Allow() {
 			// TODO: is this the correct error code?
 			return ErrNewSubsDisabled
 		}
 
-		// XXX: new host daily rate-limit
+		accountLimit := r.Config.DefaultRepoLimit
+		trusted := IsTrustedHostname(hostname, r.Config.TrustedDomains)
+		if trusted {
+			accountLimit = r.Config.TrustedRepoLimit
+		}
 
 		host = models.Host{
 			Hostname:     hostname,
 			NoSSL:        noSSL,
 			Status:       models.HostStatusActive,
-			AccountLimit: r.Config.DefaultRepoLimit,
+			Trusted:      trusted,
+			AccountLimit: accountLimit,
 		}
 
-		if err := r.db.Create(&newHost).Error; err != nil {
+		if err := r.db.Create(&host).Error; err != nil {
 			return err
 		}
 

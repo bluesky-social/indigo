@@ -67,6 +67,24 @@ func (r *Relay) UpdateHostStatus(ctx context.Context, hostID uint64, status mode
 	return r.db.Model(models.Host{}).Where("id = ?", hostID).Update("status", status).Error
 }
 
+func (r *Relay) UpdateHostAccountLimit(ctx context.Context, hostID uint64, accountLimit int64) error {
+
+	host, err := r.GetHostByID(ctx, hostID)
+	if err != nil {
+		return err
+	}
+
+	if err := r.db.Model(models.Host{}).Where("id = ?", hostID).Update("account_limit", accountLimit).Error; err != nil {
+		return err
+	}
+
+	if r.Slurper.CheckIfSubscribed(host.Hostname) {
+		return r.Slurper.UpdateLimiters(host.Hostname, accountLimit, host.Trusted)
+	}
+
+	return nil
+}
+
 // Persists all the host cursors in a single database transaction
 //
 // Note that in some situations this may have partial success.

@@ -37,30 +37,32 @@ type Slurper struct {
 	subsLk sync.Mutex
 	subs   map[string]*Subscription
 
-	LimitMtx sync.RWMutex
-	Limiters map[uint64]*Limiters
-
 	shutdownChan   chan bool
 	shutdownResult chan error
 
 	logger *slog.Logger
 }
 
-type Limiters struct {
+type StreamLimiters struct {
 	PerSecond *slidingwindow.Limiter
 	PerHour   *slidingwindow.Limiter
 	PerDay    *slidingwindow.Limiter
 }
 
 type SlurperConfig struct {
-	UserAgent                 string
-	DefaultPerSecondLimit     int64
-	DefaultPerHourLimit       int64
-	DefaultPerDayLimit        int64
-	DefaultRepoLimit          int64
-	ConcurrencyPerHost        int
-	QueueDepthPerHost         int
-	PersistCursorPeriod       time.Duration
+	UserAgent           string
+	ConcurrencyPerHost  int
+	QueueDepthPerHost   int
+	PersistCursorPeriod time.Duration
+
+	BaselinePerSecondLimit int64
+	BaselinePerHourLimit   int64
+	BaselinePerDayLimit    int64
+	TrustedPerSecondLimit  int64
+	TrustedPerHourLimit    int64
+	TrustedPerDayLimit     int64
+
+	// callback functions. technically optional but effectively required
 	PersistCursorCallback     PersistCursorFunc
 	PersistHostStatusCallback PersistHostStatusFunc
 }
@@ -68,14 +70,20 @@ type SlurperConfig struct {
 func DefaultSlurperConfig() *SlurperConfig {
 	// NOTE: many of these defaults are overruled by DefaultRelayConfig, or even process CLI arg defaults
 	return &SlurperConfig{
-		UserAgent:             "indigo-relay",
-		DefaultPerSecondLimit: 50,
-		DefaultPerHourLimit:   2500,
-		DefaultPerDayLimit:    20_000,
-		DefaultRepoLimit:      100,
-		ConcurrencyPerHost:    40,
-		QueueDepthPerHost:     1000,
-		PersistCursorPeriod:   time.Second * 10,
+		UserAgent:           "indigo-relay",
+		ConcurrencyPerHost:  40,
+		QueueDepthPerHost:   1000,
+		PersistCursorPeriod: time.Second * 4,
+
+		// these are the minimum event rates for regular public hosts
+		BaselinePerSecondLimit: 50,
+		BaselinePerHourLimit:   2500,
+		BaselinePerDayLimit:    20_000,
+
+		// these are the fixed event rates for trusted hosts (eg, same service provider as relay)
+		TrustedPerSecondLimit: 5_000,
+		TrustedPerHourLimit:   50_000_000,
+		TrustedPerDayLimit:    500_000_000,
 	}
 }
 
@@ -84,7 +92,7 @@ type Subscription struct {
 	Hostname string
 	HostID   uint64
 	LastSeq  atomic.Int64
-	Limiters *Limiters // XXX: is this used? or only the separate limiters on Slurper?
+	Limiters *StreamLimiters
 
 	lk     sync.RWMutex
 	ctx    context.Context
@@ -116,7 +124,6 @@ func NewSlurper(processCallback ProcessMessageFunc, config *SlurperConfig, logge
 		processCallback: processCallback,
 		Config:          config,
 		subs:            make(map[string]*Subscription),
-		Limiters:        make(map[uint64]*Limiters),
 		shutdownChan:    make(chan bool),
 		shutdownResult:  make(chan error),
 		logger:          logger,
@@ -145,50 +152,46 @@ func windowFunc() (slidingwindow.Window, slidingwindow.StopFunc) {
 	return slidingwindow.NewLocalWindow()
 }
 
-func (s *Slurper) GetLimiters(hostID uint64) *Limiters {
-	s.LimitMtx.RLock()
-	defer s.LimitMtx.RUnlock()
-	return s.Limiters[hostID]
-}
+func (s *Slurper) NewStreamLimiters(accountLimit int64, trusted bool) *StreamLimiters {
 
-func (s *Slurper) GetOrCreateLimiters(hostID uint64) *Limiters {
-	s.LimitMtx.RLock()
-	defer s.LimitMtx.RUnlock()
-	lim, ok := s.Limiters[hostID]
-	if !ok {
-		perSec, _ := slidingwindow.NewLimiter(time.Second, s.Config.DefaultPerSecondLimit, windowFunc)
-		perHour, _ := slidingwindow.NewLimiter(time.Hour, s.Config.DefaultPerHourLimit, windowFunc)
-		perDay, _ := slidingwindow.NewLimiter(time.Hour*24, s.Config.DefaultPerDayLimit, windowFunc)
-		lim = &Limiters{
-			PerSecond: perSec,
-			PerHour:   perHour,
-			PerDay:    perDay,
-		}
-		s.Limiters[hostID] = lim
+	perSecondCount := s.Config.BaselinePerSecondLimit + (accountLimit / 1000)
+	perHourCount := s.Config.BaselinePerHourLimit + accountLimit
+	perDayCount := s.Config.BaselinePerDayLimit + accountLimit*10
+
+	if trusted {
+		perSecondCount = s.Config.TrustedPerSecondLimit
+		perHourCount = s.Config.TrustedPerHourLimit
+		perDayCount = s.Config.TrustedPerDayLimit
 	}
 
-	return lim
+	perSec, _ := slidingwindow.NewLimiter(time.Second, perSecondCount, windowFunc)
+	perHour, _ := slidingwindow.NewLimiter(time.Hour, perHourCount, windowFunc)
+	perDay, _ := slidingwindow.NewLimiter(time.Hour*24, perDayCount, windowFunc)
+	return &StreamLimiters{
+		PerSecond: perSec,
+		PerHour:   perHour,
+		PerDay:    perDay,
+	}
 }
 
-func (s *Slurper) SetLimits(hostID uint64, perSecLimit int64, perHourLimit int64, perDayLimit int64) {
-	s.LimitMtx.Lock()
-	defer s.LimitMtx.Unlock()
-	lim, ok := s.Limiters[hostID]
+func (s *Slurper) UpdateLimiters(hostname string, accountLimit int64, trusted bool) error {
+
+	// easiest way to re-compute is generate a new set of limiters
+	newLims := s.NewStreamLimiters(accountLimit, trusted)
+
+	s.subsLk.Lock()
+	defer s.subsLk.Unlock()
+
+	sub, ok := s.subs[hostname]
 	if !ok {
-		perSec, _ := slidingwindow.NewLimiter(time.Second, perSecLimit, windowFunc)
-		perHour, _ := slidingwindow.NewLimiter(time.Hour, perHourLimit, windowFunc)
-		perDay, _ := slidingwindow.NewLimiter(time.Hour*24, perDayLimit, windowFunc)
-		lim = &Limiters{
-			PerSecond: perSec,
-			PerHour:   perHour,
-			PerDay:    perDay,
-		}
-		s.Limiters[hostID] = lim
+		return fmt.Errorf("updating limits for %s: %w", hostname, ErrNoActiveConnection)
 	}
 
-	lim.PerSecond.SetLimit(perSecLimit)
-	lim.PerHour.SetLimit(perHourLimit)
-	lim.PerDay.SetLimit(perDayLimit)
+	sub.Limiters.PerSecond.SetLimit(newLims.PerSecond.Limit())
+	sub.Limiters.PerHour.SetLimit(newLims.PerHour.Limit())
+	sub.Limiters.PerDay.SetLimit(newLims.PerDay.Limit())
+
+	return nil
 }
 
 // Shutdown shuts down the slurper
@@ -220,12 +223,12 @@ func (s *Slurper) Subscribe(host *models.Host, newHost bool) error {
 	sub := Subscription{
 		Hostname: host.Hostname,
 		HostID:   host.ID,
+		Limiters: s.NewStreamLimiters(host.AccountLimit, host.Trusted),
 		ctx:      ctx,
 		cancel:   cancel,
 	}
+	sub.LastSeq.Store(host.LastSeq)
 	s.subs[host.Hostname] = &sub
-
-	s.GetOrCreateLimiters(host.ID)
 
 	go s.subscribeWithRedialer(ctx, host, &sub, newHost)
 
@@ -266,7 +269,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		}
 
 		u := host.SubscribeReposURL()
-		if newHost {
+		if !newHost {
 			u = fmt.Sprintf("%s?cursor=%d", u, cursor)
 		}
 		hdr := make(http.Header)
@@ -434,12 +437,10 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 		},
 	}
 
-	lims := s.GetOrCreateLimiters(sub.HostID)
-
 	limiters := []*slidingwindow.Limiter{
-		lims.PerSecond,
-		lims.PerHour,
-		lims.PerDay,
+		sub.Limiters.PerSecond,
+		sub.Limiters.PerHour,
+		sub.Limiters.PerDay,
 	}
 
 	// NOTE: this is where limiters get injected and enforced

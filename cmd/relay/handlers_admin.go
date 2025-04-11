@@ -424,8 +424,8 @@ func (s *Service) handleAdminUnbanDomain(c echo.Context) error {
 }
 
 type RateLimitChangeRequest struct {
-	Host string `json:"host"`
-	relay.HostRates
+	Host      string `json:"host"`
+	RepoLimit int64  `json:"repo_limit,omitempty"`
 }
 
 /* XXX: finish rate limit stuff

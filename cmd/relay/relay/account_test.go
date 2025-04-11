@@ -3,6 +3,8 @@ package relay
 import (
 	"testing"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,7 +16,7 @@ type DIDFixture struct {
 func TestNormalizeDID(t *testing.T) {
 	assert := assert.New(t)
 
-	fixtures := []HostnameFixture{
+	fixtures := []DIDFixture{
 		DIDFixture{Val: "did:web:example.com", Norm: "did:web:example.com"},
 		DIDFixture{Val: "did:web:example.com", Norm: "did:web:example.com"},
 		DIDFixture{Val: "did:web:EXAMPLE.com", Norm: "did:web:example.com"},
@@ -23,6 +25,6 @@ func TestNormalizeDID(t *testing.T) {
 	}
 
 	for _, f := range fixtures {
-		assert.Equal(f.Norm, NormalizeDID(f.Val))
+		assert.Equal(f.Norm, NormalizeDID(syntax.DID(f.Val)).String())
 	}
 }
