@@ -20,7 +20,7 @@ type APIClient struct {
 // High-level helper for simple JSON "Query" API calls.
 //
 // Does not work with all API endpoints. For more control, use the Do() method with APIRequest.
-func (c *APIClient) Get(ctx context.Context, endpoint syntax.NSID, params map[string]string) (*json.RawMessage, error) {
+func (c *APIClient) Get(ctx context.Context, endpoint syntax.NSID, params map[string]string, out any) error {
 	hdr := map[string]string{
 		"Accept": "application/json",
 	}
@@ -33,7 +33,7 @@ func (c *APIClient) Get(ctx context.Context, endpoint syntax.NSID, params map[st
 	}
 	resp, err := c.Do(ctx, req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	defer resp.Body.Close()
@@ -41,25 +41,28 @@ func (c *APIClient) Get(ctx context.Context, endpoint syntax.NSID, params map[st
 	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
 		var eb ErrorBody
 		if err := json.NewDecoder(resp.Body).Decode(&eb); err != nil {
-			return nil, &APIError{StatusCode: resp.StatusCode}
+			return &APIError{StatusCode: resp.StatusCode}
 		}
-		return nil, eb.APIError(resp.StatusCode)
+		return eb.APIError(resp.StatusCode)
 	}
 
-	var ret json.RawMessage
-	if err := json.NewDecoder(resp.Body).Decode(&ret); err != nil {
-		return nil, fmt.Errorf("expected JSON response body: %w", err)
+	if out == nil {
+		return nil
 	}
-	return &ret, nil
+
+	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		return fmt.Errorf("failed decoding JSON response body: %w", err)
+	}
+	return nil
 }
 
 // High-level helper for simple JSON-to-JSON "Procedure" API calls.
 //
 // Does not work with all API endpoints. For more control, use the Do() method with APIRequest.
-func (c *APIClient) Post(ctx context.Context, endpoint syntax.NSID, body any) (*json.RawMessage, error) {
+func (c *APIClient) Post(ctx context.Context, endpoint syntax.NSID, body any, out any) error {
 	bodyJSON, err := json.Marshal(body)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	hdr := map[string]string{
 		"Accept":       "application/json",
@@ -74,7 +77,7 @@ func (c *APIClient) Post(ctx context.Context, endpoint syntax.NSID, body any) (*
 	}
 	resp, err := c.Do(ctx, req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	defer resp.Body.Close()
@@ -82,16 +85,19 @@ func (c *APIClient) Post(ctx context.Context, endpoint syntax.NSID, body any) (*
 	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
 		var eb ErrorBody
 		if err := json.NewDecoder(resp.Body).Decode(&eb); err != nil {
-			return nil, &APIError{StatusCode: resp.StatusCode}
+			return &APIError{StatusCode: resp.StatusCode}
 		}
-		return nil, eb.APIError(resp.StatusCode)
+		return eb.APIError(resp.StatusCode)
 	}
 
-	var ret json.RawMessage
-	if err := json.NewDecoder(resp.Body).Decode(&ret); err != nil {
-		return nil, fmt.Errorf("expected JSON response body: %w", err)
+	if out == nil {
+		return nil
 	}
-	return &ret, nil
+
+	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		return fmt.Errorf("failed decoding JSON response body: %w", err)
+	}
+	return nil
 }
 
 // Full-power method for atproto API requests.
