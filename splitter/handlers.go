@@ -84,18 +84,31 @@ func (s *Splitter) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 
 // Proxies a request to the single upstream (relay)
 func (s *Splitter) ProxyRequestUpstream(c echo.Context) error {
+	u, err := url.Parse(s.conf.XrpcRootUrl())
+	if err != nil {
+		return err
+	}
+	return s.ProxyRequest(c, u.Host, u.Scheme)
+}
+
+// Proxies a request to the collectiondir
+func (s *Splitter) ProxyRequestCollectionDir(c echo.Context) error {
+	u, err := url.Parse(s.conf.CollectionDirHost)
+	if err != nil {
+		return err
+	}
+	return s.ProxyRequest(c, u.Host, u.Scheme)
+}
+
+func (s *Splitter) ProxyRequest(c echo.Context, hostname, scheme string) error {
 
 	req := c.Request()
 	respWriter := c.Response()
 
 	u := req.URL
-	usu, err := url.Parse(s.conf.XrpcRootUrl())
-	if err != nil {
-		return err
-	}
-	u.Scheme = usu.Scheme
-	u.Host = usu.Host
-	upstreamReq, err := http.NewRequest(req.Method, req.URL.String(), req.Body)
+	u.Scheme = scheme
+	u.Host = hostname
+	upstreamReq, err := http.NewRequest(req.Method, u.String(), req.Body)
 	if err != nil {
 		s.logger.Warn("proxy request failed", "err", err)
 		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: "failed to proxy to upstream relay"})

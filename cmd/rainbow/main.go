@@ -52,7 +52,7 @@ func run(args []string) error {
 		&cli.StringFlag{
 			Name:    "upstream-host",
 			Value:   "http://localhost:2470",
-			Usage:   "simple hostname (no URI scheme) of the upstream host (eg, relay)",
+			Usage:   "URL (schema and hostname, no path) of the upstream host (eg, relay)",
 			EnvVars: []string{"ATP_RELAY_HOST", "RAINBOW_RELAY_HOST"},
 		},
 		&cli.StringFlag{
@@ -90,9 +90,16 @@ func run(args []string) error {
 			EnvVars: []string{"RAINBOW_PERSIST_BYTES", "SPLITTER_PERSIST_BYTES"},
 		},
 		&cli.StringSliceFlag{
+			// TODO: better name for this argument
 			Name:    "next-crawler",
-			Usage:   "forward POST requestCrawl to this url, should be machine root url and not xrpc/requestCrawl, comma separated list",
+			Usage:   "forward POST requestCrawl to these hosts (schema and host, no path) in addition to upstream-host. Comma-separated or multiple flags",
 			EnvVars: []string{"RAINBOW_NEXT_CRAWLER", "RELAY_NEXT_CRAWLER"},
+		},
+		&cli.StringFlag{
+			Name:    "collectiondir-host",
+			Value:   "http://localhost:2510",
+			Usage:   "host (schema and hostname, no path) of upstream collectiondir instance, for com.atproto.sync.listReposByCollection",
+			EnvVars: []string{"RAINBOW_COLLECTIONDIR_HOST"},
 		},
 		&cli.StringFlag{
 			Name:    "env",
@@ -101,8 +108,9 @@ func run(args []string) error {
 			EnvVars: []string{"ENVIRONMENT"},
 		},
 		&cli.BoolFlag{
-			Name:  "enable-otel-otlp",
-			Usage: "enables OTEL OTLP exporter endpoint",
+			Name:    "enable-otel-otlp",
+			Usage:   "enables OTEL OTLP exporter endpoint",
+			EnvVars: []string{"RAINBOW_ENABLE_OTEL_OTLP", "ENABLE_OTEL_OTLP"},
 		},
 		&cli.StringFlag{
 			Name:    "otel-otlp-endpoint",
@@ -160,6 +168,7 @@ func runSplitter(cctx *cli.Context) error {
 
 	persistPath := cctx.String("persist-db")
 	upstreamHost := cctx.String("upstream-host")
+	collectionDirHost := cctx.String("collectiondir-host")
 	nextCrawlers := cctx.StringSlice("next-crawler")
 
 	var spl *splitter.Splitter
@@ -173,17 +182,19 @@ func runSplitter(cctx *cli.Context) error {
 			MaxBytes:        uint64(cctx.Int64("persist-bytes")),
 		}
 		conf := splitter.SplitterConfig{
-			UpstreamHost:  upstreamHost,
-			CursorFile:    cctx.String("cursor-file"),
-			PebbleOptions: &ppopts,
-			UserAgent:     fmt.Sprintf("rainbow/%s", versioninfo.Short()),
+			UpstreamHost:      upstreamHost,
+			CollectionDirHost: collectionDirHost,
+			CursorFile:        cctx.String("cursor-file"),
+			PebbleOptions:     &ppopts,
+			UserAgent:         fmt.Sprintf("rainbow/%s", versioninfo.Short()),
 		}
 		spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	} else {
 		logger.Info("building in-memory splitter")
 		conf := splitter.SplitterConfig{
-			UpstreamHost: upstreamHost,
-			CursorFile:   cctx.String("cursor-file"),
+			UpstreamHost:      upstreamHost,
+			CollectionDirHost: collectionDirHost,
+			CursorFile:        cctx.String("cursor-file"),
 		}
 		spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	}
