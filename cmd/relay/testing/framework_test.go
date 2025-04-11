@@ -9,7 +9,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/elay/stream"
+	"github.com/bluesky-social/indigo/cmd/relay/stream"
 
 	"github.com/stretchr/testify/assert"
 )
