@@ -147,7 +147,7 @@ func (s *Service) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	}
 
 	u := c.Request().URL
-	if u != nil {
+	if u == nil {
 		return fmt.Errorf("unexpected nil URL on request")
 	}
 	u.Host = pdsHost

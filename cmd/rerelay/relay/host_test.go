@@ -21,9 +21,12 @@ func TestParseHostname(t *testing.T) {
 		HostnameFixture{Val: "https://pds.example.com", Hostname: "pds.example.com", NoSSL: false},
 		HostnameFixture{Val: "http://pds.example.com", Hostname: "pds.example.com", NoSSL: true},
 		HostnameFixture{Val: "ws://pds.example.com", Hostname: "pds.example.com", NoSSL: true},
-		HostnameFixture{Val: "pds.example.com", Error: true},
+		HostnameFixture{Val: "pds.example.com", Hostname: "pds.example.com", NoSSL: false},
+		HostnameFixture{Val: "morel.us-east.host.bsky.network", Hostname: "morel.us-east.host.bsky.network", NoSSL: false},
 		HostnameFixture{Val: "https://8.8.8.8", Error: true},
 		HostnameFixture{Val: "https://internal", Error: true},
+		HostnameFixture{Val: "at://pds.example.com", Error: true},
+		HostnameFixture{Val: "ftp://pds.example.com", Error: true},
 		HostnameFixture{Val: "https://service.local", Hostname: "service.local", NoSSL: false}, // TODO: SSRF
 	}
 

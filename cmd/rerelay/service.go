@@ -107,31 +107,31 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 
 	e.Use(svcutil.MetricsMiddleware)
 
-	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
+	e.HTTPErrorHandler = func(err error, c echo.Context) {
 		switch err := err.(type) {
 		case *echo.HTTPError:
-			if err2 := ctx.JSON(err.Code, map[string]any{
+			if err2 := c.JSON(err.Code, map[string]any{
 				"error": err.Message,
 			}); err2 != nil {
 				svc.logger.Error("Failed to write http error", "err", err2)
 			}
 		default:
 			sendHeader := true
-			if ctx.Path() == "/xrpc/com.atproto.sync.subscribeRepos" {
+			if c.Path() == "/xrpc/com.atproto.sync.subscribeRepos" {
 				sendHeader = false
 			}
 
-			svc.logger.Warn("HANDLER ERROR: (%s) %s", ctx.Path(), err)
+			svc.logger.Error("API handler error", "path", c.Path(), "err", err)
 
-			if strings.HasPrefix(ctx.Path(), "/admin/") {
-				ctx.JSON(500, map[string]any{
+			if strings.HasPrefix(c.Path(), "/admin/") {
+				c.JSON(http.StatusInternalServerError, map[string]any{
 					"error": err.Error(),
 				})
 				return
 			}
 
 			if sendHeader {
-				ctx.Response().WriteHeader(500)
+				c.Response().WriteHeader(http.StatusInternalServerError)
 			}
 		}
 	}
@@ -166,7 +166,7 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 	admin.POST("/subs/unbanDomain", svc.handleAdminUnbanDomain)
 
 	// Repo-related Admin API
-	admin.GET("/repo/takedowns", svc.handleAdminListRepoTakeDowns)
+	admin.GET("/repo/takedowns", svc.handleAdminListRepoTakeDowns) // NOTE: unused
 	admin.POST("/repo/takeDown", svc.handleAdminTakeDownRepo)
 	admin.POST("/repo/reverseTakedown", svc.handleAdminReverseTakedown)
 
@@ -205,10 +205,11 @@ func (svc *Service) Shutdown() []error {
 
 func (svc *Service) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	headerVal := "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:"+svc.config.AdminPassword))
-	return func(e echo.Context) error {
-		if svc.config.AdminPassword != headerVal {
+	return func(c echo.Context) error {
+		hdr := c.Request().Header.Get("Authorization")
+		if hdr != headerVal {
 			return echo.ErrForbidden
 		}
-		return next(e)
+		return next(c)
 	}
 }
