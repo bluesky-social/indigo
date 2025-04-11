@@ -63,7 +63,8 @@ const NewPDS: FC<{}> = () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
+        //Authorization: `Bearer ${adminToken}`,
+        Authorization: `Basic ` + btoa("admin:" + adminToken),
       },
       body: JSON.stringify({
         hostname: pds,

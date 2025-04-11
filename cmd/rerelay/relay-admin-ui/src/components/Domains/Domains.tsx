@@ -76,7 +76,8 @@ const Domains: FC<{}> = () => {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
+        //Authorization: `Bearer ${adminToken}`,
+        Authorization: `Basic ` + btoa("admin:" + adminToken),
       },
     })
       .then((res) => res.json())
@@ -106,7 +107,8 @@ const Domains: FC<{}> = () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
+        //Authorization: `Bearer ${adminToken}`,
+        Authorization: `Basic ` + btoa("admin:" + adminToken),
       },
       body: JSON.stringify({
         Domain: domain,
@@ -139,7 +141,8 @@ const Domains: FC<{}> = () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
+        //Authorization: `Bearer ${adminToken}`,
+        Authorization: `Basic ` + btoa("admin:" + adminToken),
       },
       body: JSON.stringify({
         Domain: domain,

@@ -24,7 +24,8 @@ export default function Login() {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          //Authorization: `Bearer ${token}`,
+          Authorization: `Basic ` + btoa("admin:" + token),
         },
       })
         .then((res) => {
