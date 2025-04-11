@@ -27,16 +27,18 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatpr
 		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("hostname field empty or invalid: %s", body.Hostname)})
 	}
 
-	if noSSL && !s.relay.Config.SSL {
-		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: "this relay requires SSL"})
+	if noSSL && !s.config.AllowInsecureHosts && !admin {
+		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: "this relay requires host SSL"})
 	}
 
 	// TODO: could ensure that query and path are empty
 
-	// XXX: config if new PDS instances are allowed at all
-
 	if strings.HasPrefix(hostname, "localhost:") {
-		// XXX: config if localhost connections allowed
+		if !admin {
+			return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: "can not configure localhost via public endpoint"})
+		} else {
+			// allowed
+		}
 	} else {
 		banned, err := s.relay.DomainIsBanned(ctx, hostname)
 		if err != nil {
@@ -55,32 +57,6 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatpr
 	if err := s.relay.HostChecker.CheckHost(ctx, hostURL); err != nil {
 		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "HostNotFound", Message: fmt.Sprintf("host server unreachable: %s", err)})
 	}
-
-	/* XXX: forwarding requestCrawl should be handled by rainbow, not relay itself
-	if len(s.config.NextCrawlers) != 0 {
-		blob, err := json.Marshal(body)
-		if err != nil {
-			s.logger.Warn("could not forward requestCrawl, json err", "err", err)
-		} else {
-			go func(bodyBlob []byte) {
-				for _, rpu := range s.config.NextCrawlers {
-					pu := rpu.JoinPath("/xrpc/com.atproto.sync.requestCrawl")
-					response, err := s.crawlForwardClient.Post(pu.String(), "application/json", bytes.NewReader(bodyBlob))
-					if response != nil && response.Body != nil {
-						response.Body.Close()
-					}
-					if err != nil || response == nil {
-						s.logger.Warn("requestCrawl forward failed", "host", rpu, "err", err)
-					} else if response.StatusCode != http.StatusOK {
-						s.logger.Warn("requestCrawl forward failed", "host", rpu, "status", response.Status)
-					} else {
-						s.logger.Info("requestCrawl forward successful", "host", rpu)
-					}
-				}
-			}(blob)
-		}
-	}
-	*/
 
 	return s.relay.SubscribeToHost(hostname, noSSL, false)
 }
@@ -147,7 +123,6 @@ func (s *Service) handleComAtprotoSyncGetHostStatus(c echo.Context, hostname str
 func (s *Service) handleComAtprotoSyncListRepos(c echo.Context, cursor int64, limit int) (*comatproto.SyncListRepos_Output, error) {
 	ctx := c.Request().Context()
 
-	// XXX: document that ListAccounts is ordered by UID (ascending)
 	accounts, err := s.relay.ListAccounts(ctx, cursor, limit)
 	if err != nil {
 		s.logger.Error("failed to query accounts", "err", err)
@@ -245,7 +220,7 @@ func (s *Service) handleComAtprotoSyncGetLatestCommit(c echo.Context, did syntax
 	repo, err := s.relay.GetAccountRepo(ctx, acc.UID)
 	if err != nil {
 		if errors.Is(err, relay.ErrAccountRepoNotFound) {
-			// XXX: return partial result? some special error? desynchronized?
+			return nil, c.JSON(http.StatusNotFound, xrpc.XRPCError{ErrStr: "RepoNotSynchronized", Message: "do not know current repo state for account"})
 		}
 		return nil, err
 	}

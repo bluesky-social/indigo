@@ -6,7 +6,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// TODO: revisit this
 type DomainBan struct {
 	gorm.Model
 	Domain string `gorm:"unique"`
@@ -15,10 +14,11 @@ type DomainBan struct {
 type HostStatus string
 
 const (
-	HostStatusActive  = HostStatus("active")
-	HostStatusIdle    = HostStatus("idle")
-	HostStatusOffline = HostStatus("offline")
-	HostStatusBanned  = HostStatus("banned")
+	HostStatusActive    = HostStatus("active")
+	HostStatusIdle      = HostStatus("idle")
+	HostStatusOffline   = HostStatus("offline")
+	HostStatusThrottled = HostStatus("throttled")
+	HostStatusBanned    = HostStatus("banned")
 )
 
 type Host struct {
@@ -26,7 +26,7 @@ type Host struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
-	// hostname, without URL scheme. might include a port number if localhost, otherwise should not
+	// hostname, without URL scheme. if localhost, must include a port number; otherwise must not include port
 	Hostname string `gorm:"column:hostname;uniqueIndex;not null"`
 
 	// indicates ws:// not wss://
@@ -37,7 +37,7 @@ type Host struct {
 
 	// TODO: ThrottleUntil time.Time
 
-	// indicates this is a highly trusted PDS (different limits apply)
+	// indicates this is a highly trusted host (PDS) and different limits apply
 	Trusted bool `gorm:"column:trusted;default:false"`
 
 	// enum of account status
@@ -64,7 +64,7 @@ var (
 	AccountStatusSuspended      = AccountStatus("suspended")
 	AccountStatusTakendown      = AccountStatus("takendown")
 	AccountStatusThrottled      = AccountStatus("throttled")
-	AccountStatusHostThrottled  = AccountStatus("host-throttled") // TODO: actually implement this
+	AccountStatusHostThrottled  = AccountStatus("host-throttled") // TODO: not yet implemented
 
 	// generic "not active, but not known" status
 	AccountStatusInactive = AccountStatus("inactive")

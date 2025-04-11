@@ -124,11 +124,20 @@ func run(args []string) error {
 					Usage:   "don't process public (un-authenticated) com.atproto.sync.requestCrawl",
 					EnvVars: []string{"RELAY_DISABLE_REQUEST_CRAWL"},
 				},
-				// XXX: should this be handled by rainbow instead of relays?
+				&cli.BoolFlag{
+					Name:    "allow-insecure-hosts",
+					Usage:   "enables subscription to non-SSL hosts via requestCrawl",
+					EnvVars: []string{"RELAY_ALLOW_INSECURE_HOSTS"},
+				},
+				&cli.BoolFlag{
+					Name:    "lenient-sync-validation",
+					Usage:   "when messages fail atproto 'Sync 1.1' validation, just log, don't drop",
+					EnvVars: []string{"RELAY_LENIENT_SYNC_VALIDATION"},
+				},
 				&cli.StringSliceFlag{
-					Name:    "forward-crawl-requests",
-					Usage:   "servers (eg https://example.com) to forward requestCrawl on to; multiple allowed",
-					EnvVars: []string{"RELAY_FORWARD_CRAWL_REQUESTS", "RELAY_NEXT_CRAWLER"},
+					Name:    "sibling-relays",
+					Usage:   "servers (eg https://example.com) to forward admin state changes to; multiple allowed",
+					EnvVars: []string{"RELAY_SIBLING_RELAYS"},
 				},
 				&cli.StringSliceFlag{
 					Name:    "trusted-domains",
@@ -228,12 +237,14 @@ func runRelay(cctx *cli.Context) error {
 	relayConfig.QueueDepthPerHost = cctx.Int("host-queue-depth")
 	relayConfig.DefaultRepoLimit = cctx.Int64("default-account-limit")
 	relayConfig.TrustedDomains = cctx.StringSlice("trusted-domains")
+	relayConfig.LenientSyncValidation = cctx.Bool("lenient-sync-validation")
 
 	svcConfig := DefaultServiceConfig()
+	svcConfig.AllowInsecureHosts = cctx.Bool("allow-insecure-hosts")
 	svcConfig.DisableRequestCrawl = cctx.Bool("disable-request-crawl")
-	svcConfig.ForwardCrawlRequestHosts = cctx.StringSlice("forward-crawl-requests")
-	if len(svcConfig.ForwardCrawlRequestHosts) > 0 {
-		logger.Info("crawl request forwarding enabled", "servers", svcConfig.ForwardCrawlRequestHosts)
+	svcConfig.SiblingRelayHosts = cctx.StringSlice("sibling-relays")
+	if len(svcConfig.SiblingRelayHosts) > 0 {
+		logger.Info("sibling relay hosts configured for admin state forwarding", "servers", svcConfig.SiblingRelayHosts)
 	}
 	if cctx.IsSet("admin-password") {
 		svcConfig.AdminPassword = cctx.String("admin-password")
@@ -251,7 +262,7 @@ func runRelay(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	svc, err := NewService(db, r, svcConfig)
+	svc, err := NewService(r, svcConfig)
 	if err != nil {
 		return err
 	}

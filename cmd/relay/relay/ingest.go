@@ -57,14 +57,17 @@ func (r *Relay) processRepoEvent(ctx context.Context, evt *stream.XRPCStreamEven
 	}
 }
 
-// handles the shared part of event processing: that the account existing, is associated with this host, etc
+// Implements the shared part of event processing: that the account existing, is associated with this host, etc.
+//
+// If there is no error, the returned account is always non-nil, but the identity may be nil (if there was a resolution error).
 func (r *Relay) preProcessEvent(ctx context.Context, didStr string, hostname string, hostID uint64, logger *slog.Logger) (*models.Account, *identity.Identity, error) {
 
 	did, err := syntax.ParseDID(didStr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid DID in message: %w", err)
 	}
-	// XXX: did = did.Normalize()
+	// TODO: add a test case for non-normalized DID
+	did = NormalizeDID(did)
 
 	acc, err := r.GetAccount(ctx, did)
 	if err != nil {
@@ -95,8 +98,7 @@ func (r *Relay) preProcessEvent(ctx context.Context, didStr string, hostname str
 
 	ident, err := r.Dir.LookupDID(ctx, did)
 	if err != nil {
-		// XXX: handle more granularly (eg, true NotFound vs other errors); and add tests
-		logger.Warn("failed to load identity")
+		logger.Warn("failed to load identity", "did", did, "err", err)
 	}
 	return acc, ident, nil
 }
@@ -113,6 +115,10 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 	if !acc.IsActive() {
 		logger.Info("dropping commit message for non-active account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
 		return nil
+	}
+
+	if ident == nil {
+		// XXX: what to do if identity resolution fails
 	}
 
 	prevRepo, err := r.GetAccountRepo(ctx, acc.UID)
@@ -159,6 +165,10 @@ func (r *Relay) processSyncEvent(ctx context.Context, evt *comatproto.SyncSubscr
 	if !acc.IsActive() {
 		logger.Info("dropping commit message for non-active account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
 		return nil
+	}
+
+	if ident == nil {
+		// XXX: what to do if identity resolution fails
 	}
 
 	newRepo, err := r.VerifyRepoSync(ctx, evt, ident, hostname)

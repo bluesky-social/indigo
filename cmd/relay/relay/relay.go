@@ -39,22 +39,19 @@ type Relay struct {
 }
 
 type RelayConfig struct {
-	SSL                   bool
 	DefaultRepoLimit      int64
 	ConcurrencyPerHost    int
 	QueueDepthPerHost     int
-	SkipAccountHostCheck  bool // XXX: only used for testing
-	LenientSyncValidation bool // XXX: wire through config
+	LenientSyncValidation bool
+	TrustedDomains        []string
 
-	// if true, ignore "requestCrawl"
-	DisableNewHosts bool
-	TrustedDomains  []string
+	// If true, skip validation that messages for a given account (DID) are coming from the expected upstream host (PDS). Currently only used in tests; might be used for intermediate relays in the future.
+	SkipAccountHostCheck bool
 }
 
 func DefaultRelayConfig() *RelayConfig {
-	// NOTE: many of these defaults are CLI arg defaults
+	// NOTE: many of these defaults are clobbered by CLI arguments
 	return &RelayConfig{
-		SSL:                true,
 		DefaultRepoLimit:   100,
 		ConcurrencyPerHost: 40,
 		QueueDepthPerHost:  1000,
@@ -89,15 +86,15 @@ func NewRelay(db *gorm.DB, evtman *eventmgr.EventManager, dir identity.Directory
 		return nil, err
 	}
 
-	// XXX: need to pass-through more relay configs
 	slurpConfig := DefaultSlurperConfig()
-	slurpConfig.SSL = config.SSL
 	slurpConfig.DefaultRepoLimit = config.DefaultRepoLimit
 	slurpConfig.ConcurrencyPerHost = config.ConcurrencyPerHost
 	slurpConfig.QueueDepthPerHost = config.QueueDepthPerHost
+
 	// register callbacks to persist cursors and host state in database
 	slurpConfig.PersistCursorCallback = r.PersistHostCursors
 	slurpConfig.PersistHostStatusCallback = r.UpdateHostStatus
+
 	s, err := NewSlurper(r.processRepoEvent, slurpConfig, r.Logger)
 	if err != nil {
 		return nil, err

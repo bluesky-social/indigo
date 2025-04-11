@@ -19,7 +19,8 @@ import (
 func (r *Relay) DomainIsBanned(ctx context.Context, hostname string) (bool, error) {
 
 	if strings.HasPrefix(hostname, "localhost:") {
-		// XXX: check localhost config separately
+		// this method never allows localhost; need to use admin-mode for that
+		return true, nil
 	}
 
 	// otherwise we shouldn't have a port/colon

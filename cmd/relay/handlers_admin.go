@@ -34,7 +34,7 @@ func (s *Service) handleAdminSetSubsEnabled(c echo.Context) error {
 	if err != nil {
 		return &echo.HTTPError{Code: http.StatusBadRequest, Message: err.Error()}
 	}
-	s.relay.Config.DisableNewHosts = !enabled
+	s.config.DisableRequestCrawl = !enabled
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -42,7 +42,7 @@ func (s *Service) handleAdminSetSubsEnabled(c echo.Context) error {
 
 func (s *Service) handleAdminGetSubsEnabled(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]bool{
-		"enabled": s.relay.Config.DisableNewHosts,
+		"enabled": s.config.DisableRequestCrawl,
 	})
 }
 
@@ -59,6 +59,8 @@ func (s *Service) handleAdminSetNewHostPerDayRateLimit(c echo.Context) error {
 	}
 
 	s.relay.Slurper.NewHostPerDayLimiter.SetLimit(limit)
+
+	// TODO: forward to SiblingRelayHosts
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -95,6 +97,8 @@ func (s *Service) handleAdminTakeDownRepo(c echo.Context) error {
 			Message: err.Error(),
 		}
 	}
+
+	// TODO: forward to SiblingRelayHosts
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -120,6 +124,8 @@ func (s *Service) handleAdminReverseTakedown(c echo.Context) error {
 			Message: err.Error(),
 		}
 	}
+
+	// TODO: forward to SiblingRelayHosts
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -240,7 +246,7 @@ func (s *Service) handleListHosts(c echo.Context) error {
 		}
 		hostInfos[i].EventsSeenSinceStartup = uint64(m.Counter.GetValue())
 
-		/* XXX: compute these from account limit
+		/* TODO: compute these from account limit
 		hostInfos[i].PerSecondEventRate = rateLimit{
 			Max:           p.RateLimit,
 			WindowSeconds: 1,
@@ -317,6 +323,7 @@ func (s *Service) handleBlockHost(c echo.Context) error {
 	// kill any active connection (there may not be one, so ignore error)
 	_ = s.relay.Slurper.KillUpstreamConnection(host.Hostname, false)
 
+	// TODO: forward to SiblingRelayHosts
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -345,6 +352,7 @@ func (s *Service) handleUnblockHost(c echo.Context) error {
 		}
 	}
 
+	// TODO: forward to SiblingRelayHosts
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -390,6 +398,7 @@ func (s *Service) handleAdminBanDomain(c echo.Context) error {
 		return err
 	}
 
+	// TODO: forward to SiblingRelayHosts
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -408,6 +417,7 @@ func (s *Service) handleAdminUnbanDomain(c echo.Context) error {
 		return err
 	}
 
+	// TODO: forward to SiblingRelayHosts
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -425,55 +435,29 @@ func (s *Service) handleAdminChangeHostRateLimits(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid body: %s", err))
 	}
 
-	var pds models.Host
-	if err := s.db.Where("host = ?", body.Host).First(&pds).Error; err != nil {
+	var host models.Host
+	if err := s.db.Where("host = ?", body.Host).First(&host).Error; err != nil {
 		return err
 	}
 
 	// Update the rate limits in the DB
-	pds.RateLimit = float64(body.PerSecond)
-	pds.HourlyEventLimit = body.PerHour
-	pds.DailyEventLimit = body.PerDay
-	pds.RepoLimit = body.RepoLimit
+	host.RateLimit = float64(body.PerSecond)
+	host.HourlyEventLimit = body.PerHour
+	host.DailyEventLimit = body.PerDay
+	host.RepoLimit = body.RepoLimit
 
-	if err := s.db.Save(&pds).Error; err != nil {
+	if err := s.db.Save(&host).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf("failed to save rate limit changes: %w", err))
 	}
 
 	// Update the rate limit in the limiter
-	limits := s.relay.Slurper.GetOrCreateLimiters(pds.ID, body.PerSecond, body.PerHour, body.PerDay)
+	limits := s.relay.Slurper.GetOrCreateLimiters(host.ID, body.PerSecond, body.PerHour, body.PerDay)
 	limits.PerSecond.SetLimit(body.PerSecond)
 	limits.PerHour.SetLimit(body.PerHour)
 	limits.PerDay.SetLimit(body.PerDay)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
-	})
-}
-*/
-
-/* XXX: DREPRECATED
-func (s *Service) handleAdminAddTrustedDomain(c echo.Context) error {
-	domain := c.QueryParam("domain")
-	if domain == "" {
-		return fmt.Errorf("must specify domain in query parameter")
-	}
-
-	// Check if the domain is already trusted
-	trustedDomains := s.relay.Slurper.GetTrustedDomains()
-	if slices.Contains(trustedDomains, domain) {
-		return &echo.HTTPError{
-			Code:    http.StatusBadRequest,
-			Message: "domain is already trusted",
-		}
-	}
-
-	if err := s.relay.Slurper.AddTrustedDomain(domain); err != nil {
-		return err
-	}
-
-	return c.JSON(http.StatusOK, map[string]any{
-		"success": true,
 	})
 }
 */

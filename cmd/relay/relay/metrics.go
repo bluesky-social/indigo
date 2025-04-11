@@ -31,13 +31,6 @@ var repoSyncReceivedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "The total number of sync events received",
 }, []string{"pds"})
 
-/* XXX
-var repoCommitsResultCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "repo_commits_result_counter",
-	Help: "The results of commit events received",
-}, []string{"pds", "status"})
-*/
-
 var eventsSentCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "events_sent_counter",
 	Help: "The total number of events sent to consumers",

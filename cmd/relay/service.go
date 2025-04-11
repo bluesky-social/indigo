@@ -15,11 +15,9 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"gorm.io/gorm"
 )
 
 type Service struct {
-	db     *gorm.DB // XXX
 	logger *slog.Logger
 	relay  *relay.Relay
 	config ServiceConfig
@@ -28,8 +26,8 @@ type Service struct {
 }
 
 type ServiceConfig struct {
-	// list of hosts which get forwarded com.atproto.sync.requestCrawl (HTTP POST)
-	ForwardCrawlRequestHosts []string
+	// list of hosts which get forwarded admin state changes (takedowns, etc)
+	SiblingRelayHosts []string
 
 	// verified against Basic admin auth
 	AdminPassword string
@@ -39,6 +37,9 @@ type ServiceConfig struct {
 
 	// if true, don't process public (unauthenticated) requestCrawl
 	DisableRequestCrawl bool
+
+	// if true, allows non-SSL hosts to be added via public requestCrawl
+	AllowInsecureHosts bool
 }
 
 func DefaultServiceConfig() *ServiceConfig {
@@ -47,14 +48,13 @@ func DefaultServiceConfig() *ServiceConfig {
 	}
 }
 
-func NewService(db *gorm.DB, r *relay.Relay, config *ServiceConfig) (*Service, error) {
+func NewService(r *relay.Relay, config *ServiceConfig) (*Service, error) {
 
 	if config == nil {
 		config = DefaultServiceConfig()
 	}
 
 	svc := &Service{
-		db:                 db,
 		logger:             slog.Default().With("system", "relay"),
 		relay:              r,
 		config:             *config,
@@ -90,14 +90,7 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
-
-	if !svc.relay.Config.SSL {
-		e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-			Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
-		}))
-	} else {
-		e.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
-	}
+	e.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
 
 	// React uses a virtual router, so we need to serve the index.html for all
 	// routes that aren't otherwise handled or in the /assets directory.

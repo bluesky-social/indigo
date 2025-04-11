@@ -5,16 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
-
-// XXX
-var log = slog.Default().With("system", "events")
 
 const (
 	EvtKindErrorFrame = -1
