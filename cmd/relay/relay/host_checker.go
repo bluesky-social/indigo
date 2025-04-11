@@ -2,7 +2,6 @@ package relay
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -10,8 +9,6 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/xrpc"
 )
-
-var ErrNotPDS = errors.New("server is not a PDS")
 
 // Simple interface for doing host and account status checks.
 //

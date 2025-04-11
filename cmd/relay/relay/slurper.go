@@ -54,7 +54,6 @@ type Limiters struct {
 }
 
 type SlurperConfig struct {
-	SSL                       bool
 	DefaultPerSecondLimit     int64
 	DefaultPerHourLimit       int64
 	DefaultPerDayLimit        int64
@@ -70,7 +69,6 @@ type SlurperConfig struct {
 func DefaultSlurperConfig() *SlurperConfig {
 	// NOTE: many of these defaults are overruled by DefaultRelayConfig, or even process CLI arg defaults
 	return &SlurperConfig{
-		SSL:                   false,
 		NewHostPerDayLimit:    50,
 		DefaultPerSecondLimit: 50,
 		DefaultPerHourLimit:   2500,

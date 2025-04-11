@@ -106,7 +106,7 @@ func (c *Consumer) Connect(ctx context.Context, cursor int) error {
 			cancel()
 		}
 	}()
-	time.Sleep(time.Millisecond * 2) // XXX: is this good?
+	time.Sleep(time.Millisecond * 2) // TODO: is this needed?
 	return nil
 }
 

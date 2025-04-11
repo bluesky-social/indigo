@@ -82,12 +82,16 @@ func (r *Relay) PersistHostCursors(ctx context.Context, cursors *[]HostCursor) e
 
 // parses, normalizes, and validates a raw URL (HTTP or WebSocket) in to a hostname for subscriptions
 //
-// Hostnames much be DNS names, not IP addresses
+// Hostnames must be DNS names, not IP addresses.
 func ParseHostname(raw string) (hostname string, noSSL bool, err error) {
 
 	// handle case of bare hostname
 	if !strings.Contains(raw, "://") {
-		raw = "https://" + raw
+		if strings.HasPrefix(raw, "localhost:") {
+			raw = "http://" + raw
+		} else {
+			raw = "https://" + raw
+		}
 	}
 
 	u, err := url.Parse(raw)
@@ -100,9 +104,10 @@ func ParseHostname(raw string) (hostname string, noSSL bool, err error) {
 	default:
 		return "", false, fmt.Errorf("unsupported URL scheme: %s", u.Scheme)
 	}
+
 	// 'localhost' (exact string) is allowed *with* a required port number; SSL is optional
 	if u.Hostname() == "localhost" {
-		if u.Port() == "" {
+		if u.Port() == "" || !strings.HasPrefix(u.Host, "localhost:") {
 			return "", false, fmt.Errorf("port number is required for localhost")
 		}
 		return u.Host, noSSL, nil

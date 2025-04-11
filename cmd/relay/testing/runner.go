@@ -33,7 +33,6 @@ func (sr *SimpleRelay) handleSubscribeRepos(w http.ResponseWriter, r *http.Reque
 func MustSimpleRelay(dir identity.Directory, tmpd string, lenient bool) *SimpleRelay {
 
 	relayConfig := relay.DefaultRelayConfig()
-	relayConfig.SSL = false
 	relayConfig.SkipAccountHostCheck = true
 	relayConfig.LenientSyncValidation = lenient
 
@@ -165,7 +164,7 @@ func RunScenario(ctx context.Context, s *Scenario) error {
 				return fmt.Errorf("events didn't match")
 			}
 		} else {
-			// XXX: verify nothing returned? especially if last message in set
+			// TODO: verify nothing returned? especially if last message in set
 		}
 	}
 	return nil

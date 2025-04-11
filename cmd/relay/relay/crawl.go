@@ -31,18 +31,17 @@ func (r *Relay) canSlurpHost(hostname string) bool {
 		}
 	}
 
-	return !r.Config.DisableNewHosts
+	return true
 }
 
 func (r *Relay) SubscribeToHost(hostname string, noSSL, adminForce bool) error {
 
-	// if we already have an active subscription going, exit early
+	// if we already have an active subscription, exit early
 	if r.Slurper.CheckIfSubscribed(hostname) {
 		return nil
 	}
 
-	// XXX: new PDS daily rate-limit
-
+	// fetch host info from database. this query will not error if host does not yet exist
 	newHost := false
 	var host models.Host
 	if err := r.db.Find(&host, "hostname = ?", hostname).Error; err != nil {
@@ -50,42 +49,29 @@ func (r *Relay) SubscribeToHost(hostname string, noSSL, adminForce bool) error {
 	}
 
 	if host.ID == 0 {
+		newHost = true
 		if !adminForce && !r.canSlurpHost(hostname) {
+			// TODO: is this the correct error code?
 			return ErrNewSubsDisabled
 		}
-		// New PDS!
-		npds := models.Host{
+
+		// XXX: new host daily rate-limit
+
+		host = models.Host{
 			Hostname:     hostname,
 			NoSSL:        noSSL,
 			Status:       models.HostStatusActive,
 			AccountLimit: r.Config.DefaultRepoLimit,
 		}
-		/* XXX
-		if rateOverrides != nil {
-			npds.RateLimit = float64(rateOverrides.PerSecond)
-			npds.HourlyEventLimit = rateOverrides.PerHour
-			npds.DailyEventLimit = rateOverrides.PerDay
-			npds.RepoLimit = rateOverrides.RepoLimit
-		}
-		*/
-		if err := r.db.Create(&npds).Error; err != nil {
+
+		if err := r.db.Create(&newHost).Error; err != nil {
 			return err
 		}
 
-		newHost = true
-		host = npds
+		r.Logger.Info("adding new host subscription", "hostname", hostname, "noSSL", noSSL, "adminForce", adminForce)
 	} else if host.Status == models.HostStatusBanned {
 		return fmt.Errorf("cannot subscribe to banned pds")
 	}
-
-	/* XXX
-	if !host.Registered && reg {
-		host.Registered = true
-		if err := s.db.Model(models.Host{}).Where("id = ?", host.ID).Update("registered", true).Error; err != nil {
-			return err
-		}
-	}
-	*/
 
 	return r.Slurper.Subscribe(&host, newHost)
 }
@@ -99,11 +85,13 @@ func (r *Relay) ResubscribeAllHosts() error {
 	}
 
 	for _, host := range all {
-		// copy host
+		logger := r.Logger.With("hostID", host.ID, "hostname", host.Hostname)
+		logger.Info("re-subscribing to active host")
+		// make a copy of host
 		host := host
 		err := r.Slurper.Subscribe(&host, false)
 		if err != nil {
-			r.Logger.Warn("failed to re-subscribe to host", "hostID", host.ID, "hostname", host.Hostname, "err", err)
+			logger.Warn("failed to re-subscribe to host", "err", err)
 		}
 	}
 	return nil

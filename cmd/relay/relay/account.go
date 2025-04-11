@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
@@ -193,11 +194,11 @@ func (r *Relay) UpdateAccountStatus(ctx context.Context, did syntax.DID, status 
 	return nil
 }
 
+// Returns the of active accounts (based on local and upstream status). The sort order is by UID, ascending.
 func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*models.Account, error) {
 
-	// XXX: what status filter should be in place here? not deleted in addition to not takendown?
 	accounts := []*models.Account{}
-	if err := r.db.Model(&models.Account{}).Where("uid > ? AND status IS NOT 'takendown' AND (upstream_status IS NULL OR upstream_status = 'active')", cursor).Order("uid").Limit(limit).Find(&accounts).Error; err != nil {
+	if err := r.db.Model(&models.Account{}).Where("uid > ? AND status = 'active' AND upstream_status = 'active'", cursor).Order("uid").Limit(limit).Find(&accounts).Error; err != nil {
 		return nil, err
 	}
 	return accounts, nil
@@ -216,7 +217,7 @@ func (r *Relay) UpsertAccountRepo(uid uint64, rev syntax.TID, commitCID, commitD
 	return r.db.Exec("INSERT INTO account_repo (uid, rev, commit_cid, commit_data) VALUES (?, ?, ?, ?) ON CONFLICT (uid) DO UPDATE SET rev = EXCLUDED.rev, commit_cid = EXCLUDED.commit_cid, commit_data = EXCLUDED.commit_data", uid, rev, commitCID, commitDataCID).Error
 }
 
-// this function with exact name and args implements the `diskpersist.UidSource` interface
+// This implements the `diskpersist.UidSource` interface
 func (r *Relay) DidToUid(ctx context.Context, did string) (uint64, error) {
 	// NOTE: not re-parsing DID here (this function is called "loopback" from persister)
 	xu, err := r.GetAccount(ctx, syntax.DID(did))
@@ -227,4 +228,13 @@ func (r *Relay) DidToUid(ctx context.Context, did string) (uint64, error) {
 		return 0, ErrAccountNotFound
 	}
 	return xu.UID, nil
+}
+
+// In the general case, DIDs are case-sensitive. But PLC and did:web should not be, and should normalize to lower-case.
+func NormalizeDID(orig syntax.DID) syntax.DID {
+	lower := strings.ToLower(string(orig))
+	if strings.HasPrefix(lower, "did:plc:") || strings.HasPrefix(lower, "did:web:") {
+		return syntax.DID(lower)
+	}
+	return orig
 }

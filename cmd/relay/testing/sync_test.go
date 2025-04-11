@@ -20,7 +20,7 @@ func TestSyncScenarios(t *testing.T) {
 	assert.NoError(RunScenario(ctx, base))
 
 	// mess with revisions
-	// XXX:
+	// TODO: get this test working
 	//base.Messages[2].Frame.Event.RepoCommit.Rev = "222pyftdf4h2r"
 	//base.Messages[2].Drop = true
 	//assert.NoError(RunScenario(ctx, base))
