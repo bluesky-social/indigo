@@ -1,7 +1,12 @@
 package client
 
 import (
+	"context"
+	"fmt"
 	"net/http"
+	"sync"
+
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
@@ -12,6 +17,8 @@ type RefreshAuth struct {
 	DID          syntax.DID
 	// The AuthHost might different from any APIClient host, if there is an entryway involved
 	AuthHost string
+
+	lk sync.Mutex
 }
 
 // TODO:
@@ -27,4 +34,36 @@ func (a *RefreshAuth) DoWithAuth(httpReq *http.Request, httpClient *http.Client)
 // Admin bearer token auth does not involve an account DID
 func (a *RefreshAuth) AccountDID() syntax.DID {
 	return a.DID
+}
+
+// updates the client with the new auth method
+func NewSession(ctx context.Context, client *APIClient, username, password, token string) (*RefreshAuth, error) {
+
+	reqBody := comatproto.ServerCreateSession_Input{
+		Identifier: username,
+		Password:   password,
+	}
+	if token != "" {
+		reqBody.AuthFactorToken = &token
+	}
+
+	var out comatproto.ServerCreateSession_Output
+	err := client.Post(ctx, syntax.NSID("com.atproto.server.createSession"), &reqBody, &out)
+	if err != nil {
+		return nil, err
+	}
+
+	if out.Active != nil && *out.Active == false {
+		return nil, fmt.Errorf("account is disabled: %s", out.Status)
+	}
+
+	ra := RefreshAuth{
+		AccessToken:  out.AccessJwt,
+		RefreshToken: out.RefreshJwt,
+		DID:          syntax.DID(out.Did),
+		// TODO: authHost / PDS host distinction
+		AuthHost: client.Host,
+	}
+	client.Auth = &ra
+	return &ra, nil
 }
