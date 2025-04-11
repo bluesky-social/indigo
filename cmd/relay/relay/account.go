@@ -55,11 +55,11 @@ func (r *Relay) GetAccountRepo(ctx context.Context, uid uint64) (*models.Account
 // Attempts creation of a new account associated with the given host, presumably because the account was discovered on that host's stream.
 //
 // If the account's identity doesn't match the host, this will fail. We only create accounts associated with hosts we already know of, not remote hosts (aka, no spidering).
-func (r *Relay) CreateHostAccount(ctx context.Context, did syntax.DID, hostID uint64, hostname string) (*models.Account, error) {
+func (r *Relay) CreateAccountHost(ctx context.Context, did syntax.DID, hostID uint64, hostname string) (*models.Account, error) {
 	// NOTE: this method doesn't use locking. the database UNIQUE constraint should prevent duplicate account creation.
 	logger := r.Logger.With("did", did, "hostname", hostname)
 
-	//newUsersDiscovered.Inc()
+	newUsersDiscovered.Inc()
 	//start := time.Now()
 
 	ident, err := r.Dir.LookupDID(ctx, did)
@@ -83,15 +83,21 @@ func (r *Relay) CreateHostAccount(ctx context.Context, did syntax.DID, hostID ui
 		}
 	}
 
-	// TODO: fetch the full host, apply throttling or rate-limits?
+	// TODO: could be verifying upstream status here (using r.HostChecker); not particularly urgent because triggering event is already coming from the relevant host
 
-	// TODO: could be verifying upstream status here (using r.HostChecker)
-	// XXX: limits/throttling; reach in to Slurper?
 	acc := models.Account{
 		DID:            did.String(),
 		HostID:         hostID,
 		Status:         models.AccountStatusActive,
 		UpstreamStatus: models.AccountStatusActive,
+	}
+
+	host, err := r.GetHostByID(ctx, hostID)
+	if err != nil {
+		return nil, err
+	}
+	if host.AccountCount >= host.AccountLimit {
+		acc.Status = models.AccountStatusHostThrottled
 	}
 
 	// create Account row and increment host count in the same transaction
@@ -147,9 +153,7 @@ func (r *Relay) EnsureAccountHost(ctx context.Context, acc *models.Account, host
 		}
 	}
 
-	// TODO: could check upstream status here (using r.HostChecker)
-	// TODO: for example, a moved account might go from takendown to active
-	// XXX: limits/throttling; read in to Slurper?
+	// TODO: check new upstream status here (using r.HostChecker). In particular, a moved account might go from takendown to active
 
 	// create Account row and increment host count in the same transaction
 	err = r.db.Transaction(func(tx *gorm.DB) error {

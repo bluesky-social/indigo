@@ -49,6 +49,20 @@ type StreamLimiters struct {
 	PerDay    *slidingwindow.Limiter
 }
 
+type StreamLimiterCounts struct {
+	PerSecond int64
+	PerHour   int64
+	PerDay    int64
+}
+
+func (sl *StreamLimiters) Counts() StreamLimiterCounts {
+	return StreamLimiterCounts{
+		PerSecond: sl.PerSecond.Limit(),
+		PerHour:   sl.PerHour.Limit(),
+		PerDay:    sl.PerDay.Limit(),
+	}
+}
+
 type SlurperConfig struct {
 	UserAgent           string
 	ConcurrencyPerHost  int
@@ -192,6 +206,19 @@ func (s *Slurper) UpdateLimiters(hostname string, accountLimit int64, trusted bo
 	sub.Limiters.PerDay.SetLimit(newLims.PerDay.Limit())
 
 	return nil
+}
+
+func (s *Slurper) GetLimits(hostname string) (*StreamLimiterCounts, error) {
+	s.subsLk.Lock()
+	defer s.subsLk.Unlock()
+
+	sub, ok := s.subs[hostname]
+	if !ok {
+		return nil, fmt.Errorf("reading limits for %s: %w", hostname, ErrNoActiveConnection)
+	}
+
+	slc := sub.Limiters.Counts()
+	return &slc, nil
 }
 
 // Shutdown shuts down the slurper

@@ -246,20 +246,23 @@ func (s *Service) handleListHosts(c echo.Context) error {
 		}
 		hostInfos[i].EventsSeenSinceStartup = uint64(m.Counter.GetValue())
 
-		/* TODO: compute these from account limit
-		hostInfos[i].PerSecondEventRate = rateLimit{
-			Max:           p.RateLimit,
-			WindowSeconds: 1,
+		if isActive {
+			slc, err := s.relay.Slurper.GetLimits(host.Hostname)
+			if err != nil {
+				hostInfos[i].PerSecondEventRate = rateLimit{
+					Max:           float64(slc.PerSecond),
+					WindowSeconds: 1,
+				}
+				hostInfos[i].PerHourEventRate = rateLimit{
+					Max:           float64(slc.PerHour),
+					WindowSeconds: 3600,
+				}
+				hostInfos[i].PerDayEventRate = rateLimit{
+					Max:           float64(slc.PerDay),
+					WindowSeconds: 86400,
+				}
+			}
 		}
-		hostInfos[i].PerHourEventRate = rateLimit{
-			Max:           float64(p.HourlyEventLimit),
-			WindowSeconds: 3600,
-		}
-		hostInfos[i].PerDayEventRate = rateLimit{
-			Max:           float64(p.DailyEventLimit),
-			WindowSeconds: 86400,
-		}
-		*/
 	}
 
 	return c.JSON(http.StatusOK, hostInfos)
@@ -424,40 +427,34 @@ func (s *Service) handleAdminUnbanDomain(c echo.Context) error {
 }
 
 type RateLimitChangeRequest struct {
-	Host      string `json:"host"`
+	Hostname  string `json:"host"`
 	RepoLimit int64  `json:"repo_limit,omitempty"`
 }
 
-/* XXX: finish rate limit stuff
 func (s *Service) handleAdminChangeHostRateLimits(c echo.Context) error {
+	ctx := c.Request().Context()
+
 	var body RateLimitChangeRequest
 	if err := c.Bind(&body); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid body: %s", err))
 	}
 
-	var host models.Host
-	if err := s.db.Where("host = ?", body.Host).First(&host).Error; err != nil {
-		return err
+	hostname, _, err := relay.ParseHostname(body.Hostname)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid hostname: %s", err))
 	}
 
-	// Update the rate limits in the DB
-	host.RateLimit = float64(body.PerSecond)
-	host.HourlyEventLimit = body.PerHour
-	host.DailyEventLimit = body.PerDay
-	host.RepoLimit = body.RepoLimit
-
-	if err := s.db.Save(&host).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf("failed to save rate limit changes: %w", err))
+	host, err := s.relay.GetHost(ctx, hostname)
+	if err != nil {
+		// TODO: technically, there could be a database error here or something
+		return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("unknown hostname: %s", err))
 	}
 
-	// Update the rate limit in the limiter
-	limits := s.relay.Slurper.GetOrCreateLimiters(host.ID, body.PerSecond, body.PerHour, body.PerDay)
-	limits.PerSecond.SetLimit(body.PerSecond)
-	limits.PerHour.SetLimit(body.PerHour)
-	limits.PerDay.SetLimit(body.PerDay)
+	if err := s.relay.UpdateHostAccountLimit(ctx, host.ID, body.RepoLimit); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to update limits: %s", err))
+	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
 }
-*/

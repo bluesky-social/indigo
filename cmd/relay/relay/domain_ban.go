@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// XXX: tests for domain ban logic (which hit an actual database)
+// TODO: tests for domain ban logic (which hit an actual database)
 
 // DomainIsBanned checks if the given hostname is banned. It checks all domain suffixs.
 //

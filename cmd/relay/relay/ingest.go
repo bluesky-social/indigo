@@ -75,7 +75,7 @@ func (r *Relay) preProcessEvent(ctx context.Context, didStr string, hostname str
 			return nil, nil, fmt.Errorf("fetching account: %w", err)
 		}
 
-		acc, err = r.CreateHostAccount(ctx, did, hostID, hostname)
+		acc, err = r.CreateAccountHost(ctx, did, hostID, hostname)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -83,7 +83,7 @@ func (r *Relay) preProcessEvent(ctx context.Context, didStr string, hostname str
 
 	if acc == nil {
 		// TODO: this is defensive and could be removed
-		panic(ErrAccountNotFound)
+		return nil, nil, ErrAccountNotFound
 	}
 
 	// verify that the account is on the subscribed host (or update if it should be)
@@ -118,7 +118,7 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 	}
 
 	if ident == nil {
-		// XXX: what to do if identity resolution fails
+		// TODO: what to do if identity resolution fails
 	}
 
 	prevRepo, err := r.GetAccountRepo(ctx, acc.UID)
@@ -168,7 +168,7 @@ func (r *Relay) processSyncEvent(ctx context.Context, evt *comatproto.SyncSubscr
 	}
 
 	if ident == nil {
-		// XXX: what to do if identity resolution fails
+		// TODO: what to do if identity resolution fails
 	}
 
 	newRepo, err := r.VerifyRepoSync(ctx, evt, ident, hostname)

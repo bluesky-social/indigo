@@ -24,6 +24,9 @@ func (h *Host) SubscribeReposURL() string {
 
 func (a *Account) AccountStatus() AccountStatus {
 	if a.Status != AccountStatusActive {
+		if a.Status == AccountStatusHostThrottled {
+			return AccountStatusThrottled
+		}
 		return a.Status
 	}
 	return a.UpstreamStatus
