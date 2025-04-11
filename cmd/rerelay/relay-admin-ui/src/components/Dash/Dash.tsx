@@ -130,7 +130,8 @@ const Dash: FC<{}> = () => {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
+        //Authorization: `Bearer ${adminToken}`,
+        Authorization: `Basic ` + btoa("admin:" + adminToken),
       },
     })
       .then((res) => res.json())
@@ -159,7 +160,8 @@ const Dash: FC<{}> = () => {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
+        //Authorization: `Bearer ${adminToken}`,
+        Authorization: `Basic ` + btoa("admin:" + adminToken),
       },
     })
       .then((res) => res.json())
@@ -189,7 +191,8 @@ const Dash: FC<{}> = () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
+        //Authorization: `Bearer ${adminToken}`,
+        Authorization: `Basic ` + btoa("admin:" + adminToken),
       },
     })
       .then((res) => {
@@ -224,7 +227,8 @@ const Dash: FC<{}> = () => {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
+        //Authorization: `Bearer ${adminToken}`,
+        Authorization: `Basic ` + btoa("admin:" + adminToken),
       },
     })
       .then((res) => res.json())
@@ -254,7 +258,8 @@ const Dash: FC<{}> = () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
+        //Authorization: `Bearer ${adminToken}`,
+        Authorization: `Basic ` + btoa("admin:" + adminToken),
       },
 
     })
@@ -315,7 +320,8 @@ const Dash: FC<{}> = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
+          //Authorization: `Bearer ${adminToken}`,
+          Authorization: `Basic ` + btoa("admin:" + adminToken),
         },
       }
     ).then((res) => {
@@ -342,7 +348,8 @@ const Dash: FC<{}> = () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
+        //Authorization: `Bearer ${adminToken}`,
+        Authorization: `Basic ` + btoa("admin:" + adminToken),
       },
     }).then((res) => {
       if (res.status !== 200) {
@@ -362,7 +369,8 @@ const Dash: FC<{}> = () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
+        //Authorization: `Bearer ${adminToken}`,
+        Authorization: `Basic ` + btoa("admin:" + adminToken),
       },
     }).then((res) => {
       if (res.status !== 200) {
@@ -385,7 +393,8 @@ const Dash: FC<{}> = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
+          //Authorization: `Bearer ${adminToken}`,
+          Authorization: `Basic ` + btoa("admin:" + adminToken),
         },
         body: JSON.stringify({
           host: pds.Host,
