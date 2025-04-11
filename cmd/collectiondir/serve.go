@@ -297,7 +297,6 @@ func (cs *collectionServer) Shutdown() error {
 	}()
 	cs.log.Info("api shutdown start...")
 	err := cs.apiServer.Shutdown(context.Background())
-	//err := cs.esrv.Shutdown(context.Background())
 	cs.log.Info("api shutdown, thread wait...", "err", err)
 	cs.wg.Wait()
 	cs.log.Info("threads done, db close...")
@@ -705,6 +704,9 @@ func (cs *collectionServer) ingestReceiver() {
 			} else {
 				errcount = 0
 			}
+		case <-cs.shutdown:
+			cs.log.Info("shutting down ingestReceiver")
+			return
 		}
 		if errcount > 10 {
 			cs.log.Error("ingestReceiver too many errors")
