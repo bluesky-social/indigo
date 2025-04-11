@@ -52,7 +52,7 @@ func (s *Splitter) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 	// first forward to the upstream
 	xrpcc := xrpc.Client{
 		Client: s.upstreamClient,
-		Host:   s.conf.XrpcRootUrl(),
+		Host:   s.conf.UpstreamHostHTTP(),
 	}
 
 	err := comatproto.SyncRequestCrawl(ctx, &xrpcc, &body)
@@ -84,7 +84,7 @@ func (s *Splitter) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 
 // Proxies a request to the single upstream (relay)
 func (s *Splitter) ProxyRequestUpstream(c echo.Context) error {
-	u, err := url.Parse(s.conf.XrpcRootUrl())
+	u, err := url.Parse(s.conf.UpstreamHostHTTP())
 	if err != nil {
 		return err
 	}

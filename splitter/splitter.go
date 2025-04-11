@@ -55,36 +55,46 @@ type SplitterConfig struct {
 	Logger            *slog.Logger
 }
 
-func (sc *SplitterConfig) XrpcRootUrl() string {
-	if strings.HasPrefix(sc.UpstreamHost, "http://") {
-		return sc.UpstreamHost
+func (sc *SplitterConfig) UpstreamHostWebsocket() string {
+
+	if !strings.Contains(sc.UpstreamHost, "://") {
+		return "wss://" + sc.UpstreamHost
 	}
-	if strings.HasPrefix(sc.UpstreamHost, "https://") {
-		return sc.UpstreamHost
+	u, err := url.Parse(sc.UpstreamHost)
+	if err != nil {
+		// this will cause an error downstream
+		return ""
 	}
-	if strings.HasPrefix(sc.UpstreamHost, "ws://") {
-		return "http://" + sc.UpstreamHost[5:]
+
+	switch u.Scheme {
+	case "http", "ws":
+		return "ws://" + u.Host
+	case "https", "wss":
+		return "wss://" + u.Host
+	default:
+		return "wss://" + u.Host
 	}
-	if strings.HasPrefix(sc.UpstreamHost, "wss://") {
-		return "https://" + sc.UpstreamHost[6:]
-	}
-	return "https://" + sc.UpstreamHost
 }
 
-func (sc *SplitterConfig) UpstreamUrl() string {
-	if strings.HasPrefix(sc.UpstreamHost, "http://") {
-		return "ws://" + sc.UpstreamHost[7:]
+func (sc *SplitterConfig) UpstreamHostHTTP() string {
+
+	if !strings.Contains(sc.UpstreamHost, "://") {
+		return "https://" + sc.UpstreamHost
 	}
-	if strings.HasPrefix(sc.UpstreamHost, "https://") {
-		return "wss://" + sc.UpstreamHost[8:]
+	u, err := url.Parse(sc.UpstreamHost)
+	if err != nil {
+		// this will cause an error downstream
+		return ""
 	}
-	if strings.HasPrefix(sc.UpstreamHost, "ws://") {
-		return sc.UpstreamHost
+
+	switch u.Scheme {
+	case "http", "ws":
+		return "http://" + u.Host
+	case "https", "wss":
+		return "https://" + u.Host
+	default:
+		return "https://" + u.Host
 	}
-	if strings.HasPrefix(sc.UpstreamHost, "wss://") {
-		return sc.UpstreamHost
-	}
-	return "wss://" + sc.UpstreamHost
 }
 
 func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) {
@@ -107,9 +117,9 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 		}
 	}
 
-	_, err := url.Parse(conf.UpstreamUrl())
+	_, err := url.Parse(conf.UpstreamHostHTTP())
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse upstream url %#v: %w", conf.UpstreamUrl(), err)
+		return nil, fmt.Errorf("failed to parse upstream url %#v: %w", conf.UpstreamHostHTTP(), err)
 	}
 
 	s := &Splitter{
@@ -296,7 +306,7 @@ func sleepForBackoff(b int) time.Duration {
 func (s *Splitter) subscribeWithRedialer(ctx context.Context, cursor int64) {
 	d := websocket.Dialer{}
 
-	upstreamUrl, err := url.Parse(s.conf.UpstreamUrl())
+	upstreamUrl, err := url.Parse(s.conf.UpstreamHostWebsocket())
 	if err != nil {
 		panic(err) // this should have been checked in NewSplitter
 	}
