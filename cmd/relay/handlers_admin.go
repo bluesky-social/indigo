@@ -42,7 +42,7 @@ func (s *Service) handleAdminSetSubsEnabled(c echo.Context) error {
 
 func (s *Service) handleAdminGetSubsEnabled(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]bool{
-		"enabled": s.config.DisableRequestCrawl,
+		"enabled": !s.config.DisableRequestCrawl,
 	})
 }
 
