@@ -10,6 +10,7 @@ import (
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/eventmgr"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
@@ -55,7 +56,7 @@ func testIndexer(t *testing.T) *testIx {
 	}
 
 	repoman := repomgr.NewRepoManager(cs, &util.FakeKeyManager{})
-	evtman := events.NewEventManager(events.NewMemPersister())
+	evtman := eventmgr.NewEventManager(events.NewMemPersister())
 
 	didr := testPLC(t)
 

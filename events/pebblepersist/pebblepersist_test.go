@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/diskpersist"
+	"github.com/bluesky-social/indigo/events/eventmgr"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	pds "github.com/bluesky-social/indigo/pds/data"
@@ -72,7 +73,7 @@ func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.
 	}
 
 	// Create a bunch of events
-	evtman := events.NewEventManager(dp)
+	evtman := eventmgr.NewEventManager(dp)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {
@@ -138,7 +139,7 @@ func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.
 		t.Fatal(err)
 	}
 
-	evtman2 := events.NewEventManager(dp2)
+	evtman2 := eventmgr.NewEventManager(dp2)
 
 	inEvts = make([]*events.XRPCStreamEvent, n)
 	for i := 0; i < n; i++ {

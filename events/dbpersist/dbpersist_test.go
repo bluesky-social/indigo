@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/eventmgr"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	pds "github.com/bluesky-social/indigo/pds/data"
@@ -62,7 +63,7 @@ func BenchmarkDBPersist(b *testing.B) {
 	}
 
 	// Create a bunch of events
-	evtman := events.NewEventManager(dbp)
+	evtman := eventmgr.NewEventManager(dbp)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {
@@ -184,7 +185,7 @@ func BenchmarkPlayback(b *testing.B) {
 	}
 
 	// Create a bunch of events
-	evtman := events.NewEventManager(dbp)
+	evtman := eventmgr.NewEventManager(dbp)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {

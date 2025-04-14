@@ -10,6 +10,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/eventmgr"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/repomgr"
@@ -26,7 +27,7 @@ const MaxOpsSliceLength = 200
 type Indexer struct {
 	db *gorm.DB
 
-	events *events.EventManager
+	events *eventmgr.EventManager
 	didr   did.Resolver
 
 	Crawler *CrawlDispatcher
@@ -38,7 +39,7 @@ type Indexer struct {
 	log *slog.Logger
 }
 
-func NewIndexer(db *gorm.DB, evtman *events.EventManager, didr did.Resolver, fetcher *RepoFetcher, crawl bool) (*Indexer, error) {
+func NewIndexer(db *gorm.DB, evtman *eventmgr.EventManager, didr did.Resolver, fetcher *RepoFetcher, crawl bool) (*Indexer, error) {
 	db.AutoMigrate(&models.FeedPost{})
 	db.AutoMigrate(&models.ActorInfo{})
 	db.AutoMigrate(&models.FollowRecord{})

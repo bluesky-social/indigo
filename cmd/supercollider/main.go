@@ -24,6 +24,7 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/eventmgr"
 	"github.com/bluesky-social/indigo/events/yolopersist"
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/models"
@@ -64,7 +65,7 @@ var eventsSentCounter = promauto.NewCounter(prometheus.CounterOpts{
 })
 
 type Server struct {
-	Events       *events.EventManager
+	Events       *eventmgr.EventManager
 	Dids         []string
 	Host         string
 	EnableSSL    bool
@@ -206,7 +207,7 @@ func Reload(cctx *cli.Context) error {
 	logger.Info(fmt.Sprintf("Generating %d total events and writing them to %s",
 		cctx.Int("total-events"), cctx.String("output-file")))
 
-	em := events.NewEventManager(yolopersist.NewYoloPersister())
+	em := eventmgr.NewEventManager(yolopersist.NewYoloPersister())
 
 	// Try to read the key from disk
 	keyBytes, err := os.ReadFile(cctx.String("key-file"))
