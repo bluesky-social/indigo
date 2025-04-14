@@ -405,6 +405,7 @@ func (cs *collectionServer) StartApiServer(ctx context.Context, addr string) err
 	}
 	e := echo.New()
 	e.HideBanner = true
+	e.HTTPErrorHandler = cs.errorHandler
 
 	e.Use(svcutil.MetricsMiddleware)
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
@@ -455,6 +456,26 @@ func getLimit(c echo.Context, min, defaultLim, max int) int {
 	return lv
 }
 
+type xrpcError struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
+}
+
+func (srv *collectionServer) errorHandler(err error, c echo.Context) {
+	code := http.StatusInternalServerError
+	var errorMessage string
+	if he, ok := err.(*echo.HTTPError); ok {
+		code = he.Code
+		errorMessage = fmt.Sprintf("%s", he.Message)
+	}
+	if code >= 500 && code <= 599 {
+		slog.With("err", err).Error("collectiondir-http-internal-error")
+	}
+	if !c.Response().Committed {
+		c.JSON(code, xrpcError{Error: "InternalError", Message: errorMessage})
+	}
+}
+
 // /xrpc/com.atproto.sync.listReposByCollection?collection={}&cursor={}&limit={50<=N<=1000}
 // /v1/getDidsForCollection?collection={}&cursor={}&limit={50<=N<=1000}
 //
@@ -465,14 +486,20 @@ func (cs *collectionServer) getDidsForCollection(c echo.Context) error {
 	collection := c.QueryParam("collection")
 	_, err := syntax.ParseNSID(collection)
 	if err != nil {
-		return c.String(http.StatusBadRequest, fmt.Sprintf("bad collection nsid, %s", err.Error()))
+		return c.JSON(http.StatusBadRequest, xrpcError{
+			Error:   "InvalidCollectionNSID",
+			Message: err.Error(),
+		})
 	}
 	cursor := c.QueryParam("cursor")
 	limit := getLimit(c, 1, 500, 10_000)
 	they, nextCursor, err := cs.pcd.ReadCollection(ctx, collection, cursor, limit)
 	if err != nil {
 		slog.Error("ReadCollection", "collection", collection, "cursor", cursor, "limit", limit, "err", err)
-		return c.String(http.StatusInternalServerError, "oops")
+		return c.JSON(http.StatusInternalServerError, xrpcError{
+			Error:   "InternalError",
+			Message: err.Error(),
+		})
 	}
 	cs.log.Info("getDidsForCollection", "collection", collection, "cursor", cursor, "limit", limit, "count", len(they), "nextCursor", nextCursor)
 	var out comatproto.SyncListReposByCollection_Output
