@@ -194,12 +194,12 @@ func (cs *collectionServer) run(cctx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("lru init, %w", err)
 	}
-	cs.wg.Add(1)
-	go cs.ingestReceiver()
 	cs.log = log
 	cs.ctx = cctx.Context
 	cs.AdminToken = cctx.String("admin-token")
 	cs.ExepctedAuthHeader = "Bearer " + cs.AdminToken
+	cs.wg.Add(1)
+	go cs.ingestReceiver()
 	pebblePath := cctx.String("pebble")
 	cs.pcd = &PebbleCollectionDirectory{
 		log: cs.log,
