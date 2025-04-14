@@ -179,19 +179,16 @@ type rateLimit struct {
 
 type hostInfo struct {
 	// fields from old models.PDS
-	ID               uint64
-	CreatedAt        time.Time
-	Host             string
-	SSL              bool
-	Cursor           int64
-	Registered       bool
-	Blocked          bool
-	RateLimit        float64
-	CrawlRateLimit   float64
-	RepoCount        int64
-	RepoLimit        int64
-	HourlyEventLimit int64
-	DailyEventLimit  int64
+	ID             uint64
+	CreatedAt      time.Time
+	Host           string
+	SSL            bool
+	Cursor         int64
+	Registered     bool
+	Blocked        bool
+	CrawlRateLimit float64
+	RepoCount      int64
+	RepoLimit      int64
 
 	HasActiveConnection    bool      `json:"HasActiveConnection"`
 	EventsSeenSinceStartup uint64    `json:"EventsSeenSinceStartup"`
@@ -227,28 +224,22 @@ func (s *Service) handleListHosts(c echo.Context) error {
 			Cursor:     host.LastSeq,
 			Registered: host.Status == models.HostStatusActive, // is this right?
 			Blocked:    host.Status == models.HostStatusBanned,
-			//TODO: RateLimit
-			//TODO: CrawlRateLimit
-			RepoCount: host.AccountCount,
-			RepoLimit: host.AccountLimit,
-			//HourlyEventLimit
-			//DailyEventLimit
+			RepoCount:  host.AccountCount,
+			RepoLimit:  host.AccountLimit,
 
 			HasActiveConnection: isActive,
 			UserCount:           host.AccountCount,
 		}
 
-		// pull event counter metrics from prometheus
-		var m = &dto.Metric{}
-		if err := relay.EventsReceivedCounter.WithLabelValues(host.Hostname).Write(m); err != nil {
-			hostInfos[i].EventsSeenSinceStartup = 0
-			continue
-		}
-		hostInfos[i].EventsSeenSinceStartup = uint64(m.Counter.GetValue())
-
+		// fetch current rate limits
+		hostInfos[i].PerSecondEventRate = rateLimit{Max: -1.0, WindowSeconds: 1}
+		hostInfos[i].PerHourEventRate = rateLimit{Max: -1.0, WindowSeconds: 3600}
+		hostInfos[i].PerDayEventRate = rateLimit{Max: -1.0, WindowSeconds: 86400}
 		if isActive {
 			slc, err := s.relay.Slurper.GetLimits(host.Hostname)
 			if err != nil {
+				s.logger.Error("fetching subscribed host limits", "err", err)
+			} else {
 				hostInfos[i].PerSecondEventRate = rateLimit{
 					Max:           float64(slc.PerSecond),
 					WindowSeconds: 1,
@@ -263,6 +254,14 @@ func (s *Service) handleListHosts(c echo.Context) error {
 				}
 			}
 		}
+
+		// pull event counter metrics from prometheus
+		var m = &dto.Metric{}
+		if err := relay.EventsReceivedCounter.WithLabelValues(host.Hostname).Write(m); err != nil {
+			hostInfos[i].EventsSeenSinceStartup = 0
+			continue
+		}
+		hostInfos[i].EventsSeenSinceStartup = uint64(m.Counter.GetValue())
 	}
 
 	return c.JSON(http.StatusOK, hostInfos)
