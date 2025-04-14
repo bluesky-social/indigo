@@ -217,9 +217,12 @@ func (cs *collectionServer) run(cctx *cli.Context) error {
 	}
 	cs.statsCacheFresh.L = &cs.statsCacheLock
 
-	apiAddr := cctx.String("api-listen")
+	apiServerEcho, err := cs.createApiServer(cctx.Context, cctx.String("api-listen"))
+	if err != nil {
+		return err
+	}
 	cs.wg.Add(1)
-	go func() { cs.StartApiServer(cctx.Context, apiAddr) }()
+	go func() { cs.StartApiServer(cctx.Context, apiServerEcho) }()
 
 	metricsAddr := cctx.String("metrics-listen")
 	cs.wg.Add(1)
@@ -391,13 +394,11 @@ func (cs *collectionServer) StartMetricsServer(ctx context.Context, addr string)
 	return cs.metricsServer.ListenAndServe()
 }
 
-func (cs *collectionServer) StartApiServer(ctx context.Context, addr string) error {
-	defer cs.wg.Done()
-	defer cs.log.Info("api server exit")
+func (cs *collectionServer) createApiServer(ctx context.Context, addr string) (*echo.Echo, error) {
 	var lc net.ListenConfig
 	li, err := lc.Listen(ctx, "tcp", addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	e := echo.New()
 	e.HideBanner = true
@@ -427,7 +428,13 @@ func (cs *collectionServer) StartApiServer(ctx context.Context, addr string) err
 		Handler: e,
 	}
 	cs.apiServer = srv
-	return srv.Serve(li)
+	return e, nil
+}
+
+func (cs *collectionServer) StartApiServer(ctx context.Context, e *echo.Echo) error {
+	defer cs.wg.Done()
+	defer cs.log.Info("api server exit")
+	return cs.apiServer.Serve(e.Listener)
 }
 
 const statsCacheDuration = time.Second * 300
