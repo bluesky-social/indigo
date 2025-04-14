@@ -216,17 +216,14 @@ func (cs *collectionServer) run(cctx *cli.Context) error {
 		}
 	}
 	cs.statsCacheFresh.L = &cs.statsCacheLock
-	errchan := make(chan error, 3)
+
 	apiAddr := cctx.String("api-listen")
 	cs.wg.Add(1)
-	go func() {
-		errchan <- cs.StartApiServer(cctx.Context, apiAddr)
-	}()
+	go func() { cs.StartApiServer(cctx.Context, apiAddr) }()
+
 	metricsAddr := cctx.String("metrics-listen")
 	cs.wg.Add(1)
-	go func() {
-		errchan <- cs.StartMetricsServer(cctx.Context, metricsAddr)
-	}()
+	go func() { cs.StartMetricsServer(cctx.Context, metricsAddr) }()
 
 	upstream := cctx.String("upstream")
 	if upstream != "" {
@@ -248,19 +245,9 @@ func (cs *collectionServer) run(cctx *cli.Context) error {
 		go cs.handleFirehose(fhevents)
 	}
 
-	select {
-	case <-signals:
-		log.Info("received shutdown signal")
-		go errchanlog(cs.log, "server error", errchan)
-		return cs.Shutdown()
-	case err := <-errchan:
-		if err != nil {
-			log.Error("server error", "err", err)
-			go errchanlog(cs.log, "server error", errchan)
-			return cs.Shutdown()
-		}
-	}
-	return nil
+	<-signals
+	log.Info("received shutdown signal")
+	return cs.Shutdown()
 }
 
 func (cs *collectionServer) openDau() error {
@@ -283,28 +270,31 @@ func (cs *collectionServer) openDau() error {
 	return nil
 }
 
-func errchanlog(log *slog.Logger, msg string, errchan <-chan error) {
-	for err := range errchan {
-		log.Error(msg, "err", err)
-	}
-}
-
 func (cs *collectionServer) Shutdown() error {
 	close(cs.shutdown)
-	go func() {
+
+	func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
 		cs.log.Info("metrics shutdown start")
-		sherr := cs.metricsServer.Shutdown(context.Background())
+		sherr := cs.metricsServer.Shutdown(ctx)
 		cs.log.Info("metrics shutdown", "err", sherr)
 	}()
-	cs.log.Info("api shutdown start...")
-	err := cs.apiServer.Shutdown(context.Background())
-	//err := cs.esrv.Shutdown(context.Background())
-	cs.log.Info("api shutdown, thread wait...", "err", err)
-	cs.wg.Wait()
+
+	func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		cs.log.Info("api shutdown start...")
+		err := cs.apiServer.Shutdown(ctx)
+		cs.log.Info("api shutdown, thread wait...", "err", err)
+	}()
+
 	cs.log.Info("threads done, db close...")
-	ee := cs.pcd.Close()
-	if ee != nil {
-		cs.log.Error("failed to shutdown pebble", "err", ee)
+	err := cs.pcd.Close()
+	if err != nil {
+		cs.log.Error("failed to shutdown pebble", "err", err)
 	}
 	cs.log.Info("db done. done.")
 	return err
