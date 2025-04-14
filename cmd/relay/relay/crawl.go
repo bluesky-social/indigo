@@ -59,7 +59,7 @@ func (r *Relay) SubscribeToHost(hostname string, noSSL, adminForce bool) error {
 func (r *Relay) ResubscribeAllHosts() error {
 
 	var all []models.Host
-	if err := r.db.Find(&all, "status = \"active\"").Error; err != nil {
+	if err := r.db.Find(&all, "status = ?", "active").Error; err != nil {
 		return err
 	}
 
