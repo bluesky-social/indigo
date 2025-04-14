@@ -54,8 +54,6 @@ var cmdRelay = &cli.Command{
 					ArgsUsage: `<hostname>`,
 					Action:    runRelayHostAdd,
 				},
-				// XXX: list hosts
-				// XXX: get host info
 			},
 		},
 		cmdRelayAdmin,
