@@ -27,9 +27,9 @@ type ProcessMessageFunc func(ctx context.Context, evt *stream.XRPCStreamEvent, h
 type PersistCursorFunc func(ctx context.Context, cursors *[]HostCursor) error
 type PersistHostStatusFunc func(ctx context.Context, hostID uint64, state models.HostStatus) error
 
-// `Slurper` is the sub-system of the relay which manages active websocket firehose connections to upstream hosts.
+// `Slurper` is the sub-system of the relay which manages active websocket firehose connections to upstream hosts (eg, PDS instances).
 //
-// It enforces rate-limits, tracks cursors, and retries connections. It passes recieved messages on to the main relay via a callback function. `Slurper` does not talk to the database directly, but does have some callback to persist host state (cursors and hosting status for some error conditions).
+// It configures rate-limits, tracks cursors, and retries connections. It passes recieved messages on to the main relay via a callback function. `Slurper` does not talk to the database directly, but does have some callback to persist host state (cursors and hosting status for some error conditions).
 type Slurper struct {
 	processCallback ProcessMessageFunc
 	Config          *SlurperConfig
@@ -41,26 +41,6 @@ type Slurper struct {
 	shutdownResult chan error
 
 	logger *slog.Logger
-}
-
-type StreamLimiters struct {
-	PerSecond *slidingwindow.Limiter
-	PerHour   *slidingwindow.Limiter
-	PerDay    *slidingwindow.Limiter
-}
-
-type StreamLimiterCounts struct {
-	PerSecond int64
-	PerHour   int64
-	PerDay    int64
-}
-
-func (sl *StreamLimiters) Counts() StreamLimiterCounts {
-	return StreamLimiterCounts{
-		PerSecond: sl.PerSecond.Limit(),
-		PerHour:   sl.PerHour.Limit(),
-		PerDay:    sl.PerDay.Limit(),
-	}
 }
 
 type SlurperConfig struct {
@@ -126,7 +106,30 @@ func (sub *Subscription) HostCursor() HostCursor {
 	}
 }
 
+type StreamLimiterCounts struct {
+	PerSecond int64
+	PerHour   int64
+	PerDay    int64
+}
+
+type StreamLimiters struct {
+	PerSecond *slidingwindow.Limiter
+	PerHour   *slidingwindow.Limiter
+	PerDay    *slidingwindow.Limiter
+}
+
+func (sl *StreamLimiters) Counts() StreamLimiterCounts {
+	return StreamLimiterCounts{
+		PerSecond: sl.PerSecond.Limit(),
+		PerHour:   sl.PerHour.Limit(),
+		PerDay:    sl.PerDay.Limit(),
+	}
+}
+
 func NewSlurper(processCallback ProcessMessageFunc, config *SlurperConfig, logger *slog.Logger) (*Slurper, error) {
+	if processCallback == nil {
+		return nil, fmt.Errorf("processCallback is required")
+	}
 	if config == nil {
 		config = DefaultSlurperConfig()
 	}
@@ -166,32 +169,24 @@ func windowFunc() (slidingwindow.Window, slidingwindow.StopFunc) {
 	return slidingwindow.NewLocalWindow()
 }
 
-func (s *Slurper) NewStreamLimiters(accountLimit int64, trusted bool) *StreamLimiters {
-
-	perSecondCount := s.Config.BaselinePerSecondLimit + (accountLimit / 1000)
-	perHourCount := s.Config.BaselinePerHourLimit + accountLimit
-	perDayCount := s.Config.BaselinePerDayLimit + accountLimit*10
-
+func (s *Slurper) ComputeLimiterCounts(accountLimit int64, trusted bool) StreamLimiterCounts {
 	if trusted {
-		perSecondCount = s.Config.TrustedPerSecondLimit
-		perHourCount = s.Config.TrustedPerHourLimit
-		perDayCount = s.Config.TrustedPerDayLimit
+		return StreamLimiterCounts{
+			PerSecond: s.Config.TrustedPerSecondLimit,
+			PerHour:   s.Config.TrustedPerHourLimit,
+			PerDay:    s.Config.TrustedPerDayLimit,
+		}
 	}
-
-	perSec, _ := slidingwindow.NewLimiter(time.Second, perSecondCount, windowFunc)
-	perHour, _ := slidingwindow.NewLimiter(time.Hour, perHourCount, windowFunc)
-	perDay, _ := slidingwindow.NewLimiter(time.Hour*24, perDayCount, windowFunc)
-	return &StreamLimiters{
-		PerSecond: perSec,
-		PerHour:   perHour,
-		PerDay:    perDay,
+	return StreamLimiterCounts{
+		PerSecond: s.Config.BaselinePerSecondLimit + (accountLimit / 1000),
+		PerHour:   s.Config.BaselinePerHourLimit + accountLimit,
+		PerDay:    s.Config.BaselinePerDayLimit + accountLimit*10,
 	}
 }
 
 func (s *Slurper) UpdateLimiters(hostname string, accountLimit int64, trusted bool) error {
 
-	// easiest way to re-compute is generate a new set of limiters
-	newLims := s.NewStreamLimiters(accountLimit, trusted)
+	newLims := s.ComputeLimiterCounts(accountLimit, trusted)
 
 	s.subsLk.Lock()
 	defer s.subsLk.Unlock()
@@ -201,9 +196,9 @@ func (s *Slurper) UpdateLimiters(hostname string, accountLimit int64, trusted bo
 		return fmt.Errorf("updating limits for %s: %w", hostname, ErrNoActiveConnection)
 	}
 
-	sub.Limiters.PerSecond.SetLimit(newLims.PerSecond.Limit())
-	sub.Limiters.PerHour.SetLimit(newLims.PerHour.Limit())
-	sub.Limiters.PerDay.SetLimit(newLims.PerDay.Limit())
+	sub.Limiters.PerSecond.SetLimit(newLims.PerSecond)
+	sub.Limiters.PerHour.SetLimit(newLims.PerHour)
+	sub.Limiters.PerDay.SetLimit(newLims.PerDay)
 
 	return nil
 }
@@ -221,7 +216,7 @@ func (s *Slurper) GetLimits(hostname string) (*StreamLimiterCounts, error) {
 	return &slc, nil
 }
 
-// Shutdown shuts down the slurper
+// Shutdown shuts down the entire Slurper (all subscriptions)
 func (s *Slurper) Shutdown() error {
 	s.shutdownChan <- true
 	s.logger.Info("waiting for slurper shutdown")
@@ -241,16 +236,34 @@ func (s *Slurper) CheckIfSubscribed(hostname string) bool {
 	return ok
 }
 
+// high-level entry point for opening a subscription (websocket connection). This might be called when adding a new host, or when re-connecting to a previously subscribed host.
+//
+// NOTE: the `host` parameter (a database row) contains metadata about the host at a point in time. Subsequent changes to the database aren't reflected in that struct, and changes to the struct don't get persisted to database.
 func (s *Slurper) Subscribe(host *models.Host, newHost bool) error {
-	// TODO: for performance, lock on the hostname instead of global
+	// TODO: replace newHost with a check for negative number on host.LastSeq (via IsNewHost helper method on `models.Host`?)
 	s.subsLk.Lock()
 	defer s.subsLk.Unlock()
+
+	_, ok := s.subs[host.Hostname]
+	if ok {
+		return fmt.Errorf("already subscribed: %s", host.Hostname)
+	}
+
+	counts := s.ComputeLimiterCounts(host.AccountLimit, host.Trusted)
+	perSec, _ := slidingwindow.NewLimiter(time.Second, counts.PerSecond, windowFunc)
+	perHour, _ := slidingwindow.NewLimiter(time.Hour, counts.PerHour, windowFunc)
+	perDay, _ := slidingwindow.NewLimiter(time.Hour*24, counts.PerDay, windowFunc)
+	limiters := &StreamLimiters{
+		PerSecond: perSec,
+		PerHour:   perHour,
+		PerDay:    perDay,
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	sub := Subscription{
 		Hostname: host.Hostname,
 		HostID:   host.ID,
-		Limiters: s.NewStreamLimiters(host.AccountLimit, host.Trusted),
+		Limiters: limiters,
 		ctx:      ctx,
 		cancel:   cancel,
 	}
@@ -262,6 +275,9 @@ func (s *Slurper) Subscribe(host *models.Host, newHost bool) error {
 	return nil
 }
 
+// Main event-loop for a subscription (websocket connection to upstream host), expected to be called as a goroutine.
+//
+// On connection failure (drop or failed initial connection), will attempt re-connects, with backoff.
 func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, sub *Subscription, newHost bool) {
 	defer func() {
 		s.subsLk.Lock()
@@ -274,7 +290,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		HandshakeTimeout: time.Second * 5,
 	}
 
-	// cursor by 200 events to smooth over unclean shutdowns
+	// HACK: cursor by 200 events to smooth over unclean shutdowns. This has been in place since 2024.
 	if host.LastSeq > 200 {
 		host.LastSeq -= 200
 	} else {
@@ -285,7 +301,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 
 	connectedInbound.Inc()
 	defer connectedInbound.Dec()
-	// TODO:? maybe keep a gauge of 'in retry backoff' sources?
+	// TODO: add a metric for number of subscriptions which are attempting to reconnect
 
 	var backoff int
 	for {
@@ -348,6 +364,7 @@ func sleepForBackoff(b int) time.Duration {
 	return time.Second * 30
 }
 
+// Configures event processing for a websocket connection, using the parallel schedule helper library, with all events processed using the configured callback function.
 func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, lastCursor *int64, sub *Subscription) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -470,7 +487,7 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 		sub.Limiters.PerDay,
 	}
 
-	// NOTE: this is where limiters get injected and enforced
+	// NOTE: `InstrumentedRepoStreamCallbacks` is where event limiters get called/enforced
 	instrumentedRSC := stream.NewInstrumentedRepoStreamCallbacks(limiters, rsc.EventHandler)
 
 	pool := parallel.NewScheduler(
@@ -513,6 +530,7 @@ func (s *Slurper) persistCursors(ctx context.Context) error {
 	return err
 }
 
+// gets a snapshot of current subsription hostnames
 func (s *Slurper) GetActiveSubHostnames() []string {
 	s.subsLk.Lock()
 	defer s.subsLk.Unlock()
