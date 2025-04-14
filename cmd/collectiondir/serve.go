@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"os/signal"
@@ -388,9 +389,14 @@ func (cs *collectionServer) handleCommit(commit *comatproto.SyncSubscribeRepos_C
 func (cs *collectionServer) StartMetricsServer(ctx context.Context, addr string) error {
 	defer cs.wg.Done()
 	defer cs.log.Info("metrics server exit")
+
+	e := echo.New()
+	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
+	e.Any("/debug/pprof/*", echo.WrapHandler(http.DefaultServeMux))
+
 	cs.metricsServer = &http.Server{
 		Addr:    addr,
-		Handler: promhttp.Handler(),
+		Handler: e,
 	}
 	return cs.metricsServer.ListenAndServe()
 }
