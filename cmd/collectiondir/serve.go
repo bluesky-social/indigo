@@ -224,9 +224,9 @@ func (cs *collectionServer) run(cctx *cli.Context) error {
 	cs.wg.Add(1)
 	go func() { cs.StartApiServer(cctx.Context, apiServerEcho) }()
 
-	metricsAddr := cctx.String("metrics-listen")
+	cs.createMetricsServer(cctx.String("metrics-listen"))
 	cs.wg.Add(1)
-	go func() { cs.StartMetricsServer(cctx.Context, metricsAddr) }()
+	go func() { cs.StartMetricsServer(cctx.Context) }()
 
 	upstream := cctx.String("upstream")
 	if upstream != "" {
@@ -379,10 +379,7 @@ func (cs *collectionServer) handleCommit(commit *comatproto.SyncSubscribeRepos_C
 	}
 }
 
-func (cs *collectionServer) StartMetricsServer(ctx context.Context, addr string) error {
-	defer cs.wg.Done()
-	defer cs.log.Info("metrics server exit")
-
+func (cs *collectionServer) createMetricsServer(addr string) {
 	e := echo.New()
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.Any("/debug/pprof/*", echo.WrapHandler(http.DefaultServeMux))
@@ -391,6 +388,12 @@ func (cs *collectionServer) StartMetricsServer(ctx context.Context, addr string)
 		Addr:    addr,
 		Handler: e,
 	}
+}
+
+func (cs *collectionServer) StartMetricsServer(ctx context.Context) error {
+	defer cs.wg.Done()
+	defer cs.log.Info("metrics server exit")
+
 	return cs.metricsServer.ListenAndServe()
 }
 
