@@ -1,6 +1,7 @@
 module github.com/bluesky-social/indigo
 
-go 1.23.0
+go 1.23
+toolchain go1.23.8
 
 require (
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2
