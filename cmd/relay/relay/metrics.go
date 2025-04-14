@@ -36,23 +36,29 @@ var eventsSentCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "The total number of events sent to consumers",
 }, []string{"remote_addr", "user_agent"})
 
+/* NOTE: not implemented in this version of relay
 var externalUserCreationAttempts = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "relay_external_user_creation_attempts",
 	Help: "The total number of external users created",
 })
+*/
 
 var newUsersDiscovered = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "relay_new_users_discovered",
 	Help: "The total number of new users discovered directly from the firehose (not from refs)",
 })
 
+/* NOTE: not implemented in this version of relay
 var newUserDiscoveryDuration = promauto.NewHistogram(prometheus.HistogramOpts{
 	Name:    "relay_new_user_discovery_duration",
 	Help:    "A histogram of new user discovery latencies",
 	Buckets: prometheus.ExponentialBuckets(0.001, 2, 15),
 })
+*/
 
+/* NOTE: not implemented
 var accountVerifyWarnings = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "validator_account_verify_warnings",
 	Help: "things that have been a little bit wrong with account messages",
 }, []string{"host", "warn"})
+*/
