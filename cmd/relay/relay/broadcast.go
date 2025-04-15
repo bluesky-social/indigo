@@ -55,8 +55,8 @@ func (r *Relay) cleanupConsumer(id uint64) {
 }
 
 var wsUpgrader = websocket.Upgrader{
-	ReadBufferSize:  10 << 10,
-	WriteBufferSize: 10 << 10,
+	ReadBufferSize:  10_000,
+	WriteBufferSize: 10_000,
 }
 
 // Main HTTP request handler for clients connecting to the firehose (com.atproto.sync.subscribeRepos)
