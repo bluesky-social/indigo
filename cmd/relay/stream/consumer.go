@@ -15,6 +15,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+const MaxMessageBytes = 5_000_000
+
 type RepoStreamCallbacks struct {
 	RepoCommit    func(evt *comatproto.SyncSubscribeRepos_Commit) error
 	RepoSync      func(evt *comatproto.SyncSubscribeRepos_Sync) error
@@ -152,6 +154,9 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 			}
 		}
 	}()
+
+	// global maximum WebSocket message size; connection will drop if exceeded
+	con.SetReadLimit(MaxMessageBytes)
 
 	con.SetPingHandler(func(message string) error {
 		err := con.WriteControl(websocket.PongMessage, []byte(message), time.Now().Add(time.Second*60))
