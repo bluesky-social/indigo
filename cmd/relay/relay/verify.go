@@ -75,9 +75,18 @@ func (r *Relay) VerifyRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 func (r *Relay) VerifyCommitObject(ctx context.Context, commit *repo.Commit, ident *identity.Identity, hostname string) error {
 	logger := r.Logger.With("host", hostname, "did", commit.DID, "rev", commit.Rev)
 
-	// TODO: what parts does this actually do?
+	// `VerifyStructure` checks that commit object field syntax is correct
 	if err := commit.VerifyStructure(); err != nil {
 		return err
+	}
+
+	// this re-parse is technically duplicate work
+	rev, err := syntax.ParseTID(commit.Rev)
+	if err != nil {
+		return fmt.Errorf("commit rev syntax: %w", err)
+	}
+	if rev.Time().Compare(time.Now().Add(futureRevTolerance)) > 0 {
+		return fmt.Errorf("%w: %s: %s", ErrFutureRev, rev, rev.Time().String())
 	}
 
 	// if identity is available, verify the signature
