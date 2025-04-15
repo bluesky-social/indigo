@@ -105,7 +105,7 @@ func (r *Relay) preProcessEvent(ctx context.Context, didStr string, hostname str
 
 func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit, hostname string, hostID uint64) error {
 	logger := r.Logger.With("did", evt.Repo, "seq", evt.Seq, "host", hostname, "eventType", "commit", "rev", evt.Rev)
-	logger.Debug("relay got repo append event")
+	logger.Debug("relay got commit event")
 
 	acc, ident, err := r.preProcessEvent(ctx, evt.Repo, hostname, hostID, logger)
 	if err != nil {
@@ -164,6 +164,7 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 
 func (r *Relay) processSyncEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync, hostname string, hostID uint64) error {
 	logger := r.Logger.With("did", evt.Did, "seq", evt.Seq, "host", hostname, "eventType", "sync")
+	logger.Debug("relay got sync event")
 
 	acc, ident, err := r.preProcessEvent(ctx, evt.Did, hostname, hostID, logger)
 	if err != nil {
@@ -206,9 +207,7 @@ func (r *Relay) processSyncEvent(ctx context.Context, evt *comatproto.SyncSubscr
 
 func (r *Relay) processIdentityEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Identity, hostname string, hostID uint64) error {
 	logger := r.Logger.With("did", evt.Did, "seq", evt.Seq, "host", hostname, "eventType", "identity")
-
-	// TODO: reduce verbosity?
-	logger.Info("relay got identity event")
+	logger.Debug("relay got identity event")
 
 	acc, _, err := r.preProcessEvent(ctx, evt.Did, hostname, hostID, logger)
 	if err != nil {
@@ -241,6 +240,7 @@ func (r *Relay) processIdentityEvent(ctx context.Context, evt *comatproto.SyncSu
 
 func (r *Relay) processAccountEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Account, hostname string, hostID uint64) error {
 	logger := r.Logger.With("did", evt.Did, "seq", evt.Seq, "host", hostname, "eventType", "account")
+	logger.Debug("relay got account event")
 
 	ctx, span := tracer.Start(ctx, "processAccountEvent")
 	defer span.End()
@@ -249,7 +249,6 @@ func (r *Relay) processAccountEvent(ctx context.Context, evt *comatproto.SyncSub
 		attribute.Int64("seq", evt.Seq),
 		attribute.Bool("active", evt.Active),
 	)
-	logger.Info("relay got account event")
 
 	acc, _, err := r.preProcessEvent(ctx, evt.Did, hostname, hostID, logger)
 	if err != nil {
