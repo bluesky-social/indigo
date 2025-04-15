@@ -15,7 +15,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	dto "github.com/prometheus/client_model/go"
-	"gorm.io/gorm"
 )
 
 // this is the same as the regular com.atproto.sync.requestCrawl endpoint, except it sets a flag to bypass configuration checks
@@ -85,8 +84,8 @@ func (s *Service) handleAdminTakeDownRepo(c echo.Context) error {
 		return err
 	}
 
-	if err := s.relay.UpdateAccountStatus(ctx, did, models.AccountStatusTakendown); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := s.relay.UpdateAccountLocalStatus(ctx, did, models.AccountStatusTakendown, true); err != nil {
+		if errors.Is(err, relay.ErrAccountNotFound) {
 			return &echo.HTTPError{
 				Code:    http.StatusNotFound,
 				Message: "account not found",
@@ -112,8 +111,8 @@ func (s *Service) handleAdminReverseTakedown(c echo.Context) error {
 		return err
 	}
 
-	if err := s.relay.UpdateAccountStatus(ctx, did, models.AccountStatusActive); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := s.relay.UpdateAccountLocalStatus(ctx, did, models.AccountStatusActive, true); err != nil {
+		if errors.Is(err, relay.ErrAccountNotFound) {
 			return &echo.HTTPError{
 				Code:    http.StatusNotFound,
 				Message: "repo not found",

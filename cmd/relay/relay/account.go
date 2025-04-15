@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"strings"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
+	"github.com/bluesky-social/indigo/cmd/relay/stream"
 
 	"gorm.io/gorm"
 )
@@ -181,7 +183,25 @@ func (r *Relay) EnsureAccountHost(ctx context.Context, acc *models.Account, host
 	return nil
 }
 
-func (r *Relay) UpdateAccountStatus(ctx context.Context, did syntax.DID, status models.AccountStatus) error {
+// This updates the account's "upstream" status (eg, at the account's PDS). Usually this is called in response to an `#account` event.
+//
+// The DID and UID are both required, and *must* match; it is assumed that calling code has already done an account lookup.
+func (r *Relay) UpdateAccountUpstreamStatus(ctx context.Context, did syntax.DID, uid uint64, status models.AccountStatus) error {
+
+	if err := r.db.Model(models.Account{}).Where("uid = ?", uid).Update("upstream_status", status).Error; err != nil {
+		return err
+	}
+
+	// clear account cache
+	r.accountCache.Remove(did.String())
+
+	return nil
+}
+
+// This method updates the "local" account status (as opposed to "upstream" status, eg at the account's PDS).
+//
+// If the `emitEvent` flag is set true, a `#account` event is broadcase. This should be used for account-level takedowns.
+func (r *Relay) UpdateAccountLocalStatus(ctx context.Context, did syntax.DID, status models.AccountStatus, emitEvent bool) error {
 	acc, err := r.GetAccount(ctx, did)
 	if err != nil {
 		return err
@@ -194,7 +214,25 @@ func (r *Relay) UpdateAccountStatus(ctx context.Context, did syntax.DID, status 
 	// clear account cache
 	r.accountCache.Remove(did.String())
 
-	// NOTE: not wiping events for user from persister (backfill window)
+	// update copy of row for computing public status field
+	acc.Status = status
+
+	if emitEvent {
+		err = r.Events.AddEvent(ctx, &stream.XRPCStreamEvent{
+			RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+				Active: acc.IsActive(),
+				Did:    acc.DID,
+				Status: acc.StatusField(),
+				Time:   syntax.DatetimeNow().String(),
+			},
+			PrivUid: acc.UID,
+		})
+		if err != nil {
+			r.Logger.Error("failed to emit #account event after status change", "did", did, "newStatus", status, "error", err)
+			return fmt.Errorf("failed to broadcast #account event: %w", err)
+		}
+	}
+
 	return nil
 }
 

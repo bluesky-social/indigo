@@ -267,14 +267,10 @@ func (r *Relay) processAccountEvent(ctx context.Context, evt *comatproto.SyncSub
 	}
 
 	if newStatus != acc.UpstreamStatus {
-		// updates upstream status in account database
-		if err := r.db.Model(models.Account{}).Where("uid = ?", acc.UID).Update("upstream_status", newStatus).Error; err != nil {
+		if err := r.UpdateAccountUpstreamStatus(ctx, syntax.DID(acc.DID), acc.UID, newStatus); err != nil {
 			return err
 		}
 		acc.UpstreamStatus = newStatus
-
-		// clear account cache
-		r.accountCache.Remove(acc.DID)
 	}
 
 	// emit the event
