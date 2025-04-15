@@ -86,7 +86,7 @@ func run(args []string) error {
 				&cli.StringFlag{
 					Name:    "persist-dir",
 					Usage:   "local folder to store firehose playback files",
-					Value:   "data/relay/events",
+					Value:   "data/relay/persist",
 					EnvVars: []string{"RELAY_PERSIST_DIR", "RELAY_PERSISTER_DIR"},
 				},
 				&cli.DurationFlag{
