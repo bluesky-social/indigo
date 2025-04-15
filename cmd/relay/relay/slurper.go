@@ -29,7 +29,7 @@ type PersistHostStatusFunc func(ctx context.Context, hostID uint64, state models
 
 // `Slurper` is the sub-system of the relay which manages active websocket firehose connections to upstream hosts (eg, PDS instances).
 //
-// It configures rate-limits, tracks cursors, and retries connections. It passes recieved messages on to the main relay via a callback function. `Slurper` does not talk to the database directly, but does have some callback to persist host state (cursors and hosting status for some error conditions).
+// It configures rate-limits, tracks cursors, and retries connections. It passes received messages on to the main relay via a callback function. `Slurper` does not talk to the database directly, but does have some callback to persist host state (cursors and hosting status for some error conditions).
 type Slurper struct {
 	processCallback ProcessMessageFunc
 	Config          *SlurperConfig

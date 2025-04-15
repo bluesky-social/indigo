@@ -56,7 +56,7 @@ func run(args []string) error {
 		&cli.StringFlag{
 			Name:    "log-level",
 			Usage:   "log verbosity level (eg: warn, info, debug)",
-			EnvVars: []string{"BLUEPAGES_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"},
+			EnvVars: []string{"RELAY_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"},
 		},
 	}
 	app.Commands = []*cli.Command{

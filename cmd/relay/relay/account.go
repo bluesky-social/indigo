@@ -200,7 +200,7 @@ func (r *Relay) UpdateAccountUpstreamStatus(ctx context.Context, did syntax.DID,
 
 // This method updates the "local" account status (as opposed to "upstream" status, eg at the account's PDS).
 //
-// If the `emitEvent` flag is set true, a `#account` event is broadcase. This should be used for account-level takedowns.
+// If the `emitEvent` flag is set true, a `#account` event is broadcast. This should be used for account-level takedowns.
 func (r *Relay) UpdateAccountLocalStatus(ctx context.Context, did syntax.DID, status models.AccountStatus, emitEvent bool) error {
 	acc, err := r.GetAccount(ctx, did)
 	if err != nil {
