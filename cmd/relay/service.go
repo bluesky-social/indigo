@@ -117,7 +117,7 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 			svc.logger.Error("API handler error", "path", c.Path(), "err", err)
 
 			if strings.HasPrefix(c.Path(), "/admin/") {
-				c.JSON(http.StatusInternalServerError, map[string]any{
+				_ = c.JSON(http.StatusInternalServerError, map[string]any{
 					"error": err.Error(),
 				})
 				return
@@ -166,7 +166,7 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 	// Host-related Admin API
 	admin.GET("/pds/list", svc.handleListHosts)
 	admin.POST("/pds/requestCrawl", svc.handleAdminRequestCrawl)
-	// TODO: admin.POST("/pds/changeLimits", svc.handleAdminChangeHostRateLimits)
+	admin.POST("/pds/changeLimits", svc.handleAdminChangeHostRateLimits)
 	admin.POST("/pds/block", svc.handleBlockHost)
 	admin.POST("/pds/unblock", svc.handleUnblockHost)
 	// removed: admin.POST("/pds/addTrustedDomain", svc.handleAdminAddTrustedDomain)

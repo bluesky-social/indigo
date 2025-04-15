@@ -44,6 +44,7 @@ func TestLiveHostChecker(t *testing.T) {
 	assert.Error(hc.CheckHost(ctx, "https://dummy.example.com"))
 
 	ident, err := dir.LookupHandle(ctx, syntax.Handle("atproto.com"))
+	assert.NoError(err)
 
 	s1, err := hc.FetchAccountStatus(ctx, ident)
 	assert.NoError(err)

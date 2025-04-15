@@ -70,7 +70,9 @@ func MustSimpleRelay(dir identity.Directory, tmpd string, lenient bool) *SimpleR
 
 	slog.Info("starting test relay", "port", port)
 	go func() {
-		defer listener.Close()
+		defer func() {
+			_ = listener.Close()
+		}()
 		err := http.Serve(listener, mux)
 		if err != nil {
 			slog.Warn("test relay shutting down", "err", err)
@@ -120,7 +122,9 @@ func RunScenario(ctx context.Context, s *Scenario) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmpd)
+	defer func() {
+		_ = os.RemoveAll(tmpd)
+	}()
 
 	p := NewProducer()
 	hostPort := p.ListenRandom()
@@ -147,7 +151,9 @@ func RunScenario(ctx context.Context, s *Scenario) error {
 		if err != nil {
 			return err
 		}
-		p.Emit(evt)
+		if err := p.Emit(evt); err != nil {
+			return err
+		}
 		if !msg.Drop {
 			evts, err := c.ConsumeEvents(1)
 			if err != nil {

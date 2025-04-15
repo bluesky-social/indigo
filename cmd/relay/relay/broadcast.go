@@ -65,7 +65,9 @@ func (r *Relay) HandleSubscribeRepos(resp http.ResponseWriter, req *http.Request
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
 
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
 	lastWriteLk := sync.Mutex{}
 	lastWrite := time.Now()

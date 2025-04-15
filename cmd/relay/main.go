@@ -223,7 +223,9 @@ func runRelay(cctx *cli.Context) error {
 	dir := identity.NewCacheDirectory(&baseDir, cctx.Int("ident-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
 
 	persistDir := cctx.String("persist-dir")
-	os.MkdirAll(persistDir, os.ModePerm)
+	if err := os.MkdirAll(persistDir, os.ModePerm); err != nil {
+		return err
+	}
 	persitConfig := diskpersist.DefaultDiskPersistOptions()
 	persitConfig.Retention = cctx.Duration("replay-window")
 	logger.Info("setting up disk persister", "dir", persistDir, "replayWindow", persitConfig.Retention)

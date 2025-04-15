@@ -140,14 +140,14 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 					failcount++
 					if failcount >= 4 {
 						logger.Error("too many ping fails", "count", failcount)
-						con.Close()
+						_ = con.Close()
 						return
 					}
 				} else {
 					failcount = 0 // ok ping
 				}
 			case <-ctx.Done():
-				con.Close()
+				_ = con.Close()
 				return
 			}
 		}

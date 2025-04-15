@@ -216,7 +216,7 @@ func (r *Relay) processIdentityEvent(ctx context.Context, evt *comatproto.SyncSu
 	did := syntax.DID(acc.DID)
 
 	// Flush any cached DID/identity info for this user
-	r.Dir.Purge(ctx, did.AtIdentifier())
+	err = r.Dir.Purge(ctx, did.AtIdentifier())
 	if err != nil {
 		logger.Error("problem purging identity directory cache", "err", err)
 	}

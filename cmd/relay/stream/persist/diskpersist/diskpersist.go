@@ -115,7 +115,9 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 		return nil, fmt.Errorf("failed to create did cache: %w", err)
 	}
 
-	db.AutoMigrate(&LogFileRef{})
+	if err := db.AutoMigrate(&LogFileRef{}); err != nil {
+		return nil, fmt.Errorf("failed to set up database: %w", err)
+	}
 
 	bufpool := &sync.Pool{
 		New: func() any {
@@ -925,8 +927,10 @@ func (dp *DiskPersistence) mutateUserEventsInLog(ctx context.Context, uid uint64
 	if err != nil {
 		return fmt.Errorf("failed to open log file: %w", err)
 	}
-	defer fi.Close()
-	defer fi.Sync()
+	defer func() {
+		_ = fi.Close()
+		_ = fi.Sync()
+	}()
 
 	scratch := make([]byte, headerSize)
 	var offset int64
@@ -989,8 +993,7 @@ func (dp *DiskPersistence) Shutdown(ctx context.Context) error {
 		return err
 	}
 
-	dp.logfi.Close()
-	return nil
+	return dp.logfi.Close()
 }
 
 func (dp *DiskPersistence) SetEventBroadcaster(f func(*stream.XRPCStreamEvent)) {

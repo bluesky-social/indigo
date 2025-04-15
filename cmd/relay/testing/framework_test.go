@@ -39,7 +39,9 @@ func TestFramework(t *testing.T) {
 			Time:   syntax.DatetimeNow().String(),
 		},
 	}
-	p.Emit(&e1)
+	if err := p.Emit(&e1); err != nil {
+		t.Fatal(err)
+	}
 
 	evts, err := c.ConsumeEvents(1)
 	if err != nil {
