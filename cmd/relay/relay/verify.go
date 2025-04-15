@@ -127,6 +127,9 @@ func (r *Relay) VerifyCommitMessageStrict(ctx context.Context, evt *comatproto.S
 		if evt.Since != nil && *evt.Since != prevRepo.Rev {
 			logger.Warn("commit with miss-matching since", "since", evt.Since, "prevRepo.Rev", prevRepo.Rev)
 		}
+		if evt.Rev <= prevRepo.Rev {
+			return fmt.Errorf("%w: %s before or equal to %s", ErrRevSequence, evt.Rev, prevRepo.Rev)
+		}
 	}
 
 	// this parse is redundant with earlier parse; once lenient mode is removed we should do only a single pass
