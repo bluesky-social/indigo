@@ -108,7 +108,9 @@ func (p *Producer) ListenRandom() int {
 	port := listener.Addr().(*net.TCPAddr).Port
 	slog.Info("starting test producer", "port", port)
 	go func() {
-		defer listener.Close()
+		defer func() {
+			_ = listener.Close()
+		}()
 		err := http.Serve(listener, p.mux)
 		if err != nil {
 			slog.Warn("test producer shutting down", "err", err)

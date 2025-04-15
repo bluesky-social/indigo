@@ -120,7 +120,11 @@ func ParseHostname(raw string) (hostname string, noSSL bool, err error) {
 	}
 
 	u, err := url.Parse(raw)
+	if err != nil {
+		return "", false, fmt.Errorf("not a valid host URL: %w", err)
+	}
 	noSSL = false
+
 	switch u.Scheme {
 	case "https", "wss":
 		// pass

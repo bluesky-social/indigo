@@ -66,7 +66,7 @@ func (hc *HostClient) FetchAccountStatus(ctx context.Context, ident *identity.Id
 	if err != nil {
 		return "", err
 	}
-	if info.Active == true {
+	if info.Active {
 		return "active", nil
 	} else if info.Status != nil {
 		return *info.Status, nil

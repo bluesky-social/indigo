@@ -36,9 +36,8 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatpr
 	if strings.HasPrefix(hostname, "localhost:") {
 		if !admin {
 			return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: "can not configure localhost via public endpoint"})
-		} else {
-			// allowed
 		}
+		// else, allowed
 	} else {
 		banned, err := s.relay.DomainIsBanned(ctx, hostname)
 		if err != nil {

@@ -96,7 +96,7 @@ func (c *Consumer) Connect(ctx context.Context, cursor int) error {
 
 	go func() {
 		<-ctx.Done()
-		conn.Close()
+		_ = conn.Close()
 	}()
 
 	seqScheduler := sequential.NewScheduler("test", c.eventCallbacks().EventHandler)
@@ -134,10 +134,7 @@ func (c *Consumer) Shutdown() {
 func (c *Consumer) ConsumeEvents(count int) ([]*stream.XRPCStreamEvent, error) {
 	// poll until we have enough events
 	start := time.Now()
-	for {
-		if c.Count() >= count {
-			break
-		}
+	for c.Count() < count {
 		if time.Since(start) > c.Timeout {
 			return nil, fmt.Errorf("test stream consumer timeout: %s", c.Timeout)
 		}
