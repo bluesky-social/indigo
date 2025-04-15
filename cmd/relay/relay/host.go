@@ -78,12 +78,33 @@ func (r *Relay) UpdateHostAccountLimit(ctx context.Context, hostID uint64, accou
 		return err
 	}
 
-	// TODO: manage accounts marked as "host-throttled" when host-level account limits change (all in a transaction)
-	// If limit increased: potentially mark some "host-throttled" accounts as "active" (ordered by UID ascending)
-	// If limit decreased: potentially mark some "active" accounts as "host-throttled" (ordered by UID descending?)
+	delta := accountLimit - host.AccountLimit
+	r.Logger.Info("updating host account limit", "host", host.Hostname, "accountLimit", accountLimit, "previousAccountLimit", host.AccountLimit)
+
 	if err := r.db.Model(models.Host{}).Where("id = ?", hostID).Update("account_limit", accountLimit).Error; err != nil {
 		return err
 	}
+
+	// manage accounts marked as "host-throttled" when host-level account limits change. Note that this isn't in a transaction: there is a small chance of race-conditions.
+	if delta > 0 {
+		// if limit increased: potentially mark some "host-throttled" accounts as "active" (ordered by UID ascending)
+		// fetch accounts and update individually. this ensures that account cache is cleared for each (as well as any future code around account status changes)
+		var accounts []models.Account
+		if err := r.db.Model(models.Account{}).Where("status = ? AND upstream_status = ? AND host_id = ?", models.AccountStatusHostThrottled, models.AccountStatusActive, host.ID).Order("uid ASC").Limit(int(delta)).Find(&accounts).Error; err != nil {
+			return err
+		}
+		r.Logger.Info("marking host-throttled accounts as active", "count", len(accounts), "delta", delta, "accountLimit", accountLimit, "host", host.Hostname)
+		for _, acc := range accounts {
+			// defensive double-check
+			if acc.Status != models.AccountStatusHostThrottled || acc.HostID != host.ID {
+				continue
+			}
+			if err := r.UpdateAccountLocalStatus(ctx, syntax.DID(acc.DID), models.AccountStatusActive, true); err != nil {
+				return err
+			}
+		}
+	}
+	// TODO: If limit decreased: potentially mark some "active" accounts as "host-throttled" (ordered by UID descending?)
 
 	if r.Slurper.CheckIfSubscribed(host.Hostname) {
 		return r.Slurper.UpdateLimiters(host.Hostname, accountLimit, host.Trusted)
