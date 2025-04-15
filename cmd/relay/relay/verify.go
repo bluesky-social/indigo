@@ -20,6 +20,8 @@ var (
 )
 
 const futureRevTolerance = time.Minute * 5
+const MaxMessageBlocksBytes = 2_000_000
+const MaxCommitOps = 200
 
 // High-level entrypoint for verifying #commit messages.
 //
@@ -35,6 +37,14 @@ const futureRevTolerance = time.Minute * 5
 // returns an AccountRepo with empty UID, containing metadata about *this* commit
 func (r *Relay) VerifyRepoCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit, ident *identity.Identity, prevRepo *models.AccountRepo, hostname string) (*models.AccountRepo, error) {
 	logger := r.Logger.With("host", hostname, "did", evt.Repo, "rev", evt.Rev)
+
+	if len(evt.Blocks) > MaxMessageBlocksBytes {
+		return nil, fmt.Errorf("blocks size (%d bytes) exceeds protocol limit", len(evt.Blocks))
+	}
+
+	if len(evt.Ops) > MaxCommitOps {
+		return nil, fmt.Errorf("too many ops in commit: %d", len(evt.Ops))
+	}
 
 	// even in lenient/legacy mode (eg, tooBig), we need to verify commit
 	commit, commitCID, err := repo.LoadCommitFromCAR(ctx, bytes.NewReader(evt.Blocks))
@@ -166,6 +176,10 @@ func (r *Relay) VerifyCommitMessageStrict(ctx context.Context, evt *comatproto.S
 // returns an AccountRepo with empty UID, containing metadata about *this* commit
 func (r *Relay) VerifyRepoSync(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync, ident *identity.Identity, hostname string) (*models.AccountRepo, error) {
 	//logger := r.Logger.With("host", hostname, "did", evt.Did, "rev", evt.Rev)
+
+	if len(evt.Blocks) > MaxMessageBlocksBytes {
+		return nil, fmt.Errorf("blocks size (%d bytes) exeeds protocol limit", len(evt.Blocks))
+	}
 
 	// even in lenient/legacy mode (eg, tooBig), we need to verify commit
 	commit, commitCID, err := repo.LoadCommitFromCAR(ctx, bytes.NewReader(evt.Blocks))
