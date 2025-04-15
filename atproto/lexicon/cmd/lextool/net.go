@@ -65,6 +65,9 @@ func runValidateRecord(cctx *cli.Context) error {
 	}
 
 	body, err := data.UnmarshalJSON(respBytes)
+	if err != nil {
+		return err
+	}
 	record, ok := body["value"].(map[string]any)
 	if !ok {
 		return fmt.Errorf("fetched record was not an object")
