@@ -437,7 +437,7 @@ func (s *Service) handleAdminUnbanDomain(c echo.Context) error {
 
 type RateLimitChangeRequest struct {
 	Hostname  string `json:"host"`
-	RepoLimit int64  `json:"repo_limit,omitempty"`
+	RepoLimit *int64 `json:"repo_limit"`
 }
 
 func (s *Service) handleAdminChangeHostRateLimits(c echo.Context) error {
@@ -453,13 +453,18 @@ func (s *Service) handleAdminChangeHostRateLimits(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid hostname: %s", err))
 	}
 
+	// catch empty/nil body
+	if body.RepoLimit == nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "missing repo_limit parameter")
+	}
+
 	host, err := s.relay.GetHost(ctx, hostname)
 	if err != nil {
 		// TODO: technically, there could be a database error here or something
 		return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("unknown hostname: %s", err))
 	}
 
-	if err := s.relay.UpdateHostAccountLimit(ctx, host.ID, body.RepoLimit); err != nil {
+	if err := s.relay.UpdateHostAccountLimit(ctx, host.ID, *body.RepoLimit); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to update limits: %s", err))
 	}
 
