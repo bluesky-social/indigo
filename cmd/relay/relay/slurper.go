@@ -137,6 +137,7 @@ func NewSlurper(processCallback ProcessMessageFunc, config *SlurperConfig, logge
 		logger = slog.Default()
 	}
 
+	logger = logger.With("system", "slurper")
 	s := &Slurper{
 		processCallback: processCallback,
 		Config:          config,
@@ -496,7 +497,8 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 		conn.RemoteAddr().String(),
 		instrumentedRSC.EventHandler,
 	)
-	return stream.HandleRepoStream(ctx, conn, pool, nil)
+	connLogger := s.logger.With("host", sub.Hostname)
+	return stream.HandleRepoStream(ctx, conn, pool, connLogger)
 }
 
 type HostCursor struct {
