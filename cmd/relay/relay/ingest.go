@@ -127,6 +127,14 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 		logger.Error("failed to read previous repo state", "err", err)
 	}
 
+	// fast check for stale revision (will be re-checked in VerifyRepoCommit)
+	if prevRepo != nil && prevRepo.Rev != "" && evt.Rev != "" {
+		if evt.Rev <= prevRepo.Rev {
+			logger.Warn("dropping commit with old rev", "prevRev", prevRepo.Rev)
+			return nil
+		}
+	}
+
 	// most commit validation happens in this method. Note that is handles lenient/strict modes.
 	newRepo, err := r.VerifyRepoCommit(ctx, evt, ident, prevRepo, hostname)
 	if err != nil {
@@ -170,6 +178,8 @@ func (r *Relay) processSyncEvent(ctx context.Context, evt *comatproto.SyncSubscr
 	if ident == nil {
 		// TODO: what to do if identity resolution fails
 	}
+
+	// TODO: should we load account 'rev' here and prevent roll-backs? or allow roll-backs?
 
 	newRepo, err := r.VerifyRepoSync(ctx, evt, ident, hostname)
 	if err != nil {
