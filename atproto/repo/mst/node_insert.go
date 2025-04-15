@@ -1,6 +1,7 @@
 package mst
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -66,7 +67,7 @@ func (n *Node) insert(key []byte, val cid.Cid, height int) (*Node, *cid.Cid, err
 	}
 
 	// include "covering" proof for this operation
-	if err := proveMutation(n, key); err != nil {
+	if err := proveMutation(n, key); err != nil && !errors.Is(err, ErrPartialTree) {
 		return nil, nil, err
 	}
 
