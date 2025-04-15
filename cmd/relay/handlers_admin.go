@@ -106,7 +106,18 @@ func (s *Service) handleAdminTakeDownRepo(c echo.Context) error {
 func (s *Service) handleAdminReverseTakedown(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	did, err := syntax.ParseDID(c.QueryParam("did"))
+	var body map[string]string
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	didField, ok := body["did"]
+	if !ok {
+		return &echo.HTTPError{
+			Code:    http.StatusBadRequest,
+			Message: "must specify DID parameter in body",
+		}
+	}
+	did, err := syntax.ParseDID(didField)
 	if err != nil {
 		return err
 	}
