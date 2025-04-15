@@ -64,11 +64,6 @@ type persistJob struct {
 	Buffer *bytes.Buffer // so we can put it back in the pool when we're done
 }
 
-type jobResult struct {
-	Err error
-	Seq int64
-}
-
 const (
 	EvtFlagTakedown = 1 << iota
 	EvtFlagRebased
