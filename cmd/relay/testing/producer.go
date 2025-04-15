@@ -36,12 +36,17 @@ func NewProducer() *Producer {
 	return &p
 }
 
+var wsUpgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
 func (p *Producer) handleSubscribeRepos(resp http.ResponseWriter, req *http.Request) {
 
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
 
-	conn, err := websocket.Upgrade(resp, req, nil, 1024, 1024)
+	conn, err := wsUpgrader.Upgrade(resp, req, nil)
 	if err != nil {
 		slog.Error("websocket upgrade", "err", err)
 		return

@@ -54,13 +54,18 @@ func (r *Relay) cleanupConsumer(id uint64) {
 	delete(r.consumers, id)
 }
 
+var wsUpgrader = websocket.Upgrader{
+	ReadBufferSize:  10 << 10,
+	WriteBufferSize: 10 << 10,
+}
+
 // Main HTTP request handler for clients connecting to the firehose (com.atproto.sync.subscribeRepos)
 func (r *Relay) HandleSubscribeRepos(resp http.ResponseWriter, req *http.Request, since *int64, realIP string) error {
 
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
 
-	conn, err := websocket.Upgrade(resp, req, resp.Header(), 10<<10, 10<<10)
+	conn, err := wsUpgrader.Upgrade(resp, req, resp.Header())
 	if err != nil {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
