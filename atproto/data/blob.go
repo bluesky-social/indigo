@@ -27,7 +27,7 @@ type LegacyBlobSchema struct {
 }
 
 type BlobSchema struct {
-	LexiconTypeID string  `json:"$type,const=blob" cborgen:"$type,const=blob"`
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=blob"`
 	Ref           CIDLink `json:"ref" cborgen:"ref"`
 	MimeType      string  `json:"mimeType" cborgen:"mimeType"`
 	Size          int64   `json:"size" cborgen:"size"`
