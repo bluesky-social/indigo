@@ -127,6 +127,13 @@ func (r *Relay) VerifyCommitMessageStrict(ctx context.Context, evt *comatproto.S
 	if evt.TooBig {
 		return fmt.Errorf("deprecated tooBig commit flag set")
 	}
+	// if previous repo stat is unknown, and prevData is nil, assume that this is first commit for the account
+	// TODO: should still validate records existing in blocks, etc
+	if prevRepo == nil && evt.PrevData == nil {
+		r.Logger.Info("not verifying prevData or MST inversion for first commit from account")
+		return nil
+	}
+
 	if evt.PrevData == nil {
 		return fmt.Errorf("missing prevData field")
 	}
@@ -142,14 +149,7 @@ func (r *Relay) VerifyCommitMessageStrict(ctx context.Context, evt *comatproto.S
 		}
 	}
 
-	// this parse is redundant with earlier parse; once lenient mode is removed we should do only a single pass
-	origRepo, _, err := repo.LoadRepoFromCAR(ctx, bytes.NewReader(evt.Blocks))
-	if err != nil {
-		return err
-	}
-
-	// TODO: break out this function in to smaller chunks
-	_ = origRepo
+	// TODO: break out this function in to smaller chunks. For example, missing PrevData
 	if _, err := repo.VerifyCommitMessage(ctx, evt); err != nil {
 		logger.Warn("failed to invert commit MST", "err", err)
 	}
@@ -158,7 +158,7 @@ func (r *Relay) VerifyCommitMessageStrict(ctx context.Context, evt *comatproto.S
 	if evt.Rebase {
 		return fmt.Errorf("deprecated rebase commit flag set")
 	}
-	_, err = syntax.ParseDatetime(evt.Time)
+	_, err := syntax.ParseDatetime(evt.Time)
 	if err != nil {
 		return fmt.Errorf("commit timestamp syntax: %w", err)
 	}
