@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -390,11 +391,15 @@ func (cs *collectionServer) createMetricsServer(addr string) {
 	}
 }
 
-func (cs *collectionServer) StartMetricsServer(ctx context.Context) error {
+func (cs *collectionServer) StartMetricsServer(ctx context.Context) {
 	defer cs.wg.Done()
 	defer cs.log.Info("metrics server exit")
 
-	return cs.metricsServer.ListenAndServe()
+	err := cs.metricsServer.ListenAndServe()
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		slog.Error("error in metrics server", "err", err)
+		os.Exit(1)
+	}
 }
 
 func (cs *collectionServer) createApiServer(ctx context.Context, addr string) (*echo.Echo, error) {
@@ -434,10 +439,14 @@ func (cs *collectionServer) createApiServer(ctx context.Context, addr string) (*
 	return e, nil
 }
 
-func (cs *collectionServer) StartApiServer(ctx context.Context, e *echo.Echo) error {
+func (cs *collectionServer) StartApiServer(ctx context.Context, e *echo.Echo) {
 	defer cs.wg.Done()
 	defer cs.log.Info("api server exit")
-	return cs.apiServer.Serve(e.Listener)
+	err := cs.apiServer.Serve(e.Listener)
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		slog.Error("error in api server", "err", err)
+		os.Exit(1)
+	}
 }
 
 const statsCacheDuration = time.Second * 300
