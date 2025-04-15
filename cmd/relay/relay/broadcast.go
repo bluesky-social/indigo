@@ -111,6 +111,7 @@ func (r *Relay) HandleSubscribeRepos(resp http.ResponseWriter, req *http.Request
 		if err == websocket.ErrCloseSent {
 			return nil
 		} else if e, ok := err.(net.Error); ok && e.Temporary() {
+			// TODO: use of e.Temporary() here seems suspicious? maybe related to consumer failures?
 			return nil
 		}
 		return err
