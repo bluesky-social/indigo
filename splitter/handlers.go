@@ -66,16 +66,19 @@ func (s *Splitter) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 
 	// if that was successful, then forward on to the other upstreams (in goroutines)
 	for _, c := range s.nextCrawlers {
+		// intentional local copy of loop variable
+		hostname := c.String()
 		go func() {
+			// new context to outlive original HTTP request
 			ctx := context.Background()
 			xrpcc := xrpc.Client{
 				Client: s.upstreamClient,
-				Host:   c.String(),
+				Host:   hostname,
 			}
 			if err := comatproto.SyncRequestCrawl(ctx, &xrpcc, &body); err != nil {
-				s.logger.Warn("failed to forward requestCrawl", "upstream", c.String(), "targetHost", body.Hostname, "err", err)
+				s.logger.Warn("failed to forward requestCrawl", "upstream", hostname, "targetHost", body.Hostname, "err", err)
 			}
-			s.logger.Info("successfully forwarded requestCrawl", "upstream", c.String(), "targetHost", body.Hostname)
+			s.logger.Info("successfully forwarded requestCrawl", "upstream", hostname, "targetHost", body.Hostname)
 		}()
 	}
 

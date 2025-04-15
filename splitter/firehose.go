@@ -26,6 +26,8 @@ func (s *Splitter) HandleSubscribeRepos(c echo.Context) error {
 		since = &sval
 	}
 
+	// NOTE: the request context outlives the HTTP 101 response; it lives as long as the WebSocket is open, and then get cancelled. That is the behavior we want for this ctx, but should be careful if spawning goroutines which should outlive the WebSocket connection.
+	// https://github.com/bluesky-social/indigo/pull/1023#pullrequestreview-2768335762
 	ctx, cancel := context.WithCancel(c.Request().Context())
 	defer cancel()
 
