@@ -153,7 +153,7 @@ func ParseHostname(raw string) (hostname string, noSSL bool, err error) {
 	if err != nil {
 		return "", false, fmt.Errorf("not a public hostname")
 	}
-	// lower-case in reponse
+	// lower-case in response
 	return h.Normalize().String(), noSSL, nil
 }
 

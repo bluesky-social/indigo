@@ -178,7 +178,7 @@ func (r *Relay) VerifyRepoSync(ctx context.Context, evt *comatproto.SyncSubscrib
 	//logger := r.Logger.With("host", hostname, "did", evt.Did, "rev", evt.Rev)
 
 	if len(evt.Blocks) > MaxMessageBlocksBytes {
-		return nil, fmt.Errorf("blocks size (%d bytes) exeeds protocol limit", len(evt.Blocks))
+		return nil, fmt.Errorf("blocks size (%d bytes) exceeds protocol limit", len(evt.Blocks))
 	}
 
 	// even in lenient/legacy mode (eg, tooBig), we need to verify commit
