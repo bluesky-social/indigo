@@ -297,7 +297,6 @@ func (cs *collectionServer) Shutdown() error {
 	}()
 	cs.log.Info("api shutdown start...")
 	err := cs.apiServer.Shutdown(context.Background())
-	//err := cs.esrv.Shutdown(context.Background())
 	cs.log.Info("api shutdown, thread wait...", "err", err)
 	cs.wg.Wait()
 	cs.log.Info("threads done, db close...")
@@ -465,14 +464,14 @@ func (cs *collectionServer) getDidsForCollection(c echo.Context) error {
 	collection := c.QueryParam("collection")
 	_, err := syntax.ParseNSID(collection)
 	if err != nil {
-		return c.String(http.StatusBadRequest, fmt.Sprintf("bad collection nsid, %s", err.Error()))
+		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("bad collection nsid, %s", err.Error())})
 	}
 	cursor := c.QueryParam("cursor")
 	limit := getLimit(c, 1, 500, 10_000)
 	they, nextCursor, err := cs.pcd.ReadCollection(ctx, collection, cursor, limit)
 	if err != nil {
 		slog.Error("ReadCollection", "collection", collection, "cursor", cursor, "limit", limit, "err", err)
-		return c.String(http.StatusInternalServerError, "oops")
+		return c.JSON(http.StatusInternalServerError, xrpc.XRPCError{ErrStr: "DatabaseError", Message: "failed to read DIDs for collection"})
 	}
 	cs.log.Info("getDidsForCollection", "collection", collection, "cursor", cursor, "limit", limit, "count", len(they), "nextCursor", nextCursor)
 	var out comatproto.SyncListReposByCollection_Output
@@ -620,7 +619,7 @@ func (cs *collectionServer) listCollections(c echo.Context) error {
 	if stalesecStr != "" && cs.isAdmin(c) {
 		stalesec, err := strconv.ParseInt(stalesecStr, 10, 64)
 		if err != nil {
-			return c.String(http.StatusBadRequest, "bad stalesec")
+			return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: "invalid 'stalesec' query parameter"})
 		}
 		if stalesec == 0 {
 			stalenessAllowed = 1
@@ -632,7 +631,7 @@ func (cs *collectionServer) listCollections(c echo.Context) error {
 	stats, err := cs.getStatsCache(stalenessAllowed)
 	if err != nil {
 		slog.Error("getStatsCache", "err", err)
-		return c.String(http.StatusInternalServerError, "oops")
+		return c.JSON(http.StatusInternalServerError, xrpc.XRPCError{ErrStr: "DatabaseError", Message: "failed to read stats"})
 	}
 	cursor := c.QueryParam("cursor")
 	collections, hasQueryCollections := c.QueryParams()["c"]
@@ -705,6 +704,9 @@ func (cs *collectionServer) ingestReceiver() {
 			} else {
 				errcount = 0
 			}
+		case <-cs.shutdown:
+			cs.log.Info("shutting down ingestReceiver")
+			return
 		}
 		if errcount > 10 {
 			cs.log.Error("ingestReceiver too many errors")
@@ -852,7 +854,7 @@ func (cs *collectionServer) isAdmin(c echo.Context) bool {
 func (cs *collectionServer) crawlPds(c echo.Context) error {
 	isAdmin := cs.isAdmin(c)
 	if !isAdmin {
-		return c.JSON(http.StatusForbidden, CrawlRequestResponse{Error: "nope"})
+		return c.JSON(http.StatusForbidden, xrpc.XRPCError{ErrStr: "AdminRequired", Message: "this endpoint requires admin auth"})
 	}
 	hostQ := c.QueryParam("host")
 	if hostQ != "" {
@@ -864,7 +866,7 @@ func (cs *collectionServer) crawlPds(c echo.Context) error {
 	err := c.Bind(&req)
 	if err != nil {
 		cs.log.Info("bad crawl bind", "err", err)
-		return c.String(http.StatusBadRequest, err.Error())
+		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("failed to parse body: %s", err)})
 	}
 	if req.Host != "" {
 		go cs.crawlThread(req.Host)
@@ -958,7 +960,7 @@ type HostCrawl struct {
 func (cs *collectionServer) crawlStatus(c echo.Context) error {
 	authHeader := c.Request().Header.Get("Authorization")
 	if authHeader != cs.ExepctedAuthHeader {
-		return c.JSON(http.StatusForbidden, CrawlRequestResponse{Error: "nope"})
+		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "AdminAuthRequired", Message: "this endpoint requires admin-level auth"})
 	}
 	var out CrawlStatusResponse
 	out.HostCrawls = make(map[string]HostCrawl)
@@ -977,7 +979,7 @@ func (cs *collectionServer) crawlStatus(c echo.Context) error {
 
 func (cs *collectionServer) healthz(c echo.Context) error {
 	// TODO: check database or upstream health?
-	return c.String(http.StatusOK, "ok")
+	return c.JSON(http.StatusOK, map[string]any{"status": "ok"})
 }
 
 func loadBadwords(path string) (*BadwordsRE, error) {
