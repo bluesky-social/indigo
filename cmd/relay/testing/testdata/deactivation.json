@@ -52,7 +52,7 @@
           "rebase": false,
           "repo": "did:plc:44ybard66vv44zksje25o7dz",
           "rev": "3llpyftdf4h2r",
-          "seq": 7278969010,
+          "seq": 100,
           "since": "3llpx3aem5h2j",
           "time": "2025-04-01T04:01:32.384Z",
           "tooBig": false
@@ -72,7 +72,7 @@
           "did": "did:plc:44ybard66vv44zksje25o7dz",
           "active": false,
           "status": "deactivated",
-          "seq": 7278969010,
+          "seq": 101,
           "time": "2025-04-01T04:01:31.384Z"
         }
       },
@@ -109,7 +109,7 @@
           "rebase": false,
           "repo": "did:plc:44ybard66vv44zksje25o7dz",
           "rev": "3llxv7purdb2n",
-          "seq": 7441137124,
+          "seq": 102,
           "since": "3llxiozhrpa2n",
           "time": "2025-04-04T07:25:44.149Z",
           "tooBig": false
@@ -125,7 +125,7 @@
         "body": {
           "did": "did:plc:44ybard66vv44zksje25o7dz",
           "active": true,
-          "seq": 7441137125,
+          "seq": 103,
           "time": "2025-04-01T04:01:31.384Z"
         }
       },
@@ -162,7 +162,7 @@
           "rebase": false,
           "repo": "did:plc:44ybard66vv44zksje25o7dz",
           "rev": "3llxva3wrtx22",
-          "seq": 7441142720,
+          "seq": 104,
           "since": "3llxv7purdb2n",
           "time": "2025-04-04T07:25:56.795Z",
           "tooBig": false
@@ -196,7 +196,7 @@
           "rebase": false,
           "repo": "did:plc:44ybard66vv44zksje25o7dz",
           "rev": "3llxva5nnod2d",
-          "seq": 7441143562,
+          "seq": 105,
           "since": "3llxva3wrtx22",
           "time": "2025-04-04T07:25:58.796Z",
           "tooBig": false
@@ -232,7 +232,7 @@
           "rebase": false,
           "repo": "did:plc:44ybard66vv44zksje25o7dz",
           "rev": "3llxvahjm3b2n",
-          "seq": 7441147859,
+          "seq": 106,
           "since": "3llxva5nnod2d",
           "time": "2025-04-04T07:26:08.970Z",
           "tooBig": false
@@ -266,7 +266,7 @@
           "rebase": false,
           "repo": "did:plc:44ybard66vv44zksje25o7dz",
           "rev": "3llxvapijbc2o",
-          "seq": 7441151612,
+          "seq": 107,
           "since": "3llxvahjm3b2n",
           "time": "2025-04-04T07:26:17.327Z",
           "tooBig": false
