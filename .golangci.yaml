@@ -1,0 +1,17 @@
+version: "2"
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  disable:
+    - errcheck
+    - gocritic
+    - unused
+  settings:
+    errcheck:
+      check-type-assertions: true
+      disable-default-exclusions: true
+    gocritic:
+      enable-all: true

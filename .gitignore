@@ -36,6 +36,7 @@ test-coverage.out
 # Don't ignore this file itself, or other specific dotfiles
 !.gitignore
 !.github/
+!.golangci.yaml
 
 # Don't commit your (default location) creds
 bsky.auth
