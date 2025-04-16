@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 
 	"github.com/bluesky-social/indigo/cmd/relay/stream"
 	"github.com/bluesky-social/indigo/cmd/relay/stream/schedulers"
@@ -26,11 +27,15 @@ type Scheduler struct {
 
 	ident string
 
+	// sequence number tracking
+	inflightSeq map[int64]bool
+	lastSeq     atomic.Int64
+
 	// metrics
 	itemsAdded     prometheus.Counter
 	itemsProcessed prometheus.Counter
 	itemsActive    prometheus.Counter
-	workesActive   prometheus.Gauge
+	workersActive  prometheus.Gauge
 
 	log *slog.Logger
 }
@@ -46,12 +51,13 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *stream
 		active: make(map[string][]*consumerTask),
 		out:    make(chan struct{}),
 
-		ident: ident,
+		ident:       ident,
+		inflightSeq: make(map[int64]bool),
 
 		itemsAdded:     schedulers.WorkItemsAdded.WithLabelValues(ident, "parallel"),
 		itemsProcessed: schedulers.WorkItemsProcessed.WithLabelValues(ident, "parallel"),
 		itemsActive:    schedulers.WorkItemsActive.WithLabelValues(ident, "parallel"),
-		workesActive:   schedulers.WorkersActive.WithLabelValues(ident, "parallel"),
+		workersActive:  schedulers.WorkersActive.WithLabelValues(ident, "parallel"),
 
 		log: slog.Default().With("system", "parallel-scheduler"),
 	}
@@ -60,7 +66,7 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *stream
 		go p.worker()
 	}
 
-	p.workesActive.Set(float64(maxC))
+	p.workersActive.Set(float64(maxC))
 
 	return p
 }
@@ -97,6 +103,12 @@ func (p *Scheduler) AddWork(ctx context.Context, repo string, val *stream.XRPCSt
 	}
 	p.lk.Lock()
 
+	// mark sequence number as being worked on
+	seq := val.Sequence()
+	if seq > 0 {
+		p.inflightSeq[seq] = true
+	}
+
 	a, ok := p.active[repo]
 	if ok {
 		p.active[repo] = append(a, t)
@@ -124,6 +136,7 @@ func (p *Scheduler) worker() {
 			}
 
 			p.itemsActive.Inc()
+			seq := work.val.Sequence()
 			if err := p.do(context.TODO(), work.val); err != nil {
 				p.log.Error("event handler failed", "err", err)
 			}
@@ -142,7 +155,29 @@ func (p *Scheduler) worker() {
 				work = rem[0]
 				p.active[work.repo] = rem[1:]
 			}
+
+			// remove sequence number from inflight set, and update lastSeq if it was the "oldest"
+			// TODO: do we need backpressure to prevent the inflight set from growing unbounded if a single event from a host is hung? or timeouts on event processing?
+			if seq > 0 {
+				delete(p.inflightSeq, seq)
+				lowest := true
+				for k := range p.inflightSeq {
+					if k < seq {
+						lowest = false
+						break
+					}
+				}
+				if lowest {
+					//p.log.Trace("updating lastSeq", "seq", seq, "lastSeq", p.lastSeq.Load(), "inflight", p.inflightSeq)
+					p.lastSeq.Store(seq)
+				}
+			}
+
 			p.lk.Unlock()
 		}
 	}
+}
+
+func (p *Scheduler) LastSeq() int64 {
+	return p.lastSeq.Load()
 }
