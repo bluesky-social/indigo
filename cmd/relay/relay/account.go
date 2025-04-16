@@ -256,7 +256,7 @@ func (r *Relay) ListAccountTakedowns(ctx context.Context, cursor int64, limit in
 }
 
 func (r *Relay) UpsertAccountRepo(uid uint64, rev syntax.TID, commitCID, commitDataCID string) error {
-	return r.db.Exec("INSERT INTO account_repo (uid, rev, commit_cid, commit_data) VALUES (?, ?, ?, ?) ON CONFLICT (uid) DO UPDATE SET rev = EXCLUDED.rev, commit_cid = EXCLUDED.commit_cid, commit_data = EXCLUDED.commit_data", uid, rev, commitCID, commitDataCID).Error
+	return r.db.Exec("INSERT INTO account_repo (uid, rev, commit_cid, commit_data_cid) VALUES (?, ?, ?, ?) ON CONFLICT (uid) DO UPDATE SET rev = EXCLUDED.rev, commit_cid = EXCLUDED.commit_cid, commit_data_cid = EXCLUDED.commit_data_cid", uid, rev, commitCID, commitDataCID).Error
 }
 
 // This implements the `diskpersist.UidSource` interface
