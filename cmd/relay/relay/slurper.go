@@ -88,13 +88,15 @@ type Subscription struct {
 	LastSeq  atomic.Int64
 	Limiters *StreamLimiters
 
-	lk     sync.RWMutex
-	ctx    context.Context
-	cancel func()
+	scheduler *parallel.Scheduler
+	lk        sync.RWMutex
+	ctx       context.Context
+	cancel    func()
 }
 
-func (sub *Subscription) UpdateSeq(seq int64) {
-	sub.LastSeq.Store(seq)
+// pulls lastSeq from underlying scheduler in to this Subscription
+func (sub *Subscription) UpdateSeq() {
+	sub.LastSeq.Store(sub.scheduler.LastSeq())
 }
 
 func (sub *Subscription) HostCursor() HostCursor {
@@ -291,13 +293,6 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		HandshakeTimeout: time.Second * 5,
 	}
 
-	// HACK: cursor by 200 events to smooth over unclean shutdowns. This has been in place since 2024.
-	if host.LastSeq > 200 {
-		host.LastSeq -= 200
-	} else {
-		host.LastSeq = 0
-	}
-
 	cursor := host.LastSeq
 
 	connectedInbound.Inc()
@@ -374,48 +369,40 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 			logger := s.logger.With("host", sub.Hostname, "did", evt.Repo, "seq", evt.Seq, "eventType", "commit")
 			logger.Debug("got remote repo event")
-			if err := s.processCallback(context.TODO(), &stream.XRPCStreamEvent{RepoCommit: evt}, sub.Hostname, sub.HostID); err != nil {
+			if err := s.processCallback(context.Background(), &stream.XRPCStreamEvent{RepoCommit: evt}, sub.Hostname, sub.HostID); err != nil {
 				logger.Error("failed handling event", "err", err)
 			}
-			*lastCursor = evt.Seq
-
-			sub.UpdateSeq(*lastCursor)
+			sub.UpdateSeq()
 
 			return nil
 		},
 		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
 			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "sync")
-			logger.Debug("got remote repo event")
-			if err := s.processCallback(context.TODO(), &stream.XRPCStreamEvent{RepoSync: evt}, sub.Hostname, sub.HostID); err != nil {
+			logger.Debug("commit event")
+			if err := s.processCallback(context.Background(), &stream.XRPCStreamEvent{RepoSync: evt}, sub.Hostname, sub.HostID); err != nil {
 				s.logger.Error("failed handling event", "err", err)
 			}
-			*lastCursor = evt.Seq
-
-			sub.UpdateSeq(*lastCursor)
+			sub.UpdateSeq()
 
 			return nil
 		},
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
 			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "identity")
 			logger.Debug("identity event")
-			if err := s.processCallback(context.TODO(), &stream.XRPCStreamEvent{RepoIdentity: evt}, sub.Hostname, sub.HostID); err != nil {
+			if err := s.processCallback(context.Background(), &stream.XRPCStreamEvent{RepoIdentity: evt}, sub.Hostname, sub.HostID); err != nil {
 				logger.Error("failed handling event", "err", err)
 			}
-			*lastCursor = evt.Seq
-
-			sub.UpdateSeq(*lastCursor)
+			sub.UpdateSeq()
 
 			return nil
 		},
 		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
 			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "account")
 			s.logger.Debug("account event")
-			if err := s.processCallback(context.TODO(), &stream.XRPCStreamEvent{RepoAccount: evt}, sub.Hostname, sub.HostID); err != nil {
+			if err := s.processCallback(context.Background(), &stream.XRPCStreamEvent{RepoAccount: evt}, sub.Hostname, sub.HostID); err != nil {
 				logger.Error("failed handling event", "err", err)
 			}
-			*lastCursor = evt.Seq
-
-			sub.UpdateSeq(*lastCursor)
+			sub.UpdateSeq()
 
 			return nil
 		},
@@ -447,37 +434,28 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error { // DEPRECATED
 			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "handle")
 			logger.Debug("got remote handle update event", "handle", evt.Handle)
-			if err := s.processCallback(context.TODO(), &stream.XRPCStreamEvent{RepoHandle: evt}, sub.Hostname, sub.HostID); err != nil {
+			if err := s.processCallback(context.Background(), &stream.XRPCStreamEvent{RepoHandle: evt}, sub.Hostname, sub.HostID); err != nil {
 				logger.Error("failed handling event", "err", err)
 			}
-			*lastCursor = evt.Seq
-
-			sub.UpdateSeq(*lastCursor)
-
+			sub.UpdateSeq()
 			return nil
 		},
 		RepoMigrate: func(evt *comatproto.SyncSubscribeRepos_Migrate) error { // DEPRECATED
 			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "migrate")
 			logger.Debug("got remote repo migrate event", "migrateTo", evt.MigrateTo)
-			if err := s.processCallback(context.TODO(), &stream.XRPCStreamEvent{RepoMigrate: evt}, sub.Hostname, sub.HostID); err != nil {
+			if err := s.processCallback(context.Background(), &stream.XRPCStreamEvent{RepoMigrate: evt}, sub.Hostname, sub.HostID); err != nil {
 				logger.Error("failed handling event", "err", err)
 			}
-			*lastCursor = evt.Seq
-
-			sub.UpdateSeq(*lastCursor)
-
+			sub.UpdateSeq()
 			return nil
 		},
 		RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error { // DEPRECATED
 			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "tombstone")
 			logger.Debug("got remote repo tombstone event")
-			if err := s.processCallback(context.TODO(), &stream.XRPCStreamEvent{RepoTombstone: evt}, sub.Hostname, sub.HostID); err != nil {
+			if err := s.processCallback(context.Background(), &stream.XRPCStreamEvent{RepoTombstone: evt}, sub.Hostname, sub.HostID); err != nil {
 				logger.Error("failed handling event", "err", err)
 			}
-			*lastCursor = evt.Seq
-
-			sub.UpdateSeq(*lastCursor)
-
+			sub.UpdateSeq()
 			return nil
 		},
 	}
@@ -491,14 +469,14 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 	// NOTE: `InstrumentedRepoStreamCallbacks` is where event limiters get called/enforced
 	instrumentedRSC := stream.NewInstrumentedRepoStreamCallbacks(limiters, rsc.EventHandler)
 
-	pool := parallel.NewScheduler(
+	sub.scheduler = parallel.NewScheduler(
 		s.Config.ConcurrencyPerHost,
 		s.Config.QueueDepthPerHost,
 		conn.RemoteAddr().String(),
 		instrumentedRSC.EventHandler,
 	)
 	connLogger := s.logger.With("host", sub.Hostname)
-	return stream.HandleRepoStream(ctx, conn, pool, connLogger)
+	return stream.HandleRepoStream(ctx, conn, sub.scheduler, connLogger)
 }
 
 type HostCursor struct {
