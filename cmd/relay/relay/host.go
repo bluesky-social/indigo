@@ -119,6 +119,9 @@ func (r *Relay) UpdateHostAccountLimit(ctx context.Context, hostID uint64, accou
 func (r *Relay) PersistHostCursors(ctx context.Context, cursors *[]HostCursor) error {
 	tx := r.db.WithContext(ctx).Begin()
 	for _, cur := range *cursors {
+		if cur.LastSeq <= 0 {
+			continue
+		}
 		if err := tx.WithContext(ctx).Model(models.Host{}).Where("id = ?", cur.HostID).UpdateColumn("last_seq", cur.LastSeq).Error; err != nil {
 			r.Logger.Error("failed to persist host cursor", "hostID", cur.HostID, "lastSeq", cur.LastSeq)
 		}
