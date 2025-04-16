@@ -74,9 +74,9 @@ func (r *Relay) VerifyRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 	}
 
 	resp := models.AccountRepo{
-		Rev:        commit.Rev,
-		CommitCID:  commitCID.String(),
-		CommitData: commit.Data.String(),
+		Rev:           commit.Rev,
+		CommitCID:     commitCID.String(),
+		CommitDataCID: commit.Data.String(),
 	}
 	return &resp, nil
 }
@@ -138,8 +138,8 @@ func (r *Relay) VerifyCommitMessageStrict(ctx context.Context, evt *comatproto.S
 		return fmt.Errorf("missing prevData field")
 	}
 	if prevRepo != nil {
-		if evt.PrevData.String() != prevRepo.CommitData {
-			logger.Warn("commit with miss-matching prevData", "prevData", evt.PrevData, "prevRepo.CommitData", prevRepo.CommitData)
+		if evt.PrevData.String() != prevRepo.CommitDataCID {
+			logger.Warn("commit with miss-matching prevData", "prevData", evt.PrevData, "prevRepo.CommitDataCID", prevRepo.CommitDataCID)
 		}
 		if evt.Since != nil && *evt.Since != prevRepo.Rev {
 			logger.Warn("commit with miss-matching since", "since", evt.Since, "prevRepo.Rev", prevRepo.Rev)
@@ -200,9 +200,9 @@ func (r *Relay) VerifyRepoSync(ctx context.Context, evt *comatproto.SyncSubscrib
 	}
 
 	resp := models.AccountRepo{
-		Rev:        commit.Rev,
-		CommitCID:  commitCID.String(),
-		CommitData: commit.Data.String(),
+		Rev:           commit.Rev,
+		CommitCID:     commitCID.String(),
+		CommitDataCID: commit.Data.String(),
 	}
 	return &resp, nil
 }

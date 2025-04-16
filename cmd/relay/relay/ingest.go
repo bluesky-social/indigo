@@ -142,7 +142,7 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 		return err
 	}
 
-	err = r.UpsertAccountRepo(acc.UID, syntax.TID(newRepo.Rev), newRepo.CommitCID, newRepo.CommitData)
+	err = r.UpsertAccountRepo(acc.UID, syntax.TID(newRepo.Rev), newRepo.CommitCID, newRepo.CommitDataCID)
 	if err != nil {
 		return fmt.Errorf("failed to upsert account repo (%s): %w", acc.DID, err)
 	}
@@ -187,7 +187,7 @@ func (r *Relay) processSyncEvent(ctx context.Context, evt *comatproto.SyncSubscr
 		return err
 	}
 
-	err = r.UpsertAccountRepo(acc.UID, syntax.TID(newRepo.Rev), newRepo.CommitCID, newRepo.CommitData)
+	err = r.UpsertAccountRepo(acc.UID, syntax.TID(newRepo.Rev), newRepo.CommitCID, newRepo.CommitDataCID)
 	if err != nil {
 		return fmt.Errorf("failed to upsert account repo (%s): %w", acc.DID, err)
 	}

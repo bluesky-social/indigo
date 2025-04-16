@@ -2,12 +2,13 @@ package models
 
 import (
 	"time"
-
-	"gorm.io/gorm"
 )
 
 type DomainBan struct {
-	gorm.Model
+	ID uint64 `gorm:"column:id;primarykey"`
+	// CreatedAt is automatically managed by gorm (by convention)
+	CreatedAt time.Time
+
 	Domain string `gorm:"unique"`
 }
 
@@ -95,7 +96,7 @@ type AccountRepo struct {
 	CommitCID string `gorm:"column:commit_cid;not null"`
 
 	// The CID of the top of the repo MST, which is the 'data' field within the commit block. This becomes 'prevData'
-	CommitData string `gorm:"column:commit_data;not null"`
+	CommitDataCID string `gorm:"column:commit_data_cid;not null"`
 }
 
 func (AccountRepo) TableName() string {
