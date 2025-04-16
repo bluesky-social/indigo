@@ -102,12 +102,6 @@ func run(args []string) error {
 					Value:   40,
 				},
 				&cli.IntFlag{
-					Name:    "host-queue-depth",
-					Usage:   "size of queue (channel) per-host for unprocessed events",
-					EnvVars: []string{"RELAY_HOST_QUEUE_SIZE"},
-					Value:   1000,
-				},
-				&cli.IntFlag{
 					Name:    "default-account-limit",
 					Value:   100,
 					Usage:   "max number of active accounts for new upstream hosts",
@@ -237,7 +231,6 @@ func runRelay(cctx *cli.Context) error {
 	relayConfig := relay.DefaultRelayConfig()
 	relayConfig.UserAgent = fmt.Sprintf("indigo-relay/%s", versioninfo.Short())
 	relayConfig.ConcurrencyPerHost = cctx.Int("host-concurrency")
-	relayConfig.QueueDepthPerHost = cctx.Int("host-queue-depth")
 	relayConfig.DefaultRepoLimit = cctx.Int64("default-account-limit")
 	relayConfig.TrustedDomains = cctx.StringSlice("trusted-domains")
 	relayConfig.LenientSyncValidation = cctx.Bool("lenient-sync-validation")
