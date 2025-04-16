@@ -128,6 +128,12 @@ func run(args []string) error {
 					Usage:   "when messages fail atproto 'Sync 1.1' validation, just log, don't drop",
 					EnvVars: []string{"RELAY_LENIENT_SYNC_VALIDATION"},
 				},
+				&cli.IntFlag{
+					Name:    "initial-seq-number",
+					Usage:   "when initializing output firehose, start with this sequence number",
+					Value:   1,
+					EnvVars: []string{"RELAY_INITIAL_SEQ_NUMBER"},
+				},
 				&cli.StringSliceFlag{
 					Name:    "sibling-relays",
 					Usage:   "servers (eg https://example.com) to forward admin state changes to; multiple allowed",
@@ -222,6 +228,7 @@ func runRelay(cctx *cli.Context) error {
 	}
 	persitConfig := diskpersist.DefaultDiskPersistOptions()
 	persitConfig.Retention = cctx.Duration("replay-window")
+	persitConfig.InitialSeq = cctx.Int64("initial-seq-number")
 	logger.Info("setting up disk persister", "dir", persistDir, "replayWindow", persitConfig.Retention)
 	persister, err := diskpersist.NewDiskPersistence(persistDir, "", db, persitConfig)
 	if err != nil {

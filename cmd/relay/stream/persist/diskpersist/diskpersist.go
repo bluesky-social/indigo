@@ -39,6 +39,7 @@ type DiskPersistence struct {
 
 	eventCounter int64
 	curSeq       int64
+	initialSeq   int64
 
 	uids     UidSource
 	uidCache *arc.ARCCache[uint64, string]
@@ -78,6 +79,9 @@ type DiskPersistOptions struct {
 	WriteBufferSize int
 	Retention       time.Duration
 
+	// starting sequence number to use (if there is no existing persisted data)
+	InitialSeq int64
+
 	Logger *slog.Logger
 }
 
@@ -88,6 +92,7 @@ func DefaultDiskPersistOptions() *DiskPersistOptions {
 		DIDCacheSize:    1_000_000,
 		WriteBufferSize: 50,
 		Retention:       time.Hour * 24 * 3, // 3 days
+		InitialSeq:      1,
 	}
 }
 
@@ -126,6 +131,10 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 		},
 	}
 
+	if opts.InitialSeq <= 0 {
+		return nil, fmt.Errorf("negative or zero initial seq: %d", opts.InitialSeq)
+	}
+
 	dp := &DiskPersistence{
 		meta:            db,
 		primaryDir:      primaryDir,
@@ -141,6 +150,7 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 		writeBufferSize: opts.WriteBufferSize,
 		shutdown:        make(chan struct{}),
 		log:             opts.Logger,
+		initialSeq:      opts.InitialSeq,
 	}
 	if dp.log == nil {
 		dp.log = slog.Default().With("system", "diskpersist")
@@ -211,13 +221,13 @@ func (dp *DiskPersistence) initLogFile() error {
 
 	if err := dp.meta.Create(&LogFileRef{
 		Path:     "evts-0",
-		SeqStart: 0,
+		SeqStart: 0, // NOTE: not dp.initialSeq
 	}).Error; err != nil {
 		return err
 	}
 
 	dp.logfi = fi
-	dp.curSeq = 1
+	dp.curSeq = dp.initialSeq
 	return nil
 }
 
@@ -293,8 +303,8 @@ func scanForLastSeq(fi *os.File, end int64) (int64, error) {
 
 const (
 	evtKindCommit    = 1
-	evtKindHandle    = 2
-	evtKindTombstone = 3
+	evtKindHandle    = 2 // DEPRECATED
+	evtKindTombstone = 3 // DEPRECATED
 	evtKindIdentity  = 4
 	evtKindAccount   = 5
 	evtKindSync      = 6
