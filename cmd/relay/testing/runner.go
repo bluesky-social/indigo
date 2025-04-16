@@ -98,13 +98,13 @@ func LoadScenario(ctx context.Context, fpath string) (*Scenario, error) {
 
 	var s Scenario
 	if err = json.Unmarshal(fixBytes, &s); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parsing scenario JSON: %w", err)
 	}
 
 	for i := range s.Messages {
 		e, err := s.Messages[i].Frame.XRPCStreamEvent()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("parsing scenario XRPCStreamEvent: %w", err)
 		}
 		s.Messages[i].Frame.Event = e
 	}
@@ -149,10 +149,10 @@ func RunScenario(ctx context.Context, s *Scenario) error {
 		c.Clear()
 		evt, err := msg.Frame.XRPCStreamEvent()
 		if err != nil {
-			return err
+			return fmt.Errorf("preparing XRPCStreamEvent: %w", err)
 		}
 		if err := p.Emit(evt); err != nil {
-			return err
+			return fmt.Errorf("failed sending test event: %w", err)
 		}
 		if !msg.Drop {
 			evts, err := c.ConsumeEvents(1)
@@ -189,7 +189,7 @@ func EqualEvents(a, b *stream.XRPCStreamEvent) bool {
 			!reflect.DeepEqual(a.RepoCommit.Blobs, b.RepoCommit.Blobs) ||
 			!reflect.DeepEqual(a.RepoCommit.Ops, b.RepoCommit.Ops) ||
 			!reflect.DeepEqual(a.RepoCommit.Since, b.RepoCommit.Since) ||
-			a.RepoCommit.PrevData != b.RepoCommit.PrevData ||
+			!reflect.DeepEqual(a.RepoCommit.PrevData, b.RepoCommit.PrevData) ||
 			a.RepoCommit.Rebase != b.RepoCommit.Rebase ||
 			a.RepoCommit.Rev != b.RepoCommit.Rev ||
 			a.RepoCommit.TooBig != b.RepoCommit.TooBig {

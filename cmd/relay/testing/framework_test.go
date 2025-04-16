@@ -55,7 +55,7 @@ func TestFramework(t *testing.T) {
 func TestScenarioLoad(t *testing.T) {
 	assert := assert.New(t)
 
-	fixBytes, err := os.ReadFile("testdata/basic.json")
+	fixBytes, err := os.ReadFile("testdata/legacy.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestScenarioLoad(t *testing.T) {
 func TestBasicScenario(t *testing.T) {
 	ctx := context.Background()
 
-	err := LoadAndRunScenario(ctx, "testdata/basic.json")
+	err := LoadAndRunScenario(ctx, "testdata/legacy.json")
 	if err != nil {
 		t.Fatal(err)
 	}
