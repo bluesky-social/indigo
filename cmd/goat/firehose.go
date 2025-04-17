@@ -277,10 +277,12 @@ func (gfc *GoatFirehoseConsumer) handleSyncEvent(ctx context.Context, evt *comat
 	if gfc.Quiet {
 		return nil
 	}
-	evt.Blocks = nil
+	if !gfc.Blocks {
+		evt.Blocks = nil
+	}
 	out := make(map[string]interface{})
 	out["type"] = "sync"
-	out["commit"] = commit.AsData()
+	out["commit"] = commit.AsData() // NOTE: funky, but helpful, to include this in output
 	out["payload"] = evt
 	b, err := json.Marshal(out)
 	if err != nil {
