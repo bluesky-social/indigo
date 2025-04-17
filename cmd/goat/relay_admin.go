@@ -92,16 +92,7 @@ var cmdRelayAdmin = &cli.Command{
 					ArgsUsage: `<hostname>`,
 					Flags: []cli.Flag{
 						&cli.IntFlag{
-							Name: "per-second",
-						},
-						&cli.IntFlag{
-							Name: "per-hour",
-						},
-						&cli.IntFlag{
-							Name: "per-day",
-						},
-						&cli.IntFlag{
-							Name: "repo-limit",
+							Name: "account-limit",
 						},
 					},
 					Action: runRelayAdminHostConfig,
@@ -376,17 +367,8 @@ func runRelayAdminHostConfig(cctx *cli.Context) error {
 	body := map[string]any{
 		"host": hostname,
 	}
-	if cctx.IsSet("per-second") {
-		body["per_second"] = cctx.Int("per-second")
-	}
-	if cctx.IsSet("per-hour") {
-		body["per_hour"] = cctx.Int("per-hour")
-	}
-	if cctx.IsSet("per-day") {
-		body["per_day"] = cctx.Int("per-day")
-	}
-	if cctx.IsSet("repo-limit") {
-		body["repo_limit"] = cctx.Int("repo-limit")
+	if cctx.IsSet("account-limit") {
+		body["repo_limit"] = cctx.Int("account-limit")
 	}
 
 	_, err = client.Do("POST", path, nil, body)
