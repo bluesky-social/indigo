@@ -104,9 +104,8 @@ func TestInteropKnownMaps(t *testing.T) {
 }
 
 func TestInteropKnownMapsTricky(t *testing.T) {
-	assert := assert.New(t)
-
 	t.Skip("TODO: these are currently disallowed in typescript implementation")
+	assert := assert.New(t)
 
 	cid1str := "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454"
 

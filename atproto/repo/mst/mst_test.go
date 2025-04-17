@@ -180,7 +180,7 @@ func TestRandomTree(t *testing.T) {
 
 	mapKeys := make([]string, len(inMap))
 	i := 0
-	for k, _ := range inMap {
+	for k := range inMap {
 		mapKeys[i] = k
 		i++
 	}

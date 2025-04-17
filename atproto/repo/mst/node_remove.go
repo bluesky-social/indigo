@@ -1,6 +1,7 @@
 package mst
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -61,7 +62,9 @@ func (n *Node) remove(key []byte, height int) (*Node, *cid.Cid, error) {
 	}
 
 	// marks adjacent child nodes dirty to include as "proof"
-	proveMutation(n, key)
+	if err := proveMutation(n, key); err != nil && !errors.Is(err, ErrPartialTree) {
+		return nil, nil, err
+	}
 
 	// check if top of node is now just a pointer
 	if top {

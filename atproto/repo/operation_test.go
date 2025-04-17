@@ -91,9 +91,10 @@ func TestBasicOperation(t *testing.T) {
 	assert.NoError(err)
 	assert.Error(CheckOp(tree, op))
 
-	op, err = ApplyOp(tree, "color/pink", &c3)
+	_, err = ApplyOp(tree, "color/pink", &c3)
 	assert.NoError(err)
 	op, err = ApplyOp(tree, "color/pink", &c2)
+	assert.NoError(err)
 	assert.NoError(CheckOp(tree, op))
 	assert.True(op.IsUpdate())
 	err = InvertOp(tree, op)
@@ -130,7 +131,7 @@ func randomOperations(t *testing.T, size, opCount, iterations int) {
 	}
 	mapKeys := make([]string, len(startMap))
 	i := 0
-	for k, _ := range startMap {
+	for k := range startMap {
 		mapKeys[i] = k
 		i++
 	}

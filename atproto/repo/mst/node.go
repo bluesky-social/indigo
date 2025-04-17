@@ -186,7 +186,7 @@ func (n *Node) compareKey(key []byte, markDirty bool) (int, error) {
 		// TODO: should we actually return 0 in this case?
 		return 0, fmt.Errorf("can't determine key range of empty MST node")
 	}
-	if markDirty == true {
+	if markDirty {
 		n.Dirty = true
 	}
 	// check if lower than this entire node
