@@ -301,6 +301,7 @@ func (cs *collectionServer) Shutdown() error {
 		cs.log.Error("failed to shutdown pebble", "err", err)
 	}
 	cs.log.Info("db done. done.")
+	cs.wg.Wait()
 	return err
 }
 
