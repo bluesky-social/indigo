@@ -178,6 +178,8 @@ func run(args []string) error {
 				},
 			},
 		},
+		// additional commands defined in pull.go
+		cmdPullHosts,
 	}
 	return app.Run(os.Args)
 
