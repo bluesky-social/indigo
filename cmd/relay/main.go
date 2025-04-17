@@ -81,8 +81,9 @@ func run(args []string) error {
 		},
 		&cli.StringFlag{
 			Name:    "disk-persister-dir",
-			Usage:   "set directory for disk persister (implicitly enables disk persister)",
+			Usage:   "set directory for disk persister",
 			EnvVars: []string{"RELAY_PERSISTER_DIR"},
+			Value:   "./data/event-buffer",
 		},
 		&cli.StringFlag{
 			Name:    "admin-key",
@@ -223,7 +224,7 @@ func runRelay(cctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		dpd = filepath.Join(cwd, "relay-persist")
+		dpd = filepath.Join(cwd, "data", "event-buffer")
 	}
 	logger.Info("setting up disk persister", "dir", dpd)
 
