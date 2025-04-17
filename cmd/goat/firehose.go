@@ -141,6 +141,12 @@ func runFirehose(cctx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("invalid relayHost URI: %w", err)
 	}
+	switch u.Scheme {
+	case "http":
+		u.Scheme = "ws"
+	case "https":
+		u.Scheme = "wss"
+	}
 	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
 	if cctx.IsSet("cursor") {
 		u.RawQuery = fmt.Sprintf("cursor=%d", cctx.Int("cursor"))
