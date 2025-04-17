@@ -81,10 +81,10 @@ func (s *Service) handleComAtprotoSyncListHosts(c echo.Context, cursor int64, li
 
 	for i, host := range hosts {
 		resp.Hosts[i] = &comatproto.SyncListHosts_Host{
-			// TODO: AccountCount
-			Hostname: host.Hostname,
-			Seq:      &host.LastSeq,
-			Status:   (*string)(&host.Status),
+			Hostname:     host.Hostname,
+			Seq:          &host.LastSeq,
+			Status:       (*string)(&host.Status),
+			AccountCount: &host.AccountCount,
 		}
 	}
 
@@ -148,9 +148,13 @@ func (s *Service) handleComAtprotoSyncListRepos(c echo.Context, cursor int64, li
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get repo root for (%s): %v", acc.DID, err.Error()))
 		}
 
+		active := acc.IsActive()
 		resp.Repos[i] = &comatproto.SyncListRepos_Repo{
-			Did:  acc.DID,
-			Head: repo.CommitCID,
+			Did:    acc.DID,
+			Head:   repo.CommitCID,
+			Rev:    repo.Rev,
+			Active: &active,
+			Status: acc.StatusField(),
 		}
 	}
 
