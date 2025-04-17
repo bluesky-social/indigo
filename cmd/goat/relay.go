@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/urfave/cli/v2"
@@ -27,8 +28,9 @@ var cmdRelay = &cli.Command{
 			Usage: "sub-commands for accounts/repos on relay",
 			Subcommands: []*cli.Command{
 				&cli.Command{
-					Name:  "list",
-					Usage: "enumerate all accounts",
+					Name:    "list",
+					Aliases: []string{"ls"},
+					Usage:   "enumerate all accounts",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:    "collection",
@@ -42,6 +44,18 @@ var cmdRelay = &cli.Command{
 					},
 					Action: runRelayAccountList,
 				},
+				&cli.Command{
+					Name:      "status",
+					ArgsUsage: `<did>`,
+					Usage:     "describe status of individual account",
+					Flags: []cli.Flag{
+						&cli.BoolFlag{
+							Name:  "json",
+							Usage: "print output as JSON",
+						},
+					},
+					Action: runRelayAccountStatus,
+				},
 			},
 		},
 		&cli.Command{
@@ -49,10 +63,35 @@ var cmdRelay = &cli.Command{
 			Usage: "sub-commands for upstream hosts (eg, PDS)",
 			Subcommands: []*cli.Command{
 				&cli.Command{
-					Name:      "add",
+					Name:      "request-crawl",
+					Aliases:   []string{"add"},
 					Usage:     "request crawl of upstream host (eg, PDS)",
 					ArgsUsage: `<hostname>`,
-					Action:    runRelayHostAdd,
+					Action:    runRelayHostRequestCrawl,
+				},
+				&cli.Command{
+					Name:    "list",
+					Aliases: []string{"ls"},
+					Usage:   "enumerate all hosts indexed by relay",
+					Flags: []cli.Flag{
+						&cli.BoolFlag{
+							Name:  "json",
+							Usage: "print output as JSON lines",
+						},
+					},
+					Action: runRelayHostList,
+				},
+				&cli.Command{
+					Name:      "status",
+					ArgsUsage: `<hostname>`,
+					Usage:     "describe status of individual host",
+					Flags: []cli.Flag{
+						&cli.BoolFlag{
+							Name:  "json",
+							Usage: "print output as JSON",
+						},
+					},
+					Action: runRelayHostStatus,
 				},
 			},
 		},
@@ -103,7 +142,7 @@ func runRelayAccountList(cctx *cli.Context) error {
 					fmt.Println(string(b))
 				} else {
 					status := "unknown"
-					if r.Active != nil && *r.Active == true {
+					if r.Active != nil && *r.Active {
 						status = "active"
 					} else if r.Status != nil {
 						status = *r.Status
@@ -121,7 +160,55 @@ func runRelayAccountList(cctx *cli.Context) error {
 	return nil
 }
 
-func runRelayHostAdd(cctx *cli.Context) error {
+func runRelayAccountStatus(cctx *cli.Context) error {
+	ctx := cctx.Context
+
+	didStr := cctx.Args().First()
+	if didStr == "" {
+		return fmt.Errorf("need to provide account DID as argument")
+	}
+	if cctx.Args().Len() != 1 {
+		return fmt.Errorf("unexpected arguments")
+	}
+
+	did, err := syntax.ParseDID(didStr)
+	if err != nil {
+		return err
+	}
+
+	client := xrpc.Client{
+		Host: cctx.String("relay-host"),
+	}
+
+	r, err := comatproto.SyncGetRepoStatus(ctx, &client, did.String())
+	if err != nil {
+		return err
+	}
+
+	if cctx.Bool("json") {
+		b, err := json.Marshal(r)
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(b))
+	} else {
+		status := "unknown"
+		if r.Active {
+			status = "active"
+		} else if r.Status != nil {
+			status = *r.Status
+		}
+		rev := ""
+		if r.Rev != nil {
+			rev = *r.Rev
+		}
+		fmt.Printf("%s\t%s\t%s\n", r.Did, status, rev)
+	}
+
+	return nil
+}
+
+func runRelayHostRequestCrawl(cctx *cli.Context) error {
 	ctx := cctx.Context
 
 	hostname := cctx.Args().First()
@@ -141,5 +228,101 @@ func runRelayHostAdd(cctx *cli.Context) error {
 		return err
 	}
 	fmt.Println("success")
+	return nil
+}
+
+func runRelayHostList(cctx *cli.Context) error {
+	ctx := cctx.Context
+
+	if cctx.Args().Len() > 0 {
+		return fmt.Errorf("unexpected arguments")
+	}
+
+	client := xrpc.Client{
+		Host: cctx.String("relay-host"),
+	}
+
+	cursor := ""
+	var size int64 = 500
+	for {
+		resp, err := comatproto.SyncListHosts(ctx, &client, cursor, size)
+		if err != nil {
+			return err
+		}
+
+		for _, h := range resp.Hosts {
+			if cctx.Bool("json") {
+				b, err := json.Marshal(h)
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(b))
+			} else {
+				status := ""
+				if h.Status != nil {
+					status = *h.Status
+				}
+				count := ""
+				if h.AccountCount != nil {
+					count = fmt.Sprintf("%d", *h.AccountCount)
+				}
+				seq := ""
+				if h.Seq != nil {
+					seq = fmt.Sprintf("%d", *h.Seq)
+				}
+				fmt.Printf("%s\t%s\t%s\t%s\n", h.Hostname, status, count, seq)
+			}
+		}
+
+		if resp.Cursor == nil || *resp.Cursor == "" {
+			break
+		}
+		cursor = *resp.Cursor
+	}
+	return nil
+}
+
+func runRelayHostStatus(cctx *cli.Context) error {
+	ctx := cctx.Context
+
+	hostname := cctx.Args().First()
+	if hostname == "" {
+		return fmt.Errorf("need to provide hostname as argument")
+	}
+	if cctx.Args().Len() != 1 {
+		return fmt.Errorf("unexpected arguments")
+	}
+
+	client := xrpc.Client{
+		Host: cctx.String("relay-host"),
+	}
+
+	h, err := comatproto.SyncGetHostStatus(ctx, &client, hostname)
+	if err != nil {
+		return err
+	}
+
+	if cctx.Bool("json") {
+		b, err := json.Marshal(h)
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(b))
+	} else {
+		status := ""
+		if h.Status != nil {
+			status = *h.Status
+		}
+		count := ""
+		if h.AccountCount != nil {
+			count = fmt.Sprintf("%d", *h.AccountCount)
+		}
+		seq := ""
+		if h.Seq != nil {
+			seq = fmt.Sprintf("%d", *h.Seq)
+		}
+		fmt.Printf("%s\t%s\t%s\t%s\n", h.Hostname, status, count, seq)
+	}
+
 	return nil
 }
