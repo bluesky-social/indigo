@@ -8,22 +8,12 @@ import (
 )
 
 func TestPostScenarios(t *testing.T) {
-	assert := assert.New(t)
 	ctx := context.Background()
 
-	base, err := LoadScenario(ctx, "testdata/post_lifecycle.json")
+	err := LoadAndRunScenario(ctx, "testdata/post_lifecycle.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// base case is successful
-	assert.NoError(RunScenario(ctx, base))
-
-	// mess with revisions
-	// TODO: get this test working
-	//base.Messages[2].Frame.Event.RepoCommit.Rev = "222pyftdf4h2r"
-	//base.Messages[2].Drop = true
-	//assert.NoError(RunScenario(ctx, base))
 }
 
 func TestWrongKey(t *testing.T) {
@@ -76,7 +66,7 @@ func TestAccountLifecycle(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
 
-	base, err := LoadScenario(ctx, "testdata/post_lifecycle.json")
+	base, err := LoadScenario(ctx, "testdata/account_lifecycle.json")
 	if err != nil {
 		t.Fatal(err)
 	}
