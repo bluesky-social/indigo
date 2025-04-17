@@ -1,7 +1,7 @@
 
 ## git repo contents
 
-Run with, eg, `go run ./cmd/relay`):
+Run with, eg, `go run ./cmd/rainbow`):
 
 - `cmd/bigsky`: relay daemon
 - `cmd/relay`: new (sync v1.1) relay daemon

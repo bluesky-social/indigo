@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/bluesky-social/indigo/atproto/repo"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/util"
@@ -49,6 +50,8 @@ type Repo struct {
 	mst *mst.MerkleSearchTree
 
 	dirty bool
+
+	clk *syntax.TIDClock
 }
 
 // Returns a copy of commit without the Sig field. Helpful when verifying signature.
@@ -111,6 +114,7 @@ func ReadRepoFromCar(ctx context.Context, r io.Reader) (*Repo, error) {
 
 func NewRepo(ctx context.Context, did string, bs cbor.IpldBlockstore) *Repo {
 	cst := util.CborStore(bs)
+	clk := syntax.NewTIDClock(0)
 
 	t := mst.NewEmptyMST(cst)
 	sc := SignedCommit{
@@ -124,11 +128,13 @@ func NewRepo(ctx context.Context, did string, bs cbor.IpldBlockstore) *Repo {
 		mst:   t,
 		sc:    sc,
 		dirty: true,
+		clk:   &clk,
 	}
 }
 
 func OpenRepo(ctx context.Context, bs cbor.IpldBlockstore, root cid.Cid) (*Repo, error) {
 	cst := util.CborStore(bs)
+	clk := syntax.NewTIDClock(0)
 
 	var sc SignedCommit
 	if err := cst.Get(ctx, root, &sc); err != nil {
@@ -144,6 +150,7 @@ func OpenRepo(ctx context.Context, bs cbor.IpldBlockstore, root cid.Cid) (*Repo,
 		bs:      bs,
 		cst:     cst,
 		repoCid: root,
+		clk:     &clk,
 	}, nil
 }
 
@@ -191,7 +198,7 @@ func (r *Repo) CreateRecord(ctx context.Context, nsid string, rec CborMarshaler)
 		return cid.Undef, "", err
 	}
 
-	tid := NextTID()
+	tid := r.clk.Next().String()
 
 	nmst, err := t.Add(ctx, nsid+"/"+tid, k, -1)
 	if err != nil {
@@ -294,7 +301,7 @@ func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, 
 		Did:     r.RepoDid(),
 		Version: ATP_REPO_VERSION,
 		Data:    rcid,
-		Rev:     NextTID(),
+		Rev:     r.clk.Next().String(),
 	}
 
 	sb, err := ncom.BytesForSigning()

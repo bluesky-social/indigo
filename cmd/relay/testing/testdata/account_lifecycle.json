@@ -1,0 +1,101 @@
+{
+  "lenient": false,
+  "accounts": [
+    {
+      "identity": {
+        "did": "did:plc:vvpy7d6y2li5yo73cgbszibl",
+        "handle": "pengua.bsky.social",
+        "alsoKnownAs": [
+          "at://pengua.bsky.social"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "url": "https://calocybe.us-west.host.bsky.network"
+          }
+        },
+        "keys": {
+          "atproto": {
+            "type": "Multikey",
+            "publicKeyMultibase": "zQ3shdADPnggw3JH3JFg2parVSUsf2T9CLKKNBxViuc94PNsm"
+          }
+        }
+      },
+      "status": "active"
+    }
+  ],
+  "messages": [
+    {
+      "frame": {
+        "header": {
+          "op": 1,
+          "t": "#identity"
+        },
+        "body": {
+          "did": "did:plc:vvpy7d6y2li5yo73cgbszibl",
+          "handle": "pengua.bsky.social",
+          "seq": 110,
+          "time": "2025-04-16T23:40:33.895Z"
+        }
+      },
+      "drop": false,
+      "invalid": false,
+      "update": false
+    },
+    {
+      "frame": {
+        "header": {
+          "op": 1,
+          "t": "#account"
+        },
+        "body": {
+          "active": true,
+          "did": "did:plc:vvpy7d6y2li5yo73cgbszibl",
+          "seq": 120,
+          "time": "2025-04-16T23:40:33.895Z"
+        }
+      },
+      "drop": false,
+      "invalid": false,
+      "update": false
+    },
+    {
+      "frame": {
+        "header": {
+          "op": 1,
+          "t": "#sync"
+        },
+        "body": {
+          "blocks": {
+            "$bytes": "OqJlcm9vdHOB2CpYJQABcRIgR5ri650aomp4qrpdYXEo84wlCqooJsN7vyuTCWCLWN5ndmVyc2lvbgHgAQFxEiBHmuLrnRqianiqul1hcSjzjCUKqigmw3u/K5MJYItY3qZjZGlkeCBkaWQ6cGxjOnZ2cHk3ZDZ5MmxpNXlvNzNjZ2JzemlibGNyZXZtM2xteHJidmFzdGgydGNzaWdYQBMCRD8XLAWKJu08a6umld0ir4kyTbTNhnOsZxZxiNrZONMIzpqId7s8f+AlDTr0Th3YxPDoen7ZO185qE0ZC1JkZGF0YdgqWCUAAXESIJ3+/mHdduo9yuUCOICwg3nVet8gSC1v2+J1kon2R2d7ZHByZXb2Z3ZlcnNpb24D"
+          },
+          "did": "did:plc:vvpy7d6y2li5yo73cgbszibl",
+          "rev": "3lmxrbvasth2t",
+          "seq": 130,
+          "time": "2025-04-16T23:40:33.897Z"
+        }
+      },
+      "drop": false,
+      "invalid": false,
+      "update": false
+    },
+    {
+      "frame": {
+        "header": {
+          "op": 1,
+          "t": "#account"
+        },
+        "body": {
+          "active": false,
+          "did": "did:plc:vvpy7d6y2li5yo73cgbszibl",
+          "seq": 140,
+          "status": "deleted",
+          "time": "2025-04-16T23:41:33.895Z"
+        }
+      },
+      "drop": false,
+      "invalid": false,
+      "update": true
+    }
+  ]
+}

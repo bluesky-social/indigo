@@ -2,18 +2,22 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
-	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	_ "github.com/joho/godotenv/autoload"
+	_ "go.uber.org/automaxprocs"
+	_ "net/http/pprof"
+
 	"github.com/bluesky-social/indigo/events/pebblepersist"
 	"github.com/bluesky-social/indigo/splitter"
+	"github.com/bluesky-social/indigo/util/svcutil"
 
 	"github.com/carlmjohnson/versioninfo"
-	_ "github.com/joho/godotenv/autoload"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -21,37 +25,34 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
-	_ "go.uber.org/automaxprocs"
 )
 
-var log = slog.Default().With("system", "rainbow")
-
-func init() {
-	// control log level using, eg, GOLOG_LOG_LEVEL=debug
-	//logging.SetAllLoggers(logging.LevelDebug)
-}
-
 func main() {
-	run(os.Args)
+	if err := run(os.Args); err != nil {
+		slog.Error("exiting", "err", err)
+		os.Exit(1)
+	}
 }
 
-func run(args []string) {
+func run(args []string) error {
+
 	app := cli.App{
 		Name:    "rainbow",
 		Usage:   "atproto firehose fan-out daemon",
 		Version: versioninfo.Short(),
+		Action:  runSplitter,
 	}
 
 	app.Flags = []cli.Flag{
-		// TODO: unimplemented, always assumes https:// and wss://
-		//&cli.BoolFlag{
-		//	Name:    "crawl-insecure-ws",
-		//	Usage:   "when connecting to PDS instances, use ws:// instead of wss://",
-		//	EnvVars: []string{"RAINBOW_INSECURE_CRAWL"},
-		//},
 		&cli.StringFlag{
-			Name:    "splitter-host",
-			Value:   "bsky.network",
+			Name:    "log-level",
+			Usage:   "log verbosity level (eg: warn, info, debug)",
+			EnvVars: []string{"RAINBOW_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"},
+		},
+		&cli.StringFlag{
+			Name:    "upstream-host",
+			Value:   "http://localhost:2470",
+			Usage:   "URL (schema and hostname, no path) of the upstream host (eg, relay)",
 			EnvVars: []string{"ATP_RELAY_HOST", "RAINBOW_RELAY_HOST"},
 		},
 		&cli.StringFlag{
@@ -89,57 +90,76 @@ func run(args []string) {
 			EnvVars: []string{"RAINBOW_PERSIST_BYTES", "SPLITTER_PERSIST_BYTES"},
 		},
 		&cli.StringSliceFlag{
+			// TODO: better name for this argument
 			Name:    "next-crawler",
-			Usage:   "forward POST requestCrawl to this url, should be machine root url and not xrpc/requestCrawl, comma separated list",
-			EnvVars: []string{"RELAY_NEXT_CRAWLER"},
+			Usage:   "forward POST requestCrawl to these hosts (schema and host, no path) in addition to upstream-host. Comma-separated or multiple flags",
+			EnvVars: []string{"RAINBOW_NEXT_CRAWLER", "RELAY_NEXT_CRAWLER"},
+		},
+		&cli.StringFlag{
+			Name:    "collectiondir-host",
+			Value:   "http://localhost:2510",
+			Usage:   "host (schema and hostname, no path) of upstream collectiondir instance, for com.atproto.sync.listReposByCollection",
+			EnvVars: []string{"RAINBOW_COLLECTIONDIR_HOST"},
+		},
+		&cli.StringFlag{
+			Name:    "env",
+			Usage:   "operating environment (eg, 'prod', 'test')",
+			Value:   "dev",
+			EnvVars: []string{"ENVIRONMENT"},
+		},
+		&cli.BoolFlag{
+			Name:    "enable-otel-otlp",
+			Usage:   "enables OTEL OTLP exporter endpoint",
+			EnvVars: []string{"RAINBOW_ENABLE_OTEL_OTLP", "ENABLE_OTEL_OTLP"},
+		},
+		&cli.StringFlag{
+			Name:    "otel-otlp-endpoint",
+			Usage:   "OTEL traces export endpoint",
+			Value:   "http://localhost:4318",
+			EnvVars: []string{"OTEL_EXPORTER_OTLP_ENDPOINT"},
 		},
 	}
 
-	// TODO: slog.SetDefault and set module `var log *slog.Logger` based on flags and env
-
-	app.Action = Splitter
-	err := app.Run(os.Args)
-	if err != nil {
-		log.Error(err.Error())
-		os.Exit(1)
-	}
+	return app.Run(args)
 }
 
-func Splitter(cctx *cli.Context) error {
+func runSplitter(cctx *cli.Context) error {
 	// Trap SIGINT to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
+	logger := svcutil.ConfigLogger(cctx, os.Stdout).With("system", "rainbow")
+
 	// Enable OTLP HTTP exporter
 	// For relevant environment variables:
 	// https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace#readme-environment-variables
-	// At a minimum, you need to set
-	// OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-	if ep := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); ep != "" {
-		log.Info("setting up trace exporter", "endpoint", ep)
+	if cctx.Bool("enable-otel-otlp") {
+		ep := cctx.String("otel-otlp-endpoint")
+		logger.Info("setting up trace exporter", "endpoint", ep)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
 		exp, err := otlptracehttp.New(ctx)
 		if err != nil {
-			log.Error("failed to create trace exporter", "error", err)
+			logger.Error("failed to create trace exporter", "error", err)
 			os.Exit(1)
 		}
 		defer func() {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 			if err := exp.Shutdown(ctx); err != nil {
-				log.Error("failed to shutdown trace exporter", "error", err)
+				logger.Error("failed to shutdown trace exporter", "error", err)
 			}
 		}()
 
+		env := cctx.String("env")
 		tp := tracesdk.NewTracerProvider(
 			tracesdk.WithBatcher(exp),
 			tracesdk.WithResource(resource.NewWithAttributes(
 				semconv.SchemaURL,
 				semconv.ServiceNameKey.String("splitter"),
-				attribute.String("env", os.Getenv("ENVIRONMENT")),         // DataDog
-				attribute.String("environment", os.Getenv("ENVIRONMENT")), // Others
+				attribute.String("env", env),         // DataDog
+				attribute.String("environment", env), // Others
 				attribute.Int64("ID", 1),
 			)),
 		)
@@ -147,13 +167,14 @@ func Splitter(cctx *cli.Context) error {
 	}
 
 	persistPath := cctx.String("persist-db")
-	upstreamHost := cctx.String("splitter-host")
+	upstreamHost := cctx.String("upstream-host")
+	collectionDirHost := cctx.String("collectiondir-host")
 	nextCrawlers := cctx.StringSlice("next-crawler")
 
 	var spl *splitter.Splitter
 	var err error
 	if persistPath != "" {
-		log.Info("building splitter with storage at", "path", persistPath)
+		logger.Info("building splitter with storage at", "path", persistPath)
 		ppopts := pebblepersist.PebblePersistOptions{
 			DbPath:          persistPath,
 			PersistDuration: time.Duration(float64(time.Hour) * cctx.Float64("persist-hours")),
@@ -161,29 +182,33 @@ func Splitter(cctx *cli.Context) error {
 			MaxBytes:        uint64(cctx.Int64("persist-bytes")),
 		}
 		conf := splitter.SplitterConfig{
-			UpstreamHost:  upstreamHost,
-			CursorFile:    cctx.String("cursor-file"),
-			PebbleOptions: &ppopts,
+			UpstreamHost:      upstreamHost,
+			CollectionDirHost: collectionDirHost,
+			CursorFile:        cctx.String("cursor-file"),
+			PebbleOptions:     &ppopts,
+			UserAgent:         fmt.Sprintf("rainbow/%s", versioninfo.Short()),
 		}
 		spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	} else {
-		log.Info("building in-memory splitter")
+		logger.Info("building in-memory splitter")
 		conf := splitter.SplitterConfig{
-			UpstreamHost: upstreamHost,
-			CursorFile:   cctx.String("cursor-file"),
+			UpstreamHost:      upstreamHost,
+			CollectionDirHost: collectionDirHost,
+			CursorFile:        cctx.String("cursor-file"),
 		}
 		spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	}
 	if err != nil {
-		log.Error("failed to create splitter", "path", persistPath, "error", err)
+		logger.Error("failed to create splitter", "path", persistPath, "error", err)
 		os.Exit(1)
 		return err
 	}
 
 	// set up metrics endpoint
+	metricsListen := cctx.String("metrics-listen")
 	go func() {
-		if err := spl.StartMetrics(cctx.String("metrics-listen")); err != nil {
-			log.Error("failed to start metrics endpoint", "err", err)
+		if err := spl.StartMetrics(metricsListen); err != nil {
+			logger.Error("failed to start metrics endpoint", "err", err)
 			os.Exit(1)
 		}
 	}()
@@ -191,28 +216,28 @@ func Splitter(cctx *cli.Context) error {
 	runErr := make(chan error, 1)
 
 	go func() {
-		err := spl.Start(cctx.String("api-listen"))
+		err := spl.StartAPI(cctx.String("api-listen"))
 		runErr <- err
 	}()
 
-	log.Info("startup complete")
+	logger.Info("startup complete")
 	select {
 	case <-signals:
-		log.Info("received shutdown signal")
+		logger.Info("received shutdown signal")
 		if err := spl.Shutdown(); err != nil {
-			log.Error("error during Splitter shutdown", "err", err)
+			logger.Error("error during Splitter shutdown", "err", err)
 		}
 	case err := <-runErr:
 		if err != nil {
-			log.Error("error during Splitter startup", "err", err)
+			logger.Error("error during Splitter startup", "err", err)
 		}
-		log.Info("shutting down")
+		logger.Info("shutting down")
 		if err := spl.Shutdown(); err != nil {
-			log.Error("error during Splitter shutdown", "err", err)
+			logger.Error("error during Splitter shutdown", "err", err)
 		}
 	}
 
-	log.Info("shutdown complete")
+	logger.Info("shutdown complete")
 
 	return nil
 }

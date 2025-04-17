@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net/url"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -19,12 +17,10 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
-	libbgs "github.com/bluesky-social/indigo/cmd/relay/bgs"
-	"github.com/bluesky-social/indigo/cmd/relay/events"
-	"github.com/bluesky-social/indigo/cmd/relay/events/diskpersist"
-	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/cmd/relay/relay"
+	"github.com/bluesky-social/indigo/cmd/relay/stream/eventmgr"
+	"github.com/bluesky-social/indigo/cmd/relay/stream/persist/diskpersist"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/urfave/cli/v2"
@@ -33,8 +29,8 @@ import (
 
 func main() {
 	if err := run(os.Args); err != nil {
-		slog.Error(err.Error())
-		os.Exit(1)
+		slog.Error("exiting process", "err", err.Error())
+		os.Exit(-1)
 	}
 }
 
@@ -42,165 +38,179 @@ func run(args []string) error {
 
 	app := cli.App{
 		Name:    "relay",
-		Usage:   "atproto Relay daemon",
+		Usage:   "atproto relay daemon",
 		Version: versioninfo.Short(),
 	}
-
 	app.Flags = []cli.Flag{
-		&cli.BoolFlag{
-			Name: "jaeger",
-		},
 		&cli.StringFlag{
-			Name:    "db-url",
-			Usage:   "database connection string for relay database",
-			Value:   "sqlite://./data/relay/relay.sqlite",
-			EnvVars: []string{"DATABASE_URL"},
-		},
-		&cli.BoolFlag{
-			Name: "db-tracing",
+			Name:    "admin-password",
+			Usage:   "secret password/token for accessing admin endpoints (random is used if not set)",
+			EnvVars: []string{"RELAY_ADMIN_PASSWORD", "RELAY_ADMIN_KEY"},
 		},
 		&cli.StringFlag{
 			Name:    "plc-host",
 			Usage:   "method, hostname, and port of PLC registry",
 			Value:   "https://plc.directory",
-			EnvVars: []string{"ATP_PLC_HOST"},
-		},
-		&cli.BoolFlag{
-			Name:  "crawl-insecure-ws",
-			Usage: "when connecting to PDS instances, use ws:// instead of wss://",
+			EnvVars: []string{"RELAY_PLC_HOST", "ATP_PLC_HOST"},
 		},
 		&cli.StringFlag{
-			Name:    "api-listen",
-			Value:   ":2470",
-			EnvVars: []string{"RELAY_API_LISTEN"},
-		},
-		&cli.StringFlag{
-			Name:    "metrics-listen",
-			Value:   ":2471",
-			EnvVars: []string{"RELAY_METRICS_LISTEN", "BGS_METRICS_LISTEN"},
-		},
-		&cli.StringFlag{
-			Name:    "disk-persister-dir",
-			Usage:   "set directory for disk persister (implicitly enables disk persister)",
-			EnvVars: []string{"RELAY_PERSISTER_DIR"},
-		},
-		&cli.StringFlag{
-			Name:    "admin-key",
-			EnvVars: []string{"RELAY_ADMIN_KEY", "BGS_ADMIN_KEY"},
-		},
-		&cli.IntFlag{
-			Name:    "max-metadb-connections",
-			EnvVars: []string{"MAX_METADB_CONNECTIONS"},
-			Value:   40,
-		},
-		&cli.StringFlag{
-			Name:    "env",
-			Value:   "dev",
-			EnvVars: []string{"ENVIRONMENT"},
-			Usage:   "declared hosting environment (prod, qa, etc); used in metrics",
-		},
-		&cli.StringFlag{
-			Name:    "otel-exporter-otlp-endpoint",
-			EnvVars: []string{"OTEL_EXPORTER_OTLP_ENDPOINT"},
-		},
-		&cli.StringFlag{
-			Name:    "bsky-social-rate-limit-skip",
-			EnvVars: []string{"BSKY_SOCIAL_RATE_LIMIT_SKIP"},
-			Usage:   "ratelimit bypass secret token for *.bsky.social domains",
-		},
-		&cli.IntFlag{
-			Name:    "default-repo-limit",
-			Value:   100,
-			EnvVars: []string{"RELAY_DEFAULT_REPO_LIMIT"},
-		},
-		&cli.IntFlag{
-			Name:    "concurrency-per-pds",
-			EnvVars: []string{"RELAY_CONCURRENCY_PER_PDS"},
-			Value:   100,
-		},
-		&cli.IntFlag{
-			Name:    "max-queue-per-pds",
-			EnvVars: []string{"RELAY_MAX_QUEUE_PER_PDS"},
-			Value:   1_000,
-		},
-		&cli.IntFlag{
-			Name:    "did-cache-size",
-			Usage:   "in-process cache by number of Did documents",
-			EnvVars: []string{"RELAY_DID_CACHE_SIZE"},
-			Value:   5_000_000,
-		},
-		&cli.DurationFlag{
-			Name:    "event-playback-ttl",
-			Usage:   "time to live for event playback buffering (only applies to disk persister)",
-			EnvVars: []string{"RELAY_EVENT_PLAYBACK_TTL"},
-			Value:   72 * time.Hour,
-		},
-		&cli.StringSliceFlag{
-			Name:    "next-crawler",
-			Usage:   "forward POST requestCrawl to this url, should be machine root url and not xrpc/requestCrawl, comma separated list",
-			EnvVars: []string{"RELAY_NEXT_CRAWLER"},
-		},
-		&cli.StringFlag{
-			Name:    "trace-induction",
-			Usage:   "file path to log debug trace stuff about induction firehose",
-			EnvVars: []string{"RELAY_TRACE_INDUCTION"},
-		},
-		&cli.BoolFlag{
-			Name:    "time-seq",
-			EnvVars: []string{"RELAY_TIME_SEQUENCE"},
-			Value:   false,
-			Usage:   "make outbound firehose sequence number approximately unix microseconds",
+			Name:    "log-level",
+			Usage:   "log verbosity level (eg: warn, info, debug)",
+			EnvVars: []string{"RELAY_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"},
 		},
 	}
-
-	app.Action = runRelay
+	app.Commands = []*cli.Command{
+		&cli.Command{
+			Name:   "serve",
+			Usage:  "run the relay daemon",
+			Action: runRelay,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "db-url",
+					Usage:   "database connection string for relay database",
+					Value:   "sqlite://data/relay/relay.sqlite",
+					EnvVars: []string{"DATABASE_URL"},
+				},
+				&cli.IntFlag{
+					Name:    "max-db-conn",
+					Usage:   "limit on size of database connection pool",
+					EnvVars: []string{"MAX_DB_CONNECTIONS", "MAX_METADB_CONNECTIONS"},
+					Value:   40,
+				},
+				&cli.StringFlag{
+					Name:    "bind",
+					Usage:   "IP or address, and port, to listen on for HTTP APIs (including firehose)",
+					Value:   ":2470",
+					EnvVars: []string{"RELAY_API_BIND", "RELAY_API_LISTEN"},
+				},
+				&cli.StringFlag{
+					Name:    "persist-dir",
+					Usage:   "local folder to store firehose playback files",
+					Value:   "data/relay/persist",
+					EnvVars: []string{"RELAY_PERSIST_DIR", "RELAY_PERSISTER_DIR"},
+				},
+				&cli.DurationFlag{
+					Name:    "replay-window",
+					Usage:   "retention duration for firehose playback",
+					EnvVars: []string{"RELAY_REPLAY_WINDOW", "RELAY_EVENT_PLAYBACK_TTL"},
+					Value:   72 * time.Hour,
+				},
+				&cli.IntFlag{
+					Name:    "host-concurrency",
+					Usage:   "number of concurrent worker routines per upstream host",
+					EnvVars: []string{"RELAY_HOST_CONCURRENCY", "RELAY_CONCURRENCY_PER_PDS"},
+					Value:   40,
+				},
+				&cli.IntFlag{
+					Name:    "default-account-limit",
+					Value:   100,
+					Usage:   "max number of active accounts for new upstream hosts",
+					EnvVars: []string{"RELAY_DEFAULT_ACCOUUNT_LIMIT", "RELAY_DEFAULT_REPO_LIMIT"},
+				},
+				&cli.IntFlag{
+					Name:    "ident-cache-size",
+					Value:   5_000_000,
+					Usage:   "size of in-process identity cache (eg, DID docs)",
+					EnvVars: []string{"RELAY_IDENT_CACHE_SIZE", "RELAY_DID_CACHE_SIZE"},
+				},
+				&cli.BoolFlag{
+					Name:    "disable-request-crawl",
+					Usage:   "don't process public (un-authenticated) com.atproto.sync.requestCrawl",
+					EnvVars: []string{"RELAY_DISABLE_REQUEST_CRAWL"},
+				},
+				&cli.BoolFlag{
+					Name:    "allow-insecure-hosts",
+					Usage:   "enables subscription to non-SSL hosts via requestCrawl",
+					EnvVars: []string{"RELAY_ALLOW_INSECURE_HOSTS"},
+				},
+				&cli.BoolFlag{
+					Name:    "lenient-sync-validation",
+					Usage:   "when messages fail atproto 'Sync 1.1' validation, just log, don't drop",
+					EnvVars: []string{"RELAY_LENIENT_SYNC_VALIDATION"},
+				},
+				&cli.IntFlag{
+					Name:    "initial-seq-number",
+					Usage:   "when initializing output firehose, start with this sequence number",
+					Value:   1,
+					EnvVars: []string{"RELAY_INITIAL_SEQ_NUMBER"},
+				},
+				&cli.StringSliceFlag{
+					Name:    "sibling-relays",
+					Usage:   "servers (eg https://example.com) to forward admin state changes to; multiple allowed",
+					EnvVars: []string{"RELAY_SIBLING_RELAYS"},
+				},
+				&cli.StringSliceFlag{
+					Name:    "trusted-domains",
+					Usage:   "domain names which mark trusted hosts; use wildcard prefix to match suffixes",
+					EnvVars: []string{"RELAY_TRUSTED_DOMAINS"},
+				},
+				&cli.StringFlag{
+					Name:    "env",
+					Value:   "dev",
+					EnvVars: []string{"ENVIRONMENT"},
+					Usage:   "declared hosting environment (prod, qa, etc); used in metrics",
+				},
+				&cli.BoolFlag{
+					Name: "enable-db-tracing",
+				},
+				&cli.BoolFlag{
+					Name: "enable-jaeger-tracing",
+				},
+				&cli.BoolFlag{
+					Name: "enable-otel-tracing",
+				},
+				&cli.StringFlag{
+					Name:    "metrics-listen",
+					Usage:   "IP or address, and port, to listen on for prometheus metrics",
+					Value:   ":2471",
+					EnvVars: []string{"RELAY_METRICS_LISTEN"},
+				},
+				&cli.StringFlag{
+					Name:    "otel-exporter-otlp-endpoint",
+					Value:   "http://localhost:4328",
+					EnvVars: []string{"OTEL_EXPORTER_OTLP_ENDPOINT"},
+				},
+			},
+		},
+	}
 	return app.Run(os.Args)
+
+}
+
+func configLogger(cctx *cli.Context, writer io.Writer) *slog.Logger {
+	var level slog.Level
+	switch strings.ToLower(cctx.String("log-level")) {
+	case "error":
+		level = slog.LevelError
+	case "warn":
+		level = slog.LevelWarn
+	case "info":
+		level = slog.LevelInfo
+	case "debug":
+		level = slog.LevelDebug
+	default:
+		level = slog.LevelInfo
+	}
+	logger := slog.New(slog.NewJSONHandler(writer, &slog.HandlerOptions{
+		Level: level,
+	}))
+	slog.SetDefault(logger)
+	return logger
 }
 
 func runRelay(cctx *cli.Context) error {
+	logger := configLogger(cctx, os.Stdout)
+
 	// Trap SIGINT to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
-	logger, logWriter, err := cliutil.SetupSlog(cliutil.LogOptions{})
-	if err != nil {
-		return err
-	}
-
-	var inductionTraceLog *slog.Logger
-
-	if cctx.IsSet("trace-induction") {
-		traceFname := cctx.String("trace-induction")
-		traceFout, err := os.OpenFile(traceFname, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return fmt.Errorf("%s: could not open trace file: %w", traceFname, err)
-		}
-		defer traceFout.Close()
-		if traceFname != "" {
-			inductionTraceLog = slog.New(slog.NewJSONHandler(traceFout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-		}
-	} else {
-		inductionTraceLog = slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.Level(999)}))
-	}
-
-	// start observability/tracing (OTEL and jaeger)
-	if err := setupOTEL(cctx); err != nil {
-		return err
-	}
-
 	dburl := cctx.String("db-url")
-	logger.Info("setting up main database", "url", dburl)
-	db, err := cliutil.SetupDatabase(dburl, cctx.Int("max-metadb-connections"))
+	maxConn := cctx.Int("max-db-conn")
+	logger.Info("configuring database", "url", dburl, "maxConn", maxConn)
+	db, err := cliutil.SetupDatabase(dburl, maxConn)
 	if err != nil {
 		return err
-	}
-	if cctx.Bool("db-tracing") {
-		if err := db.Use(tracing.NewPlugin()); err != nil {
-			return err
-		}
-	}
-	if err := db.AutoMigrate(RelaySetting{}); err != nil {
-		panic(err)
 	}
 
 	// TODO: add shared external cache
@@ -208,118 +218,98 @@ func runRelay(cctx *cli.Context) error {
 		SkipHandleVerification: true,
 		SkipDNSDomainSuffixes:  []string{".bsky.social"},
 		TryAuthoritativeDNS:    true,
+		PLCURL:                 cctx.String("plc-host"),
 	}
-	cacheDir := identity.NewCacheDirectory(&baseDir, cctx.Int("did-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
+	dir := identity.NewCacheDirectory(&baseDir, cctx.Int("ident-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
 
-	// TODO: rename repoman
-	repoman := libbgs.NewValidator(&cacheDir, inductionTraceLog)
-
-	var persister events.EventPersistence
-
-	dpd := cctx.String("disk-persister-dir")
-	if dpd == "" {
-		logger.Info("empty disk-persister-dir, use current working directory")
-		cwd, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-		dpd = filepath.Join(cwd, "relay-persist")
-	}
-	logger.Info("setting up disk persister", "dir", dpd)
-
-	pOpts := diskpersist.DefaultDiskPersistOptions()
-	pOpts.Retention = cctx.Duration("event-playback-ttl")
-	pOpts.TimeSequence = cctx.Bool("time-seq")
-
-	// ensure that time-ish sequence stays consistent within a server context
-	storedTimeSeq, hadStoredTimeSeq, err := getRelaySettingBool(db, "time-seq")
-	if err != nil {
+	persistDir := cctx.String("persist-dir")
+	if err := os.MkdirAll(persistDir, os.ModePerm); err != nil {
 		return err
 	}
-	if !hadStoredTimeSeq {
-		if err := setRelaySettingBool(db, "time-seq", pOpts.TimeSequence); err != nil {
-			return err
-		}
-	} else {
-		if pOpts.TimeSequence != storedTimeSeq {
-			return fmt.Errorf("time-seq stored as %v but param/env set as %v", storedTimeSeq, pOpts.TimeSequence)
-		}
-	}
-
-	dp, err := diskpersist.NewDiskPersistence(dpd, "", db, pOpts)
+	persitConfig := diskpersist.DefaultDiskPersistOptions()
+	persitConfig.Retention = cctx.Duration("replay-window")
+	persitConfig.InitialSeq = cctx.Int64("initial-seq-number")
+	logger.Info("setting up disk persister", "dir", persistDir, "replayWindow", persitConfig.Retention)
+	persister, err := diskpersist.NewDiskPersistence(persistDir, "", db, persitConfig)
 	if err != nil {
 		return fmt.Errorf("setting up disk persister: %w", err)
 	}
-	persister = dp
 
-	evtman := events.NewEventManager(persister)
+	relayConfig := relay.DefaultRelayConfig()
+	relayConfig.UserAgent = fmt.Sprintf("indigo-relay/%s", versioninfo.Short())
+	relayConfig.ConcurrencyPerHost = cctx.Int("host-concurrency")
+	relayConfig.DefaultRepoLimit = cctx.Int64("default-account-limit")
+	relayConfig.TrustedDomains = cctx.StringSlice("trusted-domains")
+	relayConfig.LenientSyncValidation = cctx.Bool("lenient-sync-validation")
 
-	ratelimitBypass := cctx.String("bsky-social-rate-limit-skip")
-
-	logger.Info("constructing relay service")
-	bgsConfig := libbgs.DefaultBGSConfig()
-	bgsConfig.SSL = !cctx.Bool("crawl-insecure-ws")
-	bgsConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
-	bgsConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
-	bgsConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
-	bgsConfig.ApplyPDSClientSettings = makePdsClientSetup(ratelimitBypass)
-	bgsConfig.InductionTraceLog = inductionTraceLog
-	nextCrawlers := cctx.StringSlice("next-crawler")
-	if len(nextCrawlers) != 0 {
-		nextCrawlerUrls := make([]*url.URL, len(nextCrawlers))
-		for i, tu := range nextCrawlers {
-			var err error
-			nextCrawlerUrls[i], err = url.Parse(tu)
-			if err != nil {
-				return fmt.Errorf("failed to parse next-crawler url: %w", err)
-			}
-			logger.Info("configuring relay for requestCrawl", "host", nextCrawlerUrls[i])
-		}
-		bgsConfig.NextCrawlers = nextCrawlerUrls
+	svcConfig := DefaultServiceConfig()
+	svcConfig.AllowInsecureHosts = cctx.Bool("allow-insecure-hosts")
+	svcConfig.DisableRequestCrawl = cctx.Bool("disable-request-crawl")
+	svcConfig.SiblingRelayHosts = cctx.StringSlice("sibling-relays")
+	if len(svcConfig.SiblingRelayHosts) > 0 {
+		logger.Info("sibling relay hosts configured for admin state forwarding", "servers", svcConfig.SiblingRelayHosts)
 	}
-	if cctx.IsSet("admin-key") {
-		bgsConfig.AdminToken = cctx.String("admin-key")
+	if cctx.IsSet("admin-password") {
+		svcConfig.AdminPassword = cctx.String("admin-password")
 	} else {
 		var rblob [10]byte
 		_, _ = rand.Read(rblob[:])
-		bgsConfig.AdminToken = base64.URLEncoding.EncodeToString(rblob[:])
-		logger.Info("generated random admin key", "header", "Authorization: Bearer "+bgsConfig.AdminToken)
+		svcConfig.AdminPassword = base64.URLEncoding.EncodeToString(rblob[:])
+		logger.Info("generated random admin password", "username", "admin", "password", svcConfig.AdminPassword)
 	}
-	bgs, err := libbgs.NewBGS(db, repoman, evtman, &cacheDir, bgsConfig)
+
+	evtman := eventmgr.NewEventManager(persister)
+
+	logger.Info("constructing relay service")
+	r, err := relay.NewRelay(db, evtman, &dir, relayConfig)
 	if err != nil {
 		return err
 	}
-	dp.SetUidSource(bgs)
+	svc, err := NewService(r, svcConfig)
+	if err != nil {
+		return err
+	}
+	persister.SetUidSource(r)
 
-	// set up metrics endpoint
+	// start metrics endpoint
 	go func() {
-		if err := bgs.StartMetrics(cctx.String("metrics-listen")); err != nil {
+		if err := svc.StartMetrics(cctx.String("metrics-listen")); err != nil {
 			logger.Error("failed to start metrics endpoint", "err", err)
 			os.Exit(1)
 		}
 	}()
 
-	bgsErr := make(chan error, 1)
+	// start observability/tracing (OTEL and jaeger)
+	if err := setupOTEL(cctx); err != nil {
+		return err
+	}
+	if cctx.Bool("enable-db-tracing") {
+		if err := db.Use(tracing.NewPlugin()); err != nil {
+			return err
+		}
+	}
+
+	svcErr := make(chan error, 1)
 
 	go func() {
-		err := bgs.Start(cctx.String("api-listen"), logWriter)
-		bgsErr <- err
+		err := svc.StartAPI(cctx.String("bind"))
+		svcErr <- err
 	}()
 
 	logger.Info("startup complete")
 	select {
 	case <-signals:
 		logger.Info("received shutdown signal")
-		errs := bgs.Shutdown()
+		errs := svc.Shutdown()
 		for err := range errs {
 			logger.Error("error during shutdown", "err", err)
 		}
-	case err := <-bgsErr:
+	case err := <-svcErr:
 		if err != nil {
 			logger.Error("error during startup", "err", err)
 		}
 		logger.Info("shutting down")
-		errs := bgs.Shutdown()
+		errs := svc.Shutdown()
 		for err := range errs {
 			logger.Error("error during shutdown", "err", err)
 		}
@@ -328,23 +318,4 @@ func runRelay(cctx *cli.Context) error {
 	logger.Info("shutdown complete")
 
 	return nil
-}
-
-func makePdsClientSetup(ratelimitBypass string) func(c *xrpc.Client) {
-	return func(c *xrpc.Client) {
-		if c.Client == nil {
-			c.Client = util.RobustHTTPClient()
-		}
-		if strings.HasSuffix(c.Host, ".bsky.network") {
-			c.Client.Timeout = time.Minute * 30
-			if ratelimitBypass != "" {
-				c.Headers = map[string]string{
-					"x-ratelimit-bypass": ratelimitBypass,
-				}
-			}
-		} else {
-			// Generic PDS timeout
-			c.Client.Timeout = time.Minute * 1
-		}
-	}
 }

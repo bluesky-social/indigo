@@ -147,7 +147,7 @@ func NormalizeOps(list []Operation) ([]Operation, error) {
 
 	set := map[string]bool{}
 	for _, op := range list {
-		if _, ok := set[op.Path]; ok != false {
+		if _, ok := set[op.Path]; ok {
 			return nil, fmt.Errorf("duplicate path in operation list")
 		}
 		set[op.Path] = true

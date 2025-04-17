@@ -13,6 +13,7 @@ import (
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/carstore"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
@@ -39,12 +40,15 @@ func NewRepoManager(cs carstore.CarStore, kmgr KeyManager) *RepoManager {
 		noArchive = true
 	}
 
+	clk := syntax.NewTIDClock(0)
+
 	return &RepoManager{
 		cs:        cs,
 		userLocks: make(map[models.Uid]*userLock),
 		kmgr:      kmgr,
 		log:       slog.Default().With("system", "repomgr"),
 		noArchive: noArchive,
+		clk:       &clk,
 	}
 }
 
@@ -70,6 +74,8 @@ type RepoManager struct {
 
 	log       *slog.Logger
 	noArchive bool
+
+	clk *syntax.TIDClock
 }
 
 type ActorInfo struct {
@@ -771,10 +777,6 @@ func (rm *RepoManager) handleExternalUserEventArchive(ctx context.Context, pdsid
 	return nil
 }
 
-func rkeyForCollection(collection string) string {
-	return repo.NextTID()
-}
-
 func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes []*atproto.RepoApplyWrites_Input_Writes_Elem) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "BatchWrite")
 	defer span.End()
@@ -807,7 +809,7 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes [
 			if c.Rkey != nil {
 				rkey = *c.Rkey
 			} else {
-				rkey = rkeyForCollection(c.Collection)
+				rkey = rm.clk.Next().String()
 			}
 
 			nsid := c.Collection + "/" + rkey

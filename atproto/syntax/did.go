@@ -14,7 +14,6 @@ import (
 type DID string
 
 var didRegex = regexp.MustCompile(`^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]$`)
-var plcChars = ""
 
 func isASCIIAlphaNum(c rune) bool {
 	if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {

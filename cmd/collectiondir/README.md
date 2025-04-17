@@ -1,31 +1,33 @@
-# Collection Directory
 
-Maintain a directory of which repos use which collections of records.
+`collectiondir`: Directory of Accounts by Collection
+====================================================
 
-e.g. "app.bsky.feed.post" is used by did:alice did:bob
+This is a small atproto microservice which maintains a directory of which accounts in the network (DIDs) have data (records) for which collections (NSIDs).
 
-Firehose consumer and crawler of PDS via listRepos and describeRepo.
-
-The primary query is:
+It primarily serves the `com.atproto.sync.listReposByCollection` API endpoint:
 
 ```
-/v1/getDidsForCollection?collection={}&cursor={}
+GET /xrpc/com.atproto.sync.listReposByCollection?collection=com.atproto.sync.listReposByCollection?collection=com.atproto.lexicon.schema&limit=3
+
+{
+    "repos": [
+        { "did": "did:plc:4sm3vprfyl55ui3yhjd7w4po" },
+        { "did": "did:plc:xhkqwjmxuo65vwbwuiz53qor" },
+        { "did": "did:plc:w3aonw33w3mz3mwws34x5of6" }
+    ],
+    "cursor": "QQAAAEkAAAGVgFFLb2RpZDpwbGM6dzNhb253MzN3M216M213d3MzNHg1b2Y2AA=="
+}
 ```
 
-It returns JSON:
+Features and design points:
 
-```json
-{"dids":["did:A", "..."],
-"cursor":"opaque text"}
-```
-
-query parameter `collection` may be repeated up to 10 times. They must always be sent in the same order or the cursor will break.
-
-If multiple collections are specified, the result stream is not guaranteed to be de-duplicated on Did and Dids may be repeated.
-(A merge window is used so that the service is _likely_ to not send duplicate Dids.)
+- persists data in a local key/value database (pebble)
+- consumes from the firehose to stay up to date with record creation
+- can bootstrap the full network using `com.atproto.sync.listRepos` and `com.atproto.repo.describeRepo`
+- single golang binary for easy deployment
 
 
-### Analytics queries
+## Analytics Endpoint
 
 ```
 /v1/listCollections?c={}&cursor={}&limit={50<=limit<=1000}
@@ -41,9 +43,7 @@ It may be the cached result of a computation, up to several minutes out of date.
 ```
 
 
-## Design
-
-### Schema
+## Database Schema
 
 The primary database is (collection, seen time int64 milliseconds, did)
 
