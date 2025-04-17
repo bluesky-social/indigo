@@ -19,7 +19,7 @@ FROM node:18-alpine as web-builder
 
 WORKDIR /app
 
-COPY ts/bgs-dash /app/
+COPY cmd/relay/relay-admin-ui /app/
 
 RUN yarn install --frozen-lockfile
 
@@ -42,7 +42,7 @@ ENV TZ=Etc/UTC
 
 EXPOSE 2470
 
-CMD ["/relay"]
+CMD ["/relay", "serve"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
 LABEL org.opencontainers.image.description="atproto Relay"
