@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,10 +19,14 @@ var cmdRelayAdmin = &cli.Command{
 	Usage: "sub-comands for relay administration",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:     "admin-token",
-			Required: true,
-			Usage:    "relay admin auth token",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD", "RELAY_ADMIN_TOKEN"},
+			Name:    "admin-password",
+			Usage:   "relay admin password (for Basic admin auth)",
+			EnvVars: []string{"RELAY_ADMIN_PASSWORD", "ATP_AUTH_ADMIN_PASSWORD"},
+		},
+		&cli.StringFlag{
+			Name:    "admin-bearer-token",
+			Usage:   "relay admin auth token (for Bearer auth)",
+			EnvVars: []string{"RELAY_ADMIN_BEARER_TOKEN"},
 		},
 	},
 	Subcommands: []*cli.Command{
@@ -87,16 +92,7 @@ var cmdRelayAdmin = &cli.Command{
 					ArgsUsage: `<hostname>`,
 					Flags: []cli.Flag{
 						&cli.IntFlag{
-							Name: "per-second",
-						},
-						&cli.IntFlag{
-							Name: "per-hour",
-						},
-						&cli.IntFlag{
-							Name: "per-day",
-						},
-						&cli.IntFlag{
-							Name: "repo-limit",
+							Name: "account-limit",
 						},
 					},
 					Action: runRelayAdminHostConfig,
@@ -144,6 +140,7 @@ var cmdRelayAdmin = &cli.Command{
 
 type RelayAdminClient struct {
 	Host        string
+	Password    string
 	BearerToken string
 }
 
@@ -177,7 +174,11 @@ func (c *RelayAdminClient) Do(method, path string, params map[string]string, bod
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.BearerToken)
+	if c.Password != "" {
+		req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("admin:"+c.Password)))
+	} else if c.BearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.BearerToken)
+	}
 	req.Header.Set("User-Agent", fmt.Sprintf("goat/"+versioninfo.Short()))
 	if buf != nil {
 		req.Header.Set("Content-Type", "application/json")
@@ -200,14 +201,16 @@ func (c *RelayAdminClient) Do(method, path string, params map[string]string, bod
 	return respBytes, nil
 }
 
-func NewRelayAdminClient(cctx *cli.Context) *RelayAdminClient {
-	// TODO: password-style admin auth
-	//headers["Authorization"] = "Basic "+base64.StdEncoding.EncodeToString([]byte("admin:"+*c.AdminToken)))
+func NewRelayAdminClient(cctx *cli.Context) (*RelayAdminClient, error) {
 	client := RelayAdminClient{
 		Host:        cctx.String("relay-host"),
-		BearerToken: cctx.String("admin-token"),
+		Password:    cctx.String("admin-password"),
+		BearerToken: cctx.String("admin-bearer-token"),
 	}
-	return &client
+	if client.Password == "" && client.BearerToken == "" {
+		return nil, fmt.Errorf("either admin password or admin bearer token must be provided")
+	}
+	return &client, nil
 }
 
 func runRelayAdminAccountTakedown(cctx *cli.Context) error {
@@ -222,7 +225,10 @@ func runRelayAdminAccountTakedown(cctx *cli.Context) error {
 		return err
 	}
 
-	client := NewRelayAdminClient(cctx)
+	client, err := NewRelayAdminClient(cctx)
+	if err != nil {
+		return err
+	}
 
 	path := "/admin/repo/takeDown"
 	if cctx.Bool("reverse") {
@@ -240,7 +246,10 @@ func runRelayAdminAccountTakedown(cctx *cli.Context) error {
 }
 
 func runRelayAdminAccountList(cctx *cli.Context) error {
-	client := NewRelayAdminClient(cctx)
+	client, err := NewRelayAdminClient(cctx)
+	if err != nil {
+		return err
+	}
 	path := "/admin/repo/takedowns"
 	params := map[string]string{
 		"cursor": "",
@@ -274,12 +283,15 @@ func runRelayAdminHostAdd(cctx *cli.Context) error {
 		return fmt.Errorf("need to provide hostname as an argument")
 	}
 
-	client := NewRelayAdminClient(cctx)
+	client, err := NewRelayAdminClient(cctx)
+	if err != nil {
+		return err
+	}
 	path := "/admin/pds/requestCrawl"
 	body := map[string]any{
 		"hostname": hostname,
 	}
-	_, err := client.Do("POST", path, nil, body)
+	_, err = client.Do("POST", path, nil, body)
 	if err != nil {
 		return err
 	}
@@ -293,7 +305,10 @@ func runRelayAdminHostBlock(cctx *cli.Context) error {
 		return fmt.Errorf("need to provide hostname as an argument")
 	}
 
-	client := NewRelayAdminClient(cctx)
+	client, err := NewRelayAdminClient(cctx)
+	if err != nil {
+		return err
+	}
 
 	path := "/admin/pds/block"
 	if cctx.Bool("reverse") {
@@ -303,7 +318,7 @@ func runRelayAdminHostBlock(cctx *cli.Context) error {
 	params := map[string]string{
 		"host": hostname,
 	}
-	_, err := client.Do("POST", path, params, nil)
+	_, err = client.Do("POST", path, params, nil)
 	if err != nil {
 		return err
 	}
@@ -311,7 +326,10 @@ func runRelayAdminHostBlock(cctx *cli.Context) error {
 }
 
 func runRelayAdminHostList(cctx *cli.Context) error {
-	client := NewRelayAdminClient(cctx)
+	client, err := NewRelayAdminClient(cctx)
+	if err != nil {
+		return err
+	}
 	path := "/admin/pds/list"
 
 	respBytes, err := client.Do("GET", path, nil, nil)
@@ -339,27 +357,21 @@ func runRelayAdminHostConfig(cctx *cli.Context) error {
 		return fmt.Errorf("need to provide hostname as an argument")
 	}
 
-	client := NewRelayAdminClient(cctx)
+	client, err := NewRelayAdminClient(cctx)
+	if err != nil {
+		return err
+	}
 
 	path := "/admin/pds/changeLimits"
 
 	body := map[string]any{
 		"host": hostname,
 	}
-	if cctx.IsSet("per-second") {
-		body["per_second"] = cctx.Int("per-second")
-	}
-	if cctx.IsSet("per-hour") {
-		body["per_hour"] = cctx.Int("per-hour")
-	}
-	if cctx.IsSet("per-day") {
-		body["per_day"] = cctx.Int("per-day")
-	}
-	if cctx.IsSet("repo-limit") {
-		body["repo_limit"] = cctx.Int("repo-limit")
+	if cctx.IsSet("account-limit") {
+		body["repo_limit"] = cctx.Int("account-limit")
 	}
 
-	_, err := client.Do("POST", path, nil, body)
+	_, err = client.Do("POST", path, nil, body)
 	if err != nil {
 		return err
 	}
@@ -373,7 +385,10 @@ func runRelayAdminDomainBan(cctx *cli.Context) error {
 		return fmt.Errorf("need to provide domain as an argument")
 	}
 
-	client := NewRelayAdminClient(cctx)
+	client, err := NewRelayAdminClient(cctx)
+	if err != nil {
+		return err
+	}
 
 	path := "/admin/subs/banDomain"
 	if cctx.Bool("reverse") {
@@ -383,7 +398,7 @@ func runRelayAdminDomainBan(cctx *cli.Context) error {
 	body := map[string]any{
 		"domain": domain,
 	}
-	_, err := client.Do("POST", path, nil, body)
+	_, err = client.Do("POST", path, nil, body)
 	if err != nil {
 		return err
 	}
@@ -391,7 +406,10 @@ func runRelayAdminDomainBan(cctx *cli.Context) error {
 }
 
 func runRelayAdminDomainList(cctx *cli.Context) error {
-	client := NewRelayAdminClient(cctx)
+	client, err := NewRelayAdminClient(cctx)
+	if err != nil {
+		return err
+	}
 	path := "/admin/subs/listDomainBans"
 
 	respBytes, err := client.Do("GET", path, nil, nil)
@@ -409,7 +427,10 @@ func runRelayAdminDomainList(cctx *cli.Context) error {
 }
 
 func runRelayAdminConsumerList(cctx *cli.Context) error {
-	client := NewRelayAdminClient(cctx)
+	client, err := NewRelayAdminClient(cctx)
+	if err != nil {
+		return err
+	}
 	path := "/admin/consumers/list"
 
 	respBytes, err := client.Do("GET", path, nil, nil)

@@ -40,11 +40,6 @@ type handleBody struct {
 	DID syntax.DID `json:"did"`
 }
 
-type errorBody struct {
-	Name    string `json:"error"`
-	Message string `json:"message,omitempty"`
-}
-
 func NewAPIDirectory(host string) APIDirectory {
 	return APIDirectory{
 		Client: &http.Client{

@@ -14,7 +14,7 @@ import (
 
 // Serialization helper type for top-level Lexicon schema JSON objects (files)
 type SchemaFile struct {
-	Lexicon     int                  `json:"lexicon,const=1"`
+	Lexicon     int                  `json:"lexicon"` // must be 1
 	ID          string               `json:"id"`
 	Description *string              `json:"description,omitempty"`
 	Defs        map[string]SchemaDef `json:"defs"`
@@ -287,7 +287,7 @@ func (s *SchemaDef) UnmarshalJSON(b []byte) error {
 }
 
 type SchemaRecord struct {
-	Type        string       `json:"type,const=record"`
+	Type        string       `json:"type"` // "record"
 	Description *string      `json:"description,omitempty"`
 	Key         string       `json:"key"`
 	Record      SchemaObject `json:"record"`
@@ -306,7 +306,7 @@ func (s *SchemaRecord) CheckSchema() error {
 }
 
 type SchemaQuery struct {
-	Type        string        `json:"type,const=query"`
+	Type        string        `json:"type"` // "query"
 	Description *string       `json:"description,omitempty"`
 	Parameters  SchemaParams  `json:"parameters"`
 	Output      *SchemaBody   `json:"output"`
@@ -328,7 +328,7 @@ func (s *SchemaQuery) CheckSchema() error {
 }
 
 type SchemaProcedure struct {
-	Type        string        `json:"type,const=procedure"`
+	Type        string        `json:"type"` // "procedure"
 	Description *string       `json:"description,omitempty"`
 	Parameters  SchemaParams  `json:"parameters"`
 	Output      *SchemaBody   `json:"output"`           // optional
@@ -356,7 +356,7 @@ func (s *SchemaProcedure) CheckSchema() error {
 }
 
 type SchemaSubscription struct {
-	Type        string         `json:"type,const=subscription"`
+	Type        string         `json:"type"` // "subscription"
 	Description *string        `json:"description,omitempty"`
 	Parameters  SchemaParams   `json:"parameters"`
 	Message     *SchemaMessage `json:"message,omitempty"` // TODO(specs): is this really optional?
@@ -429,7 +429,7 @@ func (s *SchemaError) Validate(d any) error {
 }
 
 type SchemaNull struct {
-	Type        string  `json:"type,const=null"`
+	Type        string  `json:"type"` // "null"
 	Description *string `json:"description,omitempty"`
 }
 
@@ -445,7 +445,7 @@ func (s *SchemaNull) Validate(d any) error {
 }
 
 type SchemaBoolean struct {
-	Type        string  `json:"type,const=bool"`
+	Type        string  `json:"type"` // "bool"
 	Description *string `json:"description,omitempty"`
 	Default     *bool   `json:"default,omitempty"`
 	Const       *bool   `json:"const,omitempty"`
@@ -470,7 +470,7 @@ func (s *SchemaBoolean) Validate(d any) error {
 }
 
 type SchemaInteger struct {
-	Type        string  `json:"type,const=integer"`
+	Type        string  `json:"type"` // "integer"
 	Description *string `json:"description,omitempty"`
 	Minimum     *int    `json:"minimum,omitempty"`
 	Maximum     *int    `json:"maximum,omitempty"`
@@ -518,7 +518,7 @@ func (s *SchemaInteger) Validate(d any) error {
 }
 
 type SchemaString struct {
-	Type         string   `json:"type,const=string"`
+	Type         string   `json:"type"` // "string"
 	Description  *string  `json:"description,omitempty"`
 	Format       *string  `json:"format,omitempty"`
 	MinLength    *int     `json:"minLength,omitempty"`
@@ -647,7 +647,7 @@ func (s *SchemaString) Validate(d any, flags ValidateFlags) error {
 }
 
 type SchemaBytes struct {
-	Type        string  `json:"type,const=bytes"`
+	Type        string  `json:"type"` // "bytes"
 	Description *string `json:"description,omitempty"`
 	MinLength   *int    `json:"minLength,omitempty"`
 	MaxLength   *int    `json:"maxLength,omitempty"`
@@ -676,7 +676,7 @@ func (s *SchemaBytes) Validate(d any) error {
 }
 
 type SchemaCIDLink struct {
-	Type        string  `json:"type,const=cid-link"`
+	Type        string  `json:"type"` // "cid-link"
 	Description *string `json:"description,omitempty"`
 }
 
@@ -693,7 +693,7 @@ func (s *SchemaCIDLink) Validate(d any) error {
 }
 
 type SchemaArray struct {
-	Type        string    `json:"type,const=array"`
+	Type        string    `json:"type"` // "array"
 	Description *string   `json:"description,omitempty"`
 	Items       SchemaDef `json:"items"`
 	MinLength   *int      `json:"minLength,omitempty"`
@@ -712,7 +712,7 @@ func (s *SchemaArray) CheckSchema() error {
 }
 
 type SchemaObject struct {
-	Type        string               `json:"type,const=object"`
+	Type        string               `json:"type"` // "object"
 	Description *string              `json:"description,omitempty"`
 	Properties  map[string]SchemaDef `json:"properties"`
 	Required    []string             `json:"required,omitempty"`
@@ -755,7 +755,7 @@ func (s *SchemaObject) IsNullable(k string) bool {
 }
 
 type SchemaBlob struct {
-	Type        string   `json:"type,const=blob"`
+	Type        string   `json:"type"` // "blob"
 	Description *string  `json:"description,omitempty"`
 	Accept      []string `json:"accept,omitempty"`
 	MaxSize     *int     `json:"maxSize,omitempty"`
@@ -796,7 +796,7 @@ func (s *SchemaBlob) Validate(d any, flags ValidateFlags) error {
 }
 
 type SchemaParams struct {
-	Type        string               `json:"type,const=params"`
+	Type        string               `json:"type"` // "params"
 	Description *string              `json:"description,omitempty"`
 	Properties  map[string]SchemaDef `json:"properties"` // boolean, integer, string, or unknown; or an array of these types
 	Required    []string             `json:"required,omitempty"`
@@ -835,7 +835,7 @@ func (s *SchemaParams) CheckSchema() error {
 }
 
 type SchemaToken struct {
-	Type        string  `json:"type,const=token"`
+	Type        string  `json:"type"` // "token"
 	Description *string `json:"description,omitempty"`
 	// the fully-qualified identifier of this token
 	fullName string
@@ -863,7 +863,7 @@ func (s *SchemaToken) Validate(d any) error {
 }
 
 type SchemaRef struct {
-	Type        string  `json:"type,const=ref"`
+	Type        string  `json:"type"` // "ref"
 	Description *string `json:"description,omitempty"`
 	Ref         string  `json:"ref"`
 	// full path of reference
@@ -882,7 +882,7 @@ func (s *SchemaRef) CheckSchema() error {
 }
 
 type SchemaUnion struct {
-	Type        string   `json:"type,const=union"`
+	Type        string   `json:"type"` // "union"
 	Description *string  `json:"description,omitempty"`
 	Refs        []string `json:"refs"`
 	Closed      *bool    `json:"closed,omitempty"`
@@ -905,7 +905,7 @@ func (s *SchemaUnion) CheckSchema() error {
 }
 
 type SchemaUnknown struct {
-	Type        string  `json:"type,const=unknown"`
+	Type        string  `json:"type"` // "unknown"
 	Description *string `json:"description,omitempty"`
 }
 
