@@ -1,6 +1,7 @@
 package mst
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -66,7 +67,9 @@ func (n *Node) insert(key []byte, val cid.Cid, height int) (*Node, *cid.Cid, err
 	}
 
 	// include "covering" proof for this operation
-	proveMutation(n, key)
+	if err := proveMutation(n, key); err != nil && !errors.Is(err, ErrPartialTree) {
+		return nil, nil, err
+	}
 
 	if !split {
 		// TODO: is this really necessary? or can we just slices.Insert beyond the end of a slice?
