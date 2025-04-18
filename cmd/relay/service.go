@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -197,7 +197,7 @@ func (svc *Service) Shutdown() []error {
 }
 
 func (svc *Service) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
-	headerVal := "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:"+svc.config.AdminPassword))
+	headerVal := fmt.Sprintf("Bearer %s", svc.config.AdminPassword)
 	return func(c echo.Context) error {
 		hdr := c.Request().Header.Get("Authorization")
 		if hdr != headerVal {
