@@ -104,6 +104,7 @@ func run(args []string) {
 		readRepoStreamCmd,
 		parseRkey,
 		listLabelsCmd,
+		verifyUserCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -811,6 +812,46 @@ var listLabelsCmd = &cli.Command{
 				break
 			}
 		}
+		return nil
+	},
+}
+
+var verifyUserCmd = &cli.Command{
+	Name:  "verify-user",
+	Usage: "create a feed generator record",
+	Flags: []cli.Flag{},
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.TODO()
+		handle := cctx.Args().First()
+
+		ident, err := identity.DefaultDirectory().LookupHandle(ctx, syntax.Handle(handle))
+		if err != nil {
+			return err
+		}
+
+		rec := &lexutil.LexiconTypeDecoder{Val: &bsky.GraphVerification{
+			CreatedAt:   time.Now().Format(util.ISO8601),
+			DisplayName: "",
+			Handle:      handle,
+			Subject:     ident.DID.String(),
+		}}
+
+		resp, err := atproto.RepoCreateRecord(ctx, xrpcc, &atproto.RepoCreateRecord_Input{
+			Collection: "app.bsky.graph.verification",
+			Repo:       xrpcc.Auth.Did,
+			Record:     rec,
+		})
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(resp.Uri)
+
 		return nil
 	},
 }
