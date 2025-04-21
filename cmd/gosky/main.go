@@ -827,17 +827,37 @@ var verifyUserCmd = &cli.Command{
 		}
 
 		ctx := context.TODO()
-		handle := cctx.Args().First()
+		arg := cctx.Args().First()
 
-		ident, err := identity.DefaultDirectory().LookupHandle(ctx, syntax.Handle(handle))
+		idf, err := syntax.ParseAtIdentifier(arg)
 		if err != nil {
 			return err
 		}
 
+		ident, err := identity.DefaultDirectory().Lookup(ctx, *idf)
+		if err != nil {
+			return err
+		}
+
+		profrec, err := atproto.RepoGetRecord(ctx, xrpcc, "", "app.bsky.actor.profile", ident.DID.String(), "self")
+		if err != nil {
+			return err
+		}
+
+		ap, ok := profrec.Value.Val.(*bsky.ActorProfile)
+		if !ok {
+			return fmt.Errorf("got wrong record type back")
+		}
+
+		var dn string
+		if ap.DisplayName != nil {
+			dn = *ap.DisplayName
+		}
+
 		rec := &lexutil.LexiconTypeDecoder{Val: &bsky.GraphVerification{
 			CreatedAt:   time.Now().Format(util.ISO8601),
-			DisplayName: "",
-			Handle:      handle,
+			DisplayName: dn,
+			Handle:      ident.Handle.String(),
 			Subject:     ident.DID.String(),
 		}}
 
