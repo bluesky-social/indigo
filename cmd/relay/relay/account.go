@@ -25,7 +25,7 @@ func (r *Relay) GetAccount(ctx context.Context, did syntax.DID) (*models.Account
 	}
 
 	var acc models.Account
-	if err := r.db.Where("did = ?", did).First(&acc).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("did = ?", did).First(&acc).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrAccountNotFound
 		}
@@ -44,7 +44,7 @@ func (r *Relay) GetAccount(ctx context.Context, did syntax.DID) (*models.Account
 
 func (r *Relay) GetAccountRepo(ctx context.Context, uid uint64) (*models.AccountRepo, error) {
 	var repo models.AccountRepo
-	if err := r.db.First(&repo, uid).Error; err != nil {
+	if err := r.db.WithContext(ctx).First(&repo, uid).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrAccountRepoNotFound
 		}
@@ -102,7 +102,7 @@ func (r *Relay) CreateAccountHost(ctx context.Context, did syntax.DID, hostID ui
 	}
 
 	// create Account row and increment host count in the same transaction
-	err = r.db.Transaction(func(tx *gorm.DB) error {
+	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&models.Host{}).Where("id = ?", hostID).Update("account_count", gorm.Expr("account_count + 1")).Error; err != nil {
 			return fmt.Errorf("failed to increment account count for host (%s): %w", hostname, err)
 		}
@@ -157,7 +157,7 @@ func (r *Relay) EnsureAccountHost(ctx context.Context, acc *models.Account, host
 	// TODO: check new upstream status here (using r.HostChecker). In particular, a moved account might go from takendown to active
 
 	// create Account row and increment host count in the same transaction
-	err = r.db.Transaction(func(tx *gorm.DB) error {
+	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// decrement old host count
 		if err := tx.Model(&models.Host{}).Where("id = ?", acc.HostID).Update("account_count", gorm.Expr("account_count - 1")).Error; err != nil {
 			return fmt.Errorf("failed to decrement account count for former host (%d): %w", acc.HostID, err)
@@ -187,7 +187,7 @@ func (r *Relay) EnsureAccountHost(ctx context.Context, acc *models.Account, host
 // The DID and UID are both required, and *must* match; it is assumed that calling code has already done an account lookup.
 func (r *Relay) UpdateAccountUpstreamStatus(ctx context.Context, did syntax.DID, uid uint64, status models.AccountStatus) error {
 
-	if err := r.db.Model(models.Account{}).Where("uid = ?", uid).Update("upstream_status", status).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(models.Account{}).Where("uid = ?", uid).Update("upstream_status", status).Error; err != nil {
 		return err
 	}
 
@@ -206,7 +206,7 @@ func (r *Relay) UpdateAccountLocalStatus(ctx context.Context, did syntax.DID, st
 		return err
 	}
 
-	if err := r.db.Model(models.Account{}).Where("uid = ?", acc.UID).Update("status", status).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(models.Account{}).Where("uid = ?", acc.UID).Update("status", status).Error; err != nil {
 		return err
 	}
 
@@ -239,7 +239,7 @@ func (r *Relay) UpdateAccountLocalStatus(ctx context.Context, did syntax.DID, st
 func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*models.Account, error) {
 
 	accounts := []*models.Account{}
-	if err := r.db.Model(&models.Account{}).Where("uid > ? AND status = 'active' AND upstream_status = 'active'", cursor).Order("uid").Limit(limit).Find(&accounts).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&models.Account{}).Where("uid > ? AND status = 'active' AND upstream_status = 'active'", cursor).Order("uid").Limit(limit).Find(&accounts).Error; err != nil {
 		return nil, err
 	}
 	return accounts, nil
@@ -248,14 +248,14 @@ func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*m
 func (r *Relay) ListAccountTakedowns(ctx context.Context, cursor int64, limit int) ([]*models.Account, error) {
 
 	accounts := []*models.Account{}
-	if err := r.db.Model(&models.Account{}).Where("uid > ? AND status = ?", cursor, models.AccountStatusTakendown).Order("uid").Limit(limit).Find(&accounts).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&models.Account{}).Where("uid > ? AND status = ?", cursor, models.AccountStatusTakendown).Order("uid").Limit(limit).Find(&accounts).Error; err != nil {
 		return nil, err
 	}
 	return accounts, nil
 }
 
-func (r *Relay) UpsertAccountRepo(uid uint64, rev syntax.TID, commitCID, commitDataCID string) error {
-	return r.db.Exec("INSERT INTO account_repo (uid, rev, commit_cid, commit_data_cid) VALUES (?, ?, ?, ?) ON CONFLICT (uid) DO UPDATE SET rev = EXCLUDED.rev, commit_cid = EXCLUDED.commit_cid, commit_data_cid = EXCLUDED.commit_data_cid", uid, rev, commitCID, commitDataCID).Error
+func (r *Relay) UpsertAccountRepo(ctx context.Context, uid uint64, rev syntax.TID, commitCID, commitDataCID string) error {
+	return r.db.WithContext(ctx).Exec("INSERT INTO account_repo (uid, rev, commit_cid, commit_data_cid) VALUES (?, ?, ?, ?) ON CONFLICT (uid) DO UPDATE SET rev = EXCLUDED.rev, commit_cid = EXCLUDED.commit_cid, commit_data_cid = EXCLUDED.commit_data_cid", uid, rev, commitCID, commitDataCID).Error
 }
 
 // This implements the `diskpersist.UidSource` interface

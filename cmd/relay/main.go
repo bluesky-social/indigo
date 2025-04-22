@@ -205,6 +205,7 @@ func configLogger(cctx *cli.Context, writer io.Writer) *slog.Logger {
 }
 
 func runRelay(cctx *cli.Context) error {
+	ctx := cctx.Context
 	logger := configLogger(cctx, os.Stdout)
 
 	// Trap SIGINT to trigger a shutdown.
@@ -297,7 +298,7 @@ func runRelay(cctx *cli.Context) error {
 	}
 
 	// restart any existing subscriptions as worker goroutines
-	if err := r.ResubscribeAllHosts(); err != nil {
+	if err := r.ResubscribeAllHosts(ctx); err != nil {
 		return err
 	}
 

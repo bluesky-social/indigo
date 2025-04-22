@@ -45,7 +45,7 @@ func (r *Relay) DomainIsBanned(ctx context.Context, hostname string) (bool, erro
 
 func (r *Relay) findDomainBan(ctx context.Context, domain string) (bool, error) {
 	var ban models.DomainBan
-	if err := r.db.Model(&models.DomainBan{}).Where("domain = ?", domain).First(&ban).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&models.DomainBan{}).Where("domain = ?", domain).First(&ban).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil
 		}
@@ -56,17 +56,17 @@ func (r *Relay) findDomainBan(ctx context.Context, domain string) (bool, error) 
 
 func (r *Relay) CreateDomainBan(ctx context.Context, domain string) error {
 	domainBan := models.DomainBan{Domain: domain}
-	return r.db.Create(&domainBan).Error
+	return r.db.WithContext(ctx).Create(&domainBan).Error
 }
 
 func (r *Relay) RemoveDomainBan(ctx context.Context, domain string) error {
-	return r.db.Delete(&models.DomainBan{}, "domain = ?", domain).Error
+	return r.db.WithContext(ctx).Delete(&models.DomainBan{}, "domain = ?", domain).Error
 }
 
 // returns all domain bans
 func (r *Relay) ListDomainBans(ctx context.Context) ([]models.DomainBan, error) {
 	bans := []models.DomainBan{}
-	if err := r.db.Model(&models.DomainBan{}).Find(&bans).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&models.DomainBan{}).Find(&bans).Error; err != nil {
 		return nil, err
 	}
 	return bans, nil
