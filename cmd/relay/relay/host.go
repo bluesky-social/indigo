@@ -55,9 +55,10 @@ func (r *Relay) GetHostByID(ctx context.Context, hostID uint64) (*models.Host, e
 
 func (r *Relay) ListHosts(ctx context.Context, cursor int64, limit int) ([]*models.Host, error) {
 
-	// TODO: filter based on active status?
+	// filters for accounts which have seen at least one event
+	// TODO: also filter based on status?
 	hosts := []*models.Host{}
-	if err := r.db.Model(&models.Host{}).Where("id > ?", cursor).Order("id").Limit(limit).Find(&hosts).Error; err != nil {
+	if err := r.db.Model(&models.Host{}).Where("id > ? AND last_seq > 0", cursor).Order("id").Limit(limit).Find(&hosts).Error; err != nil {
 		return nil, err
 	}
 	return hosts, nil
