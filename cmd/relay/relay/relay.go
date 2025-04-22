@@ -3,6 +3,7 @@ package relay
 import (
 	"log/slog"
 	"sync"
+	"context"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
@@ -125,6 +126,6 @@ func (r *Relay) MigrateDatabase() error {
 }
 
 // simple check of connection to database
-func (r *Relay) Healthcheck() error {
-	return r.db.Exec("SELECT 1").Error
+func (r *Relay) Healthcheck(ctx context.Context) error {
+	return r.db.WithContext(ctx).Exec("SELECT 1").Error
 }
