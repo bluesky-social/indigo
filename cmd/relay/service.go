@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/base64"
 	"log/slog"
 	"net"
@@ -29,8 +30,8 @@ type ServiceConfig struct {
 	// list of hosts which get forwarded admin state changes (takedowns, etc)
 	SiblingRelayHosts []string
 
-	// verified against Basic admin auth
-	AdminPassword string
+	// verified against Basic admin auth. multiple passwords are allowed server-side, to make secret rotations operationally easier
+	AdminPasswords []string
 
 	// how long to wait for the requested server socket to become available for use
 	ListenerBootTimeout time.Duration
@@ -197,12 +198,25 @@ func (svc *Service) Shutdown() []error {
 }
 
 func (svc *Service) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
-	headerVal := "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:"+svc.config.AdminPassword))
+
+	// pre-compute valid HTTP auth headers based on the set of
+	validAuthHeaders := []string{}
+	for _, pw := range svc.config.AdminPasswords {
+		hdr := "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:"+pw))
+		validAuthHeaders = append(validAuthHeaders, hdr)
+	}
+
+	// for paths that this middleware is applied to, enforce that the auth header must exist and match one of the known passwords
 	return func(c echo.Context) error {
 		hdr := c.Request().Header.Get("Authorization")
-		if hdr != headerVal {
+		if hdr == "" {
 			return echo.ErrForbidden
 		}
-		return next(c)
+		for _, val := range validAuthHeaders {
+			if subtle.ConstantTimeCompare([]byte(hdr), []byte(val)) == 1 {
+				return next(c)
+			}
+		}
+		return echo.ErrForbidden
 	}
 }
