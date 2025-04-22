@@ -2,7 +2,6 @@ package relay
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand"
@@ -19,9 +18,6 @@ import (
 	"github.com/RussellLuo/slidingwindow"
 	"github.com/gorilla/websocket"
 )
-
-// TODO: this isn't actually getting setup or used?
-var EventsTimeout = time.Minute
 
 type ProcessMessageFunc func(ctx context.Context, evt *stream.XRPCStreamEvent, hostname string, hostID uint64) error
 type PersistCursorFunc func(ctx context.Context, cursors *[]HostCursor) error
@@ -197,7 +193,7 @@ func (s *Slurper) UpdateLimiters(hostname string, accountLimit int64, trusted bo
 
 	sub, ok := s.subs[hostname]
 	if !ok {
-		return fmt.Errorf("updating limits for %s: %w", hostname, ErrNoActiveConnection)
+		return fmt.Errorf("updating limits for %s: %w", hostname, ErrHostInactive)
 	}
 
 	sub.Limiters.PerSecond.SetLimit(newLims.PerSecond)
@@ -213,7 +209,7 @@ func (s *Slurper) GetLimits(hostname string) (*StreamLimiterCounts, error) {
 
 	sub, ok := s.subs[hostname]
 	if !ok {
-		return nil, fmt.Errorf("reading limits for %s: %w", hostname, ErrNoActiveConnection)
+		return nil, fmt.Errorf("reading limits for %s: %w", hostname, ErrHostInactive)
 	}
 
 	slc := sub.Limiters.Counts()
@@ -309,7 +305,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		}
 
 		u := host.SubscribeReposURL()
-		if !newHost {
+		if !newHost && cursor > 0 {
 			u = fmt.Sprintf("%s?cursor=%d", u, cursor)
 		}
 		hdr := make(http.Header)
@@ -335,10 +331,6 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 
 		curCursor := cursor
 		if err := s.handleConnection(ctx, conn, &cursor, sub); err != nil {
-			if errors.Is(err, ErrTimeoutShutdown) {
-				s.logger.Info("shutting down host subscription after timeout", "host", host.Hostname, "time", EventsTimeout.String())
-				return
-			}
 			s.logger.Warn("connection to failed", "host", host.Hostname, "err", err)
 			// TODO: measure the last N connection error times and if they're coming too fast reconnect slower or don't reconnect and wait for requestCrawl
 		}
@@ -408,22 +400,24 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 			return nil
 		},
 		Error: func(evt *stream.ErrorFrame) error {
-			// TODO: verbose logging
+			s.logger.Warn("error event from upstream", "name", evt.Error, "message", evt.Message, "host", sub.Hostname)
 			switch evt.Error {
 			case "FutureCursor":
 				// TODO: need test coverage for this code path (including re-connect)
 				// if we get a FutureCursor frame, reset our sequence number for this host
 				if s.Config.PersistCursorCallback != nil {
-					hc := []HostCursor{sub.HostCursor()}
+					hc := []HostCursor{HostCursor{
+						HostID:  sub.HostID,
+						LastSeq: -1, // -1 will result in "current stream" on reconnect
+					}}
 					if err := s.Config.PersistCursorCallback(context.Background(), &hc); err != nil {
-						s.logger.Error("failed to reset cursor for host which sent FutureCursor error message", "hostname", sub.Hostname, "err", err)
+						s.logger.Error("failed to reset cursor for host which sent FutureCursor error message", "host", sub.Hostname, "err", err)
 					}
 				} else {
-					s.logger.Warn("skipping FutureCursor fix because PersistCursorCallback registered", "hostname", sub.Hostname)
+					s.logger.Warn("skipping FutureCursor fix because PersistCursorCallback registered", "host", sub.Hostname)
 				}
 				*lastCursor = 0
-				// TODO: should this really return an error?
-				return fmt.Errorf("got FutureCursor frame, reset cursor tracking for host")
+				return fmt.Errorf("got FutureCursor error")
 			default:
 				return fmt.Errorf("error frame: %s: %s", evt.Error, evt.Message)
 			}
@@ -523,19 +517,19 @@ func (s *Slurper) GetActiveSubHostnames() []string {
 	return keys
 }
 
-func (s *Slurper) KillUpstreamConnection(hostname string, ban bool) error {
+func (s *Slurper) KillUpstreamConnection(ctx context.Context, hostname string, ban bool) error {
 	s.subsLk.Lock()
 	defer s.subsLk.Unlock()
 
 	sub, ok := s.subs[hostname]
 	if !ok {
-		return fmt.Errorf("killing connection %q: %w", hostname, ErrNoActiveConnection)
+		return fmt.Errorf("killing connection %q: %w", hostname, ErrHostInactive)
 	}
 	sub.cancel()
 	// cleanup in the run thread subscribeWithRedialer() will delete(s.active, host)
 
 	if ban && s.Config.PersistHostStatusCallback != nil {
-		if err := s.Config.PersistHostStatusCallback(context.TODO(), sub.HostID, models.HostStatusBanned); err != nil {
+		if err := s.Config.PersistHostStatusCallback(ctx, sub.HostID, models.HostStatusBanned); err != nil {
 			return fmt.Errorf("failed to set host as banned: %w", err)
 		}
 	}

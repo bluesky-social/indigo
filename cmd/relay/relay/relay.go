@@ -105,10 +105,6 @@ func NewRelay(db *gorm.DB, evtman *eventmgr.EventManager, dir identity.Directory
 	}
 	r.Slurper = s
 
-	// TODO: should this happen in a separate "start" method, instead of "NewRelay()"?
-	if err := r.ResubscribeAllHosts(); err != nil {
-		return nil, err
-	}
 	return r, nil
 }
 

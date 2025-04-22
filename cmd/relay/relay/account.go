@@ -48,7 +48,6 @@ func (r *Relay) GetAccountRepo(ctx context.Context, uid uint64) (*models.Account
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrAccountRepoNotFound
 		}
-		// TODO: log here?
 		return nil, err
 	}
 	return &repo, nil

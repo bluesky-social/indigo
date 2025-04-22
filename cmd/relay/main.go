@@ -108,6 +108,12 @@ func run(args []string) error {
 					EnvVars: []string{"RELAY_DEFAULT_ACCOUUNT_LIMIT", "RELAY_DEFAULT_REPO_LIMIT"},
 				},
 				&cli.IntFlag{
+					Name:    "new-hosts-per-day-limit",
+					Value:   50,
+					Usage:   "max number of new upstream hosts subscribed per day via public requestCrawl",
+					EnvVars: []string{"RELAY_NEW_HOSTS_PER_DAY_LIMIT"},
+				},
+				&cli.IntFlag{
 					Name:    "ident-cache-size",
 					Value:   5_000_000,
 					Usage:   "size of in-process identity cache (eg, DID docs)",
@@ -239,6 +245,7 @@ func runRelay(cctx *cli.Context) error {
 	relayConfig.UserAgent = fmt.Sprintf("indigo-relay/%s", versioninfo.Short())
 	relayConfig.ConcurrencyPerHost = cctx.Int("host-concurrency")
 	relayConfig.DefaultRepoLimit = cctx.Int64("default-account-limit")
+	relayConfig.HostPerDayLimit = cctx.Int64("new-hosts-per-day-limit")
 	relayConfig.TrustedDomains = cctx.StringSlice("trusted-domains")
 	relayConfig.LenientSyncValidation = cctx.Bool("lenient-sync-validation")
 
@@ -289,8 +296,12 @@ func runRelay(cctx *cli.Context) error {
 		}
 	}
 
-	svcErr := make(chan error, 1)
+	// restart any existing subscriptions as worker goroutines
+	if err := r.ResubscribeAllHosts(); err != nil {
+		return err
+	}
 
+	svcErr := make(chan error, 1)
 	go func() {
 		err := svc.StartAPI(cctx.String("bind"))
 		svcErr <- err
