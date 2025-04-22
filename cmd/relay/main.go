@@ -105,7 +105,7 @@ func run(args []string) error {
 					Name:    "default-account-limit",
 					Value:   100,
 					Usage:   "max number of active accounts for new upstream hosts",
-					EnvVars: []string{"RELAY_DEFAULT_ACCOUUNT_LIMIT", "RELAY_DEFAULT_REPO_LIMIT"},
+					EnvVars: []string{"RELAY_DEFAULT_ACCOUNT_LIMIT", "RELAY_DEFAULT_REPO_LIMIT"},
 				},
 				&cli.IntFlag{
 					Name:    "new-hosts-per-day-limit",
