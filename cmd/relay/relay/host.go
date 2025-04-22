@@ -18,7 +18,7 @@ func (r *Relay) GetHost(ctx context.Context, hostname string) (*models.Host, err
 	defer span.End()
 
 	var host models.Host
-	if err := r.db.Model(models.Host{}).Where("hostname = ?", hostname).First(&host).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(models.Host{}).Where("hostname = ?", hostname).First(&host).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrHostNotFound
 		}
@@ -38,7 +38,7 @@ func (r *Relay) GetHostByID(ctx context.Context, hostID uint64) (*models.Host, e
 	defer span.End()
 
 	var host models.Host
-	if err := r.db.Find(&host, hostID).Error; err != nil {
+	if err := r.db.WithContext(ctx).Find(&host, hostID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrHostNotFound
 		}
@@ -58,14 +58,14 @@ func (r *Relay) ListHosts(ctx context.Context, cursor int64, limit int) ([]*mode
 	// filters for accounts which have seen at least one event
 	// TODO: also filter based on status?
 	hosts := []*models.Host{}
-	if err := r.db.Model(&models.Host{}).Where("id > ? AND last_seq > 0", cursor).Order("id").Limit(limit).Find(&hosts).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&models.Host{}).Where("id > ? AND last_seq > 0", cursor).Order("id").Limit(limit).Find(&hosts).Error; err != nil {
 		return nil, err
 	}
 	return hosts, nil
 }
 
 func (r *Relay) UpdateHostStatus(ctx context.Context, hostID uint64, status models.HostStatus) error {
-	return r.db.Model(models.Host{}).Where("id = ?", hostID).Update("status", status).Error
+	return r.db.WithContext(ctx).Model(models.Host{}).Where("id = ?", hostID).Update("status", status).Error
 }
 
 func (r *Relay) UpdateHostAccountLimit(ctx context.Context, hostID uint64, accountLimit int64) error {
@@ -82,7 +82,7 @@ func (r *Relay) UpdateHostAccountLimit(ctx context.Context, hostID uint64, accou
 	delta := accountLimit - host.AccountLimit
 	r.Logger.Info("updating host account limit", "host", host.Hostname, "accountLimit", accountLimit, "previousAccountLimit", host.AccountLimit)
 
-	if err := r.db.Model(models.Host{}).Where("id = ?", hostID).Update("account_limit", accountLimit).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(models.Host{}).Where("id = ?", hostID).Update("account_limit", accountLimit).Error; err != nil {
 		return err
 	}
 
@@ -91,7 +91,7 @@ func (r *Relay) UpdateHostAccountLimit(ctx context.Context, hostID uint64, accou
 		// if limit increased: potentially mark some "host-throttled" accounts as "active" (ordered by UID ascending)
 		// fetch accounts and update individually. this ensures that account cache is cleared for each (as well as any future code around account status changes)
 		var accounts []models.Account
-		if err := r.db.Model(models.Account{}).Where("status = ? AND upstream_status = ? AND host_id = ?", models.AccountStatusHostThrottled, models.AccountStatusActive, host.ID).Order("uid ASC").Limit(int(delta)).Find(&accounts).Error; err != nil {
+		if err := r.db.WithContext(ctx).Model(models.Account{}).Where("status = ? AND upstream_status = ? AND host_id = ?", models.AccountStatusHostThrottled, models.AccountStatusActive, host.ID).Order("uid ASC").Limit(int(delta)).Find(&accounts).Error; err != nil {
 			return err
 		}
 		r.Logger.Info("marking host-throttled accounts as active", "count", len(accounts), "delta", delta, "accountLimit", accountLimit, "host", host.Hostname)
@@ -118,7 +118,7 @@ func (r *Relay) UpdateHostAccountLimit(ctx context.Context, hostID uint64, accou
 //
 // Note that in some situations this may have partial success.
 func (r *Relay) PersistHostCursors(ctx context.Context, cursors *[]HostCursor) error {
-	tx := r.db.WithContext(ctx).Begin()
+	tx := r.db.WithContext(ctx).WithContext(ctx).Begin()
 	for _, cur := range *cursors {
 		if cur.LastSeq <= 0 {
 			continue

@@ -57,7 +57,7 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatpr
 		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "HostNotFound", Message: fmt.Sprintf("host server unreachable: %s", err)})
 	}
 
-	return s.relay.SubscribeToHost(hostname, noSSL, false)
+	return s.relay.SubscribeToHost(ctx, hostname, noSSL, false)
 }
 
 func (s *Service) handleComAtprotoSyncListHosts(c echo.Context, cursor int64, limit int) (*comatproto.SyncListHosts_Output, error) {
@@ -240,7 +240,8 @@ type HealthStatus struct {
 }
 
 func (svc *Service) HandleHealthCheck(c echo.Context) error {
-	if err := svc.relay.Healthcheck(); err != nil {
+	ctx := c.Request().Context()
+	if err := svc.relay.Healthcheck(ctx); err != nil {
 		svc.logger.Error("healthcheck can't connect to database", "err", err)
 		return c.JSON(http.StatusInternalServerError, HealthStatus{Status: "error", Message: "can't connect to database"})
 	} else {
