@@ -309,7 +309,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		}
 
 		u := host.SubscribeReposURL()
-		if !newHost {
+		if !newHost && cursor > 0 {
 			u = fmt.Sprintf("%s?cursor=%d", u, cursor)
 		}
 		hdr := make(http.Header)
