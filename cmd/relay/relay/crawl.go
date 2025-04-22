@@ -2,11 +2,12 @@ package relay
 
 import (
 	"fmt"
+	"context"
 
 	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
 )
 
-func (r *Relay) SubscribeToHost(hostname string, noSSL, adminForce bool) error {
+func (r *Relay) SubscribeToHost(ctx context.Context, hostname string, noSSL, adminForce bool) error {
 
 	// if we already have an active subscription, exit early
 	if r.Slurper.CheckIfSubscribed(hostname) {
@@ -16,7 +17,7 @@ func (r *Relay) SubscribeToHost(hostname string, noSSL, adminForce bool) error {
 	// fetch host info from database. this query will not error if host does not yet exist
 	newHost := false
 	var host models.Host
-	if err := r.db.Find(&host, "hostname = ?", hostname).Error; err != nil {
+	if err := r.db.WithContext(ctx).Find(&host, "hostname = ?", hostname).Error; err != nil {
 		return err
 	}
 
@@ -43,7 +44,7 @@ func (r *Relay) SubscribeToHost(hostname string, noSSL, adminForce bool) error {
 			AccountLimit: accountLimit,
 		}
 
-		if err := r.db.Create(&host).Error; err != nil {
+		if err := r.db.WithContext(ctx).Create(&host).Error; err != nil {
 			return err
 		}
 
@@ -56,10 +57,10 @@ func (r *Relay) SubscribeToHost(hostname string, noSSL, adminForce bool) error {
 }
 
 // This function expects to be run when starting up, to re-connect to known active hosts
-func (r *Relay) ResubscribeAllHosts() error {
+func (r *Relay) ResubscribeAllHosts(ctx context.Context) error {
 
 	var all []models.Host
-	if err := r.db.Find(&all, "status = ?", "active").Error; err != nil {
+	if err := r.db.WithContext(ctx).Find(&all, "status = ?", "active").Error; err != nil {
 		return err
 	}
 
