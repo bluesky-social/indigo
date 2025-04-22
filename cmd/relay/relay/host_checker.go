@@ -45,7 +45,7 @@ func (hc *HostClient) CheckHost(ctx context.Context, host string) error {
 
 	_, err := comatproto.ServerDescribeServer(ctx, &xrpcc)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrNotPDS, err)
+		return fmt.Errorf("%w: %w", ErrHostNotPDS, err)
 	}
 	return nil
 }
@@ -90,7 +90,7 @@ func NewMockHostChecker() *MockHostChecker {
 func (hc *MockHostChecker) CheckHost(ctx context.Context, host string) error {
 	_, ok := hc.Hosts[host]
 	if !ok {
-		return ErrNotPDS
+		return ErrHostNotPDS
 	}
 	return nil
 }
