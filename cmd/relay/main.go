@@ -148,6 +148,7 @@ func run(args []string) error {
 				&cli.StringSliceFlag{
 					Name:    "trusted-domains",
 					Usage:   "domain names which mark trusted hosts; use wildcard prefix to match suffixes",
+					Value:   cli.NewStringSlice("*.host.bsky.network"),
 					EnvVars: []string{"RELAY_TRUSTED_DOMAINS"},
 				},
 				&cli.StringFlag{
