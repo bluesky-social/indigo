@@ -407,7 +407,7 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 				// if we get a FutureCursor frame, reset our sequence number for this host
 				if s.Config.PersistCursorCallback != nil {
 					hc := []HostCursor{HostCursor{
-						HostID: sub.HostID,
+						HostID:  sub.HostID,
 						LastSeq: -1, // -1 will result in "current stream" on reconnect
 					}}
 					if err := s.Config.PersistCursorCallback(context.Background(), &hc); err != nil {
