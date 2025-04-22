@@ -282,6 +282,8 @@ func (s *Service) handleAdminListConsumers(c echo.Context) error {
 }
 
 func (s *Service) handleAdminKillUpstreamConn(c echo.Context) error {
+	ctx := c.Request().Context()
+
 	queryHost := strings.TrimSpace(c.QueryParam("host"))
 	hostname, _, err := relay.ParseHostname(queryHost)
 	if err != nil {
@@ -294,8 +296,8 @@ func (s *Service) handleAdminKillUpstreamConn(c echo.Context) error {
 	banHost := strings.ToLower(c.QueryParam("block")) == "true"
 
 	// TODO: move this method to relay (for updating the database)
-	if err := s.relay.Slurper.KillUpstreamConnection(hostname, banHost); err != nil {
-		if errors.Is(err, relay.ErrNoActiveConnection) {
+	if err := s.relay.Slurper.KillUpstreamConnection(ctx, hostname, banHost); err != nil {
+		if errors.Is(err, relay.ErrHostInactive) {
 			return &echo.HTTPError{
 				Code:    http.StatusBadRequest,
 				Message: "no active connection to given host",
@@ -333,7 +335,7 @@ func (s *Service) handleBlockHost(c echo.Context) error {
 	}
 
 	// kill any active connection (there may not be one, so ignore error)
-	_ = s.relay.Slurper.KillUpstreamConnection(host.Hostname, false)
+	_ = s.relay.Slurper.KillUpstreamConnection(ctx, host.Hostname, false)
 
 	// TODO: forward to SiblingRelayHosts
 	return c.JSON(http.StatusOK, map[string]any{

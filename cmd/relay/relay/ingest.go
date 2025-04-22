@@ -81,11 +81,6 @@ func (r *Relay) preProcessEvent(ctx context.Context, didStr string, hostname str
 		}
 	}
 
-	if acc == nil {
-		// TODO: this is defensive and could be removed
-		return nil, nil, ErrAccountNotFound
-	}
-
 	// verify that the account is on the subscribed host (or update if it should be)
 	if err := r.EnsureAccountHost(ctx, acc, hostID, hostname); err != nil {
 		return nil, nil, err
@@ -123,8 +118,8 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 
 	prevRepo, err := r.GetAccountRepo(ctx, acc.UID)
 	if err != nil && !errors.Is(err, ErrAccountRepoNotFound) {
-		// TODO: should this be a hard error?
 		logger.Error("failed to read previous repo state", "err", err)
+		return err
 	}
 
 	// fast check for stale revision (will be re-checked in VerifyRepoCommit)
