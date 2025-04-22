@@ -118,8 +118,8 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 
 	prevRepo, err := r.GetAccountRepo(ctx, acc.UID)
 	if err != nil && !errors.Is(err, ErrAccountRepoNotFound) {
-		// TODO: should this be a hard error?
 		logger.Error("failed to read previous repo state", "err", err)
+		return err
 	}
 
 	// fast check for stale revision (will be re-checked in VerifyRepoCommit)
