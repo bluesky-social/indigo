@@ -50,7 +50,7 @@ Wipe all local data:
     # careful! double-check this destructive command
     rm -rf ./data/relay/*
 
-There is a basic web dashboard, though it will not be included unless built and copied to a local directory `./public/`. Run `make build-relay-ui`, and then when running the daemon the dashboard will be available at: <http://localhost:2470/dash/>. Paste in the admin key, eg `dummy`.
+There is a basic web dashboard, though it will not be included unless built and copied to a local directory `./public/`. Run `make build-relay-admin-ui`, and then when running the daemon the dashboard will be available at: <http://localhost:2470/dash/>. Paste in the admin key, eg `dummy`.
 
 The local admin routes can also be accessed by passing the admin password using HTTP Basic auth (with username `admin`), for example:
 
