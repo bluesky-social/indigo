@@ -295,7 +295,7 @@ func (s *Service) handleAdminKillUpstreamConn(c echo.Context) error {
 
 	// TODO: move this method to relay (for updating the database)
 	if err := s.relay.Slurper.KillUpstreamConnection(hostname, banHost); err != nil {
-		if errors.Is(err, relay.ErrNoActiveConnection) {
+		if errors.Is(err, relay.ErrHostInactive) {
 			return &echo.HTTPError{
 				Code:    http.StatusBadRequest,
 				Message: "no active connection to given host",

@@ -26,7 +26,7 @@ func (r *Relay) SubscribeToHost(hostname string, noSSL, adminForce bool) error {
 		// check if we're over the limit for new hosts today (bypass if admin mode)
 		if !adminForce && !r.HostPerDayLimiter.Allow() {
 			// TODO: is this the correct error code?
-			return ErrNewSubsDisabled
+			return ErrNewHostsDisabled
 		}
 
 		accountLimit := r.Config.DefaultRepoLimit

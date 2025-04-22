@@ -2,7 +2,6 @@ package relay
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand"
@@ -197,7 +196,7 @@ func (s *Slurper) UpdateLimiters(hostname string, accountLimit int64, trusted bo
 
 	sub, ok := s.subs[hostname]
 	if !ok {
-		return fmt.Errorf("updating limits for %s: %w", hostname, ErrNoActiveConnection)
+		return fmt.Errorf("updating limits for %s: %w", hostname, ErrHostInactive)
 	}
 
 	sub.Limiters.PerSecond.SetLimit(newLims.PerSecond)
@@ -213,7 +212,7 @@ func (s *Slurper) GetLimits(hostname string) (*StreamLimiterCounts, error) {
 
 	sub, ok := s.subs[hostname]
 	if !ok {
-		return nil, fmt.Errorf("reading limits for %s: %w", hostname, ErrNoActiveConnection)
+		return nil, fmt.Errorf("reading limits for %s: %w", hostname, ErrHostInactive)
 	}
 
 	slc := sub.Limiters.Counts()
@@ -335,10 +334,6 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 
 		curCursor := cursor
 		if err := s.handleConnection(ctx, conn, &cursor, sub); err != nil {
-			if errors.Is(err, ErrTimeoutShutdown) {
-				s.logger.Info("shutting down host subscription after timeout", "host", host.Hostname, "time", EventsTimeout.String())
-				return
-			}
 			s.logger.Warn("connection to failed", "host", host.Hostname, "err", err)
 			// TODO: measure the last N connection error times and if they're coming too fast reconnect slower or don't reconnect and wait for requestCrawl
 		}
@@ -529,7 +524,7 @@ func (s *Slurper) KillUpstreamConnection(hostname string, ban bool) error {
 
 	sub, ok := s.subs[hostname]
 	if !ok {
-		return fmt.Errorf("killing connection %q: %w", hostname, ErrNoActiveConnection)
+		return fmt.Errorf("killing connection %q: %w", hostname, ErrHostInactive)
 	}
 	sub.cancel()
 	// cleanup in the run thread subscribeWithRedialer() will delete(s.active, host)
