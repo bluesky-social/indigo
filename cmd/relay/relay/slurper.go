@@ -406,7 +406,10 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 				// TODO: need test coverage for this code path (including re-connect)
 				// if we get a FutureCursor frame, reset our sequence number for this host
 				if s.Config.PersistCursorCallback != nil {
-					hc := []HostCursor{sub.HostCursor()}
+					hc := []HostCursor{HostCursor{
+						HostID: sub.HostID,
+						LastSeq: -1, // -1 will result in "current stream" on reconnect
+					}}
 					if err := s.Config.PersistCursorCallback(context.Background(), &hc); err != nil {
 						s.logger.Error("failed to reset cursor for host which sent FutureCursor error message", "host", sub.Hostname, "err", err)
 					}
@@ -414,8 +417,7 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 					s.logger.Warn("skipping FutureCursor fix because PersistCursorCallback registered", "host", sub.Hostname)
 				}
 				*lastCursor = 0
-				// TODO: should this really return an error?
-				return fmt.Errorf("got FutureCursor frame, reset cursor tracking for host")
+				return fmt.Errorf("got FutureCursor error")
 			default:
 				return fmt.Errorf("error frame: %s: %s", evt.Error, evt.Message)
 			}
