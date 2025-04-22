@@ -81,11 +81,6 @@ func (r *Relay) preProcessEvent(ctx context.Context, didStr string, hostname str
 		}
 	}
 
-	if acc == nil {
-		// TODO: this is defensive and could be removed
-		return nil, nil, ErrAccountNotFound
-	}
-
 	// verify that the account is on the subscribed host (or update if it should be)
 	if err := r.EnsureAccountHost(ctx, acc, hostID, hostname); err != nil {
 		return nil, nil, err
