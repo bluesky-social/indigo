@@ -515,7 +515,7 @@ func (s *Slurper) GetActiveSubHostnames() []string {
 	return keys
 }
 
-func (s *Slurper) KillUpstreamConnection(hostname string, ban bool) error {
+func (s *Slurper) KillUpstreamConnection(ctx context.Context, hostname string, ban bool) error {
 	s.subsLk.Lock()
 	defer s.subsLk.Unlock()
 
@@ -527,7 +527,7 @@ func (s *Slurper) KillUpstreamConnection(hostname string, ban bool) error {
 	// cleanup in the run thread subscribeWithRedialer() will delete(s.active, host)
 
 	if ban && s.Config.PersistHostStatusCallback != nil {
-		if err := s.Config.PersistHostStatusCallback(context.TODO(), sub.HostID, models.HostStatusBanned); err != nil {
+		if err := s.Config.PersistHostStatusCallback(ctx, sub.HostID, models.HostStatusBanned); err != nil {
 			return fmt.Errorf("failed to set host as banned: %w", err)
 		}
 	}
