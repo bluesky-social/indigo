@@ -19,9 +19,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// TODO: this isn't actually getting setup or used?
-var EventsTimeout = time.Minute
-
 type ProcessMessageFunc func(ctx context.Context, evt *stream.XRPCStreamEvent, hostname string, hostID uint64) error
 type PersistCursorFunc func(ctx context.Context, cursors *[]HostCursor) error
 type PersistHostStatusFunc func(ctx context.Context, hostID uint64, state models.HostStatus) error
