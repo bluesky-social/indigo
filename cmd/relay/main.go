@@ -289,8 +289,12 @@ func runRelay(cctx *cli.Context) error {
 		}
 	}
 
-	svcErr := make(chan error, 1)
+	// restart any existing subscriptions as worker goroutines
+	if err := r.ResubscribeAllHosts(); err != nil {
+		return err
+	}
 
+	svcErr := make(chan error, 1)
 	go func() {
 		err := svc.StartAPI(cctx.String("bind"))
 		svcErr <- err
