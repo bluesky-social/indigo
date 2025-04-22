@@ -66,7 +66,7 @@ var (
 	AccountStatusSuspended      = AccountStatus("suspended")
 	AccountStatusTakendown      = AccountStatus("takendown")
 	AccountStatusThrottled      = AccountStatus("throttled")
-	AccountStatusHostThrottled  = AccountStatus("host-throttled") // TODO: not yet implemented
+	AccountStatusHostThrottled  = AccountStatus("host-throttled")
 
 	// generic "not active, but not known" status
 	AccountStatusInactive = AccountStatus("inactive")
