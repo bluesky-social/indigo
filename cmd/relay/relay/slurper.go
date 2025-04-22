@@ -400,7 +400,7 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 			return nil
 		},
 		Error: func(evt *stream.ErrorFrame) error {
-			// TODO: verbose logging
+			s.logger.Warn("error event from upstream", "name", evt.Error, "message", evt.Message, "host", sub.Hostname)
 			switch evt.Error {
 			case "FutureCursor":
 				// TODO: need test coverage for this code path (including re-connect)
@@ -408,10 +408,10 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 				if s.Config.PersistCursorCallback != nil {
 					hc := []HostCursor{sub.HostCursor()}
 					if err := s.Config.PersistCursorCallback(context.Background(), &hc); err != nil {
-						s.logger.Error("failed to reset cursor for host which sent FutureCursor error message", "hostname", sub.Hostname, "err", err)
+						s.logger.Error("failed to reset cursor for host which sent FutureCursor error message", "host", sub.Hostname, "err", err)
 					}
 				} else {
-					s.logger.Warn("skipping FutureCursor fix because PersistCursorCallback registered", "hostname", sub.Hostname)
+					s.logger.Warn("skipping FutureCursor fix because PersistCursorCallback registered", "host", sub.Hostname)
 				}
 				*lastCursor = 0
 				// TODO: should this really return an error?
