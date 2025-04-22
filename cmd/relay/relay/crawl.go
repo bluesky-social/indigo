@@ -1,8 +1,8 @@
 package relay
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 
 	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
 )
