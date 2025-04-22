@@ -1,9 +1,9 @@
 package relay
 
 import (
+	"context"
 	"log/slog"
 	"sync"
-	"context"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
