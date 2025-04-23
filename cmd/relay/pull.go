@@ -43,6 +43,11 @@ var cmdPullHosts = &cli.Command{
 			Value:   cli.NewStringSlice("*.host.bsky.network"),
 			EnvVars: []string{"RELAY_TRUSTED_DOMAINS"},
 		},
+		&cli.BoolFlag{
+			Name:    "skip-host-checks",
+			Usage:   "don't run describeServer requests to see if host is a PDS before adding",
+			EnvVars: []string{"RELAY_SKIP_HOST_CHECKS"},
+		},
 	},
 }
 
@@ -56,6 +61,8 @@ func runPullHosts(cctx *cli.Context) error {
 	client := xrpc.Client{
 		Host: cctx.String("relay-host"),
 	}
+
+	skipHostChecks := cctx.Bool("skip-host-checks")
 
 	dir := identity.DefaultDirectory()
 
@@ -75,6 +82,8 @@ func runPullHosts(cctx *cli.Context) error {
 		return err
 	}
 
+	checker := relay.NewHostClient(relayConfig.UserAgent)
+
 	cursor := ""
 	var size int64 = 500
 	for {
@@ -89,6 +98,10 @@ func runPullHosts(cctx *cli.Context) error {
 			}
 			if !(models.HostStatus(*h.Status) == models.HostStatusActive || models.HostStatus(*h.Status) == models.HostStatusIdle) {
 				fmt.Printf("%s: status=%s\n", h.Hostname, *h.Status)
+				continue
+			}
+			if h.Seq == nil || *h.Seq <= 0 {
+				fmt.Printf("%s: no-cursor\n", h.Hostname)
 				continue
 			}
 			existing, err := r.GetHost(ctx, h.Hostname)
@@ -107,6 +120,13 @@ func runPullHosts(cctx *cli.Context) error {
 			trusted := relay.IsTrustedHostname(hostname, r.Config.TrustedDomains)
 			if trusted {
 				accountLimit = r.Config.TrustedRepoLimit
+			}
+
+			if !skipHostChecks {
+				if err := checker.CheckHost(ctx, "https://"+hostname); err != nil {
+					fmt.Printf("%s: checking host: %s\n", h.Hostname, err)
+					continue
+				}
 			}
 
 			host := models.Host{
