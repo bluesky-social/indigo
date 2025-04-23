@@ -72,7 +72,7 @@ func (s *Splitter) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 			// new context to outlive original HTTP request
 			ctx := context.Background()
 			xrpcc := xrpc.Client{
-				Client: s.upstreamClient,
+				Client: s.peerClient,
 				Host:   hostname,
 			}
 			if err := comatproto.SyncRequestCrawl(ctx, &xrpcc, &body); err != nil {
@@ -129,7 +129,13 @@ func (s *Splitter) ProxyRequest(c echo.Context, hostname, scheme string) error {
 	}
 	defer upstreamResp.Body.Close()
 
-	respWriter.Header()["Content-Type"] = []string{upstreamResp.Header.Get("Content-Type")}
+	// copy a subset of headers
+	for _, hdr := range []string{"Content-Type", "Content-Length", "Location"} {
+		val := upstreamResp.Header.Get(hdr)
+		if val != "" {
+			respWriter.Header().Set(hdr, val)
+		}
+	}
 	respWriter.WriteHeader(upstreamResp.StatusCode)
 
 	_, err = io.Copy(respWriter, upstreamResp.Body)

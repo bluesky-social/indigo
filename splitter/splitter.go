@@ -43,6 +43,7 @@ type Splitter struct {
 	logger *slog.Logger
 
 	upstreamClient *http.Client
+	peerClient     *http.Client
 	nextCrawlers   []*url.URL
 }
 
@@ -122,11 +123,20 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 		return nil, fmt.Errorf("failed to parse upstream url %#v: %w", conf.UpstreamHostHTTP(), err)
 	}
 
+	// generic HTTP client for upstream relay and collectiondr; but disable automatic following of redirects
+	upstreamClient := http.Client{
+		Timeout: 10 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
 	s := &Splitter{
 		conf:           conf,
 		consumers:      make(map[uint64]*SocketConsumer),
 		logger:         logger,
-		upstreamClient: util.RobustHTTPClient(),
+		upstreamClient: &upstreamClient,
+		peerClient:     util.RobustHTTPClient(),
 		nextCrawlers:   nextCrawlerURLs,
 	}
 
