@@ -72,7 +72,7 @@ func (s *Splitter) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 			// new context to outlive original HTTP request
 			ctx := context.Background()
 			xrpcc := xrpc.Client{
-				Client: s.upstreamClient,
+				Client: s.peerClient,
 				Host:   hostname,
 			}
 			if err := comatproto.SyncRequestCrawl(ctx, &xrpcc, &body); err != nil {
