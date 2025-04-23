@@ -71,7 +71,7 @@ func (s *Service) HandleComAtprotoSyncListHosts(c echo.Context) error {
 	}
 
 	out, handleErr := s.handleComAtprotoSyncListHosts(c, cursor, limit)
-	if handleErr != nil {
+	if handleErr != nil || out == nil {
 		return handleErr
 	}
 	return c.JSON(200, out)
@@ -84,7 +84,7 @@ func (s *Service) HandleComAtprotoSyncGetHostStatus(c echo.Context) error {
 	hostnameQuery := c.QueryParam("hostname")
 
 	out, handleErr := s.handleComAtprotoSyncGetHostStatus(c, hostnameQuery)
-	if handleErr != nil {
+	if handleErr != nil || out == nil {
 		return handleErr
 	}
 	return c.JSON(200, out)
@@ -116,7 +116,7 @@ func (s *Service) HandleComAtprotoSyncListRepos(c echo.Context) error {
 	}
 
 	out, handleErr := s.handleComAtprotoSyncListRepos(c, cursor, limit)
-	if handleErr != nil {
+	if handleErr != nil || out == nil {
 		return handleErr
 	}
 	return c.JSON(200, out)
@@ -169,7 +169,7 @@ func (s *Service) HandleComAtprotoSyncGetRepoStatus(c echo.Context) error {
 	}
 
 	out, handleErr := s.handleComAtprotoSyncGetRepoStatus(c, did)
-	if handleErr != nil {
+	if handleErr != nil || out == nil {
 		return handleErr
 	}
 	return c.JSON(200, out)
@@ -190,7 +190,7 @@ func (s *Service) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
 	var handleErr error
 	// func (s *Service) handleComAtprotoSyncGetLatestCommit(ctx context.Context,did string) (*comatproto.SyncGetLatestCommit_Output, error)
 	out, handleErr = s.handleComAtprotoSyncGetLatestCommit(c, did)
-	if handleErr != nil {
+	if handleErr != nil || out == nil {
 		return handleErr
 	}
 	return c.JSON(200, out)
