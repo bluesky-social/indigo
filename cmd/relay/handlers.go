@@ -63,7 +63,7 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatpr
 func (s *Service) handleComAtprotoSyncListHosts(c echo.Context, cursor int64, limit int) (*comatproto.SyncListHosts_Output, error) {
 	ctx := c.Request().Context()
 
-	hosts, err := s.relay.ListHosts(ctx, cursor, limit)
+	hosts, err := s.relay.ListHosts(ctx, cursor, limit, true)
 	if err != nil {
 		return nil, c.JSON(http.StatusInternalServerError, xrpc.XRPCError{ErrStr: "DatabaseError", Message: "failed to list hosts"})
 	}
@@ -76,7 +76,7 @@ func (s *Service) handleComAtprotoSyncListHosts(c echo.Context, cursor int64, li
 	}
 
 	resp := &comatproto.SyncListHosts_Output{
-		Hosts: make([]*comatproto.SyncListHosts_Host, len(hosts)),
+		Hosts: []*comatproto.SyncListHosts_Host{},
 	}
 
 	for i, host := range hosts {
