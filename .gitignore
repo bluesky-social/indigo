@@ -32,6 +32,7 @@ test-coverage.out
 /stress
 /supercollider
 /hepa
+/relay
 
 # Don't ignore this file itself, or other specific dotfiles
 !.gitignore
@@ -49,3 +50,4 @@ netsync-out/
 
 # Relay dash output
 /public/
+/cmd/relay/public

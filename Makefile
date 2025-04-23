@@ -86,27 +86,26 @@ run-dev-opensearch: .env ## Runs a local opensearch instance
 	docker run -p 9200:9200 -p 9600:9600 -e "discovery.type=single-node" -e "plugins.security.disabled=true" -e "OPENSEARCH_INITIAL_ADMIN_PASSWORD=0penSearch-Pal0mar" opensearch-palomar
 
 .PHONY: run-dev-relay
-run-dev-relay: .env ## Runs 'bigsky' Relay for local dev
-	GOLOG_LOG_LEVEL=info go run ./cmd/bigsky --admin-key localdev
-# --crawl-insecure-ws
+run-dev-relay: .env ## Runs relay for local dev
+	LOG_LEVEL=info go run ./cmd/relay --admin-password localdev serve
 
 .PHONY: run-dev-ident
 run-dev-ident: .env ## Runs 'bluepages' identity directory for local dev
 	GOLOG_LOG_LEVEL=info go run ./cmd/bluepages serve
 
 .PHONY: build-relay-image
-build-relay-image: ## Builds 'bigsky' Relay docker image
-	docker build -t bigsky -f cmd/bigsky/Dockerfile .
+build-relay-image: ## Builds relay docker image
+	docker build -t relay -f cmd/relay/Dockerfile .
 
-.PHONY: build-relay-ui
-build-relay-ui: ## Build Relay dash web app
-	cd ts/bgs-dash; yarn install --frozen-lockfile; yarn build
+.PHONY: build-relay-admin-ui
+build-relay-admin-ui: ## Build relay admin web UI
+	cd  cmd/relay/relay-admin-ui; yarn install --frozen-lockfile; yarn build
 	mkdir -p public
-	cp -r ts/bgs-dash/dist/* public/
+	cp -r cmd/relay/relay-admin-ui/dist/* public/
 
 .PHONY: run-relay-image
 run-relay-image:
-	docker run -p 2470:2470 bigsky /bigsky --admin-key localdev
+	docker run -p 2470:2470 relay /relay serve --admin-password localdev
 # --crawl-insecure-ws
 
 .PHONY: run-dev-search
