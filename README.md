@@ -8,7 +8,8 @@ Some Bluesky software is developed in Typescript, and lives in the [bluesky-soci
 
 **Go Services:**
 
-- **bigsky** ([README](./cmd/bigsky/README.md)): relay reference implementation, running at `bsky.network`
+- **relay** ([README](./cmd/relay/README.md)): relay reference implementation
+- **rainbow** ([README](./cmd/rainbow/README.md)): firehose "splitter" or "fan-out" service
 - **palomar** ([README](./cmd/palomar/README.md)): fulltext search service for <https://bsky.app>
 - **hepa** ([README](./cmd/hepa/README.md)): auto-moderation bot for [Ozone](https://ozone.tools)
 
@@ -47,7 +48,7 @@ The Makefile provides wrapper commands for basic development:
 
 Individual commands can be run like:
 
-    go run ./cmd/bigsky
+    go run ./cmd/relay
 
 The [HACKING](./HACKING.md) file has a list of commands and packages in this repository and some other development tips.
 
