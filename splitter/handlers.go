@@ -129,7 +129,13 @@ func (s *Splitter) ProxyRequest(c echo.Context, hostname, scheme string) error {
 	}
 	defer upstreamResp.Body.Close()
 
-	respWriter.Header()["Content-Type"] = []string{upstreamResp.Header.Get("Content-Type")}
+	// copy a subset of headers
+	for _, hdr := range []string{"Content-Type", "Content-Length", "Location"} {
+		val := upstreamResp.Header.Get(hdr)
+		if val != "" {
+			respWriter.Header().Set(hdr, val)
+		}
+	}
 	respWriter.WriteHeader(upstreamResp.StatusCode)
 
 	_, err = io.Copy(respWriter, upstreamResp.Body)
