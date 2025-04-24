@@ -11,6 +11,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/util"
 
 	"github.com/urfave/cli/v2"
 )
@@ -46,10 +47,26 @@ var cmdPLC = &cli.Command{
 			Usage: "output full operation log, as JSON lines",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name: "cursor",
+					Name:    "cursor",
+					Aliases: []string{"c"},
+					Usage:   "start at a given cursor offset (timestamp). use 'now' to start at current time",
 				},
 				&cli.BoolFlag{
-					Name: "tail",
+					Name:    "tail",
+					Aliases: []string{"f"},
+					Usage:   "continue streaming PLC ops after reaching the end of log",
+				},
+				&cli.DurationFlag{
+					Name:    "interval",
+					Aliases: []string{"i"},
+					Value:   3 * time.Second,
+					Usage:   "sleep duration between batches for tail mode",
+				},
+				&cli.IntFlag{
+					Name:    "batch-size",
+					Aliases: []string{"s"},
+					Value:   1000,
+					Usage:   "batch size of operations per HTTP API request",
 				},
 			},
 			Action: runPLCDump,
@@ -179,8 +196,10 @@ func runPLCData(cctx *cli.Context) error {
 func runPLCDump(cctx *cli.Context) error {
 	ctx := context.Background()
 	plcHost := cctx.String("plc-host")
-	client := http.DefaultClient
+	client := util.RobustHTTPClient()
+	size := cctx.Int("batch-size")
 	tailMode := cctx.Bool("tail")
+	interval := cctx.Duration("interval")
 
 	cursor := cctx.String("cursor")
 	if cursor == "now" {
@@ -193,7 +212,7 @@ func runPLCDump(cctx *cli.Context) error {
 		return err
 	}
 	q := req.URL.Query()
-	q.Add("count", "1000")
+	q.Add("count", fmt.Sprintf("%d", size))
 	req.URL.RawQuery = q.Encode()
 
 	for {
@@ -218,7 +237,7 @@ func runPLCDump(cctx *cli.Context) error {
 		lines := strings.Split(string(respBytes), "\n")
 		if len(lines) == 0 || (len(lines) == 1 && len(lines[0]) == 0) {
 			if tailMode {
-				time.Sleep(5 * time.Second)
+				time.Sleep(interval)
 				continue
 			}
 			break
@@ -249,7 +268,7 @@ func runPLCDump(cctx *cli.Context) error {
 		}
 		if cursor != "" && cursor == lastCursor {
 			if tailMode {
-				time.Sleep(5 * time.Second)
+				time.Sleep(interval)
 				continue
 			}
 			break
