@@ -110,6 +110,10 @@ Be sure to double-check bandwidth usage and pricing if running a public relay! B
 
 The relay admin interface has flexibility for many situations, but in some operational incidents it may be necessary to run SQL commands to do cleanups. This should be done when the relay is not actively operating. It is also recommended to run SQL commands in a transaction that can be rolled back in case of a typo or mistake.
 
+On the public web, you should probably run the relay behind a load-balancer or reverse proxy like `haproxy` or `caddy`, which manages TLS and can have various HTTP limits and behaviors configured. Remember that WebSocket support is required.
+
+The relay does not resolve atproto handles, but it does do DNS resolutions for hostnames, and may do a burst of resolutions at startup. Note that the go runtime may have an internal DNS implementation enabled (this is the default for the Dockerfile). The relay *will* do a large number of DID resolutions, particularly calls to the PLC directory, and particularly after a process restart when the in-process identity cache is warming up.
+
 ### PostgreSQL
 
 PostgreSQL is recommended for any non-trival relay deployments. Database configuration is passed via the `DATABASE_URL` environment variable, or the corresponding CLI arg.
@@ -127,10 +131,19 @@ This service currently uses `gorm` to automatically run database migrations as t
 
 The relay is relatively easy to build and operate as as simple executable, but there is also Dockerfile in this directory. It can be used to build customized/patched versions of the relay as a container, republish them, run locally, deploy to servers, deploy to an orchestrated cluster, etc.
 
-We strongly recommend running docker in "host networking" mode when operating a full-network relay.
+We strongly recommend running docker in "host networking" mode when operating a full-network relay. You may also want to use something other than default docker log management (eg, `svlogd`).
 
 ### Bootstrapping Host List
 
 The relay comes with a helper command to pull a list of hosts from an existing relay. You should shut the relay down first and run this as a separate command:
 
     ./relay pull-hosts
+
+An alternative method, using `goat` and `parallel`, which is more gentle and may be better for small servers:
+
+    # dump a host list using goat
+    # 'rg' is ripgrep
+    RELAY_HOST=https://relay1.us-west.bsky.network goat relay host list | rg '\tactive' | cut -f1 > hosts.txt
+
+    # assuming that .env contains local relay configuration and admin credential
+    shuf hosts.txt | parallel goat relay admin host add {}
