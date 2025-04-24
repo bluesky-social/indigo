@@ -210,13 +210,15 @@ func (svc *Service) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		hdr := c.Request().Header.Get("Authorization")
 		if hdr == "" {
-			return echo.ErrForbidden
+			c.Response().Header().Set("WWW-Authenticate", "Basic")
+			return echo.ErrUnauthorized
 		}
 		for _, val := range validAuthHeaders {
 			if subtle.ConstantTimeCompare([]byte(hdr), []byte(val)) == 1 {
 				return next(c)
 			}
 		}
-		return echo.ErrForbidden
+		c.Response().Header().Set("WWW-Authenticate", "Basic")
+		return echo.ErrUnauthorized
 	}
 }
