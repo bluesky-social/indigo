@@ -323,7 +323,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 			continue
 		}
 
-		s.logger.Info("event subscription response", "code", res.StatusCode, "url", u)
+		s.logger.Debug("event subscription response", "code", res.StatusCode, "url", u)
 
 		curCursor := cursor
 		if err := s.handleConnection(ctx, conn, &cursor, sub); err != nil {
