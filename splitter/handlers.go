@@ -51,8 +51,9 @@ func (s *Splitter) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 
 	// first forward to the upstream
 	xrpcc := xrpc.Client{
-		Client: s.upstreamClient,
-		Host:   s.conf.UpstreamHostHTTP(),
+		Client:    s.upstreamClient,
+		Host:      s.conf.UpstreamHostHTTP(),
+		UserAgent: &s.conf.UserAgent,
 	}
 
 	err := comatproto.SyncRequestCrawl(ctx, &xrpcc, &body)
@@ -122,6 +123,7 @@ func (s *Splitter) ProxyRequest(c echo.Context, hostname, scheme string) error {
 			upstreamReq.Header.Add(k, vals[0])
 		}
 	}
+	upstreamReq.Header.Add("User-Agent", s.conf.UserAgent)
 
 	upstreamResp, err := s.upstreamClient.Do(upstreamReq)
 	if err != nil {
