@@ -76,7 +76,7 @@ func (s *Service) handleComAtprotoSyncListHosts(c echo.Context, cursor int64, li
 	}
 
 	resp := &comatproto.SyncListHosts_Output{
-		Hosts: []*comatproto.SyncListHosts_Host{},
+		Hosts: make([]*comatproto.SyncListHosts_Host, len(hosts)),
 	}
 
 	for i, host := range hosts {
