@@ -100,7 +100,7 @@ func NewRelay(db *gorm.DB, evtman *eventmgr.EventManager, dir identity.Directory
 	slurpConfig.PersistCursorCallback = r.PersistHostCursors
 	slurpConfig.PersistHostStatusCallback = r.UpdateHostStatus
 
-	s, err := NewSlurper(r.processRepoEvent, slurpConfig, r.Logger)
+	s, err := NewSlurper(r.processRepoEvent, slurpConfig)
 	if err != nil {
 		return nil, err
 	}
