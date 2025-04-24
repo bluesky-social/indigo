@@ -42,9 +42,9 @@ func run(args []string) error {
 		Version: versioninfo.Short(),
 	}
 	app.Flags = []cli.Flag{
-		&cli.StringFlag{
+		&cli.StringSliceFlag{
 			Name:    "admin-password",
-			Usage:   "secret password/token for accessing admin endpoints (random is used if not set)",
+			Usage:   "secret password/token for accessing admin endpoints (multiple values allowed)",
 			EnvVars: []string{"RELAY_ADMIN_PASSWORD", "RELAY_ADMIN_KEY"},
 		},
 		&cli.StringFlag{
@@ -260,12 +260,13 @@ func runRelay(cctx *cli.Context) error {
 		logger.Info("sibling relay hosts configured for admin state forwarding", "servers", svcConfig.SiblingRelayHosts)
 	}
 	if cctx.IsSet("admin-password") {
-		svcConfig.AdminPassword = cctx.String("admin-password")
+		svcConfig.AdminPasswords = cctx.StringSlice("admin-password")
 	} else {
 		var rblob [10]byte
 		_, _ = rand.Read(rblob[:])
-		svcConfig.AdminPassword = base64.URLEncoding.EncodeToString(rblob[:])
-		logger.Info("generated random admin password", "username", "admin", "password", svcConfig.AdminPassword)
+		randPassword := base64.URLEncoding.EncodeToString(rblob[:])
+		svcConfig.AdminPasswords = []string{randPassword}
+		logger.Info("generated random admin password", "username", "admin", "password", randPassword)
 	}
 
 	evtman := eventmgr.NewEventManager(persister)
