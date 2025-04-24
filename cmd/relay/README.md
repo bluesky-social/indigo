@@ -135,6 +135,8 @@ We strongly recommend running docker in "host networking" mode when operating a 
 
 ### Bootstrapping Host List
 
+Before bulk-adding hosts, you should probably increase the "new-hosts-per-day" limit, at least temporarily.
+
 The relay comes with a helper command to pull a list of hosts from an existing relay. You should shut the relay down first and run this as a separate command:
 
     ./relay pull-hosts
