@@ -98,7 +98,7 @@ var cmdRelay = &cli.Command{
 				&cli.Command{
 					Name:      "diff",
 					Usage:     "compare host set (and seq) between two relay instances",
-					ArgsUsage: `<relay-one> <relay-two>`,
+					ArgsUsage: `<relay-A-url> <relay-B-url>`,
 					Flags: []cli.Flag{
 						&cli.BoolFlag{
 							Name:  "verbose",
@@ -435,25 +435,25 @@ func runRelayHostDiff(cctx *cli.Context) error {
 			if !verbose && two.Status != "active" {
 				continue
 			}
-			fmt.Printf("%s\t\t%s/%d\tone-missing\n", k, two.Status, two.Seq)
+			fmt.Printf("%s\t\t%s/%d\tA-missing\n", k, two.Status, two.Seq)
 		} else if !okTwo {
 			if !verbose && one.Status != "active" {
 				continue
 			}
-			fmt.Printf("%s\t%s/%d\t\ttwo-missing\n", k, one.Status, one.Seq)
+			fmt.Printf("%s\t%s/%d\t\tB-missing\n", k, one.Status, one.Seq)
 		} else {
 			status := ""
 			if one.Status != two.Status {
-				status = "diff"
+				status = "diff-status"
 			} else {
 				delta := max(one.Seq, two.Seq) - min(one.Seq, two.Seq)
 				if delta == 0 {
-					status = "exact"
+					status = "sync"
 					if !verbose {
 						continue
 					}
 				} else if delta < seqSlop {
-					status = "close"
+					status = "nearly"
 					if !verbose {
 						continue
 					}
