@@ -122,6 +122,12 @@ func runPullHosts(cctx *cli.Context) error {
 			if err != nil {
 				return fmt.Errorf("%w: %s", err, h.Hostname)
 			}
+			if noSSL {
+				// skip "localhost" and non-SSL hosts (this is for public PDS instances)
+				fmt.Printf("%s: non-public\n", h.Hostname)
+				continue
+			}
+
 			accountLimit := r.Config.DefaultRepoLimit
 			trusted := relay.IsTrustedHostname(hostname, r.Config.TrustedDomains)
 			if trusted {
