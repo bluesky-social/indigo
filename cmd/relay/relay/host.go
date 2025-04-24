@@ -60,7 +60,7 @@ func (r *Relay) ListHosts(ctx context.Context, cursor int64, limit int, everActi
 	// TODO: also filter based on status?
 	hosts := []*models.Host{}
 	if everActive {
-		if err := r.db.WithContext(ctx).Model(&models.Host{}).Where("id > ? AND lastSeq > 0", cursor).Order("id").Limit(limit).Find(&hosts).Error; err != nil {
+		if err := r.db.WithContext(ctx).Model(&models.Host{}).Where("id > ? AND last_seq > 0", cursor).Order("id").Limit(limit).Find(&hosts).Error; err != nil {
 			return nil, err
 		}
 	} else {
