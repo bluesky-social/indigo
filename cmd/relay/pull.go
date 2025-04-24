@@ -37,6 +37,12 @@ var cmdPullHosts = &cli.Command{
 			Usage:   "max number of active accounts for new upstream hosts",
 			EnvVars: []string{"RELAY_DEFAULT_ACCOUNT_LIMIT", "RELAY_DEFAULT_REPO_LIMIT"},
 		},
+		&cli.IntFlag{
+			Name:    "batch-size",
+			Value:   500,
+			Usage:   "host many hosts to pull at a time",
+			EnvVars: []string{"RELAY_PULL_HOSTS_BATCH_SIZE"},
+		},
 		&cli.StringSliceFlag{
 			Name:    "trusted-domains",
 			Usage:   "domain names which mark trusted hosts; use wildcard prefix to match suffixes",
@@ -85,7 +91,7 @@ func runPullHosts(cctx *cli.Context) error {
 	checker := relay.NewHostClient(relayConfig.UserAgent)
 
 	cursor := ""
-	var size int64 = 500
+	size := cctx.Int64("batch-size")
 	for {
 		resp, err := comatproto.SyncListHosts(ctx, &client, cursor, size)
 		if err != nil {
