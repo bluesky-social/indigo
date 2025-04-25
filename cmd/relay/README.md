@@ -131,7 +131,7 @@ This service currently uses `gorm` to automatically run database migrations as t
 
 The relay is relatively easy to build and operate as as simple executable, but there is also Dockerfile in this directory. It can be used to build customized/patched versions of the relay as a container, republish them, run locally, deploy to servers, deploy to an orchestrated cluster, etc.
 
-We strongly recommend running docker in "host networking" mode when operating a full-network relay. You may also want to use something other than default docker log management (eg, `svlogd`).
+Relays process a lot of packets, so we strongly recommend running docker in "host networking" mode when operating a full-network relay. You may also want to use something other than default docker log management (eg, `svlogd`), to handle large log volumes.
 
 ### Bootstrapping Host List
 
