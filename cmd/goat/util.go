@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
+	"github.com/carlmjohnson/versioninfo"
 	"github.com/urfave/cli/v2"
 )
 
@@ -66,4 +68,10 @@ func configLogger(cctx *cli.Context, writer io.Writer) *slog.Logger {
 	}))
 	slog.SetDefault(logger)
 	return logger
+}
+
+// returns a pointer because that is what xrpc.Client expects
+func userAgent() *string {
+	s := fmt.Sprintf("goat/" + versioninfo.Short())
+	return &s
 }

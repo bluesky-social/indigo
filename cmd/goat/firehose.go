@@ -22,7 +22,6 @@ import (
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 
-	"github.com/carlmjohnson/versioninfo"
 	"github.com/gorilla/websocket"
 	"github.com/urfave/cli/v2"
 )
@@ -104,7 +103,7 @@ func runFirehose(cctx *cli.Context) error {
 		SkipHandleVerification: true,
 		TryAuthoritativeDNS:    false,
 		SkipDNSDomainSuffixes:  []string{".bsky.social"},
-		UserAgent:              "goat/" + versioninfo.Short(),
+		UserAgent:              *userAgent(),
 	}
 	cdir := identity.NewCacheDirectory(&bdir, 1_000_000, time.Hour*24, time.Minute*2, time.Minute*5)
 
@@ -153,7 +152,7 @@ func runFirehose(cctx *cli.Context) error {
 	}
 	urlString := u.String()
 	con, _, err := dialer.Dial(urlString, http.Header{
-		"User-Agent": []string{fmt.Sprintf("goat/%s", versioninfo.Short())},
+		"User-Agent": []string{*userAgent()},
 	})
 	if err != nil {
 		return fmt.Errorf("subscribing to firehose failed (dialing): %w", err)

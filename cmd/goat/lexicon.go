@@ -232,7 +232,8 @@ func runLexList(cctx *cli.Context) error {
 
 	// create a new API client to connect to the account's PDS
 	xrpcc := xrpc.Client{
-		Host: ident.PDSEndpoint(),
+		Host:      ident.PDSEndpoint(),
+		UserAgent: userAgent(),
 	}
 	if xrpcc.Host == "" {
 		return fmt.Errorf("no PDS endpoint for identity")
