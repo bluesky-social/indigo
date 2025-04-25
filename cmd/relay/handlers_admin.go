@@ -212,7 +212,7 @@ func (s *Service) handleListHosts(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	limit := 10_000
-	hosts, err := s.relay.ListHosts(ctx, 0, limit)
+	hosts, err := s.relay.ListHosts(ctx, 0, limit, false)
 	if err != nil {
 		return err
 	}

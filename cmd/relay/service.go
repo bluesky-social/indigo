@@ -102,6 +102,9 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 	e.Use(svcutil.MetricsMiddleware)
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
+		if c.Response().Committed {
+			return
+		}
 		switch err := err.(type) {
 		case *echo.HTTPError:
 			if err2 := c.JSON(err.Code, map[string]any{
