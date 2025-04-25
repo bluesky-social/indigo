@@ -53,12 +53,19 @@ func (r *Relay) GetHostByID(ctx context.Context, hostID uint64) (*models.Host, e
 	return &host, nil
 }
 
-func (r *Relay) ListHosts(ctx context.Context, cursor int64, limit int) ([]*models.Host, error) {
+// If `everActive` flag is true, then only hosts which have ever had a message received (seq > 0) are returned.
+func (r *Relay) ListHosts(ctx context.Context, cursor int64, limit int, everActive bool) ([]*models.Host, error) {
+
+	hosts := []*models.Host{}
 
 	// filters for accounts which have seen at least one event
 	// TODO: also filter based on status?
-	hosts := []*models.Host{}
-	if err := r.db.WithContext(ctx).Model(&models.Host{}).Where("id > ? AND last_seq > 0", cursor).Order("id").Limit(limit).Find(&hosts).Error; err != nil {
+	clause := "id > ?"
+	if everActive {
+		clause = "id > ? AND last_seq > 0"
+	}
+
+	if err := r.db.WithContext(ctx).Model(&models.Host{}).Where(clause, cursor).Order("id").Limit(limit).Find(&hosts).Error; err != nil {
 		return nil, err
 	}
 	return hosts, nil

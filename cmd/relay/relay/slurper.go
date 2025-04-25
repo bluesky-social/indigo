@@ -125,25 +125,21 @@ func (sl *StreamLimiters) Counts() StreamLimiterCounts {
 	}
 }
 
-func NewSlurper(processCallback ProcessMessageFunc, config *SlurperConfig, logger *slog.Logger) (*Slurper, error) {
+func NewSlurper(processCallback ProcessMessageFunc, config *SlurperConfig) (*Slurper, error) {
 	if processCallback == nil {
 		return nil, fmt.Errorf("processCallback is required")
 	}
 	if config == nil {
 		config = DefaultSlurperConfig()
 	}
-	if logger == nil {
-		logger = slog.Default()
-	}
 
-	logger = logger.With("system", "slurper")
 	s := &Slurper{
 		processCallback: processCallback,
 		Config:          config,
 		subs:            make(map[string]*Subscription),
 		shutdownChan:    make(chan bool),
 		shutdownResult:  make(chan error),
-		logger:          logger,
+		logger:          slog.Default().With("system", "slurper"),
 	}
 
 	// Start a goroutine to persist cursors (both periodically and and on shutdown)
@@ -327,7 +323,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 			continue
 		}
 
-		s.logger.Info("event subscription response", "code", res.StatusCode, "url", u)
+		s.logger.Debug("event subscription response", "code", res.StatusCode, "url", u)
 
 		curCursor := cursor
 		if err := s.handleConnection(ctx, conn, &cursor, sub); err != nil {
