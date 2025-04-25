@@ -37,7 +37,8 @@ func runPdsDescribe(cctx *cli.Context) error {
 		return fmt.Errorf("PDS host is not a url: %s", pdsHost)
 	}
 	client := xrpc.Client{
-		Host: pdsHost,
+		Host:      pdsHost,
+		UserAgent: userAgent(),
 	}
 
 	resp, err := comatproto.ServerDescribeServer(ctx, &client)

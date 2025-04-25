@@ -189,7 +189,8 @@ func runAccountLookup(cctx *cli.Context) error {
 
 	// create a new API client to connect to the account's PDS
 	xrpcc := xrpc.Client{
-		Host: ident.PDSEndpoint(),
+		Host:      ident.PDSEndpoint(),
+		UserAgent: userAgent(),
 	}
 	if xrpcc.Host == "" {
 		return fmt.Errorf("no PDS endpoint for identity")
@@ -413,7 +414,8 @@ func runAccountCreate(cctx *cli.Context) error {
 
 	// create a new API client to connect to the account's PDS
 	xrpcc := xrpc.Client{
-		Host: pdsHost,
+		Host:      pdsHost,
+		UserAgent: userAgent(),
 	}
 
 	raw = cctx.String("service-auth")
