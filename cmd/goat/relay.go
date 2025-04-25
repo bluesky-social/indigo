@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -92,6 +94,23 @@ var cmdRelay = &cli.Command{
 						},
 					},
 					Action: runRelayHostStatus,
+				},
+				&cli.Command{
+					Name:      "diff",
+					Usage:     "compare host set (and seq) between two relay instances",
+					ArgsUsage: `<relay-A-url> <relay-B-url>`,
+					Flags: []cli.Flag{
+						&cli.BoolFlag{
+							Name:  "verbose",
+							Usage: "print all hosts",
+						},
+						&cli.IntFlag{
+							Name:  "seq-slop",
+							Value: 100,
+							Usage: "sequence delta allowed as close enough",
+						},
+					},
+					Action: runRelayHostDiff,
 				},
 			},
 		},
@@ -322,6 +341,128 @@ func runRelayHostStatus(cctx *cli.Context) error {
 			seq = fmt.Sprintf("%d", *h.Seq)
 		}
 		fmt.Printf("%s\t%s\t%s\t%s\n", h.Hostname, status, count, seq)
+	}
+
+	return nil
+}
+
+type hostInfo struct {
+	Hostname string
+	Status   string
+	Seq      int64
+}
+
+func fetchHosts(ctx context.Context, relayHost string) ([]hostInfo, error) {
+
+	client := xrpc.Client{
+		Host: relayHost,
+	}
+
+	hosts := []hostInfo{}
+	cursor := ""
+	var size int64 = 500
+	for {
+		resp, err := comatproto.SyncListHosts(ctx, &client, cursor, size)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, h := range resp.Hosts {
+			if h.Status == nil || h.Seq == nil || *h.Seq <= 0 {
+				continue
+			}
+
+			// TODO: only active or idle hosts?
+			info := hostInfo{
+				Hostname: h.Hostname,
+				Status:   *h.Status,
+				Seq:      *h.Seq,
+			}
+			hosts = append(hosts, info)
+		}
+
+		if resp.Cursor == nil || *resp.Cursor == "" {
+			break
+		}
+		cursor = *resp.Cursor
+	}
+	return hosts, nil
+}
+
+func runRelayHostDiff(cctx *cli.Context) error {
+	ctx := cctx.Context
+	verbose := cctx.Bool("verbose")
+	seqSlop := cctx.Int64("seq-slop")
+
+	if cctx.Args().Len() != 2 {
+		return fmt.Errorf("expected two relay URLs are args")
+	}
+
+	urlOne := cctx.Args().Get(0)
+	urlTwo := cctx.Args().Get(1)
+
+	listOne, err := fetchHosts(ctx, urlOne)
+	if err != nil {
+		return err
+	}
+	listTwo, err := fetchHosts(ctx, urlTwo)
+	if err != nil {
+		return err
+	}
+
+	allHosts := make(map[string]bool)
+	mapOne := make(map[string]hostInfo)
+	for _, val := range listOne {
+		allHosts[val.Hostname] = true
+		mapOne[val.Hostname] = val
+	}
+	mapTwo := make(map[string]hostInfo)
+	for _, val := range listTwo {
+		allHosts[val.Hostname] = true
+		mapTwo[val.Hostname] = val
+	}
+
+	names := []string{}
+	for k, _ := range allHosts {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+
+	for _, k := range names {
+		one, okOne := mapOne[k]
+		two, okTwo := mapTwo[k]
+		if !okOne {
+			if !verbose && two.Status != "active" {
+				continue
+			}
+			fmt.Printf("%s\t\t%s/%d\tA-missing\n", k, two.Status, two.Seq)
+		} else if !okTwo {
+			if !verbose && one.Status != "active" {
+				continue
+			}
+			fmt.Printf("%s\t%s/%d\t\tB-missing\n", k, one.Status, one.Seq)
+		} else {
+			status := ""
+			if one.Status != two.Status {
+				status = "diff-status"
+			} else {
+				delta := max(one.Seq, two.Seq) - min(one.Seq, two.Seq)
+				if delta == 0 {
+					status = "sync"
+					if !verbose {
+						continue
+					}
+				} else if delta < seqSlop {
+					status = "nearly"
+					if !verbose {
+						continue
+					}
+				} else {
+					status = fmt.Sprintf("delta=%d", delta)
+				}
+			}
+			fmt.Printf("%s\t%s/%d\t%s/%d\t%s\n", k, one.Status, one.Seq, two.Status, two.Seq, status)
+		}
 	}
 
 	return nil
