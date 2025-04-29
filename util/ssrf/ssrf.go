@@ -13,7 +13,7 @@
  * Domain Dedication along with this software. If not, see
  * <https://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package util
+package ssrf
 
 import (
 	"fmt"
@@ -51,7 +51,7 @@ var reservedIPv4Nets = []net.IPNet{
 var globalUnicastIPv6Net = net.IPNet{
 	IP:   net.IP{0x20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	Mask: net.CIDRMask(3, 128),
-}
+}t G
 
 func isIPv6GlobalUnicast(address net.IP) bool {
 	return globalUnicastIPv6Net.Contains(address)
