@@ -63,6 +63,9 @@ type PublicKey interface {
 	// For systems with no compressed/uncompressed distinction, returns the same
 	// value as Bytes().
 	UncompressedBytes() []byte
+
+	// Serialization as JWK struct (which can be marshalled to JSON)
+	JWK() (*JWK, error)
 }
 
 var ErrInvalidSignature = errors.New("crytographic signature invalid")
