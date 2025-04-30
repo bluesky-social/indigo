@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -58,7 +59,11 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatpr
 	}
 
 	// forward on to any sibling instances (note that sometimes is, sometimes isn't an admin request)
-	go s.ForwardAdminRequest(c)
+	b, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	go s.ForwardSiblingRequest(c, b)
 
 	return s.relay.SubscribeToHost(ctx, hostname, noSSL, false)
 }
