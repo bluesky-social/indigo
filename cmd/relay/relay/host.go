@@ -38,7 +38,7 @@ func (r *Relay) GetHostByID(ctx context.Context, hostID uint64) (*models.Host, e
 	defer span.End()
 
 	var host models.Host
-	if err := r.db.WithContext(ctx).Find(&host, hostID).Error; err != nil {
+	if err := r.db.WithContext(ctx).First(&host, hostID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrHostNotFound
 		}
@@ -125,7 +125,7 @@ func (r *Relay) UpdateHostAccountLimit(ctx context.Context, hostID uint64, accou
 //
 // Note that in some situations this may have partial success.
 func (r *Relay) PersistHostCursors(ctx context.Context, cursors *[]HostCursor) error {
-	tx := r.db.WithContext(ctx).WithContext(ctx).Begin()
+	tx := r.db.WithContext(ctx).Begin()
 	for _, cur := range *cursors {
 		if cur.LastSeq <= 0 {
 			continue
