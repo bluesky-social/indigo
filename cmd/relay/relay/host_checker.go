@@ -28,7 +28,7 @@ type HostClient struct {
 
 func NewHostClient(userAgent string) *HostClient {
 	if userAgent == "" {
-		userAgent = "indigo-relay"
+		userAgent = "indigo-relay (atproto-relay)"
 	}
 	return &HostClient{
 		Client:    http.DefaultClient,

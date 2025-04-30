@@ -60,7 +60,7 @@ type SlurperConfig struct {
 func DefaultSlurperConfig() *SlurperConfig {
 	// NOTE: many of these defaults are overruled by DefaultRelayConfig, or even process CLI arg defaults
 	return &SlurperConfig{
-		UserAgent:          "indigo-relay",
+		UserAgent:          "indigo-relay (atproto-relay)",
 		ConcurrencyPerHost: 40,
 		// NOTE: queue depth doesn't do anything with current parallel scheduler implementation
 		QueueDepthPerHost:   1000,
