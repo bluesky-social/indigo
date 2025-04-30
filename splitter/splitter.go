@@ -195,6 +195,13 @@ func (s *Splitter) startWithListener(listen net.Listener) error {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			c.Response().Header().Set(echo.HeaderServer, s.conf.UserAgent)
+			return next(c)
+		}
+	})
+
 	/*
 		if !s.ssl {
 			e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
