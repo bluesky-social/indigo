@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -118,12 +117,13 @@ func (s *Splitter) ProxyRequest(c echo.Context, hostname, scheme string) error {
 		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: "failed to proxy to upstream relay"})
 	}
 
-	for k, vals := range req.Header {
-		if strings.ToLower(k) == "accept" {
-			upstreamReq.Header.Add(k, vals[0])
+	// copy subset of request headers
+	for _, hdr := range []string{"Accept", "User-Agent", "Authorization", "Via", "Content-Type", "Content-Length"} {
+		val := req.Header.Get(hdr)
+		if val != "" {
+			upstreamReq.Header.Set(hdr, val)
 		}
 	}
-	upstreamReq.Header.Add("User-Agent", s.conf.UserAgent)
 
 	upstreamResp, err := s.upstreamClient.Do(upstreamReq)
 	if err != nil {
@@ -131,7 +131,7 @@ func (s *Splitter) ProxyRequest(c echo.Context, hostname, scheme string) error {
 	}
 	defer upstreamResp.Body.Close()
 
-	// copy a subset of headers
+	// copy a subset of response headers
 	for _, hdr := range []string{"Content-Type", "Content-Length", "Location"} {
 		val := upstreamResp.Header.Get(hdr)
 		if val != "" {

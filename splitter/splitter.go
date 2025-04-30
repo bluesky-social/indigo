@@ -226,6 +226,25 @@ func (s *Splitter) startWithListener(listen net.Listener) error {
 	e.GET("/xrpc/com.atproto.sync.getHostStatus", s.ProxyRequestUpstream)
 	e.GET("/xrpc/com.atproto.sync.getRepo", s.ProxyRequestUpstream)
 
+	// proxy relay admin endpoints for inter-relay synchronization
+	e.GET("/admin/subs/getUpstreamConns", s.ProxyRequestUpstream)
+	e.POST("/admin/subs/killUpstream", s.ProxyRequestUpstream)
+	e.GET("/admin/subs/getEnabled", s.ProxyRequestUpstream)
+	e.POST("/admin/subs/setEnabled", s.ProxyRequestUpstream)
+	e.GET("/admin/subs/perDayLimit", s.ProxyRequestUpstream)
+	e.POST("/admin/subs/setPerDayLimit", s.ProxyRequestUpstream)
+	e.GET("/admin/subs/listDomainBans", s.ProxyRequestUpstream)
+	e.POST("/admin/subs/banDomain", s.ProxyRequestUpstream)
+	e.POST("/admin/subs/unbanDomain", s.ProxyRequestUpstream)
+	e.POST("/admin/repo/takeDown", s.ProxyRequestUpstream)
+	e.POST("/admin/repo/reverseTakedown", s.ProxyRequestUpstream)
+	e.GET("/admin/pds/list", s.ProxyRequestUpstream)
+	e.POST("/admin/pds/requestCrawl", s.ProxyRequestUpstream)
+	e.POST("/admin/pds/changeLimits", s.ProxyRequestUpstream)
+	e.POST("/admin/pds/block", s.ProxyRequestUpstream)
+	e.POST("/admin/pds/unblock", s.ProxyRequestUpstream)
+	e.GET("/admin/consumers/list", s.ProxyRequestUpstream)
+
 	// proxy endpoint to collectiondir
 	e.GET("/xrpc/com.atproto.sync.listReposByCollection", s.ProxyRequestCollectionDir)
 
