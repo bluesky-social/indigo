@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
 	"github.com/bluesky-social/indigo/cmd/relay/stream"
 	"github.com/bluesky-social/indigo/cmd/relay/stream/schedulers/parallel"
+	"github.com/bluesky-social/indigo/util/ssrf"
 
 	"github.com/RussellLuo/slidingwindow"
 	"github.com/gorilla/websocket"
@@ -286,6 +288,12 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		HandshakeTimeout: time.Second * 5,
 	}
 
+	// if this isn't a localhost / private connection, then we should enable SSRF protections
+	if !host.NoSSL {
+		netDialer := ssrf.PublicOnlyDialer()
+		d.NetDialContext = netDialer.DialContext
+	}
+
 	cursor := host.LastSeq
 
 	connectedInbound.Inc()
@@ -306,7 +314,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		}
 		hdr := make(http.Header)
 		hdr.Add("User-Agent", s.Config.UserAgent)
-		conn, res, err := d.DialContext(ctx, u, hdr)
+		conn, resp, err := d.DialContext(ctx, u, hdr)
 		if err != nil {
 			s.logger.Warn("dialing failed", "host", host.Hostname, "err", err, "backoff", backoff)
 			time.Sleep(sleepForBackoff(backoff))
@@ -323,7 +331,16 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 			continue
 		}
 
-		s.logger.Debug("event subscription response", "code", res.StatusCode, "url", u)
+		// check if we connected to a relay (eg, this indigo relay, or rainbow) and drop if so
+		serverHdr := resp.Header.Get("Server")
+		if strings.Contains("atproto-relay", serverHdr) {
+			s.logger.Warn("subscribed host is atproto relay of some kind, banning", "server", serverHdr, "url", u, "hostname", sub.Hostname)
+			if err := s.Config.PersistHostStatusCallback(ctx, sub.HostID, models.HostStatusBanned); err != nil {
+				s.logger.Error("failed mark host as banned", "hostname", sub.Hostname, "err", err)
+			}
+		}
+
+		s.logger.Debug("event subscription response", "code", resp.StatusCode, "url", u)
 
 		curCursor := cursor
 		if err := s.handleConnection(ctx, conn, &cursor, sub); err != nil {
