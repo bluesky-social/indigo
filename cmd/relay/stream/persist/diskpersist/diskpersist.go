@@ -682,7 +682,7 @@ func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*s
 	needslogs := true
 	if since != 0 {
 		// find the log file that starts before our since
-		result := dp.meta.Debug().Order("seq_start desc").Where("seq_start < ?", since).Limit(1).Find(&logs)
+		result := dp.meta.Order("seq_start desc").Where("seq_start < ?", since).Limit(1).Find(&logs)
 		if result.Error != nil {
 			return result.Error
 		}
@@ -696,7 +696,7 @@ func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*s
 	// don't decrease '10' below 2 because we should always do two passes through this if the above before-chunk query was used.
 	for i := 0; i < 10; i++ {
 		if needslogs {
-			if err := dp.meta.Debug().Order("seq_start asc").Find(&logs, "seq_start >= ?", since).Error; err != nil {
+			if err := dp.meta.Order("seq_start asc").Find(&logs, "seq_start >= ?", since).Error; err != nil {
 				return err
 			}
 		}
