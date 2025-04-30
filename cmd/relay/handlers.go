@@ -57,6 +57,9 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatpr
 		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "HostNotFound", Message: fmt.Sprintf("host server unreachable: %s", err)})
 	}
 
+	// forward on to any sibling instances (note that sometimes is, sometimes isn't an admin request)
+	go s.ForwardAdminRequest(c)
+
 	return s.relay.SubscribeToHost(ctx, hostname, noSSL, false)
 }
 
