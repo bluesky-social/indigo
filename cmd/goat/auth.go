@@ -67,7 +67,8 @@ func loadAuthClient(ctx context.Context) (*xrpc.Client, error) {
 	}
 
 	client := xrpc.Client{
-		Host: sess.PDS,
+		Host:      sess.PDS,
+		UserAgent: userAgent(),
 		Auth: &xrpc.AuthInfo{
 			Did: sess.DID.String(),
 			// NOTE: using refresh in access location for "refreshSession" call
@@ -118,7 +119,8 @@ func refreshAuthSession(ctx context.Context, username syntax.AtIdentifier, passw
 	}
 
 	client := xrpc.Client{
-		Host: pdsURL,
+		Host:      pdsURL,
+		UserAgent: userAgent(),
 	}
 	var token *string
 	if authFactorToken != "" {

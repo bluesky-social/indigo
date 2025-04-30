@@ -126,7 +126,8 @@ func runRelayAccountList(cctx *cli.Context) error {
 	}
 
 	client := xrpc.Client{
-		Host: cctx.String("relay-host"),
+		Host:      cctx.String("relay-host"),
+		UserAgent: userAgent(),
 	}
 
 	collection := cctx.String("collection")
@@ -196,7 +197,8 @@ func runRelayAccountStatus(cctx *cli.Context) error {
 	}
 
 	client := xrpc.Client{
-		Host: cctx.String("relay-host"),
+		Host:      cctx.String("relay-host"),
+		UserAgent: userAgent(),
 	}
 
 	r, err := comatproto.SyncGetRepoStatus(ctx, &client, did.String())
@@ -239,7 +241,8 @@ func runRelayHostRequestCrawl(cctx *cli.Context) error {
 	}
 
 	client := xrpc.Client{
-		Host: cctx.String("relay-host"),
+		Host:      cctx.String("relay-host"),
+		UserAgent: userAgent(),
 	}
 
 	err := comatproto.SyncRequestCrawl(ctx, &client, &comatproto.SyncRequestCrawl_Input{Hostname: hostname})
@@ -258,7 +261,8 @@ func runRelayHostList(cctx *cli.Context) error {
 	}
 
 	client := xrpc.Client{
-		Host: cctx.String("relay-host"),
+		Host:      cctx.String("relay-host"),
+		UserAgent: userAgent(),
 	}
 
 	cursor := ""
@@ -313,7 +317,8 @@ func runRelayHostStatus(cctx *cli.Context) error {
 	}
 
 	client := xrpc.Client{
-		Host: cctx.String("relay-host"),
+		Host:      cctx.String("relay-host"),
+		UserAgent: userAgent(),
 	}
 
 	h, err := comatproto.SyncGetHostStatus(ctx, &client, hostname)
@@ -355,7 +360,8 @@ type hostInfo struct {
 func fetchHosts(ctx context.Context, relayHost string) ([]hostInfo, error) {
 
 	client := xrpc.Client{
-		Host: relayHost,
+		Host:      relayHost,
+		UserAgent: userAgent(),
 	}
 
 	hosts := []hostInfo{}

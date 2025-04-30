@@ -211,6 +211,7 @@ func runPLCDump(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	req.Header.Set("User-Agent", *userAgent())
 	q := req.URL.Query()
 	q.Add("count", fmt.Sprintf("%d", size))
 	req.URL.RawQuery = q.Encode()

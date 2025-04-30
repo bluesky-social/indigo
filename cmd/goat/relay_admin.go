@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/carlmjohnson/versioninfo"
 	"github.com/urfave/cli/v2"
 )
 
@@ -179,7 +178,7 @@ func (c *RelayAdminClient) Do(method, path string, params map[string]string, bod
 	} else if c.BearerToken != "" {
 		req.Header.Set("Authorization", "Bearer "+c.BearerToken)
 	}
-	req.Header.Set("User-Agent", fmt.Sprintf("goat/"+versioninfo.Short()))
+	req.Header.Set("User-Agent", *userAgent())
 	if buf != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
