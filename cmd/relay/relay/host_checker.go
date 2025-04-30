@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/util/ssrf"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -30,8 +32,12 @@ func NewHostClient(userAgent string) *HostClient {
 	if userAgent == "" {
 		userAgent = "indigo-relay (atproto-relay)"
 	}
+	c := http.Client{
+		Timeout:   5 * time.Second,
+		Transport: ssrf.PublicOnlyTransport(),
+	}
 	return &HostClient{
-		Client:    http.DefaultClient,
+		Client:    &c,
 		UserAgent: userAgent,
 	}
 }
