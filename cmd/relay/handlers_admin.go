@@ -1,11 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,7 +18,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-// this is the same as the regular com.atproto.sync.requestCrawl endpoint, except it sets a flag to bypass configuration checks
+// This endpint is basically the same as the regular com.atproto.sync.requestCrawl endpoint, except it sets a flag to bypass configuration checks.
 func (s *Service) handleAdminRequestCrawl(c echo.Context) error {
 	var body comatproto.SyncRequestCrawl_Input
 	if err := c.Bind(&body); err != nil {
@@ -513,77 +511,4 @@ func (s *Service) handleAdminChangeHostRateLimits(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
-}
-
-// this method expects to be run in a goroutine. it does not take a `context.Context`, the input `echo.Context` has likely be cancelled/closed, and does not return an error (only logs)
-func (s *Service) ForwardSiblingRequest(c echo.Context, body []byte) {
-
-	if len(s.config.SiblingRelayHosts) == 0 {
-		return
-	}
-
-	// if this request was forwarded, or user-agent matches, then don't forward
-	req := c.Request()
-	for _, via := range req.Header.Values("Via") {
-		if strings.Contains(via, "atproto-relay") {
-			s.logger.Info("not re-forwarding request to sibling relay", "header", "Via", "value", via)
-			return
-		}
-	}
-	for _, ua := range req.Header.Values("User-Agent") {
-		if strings.Contains(ua, "atproto-relay") {
-			s.logger.Info("not re-forwarding request to sibling relay", "header", "User-Agent", "value", ua)
-			return
-		}
-	}
-
-	client := http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	for _, rawHost := range s.config.SiblingRelayHosts {
-		hostname, noSSL, err := relay.ParseHostname(rawHost)
-		if err != nil {
-			s.logger.Error("invalid sibling hostname configured", "host", rawHost, "err", err)
-			return
-		}
-		u := req.URL
-		u.Host = hostname
-		if noSSL {
-			u.Scheme = "http"
-		} else {
-			u.Scheme = "https"
-		}
-		var b io.Reader
-		if body != nil {
-			b = bytes.NewBuffer(body)
-		}
-		upstreamReq, err := http.NewRequest(req.Method, u.String(), b)
-		if err != nil {
-			s.logger.Error("creating admin forward request failed", "method", req.Method, "url", u.String(), "err", err)
-			continue
-		}
-
-		// copy some headers from inbound request
-		for _, hdr := range []string{"Accept", "User-Agent", "Authorization", "Content-Type"} {
-			val := req.Header.Get(hdr)
-			if val != "" {
-				upstreamReq.Header.Set(hdr, val)
-			}
-		}
-		upstreamReq.Header.Add("Via", s.relay.Config.UserAgent)
-
-		upstreamResp, err := client.Do(upstreamReq)
-		if err != nil {
-			s.logger.Error("forwarded admin HTTP request failed", "method", req.Method, "url", u.String(), "err", err)
-			continue
-		}
-		if upstreamResp.StatusCode != http.StatusOK {
-			respBytes, _ := io.ReadAll(upstreamResp.Body)
-			s.logger.Error("forwarded admin HTTP request failed", "method", req.Method, "url", u.String(), "statusCode", upstreamResp.StatusCode, "body", string(respBytes))
-			continue
-		}
-		upstreamResp.Body.Close()
-		s.logger.Info("successfully forwarded admin HTTP request", "method", req.Method, "url", u.String())
-	}
 }
