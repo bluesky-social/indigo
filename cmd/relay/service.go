@@ -91,6 +91,12 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			c.Response().Header().Set(echo.HeaderServer, svc.relay.Config.UserAgent)
+			return next(c)
+		}
+	})
 	e.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
 
 	// React uses a virtual router, so we need to serve the index.html for all
