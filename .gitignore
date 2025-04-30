@@ -24,15 +24,19 @@ test-coverage.out
 /athome
 /beemo
 /bigsky
+/bluepages
 /fakermaker
+/goat
 /gosky
+/hepa
 /lexgen
 /palomar
+/rainbow
+/relay
+/sonar
 /sonar-cli
 /stress
 /supercollider
-/hepa
-/relay
 
 # Don't ignore this file itself, or other specific dotfiles
 !.gitignore
