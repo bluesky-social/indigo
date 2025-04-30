@@ -73,14 +73,14 @@ func (s *Service) ForwardSiblingRequest(c echo.Context, body []byte) {
 		}
 
 		// add Via header (critical to prevent forwarding loops)
-		upstreamReq.Header.Add("Via", s.relay.Config.UserAgent)
+		upstreamReq.Header.Add("Via", req.Proto+" atproto-relay")
 
 		upstreamResp, err := client.Do(upstreamReq)
 		if err != nil {
 			s.logger.Warn("forwarded admin HTTP request failed", "method", req.Method, "sibling", hostname, "url", u.String(), "err", err)
 			continue
 		}
-		if upstreamResp.StatusCode != http.StatusOK {
+		if !(upstreamResp.StatusCode >= 200 && upstreamResp.StatusCode < 300) {
 			respBytes, _ := io.ReadAll(upstreamResp.Body)
 			s.logger.Warn("forwarded admin HTTP request failed", "method", req.Method, "sibling", hostname, "url", u.String(), "statusCode", upstreamResp.StatusCode, "body", string(respBytes))
 			continue
