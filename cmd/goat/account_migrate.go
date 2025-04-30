@@ -84,7 +84,8 @@ func runAccountMigrate(cctx *cli.Context) error {
 	newEmail := cctx.String("new-email")
 
 	newClient := xrpc.Client{
-		Host: newHostURL,
+		Host:      newHostURL,
+		UserAgent: userAgent(),
 	}
 
 	// connect to new host to discover service DID

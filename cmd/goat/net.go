@@ -16,7 +16,8 @@ func fetchRecord(ctx context.Context, ident identity.Identity, aturi syntax.ATUR
 
 	slog.Debug("fetching record", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
 	xrpcc := xrpc.Client{
-		Host: ident.PDSEndpoint(),
+		Host:      ident.PDSEndpoint(),
+		UserAgent: userAgent(),
 	}
 	resp, err := agnostic.RepoGetRecord(ctx, &xrpcc, "", aturi.Collection().String(), ident.DID.String(), aturi.RecordKey().String())
 	if err != nil {
