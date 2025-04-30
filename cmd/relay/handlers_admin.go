@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -98,7 +101,11 @@ func (s *Service) handleAdminTakeDownRepo(c echo.Context) error {
 	}
 
 	// forward on to any sibling instances
-	go s.ForwardAdminRequest(c)
+	b, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	go s.ForwardSiblingRequest(c, b)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
@@ -138,7 +145,11 @@ func (s *Service) handleAdminReverseTakedown(c echo.Context) error {
 	}
 
 	// forward on to any sibling instances
-	go s.ForwardAdminRequest(c)
+	b, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	go s.ForwardSiblingRequest(c, b)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
@@ -344,7 +355,7 @@ func (s *Service) handleBlockHost(c echo.Context) error {
 	_ = s.relay.Slurper.KillUpstreamConnection(ctx, host.Hostname, false)
 
 	// forward on to any sibling instances
-	go s.ForwardAdminRequest(c)
+	go s.ForwardSiblingRequest(c, nil)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
@@ -375,7 +386,7 @@ func (s *Service) handleUnblockHost(c echo.Context) error {
 	}
 
 	// forward on to any sibling instances
-	go s.ForwardAdminRequest(c)
+	go s.ForwardSiblingRequest(c, nil)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
@@ -423,7 +434,11 @@ func (s *Service) handleAdminBanDomain(c echo.Context) error {
 	}
 
 	// forward on to any sibling instances
-	go s.ForwardAdminRequest(c)
+	b, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	go s.ForwardSiblingRequest(c, b)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
@@ -444,7 +459,11 @@ func (s *Service) handleAdminUnbanDomain(c echo.Context) error {
 	}
 
 	// forward on to any sibling instances
-	go s.ForwardAdminRequest(c)
+	b, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	go s.ForwardSiblingRequest(c, b)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
@@ -485,7 +504,11 @@ func (s *Service) handleAdminChangeHostRateLimits(c echo.Context) error {
 	}
 
 	// forward on to any sibling instances
-	go s.ForwardAdminRequest(c)
+	b, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	go s.ForwardSiblingRequest(c, b)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
@@ -493,7 +516,7 @@ func (s *Service) handleAdminChangeHostRateLimits(c echo.Context) error {
 }
 
 // this method expects to be run in a goroutine. it does not take a `context.Context`, the input `echo.Context` has likely be cancelled/closed, and does not return an error (only logs)
-func (s *Service) ForwardAdminRequest(c echo.Context) {
+func (s *Service) ForwardSiblingRequest(c echo.Context, body []byte) {
 
 	if len(s.config.SiblingRelayHosts) == 0 {
 		return
@@ -531,31 +554,36 @@ func (s *Service) ForwardAdminRequest(c echo.Context) {
 		} else {
 			u.Scheme = "https"
 		}
-		upstreamReq, err := http.NewRequest(req.Method, u.String(), req.Body)
+		var b io.Reader
+		if body != nil {
+			b = bytes.NewBuffer(body)
+		}
+		upstreamReq, err := http.NewRequest(req.Method, u.String(), b)
 		if err != nil {
 			s.logger.Error("creating admin forward request failed", "method", req.Method, "url", u.String(), "err", err)
 			continue
 		}
 
 		// copy some headers from inbound request
-		for k, vals := range req.Header {
-			if strings.ToLower(k) == "accept" || strings.ToLower(k) == "authentication" {
-				upstreamReq.Header.Add(k, vals[0])
+		for _, hdr := range []string{"Accept", "User-Agent", "Authorization", "Content-Type"} {
+			val := req.Header.Get(hdr)
+			if val != "" {
+				upstreamReq.Header.Set(hdr, val)
 			}
 		}
-		upstreamReq.Header.Add("User-Agent", s.relay.Config.UserAgent)
-		upstreamReq.Header.Add("Forwarded", "by=relay")
+		upstreamReq.Header.Add("Via", s.relay.Config.UserAgent)
 
 		upstreamResp, err := client.Do(upstreamReq)
 		if err != nil {
 			s.logger.Error("forwarded admin HTTP request failed", "method", req.Method, "url", u.String(), "err", err)
 			continue
 		}
-		upstreamResp.Body.Close()
 		if upstreamResp.StatusCode != http.StatusOK {
-			s.logger.Error("forwarded admin HTTP request failed", "method", req.Method, "url", u.String(), "statusCode", upstreamResp.StatusCode)
+			respBytes, _ := io.ReadAll(upstreamResp.Body)
+			s.logger.Error("forwarded admin HTTP request failed", "method", req.Method, "url", u.String(), "statusCode", upstreamResp.StatusCode, "body", string(respBytes))
 			continue
 		}
+		upstreamResp.Body.Close()
 		s.logger.Info("successfully forwarded admin HTTP request", "method", req.Method, "url", u.String())
 	}
 }
