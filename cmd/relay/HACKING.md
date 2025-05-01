@@ -25,7 +25,7 @@ Details about how the relay operates which might not be obvious!
 ## Internal Implementation Details
 
 - the parallel event scheduler prevents multiple tasks for the same account (DID) from being processed at the same time
-- note the potentential for race-conditions with messages about the same account (DID) coming from different hosts around the same time: in this case there is no guarantee about ordering
+- note the potential for race-conditions with messages about the same account (DID) coming from different hosts around the same time: in this case there is no guarantee about ordering
 - the relay keeps track of which events have been received-but-not-processed by sequence number, and only increments the `lastSeq` for actually-processed events. the "inflight" set of messages (sequence numbers) can grow rather large for active hosts, if there are many events for a single account (only one processed per account at a time)
 
 
