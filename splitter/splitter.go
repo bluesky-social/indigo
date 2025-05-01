@@ -215,7 +215,14 @@ func (s *Splitter) startWithListener(listen net.Listener) error {
 	e.Use(svcutil.MetricsMiddleware)
 	e.HTTPErrorHandler = s.errorHandler
 
-	e.POST("/xrpc/com.atproto.sync.requestCrawl", s.HandleComAtprotoSyncRequestCrawl)
+	if len(s.nextCrawlers) > 0 {
+		// forwards on to multiple hosts, but strips several headers (like User-Agent)
+		s.logger.Info("using legacy requestCrawl forwarding")
+		e.POST("/xrpc/com.atproto.sync.requestCrawl", s.HandleComAtprotoSyncRequestCrawl)
+	} else {
+		// simply proxies to upstream
+		e.POST("/xrpc/com.atproto.sync.requestCrawl", s.ProxyRequestUpstream)
+	}
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.HandleSubscribeRepos)
 
 	// proxy endpoints to upstream (relay)
