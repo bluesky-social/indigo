@@ -453,10 +453,13 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 			select {
 			case out <- evt:
 			case <-done:
+				close(out)
 				em.rmSubscriber(sub)
 				return
 			}
 		}
+		close(out)
+		em.rmSubscriber(sub)
 	}()
 
 	return out, sub.cleanup, nil
