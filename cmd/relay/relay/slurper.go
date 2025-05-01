@@ -99,8 +99,6 @@ func (sub *Subscription) UpdateSeq() {
 }
 
 func (sub *Subscription) HostCursor() HostCursor {
-	sub.lk.Lock()
-	defer sub.lk.Unlock()
 	return HostCursor{
 		HostID:  sub.HostID,
 		LastSeq: sub.LastSeq.Load(),
@@ -505,10 +503,7 @@ func (s *Slurper) persistCursors(ctx context.Context) error {
 	cursors := make([]HostCursor, len(s.subs))
 	i := 0
 	for _, sub := range s.subs {
-		cursors[i] = HostCursor{
-			HostID:  sub.HostID,
-			LastSeq: sub.LastSeq.Load(),
-		}
+		cursors[i] = sub.HostCursor()
 		i++
 	}
 	s.subsLk.Unlock()
