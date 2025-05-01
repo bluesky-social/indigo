@@ -238,8 +238,7 @@ func (s *Slurper) CheckIfSubscribed(hostname string) bool {
 // high-level entry point for opening a subscription (websocket connection). This might be called when adding a new host, or when re-connecting to a previously subscribed host.
 //
 // NOTE: the `host` parameter (a database row) contains metadata about the host at a point in time. Subsequent changes to the database aren't reflected in that struct, and changes to the struct don't get persisted to database.
-func (s *Slurper) Subscribe(host *models.Host, newHost bool) error {
-	// TODO: replace newHost with a check for negative number on host.LastSeq (via IsNewHost helper method on `models.Host`?)
+func (s *Slurper) Subscribe(host *models.Host) error {
 	s.subsLk.Lock()
 	defer s.subsLk.Unlock()
 
@@ -269,7 +268,7 @@ func (s *Slurper) Subscribe(host *models.Host, newHost bool) error {
 	sub.LastSeq.Store(host.LastSeq)
 	s.subs[host.Hostname] = &sub
 
-	go s.subscribeWithRedialer(ctx, host, &sub, newHost)
+	go s.subscribeWithRedialer(ctx, host, &sub)
 
 	return nil
 }
@@ -277,7 +276,7 @@ func (s *Slurper) Subscribe(host *models.Host, newHost bool) error {
 // Main event-loop for a subscription (websocket connection to upstream host), expected to be called as a goroutine.
 //
 // On connection failure (drop or failed initial connection), will attempt re-connects, with backoff.
-func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, sub *Subscription, newHost bool) {
+func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, sub *Subscription) {
 
 	logger := s.logger.With("host", host.Hostname)
 	defer func() {
