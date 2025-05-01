@@ -2,6 +2,7 @@ package relay
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand"
@@ -20,6 +21,8 @@ import (
 	"github.com/RussellLuo/slidingwindow"
 	"github.com/gorilla/websocket"
 )
+
+var ErrFutureCursor = errors.New("host rejected future cursor")
 
 type ProcessMessageFunc func(ctx context.Context, evt *stream.XRPCStreamEvent, hostname string, hostID uint64) error
 type PersistCursorFunc func(ctx context.Context, cursors *[]HostCursor) error
@@ -275,6 +278,8 @@ func (s *Slurper) Subscribe(host *models.Host, newHost bool) error {
 //
 // On connection failure (drop or failed initial connection), will attempt re-connects, with backoff.
 func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, sub *Subscription, newHost bool) {
+
+	logger := s.logger.With("host", host.Hostname)
 	defer func() {
 		s.subsLk.Lock()
 		defer s.subsLk.Unlock()
@@ -307,21 +312,21 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		}
 
 		u := host.SubscribeReposURL()
-		if !newHost && cursor > 0 {
+		if cursor > 0 {
 			u = fmt.Sprintf("%s?cursor=%d", u, cursor)
 		}
 		hdr := make(http.Header)
 		hdr.Add("User-Agent", s.Config.UserAgent)
 		conn, resp, err := d.DialContext(ctx, u, hdr)
 		if err != nil {
-			s.logger.Warn("dialing failed", "host", host.Hostname, "err", err, "backoff", backoff)
+			logger.Warn("dialing failed", "err", err, "backoff", backoff)
 			time.Sleep(sleepForBackoff(backoff))
 			backoff++
 
 			if backoff > 15 {
-				s.logger.Warn("host does not appear to be online, disabling for now", "host", host.Hostname)
+				logger.Warn("host does not appear to be online, disabling for now")
 				if err := s.Config.PersistHostStatusCallback(ctx, sub.HostID, models.HostStatusOffline); err != nil {
-					s.logger.Error("failed mark host as stale", "hostname", sub.Hostname, "err", err)
+					logger.Error("failed to update host status", "err", err)
 				}
 				return
 			}
@@ -332,22 +337,43 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		// check if we connected to a relay (eg, this indigo relay, or rainbow) and drop if so
 		serverHdr := resp.Header.Get("Server")
 		if strings.Contains(serverHdr, "atproto-relay") {
-			s.logger.Warn("subscribed host is atproto relay of some kind, banning", "server", serverHdr, "url", u, "hostname", sub.Hostname)
+			logger.Warn("subscribed host is atproto relay of some kind, banning", "header", "Server", "value", serverHdr, "url", u)
 			if err := s.Config.PersistHostStatusCallback(ctx, sub.HostID, models.HostStatusBanned); err != nil {
-				s.logger.Error("failed mark host as banned", "hostname", sub.Hostname, "err", err)
+				logger.Error("failed to update host status", "err", err)
 			}
+			return
 		}
 
-		s.logger.Debug("event subscription response", "code", resp.StatusCode, "url", u)
+		logger.Debug("event subscription response", "code", resp.StatusCode, "url", u)
 
-		curCursor := cursor
-		if err := s.handleConnection(ctx, conn, &cursor, sub); err != nil {
-			s.logger.Warn("connection to failed", "host", host.Hostname, "err", err)
+		if err := s.handleConnection(ctx, conn, sub); err != nil {
+			if errors.Is(err, ErrFutureCursor) {
+				if err := s.Config.PersistHostStatusCallback(ctx, sub.HostID, models.HostStatusIdle); err != nil {
+					logger.Error("failed updating host status due to future cursor", "err", err)
+				}
+				logger.Warn("dropping connection to host due to future cursor", "cursor", cursor)
+				return
+			}
+
 			// TODO: measure the last N connection error times and if they're coming too fast reconnect slower or don't reconnect and wait for requestCrawl
+			logger.Warn("host connection failed", "err", err, "backoff", backoff)
+
+			// for all other errors, keep retrying / reconnecting
 		}
 
-		if cursor > curCursor {
+		updatedCursor := sub.LastSeq.Load()
+		if updatedCursor > cursor {
+			// did we make any progress?
+			cursor = updatedCursor
 			backoff = 0
+
+			// persist updated cursor
+			if s.Config.PersistCursorCallback != nil {
+				batch := []HostCursor{sub.HostCursor()}
+				if err := s.Config.PersistCursorCallback(ctx, &batch); err != nil {
+					logger.Warn("failed to persist cursor")
+				}
+			}
 		}
 	}
 }
@@ -365,7 +391,7 @@ func sleepForBackoff(b int) time.Duration {
 }
 
 // Configures event processing for a websocket connection, using the parallel schedule helper library, with all events processed using the configured callback function.
-func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, lastCursor *int64, sub *Subscription) error {
+func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, sub *Subscription) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -414,21 +440,7 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 			s.logger.Warn("error event from upstream", "name", evt.Error, "message", evt.Message, "host", sub.Hostname)
 			switch evt.Error {
 			case "FutureCursor":
-				// TODO: need test coverage for this code path (including re-connect)
-				// if we get a FutureCursor frame, reset our sequence number for this host
-				if s.Config.PersistCursorCallback != nil {
-					hc := []HostCursor{HostCursor{
-						HostID:  sub.HostID,
-						LastSeq: -1, // -1 will result in "current stream" on reconnect
-					}}
-					if err := s.Config.PersistCursorCallback(context.Background(), &hc); err != nil {
-						s.logger.Error("failed to reset cursor for host which sent FutureCursor error message", "host", sub.Hostname, "err", err)
-					}
-				} else {
-					s.logger.Warn("skipping FutureCursor fix because PersistCursorCallback registered", "host", sub.Hostname)
-				}
-				*lastCursor = 0
-				return fmt.Errorf("got FutureCursor error")
+				return ErrFutureCursor
 			default:
 				return fmt.Errorf("error frame: %s: %s", evt.Error, evt.Message)
 			}
