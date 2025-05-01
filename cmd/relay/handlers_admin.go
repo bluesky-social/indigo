@@ -319,7 +319,8 @@ func (s *Service) handleAdminKillUpstreamConn(c echo.Context) error {
 		return err
 	}
 
-	// NOTE: *not* forwarding this request to sibling relays
+	// forward on to any sibling instances
+	go s.ForwardSiblingRequest(c, nil)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
