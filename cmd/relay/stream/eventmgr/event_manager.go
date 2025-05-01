@@ -168,12 +168,19 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 			}
 
 			// TODO: send an error frame or something?
+			// NOTE: not doing em.rmSubscriber(sub) here because it hasn't been added yet
 			close(out)
 			return
 		}
 
 		// now, start buffering events from the live stream
 		em.addSubscriber(sub)
+
+		// ensure that we clean up any return paths from here out, after having added the subscriber. Note that `out` is not `sub.output`, so needs to be closed separately.
+		defer func() {
+			close(out)
+			em.rmSubscriber(sub)
+		}()
 
 		first := <-sub.outgoing
 
@@ -193,10 +200,6 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 		}); err != nil {
 			if !errors.Is(err, ErrCaughtUp) {
 				em.log.Error("events playback", "err", err)
-
-				// TODO: send an error frame or something?
-				close(out)
-				em.rmSubscriber(sub)
 				return
 			}
 		}
@@ -206,7 +209,6 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 			select {
 			case out <- evt:
 			case <-done:
-				em.rmSubscriber(sub)
 				return
 			}
 		}
