@@ -386,7 +386,7 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, la
 			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "sync")
 			logger.Debug("commit event")
 			if err := s.processCallback(context.Background(), &stream.XRPCStreamEvent{RepoSync: evt}, sub.Hostname, sub.HostID); err != nil {
-				s.logger.Error("failed handling event", "err", err)
+				logger.Error("failed handling event", "err", err)
 			}
 			sub.UpdateSeq()
 
