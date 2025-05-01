@@ -76,6 +76,7 @@ func (s *Service) ForwardSiblingRequest(c echo.Context, body []byte) {
 		}
 		if !(upstreamResp.StatusCode >= 200 && upstreamResp.StatusCode < 300) {
 			respBytes, _ := io.ReadAll(upstreamResp.Body)
+			upstreamResp.Body.Close()
 			s.logger.Warn("forwarded admin HTTP request failed", "method", req.Method, "sibling", hostname, "url", u.String(), "statusCode", upstreamResp.StatusCode, "body", string(respBytes))
 			continue
 		}

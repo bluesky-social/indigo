@@ -18,7 +18,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-// This endpint is basically the same as the regular com.atproto.sync.requestCrawl endpoint, except it sets a flag to bypass configuration checks.
+// This endpoint is basically the same as the regular com.atproto.sync.requestCrawl endpoint, except it sets a flag to bypass configuration checks.
 func (s *Service) handleAdminRequestCrawl(c echo.Context) error {
 	var body comatproto.SyncRequestCrawl_Input
 	if err := c.Bind(&body); err != nil {
