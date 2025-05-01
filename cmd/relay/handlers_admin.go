@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -17,14 +18,13 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-// this is the same as the regular com.atproto.sync.requestCrawl endpoint, except it sets a flag to bypass configuration checks
+// This endpoint is basically the same as the regular com.atproto.sync.requestCrawl endpoint, except it sets a flag to bypass configuration checks.
 func (s *Service) handleAdminRequestCrawl(c echo.Context) error {
 	var body comatproto.SyncRequestCrawl_Input
 	if err := c.Bind(&body); err != nil {
 		return &echo.HTTPError{Code: http.StatusBadRequest, Message: fmt.Sprintf("invalid body: %s", err)}
 	}
 
-	// func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context,body *comatproto.SyncRequestCrawl_Input) error
 	return s.handleComAtprotoSyncRequestCrawl(c, &body, true)
 }
 
@@ -59,7 +59,8 @@ func (s *Service) handleAdminSetNewHostPerDayRateLimit(c echo.Context) error {
 
 	s.relay.HostPerDayLimiter.SetLimit(limit)
 
-	// TODO: forward to SiblingRelayHosts
+	// NOTE: *not* forwarding to sibling instances
+
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -97,7 +98,13 @@ func (s *Service) handleAdminTakeDownRepo(c echo.Context) error {
 		}
 	}
 
-	// TODO: forward to SiblingRelayHosts
+	// forward on to any sibling instances
+	b, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	go s.ForwardSiblingRequest(c, b)
+
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -135,7 +142,13 @@ func (s *Service) handleAdminReverseTakedown(c echo.Context) error {
 		}
 	}
 
-	// TODO: forward to SiblingRelayHosts
+	// forward on to any sibling instances
+	b, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	go s.ForwardSiblingRequest(c, b)
+
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -306,6 +319,9 @@ func (s *Service) handleAdminKillUpstreamConn(c echo.Context) error {
 		return err
 	}
 
+	// forward on to any sibling instances
+	go s.ForwardSiblingRequest(c, nil)
+
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -337,7 +353,9 @@ func (s *Service) handleBlockHost(c echo.Context) error {
 	// kill any active connection (there may not be one, so ignore error)
 	_ = s.relay.Slurper.KillUpstreamConnection(ctx, host.Hostname, false)
 
-	// TODO: forward to SiblingRelayHosts
+	// forward on to any sibling instances
+	go s.ForwardSiblingRequest(c, nil)
+
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -366,7 +384,9 @@ func (s *Service) handleUnblockHost(c echo.Context) error {
 		}
 	}
 
-	// TODO: forward to SiblingRelayHosts
+	// forward on to any sibling instances
+	go s.ForwardSiblingRequest(c, nil)
+
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -412,7 +432,13 @@ func (s *Service) handleAdminBanDomain(c echo.Context) error {
 		return err
 	}
 
-	// TODO: forward to SiblingRelayHosts
+	// forward on to any sibling instances
+	b, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	go s.ForwardSiblingRequest(c, b)
+
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -431,7 +457,13 @@ func (s *Service) handleAdminUnbanDomain(c echo.Context) error {
 		return err
 	}
 
-	// TODO: forward to SiblingRelayHosts
+	// forward on to any sibling instances
+	b, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	go s.ForwardSiblingRequest(c, b)
+
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
 	})
@@ -469,6 +501,13 @@ func (s *Service) handleAdminChangeHostRateLimits(c echo.Context) error {
 	if err := s.relay.UpdateHostAccountLimit(ctx, host.ID, *body.RepoLimit); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to update limits: %s", err))
 	}
+
+	// forward on to any sibling instances
+	b, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	go s.ForwardSiblingRequest(c, b)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",

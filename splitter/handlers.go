@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -66,20 +65,21 @@ func (s *Splitter) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 	}
 
 	// if that was successful, then forward on to the other upstreams (in goroutines)
-	for _, c := range s.nextCrawlers {
+	for _, nc := range s.nextCrawlers {
 		// intentional local copy of loop variable
-		hostname := c.String()
+		crawler := nc.String()
 		go func() {
 			// new context to outlive original HTTP request
 			ctx := context.Background()
 			xrpcc := xrpc.Client{
 				Client: s.peerClient,
-				Host:   hostname,
+				Host:   crawler,
 			}
 			if err := comatproto.SyncRequestCrawl(ctx, &xrpcc, &body); err != nil {
-				s.logger.Warn("failed to forward requestCrawl", "upstream", hostname, "targetHost", body.Hostname, "err", err)
+				s.logger.Warn("failed to forward requestCrawl", "crawler", crawler, "targetHost", body.Hostname, "err", err)
+			} else {
+				s.logger.Info("successfully forwarded requestCrawl", "crawler", crawler, "targetHost", body.Hostname)
 			}
-			s.logger.Info("successfully forwarded requestCrawl", "upstream", hostname, "targetHost", body.Hostname)
 		}()
 	}
 
@@ -118,12 +118,13 @@ func (s *Splitter) ProxyRequest(c echo.Context, hostname, scheme string) error {
 		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: "failed to proxy to upstream relay"})
 	}
 
-	for k, vals := range req.Header {
-		if strings.ToLower(k) == "accept" {
-			upstreamReq.Header.Add(k, vals[0])
+	// copy subset of request headers
+	for _, hdr := range []string{"Accept", "User-Agent", "Authorization", "Via", "Content-Type", "Content-Length"} {
+		val := req.Header.Get(hdr)
+		if val != "" {
+			upstreamReq.Header.Set(hdr, val)
 		}
 	}
-	upstreamReq.Header.Add("User-Agent", s.conf.UserAgent)
 
 	upstreamResp, err := s.upstreamClient.Do(upstreamReq)
 	if err != nil {
@@ -131,7 +132,7 @@ func (s *Splitter) ProxyRequest(c echo.Context, hostname, scheme string) error {
 	}
 	defer upstreamResp.Body.Close()
 
-	// copy a subset of headers
+	// copy a subset of response headers
 	for _, hdr := range []string{"Content-Type", "Content-Length", "Location"} {
 		val := upstreamResp.Header.Get(hdr)
 		if val != "" {

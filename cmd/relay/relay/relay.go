@@ -53,7 +53,7 @@ type RelayConfig struct {
 func DefaultRelayConfig() *RelayConfig {
 	// NOTE: many of these defaults are clobbered by CLI arguments
 	return &RelayConfig{
-		UserAgent:          "indigo-relay",
+		UserAgent:          "indigo-relay (atproto-relay)",
 		DefaultRepoLimit:   100,
 		TrustedRepoLimit:   10_000_000,
 		ConcurrencyPerHost: 40,

@@ -8,6 +8,7 @@ Features and design points:
 
 - retains "backfill window" on local disk (using [pebble](https://github.com/cockroachdb/pebble))
 - serves the `com.atproto.sync.subscribeRepos` endpoint (WebSocket)
+- proxies through public and administrative API requests to the backing host
 - retains upstream firehose "sequence numbers"
 - does not validate events (signatures, repo tree, hashes, etc), just passes through
 - does not archive or mirror individual records or entire repositories (or implement related API endpoints)

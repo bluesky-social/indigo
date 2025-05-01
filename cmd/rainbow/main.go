@@ -186,7 +186,7 @@ func runSplitter(cctx *cli.Context) error {
 			CollectionDirHost: collectionDirHost,
 			CursorFile:        cctx.String("cursor-file"),
 			PebbleOptions:     &ppopts,
-			UserAgent:         fmt.Sprintf("rainbow/%s", versioninfo.Short()),
+			UserAgent:         fmt.Sprintf("rainbow/%s (atproto-relay)", versioninfo.Short()),
 		}
 		spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	} else {

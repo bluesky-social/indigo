@@ -44,7 +44,7 @@ type Splitter struct {
 
 	upstreamClient *http.Client
 	peerClient     *http.Client
-	nextCrawlers   []*url.URL
+	nextCrawlers   []url.URL
 }
 
 type SplitterConfig struct {
@@ -105,17 +105,22 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 		logger = slog.Default().With("system", "splitter")
 	}
 
-	var nextCrawlerURLs []*url.URL
-	if len(nextCrawlers) > 0 {
-		nextCrawlerURLs = make([]*url.URL, len(nextCrawlers))
-		for i, tu := range nextCrawlers {
-			var err error
-			nextCrawlerURLs[i], err = url.Parse(tu)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse next-crawler url: %w", err)
-			}
-			logger.Info("configuring relay for requestCrawl", "host", nextCrawlerURLs[i])
+	var nextCrawlerURLs []url.URL
+	for _, raw := range nextCrawlers {
+		if raw == "" {
+			continue
 		}
+		u, err := url.Parse(raw)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse next-crawler url: %w", err)
+		}
+		if u.Host == "" {
+			return nil, fmt.Errorf("empty URL host for next crawler: %s", raw)
+		}
+		nextCrawlerURLs = append(nextCrawlerURLs, *u)
+	}
+	if len(nextCrawlerURLs) > 0 {
+		logger.Info("configured crawler forwarding", "crawlers", nextCrawlerURLs)
 	}
 
 	_, err := url.Parse(conf.UpstreamHostHTTP())
@@ -195,6 +200,13 @@ func (s *Splitter) startWithListener(listen net.Listener) error {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			c.Response().Header().Set(echo.HeaderServer, s.conf.UserAgent)
+			return next(c)
+		}
+	})
+
 	/*
 		if !s.ssl {
 			e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
@@ -208,7 +220,14 @@ func (s *Splitter) startWithListener(listen net.Listener) error {
 	e.Use(svcutil.MetricsMiddleware)
 	e.HTTPErrorHandler = s.errorHandler
 
-	e.POST("/xrpc/com.atproto.sync.requestCrawl", s.HandleComAtprotoSyncRequestCrawl)
+	if len(s.nextCrawlers) > 0 {
+		// forwards on to multiple hosts, but strips several headers (like User-Agent)
+		s.logger.Info("using legacy requestCrawl forwarding")
+		e.POST("/xrpc/com.atproto.sync.requestCrawl", s.HandleComAtprotoSyncRequestCrawl)
+	} else {
+		// simply proxies to upstream
+		e.POST("/xrpc/com.atproto.sync.requestCrawl", s.ProxyRequestUpstream)
+	}
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.HandleSubscribeRepos)
 
 	// proxy endpoints to upstream (relay)
@@ -218,6 +237,25 @@ func (s *Splitter) startWithListener(listen net.Listener) error {
 	e.GET("/xrpc/com.atproto.sync.listHosts", s.ProxyRequestUpstream)
 	e.GET("/xrpc/com.atproto.sync.getHostStatus", s.ProxyRequestUpstream)
 	e.GET("/xrpc/com.atproto.sync.getRepo", s.ProxyRequestUpstream)
+
+	// proxy relay admin endpoints for inter-relay synchronization
+	e.GET("/admin/subs/getUpstreamConns", s.ProxyRequestUpstream)
+	e.POST("/admin/subs/killUpstream", s.ProxyRequestUpstream)
+	e.GET("/admin/subs/getEnabled", s.ProxyRequestUpstream)
+	e.POST("/admin/subs/setEnabled", s.ProxyRequestUpstream)
+	e.GET("/admin/subs/perDayLimit", s.ProxyRequestUpstream)
+	e.POST("/admin/subs/setPerDayLimit", s.ProxyRequestUpstream)
+	e.GET("/admin/subs/listDomainBans", s.ProxyRequestUpstream)
+	e.POST("/admin/subs/banDomain", s.ProxyRequestUpstream)
+	e.POST("/admin/subs/unbanDomain", s.ProxyRequestUpstream)
+	e.POST("/admin/repo/takeDown", s.ProxyRequestUpstream)
+	e.POST("/admin/repo/reverseTakedown", s.ProxyRequestUpstream)
+	e.GET("/admin/pds/list", s.ProxyRequestUpstream)
+	e.POST("/admin/pds/requestCrawl", s.ProxyRequestUpstream)
+	e.POST("/admin/pds/changeLimits", s.ProxyRequestUpstream)
+	e.POST("/admin/pds/block", s.ProxyRequestUpstream)
+	e.POST("/admin/pds/unblock", s.ProxyRequestUpstream)
+	e.GET("/admin/consumers/list", s.ProxyRequestUpstream)
 
 	// proxy endpoint to collectiondir
 	e.GET("/xrpc/com.atproto.sync.listReposByCollection", s.ProxyRequestCollectionDir)
