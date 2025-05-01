@@ -333,7 +333,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 
 		// check if we connected to a relay (eg, this indigo relay, or rainbow) and drop if so
 		serverHdr := resp.Header.Get("Server")
-		if strings.Contains("atproto-relay", serverHdr) {
+		if strings.Contains(serverHdr, "atproto-relay") {
 			s.logger.Warn("subscribed host is atproto relay of some kind, banning", "server", serverHdr, "url", u, "hostname", sub.Hostname)
 			if err := s.Config.PersistHostStatusCallback(ctx, sub.HostID, models.HostStatusBanned); err != nil {
 				s.logger.Error("failed mark host as banned", "hostname", sub.Hostname, "err", err)
