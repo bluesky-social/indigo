@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -56,6 +57,13 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatpr
 	if err := s.relay.HostChecker.CheckHost(ctx, hostURL); err != nil {
 		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "HostNotFound", Message: fmt.Sprintf("host server unreachable: %s", err)})
 	}
+
+	// forward on to any sibling instances (note that sometimes is, sometimes isn't an admin request)
+	b, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	go s.ForwardSiblingRequest(c, b)
 
 	return s.relay.SubscribeToHost(ctx, hostname, noSSL, false)
 }

@@ -86,7 +86,7 @@ func (p *Scheduler) Shutdown() {
 		<-p.out
 	}
 
-	p.log.Info("parallel scheduler shutdown complete")
+	p.log.Info("parallel scheduler shutdown complete", "ident", p.ident)
 }
 
 type consumerTask struct {
@@ -138,14 +138,14 @@ func (p *Scheduler) worker() {
 			p.itemsActive.Inc()
 			seq := work.val.Sequence()
 			if err := p.do(context.TODO(), work.val); err != nil {
-				p.log.Error("event handler failed", "err", err)
+				p.log.Error("event handler failed", "ident", p.ident, "err", err)
 			}
 			p.itemsProcessed.Inc()
 
 			p.lk.Lock()
 			rem, ok := p.active[work.repo]
 			if !ok {
-				p.log.Error("should always have an 'active' entry if a worker is processing a job")
+				p.log.Error("should always have an 'active' entry if a worker is processing a job", "ident", p.ident)
 			}
 
 			if len(rem) == 0 {
