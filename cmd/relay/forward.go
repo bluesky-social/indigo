@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/bluesky-social/indigo/cmd/relay/relay"
 
@@ -34,11 +33,6 @@ func (s *Service) ForwardSiblingRequest(c echo.Context, body []byte) {
 			s.logger.Info("not re-forwarding request to sibling relay", "header", "User-Agent", "value", ua)
 			return
 		}
-	}
-
-	// TODO: could turn this in to a shared/persistent client
-	client := http.Client{
-		Timeout: 10 * time.Second,
 	}
 
 	for _, rawHost := range s.config.SiblingRelayHosts {
@@ -75,7 +69,7 @@ func (s *Service) ForwardSiblingRequest(c echo.Context, body []byte) {
 		// add Via header (critical to prevent forwarding loops)
 		upstreamReq.Header.Add("Via", req.Proto+" atproto-relay")
 
-		upstreamResp, err := client.Do(upstreamReq)
+		upstreamResp, err := s.siblingClient.Do(upstreamReq)
 		if err != nil {
 			s.logger.Warn("forwarded admin HTTP request failed", "method", req.Method, "sibling", hostname, "url", u.String(), "err", err)
 			continue
