@@ -12,7 +12,7 @@ import (
 
 // UnspeccedGetSuggestedUsers_Output is the output of a app.bsky.unspecced.getSuggestedUsers call.
 type UnspeccedGetSuggestedUsers_Output struct {
-	Actors []*ActorDefs_ProfileViewBasic `json:"actors" cborgen:"actors"`
+	Actors []*ActorDefs_ProfileView `json:"actors" cborgen:"actors"`
 }
 
 // UnspeccedGetSuggestedUsers calls the XRPC method "app.bsky.unspecced.getSuggestedUsers".
