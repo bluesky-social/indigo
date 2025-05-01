@@ -44,7 +44,7 @@ type Splitter struct {
 
 	upstreamClient *http.Client
 	peerClient     *http.Client
-	nextCrawlers   []*url.URL
+	nextCrawlers   []url.URL
 }
 
 type SplitterConfig struct {
@@ -105,17 +105,22 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 		logger = slog.Default().With("system", "splitter")
 	}
 
-	var nextCrawlerURLs []*url.URL
-	if len(nextCrawlers) > 0 {
-		nextCrawlerURLs = make([]*url.URL, len(nextCrawlers))
-		for i, tu := range nextCrawlers {
-			var err error
-			nextCrawlerURLs[i], err = url.Parse(tu)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse next-crawler url: %w", err)
-			}
-			logger.Info("configuring relay for requestCrawl", "host", nextCrawlerURLs[i])
+	var nextCrawlerURLs []url.URL
+	for _, raw := range nextCrawlers {
+		if raw == "" {
+			continue
 		}
+		u, err := url.Parse(raw)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse next-crawler url: %w", err)
+		}
+		if u.Host == "" {
+			return nil, fmt.Errorf("empty URL host for next crawler: %s", raw)
+		}
+		nextCrawlerURLs = append(nextCrawlerURLs, *u)
+	}
+	if len(nextCrawlerURLs) > 0 {
+		logger.Info("configured crawler forwarding", "crawlers", nextCrawlerURLs)
 	}
 
 	_, err := url.Parse(conf.UpstreamHostHTTP())
