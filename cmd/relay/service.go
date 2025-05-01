@@ -23,7 +23,7 @@ type Service struct {
 	relay  *relay.Relay
 	config ServiceConfig
 
-	crawlForwardClient http.Client
+	siblingClient http.Client
 }
 
 type ServiceConfig struct {
@@ -56,12 +56,13 @@ func NewService(r *relay.Relay, config *ServiceConfig) (*Service, error) {
 	}
 
 	svc := &Service{
-		logger:             slog.Default().With("system", "relay"),
-		relay:              r,
-		config:             *config,
-		crawlForwardClient: http.Client{},
+		logger: slog.Default().With("system", "relay"),
+		relay:  r,
+		config: *config,
+		siblingClient: http.Client{
+			Timeout: 10 * time.Second,
+		},
 	}
-	svc.crawlForwardClient.Timeout = time.Second * 5
 
 	return svc, nil
 }
