@@ -425,10 +425,15 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 	recordResults := make(chan recordResult, numRoutines)
 
 	var rev string
+	// guaranteed to be called before any items are send on the recordQueue channel
+	setRev := func(s string) {
+		rev = s
+	}
+
 	// Producer routine
 	go func() {
 		defer close(recordQueue)
-		rrev, err := repo.StreamRepoRecords(ctx, r, b.NSIDFilter, func(recordPath string, nodeCid cid.Cid, data []byte) error {
+		err := repo.StreamRepoRecords(ctx, r, b.NSIDFilter, setRev, func(recordPath string, nodeCid cid.Cid, data []byte) error {
 			numRecords++
 			recordQueue <- recordQueueItem{recordPath: recordPath, nodeCid: nodeCid, data: data}
 			return nil
@@ -436,8 +441,6 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 		if err != nil {
 			log.Error("failed to iterate records in repo", "err", err)
 		}
-
-		rev = rrev
 	}()
 
 	// Consumer routines
