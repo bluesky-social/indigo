@@ -104,6 +104,7 @@ func run(args []string) {
 		readRepoStreamCmd,
 		parseRkey,
 		listLabelsCmd,
+		verifyUserCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -811,6 +812,66 @@ var listLabelsCmd = &cli.Command{
 				break
 			}
 		}
+		return nil
+	},
+}
+
+var verifyUserCmd = &cli.Command{
+	Name:  "verify-user",
+	Usage: "create a feed generator record",
+	Flags: []cli.Flag{},
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.TODO()
+		arg := cctx.Args().First()
+
+		idf, err := syntax.ParseAtIdentifier(arg)
+		if err != nil {
+			return err
+		}
+
+		ident, err := identity.DefaultDirectory().Lookup(ctx, *idf)
+		if err != nil {
+			return err
+		}
+
+		profrec, err := atproto.RepoGetRecord(ctx, xrpcc, "", "app.bsky.actor.profile", ident.DID.String(), "self")
+		if err != nil {
+			return err
+		}
+
+		ap, ok := profrec.Value.Val.(*bsky.ActorProfile)
+		if !ok {
+			return fmt.Errorf("got wrong record type back")
+		}
+
+		var dn string
+		if ap.DisplayName != nil {
+			dn = *ap.DisplayName
+		}
+
+		rec := &lexutil.LexiconTypeDecoder{Val: &bsky.GraphVerification{
+			CreatedAt:   time.Now().Format(util.ISO8601),
+			DisplayName: dn,
+			Handle:      ident.Handle.String(),
+			Subject:     ident.DID.String(),
+		}}
+
+		resp, err := atproto.RepoCreateRecord(ctx, xrpcc, &atproto.RepoCreateRecord_Input{
+			Collection: "app.bsky.graph.verification",
+			Repo:       xrpcc.Auth.Did,
+			Record:     rec,
+		})
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(resp.Uri)
+
 		return nil
 	},
 }
