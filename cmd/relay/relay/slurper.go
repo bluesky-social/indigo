@@ -349,13 +349,6 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		logger.Debug("event subscription response", "code", resp.StatusCode, "url", u)
 
 		if err := s.handleConnection(ctx, conn, sub); err != nil {
-			if errors.Is(err, ErrFutureCursor) {
-				if err := s.Config.PersistHostStatusCallback(ctx, sub.HostID, models.HostStatusIdle); err != nil {
-					logger.Error("failed updating host status due to future cursor", "err", err)
-				}
-				logger.Warn("dropping connection to host due to future cursor", "cursor", cursor)
-				return
-			}
 
 			// TODO: measure the last N connection error times and if they're coming too fast reconnect slower or don't reconnect and wait for requestCrawl
 			logger.Warn("host connection failed", "err", err, "backoff", backoff)
@@ -439,9 +432,15 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, su
 			return nil
 		},
 		Error: func(evt *stream.ErrorFrame) error {
-			s.logger.Warn("error event from upstream", "name", evt.Error, "message", evt.Message, "host", sub.Hostname)
+			logger := s.logger.With("host", sub.Hostname)
+			logger.Warn("error event from upstream", "name", evt.Error, "message", evt.Message)
 			switch evt.Error {
 			case "FutureCursor":
+				if err := s.Config.PersistHostStatusCallback(ctx, sub.HostID, models.HostStatusIdle); err != nil {
+					logger.Error("failed updating host status due to future cursor", "err", err)
+				}
+				logger.Warn("dropping connection to host due to future cursor")
+				sub.cancel()
 				return ErrFutureCursor
 			default:
 				return fmt.Errorf("error frame: %s: %s", evt.Error, evt.Message)
@@ -549,7 +548,6 @@ func (s *Slurper) KillUpstreamConnection(ctx context.Context, hostname string, b
 		return fmt.Errorf("killing connection %q: %w", hostname, ErrHostInactive)
 	}
 	sub.cancel()
-	// cleanup in the run thread subscribeWithRedialer() will delete(s.active, host)
 
 	if ban && s.Config.PersistHostStatusCallback != nil {
 		if err := s.Config.PersistHostStatusCallback(ctx, sub.HostID, models.HostStatusBanned); err != nil {
