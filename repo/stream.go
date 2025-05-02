@@ -111,13 +111,13 @@ func (bs *readStreamBlockstore) Put(ctx context.Context, blk block.Block) error 
 	return fmt.Errorf("put is not needed")
 }
 
-func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, cb func(k string, c cid.Cid, v []byte) error) (string, error) {
+func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, setRev func(string), cb func(k string, c cid.Cid, v []byte) error) error {
 	ctx, span := otel.Tracer("repo").Start(ctx, "RepoStream")
 	defer span.End()
 
 	br, root, err := carutil.NewReader(bufio.NewReader(r))
 	if err != nil {
-		return "", fmt.Errorf("opening CAR block reader: %w", err)
+		return fmt.Errorf("opening CAR block reader: %w", err)
 	}
 
 	bs := newStreamingBlockstore(br)
@@ -126,14 +126,16 @@ func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, cb func(
 
 	var sc SignedCommit
 	if err := cst.Get(ctx, root, &sc); err != nil {
-		return "", fmt.Errorf("loading root from blockstore: %w", err)
+		return fmt.Errorf("loading root from blockstore: %w", err)
 	}
 
 	if sc.Version != ATP_REPO_VERSION && sc.Version != ATP_REPO_VERSION_2 {
-		return "", fmt.Errorf("unsupported repo version: %d", sc.Version)
+		return fmt.Errorf("unsupported repo version: %d", sc.Version)
 	}
 
 	// TODO: verify that signature
+
+	setRev(sc.Rev)
 
 	t := mst.LoadMST(cst, sc.Data)
 
@@ -147,8 +149,8 @@ func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, cb func(
 
 		return nil
 	}); err != nil {
-		return "", fmt.Errorf("failed to walk mst: %w", err)
+		return fmt.Errorf("failed to walk mst: %w", err)
 	}
 
-	return sc.Rev, nil
+	return nil
 }
