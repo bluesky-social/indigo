@@ -98,7 +98,10 @@ type Subscription struct {
 
 // pulls lastSeq from underlying scheduler in to this Subscription
 func (sub *Subscription) UpdateSeq() {
-	sub.LastSeq.Store(sub.scheduler.LastSeq())
+	seq := sub.scheduler.LastSeq()
+	if seq > 0 {
+		sub.LastSeq.Store(seq)
+	}
 }
 
 func (sub *Subscription) HostCursor() HostCursor {
@@ -514,6 +517,7 @@ func (s *Slurper) persistCursors(ctx context.Context) error {
 	cursors := make([]HostCursor, len(s.subs))
 	i := 0
 	for _, sub := range s.subs {
+		sub.UpdateSeq()
 		cursors[i] = sub.HostCursor()
 		i++
 	}
