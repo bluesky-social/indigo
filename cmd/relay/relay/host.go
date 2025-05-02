@@ -121,7 +121,7 @@ func (r *Relay) UpdateHostAccountLimit(ctx context.Context, hostID uint64, accou
 	return nil
 }
 
-// Persists all the host cursors in a single database transaction
+// Persists all the host cursors in a single database transaction. Also updates status to "active" for hosts which have a positive cursor.
 //
 // Note that in some situations this may have partial success.
 func (r *Relay) PersistHostCursors(ctx context.Context, cursors *[]HostCursor) error {
@@ -130,7 +130,7 @@ func (r *Relay) PersistHostCursors(ctx context.Context, cursors *[]HostCursor) e
 		if cur.LastSeq <= 0 {
 			continue
 		}
-		if err := tx.WithContext(ctx).Model(models.Host{}).Where("id = ?", cur.HostID).UpdateColumn("last_seq", cur.LastSeq).Error; err != nil {
+		if err := tx.WithContext(ctx).Model(models.Host{}).Where("id = ?", cur.HostID).UpdateColumn("last_seq", cur.LastSeq).UpdateColumn("status", models.HostStatusActive).Error; err != nil {
 			r.Logger.Error("failed to persist host cursor", "hostID", cur.HostID, "lastSeq", cur.LastSeq)
 		}
 	}
