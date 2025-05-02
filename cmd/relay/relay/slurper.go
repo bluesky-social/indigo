@@ -98,6 +98,10 @@ type Subscription struct {
 
 // pulls lastSeq from underlying scheduler in to this Subscription
 func (sub *Subscription) UpdateSeq() {
+	// possible for this to get called before a connection has fully been set up
+	if sub.scheduler == nil {
+		return
+	}
 	seq := sub.scheduler.LastSeq()
 	if seq > 0 {
 		sub.LastSeq.Store(seq)
