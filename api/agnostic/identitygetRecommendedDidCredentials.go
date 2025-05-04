@@ -8,14 +8,14 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // IdentityGetRecommendedDidCredentials calls the XRPC method "com.atproto.identity.getRecommendedDidCredentials".
-func IdentityGetRecommendedDidCredentials(ctx context.Context, c *xrpc.Client) (*json.RawMessage, error) {
+func IdentityGetRecommendedDidCredentials(ctx context.Context, c util.LexClient) (*json.RawMessage, error) {
 	var out json.RawMessage
 
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.identity.getRecommendedDidCredentials", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.identity.getRecommendedDidCredentials", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

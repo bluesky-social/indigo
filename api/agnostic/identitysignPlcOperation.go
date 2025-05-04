@@ -8,7 +8,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // IdentitySignPlcOperation_Input is the input argument to a com.atproto.identity.signPlcOperation call.
@@ -28,9 +28,9 @@ type IdentitySignPlcOperation_Output struct {
 }
 
 // IdentitySignPlcOperation calls the XRPC method "com.atproto.identity.signPlcOperation".
-func IdentitySignPlcOperation(ctx context.Context, c *xrpc.Client, input *IdentitySignPlcOperation_Input) (*IdentitySignPlcOperation_Output, error) {
+func IdentitySignPlcOperation(ctx context.Context, c util.LexClient, input *IdentitySignPlcOperation_Input) (*IdentitySignPlcOperation_Output, error) {
 	var out IdentitySignPlcOperation_Output
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.identity.signPlcOperation", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.identity.signPlcOperation", nil, input, &out); err != nil {
 		return nil, err
 	}
 
