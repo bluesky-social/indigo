@@ -115,6 +115,10 @@ func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, setRev f
 	ctx, span := otel.Tracer("repo").Start(ctx, "RepoStream")
 	defer span.End()
 
+	if setRev == nil {
+		setRev = func(string) {}
+	}
+
 	br, root, err := carutil.NewReader(bufio.NewReader(r))
 	if err != nil {
 		return fmt.Errorf("opening CAR block reader: %w", err)
