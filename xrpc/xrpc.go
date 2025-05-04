@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/carlmjohnson/versioninfo"
 )
@@ -34,7 +35,12 @@ func (c *Client) getClient() *http.Client {
 	return c.Client
 }
 
-type XRPCRequestType int
+type XRPCRequestType = lexutil.XRPCRequestType
+
+var (
+	Query     = lexutil.Query
+	Procedure = lexutil.Procedure
+)
 
 type AuthInfo struct {
 	AccessJwt  string `json:"accessJwt"`
@@ -110,11 +116,6 @@ type RatelimitInfo struct {
 	Reset     time.Time
 }
 
-const (
-	Query = XRPCRequestType(iota)
-	Procedure
-)
-
 // makeParams converts a map of string keys and any values into a URL-encoded string.
 // If a value is a slice of strings, it will be joined with commas.
 // Generally the values will be strings, numbers, booleans, or slices of strings
@@ -133,7 +134,7 @@ func makeParams(p map[string]any) string {
 	return params.Encode()
 }
 
-func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, method string, params map[string]interface{}, bodyobj interface{}, out interface{}) error {
+func (c *Client) Do(ctx context.Context, kind lexutil.XRPCRequestType, inpenc string, method string, params map[string]interface{}, bodyobj interface{}, out interface{}) error {
 	var body io.Reader
 	if bodyobj != nil {
 		if rr, ok := bodyobj.(io.Reader); ok {
@@ -150,9 +151,9 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 
 	var m string
 	switch kind {
-	case Query:
+	case lexutil.Query:
 		m = "GET"
-	case Procedure:
+	case lexutil.Procedure:
 		m = "POST"
 	default:
 		return fmt.Errorf("unsupported request kind: %d", kind)
@@ -226,4 +227,8 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 	}
 
 	return nil
+}
+
+func (c *Client) LexDo(ctx context.Context, kind lexutil.XRPCRequestType, inpenc string, method string, params map[string]any, bodyobj any, out any) error {
+	return c.Do(ctx, kind, inpenc, method, params, bodyobj, out)
 }
