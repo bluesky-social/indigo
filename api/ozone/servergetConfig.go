@@ -16,7 +16,9 @@ type ServerGetConfig_Output struct {
 	BlobDivert *ServerGetConfig_ServiceConfig `json:"blobDivert,omitempty" cborgen:"blobDivert,omitempty"`
 	Chat       *ServerGetConfig_ServiceConfig `json:"chat,omitempty" cborgen:"chat,omitempty"`
 	Pds        *ServerGetConfig_ServiceConfig `json:"pds,omitempty" cborgen:"pds,omitempty"`
-	Viewer     *ServerGetConfig_ViewerConfig  `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	// verifierDid: The did of the verifier used for verification.
+	VerifierDid *string                       `json:"verifierDid,omitempty" cborgen:"verifierDid,omitempty"`
+	Viewer      *ServerGetConfig_ViewerConfig `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 // ServerGetConfig_ServiceConfig is a "serviceConfig" in the tools.ozone.server.getConfig schema.
