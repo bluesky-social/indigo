@@ -178,9 +178,9 @@ func (j *Gormjob) BufferOps(ctx context.Context, since *string, rev string, ops 
 	defer j.lk.Unlock()
 
 	switch j.state {
-	case StateComplete:
+	case StateComplete, StateEnqueued:
 		return false, nil
-	case StateInProgress, StateEnqueued:
+	case StateInProgress:
 		// keep going and buffer the op
 	default:
 		if strings.HasPrefix(j.state, "failed") {
