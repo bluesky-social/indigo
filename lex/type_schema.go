@@ -54,7 +54,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 	pf := printerf(w)
 	fname := typename
 
-	params := "ctx context.Context, c *xrpc.Client"
+	params := "ctx context.Context, c util.LexClient"
 	inpvar := "nil"
 	inpenc := ""
 
@@ -161,14 +161,14 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 	var reqtype string
 	switch s.Type {
 	case "procedure":
-		reqtype = "xrpc.Procedure"
+		reqtype = "util.Procedure"
 	case "query":
-		reqtype = "xrpc.Query"
+		reqtype = "util.Query"
 	default:
 		return fmt.Errorf("can only generate RPC for Query or Procedure (got %s)", s.Type)
 	}
 
-	pf("\tif err := c.Do(ctx, %s, %q, \"%s\", %s, %s, %s); err != nil {\n", reqtype, inpenc, s.id, queryparams, inpvar, outvar)
+	pf("\tif err := c.LexDo(ctx, %s, %q, \"%s\", %s, %s, %s); err != nil {\n", reqtype, inpenc, s.id, queryparams, inpvar, outvar)
 	pf("\t\treturn %s\n", errRet)
 	pf("\t}\n\n")
 	pf("\treturn %s\n", outRet)
