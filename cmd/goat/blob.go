@@ -119,7 +119,9 @@ func runBlobExport(cctx *cli.Context) error {
 			if err := os.WriteFile(blobPath, blobBytes, 0666); err != nil {
 				return err
 			}
-			fmt.Printf("%s\tdownloaded\n", blobPath)
+			if err == nil {
+				fmt.Printf("%s\tdownloaded\n", blobPath)
+			}
 		}
 		if resp.Cursor != nil && *resp.Cursor != "" {
 			cursor = *resp.Cursor
