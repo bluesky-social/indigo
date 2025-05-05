@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/RussellLuo/slidingwindow"
@@ -120,8 +121,8 @@ type HandleRepoStreamRobustOptions struct {
 	// Controls how work should be processed when reading from the remote
 	Scheduler Scheduler
 
-	// The URL (including scheme and port) to which we will connect (i.e. `wss://example.com:8080`)
-	Host string
+	// The base URL (scheme and port) to which we will connect (i.e. `wss://example.com:8080`)
+	Upstream string
 
 	// The cursor to use when dialing the remote repo (optional)
 	Cursor *int
@@ -144,7 +145,7 @@ type HandleRepoStreamRobustOptions struct {
 func DefaultHandleRepoStreamRobustOptions(sched Scheduler, host string) *HandleRepoStreamRobustOptions {
 	return &HandleRepoStreamRobustOptions{
 		Scheduler:            sched,
-		Host:                 host,
+		Upstream:             host,
 		Dialer:               websocket.DefaultDialer,
 		Header:               http.Header{},
 		MaxReconnectAttempts: 10,
@@ -154,7 +155,7 @@ func DefaultHandleRepoStreamRobustOptions(sched Scheduler, host string) *HandleR
 
 // The same as `HandleRepoStream`, but with auto-reconnects in the case of upstream disconnects
 func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOptions) error {
-	if opts == nil || opts.Scheduler == nil || opts.Host == "" {
+	if opts == nil || opts.Scheduler == nil || opts.Upstream == "" {
 		return fmt.Errorf("invalid HandleRepoStreamRobust options")
 	}
 
@@ -169,9 +170,14 @@ func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOpt
 		opts.Header.Set("User-Agent", "indigo/"+versioninfo.Short())
 	}
 
-	urlStr := fmt.Sprintf("%s/xrpc/com.atproto.sync.subscribeRepos", opts.Host)
+	upstream, err := url.Parse(opts.Upstream)
+	if err != nil {
+		return fmt.Errorf("invalid upstream url %q: %w", opts.Upstream, err)
+	}
+	upstream = upstream.JoinPath("/xrpc/com.atproto.sync.subscribeRepos")
+
 	if opts.Cursor != nil {
-		urlStr = fmt.Sprintf("%s?cursor=%d", urlStr, *opts.Cursor)
+		upstream.RawQuery = fmt.Sprintf("cursor=%d", *opts.Cursor)
 	}
 
 	retryableCloses := []int{
@@ -182,7 +188,7 @@ func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOpt
 
 	failures := 0
 	for failures <= opts.MaxReconnectAttempts {
-		con, _, err := opts.Dialer.DialContext(ctx, urlStr, opts.Header)
+		con, _, err := opts.Dialer.DialContext(ctx, upstream.String(), opts.Header)
 		if err != nil {
 			if failures >= opts.MaxReconnectAttempts {
 				return fmt.Errorf("failed to dial host (max retries exceeded): %w", err)
