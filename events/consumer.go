@@ -6,13 +6,14 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"net/http"
 	"time"
 
 	"github.com/RussellLuo/slidingwindow"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/prometheus/client_golang/prometheus"
-
+	"github.com/carlmjohnson/versioninfo"
 	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type RepoStreamCallbacks struct {
@@ -112,11 +113,115 @@ func (sr *instrumentedReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
+// Options that control how we should subscribe to a remote event stream
+type HandleRepoStreamRobustOptions struct {
+	// Controls how work should be processed when reading from the remote
+	Scheduler Scheduler
+
+	// The URL (including scheme and port) to which we will connect (i.e. `wss://example.com:8080`)
+	Host string
+
+	// The cursor to use when dialing the remote repo (optional)
+	Cursor *int
+
+	// The dialer user to establish the websocket connection
+	Dialer *websocket.Dialer
+
+	// The list of HTTP headers to pass when establishing the websocket connection. If users do
+	// not supply a `User-Agent`, a default will be provided.
+	Header http.Header
+
+	// The maximum number of consecutive reconnects to try before shutting down
+	MaxReconnectAttempts int
+
+	// Uses the default logger if none is provided
+	Log *slog.Logger
+}
+
+// Constructs an options object with a set of sane default arguments that can be overridden by the user
+func DefaultHandleRepoStreamRobustOptions(sched Scheduler, host string) *HandleRepoStreamRobustOptions {
+	return &HandleRepoStreamRobustOptions{
+		Scheduler:            sched,
+		Host:                 host,
+		Dialer:               websocket.DefaultDialer,
+		Header:               http.Header{},
+		MaxReconnectAttempts: 10,
+		Log:                  slog.Default().With("system", "events"),
+	}
+}
+
+// The same as `HandleRepoStream`, but with auto-reconnects in the case of upstream disconnects
+func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOptions) error {
+	if opts == nil || opts.Scheduler == nil || opts.Host == "" {
+		return fmt.Errorf("invalid HandleRepoStreamRobust options")
+	}
+
+	// Set defaults if not provided
+	if opts.Dialer == nil {
+		opts.Dialer = websocket.DefaultDialer
+	}
+	if opts.Header == nil {
+		opts.Header = http.Header{}
+	}
+	if opts.Header.Get("User-Agent") == "" {
+		opts.Header.Set("User-Agent", "indigo/"+versioninfo.Short())
+	}
+
+	urlStr := fmt.Sprintf("%s/xrpc/com.atproto.sync.subscribeRepos", opts.Host)
+	if opts.Cursor != nil {
+		urlStr = fmt.Sprintf("%s?cursor=%d", urlStr, *opts.Cursor)
+	}
+
+	retryableCloses := []int{
+		websocket.CloseNormalClosure,
+		websocket.CloseGoingAway,
+		websocket.CloseAbnormalClosure,
+	}
+
+	failures := 0
+	for failures <= opts.MaxReconnectAttempts {
+		con, _, err := opts.Dialer.DialContext(ctx, urlStr, opts.Header)
+		if err != nil {
+			if failures >= opts.MaxReconnectAttempts {
+				return fmt.Errorf("failed to dial host (max retries exceeded): %w", err)
+			}
+
+			failures++
+			continue
+		}
+
+		msgRead := false
+		err = handleRepoStream(ctx, con, opts.Scheduler, opts.Log, &msgRead)
+		if msgRead {
+			// reset the failure counter
+			failures = 0
+		}
+		if websocket.IsCloseError(err, retryableCloses...) {
+			if failures >= opts.MaxReconnectAttempts {
+				return fmt.Errorf("failed to : %w", err)
+			}
+
+			failures++
+			continue
+		}
+		if err != nil {
+			// non-retryable error
+			return err
+		}
+	}
+
+	return nil
+}
+
 // HandleRepoStream
 // con is source of events
 // sched gets AddWork for each event
 // log may be nil for default logger
 func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler, log *slog.Logger) error {
+	return handleRepoStream(ctx, con, sched, log, nil)
+}
+
+func handleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler, log *slog.Logger, msgRead *bool) error {
 	if log == nil {
 		log = slog.Default().With("system", "events")
 	}
@@ -182,6 +287,9 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 		mt, rawReader, err := con.NextReader()
 		if err != nil {
 			return fmt.Errorf("con err at read: %w", err)
+		}
+		if msgRead != nil {
+			*msgRead = true
 		}
 
 		switch mt {
