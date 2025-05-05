@@ -27,7 +27,7 @@ type Consumer struct {
 func NewConsumer(host string) *Consumer {
 	c := Consumer{
 		Host:    host,
-		Timeout: time.Second * 3,
+		Timeout: time.Second * 10,
 	}
 	return &c
 }
