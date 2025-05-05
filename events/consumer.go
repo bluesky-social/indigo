@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
+	"math/rand"
 	"net"
 	"net/http"
 	"time"
@@ -186,6 +188,7 @@ func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOpt
 				return fmt.Errorf("failed to dial host (max retries exceeded): %w", err)
 			}
 
+			time.Sleep(backoffDuration(failures))
 			failures++
 			continue
 		}
@@ -201,6 +204,7 @@ func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOpt
 				return fmt.Errorf("failed to : %w", err)
 			}
 
+			time.Sleep(backoffDuration(failures))
 			failures++
 			continue
 		}
@@ -211,6 +215,21 @@ func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOpt
 	}
 
 	return nil
+}
+
+func backoffDuration(retry int) time.Duration {
+	baseMS := float64(50)
+
+	// Exponential backoff: 2^retry * base
+	durationMS := math.Pow(2, float64(retry)) * baseMS
+
+	// Clamp
+	durationMS = min(1000, durationMS)
+
+	// Add jitter
+	jitter := durationMS * (0.25 + rand.Float64())
+
+	return time.Duration(jitter) * time.Millisecond
 }
 
 // HandleRepoStream
