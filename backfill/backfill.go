@@ -417,8 +417,6 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 		}
 	}
 
-	defer r.Close()
-
 	numRecords := 0
 	numRoutines := b.ParallelRecordCreates
 	recordQueue := make(chan recordQueueItem, numRoutines)
@@ -431,7 +429,9 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 	}
 
 	// Producer routine
+	var streamRecordsError error
 	go func() {
+		defer r.Close()
 		defer close(recordQueue)
 		err := repo.StreamRepoRecords(ctx, r, b.NSIDFilter, setRev, func(recordPath string, nodeCid cid.Cid, data []byte) error {
 			numRecords++
@@ -439,7 +439,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 			return nil
 		})
 		if err != nil {
-			log.Error("failed to iterate records in repo", "err", err)
+			streamRecordsError = fmt.Errorf("failed to iterate records in repo: %w", err)
 		}
 	}()
 
@@ -480,6 +480,10 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 	wg.Wait()
 	close(recordResults)
 	resultWG.Wait()
+
+	if streamRecordsError != nil {
+		return "failed to stream records", streamRecordsError
+	}
 
 	if err := job.SetRev(ctx, rev); err != nil {
 		log.Error("failed to update rev after backfilling repo", "err", err)
