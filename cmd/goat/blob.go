@@ -114,14 +114,12 @@ func runBlobExport(cctx *cli.Context) error {
 			blobBytes, err := comatproto.SyncGetBlob(ctx, &xrpcc, cidStr, ident.DID.String())
 			if err != nil {
 				fmt.Printf("%s\tnot found\n", blobPath)
-
+				continue
 			}
 			if err := os.WriteFile(blobPath, blobBytes, 0666); err != nil {
 				return err
 			}
-			if err == nil {
-				fmt.Printf("%s\tdownloaded\n", blobPath)
-			}
+			fmt.Printf("%s\tdownloaded\n", blobPath)
 		}
 		if resp.Cursor != nil && *resp.Cursor != "" {
 			cursor = *resp.Cursor
