@@ -130,7 +130,7 @@ func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, setRev f
 
 	var sc SignedCommit
 	if err := cst.Get(ctx, root, &sc); err != nil {
-		return fmt.Errorf("loading root (%s) from blockstore: %w", root, err)
+		return fmt.Errorf("loading root (%s) from blockstore (other blocks: %d): %w", root, len(bs.otherBlocks), err)
 	}
 
 	if sc.Version != ATP_REPO_VERSION && sc.Version != ATP_REPO_VERSION_2 {
