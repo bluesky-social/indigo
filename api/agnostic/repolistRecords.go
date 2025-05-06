@@ -36,11 +36,18 @@ func RepoListRecords(ctx context.Context, c *xrpc.Client, collection string, cur
 
 	params := map[string]interface{}{
 		"collection": collection,
-		"cursor":     cursor,
-		"limit":      limit,
 		"repo":       repo,
-		"reverse":    reverse,
 	}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if reverse != false {
+		params["reverse"] = reverse
+	}
+
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.repo.listRecords", params, nil, &out); err != nil {
 		return nil, err
 	}
