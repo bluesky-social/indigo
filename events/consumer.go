@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sync/atomic"
 	"time"
 
 	"github.com/RussellLuo/slidingwindow"
@@ -175,18 +176,26 @@ func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOpt
 		return fmt.Errorf("invalid upstream url %q: %w", opts.URL, err)
 	}
 
-	if opts.Cursor != nil {
-		upstream.RawQuery = fmt.Sprintf("cursor=%d", *opts.Cursor)
-	}
-
 	retryableCloses := []int{
 		websocket.CloseNormalClosure,
 		websocket.CloseGoingAway,
 		websocket.CloseAbnormalClosure,
 	}
 
+	// Wrap all applicable event callbacks to track the cursor sequence number
+	// so we're up-to-date when attempting to reconnect
+	monitor := newMonitoredScheduler(opts.Scheduler)
+	if opts.Cursor != nil {
+		monitor.cursor.Store(int64(*opts.Cursor))
+	}
+
 	failures := 0
 	for failures <= opts.MaxReconnectAttempts {
+		cursor := monitor.cursor.Load()
+		if cursor >= 0 {
+			upstream.RawQuery = fmt.Sprintf("cursor=%d", cursor)
+		}
+
 		con, _, err := opts.Dialer.DialContext(ctx, upstream.String(), opts.Header)
 		if err != nil {
 			if failures >= opts.MaxReconnectAttempts {
@@ -199,7 +208,7 @@ func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOpt
 		}
 
 		msgRead := false
-		err = handleRepoStream(ctx, con, opts.Scheduler, opts.Log, &msgRead)
+		err = handleRepoStream(ctx, con, monitor, opts.Log, &msgRead)
 		if msgRead {
 			// reset the failure counter
 			failures = 0
@@ -220,6 +229,29 @@ func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOpt
 	}
 
 	return nil
+}
+
+type monitoredScheduler struct {
+	sched  Scheduler
+	cursor atomic.Int64
+}
+
+func newMonitoredScheduler(sched Scheduler) *monitoredScheduler {
+	ms := &monitoredScheduler{sched: sched}
+	ms.cursor.Store(-1)
+	return ms
+}
+
+func (s *monitoredScheduler) AddWork(ctx context.Context, repo string, xev *XRPCStreamEvent) error {
+	if seq, ok := xev.GetSequence(); ok {
+		s.cursor.Store(seq)
+	}
+
+	return s.sched.AddWork(ctx, repo, xev)
+}
+
+func (s *monitoredScheduler) Shutdown() {
+	s.sched.Shutdown()
 }
 
 func backoffDuration(retry int) time.Duration {
