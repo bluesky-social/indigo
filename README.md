@@ -56,7 +56,7 @@ The [HACKING](./HACKING.md) file has a list of commands and packages in this rep
 
 _not to be confused with the [AT command set](https://en.wikipedia.org/wiki/Hayes_command_set) or [Adenosine triphosphate](https://en.wikipedia.org/wiki/Adenosine_triphosphate)_
 
-The Authenticated Transfer Protocol ("ATP" or "atproto") is a decentralized social media protocol, developed by [Bluesky PBC](https://bsky.social). Learn more at:
+The Authenticated Transfer Protocol ("ATP" or "atproto") is a decentralized social media protocol, developed by [Bluesky Social PBC](https://bsky.social). Learn more at:
 
 - [Overview and Guides](https://atproto.com/guides/overview) 👈 Best starting point
 - [Github Discussions](https://github.com/bluesky-social/atproto/discussions) 👈 Great place to ask questions
