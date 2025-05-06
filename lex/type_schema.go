@@ -148,7 +148,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 		queryparams = "params"
 		pf("\n\tparams := map[string]interface{}{}\n")
 		if err := orderedMapIter(s.Parameters.Properties, func(name string, t *TypeSchema) error {
-			if slices.Contains(s.Parameters.Required, name) {
+			if slices.Contains(s.Parameters.Required, name) || slices.Contains(s.Parameters.Nullable, name) {
 				pf("params[\"%s\"] = %s\n", name, name)
 			} else {
 				// if parameter isn't required, only include conditionally
