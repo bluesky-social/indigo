@@ -121,8 +121,8 @@ type HandleRepoStreamRobustOptions struct {
 	// Controls how work should be processed when reading from the remote
 	Scheduler Scheduler
 
-	// The base URL (scheme and port) to which we will connect (i.e. `wss://example.com:8080`)
-	Upstream string
+	// The full URL to which we will connect (i.e. `wss://example.com:8080/xrpc/com.atproto.sync.subscribeRepos`)
+	URL string
 
 	// The cursor to use when dialing the remote repo (optional)
 	Cursor *int
@@ -142,10 +142,10 @@ type HandleRepoStreamRobustOptions struct {
 }
 
 // Constructs an options object with a set of sane default arguments that can be overridden by the user
-func DefaultHandleRepoStreamRobustOptions(sched Scheduler, host string) *HandleRepoStreamRobustOptions {
+func DefaultHandleRepoStreamRobustOptions(sched Scheduler, u string) *HandleRepoStreamRobustOptions {
 	return &HandleRepoStreamRobustOptions{
 		Scheduler:            sched,
-		Upstream:             host,
+		URL:                  u,
 		Dialer:               websocket.DefaultDialer,
 		Header:               http.Header{},
 		MaxReconnectAttempts: 10,
@@ -155,7 +155,7 @@ func DefaultHandleRepoStreamRobustOptions(sched Scheduler, host string) *HandleR
 
 // The same as `HandleRepoStream`, but with auto-reconnects in the case of upstream disconnects
 func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOptions) error {
-	if opts == nil || opts.Scheduler == nil || opts.Upstream == "" {
+	if opts == nil || opts.Scheduler == nil || opts.URL == "" {
 		return fmt.Errorf("invalid HandleRepoStreamRobust options")
 	}
 
@@ -170,11 +170,10 @@ func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOpt
 		opts.Header.Set("User-Agent", "indigo/"+versioninfo.Short())
 	}
 
-	upstream, err := url.Parse(opts.Upstream)
+	upstream, err := url.Parse(opts.URL)
 	if err != nil {
-		return fmt.Errorf("invalid upstream url %q: %w", opts.Upstream, err)
+		return fmt.Errorf("invalid upstream url %q: %w", opts.URL, err)
 	}
-	upstream = upstream.JoinPath("/xrpc/com.atproto.sync.subscribeRepos")
 
 	if opts.Cursor != nil {
 		upstream.RawQuery = fmt.Sprintf("cursor=%d", *opts.Cursor)
