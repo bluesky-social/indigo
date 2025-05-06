@@ -21,10 +21,13 @@ type GraphGetFollows_Output struct {
 func GraphGetFollows(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*GraphGetFollows_Output, error) {
 	var out GraphGetFollows_Output
 
-	params := map[string]interface{}{
-		"actor":  actor,
-		"cursor": cursor,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	params["actor"] = actor
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.getFollows", params, nil, &out); err != nil {
 		return nil, err

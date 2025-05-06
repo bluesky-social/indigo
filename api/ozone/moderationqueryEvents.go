@@ -34,26 +34,63 @@ type ModerationQueryEvents_Output struct {
 func ModerationQueryEvents(ctx context.Context, c *xrpc.Client, addedLabels []string, addedTags []string, collections []string, comment string, createdAfter string, createdBefore string, createdBy string, cursor string, hasComment bool, includeAllUserRecords bool, limit int64, policies []string, removedLabels []string, removedTags []string, reportTypes []string, sortDirection string, subject string, subjectType string, types []string) (*ModerationQueryEvents_Output, error) {
 	var out ModerationQueryEvents_Output
 
-	params := map[string]interface{}{
-		"addedLabels":           addedLabels,
-		"addedTags":             addedTags,
-		"collections":           collections,
-		"comment":               comment,
-		"createdAfter":          createdAfter,
-		"createdBefore":         createdBefore,
-		"createdBy":             createdBy,
-		"cursor":                cursor,
-		"hasComment":            hasComment,
-		"includeAllUserRecords": includeAllUserRecords,
-		"limit":                 limit,
-		"policies":              policies,
-		"removedLabels":         removedLabels,
-		"removedTags":           removedTags,
-		"reportTypes":           reportTypes,
-		"sortDirection":         sortDirection,
-		"subject":               subject,
-		"subjectType":           subjectType,
-		"types":                 types,
+	params := map[string]interface{}{}
+	if len(addedLabels) != 0 {
+		params["addedLabels"] = addedLabels
+	}
+	if len(addedTags) != 0 {
+		params["addedTags"] = addedTags
+	}
+	if len(collections) != 0 {
+		params["collections"] = collections
+	}
+	if comment != "" {
+		params["comment"] = comment
+	}
+	if createdAfter != "" {
+		params["createdAfter"] = createdAfter
+	}
+	if createdBefore != "" {
+		params["createdBefore"] = createdBefore
+	}
+	if createdBy != "" {
+		params["createdBy"] = createdBy
+	}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if hasComment {
+		params["hasComment"] = hasComment
+	}
+	if includeAllUserRecords {
+		params["includeAllUserRecords"] = includeAllUserRecords
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if len(policies) != 0 {
+		params["policies"] = policies
+	}
+	if len(removedLabels) != 0 {
+		params["removedLabels"] = removedLabels
+	}
+	if len(removedTags) != 0 {
+		params["removedTags"] = removedTags
+	}
+	if len(reportTypes) != 0 {
+		params["reportTypes"] = reportTypes
+	}
+	if sortDirection != "" {
+		params["sortDirection"] = sortDirection
+	}
+	if subject != "" {
+		params["subject"] = subject
+	}
+	if subjectType != "" {
+		params["subjectType"] = subjectType
+	}
+	if len(types) != 0 {
+		params["types"] = types
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.moderation.queryEvents", params, nil, &out); err != nil {
 		return nil, err

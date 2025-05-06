@@ -22,9 +22,8 @@ type SyncGetLatestCommit_Output struct {
 func SyncGetLatestCommit(ctx context.Context, c *xrpc.Client, did string) (*SyncGetLatestCommit_Output, error) {
 	var out SyncGetLatestCommit_Output
 
-	params := map[string]interface{}{
-		"did": did,
-	}
+	params := map[string]interface{}{}
+	params["did"] = did
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getLatestCommit", params, nil, &out); err != nil {
 		return nil, err
 	}

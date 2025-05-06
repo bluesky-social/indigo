@@ -20,9 +20,12 @@ type GraphGetBlocks_Output struct {
 func GraphGetBlocks(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*GraphGetBlocks_Output, error) {
 	var out GraphGetBlocks_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.getBlocks", params, nil, &out); err != nil {
 		return nil, err

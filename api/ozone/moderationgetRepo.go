@@ -14,9 +14,8 @@ import (
 func ModerationGetRepo(ctx context.Context, c *xrpc.Client, did string) (*ModerationDefs_RepoViewDetail, error) {
 	var out ModerationDefs_RepoViewDetail
 
-	params := map[string]interface{}{
-		"did": did,
-	}
+	params := map[string]interface{}{}
+	params["did"] = did
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.moderation.getRepo", params, nil, &out); err != nil {
 		return nil, err
 	}

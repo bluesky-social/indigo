@@ -70,11 +70,14 @@ func (t *FeedGetPostThread_Output_Thread) UnmarshalJSON(b []byte) error {
 func FeedGetPostThread(ctx context.Context, c *xrpc.Client, depth int64, parentHeight int64, uri string) (*FeedGetPostThread_Output, error) {
 	var out FeedGetPostThread_Output
 
-	params := map[string]interface{}{
-		"depth":        depth,
-		"parentHeight": parentHeight,
-		"uri":          uri,
+	params := map[string]interface{}{}
+	if depth != 0 {
+		params["depth"] = depth
 	}
+	if parentHeight != 0 {
+		params["parentHeight"] = parentHeight
+	}
+	params["uri"] = uri
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getPostThread", params, nil, &out); err != nil {
 		return nil, err
 	}

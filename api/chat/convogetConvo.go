@@ -19,9 +19,8 @@ type ConvoGetConvo_Output struct {
 func ConvoGetConvo(ctx context.Context, c *xrpc.Client, convoId string) (*ConvoGetConvo_Output, error) {
 	var out ConvoGetConvo_Output
 
-	params := map[string]interface{}{
-		"convoId": convoId,
-	}
+	params := map[string]interface{}{}
+	params["convoId"] = convoId
 	if err := c.Do(ctx, xrpc.Query, "", "chat.bsky.convo.getConvo", params, nil, &out); err != nil {
 		return nil, err
 	}

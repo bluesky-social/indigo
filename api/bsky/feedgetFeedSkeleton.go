@@ -22,12 +22,11 @@ type FeedGetFeedSkeleton_Output struct {
 func FeedGetFeedSkeleton(ctx context.Context, c *xrpc.Client, cursor string, feed string, limit int64) (*FeedGetFeedSkeleton_Output, error) {
 	var out FeedGetFeedSkeleton_Output
 
-	params := map[string]interface{}{
-		"feed": feed,
-	}
+	params := map[string]interface{}{}
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
+	params["feed"] = feed
 	if limit != 0 {
 		params["limit"] = limit
 	}

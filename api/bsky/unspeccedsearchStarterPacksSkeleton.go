@@ -26,11 +26,16 @@ type UnspeccedSearchStarterPacksSkeleton_Output struct {
 func UnspeccedSearchStarterPacksSkeleton(ctx context.Context, c *xrpc.Client, cursor string, limit int64, q string, viewer string) (*UnspeccedSearchStarterPacksSkeleton_Output, error) {
 	var out UnspeccedSearchStarterPacksSkeleton_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
-		"q":      q,
-		"viewer": viewer,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	params["q"] = q
+	if viewer != "" {
+		params["viewer"] = viewer
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.searchStarterPacksSkeleton", params, nil, &out); err != nil {
 		return nil, err

@@ -22,11 +22,18 @@ type ModerationSearchRepos_Output struct {
 func ModerationSearchRepos(ctx context.Context, c *xrpc.Client, cursor string, limit int64, q string, term string) (*ModerationSearchRepos_Output, error) {
 	var out ModerationSearchRepos_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
-		"q":      q,
-		"term":   term,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if q != "" {
+		params["q"] = q
+	}
+	if term != "" {
+		params["term"] = term
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.moderation.searchRepos", params, nil, &out); err != nil {
 		return nil, err

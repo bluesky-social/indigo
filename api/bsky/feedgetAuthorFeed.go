@@ -22,12 +22,19 @@ type FeedGetAuthorFeed_Output struct {
 func FeedGetAuthorFeed(ctx context.Context, c *xrpc.Client, actor string, cursor string, filter string, includePins bool, limit int64) (*FeedGetAuthorFeed_Output, error) {
 	var out FeedGetAuthorFeed_Output
 
-	params := map[string]interface{}{
-		"actor":       actor,
-		"cursor":      cursor,
-		"filter":      filter,
-		"includePins": includePins,
-		"limit":       limit,
+	params := map[string]interface{}{}
+	params["actor"] = actor
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if filter != "" {
+		params["filter"] = filter
+	}
+	if includePins {
+		params["includePins"] = includePins
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getAuthorFeed", params, nil, &out); err != nil {
 		return nil, err
