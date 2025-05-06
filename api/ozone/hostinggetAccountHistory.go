@@ -129,11 +129,16 @@ type HostingGetAccountHistory_PasswordUpdated struct {
 func HostingGetAccountHistory(ctx context.Context, c *xrpc.Client, cursor string, did string, events []string, limit int64) (*HostingGetAccountHistory_Output, error) {
 	var out HostingGetAccountHistory_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"did":    did,
-		"events": events,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	params["did"] = did
+	if len(events) != 0 {
+		params["events"] = events
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.hosting.getAccountHistory", params, nil, &out); err != nil {
 		return nil, err

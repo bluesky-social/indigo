@@ -27,10 +27,13 @@ type SyncListReposByCollection_Repo struct {
 func SyncListReposByCollection(ctx context.Context, c *xrpc.Client, collection string, cursor string, limit int64) (*SyncListReposByCollection_Output, error) {
 	var out SyncListReposByCollection_Output
 
-	params := map[string]interface{}{
-		"collection": collection,
-		"cursor":     cursor,
-		"limit":      limit,
+	params := map[string]interface{}{}
+	params["collection"] = collection
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.listReposByCollection", params, nil, &out); err != nil {
 		return nil, err

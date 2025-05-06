@@ -23,10 +23,13 @@ type ServerGetServiceAuth_Output struct {
 func ServerGetServiceAuth(ctx context.Context, c *xrpc.Client, aud string, exp int64, lxm string) (*ServerGetServiceAuth_Output, error) {
 	var out ServerGetServiceAuth_Output
 
-	params := map[string]interface{}{
-		"aud": aud,
-		"exp": exp,
-		"lxm": lxm,
+	params := map[string]interface{}{}
+	params["aud"] = aud
+	if exp != 0 {
+		params["exp"] = exp
+	}
+	if lxm != "" {
+		params["lxm"] = lxm
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.server.getServiceAuth", params, nil, &out); err != nil {
 		return nil, err

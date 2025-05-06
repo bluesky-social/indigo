@@ -21,11 +21,14 @@ type SignatureSearchAccounts_Output struct {
 func SignatureSearchAccounts(ctx context.Context, c *xrpc.Client, cursor string, limit int64, values []string) (*SignatureSearchAccounts_Output, error) {
 	var out SignatureSearchAccounts_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
-		"values": values,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	params["values"] = values
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.signature.searchAccounts", params, nil, &out); err != nil {
 		return nil, err
 	}

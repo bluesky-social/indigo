@@ -29,15 +29,30 @@ type VerificationListVerifications_Output struct {
 func VerificationListVerifications(ctx context.Context, c *xrpc.Client, createdAfter string, createdBefore string, cursor string, isRevoked bool, issuers []string, limit int64, sortDirection string, subjects []string) (*VerificationListVerifications_Output, error) {
 	var out VerificationListVerifications_Output
 
-	params := map[string]interface{}{
-		"createdAfter":  createdAfter,
-		"createdBefore": createdBefore,
-		"cursor":        cursor,
-		"isRevoked":     isRevoked,
-		"issuers":       issuers,
-		"limit":         limit,
-		"sortDirection": sortDirection,
-		"subjects":      subjects,
+	params := map[string]interface{}{}
+	if createdAfter != "" {
+		params["createdAfter"] = createdAfter
+	}
+	if createdBefore != "" {
+		params["createdBefore"] = createdBefore
+	}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if isRevoked {
+		params["isRevoked"] = isRevoked
+	}
+	if len(issuers) != 0 {
+		params["issuers"] = issuers
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if sortDirection != "" {
+		params["sortDirection"] = sortDirection
+	}
+	if len(subjects) != 0 {
+		params["subjects"] = subjects
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.verification.listVerifications", params, nil, &out); err != nil {
 		return nil, err

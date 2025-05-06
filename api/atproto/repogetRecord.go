@@ -27,14 +27,13 @@ type RepoGetRecord_Output struct {
 func RepoGetRecord(ctx context.Context, c *xrpc.Client, cid string, collection string, repo string, rkey string) (*RepoGetRecord_Output, error) {
 	var out RepoGetRecord_Output
 
-	params := map[string]interface{}{
-		"collection": collection,
-		"repo":       repo,
-		"rkey":       rkey,
-	}
+	params := map[string]interface{}{}
 	if cid != "" {
 		params["cid"] = cid
 	}
+	params["collection"] = collection
+	params["repo"] = repo
+	params["rkey"] = rkey
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.repo.getRecord", params, nil, &out); err != nil {
 		return nil, err
 	}

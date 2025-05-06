@@ -32,12 +32,17 @@ type FeedGetLikes_Output struct {
 func FeedGetLikes(ctx context.Context, c *xrpc.Client, cid string, cursor string, limit int64, uri string) (*FeedGetLikes_Output, error) {
 	var out FeedGetLikes_Output
 
-	params := map[string]interface{}{
-		"cid":    cid,
-		"cursor": cursor,
-		"limit":  limit,
-		"uri":    uri,
+	params := map[string]interface{}{}
+	if cid != "" {
+		params["cid"] = cid
 	}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	params["uri"] = uri
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getLikes", params, nil, &out); err != nil {
 		return nil, err
 	}

@@ -34,7 +34,7 @@ type VerificationDefs_VerificationView struct {
 	// subject: The subject of the verification.
 	Subject string `json:"subject" cborgen:"subject"`
 	//SubjectProfile *VerificationDefs_VerificationView_SubjectProfile `json:"subjectProfile,omitempty" cborgen:"subjectProfile,omitempty"`
-	SubjectRepo *VerificationDefs_VerificationView_SubjectRepo `json:"subjectRepo,omitempty" cborgen:"subjectRepo,omitempty"`
+	//SubjectRepo    *VerificationDefs_VerificationView_SubjectRepo    `json:"subjectRepo,omitempty" cborgen:"subjectRepo,omitempty"`
 	// uri: The AT-URI of the verification record.
 	Uri string `json:"uri" cborgen:"uri"`
 }

@@ -58,10 +58,13 @@ func (t *ConvoGetMessages_Output_Messages_Elem) UnmarshalJSON(b []byte) error {
 func ConvoGetMessages(ctx context.Context, c *xrpc.Client, convoId string, cursor string, limit int64) (*ConvoGetMessages_Output, error) {
 	var out ConvoGetMessages_Output
 
-	params := map[string]interface{}{
-		"convoId": convoId,
-		"cursor":  cursor,
-		"limit":   limit,
+	params := map[string]interface{}{}
+	params["convoId"] = convoId
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "chat.bsky.convo.getMessages", params, nil, &out); err != nil {
 		return nil, err

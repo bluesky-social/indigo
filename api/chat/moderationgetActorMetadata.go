@@ -29,9 +29,8 @@ type ModerationGetActorMetadata_Output struct {
 func ModerationGetActorMetadata(ctx context.Context, c *xrpc.Client, actor string) (*ModerationGetActorMetadata_Output, error) {
 	var out ModerationGetActorMetadata_Output
 
-	params := map[string]interface{}{
-		"actor": actor,
-	}
+	params := map[string]interface{}{}
+	params["actor"] = actor
 	if err := c.Do(ctx, xrpc.Query, "", "chat.bsky.moderation.getActorMetadata", params, nil, &out); err != nil {
 		return nil, err
 	}

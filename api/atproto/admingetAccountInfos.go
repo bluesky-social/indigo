@@ -19,9 +19,8 @@ type AdminGetAccountInfos_Output struct {
 func AdminGetAccountInfos(ctx context.Context, c *xrpc.Client, dids []string) (*AdminGetAccountInfos_Output, error) {
 	var out AdminGetAccountInfos_Output
 
-	params := map[string]interface{}{
-		"dids": dids,
-	}
+	params := map[string]interface{}{}
+	params["dids"] = dids
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.getAccountInfos", params, nil, &out); err != nil {
 		return nil, err
 	}

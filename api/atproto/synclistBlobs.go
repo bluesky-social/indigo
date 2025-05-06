@@ -23,11 +23,16 @@ type SyncListBlobs_Output struct {
 func SyncListBlobs(ctx context.Context, c *xrpc.Client, cursor string, did string, limit int64, since string) (*SyncListBlobs_Output, error) {
 	var out SyncListBlobs_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"did":    did,
-		"limit":  limit,
-		"since":  since,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	params["did"] = did
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if since != "" {
+		params["since"] = since
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.listBlobs", params, nil, &out); err != nil {
 		return nil, err

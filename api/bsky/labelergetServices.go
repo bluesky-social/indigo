@@ -57,10 +57,11 @@ func (t *LabelerGetServices_Output_Views_Elem) UnmarshalJSON(b []byte) error {
 func LabelerGetServices(ctx context.Context, c *xrpc.Client, detailed bool, dids []string) (*LabelerGetServices_Output, error) {
 	var out LabelerGetServices_Output
 
-	params := map[string]interface{}{
-		"detailed": detailed,
-		"dids":     dids,
+	params := map[string]interface{}{}
+	if detailed {
+		params["detailed"] = detailed
 	}
+	params["dids"] = dids
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.labeler.getServices", params, nil, &out); err != nil {
 		return nil, err
 	}

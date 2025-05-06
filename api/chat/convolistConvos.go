@@ -20,11 +20,18 @@ type ConvoListConvos_Output struct {
 func ConvoListConvos(ctx context.Context, c *xrpc.Client, cursor string, limit int64, readState string, status string) (*ConvoListConvos_Output, error) {
 	var out ConvoListConvos_Output
 
-	params := map[string]interface{}{
-		"cursor":    cursor,
-		"limit":     limit,
-		"readState": readState,
-		"status":    status,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if readState != "" {
+		params["readState"] = readState
+	}
+	if status != "" {
+		params["status"] = status
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "chat.bsky.convo.listConvos", params, nil, &out); err != nil {
 		return nil, err

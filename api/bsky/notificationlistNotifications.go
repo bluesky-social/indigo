@@ -47,10 +47,10 @@ func NotificationListNotifications(ctx context.Context, c *xrpc.Client, cursor s
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if priority != false {
+	if priority {
 		params["priority"] = priority
 	}
-	if len(reasons) > 0 {
+	if len(reasons) != 0 {
 		params["reasons"] = reasons
 	}
 	if seenAt != "" {

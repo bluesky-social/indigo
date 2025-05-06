@@ -14,9 +14,8 @@ import (
 func ModerationGetEvent(ctx context.Context, c *xrpc.Client, id int64) (*ModerationDefs_ModEventViewDetail, error) {
 	var out ModerationDefs_ModEventViewDetail
 
-	params := map[string]interface{}{
-		"id": id,
-	}
+	params := map[string]interface{}{}
+	params["id"] = id
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.moderation.getEvent", params, nil, &out); err != nil {
 		return nil, err
 	}

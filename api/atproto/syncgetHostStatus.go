@@ -26,9 +26,8 @@ type SyncGetHostStatus_Output struct {
 func SyncGetHostStatus(ctx context.Context, c *xrpc.Client, hostname string) (*SyncGetHostStatus_Output, error) {
 	var out SyncGetHostStatus_Output
 
-	params := map[string]interface{}{
-		"hostname": hostname,
-	}
+	params := map[string]interface{}{}
+	params["hostname"] = hostname
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getHostStatus", params, nil, &out); err != nil {
 		return nil, err
 	}

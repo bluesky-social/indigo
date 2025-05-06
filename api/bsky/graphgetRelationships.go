@@ -61,9 +61,10 @@ func (t *GraphGetRelationships_Output_Relationships_Elem) UnmarshalJSON(b []byte
 func GraphGetRelationships(ctx context.Context, c *xrpc.Client, actor string, others []string) (*GraphGetRelationships_Output, error) {
 	var out GraphGetRelationships_Output
 
-	params := map[string]interface{}{
-		"actor":  actor,
-		"others": others,
+	params := map[string]interface{}{}
+	params["actor"] = actor
+	if len(others) != 0 {
+		params["others"] = others
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.getRelationships", params, nil, &out); err != nil {
 		return nil, err

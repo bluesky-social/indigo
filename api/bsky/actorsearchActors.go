@@ -23,11 +23,18 @@ type ActorSearchActors_Output struct {
 func ActorSearchActors(ctx context.Context, c *xrpc.Client, cursor string, limit int64, q string, term string) (*ActorSearchActors_Output, error) {
 	var out ActorSearchActors_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
-		"q":      q,
-		"term":   term,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if q != "" {
+		params["q"] = q
+	}
+	if term != "" {
+		params["term"] = term
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.actor.searchActors", params, nil, &out); err != nil {
 		return nil, err
