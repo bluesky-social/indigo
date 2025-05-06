@@ -113,7 +113,8 @@ func runBlobExport(cctx *cli.Context) error {
 			}
 			blobBytes, err := comatproto.SyncGetBlob(ctx, &xrpcc, cidStr, ident.DID.String())
 			if err != nil {
-				return err
+				fmt.Printf("%s\tfailed %s\n", blobPath, err)
+				continue
 			}
 			if err := os.WriteFile(blobPath, blobBytes, 0666); err != nil {
 				return err
