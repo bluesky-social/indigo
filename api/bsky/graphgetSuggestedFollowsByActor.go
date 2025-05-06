@@ -23,9 +23,8 @@ type GraphGetSuggestedFollowsByActor_Output struct {
 func GraphGetSuggestedFollowsByActor(ctx context.Context, c *xrpc.Client, actor string) (*GraphGetSuggestedFollowsByActor_Output, error) {
 	var out GraphGetSuggestedFollowsByActor_Output
 
-	params := map[string]interface{}{
-		"actor": actor,
-	}
+	params := map[string]interface{}{}
+	params["actor"] = actor
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.getSuggestedFollowsByActor", params, nil, &out); err != nil {
 		return nil, err
 	}

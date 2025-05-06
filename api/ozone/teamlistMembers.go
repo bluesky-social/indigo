@@ -20,12 +20,21 @@ type TeamListMembers_Output struct {
 func TeamListMembers(ctx context.Context, c *xrpc.Client, cursor string, disabled bool, limit int64, q string, roles []string) (*TeamListMembers_Output, error) {
 	var out TeamListMembers_Output
 
-	params := map[string]interface{}{
-		"cursor":   cursor,
-		"disabled": disabled,
-		"limit":    limit,
-		"q":        q,
-		"roles":    roles,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if disabled {
+		params["disabled"] = disabled
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if q != "" {
+		params["q"] = q
+	}
+	if len(roles) != 0 {
+		params["roles"] = roles
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.team.listMembers", params, nil, &out); err != nil {
 		return nil, err

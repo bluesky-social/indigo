@@ -21,9 +21,12 @@ type UnspeccedGetSuggestedUsers_Output struct {
 func UnspeccedGetSuggestedUsers(ctx context.Context, c *xrpc.Client, category string, limit int64) (*UnspeccedGetSuggestedUsers_Output, error) {
 	var out UnspeccedGetSuggestedUsers_Output
 
-	params := map[string]interface{}{
-		"category": category,
-		"limit":    limit,
+	params := map[string]interface{}{}
+	if category != "" {
+		params["category"] = category
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getSuggestedUsers", params, nil, &out); err != nil {
 		return nil, err

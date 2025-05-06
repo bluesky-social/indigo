@@ -22,12 +22,21 @@ type SetQuerySets_Output struct {
 func SetQuerySets(ctx context.Context, c *xrpc.Client, cursor string, limit int64, namePrefix string, sortBy string, sortDirection string) (*SetQuerySets_Output, error) {
 	var out SetQuerySets_Output
 
-	params := map[string]interface{}{
-		"cursor":        cursor,
-		"limit":         limit,
-		"namePrefix":    namePrefix,
-		"sortBy":        sortBy,
-		"sortDirection": sortDirection,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if namePrefix != "" {
+		params["namePrefix"] = namePrefix
+	}
+	if sortBy != "" {
+		params["sortBy"] = sortBy
+	}
+	if sortDirection != "" {
+		params["sortDirection"] = sortDirection
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.set.querySets", params, nil, &out); err != nil {
 		return nil, err

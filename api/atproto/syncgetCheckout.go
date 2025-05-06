@@ -17,9 +17,8 @@ import (
 func SyncGetCheckout(ctx context.Context, c *xrpc.Client, did string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
-	params := map[string]interface{}{
-		"did": did,
-	}
+	params := map[string]interface{}{}
+	params["did"] = did
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getCheckout", params, nil, buf); err != nil {
 		return nil, err
 	}

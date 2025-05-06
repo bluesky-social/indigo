@@ -19,8 +19,9 @@ type UnspeccedGetTrends_Output struct {
 func UnspeccedGetTrends(ctx context.Context, c *xrpc.Client, limit int64) (*UnspeccedGetTrends_Output, error) {
 	var out UnspeccedGetTrends_Output
 
-	params := map[string]interface{}{
-		"limit": limit,
+	params := map[string]interface{}{}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getTrends", params, nil, &out); err != nil {
 		return nil, err

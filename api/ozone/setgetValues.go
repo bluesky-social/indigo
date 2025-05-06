@@ -21,11 +21,14 @@ type SetGetValues_Output struct {
 func SetGetValues(ctx context.Context, c *xrpc.Client, cursor string, limit int64, name string) (*SetGetValues_Output, error) {
 	var out SetGetValues_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
-		"name":   name,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	params["name"] = name
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.set.getValues", params, nil, &out); err != nil {
 		return nil, err
 	}

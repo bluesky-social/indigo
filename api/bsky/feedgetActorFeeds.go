@@ -20,10 +20,13 @@ type FeedGetActorFeeds_Output struct {
 func FeedGetActorFeeds(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*FeedGetActorFeeds_Output, error) {
 	var out FeedGetActorFeeds_Output
 
-	params := map[string]interface{}{
-		"actor":  actor,
-		"cursor": cursor,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	params["actor"] = actor
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getActorFeeds", params, nil, &out); err != nil {
 		return nil, err

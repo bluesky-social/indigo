@@ -16,9 +16,8 @@ import (
 func IdentityResolveIdentity(ctx context.Context, c *xrpc.Client, identifier string) (*IdentityDefs_IdentityInfo, error) {
 	var out IdentityDefs_IdentityInfo
 
-	params := map[string]interface{}{
-		"identifier": identifier,
-	}
+	params := map[string]interface{}{}
+	params["identifier"] = identifier
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.identity.resolveIdentity", params, nil, &out); err != nil {
 		return nil, err
 	}

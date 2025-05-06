@@ -20,10 +20,13 @@ type FeedGetActorLikes_Output struct {
 func FeedGetActorLikes(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*FeedGetActorLikes_Output, error) {
 	var out FeedGetActorLikes_Output
 
-	params := map[string]interface{}{
-		"actor":  actor,
-		"cursor": cursor,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	params["actor"] = actor
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getActorLikes", params, nil, &out); err != nil {
 		return nil, err

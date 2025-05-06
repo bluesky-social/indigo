@@ -22,10 +22,15 @@ type UnspeccedGetSuggestedUsersSkeleton_Output struct {
 func UnspeccedGetSuggestedUsersSkeleton(ctx context.Context, c *xrpc.Client, category string, limit int64, viewer string) (*UnspeccedGetSuggestedUsersSkeleton_Output, error) {
 	var out UnspeccedGetSuggestedUsersSkeleton_Output
 
-	params := map[string]interface{}{
-		"category": category,
-		"limit":    limit,
-		"viewer":   viewer,
+	params := map[string]interface{}{}
+	if category != "" {
+		params["category"] = category
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if viewer != "" {
+		params["viewer"] = viewer
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getSuggestedUsersSkeleton", params, nil, &out); err != nil {
 		return nil, err

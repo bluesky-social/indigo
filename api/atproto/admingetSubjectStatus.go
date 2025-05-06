@@ -67,10 +67,15 @@ func (t *AdminGetSubjectStatus_Output_Subject) UnmarshalJSON(b []byte) error {
 func AdminGetSubjectStatus(ctx context.Context, c *xrpc.Client, blob string, did string, uri string) (*AdminGetSubjectStatus_Output, error) {
 	var out AdminGetSubjectStatus_Output
 
-	params := map[string]interface{}{
-		"blob": blob,
-		"did":  did,
-		"uri":  uri,
+	params := map[string]interface{}{}
+	if blob != "" {
+		params["blob"] = blob
+	}
+	if did != "" {
+		params["did"] = did
+	}
+	if uri != "" {
+		params["uri"] = uri
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.getSubjectStatus", params, nil, &out); err != nil {
 		return nil, err

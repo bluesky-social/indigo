@@ -19,8 +19,9 @@ type UnspeccedGetSuggestedStarterPacks_Output struct {
 func UnspeccedGetSuggestedStarterPacks(ctx context.Context, c *xrpc.Client, limit int64) (*UnspeccedGetSuggestedStarterPacks_Output, error) {
 	var out UnspeccedGetSuggestedStarterPacks_Output
 
-	params := map[string]interface{}{
-		"limit": limit,
+	params := map[string]interface{}{}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getSuggestedStarterPacks", params, nil, &out); err != nil {
 		return nil, err

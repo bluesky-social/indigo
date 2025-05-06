@@ -122,8 +122,9 @@ func (t *ConvoGetLog_Output_Logs_Elem) UnmarshalJSON(b []byte) error {
 func ConvoGetLog(ctx context.Context, c *xrpc.Client, cursor string) (*ConvoGetLog_Output, error) {
 	var out ConvoGetLog_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "chat.bsky.convo.getLog", params, nil, &out); err != nil {
 		return nil, err
