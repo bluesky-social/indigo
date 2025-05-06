@@ -21,9 +21,13 @@ func FeedGetFeed(ctx context.Context, c *xrpc.Client, cursor string, feed string
 	var out FeedGetFeed_Output
 
 	params := map[string]interface{}{
-		"cursor": cursor,
-		"feed":   feed,
-		"limit":  limit,
+		"feed": feed,
+	}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getFeed", params, nil, &out); err != nil {
 		return nil, err

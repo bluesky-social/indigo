@@ -19,8 +19,10 @@ func SyncGetRepo(ctx context.Context, c *xrpc.Client, did string, since string) 
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{
-		"did":   did,
-		"since": since,
+		"did": did,
+	}
+	if since != "" {
+		params["since"] = since
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getRepo", params, nil, buf); err != nil {
 		return nil, err

@@ -24,8 +24,12 @@ func FeedGetTimeline(ctx context.Context, c *xrpc.Client, algorithm string, curs
 
 	params := map[string]interface{}{
 		"algorithm": algorithm,
-		"cursor":    cursor,
-		"limit":     limit,
+	}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getTimeline", params, nil, &out); err != nil {
 		return nil, err
