@@ -937,6 +937,14 @@ func (mst *MerkleSearchTree) findGtOrEqualLeafIndex(ctx context.Context, key str
 // key that's greater than or equal to the provided from key.
 // If cb returns an error, the walk is aborted and the error is returned.
 func (mst *MerkleSearchTree) WalkLeavesFrom(ctx context.Context, from string, cb func(key string, val cid.Cid) error) error {
+	return mst.walkLeavesFrom(ctx, from, false, cb)
+}
+
+func (mst *MerkleSearchTree) WalkLeavesFromNocache(ctx context.Context, from string, cb func(key string, val cid.Cid) error) error {
+	return mst.walkLeavesFrom(ctx, from, true, cb)
+}
+
+func (mst *MerkleSearchTree) walkLeavesFrom(ctx context.Context, from string, nocache bool, cb func(key string, val cid.Cid) error) error {
 	index, err := mst.findGtOrEqualLeafIndex(ctx, from)
 	if err != nil {
 		return err
@@ -950,7 +958,7 @@ func (mst *MerkleSearchTree) WalkLeavesFrom(ctx context.Context, from string, cb
 	if index > 0 {
 		prev := entries[index-1]
 		if !prev.isUndefined() && prev.isTree() {
-			if err := prev.Tree.WalkLeavesFrom(ctx, from, cb); err != nil {
+			if err := prev.Tree.walkLeavesFrom(ctx, from, nocache, cb); err != nil {
 				return fmt.Errorf("walk leaves %d: %w", index, err)
 			}
 		}
@@ -962,8 +970,11 @@ func (mst *MerkleSearchTree) WalkLeavesFrom(ctx context.Context, from string, cb
 				return err
 			}
 		} else {
-			if err := e.Tree.WalkLeavesFrom(ctx, from, cb); err != nil {
+			if err := e.Tree.walkLeavesFrom(ctx, from, nocache, cb); err != nil {
 				return fmt.Errorf("walk leaves from (%d): %w", i, err)
+			}
+			if nocache {
+				e.Tree = nil
 			}
 		}
 	}
