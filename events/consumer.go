@@ -160,6 +160,8 @@ func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOpt
 		return fmt.Errorf("invalid HandleRepoStreamRobust options")
 	}
 
+	defer opts.Scheduler.Shutdown()
+
 	// Set defaults if not provided
 	if opts.Dialer == nil {
 		opts.Dialer = websocket.DefaultDialer
@@ -174,12 +176,6 @@ func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOpt
 	upstream, err := url.Parse(opts.URL)
 	if err != nil {
 		return fmt.Errorf("invalid upstream url %q: %w", opts.URL, err)
-	}
-
-	retryableCloses := []int{
-		websocket.CloseNormalClosure,
-		websocket.CloseGoingAway,
-		websocket.CloseAbnormalClosure,
 	}
 
 	// Wrap all applicable event callbacks to track the cursor sequence number
@@ -213,18 +209,14 @@ func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOpt
 			// reset the failure counter
 			failures = 0
 		}
-		if websocket.IsCloseError(err, retryableCloses...) {
+		if err != nil {
 			if failures >= opts.MaxReconnectAttempts {
-				return fmt.Errorf("failed to : %w", err)
+				return fmt.Errorf("failed to stream from repo: %w", err)
 			}
 
 			time.Sleep(backoffDuration(failures))
 			failures++
 			continue
-		}
-		if err != nil {
-			// non-retryable error
-			return err
 		}
 	}
 
@@ -274,6 +266,7 @@ func backoffDuration(retry int) time.Duration {
 // sched gets AddWork for each event
 // log may be nil for default logger
 func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler, log *slog.Logger) error {
+	defer sched.Shutdown()
 	return handleRepoStream(ctx, con, sched, log, nil)
 }
 
@@ -283,7 +276,6 @@ func handleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	defer sched.Shutdown()
 
 	remoteAddr := con.RemoteAddr().String()
 
