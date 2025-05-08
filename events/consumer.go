@@ -119,12 +119,6 @@ func (sr *instrumentedReader) Read(p []byte) (int, error) {
 
 // Options that control how we should subscribe to a remote event stream
 type HandleRepoStreamRobustOptions struct {
-	// Controls how work should be processed when reading from the remote
-	Scheduler Scheduler
-
-	// The full URL to which we will connect (i.e. `wss://example.com:8080/xrpc/com.atproto.sync.subscribeRepos`)
-	URL string
-
 	// The cursor to use when dialing the remote repo (optional)
 	Cursor *int
 
@@ -143,10 +137,8 @@ type HandleRepoStreamRobustOptions struct {
 }
 
 // Constructs an options object with a set of sane default arguments that can be overridden by the user
-func DefaultHandleRepoStreamRobustOptions(sched Scheduler, u string) *HandleRepoStreamRobustOptions {
+func DefaultHandleRepoStreamRobustOptions() *HandleRepoStreamRobustOptions {
 	return &HandleRepoStreamRobustOptions{
-		Scheduler:            sched,
-		URL:                  u,
 		Dialer:               websocket.DefaultDialer,
 		Header:               http.Header{},
 		MaxReconnectAttempts: 10,
@@ -154,13 +146,18 @@ func DefaultHandleRepoStreamRobustOptions(sched Scheduler, u string) *HandleRepo
 	}
 }
 
-// The same as `HandleRepoStream`, but with auto-reconnects in the case of upstream disconnects
-func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOptions) error {
-	if opts == nil || opts.Scheduler == nil || opts.URL == "" {
+// The same as `HandleRepoStream`, but with auto-reconnects in the case of upstream disconnects. `fullURL` must be
+// the entire URL to which we will connect (i.e. `wss://example.com:8080/xrpc/com.atproto.sync.subscribeRepos`).
+func HandleRepoStreamRobust(ctx context.Context, fullURL string, sched Scheduler, opts *HandleRepoStreamRobustOptions) error {
+	if fullURL == "" {
+		return fmt.Errorf("fullURL is required")
+	}
+	if sched == nil {
+		return fmt.Errorf("sched is required")
+	}
+	if opts == nil {
 		return fmt.Errorf("invalid HandleRepoStreamRobust options")
 	}
-
-	defer opts.Scheduler.Shutdown()
 
 	// Set defaults if not provided
 	if opts.Dialer == nil {
@@ -173,14 +170,16 @@ func HandleRepoStreamRobust(ctx context.Context, opts *HandleRepoStreamRobustOpt
 		opts.Header.Set("User-Agent", "indigo/"+versioninfo.Short())
 	}
 
-	upstream, err := url.Parse(opts.URL)
+	upstream, err := url.Parse(fullURL)
 	if err != nil {
-		return fmt.Errorf("invalid upstream url %q: %w", opts.URL, err)
+		return fmt.Errorf("invalid upstream url %q: %w", fullURL, err)
 	}
+
+	defer sched.Shutdown()
 
 	// Wrap all applicable event callbacks to track the cursor sequence number
 	// so we're up-to-date when attempting to reconnect
-	monitor := newMonitoredScheduler(opts.Scheduler)
+	monitor := newMonitoredScheduler(sched)
 	if opts.Cursor != nil {
 		monitor.cursor.Store(int64(*opts.Cursor))
 	}
