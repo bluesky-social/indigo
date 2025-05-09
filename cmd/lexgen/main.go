@@ -64,9 +64,6 @@ func main() {
 		&cli.StringFlag{
 			Name: "outdir",
 		},
-		&cli.StringFlag{
-			Name: "prefix",
-		},
 		&cli.BoolFlag{
 			Name: "gen-server",
 		},
