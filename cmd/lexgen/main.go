@@ -64,9 +64,6 @@ func main() {
 		&cli.StringFlag{
 			Name: "outdir",
 		},
-		&cli.StringFlag{
-			Name: "prefix",
-		},
 		&cli.BoolFlag{
 			Name: "gen-server",
 		},
@@ -75,6 +72,9 @@ func main() {
 		},
 		&cli.StringSliceFlag{
 			Name: "types-import",
+		},
+		&cli.StringSliceFlag{
+			Name: "external-lexicons",
 		},
 		&cli.StringFlag{
 			Name:  "package",
@@ -107,6 +107,20 @@ func main() {
 			}
 
 			schemas = append(schemas, s)
+		}
+
+		externalPaths, err := expandArgs(cctx.StringSlice("external-lexicons"))
+		if err != nil {
+			return err
+		}
+		var externalSchemas []*lex.Schema
+		for _, arg := range externalPaths {
+			s, err := lex.ReadSchema(arg)
+			if err != nil {
+				return fmt.Errorf("failed to read file %q: %w", arg, err)
+			}
+
+			externalSchemas = append(externalSchemas, s)
 		}
 
 		buildLiteral := cctx.String("build")
@@ -145,7 +159,7 @@ func main() {
 			if outdir == "" {
 				return fmt.Errorf("must specify output directory (--outdir)")
 			}
-			defmap := lex.BuildExtDefMap(schemas, packages)
+			defmap := lex.BuildExtDefMap(append(schemas, externalSchemas...), packages)
 			_ = defmap
 
 			paths := cctx.StringSlice("types-import")
@@ -162,7 +176,7 @@ func main() {
 			}
 
 		} else {
-			return lex.Run(schemas, packages)
+			return lex.Run(schemas, externalSchemas, packages)
 		}
 
 		return nil
