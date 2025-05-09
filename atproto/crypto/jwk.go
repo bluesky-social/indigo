@@ -16,12 +16,12 @@ import (
 //
 // Expected to be marshalled/unmarshalled as JSON.
 type JWK struct {
-	Algorithm string  `json:"alg"`
-	Curve     string  `json:"crv"`
-	X         string  `json:"x"` // base64url, no padding
-	Y         string  `json:"y"` // base64url, no padding
-	Use       string  `json:"use,omitempty"`
-	KeyID     *string `json:"kid,omitempty"`
+	KeyType string  `json:"kty"`
+	Curve   string  `json:"crv"`
+	X       string  `json:"x"` // base64url, no padding
+	Y       string  `json:"y"` // base64url, no padding
+	Use     string  `json:"use,omitempty"`
+	KeyID   *string `json:"kid,omitempty"`
 }
 
 // Loads a [PublicKey] from JWK (serialized as JSON bytes)
@@ -36,8 +36,8 @@ func ParsePublicJWKBytes(jwkBytes []byte) (PublicKey, error) {
 // Loads a [PublicKey] from JWK struct.
 func ParsePublicJWK(jwk JWK) (PublicKey, error) {
 
-	if jwk.Algorithm != "EC" {
-		return nil, fmt.Errorf("unsupported JWK cryptography: %s", jwk.Algorithm)
+	if jwk.KeyType != "EC" {
+		return nil, fmt.Errorf("unsupported JWK key type: %s", jwk.KeyType)
 	}
 
 	// base64url with no encoding
@@ -99,10 +99,10 @@ func ParsePublicJWK(jwk JWK) (PublicKey, error) {
 
 func (k *PublicKeyP256) JWK() (*JWK, error) {
 	jwk := JWK{
-		Algorithm: "EC",
-		Curve:     "P-256",
-		X:         base64.RawURLEncoding.EncodeToString(k.pubP256.X.Bytes()),
-		Y:         base64.RawURLEncoding.EncodeToString(k.pubP256.Y.Bytes()),
+		KeyType: "EC",
+		Curve:   "P-256",
+		X:       base64.RawURLEncoding.EncodeToString(k.pubP256.X.Bytes()),
+		Y:       base64.RawURLEncoding.EncodeToString(k.pubP256.Y.Bytes()),
 	}
 	return &jwk, nil
 }
@@ -115,10 +115,10 @@ func (k *PublicKeyK256) JWK() (*JWK, error) {
 	xbytes := raw[1:33]
 	ybytes := raw[33:65]
 	jwk := JWK{
-		Algorithm: "EC",
-		Curve:     "secp256k1",
-		X:         base64.RawURLEncoding.EncodeToString(xbytes),
-		Y:         base64.RawURLEncoding.EncodeToString(ybytes),
+		KeyType: "EC",
+		Curve:   "secp256k1",
+		X:       base64.RawURLEncoding.EncodeToString(xbytes),
+		Y:       base64.RawURLEncoding.EncodeToString(ybytes),
 	}
 	return &jwk, nil
 }
