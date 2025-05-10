@@ -30,7 +30,8 @@ type PrivateKeyExportable interface {
 	// No ASN.1 or other enclosing structure is applied to the bytes.
 	Bytes() []byte
 
-	// NOTE: should Multibase() (string, error) be part of this interface? Probably.
+	// String serialization of the key bytes in "Multibase" format.
+	Multibase() string
 }
 
 // Common interface for all the supported atproto cryptographic systems.
