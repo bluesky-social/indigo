@@ -24,16 +24,11 @@ type RefreshAuth struct {
 // TODO:
 //func NewRefreshAuth(pdsHost, accountIdentifier, password string) (*RefreshAuth, error) {
 
-func (a *RefreshAuth) DoWithAuth(httpReq *http.Request, httpClient *http.Client) (*http.Response, error) {
-	httpReq.Header.Set("Authorization", "Bearer "+a.AccessToken)
+func (a *RefreshAuth) DoWithAuth(req *http.Request, c *http.Client) (*http.Response, error) {
+	req.Header.Set("Authorization", "Bearer "+a.AccessToken)
 	// XXX: check response. if it is 403, because access token is expired, then take a lock and do a refresh
 	// TODO: when doing a refresh request, copy at least the User-Agent header from httpReq, and re-use httpClient
-	return httpClient.Do(httpReq)
-}
-
-// Admin bearer token auth does not involve an account DID
-func (a *RefreshAuth) AccountDID() syntax.DID {
-	return a.DID
+	return c.Do(httpReq)
 }
 
 // updates the client with the new auth method

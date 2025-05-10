@@ -27,16 +27,11 @@ func NewServiceAuth(issuer syntax.DID, frag string, key *crypto.PrivateKey) Serv
 	}
 }
 
-func (a *ServiceAuth) DoWithAuth(req *http.Request, httpClient *http.Client) (*http.Response, error) {
+func (a *ServiceAuth) DoWithAuth(req *http.Request, c *http.Client) (*http.Response, error) {
 	// TODO: detect audience from request headers (atproto-proxy)
 	// TODO: extract endpoint (LXM) from request
 
 	thing := ""
 	req.Header.Set("Authorization", "Bearer "+thing)
-	return httpClient.Do(req)
-}
-
-// Admin bearer token auth does not involve an account DID
-func (a *ServiceAuth) AccountDID() syntax.DID {
-	return a.Issuer
+	return c.Do(req)
 }
