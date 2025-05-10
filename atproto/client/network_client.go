@@ -12,7 +12,7 @@ import (
 // API for clients which pull data from the public atproto network.
 //
 // Implementations of this interface might resolve PDS instances for DIDs, and fetch data from there. Or they might talk to an archival relay or other network mirroring service.
-type SyncClient interface {
+type NetworkClient interface {
 	// Fetches record JSON, without verification or validation. A version (CID) can optionally be specified; use empty string to fetch the latest.
 	// Returns the record as JSON, and the CID indicated by the server. Does not verify that the data (as CBOR) matches the CID, and does not cryptographically verify a "proof chain" to the record.
 	GetRecordJSON(ctx context.Context, aturi syntax.ATURI, version syntax.CID) (*json.RawMessage, *syntax.CID, error)
@@ -25,8 +25,8 @@ type SyncClient interface {
 	GetRepoCAR(ctx context.Context, did syntax.DID, since string) (*io.Reader, error)
 
 	// Fetches indicated blob. Does not validate the CID. Returns a reader (which calling code is responsible for closing).
-	GetBlob(ctx context.Context, did syntax.DID, cid syntax.CID) (*io.Reader, error)
-	CheckAccountStatus(ctx context.Context, did syntax.DID) (*AccountStatus, error)
+	GetBlob(ctx context.Context, did syntax.DID, cid syntax.CID) (*io.ReadCloser, error)
+	GetAccountStatus(ctx context.Context, did syntax.DID) (*AccountStatus, error)
 }
 
 // XXX: type alias to codegen? or just copy? this is protocol-level
