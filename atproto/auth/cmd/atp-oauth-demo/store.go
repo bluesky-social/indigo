@@ -4,26 +4,26 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/bluesky-social/indigo/atproto/auth"
+	"github.com/bluesky-social/indigo/atproto/auth/oauth"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
 // simple in-process database for sessions and auth requests
 type AuthMemStore struct {
-	requests map[string]auth.OAuthRequestInfo
-	sessions map[string]auth.OAuthSession
+	requests map[string]oauth.OAuthRequestInfo
+	sessions map[string]oauth.OAuthSession
 
 	lk sync.Mutex
 }
 
 func NewAuthMemStore() AuthMemStore {
 	return AuthMemStore{
-		requests: make(map[string]auth.OAuthRequestInfo),
-		sessions: make(map[string]auth.OAuthSession),
+		requests: make(map[string]oauth.OAuthRequestInfo),
+		sessions: make(map[string]oauth.OAuthSession),
 	}
 }
 
-func (m *AuthMemStore) GetSession(did syntax.DID) (*auth.OAuthSession, error) {
+func (m *AuthMemStore) GetSession(did syntax.DID) (*oauth.OAuthSession, error) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
@@ -34,7 +34,7 @@ func (m *AuthMemStore) GetSession(did syntax.DID) (*auth.OAuthSession, error) {
 	return &sess, nil
 }
 
-func (m *AuthMemStore) GetAuthRequestInfo(state string) (*auth.OAuthRequestInfo, error) {
+func (m *AuthMemStore) GetAuthRequestInfo(state string) (*oauth.OAuthRequestInfo, error) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
@@ -46,14 +46,14 @@ func (m *AuthMemStore) GetAuthRequestInfo(state string) (*auth.OAuthRequestInfo,
 	return &req, nil
 }
 
-func (m *AuthMemStore) SaveSession(sess auth.OAuthSession) {
+func (m *AuthMemStore) SaveSession(sess oauth.OAuthSession) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
 	m.sessions[sess.AccountDID.String()] = sess
 }
 
-func (m *AuthMemStore) SaveAuthRequestInfo(info auth.OAuthRequestInfo) {
+func (m *AuthMemStore) SaveAuthRequestInfo(info oauth.OAuthRequestInfo) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 

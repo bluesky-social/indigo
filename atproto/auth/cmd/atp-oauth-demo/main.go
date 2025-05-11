@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/bluesky-social/indigo/atproto/auth"
+	"github.com/bluesky-social/indigo/atproto/auth/oauth"
 	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -92,7 +92,7 @@ func (s *Server) ClientMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	meta := auth.ClientMetadata{
+	meta := oauth.ClientMetadata{
 		ClientID:                    ParseClientID(r),
 		DpopBoundAccessTokens:       true,
 		ApplicationType:             strPtr("web"),
@@ -182,7 +182,7 @@ func (s *Server) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clientID := ParseClientID(r)
-	c := auth.NewOAuthClient(clientID)
+	c := oauth.NewOAuthClient(clientID)
 	c.ClientSecretKey = s.ClientSecretKey
 	priv, err := crypto.GeneratePrivateKeyP256()
 	if err != nil {
@@ -261,7 +261,7 @@ func (s *Server) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := auth.ResumeAuthRequest(clientID, info)
+	c, err := oauth.ResumeAuthRequest(clientID, info)
 	if err != nil {
 		http.Error(w, fmt.Errorf("resuming auth request flow: %w", err).Error(), http.StatusInternalServerError)
 		return
@@ -295,7 +295,7 @@ func (s *Server) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authSess := auth.OAuthSession{
+	authSess := oauth.OAuthSession{
 		AccountDID:          *info.AccountDID,   // nil checked above
 		HostURL:             info.AuthServerURL, // XXX
 		AuthServerURL:       info.AuthServerURL,
@@ -343,7 +343,7 @@ func (s *Server) OAuthRefresh(w http.ResponseWriter, r *http.Request) {
 
 	//TODO:
 	clientID := ParseClientID(r)
-	c := auth.NewOAuthClient(clientID)
+	c := oauth.NewOAuthClient(clientID)
 	c.ClientSecretKey = s.ClientSecretKey
 	c.AuthServerURL = oauthSess.AuthServerURL
 
@@ -414,7 +414,7 @@ func (s *Server) Post(w http.ResponseWriter, r *http.Request) {
 	text := r.PostFormValue("post_text")
 
 	clientID := ParseClientID(r)
-	c := auth.NewOAuthClient(clientID)
+	c := oauth.NewOAuthClient(clientID)
 	c.ClientSecretKey = s.ClientSecretKey
 	c.AuthServerURL = oauthSess.AuthServerURL
 	c.Session = oauthSess
