@@ -10,20 +10,20 @@ import (
 
 // simple in-process database for sessions and auth requests
 type AuthMemStore struct {
-	requests map[string]oauth.OAuthRequestInfo
-	sessions map[string]oauth.OAuthSession
+	requests map[string]oauth.AuthRequestData
+	sessions map[string]oauth.SessionData
 
 	lk sync.Mutex
 }
 
 func NewAuthMemStore() AuthMemStore {
 	return AuthMemStore{
-		requests: make(map[string]oauth.OAuthRequestInfo),
-		sessions: make(map[string]oauth.OAuthSession),
+		requests: make(map[string]oauth.AuthRequestData),
+		sessions: make(map[string]oauth.SessionData),
 	}
 }
 
-func (m *AuthMemStore) GetSession(did syntax.DID) (*oauth.OAuthSession, error) {
+func (m *AuthMemStore) GetSession(did syntax.DID) (*oauth.SessionData, error) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
@@ -34,7 +34,7 @@ func (m *AuthMemStore) GetSession(did syntax.DID) (*oauth.OAuthSession, error) {
 	return &sess, nil
 }
 
-func (m *AuthMemStore) GetAuthRequestInfo(state string) (*oauth.OAuthRequestInfo, error) {
+func (m *AuthMemStore) GetAuthRequestInfo(state string) (*oauth.AuthRequestData, error) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
@@ -46,14 +46,14 @@ func (m *AuthMemStore) GetAuthRequestInfo(state string) (*oauth.OAuthRequestInfo
 	return &req, nil
 }
 
-func (m *AuthMemStore) SaveSession(sess oauth.OAuthSession) {
+func (m *AuthMemStore) SaveSession(sess oauth.SessionData) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
 	m.sessions[sess.AccountDID.String()] = sess
 }
 
-func (m *AuthMemStore) SaveAuthRequestInfo(info oauth.OAuthRequestInfo) {
+func (m *AuthMemStore) SaveAuthRequestInfo(info oauth.AuthRequestData) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 

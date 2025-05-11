@@ -3,14 +3,10 @@ package oauth
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/crypto"
@@ -19,14 +15,24 @@ import (
 	"github.com/google/go-querystring/query"
 )
 
-func S256CodeChallenge(raw string) string {
-	b := sha256.Sum256([]byte(raw))
-	return base64.RawURLEncoding.EncodeToString(b[:])
+type ClientConfig struct {
+	ClientID   string
+	PrivateKey crypto.PrivateKey
+	KeyID      string
+
+	// TODO: ClientMetadata() method, with required fields?
+	// TODO: JWKS() method, returns public keys?
+}
+
+type Session struct {
+	Config ClientConfig
+	Data   SessionData
 }
 
 type OAuthClient struct {
 	Client              *http.Client
 	ClientID            string
+	Resolver            *Resolver
 	TTL                 time.Duration
 	DpopSecretKey       crypto.PrivateKey
 	DpopSecretMultibase string
@@ -35,7 +41,7 @@ type OAuthClient struct {
 	AuthServerURL string
 
 	// XXX: hack
-	Session *OAuthSession
+	Session *SessionData
 }
 
 func NewOAuthClient(clientID string) OAuthClient {
@@ -43,107 +49,10 @@ func NewOAuthClient(clientID string) OAuthClient {
 	c := OAuthClient{
 		Client:   http.DefaultClient,
 		ClientID: clientID,
+		Resolver: NewResolver(),
 		TTL:      30 * time.Second,
 	}
 	return c
-}
-
-type OAuthProtectedResource struct {
-	AuthorizationServers []string `json:"authorization_servers"`
-}
-
-// Resolves a resources server URL (eg, PDS URL) to an auth server URL (eg, entryway URL). They might be the same server!
-//
-// Ensures that the returned URL is valid (eg, parses as a URL).
-func (c *OAuthClient) ResolveAuthServer(ctx context.Context, hostURL string) (string, error) {
-	hu, err := url.Parse(hostURL)
-	if err != nil {
-		return "", err
-	}
-	// TODO: check against other resource server rules?
-	if hu.Scheme != "https" || hu.Hostname() == "" || hu.Port() != "" {
-		return "", fmt.Errorf("not a valid public host URL: %s", hostURL)
-	}
-
-	u := fmt.Sprintf("https://%s/.well-known/oauth-protected-resource", hu.Hostname())
-
-	// NOTE: this allows redirects
-	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := c.Client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("fetching protected resource document: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// intentionally check for exactly HTTP 200 (not just 2xx)
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP error fetching protected resource document: %d", resp.StatusCode)
-	}
-
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	var body OAuthProtectedResource
-	if err := json.Unmarshal(respBytes, &body); err != nil {
-		return "", fmt.Errorf("invalid protected resource document: %w", err)
-	}
-	if len(body.AuthorizationServers) < 1 {
-		return "", fmt.Errorf("no auth server URL in protected resource document")
-	}
-	authURL := body.AuthorizationServers[0]
-	au, err := url.Parse(body.AuthorizationServers[0])
-	if err != nil {
-		return "", fmt.Errorf("invalid auth server URL: %w", err)
-	}
-	if au.Scheme != "https" || au.Hostname() == "" || au.Port() != "" {
-		return "", fmt.Errorf("not a valid public auth server URL: %s", authURL)
-	}
-	// XXX:
-	c.AuthServerURL = authURL
-	return authURL, nil
-}
-
-// Validates the auth server metadata before returning.
-func (c *OAuthClient) FetchAuthServerMeta(ctx context.Context, serverURL string) (*AuthServerMetadata, error) {
-	su, err := url.Parse(serverURL)
-	if err != nil {
-		return nil, err
-	}
-	// TODO: check against other resource server rules?
-	if su.Scheme != "https" || su.Hostname() == "" || su.Port() != "" {
-		return nil, fmt.Errorf("not a valid public host URL: %s", serverURL)
-	}
-
-	u := fmt.Sprintf("https://%s/.well-known/oauth-authorization-server", su.Hostname())
-
-	// TODO: NewRequestWithContext instead of just Get()
-	// NOTE: this allows redirects
-	resp, err := c.Client.Get(u)
-	if err != nil {
-		return nil, fmt.Errorf("fetching auth server metadata: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// NOTE: maybe any HTTP 2xx should be allowed?
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP error fetching auth server metadata: %d", resp.StatusCode)
-	}
-
-	var body AuthServerMetadata
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return nil, fmt.Errorf("invalid protected resource document: %w", err)
-	}
-
-	if err := body.Validate(); err != nil {
-		return nil, err
-	}
-	return &body, nil
 }
 
 type clientAssertionClaims struct {
@@ -234,7 +143,7 @@ func (c *OAuthClient) NewDPoPJWT(httpMethod, url, dpopNonce string) (string, err
 }
 
 // Sends PAR request to auth server
-func (c *OAuthClient) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, redirectURI, loginHint, scope string) (*OAuthRequestInfo, error) {
+func (c *OAuthClient) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, redirectURI, loginHint, scope string) (*AuthRequestData, error) {
 	parURL := authMeta.PushedAuthorizationRequestEndpoint
 	state := randomNonce()
 	pkceVerifier := fmt.Sprintf("%s%s%s", randomNonce(), randomNonce(), randomNonce())
@@ -327,7 +236,7 @@ func (c *OAuthClient) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		return nil, fmt.Errorf("auth request (PAR) response failed to decode: %w", err)
 	}
 
-	parInfo := OAuthRequestInfo{
+	parInfo := AuthRequestData{
 		State:         state,
 		AuthServerURL: c.AuthServerURL,
 		//XXX: HostURL
@@ -341,7 +250,7 @@ func (c *OAuthClient) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 	return &parInfo, nil
 }
 
-func ResumeAuthRequest(clientID string, info *OAuthRequestInfo) (*OAuthClient, error) {
+func ResumeAuthRequest(clientID string, info *AuthRequestData) (*OAuthClient, error) {
 
 	priv, err := crypto.ParsePrivateMultibase(info.DpopKeyMultibase)
 	if err != nil {
@@ -356,7 +265,7 @@ func ResumeAuthRequest(clientID string, info *OAuthRequestInfo) (*OAuthClient, e
 	return &c, nil
 }
 
-func (c *OAuthClient) SendInitialTokenRequest(ctx context.Context, authCode string, info OAuthRequestInfo, redirectURI string) (*TokenResponse, error) {
+func (c *OAuthClient) SendInitialTokenRequest(ctx context.Context, authCode string, info AuthRequestData, redirectURI string) (*TokenResponse, error) {
 
 	clientAssertion, err := c.NewClientAssertionJWT(c.ClientID, c.AuthServerURL, c.ClientSecretKey, "one") // XXX: keyID
 	if err != nil {
@@ -364,7 +273,7 @@ func (c *OAuthClient) SendInitialTokenRequest(ctx context.Context, authCode stri
 	}
 
 	// TODO: don't re-fetch? caching?
-	authServerMeta, err := c.FetchAuthServerMeta(ctx, c.AuthServerURL)
+	authServerMeta, err := c.Resolver.ResolveAuthServerMetadata(ctx, c.AuthServerURL)
 	if err != nil {
 		return nil, err
 	}
@@ -444,7 +353,7 @@ func (c *OAuthClient) SendInitialTokenRequest(ctx context.Context, authCode stri
 	return &tokenResp, nil
 }
 
-func (c *OAuthClient) RefreshTokens(ctx context.Context, sess *OAuthSession) error {
+func (c *OAuthClient) RefreshTokens(ctx context.Context, sess *SessionData) error {
 
 	clientAssertion, err := c.NewClientAssertionJWT(c.ClientID, sess.AuthServerURL, c.ClientSecretKey, "one") // XXX: keyID
 	if err != nil {
@@ -452,7 +361,7 @@ func (c *OAuthClient) RefreshTokens(ctx context.Context, sess *OAuthSession) err
 	}
 
 	// TODO: don't re-fetch? caching?
-	authServerMeta, err := c.FetchAuthServerMeta(ctx, sess.AuthServerURL)
+	authServerMeta, err := c.Resolver.ResolveAuthServerMetadata(ctx, sess.AuthServerURL)
 	if err != nil {
 		return err
 	}
