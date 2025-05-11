@@ -92,8 +92,9 @@ func (s *Server) ClientMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	clientID := ParseClientID(r)
 	meta := oauth.ClientMetadata{
-		ClientID:                    ParseClientID(r),
+		ClientID:                    clientID,
 		DpopBoundAccessTokens:       true,
 		ApplicationType:             strPtr("web"),
 		RedirectURIs:                []string{fmt.Sprintf("https://%s/oauth/callback", host)},
@@ -108,7 +109,7 @@ func (s *Server) ClientMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// internal consistency check
-	if err := meta.Validate(); err != nil {
+	if err := meta.Validate(clientID); err != nil {
 		slog.Error("validating client metadata", "err", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -194,12 +195,12 @@ func (s *Server) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 
 	logger := slog.Default().With("did", ident.DID, "handle", ident.Handle, "host", host)
 	logger.Info("resolving to auth server metadata")
-	authserverURL, err := c.ResolveAuthServer(ctx, host)
+	authserverURL, err := c.Resolver.ResolveAuthServerURL(ctx, host)
 	if err != nil {
 		http.Error(w, fmt.Errorf("resolving auth server: %w", err).Error(), http.StatusBadRequest)
 		return
 	}
-	authserverMeta, err := c.FetchAuthServerMeta(ctx, authserverURL)
+	authserverMeta, err := c.Resolver.ResolveAuthServerMetadata(ctx, authserverURL)
 	if err != nil {
 		http.Error(w, fmt.Errorf("fetching auth server metadata: %w", err).Error(), http.StatusBadRequest)
 		return
@@ -295,7 +296,7 @@ func (s *Server) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authSess := oauth.OAuthSession{
+	authSess := oauth.SessionData{
 		AccountDID:          *info.AccountDID,   // nil checked above
 		HostURL:             info.AuthServerURL, // XXX
 		AuthServerURL:       info.AuthServerURL,
