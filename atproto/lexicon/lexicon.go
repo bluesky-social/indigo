@@ -62,11 +62,11 @@ func validateRecordConfig(cat Catalog, recordData any, ref string, flags Validat
 // 'parameters' are the HTTP request parameters to be validated
 // 'ref' is a reference to the schema type, as an NSID with optional fragment. For records, the '$type' must match 'ref'
 // 'flags' are parameters tweaking Lexicon validation rules. Zero value is default.
-func ValidateInput(cat Catalog, inputData any, parameters url.Values, ref string, flags ValidateFlags) error {
-	return validateInputConfig(cat, inputData, parameters, ref, flags)
+func ValidateRequest(cat Catalog, inputData any, parameters url.Values, ref string, flags ValidateFlags) error {
+	return validateRequestConfig(cat, inputData, parameters, ref, flags)
 }
 
-func validateInputConfig(cat Catalog, inputData any, parameters url.Values, ref string, flags ValidateFlags) error {
+func validateRequestConfig(cat Catalog, inputData any, parameters url.Values, ref string, flags ValidateFlags) error {
 	def, err := cat.Resolve(ref)
 	if err != nil {
 		return err
