@@ -7,7 +7,7 @@ package agnostic
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ActorPutPreferences_Input is the input argument to a app.bsky.actor.putPreferences call.
@@ -16,8 +16,8 @@ type ActorPutPreferences_Input struct {
 }
 
 // ActorPutPreferences calls the XRPC method "app.bsky.actor.putPreferences".
-func ActorPutPreferences(ctx context.Context, c *xrpc.Client, input *ActorPutPreferences_Input) error {
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "app.bsky.actor.putPreferences", nil, input, nil); err != nil {
+func ActorPutPreferences(ctx context.Context, c util.LexClient, input *ActorPutPreferences_Input) error {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "app.bsky.actor.putPreferences", nil, input, nil); err != nil {
 		return err
 	}
 
