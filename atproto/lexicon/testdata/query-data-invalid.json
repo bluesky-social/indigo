@@ -1,0 +1,22 @@
+[
+    {
+        "name": "missing required field",
+        "params": "boolean=true&integer=5"
+    },
+    {
+        "name": "invalid integer 1",
+        "params": "string=string&integer=5.6"
+    },
+    {
+        "name": "invalid integer 2",
+        "params": "string=string&integer=string"
+    },
+    {
+        "name": "invalid boolean",
+        "params": "string=string&boolean=string"
+    },
+    {
+        "name": "invalid handle",
+        "params": "string=string&handle=string"
+    }
+]

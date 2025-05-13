@@ -1,0 +1,15 @@
+[
+    {
+        "name": "missing required field",
+        "params": "boolean=true&integer=5",
+        "body": {
+        }        
+    },
+    {
+        "name": "invalid body integer",
+        "params": "string=string",
+        "body": {
+            "a":"not an integer"
+        }
+    }
+]

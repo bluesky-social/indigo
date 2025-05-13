@@ -1,0 +1,10 @@
+[
+    {
+        "name": "minimal",
+        "params": "string=this%020is%020a%020string"
+    },
+    {
+        "name": "full",
+        "params": "string=this%020is%020a%020string&integer=5&boolean=true&handle=handle.example.com&unkown=%7B%22%24type%22%3A%22example.lexicon.record%23demoObject%22%2C%22a%22%3A1%2C%22b%22%3A2%7D&array=1&array=2"
+    }
+]

@@ -1,0 +1,9 @@
+[
+    {
+        "name": "minimal",
+        "params": "string=this%020is%020a%020string",
+        "body": {
+            "a":5
+        }
+    }
+]
