@@ -468,8 +468,8 @@ func ParsePackages(jsonBytes []byte) ([]Package, error) {
 	return packages, nil
 }
 
-func Run(schemas []*Schema, packages []Package) error {
-	defmap := BuildExtDefMap(schemas, packages)
+func Run(schemas []*Schema, externalSchemas []*Schema, packages []Package) error {
+	defmap := BuildExtDefMap(append(schemas, externalSchemas...), packages)
 
 	for _, pkg := range packages {
 		prefix := pkg.Prefix
