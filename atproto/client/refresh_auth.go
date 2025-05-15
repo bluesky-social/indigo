@@ -24,11 +24,11 @@ type RefreshAuth struct {
 // TODO:
 //func NewRefreshAuth(pdsHost, accountIdentifier, password string) (*RefreshAuth, error) {
 
-func (a *RefreshAuth) DoWithAuth(req *http.Request, c *http.Client) (*http.Response, error) {
+func (a *RefreshAuth) DoWithAuth(c *http.Client, req *http.Request) (*http.Response, error) {
 	req.Header.Set("Authorization", "Bearer "+a.AccessToken)
 	// XXX: check response. if it is 403, because access token is expired, then take a lock and do a refresh
 	// TODO: when doing a refresh request, copy at least the User-Agent header from httpReq, and re-use httpClient
-	return c.Do(httpReq)
+	return c.Do(req)
 }
 
 // updates the client with the new auth method
@@ -49,7 +49,7 @@ func NewSession(ctx context.Context, client *APIClient, username, password, toke
 	}
 
 	if out.Active != nil && *out.Active == false {
-		return nil, fmt.Errorf("account is disabled: %s", out.Status)
+		return nil, fmt.Errorf("account is disabled: %v", out.Status)
 	}
 
 	ra := RefreshAuth{
