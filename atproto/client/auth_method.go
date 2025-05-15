@@ -5,5 +5,5 @@ import (
 )
 
 type AuthMethod interface {
-	DoWithAuth(req *http.Request, c *http.Client) (*http.Response, error)
+	DoWithAuth(c *http.Client, req *http.Request) (*http.Response, error)
 }
