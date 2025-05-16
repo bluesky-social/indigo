@@ -18,6 +18,7 @@ require (
 	github.com/go-redis/cache/v9 v9.0.0
 	github.com/gocql/gocql v1.7.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/gorilla/websocket v1.5.1
 	github.com/hashicorp/go-retryablehttp v0.7.5
 	github.com/hashicorp/golang-lru/arc/v2 v2.0.6
