@@ -180,7 +180,10 @@ func (j *Gormjob) BufferOps(ctx context.Context, since *string, rev string, ops 
 	switch j.state {
 	case StateComplete:
 		return false, nil
-	case StateInProgress, StateEnqueued:
+	case StateEnqueued:
+		// if the repo is enqueue, but not actively being backfilled, just ignore events for it for now
+		return true, nil
+	case StateInProgress:
 		// keep going and buffer the op
 	default:
 		if strings.HasPrefix(j.state, "failed") {
