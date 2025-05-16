@@ -35,20 +35,43 @@ type UnspeccedSearchPostsSkeleton_Output struct {
 func UnspeccedSearchPostsSkeleton(ctx context.Context, c *xrpc.Client, author string, cursor string, domain string, lang string, limit int64, mentions string, q string, since string, sort string, tag []string, until string, url string, viewer string) (*UnspeccedSearchPostsSkeleton_Output, error) {
 	var out UnspeccedSearchPostsSkeleton_Output
 
-	params := map[string]interface{}{
-		"author":   author,
-		"cursor":   cursor,
-		"domain":   domain,
-		"lang":     lang,
-		"limit":    limit,
-		"mentions": mentions,
-		"q":        q,
-		"since":    since,
-		"sort":     sort,
-		"tag":      tag,
-		"until":    until,
-		"url":      url,
-		"viewer":   viewer,
+	params := map[string]interface{}{}
+	if author != "" {
+		params["author"] = author
+	}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if domain != "" {
+		params["domain"] = domain
+	}
+	if lang != "" {
+		params["lang"] = lang
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if mentions != "" {
+		params["mentions"] = mentions
+	}
+	params["q"] = q
+	if since != "" {
+		params["since"] = since
+	}
+	if sort != "" {
+		params["sort"] = sort
+	}
+	if len(tag) != 0 {
+		params["tag"] = tag
+	}
+	if until != "" {
+		params["until"] = until
+	}
+	if url != "" {
+		params["url"] = url
+	}
+	if viewer != "" {
+		params["viewer"] = viewer
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.searchPostsSkeleton", params, nil, &out); err != nil {
 		return nil, err

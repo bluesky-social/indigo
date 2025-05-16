@@ -21,9 +21,8 @@ type GraphGetStarterPack_Output struct {
 func GraphGetStarterPack(ctx context.Context, c *xrpc.Client, starterPack string) (*GraphGetStarterPack_Output, error) {
 	var out GraphGetStarterPack_Output
 
-	params := map[string]interface{}{
-		"starterPack": starterPack,
-	}
+	params := map[string]interface{}{}
+	params["starterPack"] = starterPack
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.getStarterPack", params, nil, &out); err != nil {
 		return nil, err
 	}

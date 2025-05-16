@@ -19,9 +19,8 @@ type GraphGetStarterPacks_Output struct {
 func GraphGetStarterPacks(ctx context.Context, c *xrpc.Client, uris []string) (*GraphGetStarterPacks_Output, error) {
 	var out GraphGetStarterPacks_Output
 
-	params := map[string]interface{}{
-		"uris": uris,
-	}
+	params := map[string]interface{}{}
+	params["uris"] = uris
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.getStarterPacks", params, nil, &out); err != nil {
 		return nil, err
 	}

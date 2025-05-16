@@ -18,11 +18,10 @@ import (
 func SyncGetRecord(ctx context.Context, c *xrpc.Client, collection string, did string, rkey string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
-	params := map[string]interface{}{
-		"collection": collection,
-		"did":        did,
-		"rkey":       rkey,
-	}
+	params := map[string]interface{}{}
+	params["collection"] = collection
+	params["did"] = did
+	params["rkey"] = rkey
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getRecord", params, nil, buf); err != nil {
 		return nil, err
 	}

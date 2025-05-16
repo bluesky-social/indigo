@@ -25,9 +25,8 @@ type FeedGetFeedGenerator_Output struct {
 func FeedGetFeedGenerator(ctx context.Context, c *xrpc.Client, feed string) (*FeedGetFeedGenerator_Output, error) {
 	var out FeedGetFeedGenerator_Output
 
-	params := map[string]interface{}{
-		"feed": feed,
-	}
+	params := map[string]interface{}{}
+	params["feed"] = feed
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getFeedGenerator", params, nil, &out); err != nil {
 		return nil, err
 	}

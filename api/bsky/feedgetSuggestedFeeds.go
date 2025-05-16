@@ -20,9 +20,12 @@ type FeedGetSuggestedFeeds_Output struct {
 func FeedGetSuggestedFeeds(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*FeedGetSuggestedFeeds_Output, error) {
 	var out FeedGetSuggestedFeeds_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getSuggestedFeeds", params, nil, &out); err != nil {
 		return nil, err

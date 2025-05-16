@@ -19,9 +19,8 @@ type ModerationGetSubjects_Output struct {
 func ModerationGetSubjects(ctx context.Context, c *xrpc.Client, subjects []string) (*ModerationGetSubjects_Output, error) {
 	var out ModerationGetSubjects_Output
 
-	params := map[string]interface{}{
-		"subjects": subjects,
-	}
+	params := map[string]interface{}{}
+	params["subjects"] = subjects
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.moderation.getSubjects", params, nil, &out); err != nil {
 		return nil, err
 	}

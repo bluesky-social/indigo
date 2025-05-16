@@ -19,9 +19,8 @@ type VideoGetJobStatus_Output struct {
 func VideoGetJobStatus(ctx context.Context, c *xrpc.Client, jobId string) (*VideoGetJobStatus_Output, error) {
 	var out VideoGetJobStatus_Output
 
-	params := map[string]interface{}{
-		"jobId": jobId,
-	}
+	params := map[string]interface{}{}
+	params["jobId"] = jobId
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.video.getJobStatus", params, nil, &out); err != nil {
 		return nil, err
 	}

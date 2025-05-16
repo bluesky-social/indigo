@@ -21,9 +21,12 @@ type UnspeccedGetTrendsSkeleton_Output struct {
 func UnspeccedGetTrendsSkeleton(ctx context.Context, c *xrpc.Client, limit int64, viewer string) (*UnspeccedGetTrendsSkeleton_Output, error) {
 	var out UnspeccedGetTrendsSkeleton_Output
 
-	params := map[string]interface{}{
-		"limit":  limit,
-		"viewer": viewer,
+	params := map[string]interface{}{}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if viewer != "" {
+		params["viewer"] = viewer
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getTrendsSkeleton", params, nil, &out); err != nil {
 		return nil, err

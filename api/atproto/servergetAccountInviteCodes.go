@@ -21,9 +21,12 @@ type ServerGetAccountInviteCodes_Output struct {
 func ServerGetAccountInviteCodes(ctx context.Context, c *xrpc.Client, createAvailable bool, includeUsed bool) (*ServerGetAccountInviteCodes_Output, error) {
 	var out ServerGetAccountInviteCodes_Output
 
-	params := map[string]interface{}{
-		"createAvailable": createAvailable,
-		"includeUsed":     includeUsed,
+	params := map[string]interface{}{}
+	if createAvailable {
+		params["createAvailable"] = createAvailable
+	}
+	if includeUsed {
+		params["includeUsed"] = includeUsed
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.server.getAccountInviteCodes", params, nil, &out); err != nil {
 		return nil, err

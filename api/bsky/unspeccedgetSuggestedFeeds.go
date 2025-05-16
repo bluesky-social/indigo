@@ -19,8 +19,9 @@ type UnspeccedGetSuggestedFeeds_Output struct {
 func UnspeccedGetSuggestedFeeds(ctx context.Context, c *xrpc.Client, limit int64) (*UnspeccedGetSuggestedFeeds_Output, error) {
 	var out UnspeccedGetSuggestedFeeds_Output
 
-	params := map[string]interface{}{
-		"limit": limit,
+	params := map[string]interface{}{}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getSuggestedFeeds", params, nil, &out); err != nil {
 		return nil, err

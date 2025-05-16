@@ -22,10 +22,13 @@ type GraphGetLists_Output struct {
 func GraphGetLists(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*GraphGetLists_Output, error) {
 	var out GraphGetLists_Output
 
-	params := map[string]interface{}{
-		"actor":  actor,
-		"cursor": cursor,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	params["actor"] = actor
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.getLists", params, nil, &out); err != nil {
 		return nil, err

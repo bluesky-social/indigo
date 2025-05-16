@@ -19,9 +19,8 @@ type SignatureFindCorrelation_Output struct {
 func SignatureFindCorrelation(ctx context.Context, c *xrpc.Client, dids []string) (*SignatureFindCorrelation_Output, error) {
 	var out SignatureFindCorrelation_Output
 
-	params := map[string]interface{}{
-		"dids": dids,
-	}
+	params := map[string]interface{}{}
+	params["dids"] = dids
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.signature.findCorrelation", params, nil, &out); err != nil {
 		return nil, err
 	}

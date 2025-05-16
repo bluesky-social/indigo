@@ -19,9 +19,8 @@ type ActorGetProfiles_Output struct {
 func ActorGetProfiles(ctx context.Context, c *xrpc.Client, actors []string) (*ActorGetProfiles_Output, error) {
 	var out ActorGetProfiles_Output
 
-	params := map[string]interface{}{
-		"actors": actors,
-	}
+	params := map[string]interface{}{}
+	params["actors"] = actors
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.actor.getProfiles", params, nil, &out); err != nil {
 		return nil, err
 	}
