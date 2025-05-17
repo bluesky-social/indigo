@@ -6,26 +6,34 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
 type APIClient struct {
-	HTTPClient     *http.Client
+	// inner HTTP client
+	Client         *http.Client
+
+	// host URL prefix: scheme, hostname, and port. This field is required.
 	Host           string
+
+	// optional auth client "middleware"
 	Auth           AuthMethod
-	DefaultHeaders map[string]string
+
+	// optional HTTP headers which will be included in all requests. Only a single value per key is included; request-level headers will override any client-level defaults.
+	DefaultHeaders http.Header
 }
 
 // High-level helper for simple JSON "Query" API calls.
 //
 // Does not work with all API endpoints. For more control, use the Do() method with APIRequest.
-func (c *APIClient) Get(ctx context.Context, endpoint syntax.NSID, params map[string]string, out any) error {
-	hdr := map[string]string{
-		"Accept": "application/json",
+func (c *APIClient) Get(ctx context.Context, endpoint syntax.NSID, params url.Values, out any) error {
+	hdr := map[string][]string{
+		"Accept": []string{"application/json"},
 	}
 	req := APIRequest{
-		HTTPVerb:    "GET",
+		Method:      http.MethodGet,
 		Endpoint:    endpoint,
 		Body:        nil,
 		QueryParams: params,
@@ -35,9 +43,8 @@ func (c *APIClient) Get(ctx context.Context, endpoint syntax.NSID, params map[st
 	if err != nil {
 		return err
 	}
-
 	defer resp.Body.Close()
-	// TODO: duplicate error handling with Post()?
+
 	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
 		var eb ErrorBody
 		if err := json.NewDecoder(resp.Body).Decode(&eb); err != nil {
@@ -56,20 +63,20 @@ func (c *APIClient) Get(ctx context.Context, endpoint syntax.NSID, params map[st
 	return nil
 }
 
-// High-level helper for simple JSON-to-JSON "Procedure" API calls.
+// High-level helper for simple JSON-to-JSON "Procedure" API calls, with no query params.
 //
-// Does not work with all API endpoints. For more control, use the Do() method with APIRequest.
+// Does not work with all possible atproto API endpoints. For more control, use the Do() method with APIRequest.
 func (c *APIClient) Post(ctx context.Context, endpoint syntax.NSID, body any, out any) error {
 	bodyJSON, err := json.Marshal(body)
 	if err != nil {
 		return err
 	}
-	hdr := map[string]string{
-		"Accept":       "application/json",
-		"Content-Type": "application/json",
+	hdr := map[string][]string{
+		"Accept":       []string{"application/json"},
+		"Content-Type": []string{"application/json"},
 	}
 	req := APIRequest{
-		HTTPVerb:    "POST",
+		Method:      http.MethodPost,
 		Endpoint:    endpoint,
 		Body:        bytes.NewReader(bodyJSON),
 		QueryParams: nil,
@@ -79,9 +86,8 @@ func (c *APIClient) Post(ctx context.Context, endpoint syntax.NSID, body any, ou
 	if err != nil {
 		return err
 	}
-
 	defer resp.Body.Close()
-	// TODO: duplicate error handling with Get()?
+
 	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
 		var eb ErrorBody
 		if err := json.NewDecoder(resp.Body).Decode(&eb); err != nil {
@@ -101,26 +107,37 @@ func (c *APIClient) Post(ctx context.Context, endpoint syntax.NSID, body any, ou
 }
 
 // Full-power method for atproto API requests.
+//
+// NOTE: this does not currently parse error response JSON body, thought it might in the future.
 func (c *APIClient) Do(ctx context.Context, req APIRequest) (*http.Response, error) {
 	httpReq, err := req.HTTPRequest(ctx, c.Host, c.DefaultHeaders)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: thread-safe?
-	if c.HTTPClient == nil {
-		c.HTTPClient = http.DefaultClient
+	// NOTE: this updates the client object itself
+	if c.Client == nil {
+		c.Client = http.DefaultClient
 	}
 
 	var resp *http.Response
 	if c.Auth != nil {
-		resp, err = c.Auth.DoWithAuth(c.HTTPClient, httpReq)
+		resp, err = c.Auth.DoWithAuth(c.Client, httpReq)
 	} else {
-		resp, err = c.HTTPClient.Do(httpReq)
+		resp, err = c.Client.Do(httpReq)
 	}
 	if err != nil {
 		return nil, err
 	}
-	// TODO: handle some common response errors: rate-limits, 5xx, auth required, etc
 	return resp, nil
+}
+
+func NewPublicClient(host string) *APIClient {
+	return &APIClient{
+		Client: http.DefaultClient,
+		Host: host,
+		DefaultHeaders: map[string][]string{
+			"User-Agent": []string{"indigo-sdk"},
+		},
+	}
 }
