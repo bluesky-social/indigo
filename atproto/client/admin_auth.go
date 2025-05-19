@@ -8,11 +8,13 @@ type AdminAuth struct {
 	Password string
 }
 
-func NewAdminAuth(password string) AdminAuth {
-	return AdminAuth{Password: password}
-}
-
 func (a *AdminAuth) DoWithAuth(c *http.Client, req *http.Request) (*http.Response, error) {
 	req.SetBasicAuth("admin", a.Password)
 	return c.Do(req)
+}
+
+func NewAdminClient(host, password string) *APIClient {
+	c := NewPublicClient(host)
+	c.Auth = &AdminAuth{Password: password}
+	return c
 }
