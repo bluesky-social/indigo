@@ -2,8 +2,8 @@ package client
 
 import (
 	"context"
-	"io"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -20,19 +20,22 @@ var (
 
 type APIRequest struct {
 	// HTTP method, eg "GET" (required)
-	Method      string
+	Method string
 
 	// atproto API endpoint, as NSID (required)
-	Endpoint    syntax.NSID
+	Endpoint syntax.NSID
 
 	// optional request body. if this is provided, then 'Content-Type' header should be specified
-	Body        io.Reader
+	Body io.Reader
+
+	// XXX:
+	//GetBody func() (io.ReadCloser, error)
 
 	// optional query parameters. These will be encoded as provided.
 	QueryParams url.Values
 
 	// optional HTTP headers. Only the first value will be included for each header key ("Set" behavior).
-	Headers     http.Header
+	Headers http.Header
 }
 
 // Turns the API request in to an `http.Request`.
@@ -54,7 +57,7 @@ func (r *APIRequest) HTTPRequest(ctx context.Context, host string, headers http.
 		return nil, fmt.Errorf("empty request endpoint")
 	}
 	u.Path = "/xrpc/" + r.Endpoint.String()
-	u.RawQuery = nil
+	u.RawQuery = ""
 	if r.QueryParams != nil {
 		u.RawQuery = r.QueryParams.Encode()
 	}
@@ -73,7 +76,7 @@ func (r *APIRequest) HTTPRequest(ctx context.Context, host string, headers http.
 	// ... then request-specific take priority (overwrite)
 	if r.Headers != nil {
 		for k := range r.Headers {
-			httpReq.Header.Set(k, headers.Get(k))
+			httpReq.Header.Set(k, r.Headers.Get(k))
 		}
 	}
 
