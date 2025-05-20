@@ -35,6 +35,8 @@ type FeedDefs_FeedViewPost struct {
 	Post        *FeedDefs_PostView            `json:"post" cborgen:"post"`
 	Reason      *FeedDefs_FeedViewPost_Reason `json:"reason,omitempty" cborgen:"reason,omitempty"`
 	Reply       *FeedDefs_ReplyRef            `json:"reply,omitempty" cborgen:"reply,omitempty"`
+	// reqId: Unique identifier per request that may be passed back alongside interactions.
+	ReqId *string `json:"reqId,omitempty" cborgen:"reqId,omitempty"`
 }
 
 type FeedDefs_FeedViewPost_Reason struct {
@@ -104,6 +106,8 @@ type FeedDefs_Interaction struct {
 	// feedContext: Context on a feed item that was originally supplied by the feed generator on getFeedSkeleton.
 	FeedContext *string `json:"feedContext,omitempty" cborgen:"feedContext,omitempty"`
 	Item        *string `json:"item,omitempty" cborgen:"item,omitempty"`
+	// reqId: Unique identifier per request that may be passed back alongside interactions.
+	ReqId *string `json:"reqId,omitempty" cborgen:"reqId,omitempty"`
 }
 
 // FeedDefs_NotFoundPost is a "notFoundPost" in the app.bsky.feed.defs schema.
