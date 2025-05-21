@@ -108,10 +108,10 @@ func main() {
 }
 
 func simpleGet(ctx context.Context, c *client.APIClient) error {
-	params := map[string][]string{
-		"actor":       []string{"atproto.com"},
-		"limit":       []string{"2"},
-		"includePins": []string{"false"},
+	params := map[string]any{
+		"actor":       "atproto.com",
+		"limit":       2,
+		"includePins": false,
 	}
 
 	var d json.RawMessage
@@ -192,8 +192,8 @@ func runLookupAdmin(cctx *cli.Context) error {
 	c := client.NewAdminClient(cctx.String("host"), cctx.String("admin-password"))
 
 	var d json.RawMessage
-	params := map[string][]string{
-		"did": []string{cctx.String("did")},
+	params := map[string]any{
+		"did": cctx.String("did"),
 	}
 	if err := c.Get(ctx, "com.atproto.admin.getAccountInfo", params, &d); err != nil {
 		return err
