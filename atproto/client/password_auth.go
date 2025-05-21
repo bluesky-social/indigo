@@ -35,7 +35,7 @@ func (a *PasswordAuth) DoWithAuth(c *http.Client, req *http.Request) (*http.Resp
 	}
 
 	// on success, or most errors, just return HTTP response
-	if resp.StatusCode != 400 || !strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
+	if resp.StatusCode != http.StatusBadRequest || !strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
 		return resp, nil
 	}
 
@@ -54,14 +54,21 @@ func (a *PasswordAuth) DoWithAuth(c *http.Client, req *http.Request) (*http.Resp
 		return nil, err
 	}
 
-	// XXX: review "retry" logic (HTTP body, headers, etc)
-	req.Header.Set("Authorization", "Bearer "+a.Session.AccessToken)
-	resp, err = c.Do(req)
+	retry := req.Clone(req.Context())
+	if req.GetBody != nil {
+		retry.Body, err = req.GetBody()
+		if err != nil {
+			return nil, fmt.Errorf("API request retry GetBody failed: %w", err)
+		}
+	}
+
+	retry.Header.Set("Authorization", "Bearer "+a.Session.AccessToken)
+	retryResp, err := c.Do(retry)
 	if err != nil {
 		return nil, err
 	}
-	// XXX: handle auth error here?
-	return resp, err
+	// TODO: could handle auth failure as special error type here
+	return retryResp, err
 }
 
 // TODO: need a "Logout" method as well? which takes the refresh token (not access token)
@@ -127,7 +134,7 @@ func LoginWithPassword(ctx context.Context, dir identity.Directory, username syn
 		return nil, fmt.Errorf("account does not have PDS registered")
 	}
 
-	c := NewPublicClient(host)
+	c := NewAPIClient(host)
 	reqBody := comatproto.ServerCreateSession_Input{
 		Identifier: ident.DID.String(),
 		Password:   password,

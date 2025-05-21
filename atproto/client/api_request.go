@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -19,30 +20,64 @@ var (
 )
 
 type APIRequest struct {
-	// HTTP method, eg "GET" (required)
+	// HTTP method as a string (eg "GET") (required)
 	Method string
 
 	// atproto API endpoint, as NSID (required)
 	Endpoint syntax.NSID
 
-	// optional request body. if this is provided, then 'Content-Type' header should be specified
-	Body io.Reader
+	// Optional request body (may be nil). If this is provided, then 'Content-Type' header should be specified
+	Body io.ReadCloser
 
-	// XXX:
-	//GetBody func() (io.ReadCloser, error)
+	// Optional function to return new reader for request body; used for retries. strongly recommended if Body is defined. Body still needs to be defined, even if this function is provided.
+	GetBody func() (io.ReadCloser, error)
 
-	// optional query parameters. These will be encoded as provided.
+	// Optional query parameters (field may be nil). These will be encoded as provided.
 	QueryParams url.Values
 
-	// optional HTTP headers. Only the first value will be included for each header key ("Set" behavior).
+	// Optional HTTP headers (field bay be nil). Only the first value will be included for each header key ("Set" behavior).
 	Headers http.Header
 }
 
-// Turns the API request in to an `http.Request`.
+// Initializes a new request struct. Initializes Headers and QueryParams so they can be manipulated immediately.
 //
-// `host` parameter should be a URL prefix: schema, hostname, port.
-// `headers` parameters are treated as client-level defaults. Only a single value is allowed per key ("Set" behavior), and will be clobbered by any request-level header values.
-func (r *APIRequest) HTTPRequest(ctx context.Context, host string, headers http.Header) (*http.Request, error) {
+// If body is provided (it can be nil), will try to turn it in to the most retry-able form (and wrap as io.ReadCloser).
+func NewAPIRequest(method string, endpoint syntax.NSID, body io.Reader) *APIRequest {
+	req := APIRequest{
+		Method:      method,
+		Endpoint:    endpoint,
+		Headers:     map[string][]string{},
+		QueryParams: map[string][]string{},
+	}
+
+	// logic to turn "whatever io.Reader we are handed" in to something relatively re-tryable (using GetBody)
+	if body != nil {
+		switch v := body.(type) {
+		case *bytes.Buffer:
+			req.Body = io.NopCloser(v)
+			req.GetBody = func() (io.ReadCloser, error) {
+				return io.NopCloser(v), nil
+			}
+		case io.Seeker:
+			req.Body = io.NopCloser(body)
+			req.GetBody = func() (io.ReadCloser, error) {
+				v.Seek(0, 0)
+				return io.NopCloser(body), nil
+			}
+		case io.ReadCloser:
+			req.Body = v
+		case io.Reader:
+			req.Body = io.NopCloser(body)
+		}
+	}
+	return &req
+}
+
+// Creates an `http.Request` for this API request.
+//
+// `host` parameter should be a URL prefix: schema, hostname, port (required)
+// `headers` parameters are treated as client-level defaults. Only a single value is allowed per key ("Set" behavior), and will be clobbered by any request-level header values. (optional; may be nil)
+func (r *APIRequest) HTTPRequest(ctx context.Context, host string, clientHeaders http.Header) (*http.Request, error) {
 	u, err := url.Parse(host)
 	if err != nil {
 		return nil, err
@@ -58,7 +93,7 @@ func (r *APIRequest) HTTPRequest(ctx context.Context, host string, headers http.
 	}
 	u.Path = "/xrpc/" + r.Endpoint.String()
 	u.RawQuery = ""
-	if r.QueryParams != nil {
+	if r.QueryParams != nil && len(r.QueryParams) > 0 {
 		u.RawQuery = r.QueryParams.Encode()
 	}
 	httpReq, err := http.NewRequestWithContext(ctx, r.Method, u.String(), r.Body)
@@ -66,10 +101,14 @@ func (r *APIRequest) HTTPRequest(ctx context.Context, host string, headers http.
 		return nil, err
 	}
 
+	if r.GetBody != nil {
+		httpReq.GetBody = r.GetBody
+	}
+
 	// first set default headers...
-	if headers != nil {
-		for k := range headers {
-			httpReq.Header.Set(k, headers.Get(k))
+	if clientHeaders != nil {
+		for k := range clientHeaders {
+			httpReq.Header.Set(k, clientHeaders.Get(k))
 		}
 	}
 
