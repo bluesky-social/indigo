@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
@@ -44,11 +43,18 @@ func NewAPIClient(host string) *APIClient {
 // High-level helper for simple JSON "Query" API calls.
 //
 // Does not work with all API endpoints. For more control, use the Do() method with APIRequest.
-func (c *APIClient) Get(ctx context.Context, endpoint syntax.NSID, params url.Values, out any) error {
+func (c *APIClient) Get(ctx context.Context, endpoint syntax.NSID, params map[string]any, out any) error {
 
 	req := NewAPIRequest(http.MethodGet, endpoint, nil)
-	req.QueryParams = params
 	req.Headers.Set("Accept", "application/json")
+
+	if params != nil {
+		qp, err := ParseParams(params)
+		if err != nil {
+			return err
+		}
+		req.QueryParams = qp
+	}
 
 	resp, err := c.Do(ctx, req)
 	if err != nil {
