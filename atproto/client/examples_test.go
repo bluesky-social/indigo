@@ -17,8 +17,8 @@ func ExampleGet() {
 	}
 
 	endpoint := syntax.NSID("app.bsky.actor.getProfile")
-	params := map[string]string{
-		"actor": "atproto.com",
+	params := map[string][]string{
+		"actor": []string{"atproto.com"},
 	}
 	var profile appbsky.ActorDefs_ProfileViewDetailed
 	if err := c.Get(ctx, endpoint, params, &profile); err != nil {
