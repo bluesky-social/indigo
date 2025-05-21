@@ -14,7 +14,7 @@ func (a *AdminAuth) DoWithAuth(c *http.Client, req *http.Request) (*http.Respons
 }
 
 func NewAdminClient(host, password string) *APIClient {
-	c := NewPublicClient(host)
+	c := NewAPIClient(host)
 	c.Auth = &AdminAuth{Password: password}
 	return c
 }

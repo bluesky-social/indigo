@@ -32,7 +32,7 @@ func TestAdminAuth(t *testing.T) {
 	defer srv.Close()
 
 	{
-		c := NewPublicClient(srv.URL)
+		c := NewAPIClient(srv.URL)
 		err := c.Get(ctx, syntax.NSID("com.example.get"), nil, nil)
 		assert.ErrorAs(err, &apierr)
 	}
