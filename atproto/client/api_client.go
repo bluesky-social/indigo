@@ -28,7 +28,10 @@ type APIClient struct {
 	AccountDID *syntax.DID
 }
 
-func NewPublicClient(host string) *APIClient {
+// Creates a simple APIClient for the provided host. This is appropriate for use with unauthenticated ("public") atproto API endpoints, or to use as a base client to add authentication.
+//
+// Uses the default stdlib http.Client, and sets a default User-Agent.
+func NewAPIClient(host string) *APIClient {
 	return &APIClient{
 		Client: http.DefaultClient,
 		Host:   host,
@@ -42,16 +45,11 @@ func NewPublicClient(host string) *APIClient {
 //
 // Does not work with all API endpoints. For more control, use the Do() method with APIRequest.
 func (c *APIClient) Get(ctx context.Context, endpoint syntax.NSID, params url.Values, out any) error {
-	hdr := map[string][]string{
-		"Accept": []string{"application/json"},
-	}
-	req := APIRequest{
-		Method:      http.MethodGet,
-		Endpoint:    endpoint,
-		Body:        nil,
-		QueryParams: params,
-		Headers:     hdr,
-	}
+
+	req := NewAPIRequest(http.MethodGet, endpoint, nil)
+	req.QueryParams = params
+	req.Headers.Set("Accept", "application/json")
+
 	resp, err := c.Do(ctx, req)
 	if err != nil {
 		return err
@@ -84,17 +82,11 @@ func (c *APIClient) Post(ctx context.Context, endpoint syntax.NSID, body any, ou
 	if err != nil {
 		return err
 	}
-	hdr := map[string][]string{
-		"Accept":       []string{"application/json"},
-		"Content-Type": []string{"application/json"},
-	}
-	req := APIRequest{
-		Method:      http.MethodPost,
-		Endpoint:    endpoint,
-		Body:        bytes.NewReader(bodyJSON),
-		QueryParams: nil,
-		Headers:     hdr,
-	}
+
+	req := NewAPIRequest(http.MethodPost, endpoint, bytes.NewReader(bodyJSON))
+	req.Headers.Set("Accept", "application/json")
+	req.Headers.Set("Content-Type", "application/json")
+
 	resp, err := c.Do(ctx, req)
 	if err != nil {
 		return err
@@ -119,18 +111,18 @@ func (c *APIClient) Post(ctx context.Context, endpoint syntax.NSID, body any, ou
 	return nil
 }
 
-// Full-power method for atproto API requests.
+// Full-featured method for atproto API requests.
 //
 // NOTE: this does not currently parse error response JSON body, thought it might in the future.
-func (c *APIClient) Do(ctx context.Context, req APIRequest) (*http.Response, error) {
+func (c *APIClient) Do(ctx context.Context, req *APIRequest) (*http.Response, error) {
+
+	if c.Client == nil {
+		c.Client = http.DefaultClient
+	}
+
 	httpReq, err := req.HTTPRequest(ctx, c.Host, c.Headers)
 	if err != nil {
 		return nil, err
-	}
-
-	// NOTE: this updates the client object itself
-	if c.Client == nil {
-		c.Client = http.DefaultClient
 	}
 
 	var resp *http.Response
@@ -149,13 +141,7 @@ func (c *APIClient) Do(ctx context.Context, req APIRequest) (*http.Response, err
 //
 // To configure service proxying without creating a copy, simply set the "Atproto-Proxy" header.
 func (c *APIClient) WithService(ref string) *APIClient {
-	hdr := make(http.Header)
-	for k := range c.Headers {
-		for _, v := range c.Headers.Values(k) {
-			hdr.Add(k, v)
-		}
-	}
-
+	hdr := c.Headers.Clone()
 	hdr.Set("Atproto-Proxy", ref)
 	out := APIClient{
 		Client:     c.Client,
