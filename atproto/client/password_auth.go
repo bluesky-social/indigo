@@ -144,6 +144,36 @@ func (a *PasswordAuth) Refresh(ctx context.Context, c *http.Client, priorRefresh
 	return nil
 }
 
+func (a *PasswordAuth) Logout(ctx context.Context, c *http.Client) error {
+	_, refreshToken := a.GetTokens()
+
+	u := a.Session.Host + "/xrpc/com.atproto.server.deleteSession"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
+	if err != nil {
+		return err
+	}
+	// NOTE: could try to pull User-Agent from a request and pass that through to here
+	req.Header.Set("User-Agent", "indigo-sdk")
+
+	// NOTE: using refresh token here, not access token
+	req.Header.Set("Authorization", "Bearer "+refreshToken)
+
+	resp, err := c.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
+		var eb ErrorBody
+		if err := json.NewDecoder(resp.Body).Decode(&eb); err != nil {
+			return &APIError{StatusCode: resp.StatusCode}
+		}
+		return eb.APIError(resp.StatusCode)
+	}
+	return nil
+}
+
 func LoginWithPassword(ctx context.Context, dir identity.Directory, username syntax.AtIdentifier, password, authToken string) (*APIClient, error) {
 
 	ident, err := dir.Lookup(ctx, username)
