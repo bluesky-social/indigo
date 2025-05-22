@@ -37,6 +37,17 @@ func pwHandler(w http.ResponseWriter, r *http.Request) {
 			"refreshJwt": "refresh2",
 		})
 		return
+	case "/xrpc/com.atproto.server.deleteSession":
+		//fmt.Println("deleteSession handler...")
+		hdr := r.Header.Get("Authorization")
+		if hdr != "Bearer refresh1" {
+			fmt.Printf("refreshSession header: %s\n", hdr)
+			w.Header().Set("WWW-Authenticate", `Bearer`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		return
 	case "/xrpc/com.atproto.server.createSession":
 		if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 			fmt.Println("createSession Content-Type")
@@ -126,6 +137,31 @@ func TestPasswordAuth(t *testing.T) {
 		err = c.Get(ctx, syntax.NSID("com.example.get"), nil, nil)
 		assert.NoError(err)
 		err = c.Get(ctx, syntax.NSID("com.example.expire"), nil, nil)
+		assert.NoError(err)
+	}
+
+	{
+		c := ResumePasswordSession(PasswordSessionData{
+			AccessToken:  "access1",
+			RefreshToken: "refresh1",
+			AccountDID:   syntax.DID("did:web:account.example.com"),
+			Host:         srv.URL,
+		})
+
+		err := c.Get(ctx, syntax.NSID("com.example.get"), nil, nil)
+		assert.NoError(err)
+		err = c.Get(ctx, syntax.NSID("com.example.expire"), nil, nil)
+		assert.NoError(err)
+	}
+
+	{
+		// logout
+		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "")
+		require.NoError(err)
+
+		passAuth, ok := c.Auth.(*PasswordAuth)
+		require.True(ok)
+		err = passAuth.Logout(ctx, c.Client)
 		assert.NoError(err)
 	}
 
