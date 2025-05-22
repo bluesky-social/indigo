@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -27,7 +26,7 @@ type APIRequest struct {
 	Endpoint syntax.NSID
 
 	// Optional request body (may be nil). If this is provided, then 'Content-Type' header should be specified
-	Body io.ReadCloser
+	Body io.Reader
 
 	// Optional function to return new reader for request body; used for retries. strongly recommended if Body is defined. Body still needs to be defined, even if this function is provided.
 	GetBody func() (io.ReadCloser, error)
@@ -52,22 +51,16 @@ func NewAPIRequest(method string, endpoint syntax.NSID, body io.Reader) *APIRequ
 
 	// logic to turn "whatever io.Reader we are handed" in to something relatively re-tryable (using GetBody)
 	if body != nil {
+		// NOTE: http.NewRequestWithContext already handles GetBody() as well as ContentLength for specific types like bytes.Buffer and strings.Reader. We just want to add io.Seeker here, for things like files-on-disk.
 		switch v := body.(type) {
-		case *bytes.Buffer:
-			req.Body = io.NopCloser(v)
-			req.GetBody = func() (io.ReadCloser, error) {
-				return io.NopCloser(v), nil
-			}
 		case io.Seeker:
 			req.Body = io.NopCloser(body)
 			req.GetBody = func() (io.ReadCloser, error) {
 				v.Seek(0, 0)
 				return io.NopCloser(body), nil
 			}
-		case io.ReadCloser:
-			req.Body = v
-		case io.Reader:
-			req.Body = io.NopCloser(body)
+		default:
+			req.Body = body
 		}
 	}
 	return &req
