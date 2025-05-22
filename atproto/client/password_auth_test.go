@@ -1,11 +1,14 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -59,9 +62,9 @@ func pwHandler(w http.ResponseWriter, r *http.Request) {
 			"refreshJwt": "refresh1",
 		})
 		return
-	case "/xrpc/com.example.get":
+	case "/xrpc/com.example.get", "/xrpc/com.example.post":
 		hdr := r.Header.Get("Authorization")
-		if hdr == "Bearer access1" {
+		if hdr == "Bearer access1" || hdr == "Bearer access2" {
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintln(w, "{\"status\":\"success\"}")
 			return
@@ -117,11 +120,79 @@ func TestPasswordAuth(t *testing.T) {
 	})
 
 	{
+		// simple GET requests, with token expire/retry
 		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "")
 		require.NoError(err)
 		err = c.Get(ctx, syntax.NSID("com.example.get"), nil, nil)
 		assert.NoError(err)
 		err = c.Get(ctx, syntax.NSID("com.example.expire"), nil, nil)
 		assert.NoError(err)
+	}
+
+	{
+		// simple POST request, with token expire/retry
+		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "")
+		require.NoError(err)
+		body := map[string]any{
+			"a": 123,
+			"b": "hello",
+		}
+		var out json.RawMessage
+		err = c.Post(ctx, syntax.NSID("com.example.post"), body, &out)
+		assert.NoError(err)
+		err = c.Post(ctx, syntax.NSID("com.example.expire"), body, &out)
+		assert.NoError(err)
+	}
+
+	{
+		// POST with bytes.Buffer body
+		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "")
+		require.NoError(err)
+		body := bytes.NewBufferString("some text")
+		req := NewAPIRequest(MethodProcedure, syntax.NSID("com.example.expire"), body)
+		req.Headers.Set("Content-Type", "text/plain")
+		resp, err := c.Do(ctx, req)
+		require.NoError(err)
+		assert.Equal(200, resp.StatusCode)
+	}
+
+	{
+		// POST with file on disk (can seek and retry)
+		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "")
+		require.NoError(err)
+		f, err := os.Open("testdata/body.json")
+		require.NoError(err)
+		req := NewAPIRequest(MethodProcedure, syntax.NSID("com.example.expire"), f)
+		req.Headers.Set("Content-Type", "application/json")
+		resp, err := c.Do(ctx, req)
+		require.NoError(err)
+		assert.Equal(200, resp.StatusCode)
+	}
+
+	{
+		// POST with pipe reader (can *not* retry)
+		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "")
+		require.NoError(err)
+		r1, w1 := io.Pipe()
+		go func() {
+			fmt.Fprintf(w1, "some data")
+			w1.Close()
+		}()
+		req1 := NewAPIRequest(MethodProcedure, syntax.NSID("com.example.post"), r1)
+		req1.Headers.Set("Content-Type", "text/plain")
+		resp, err := c.Do(ctx, req1)
+		require.NoError(err)
+		assert.Equal(200, resp.StatusCode)
+
+		// expect this to fail (can't re-read from Pipe)
+		r2, w2 := io.Pipe()
+		go func() {
+			fmt.Fprintf(w2, "some data")
+			w2.Close()
+		}()
+		req2 := NewAPIRequest(MethodProcedure, syntax.NSID("com.example.expire"), r2)
+		req2.Headers.Set("Content-Type", "text/plain")
+		_, err = c.Do(ctx, req2)
+		assert.Error(err)
 	}
 }

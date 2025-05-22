@@ -14,21 +14,32 @@ import (
 )
 
 type PasswordAuth struct {
-	Session SessionData
+	Session PasswordSessionData
 	// TODO: RefreshCallback
 
-	lk sync.Mutex
+	// lock which protects concurrent access to AccessToken and RefreshToken in session data
+	lk sync.RWMutex
 }
 
-type SessionData struct {
-	AccessToken  string
-	RefreshToken string
-	AccountDID   syntax.DID
-	Host         string
+type PasswordSessionData struct {
+	AccessToken  string     `json:"access_token"`
+	RefreshToken string     `json:"refresh_token"`
+	AccountDID   syntax.DID `json:"account_did"`
+	Host         string     `json:"host"`
+}
+
+func (sd *PasswordSessionData) Clone() PasswordSessionData {
+	return PasswordSessionData{
+		AccessToken:  sd.AccessToken,
+		RefreshToken: sd.RefreshToken,
+		AccountDID:   sd.AccountDID,
+		Host:         sd.Host,
+	}
 }
 
 func (a *PasswordAuth) DoWithAuth(c *http.Client, req *http.Request) (*http.Response, error) {
-	req.Header.Set("Authorization", "Bearer "+a.Session.AccessToken)
+	accessToken, refreshToken := a.GetTokens()
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 	resp, err := c.Do(req)
 	if err != nil {
 		return nil, err
@@ -50,7 +61,7 @@ func (a *PasswordAuth) DoWithAuth(c *http.Client, req *http.Request) (*http.Resp
 	}
 
 	// ok, we had an expired token, try a refresh
-	if err := a.Refresh(req.Context(), c); err != nil {
+	if err := a.Refresh(req.Context(), c, refreshToken); err != nil {
 		return nil, err
 	}
 
@@ -62,7 +73,9 @@ func (a *PasswordAuth) DoWithAuth(c *http.Client, req *http.Request) (*http.Resp
 		}
 	}
 
-	retry.Header.Set("Authorization", "Bearer "+a.Session.AccessToken)
+	accessToken, _ = a.GetTokens()
+
+	retry.Header.Set("Authorization", "Bearer "+accessToken)
 	retryResp, err := c.Do(retry)
 	if err != nil {
 		return nil, err
@@ -71,16 +84,25 @@ func (a *PasswordAuth) DoWithAuth(c *http.Client, req *http.Request) (*http.Resp
 	return retryResp, err
 }
 
-// TODO: need a "Logout" method as well? which takes the refresh token (not access token)
-func (a *PasswordAuth) Refresh(ctx context.Context, c *http.Client) error {
+// Returns current access and refresh tokens (take a read-lock on session data)
+func (a *PasswordAuth) GetTokens() (string, string) {
+	a.lk.RLock()
+	defer a.lk.RUnlock()
+	return a.Session.AccessToken, a.Session.RefreshToken
+}
 
-	prior := a.Session.RefreshToken
+// Refreshes auth tokens (takes a write-lock on session data).
+//
+// `priorRefreshToken` argument is used to check if a concurrent refresh already took place.
+//
+// TODO: need a "Logout" method as well? which takes the refresh token (not access token)
+func (a *PasswordAuth) Refresh(ctx context.Context, c *http.Client, priorRefreshToken string) error {
 
 	a.lk.Lock()
 	defer a.lk.Unlock()
 
-	// XXX: basic concurrency check: if refresh token already changed, can bail here. should probably handle this better (accept refresh token as input?)
-	if prior != a.Session.RefreshToken {
+	// basic concurrency check: if refresh token already changed, can bail here (releasing lock)
+	if priorRefreshToken != "" && priorRefreshToken != a.Session.RefreshToken {
 		return nil
 	}
 
@@ -89,7 +111,7 @@ func (a *PasswordAuth) Refresh(ctx context.Context, c *http.Client) error {
 	if err != nil {
 		return err
 	}
-	// TODO: this doesn't inherit User-Agent header
+	// NOTE: could try to pull User-Agent from a request and pass that through to here
 	req.Header.Set("User-Agent", "indigo-sdk")
 
 	// NOTE: using refresh token here, not access token
@@ -158,7 +180,7 @@ func LoginWithPassword(ctx context.Context, dir identity.Directory, username syn
 	}
 
 	ra := PasswordAuth{
-		Session: SessionData{
+		Session: PasswordSessionData{
 			AccessToken:  out.AccessJwt,
 			RefreshToken: out.RefreshJwt,
 			AccountDID:   ident.DID,
@@ -168,4 +190,14 @@ func LoginWithPassword(ctx context.Context, dir identity.Directory, username syn
 	c.Auth = &ra
 	c.AccountDID = &ident.DID
 	return c, nil
+}
+
+func ResumePasswordSession(data PasswordSessionData) *APIClient {
+	c := NewAPIClient(data.Host)
+	ra := PasswordAuth{
+		Session: data,
+	}
+	c.Auth = &ra
+	c.AccountDID = &data.AccountDID
+	return c
 }
