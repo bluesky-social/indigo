@@ -10,6 +10,10 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
+type AuthMethod interface {
+	DoWithAuth(c *http.Client, req *http.Request) (*http.Response, error)
+}
+
 type APIClient struct {
 	// inner HTTP client
 	Client *http.Client
