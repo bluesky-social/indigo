@@ -148,7 +148,7 @@ func runLoginAuth(cctx *cli.Context) error {
 
 	dir := identity.DefaultDirectory()
 
-	c, err := client.LoginWithPassword(ctx, dir, *atid, cctx.String("password"), "")
+	c, err := client.LoginWithPassword(ctx, dir, *atid, cctx.String("password"), "", nil)
 	if err != nil {
 		return err
 	}
@@ -177,7 +177,7 @@ func runGetFeedAuth(cctx *cli.Context) error {
 
 	dir := identity.DefaultDirectory()
 
-	c, err := client.LoginWithPassword(ctx, dir, *atid, cctx.String("password"), "")
+	c, err := client.LoginWithPassword(ctx, dir, *atid, cctx.String("password"), "", nil)
 	if err != nil {
 		return err
 	}
