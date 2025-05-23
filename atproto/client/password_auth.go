@@ -13,11 +13,17 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
+type RefreshCallback = func(ctx context.Context, data PasswordSessionData)
+
 type PasswordAuth struct {
 	Session PasswordSessionData
-	// TODO: RefreshCallback
 
-	// lock which protects concurrent access to AccessToken and RefreshToken in session data
+	// Optional callback function which gets called with updated session data whenever a successful token refresh happens.
+	//
+	// Note that this function is called while a lock is being held on the overall client, and with a context usually tied to a regular API request call. The callback should either return quickly, or spawn a goroutine. Because of the lock, this callback will never be called concurrently for a single client, but may be called currently across clients.
+	RefreshCallback RefreshCallback
+
+	// Lock which protects concurrent access to AccessToken and RefreshToken in session data. Note that this only applies to this particular instance of PasswordAuth.
 	lk sync.RWMutex
 }
 
@@ -139,7 +145,11 @@ func (a *PasswordAuth) Refresh(ctx context.Context, c *http.Client, priorRefresh
 
 	a.Session.AccessToken = out.AccessJwt
 	a.Session.RefreshToken = out.RefreshJwt
-	// TODO: callback?
+
+	if a.RefreshCallback != nil {
+		snapshot := a.Session.Clone()
+		a.RefreshCallback(ctx, snapshot)
+	}
 
 	return nil
 }
@@ -174,7 +184,11 @@ func (a *PasswordAuth) Logout(ctx context.Context, c *http.Client) error {
 	return nil
 }
 
-func LoginWithPassword(ctx context.Context, dir identity.Directory, username syntax.AtIdentifier, password, authToken string) (*APIClient, error) {
+// Creates a new APIClient with PasswordAuth for the provided user. The provided identity directory is used to resolve the PDS host for the account.
+//
+// `authToken` is optional; is used when multi-factor authentication is enabled for the account.
+// `cb` is an optional callback which will be called with updated session data after any token refresh, in a goroutine.
+func LoginWithPassword(ctx context.Context, dir identity.Directory, username syntax.AtIdentifier, password, authToken string, cb RefreshCallback) (*APIClient, error) {
 
 	ident, err := dir.Lookup(ctx, username)
 	if err != nil {
@@ -186,9 +200,27 @@ func LoginWithPassword(ctx context.Context, dir identity.Directory, username syn
 		return nil, fmt.Errorf("account does not have PDS registered")
 	}
 
+	c, err := LoginWithPasswordHost(ctx, host, ident.DID.String(), password, authToken, cb)
+	if err != nil {
+		return nil, err
+	}
+
+	if c.AccountDID == nil || *c.AccountDID != ident.DID {
+		return nil, fmt.Errorf("returned session DID not requested account: %s", c.AccountDID)
+	}
+
+	return c, nil
+}
+
+// Creates a new APIClient with PasswordAuth, based on a login to the provided host. Note that with some PDS implementations, 'username' could be an email address. This login method also works in situations where an account's network identity does not resolve to this specific host.
+//
+// `authToken` is optional; is used when multi-factor authentication is enabled for the account.
+// `cb` is an optional callback which will be called with updated session data after any token refresh, in a goroutine.
+func LoginWithPasswordHost(ctx context.Context, host, username, password, authToken string, cb RefreshCallback) (*APIClient, error) {
+
 	c := NewAPIClient(host)
 	reqBody := comatproto.ServerCreateSession_Input{
-		Identifier: ident.DID.String(),
+		Identifier: username,
 		Password:   password,
 	}
 	if authToken != "" {
@@ -205,27 +237,33 @@ func LoginWithPassword(ctx context.Context, dir identity.Directory, username syn
 		return nil, fmt.Errorf("account is disabled: %v", out.Status)
 	}
 
-	if out.Did != ident.DID.String() {
-		return nil, fmt.Errorf("returned session DID not requested account: %s", out.Did)
+	did, err := syntax.ParseDID(out.Did)
+	if err != nil {
+		return nil, err
 	}
 
 	ra := PasswordAuth{
 		Session: PasswordSessionData{
 			AccessToken:  out.AccessJwt,
 			RefreshToken: out.RefreshJwt,
-			AccountDID:   ident.DID,
+			AccountDID:   did,
 			Host:         c.Host,
 		},
+		RefreshCallback: cb,
 	}
 	c.Auth = &ra
-	c.AccountDID = &ident.DID
+	c.AccountDID = &did
 	return c, nil
 }
 
-func ResumePasswordSession(data PasswordSessionData) *APIClient {
+// Creates an APIClient using PasswordAuth, based on existing session data.
+//
+// `cb` is an optional callback which will be called with updated session data after any token refresh, in a goroutine.
+func ResumePasswordSession(data PasswordSessionData, cb RefreshCallback) *APIClient {
 	c := NewAPIClient(data.Host)
 	ra := PasswordAuth{
-		Session: data,
+		Session:         data,
+		RefreshCallback: cb,
 	}
 	c.Auth = &ra
 	c.AccountDID = &data.AccountDID

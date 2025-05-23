@@ -113,7 +113,6 @@ func TestPasswordAuth(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
 	ctx := context.Background()
-	//var apierr *APIError
 
 	srv := httptest.NewServer(http.HandlerFunc(pwHandler))
 	defer srv.Close()
@@ -132,7 +131,7 @@ func TestPasswordAuth(t *testing.T) {
 
 	{
 		// simple GET requests, with token expire/retry
-		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "")
+		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
 		require.NoError(err)
 		err = c.Get(ctx, syntax.NSID("com.example.get"), nil, nil)
 		assert.NoError(err)
@@ -141,22 +140,33 @@ func TestPasswordAuth(t *testing.T) {
 	}
 
 	{
+		// test resume session, and session data callback mechanism
+		ch := make(chan string, 10)
+		cb := func(ctx context.Context, data PasswordSessionData) {
+			assert.Equal("refresh2", data.RefreshToken)
+			ch <- "refreshed"
+		}
 		c := ResumePasswordSession(PasswordSessionData{
 			AccessToken:  "access1",
 			RefreshToken: "refresh1",
 			AccountDID:   syntax.DID("did:web:account.example.com"),
 			Host:         srv.URL,
-		})
+		}, cb)
 
 		err := c.Get(ctx, syntax.NSID("com.example.get"), nil, nil)
 		assert.NoError(err)
 		err = c.Get(ctx, syntax.NSID("com.example.expire"), nil, nil)
 		assert.NoError(err)
+
+		select {
+		case msg := <-ch:
+			assert.Equal("refreshed", msg)
+		}
 	}
 
 	{
 		// logout
-		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "")
+		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
 		require.NoError(err)
 
 		passAuth, ok := c.Auth.(*PasswordAuth)
@@ -167,7 +177,7 @@ func TestPasswordAuth(t *testing.T) {
 
 	{
 		// simple POST request, with token expire/retry
-		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "")
+		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
 		require.NoError(err)
 		body := map[string]any{
 			"a": 123,
@@ -182,7 +192,7 @@ func TestPasswordAuth(t *testing.T) {
 
 	{
 		// POST with bytes.Buffer body
-		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "")
+		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
 		require.NoError(err)
 		body := bytes.NewBufferString("some text")
 		req := NewAPIRequest(MethodProcedure, syntax.NSID("com.example.expire"), body)
@@ -194,7 +204,7 @@ func TestPasswordAuth(t *testing.T) {
 
 	{
 		// POST with file on disk (can seek and retry)
-		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "")
+		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
 		require.NoError(err)
 		f, err := os.Open("testdata/body.json")
 		require.NoError(err)
@@ -207,7 +217,7 @@ func TestPasswordAuth(t *testing.T) {
 
 	{
 		// POST with pipe reader (can *not* retry)
-		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "")
+		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
 		require.NoError(err)
 		r1, w1 := io.Pipe()
 		go func() {
