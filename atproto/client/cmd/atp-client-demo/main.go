@@ -16,7 +16,7 @@ import (
 
 func main() {
 	app := cli.App{
-		Name:  "atclient",
+		Name:  "atp-client-demo",
 		Usage: "dev helper for atproto/client SDK",
 		Commands: []*cli.Command{
 			&cli.Command{
