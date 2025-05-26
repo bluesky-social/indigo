@@ -19,7 +19,7 @@ type NotificationListNotifications_Notification struct {
 	IndexedAt string                             `json:"indexedAt" cborgen:"indexedAt"`
 	IsRead    bool                               `json:"isRead" cborgen:"isRead"`
 	Labels    []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	// reason: Expected values are 'like', 'repost', 'follow', 'mention', 'reply', 'quote', 'starterpack-joined', 'verified', and 'unverified'.
+	// reason: The reason why this notification was delivered - e.g. your post was liked, or you received a new follower.
 	Reason        string                   `json:"reason" cborgen:"reason"`
 	ReasonSubject *string                  `json:"reasonSubject,omitempty" cborgen:"reasonSubject,omitempty"`
 	Record        *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
