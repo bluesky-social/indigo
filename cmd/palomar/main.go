@@ -15,6 +15,7 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
@@ -243,6 +244,8 @@ var runCmd = &cli.Command{
 				)),
 			)
 			otel.SetTracerProvider(tp)
+			slog.Info("Setting up text map propagator", "endpoint", ep)
+			otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 		}
 
 		escli, err := createEsClient(cctx)
