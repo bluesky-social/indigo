@@ -189,24 +189,6 @@ func runFirehose(cctx *cli.Context) error {
 			}
 			return nil
 		},
-		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-			if gfc.VerifyBasic {
-				slog.Info("deprecated event type", "eventType", "handle", "did", evt.Did, "seq", evt.Seq)
-			}
-			return nil
-		},
-		RepoMigrate: func(evt *comatproto.SyncSubscribeRepos_Migrate) error {
-			if gfc.VerifyBasic {
-				slog.Info("deprecated event type", "eventType", "migrate", "did", evt.Did, "seq", evt.Seq)
-			}
-			return nil
-		},
-		RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
-			if gfc.VerifyBasic {
-				slog.Info("deprecated event type", "eventType", "handle", "did", evt.Did, "seq", evt.Seq)
-			}
-			return nil
-		},
 	}
 
 	scheduler := parallel.NewScheduler(

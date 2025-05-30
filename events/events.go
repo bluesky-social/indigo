@@ -187,17 +187,14 @@ func init() {
 }
 
 type XRPCStreamEvent struct {
-	Error         *ErrorFrame
-	RepoCommit    *comatproto.SyncSubscribeRepos_Commit
-	RepoSync      *comatproto.SyncSubscribeRepos_Sync
-	RepoHandle    *comatproto.SyncSubscribeRepos_Handle // DEPRECATED
-	RepoIdentity  *comatproto.SyncSubscribeRepos_Identity
-	RepoInfo      *comatproto.SyncSubscribeRepos_Info
-	RepoMigrate   *comatproto.SyncSubscribeRepos_Migrate   // DEPRECATED
-	RepoTombstone *comatproto.SyncSubscribeRepos_Tombstone // DEPRECATED
-	RepoAccount   *comatproto.SyncSubscribeRepos_Account
-	LabelLabels   *comatproto.LabelSubscribeLabels_Labels
-	LabelInfo     *comatproto.LabelSubscribeLabels_Info
+	Error        *ErrorFrame
+	RepoCommit   *comatproto.SyncSubscribeRepos_Commit
+	RepoSync     *comatproto.SyncSubscribeRepos_Sync
+	RepoIdentity *comatproto.SyncSubscribeRepos_Identity
+	RepoInfo     *comatproto.SyncSubscribeRepos_Info
+	RepoAccount  *comatproto.SyncSubscribeRepos_Account
+	LabelLabels  *comatproto.LabelSubscribeLabels_Labels
+	LabelInfo    *comatproto.LabelSubscribeLabels_Info
 
 	// some private fields for internal routing perf
 	PrivUid         models.Uid `json:"-" cborgen:"-"`
@@ -220,9 +217,6 @@ func (evt *XRPCStreamEvent) Serialize(wc io.Writer) error {
 	case evt.RepoSync != nil:
 		header.MsgType = "#sync"
 		obj = evt.RepoSync
-	case evt.RepoHandle != nil:
-		header.MsgType = "#handle"
-		obj = evt.RepoHandle
 	case evt.RepoIdentity != nil:
 		header.MsgType = "#identity"
 		obj = evt.RepoIdentity
@@ -232,12 +226,6 @@ func (evt *XRPCStreamEvent) Serialize(wc io.Writer) error {
 	case evt.RepoInfo != nil:
 		header.MsgType = "#info"
 		obj = evt.RepoInfo
-	case evt.RepoMigrate != nil:
-		header.MsgType = "#migrate"
-		obj = evt.RepoMigrate
-	case evt.RepoTombstone != nil:
-		header.MsgType = "#tombstone"
-		obj = evt.RepoTombstone
 	default:
 		return fmt.Errorf("unrecognized event kind")
 	}
@@ -269,13 +257,6 @@ func (xevt *XRPCStreamEvent) Deserialize(r io.Reader) error {
 				return fmt.Errorf("reading repoSync event: %w", err)
 			}
 			xevt.RepoSync = &evt
-		case "#handle":
-			// TODO: DEPRECATED message; warning/counter; drop message
-			var evt comatproto.SyncSubscribeRepos_Handle
-			if err := evt.UnmarshalCBOR(r); err != nil {
-				return err
-			}
-			xevt.RepoHandle = &evt
 		case "#identity":
 			var evt comatproto.SyncSubscribeRepos_Identity
 			if err := evt.UnmarshalCBOR(r); err != nil {
@@ -295,20 +276,6 @@ func (xevt *XRPCStreamEvent) Deserialize(r io.Reader) error {
 				return err
 			}
 			xevt.RepoInfo = &evt
-		case "#migrate":
-			// TODO: DEPRECATED message; warning/counter; drop message
-			var evt comatproto.SyncSubscribeRepos_Migrate
-			if err := evt.UnmarshalCBOR(r); err != nil {
-				return err
-			}
-			xevt.RepoMigrate = &evt
-		case "#tombstone":
-			// TODO: DEPRECATED message; warning/counter; drop message
-			var evt comatproto.SyncSubscribeRepos_Tombstone
-			if err := evt.UnmarshalCBOR(r); err != nil {
-				return err
-			}
-			xevt.RepoTombstone = &evt
 		case "#labels":
 			var evt comatproto.LabelSubscribeLabels_Labels
 			if err := evt.UnmarshalCBOR(r); err != nil {
@@ -476,12 +443,6 @@ func (evt *XRPCStreamEvent) Sequence() int64 {
 		return evt.RepoCommit.Seq
 	case evt.RepoSync != nil:
 		return evt.RepoSync.Seq
-	case evt.RepoHandle != nil:
-		return evt.RepoHandle.Seq
-	case evt.RepoMigrate != nil:
-		return evt.RepoMigrate.Seq
-	case evt.RepoTombstone != nil:
-		return evt.RepoTombstone.Seq
 	case evt.RepoIdentity != nil:
 		return evt.RepoIdentity.Seq
 	case evt.RepoAccount != nil:
@@ -503,12 +464,6 @@ func (evt *XRPCStreamEvent) GetSequence() (int64, bool) {
 		return evt.RepoCommit.Seq, true
 	case evt.RepoSync != nil:
 		return evt.RepoSync.Seq, true
-	case evt.RepoHandle != nil:
-		return evt.RepoHandle.Seq, true
-	case evt.RepoMigrate != nil:
-		return evt.RepoMigrate.Seq, true
-	case evt.RepoTombstone != nil:
-		return evt.RepoTombstone.Seq, true
 	case evt.RepoIdentity != nil:
 		return evt.RepoIdentity.Seq, true
 	case evt.RepoAccount != nil:

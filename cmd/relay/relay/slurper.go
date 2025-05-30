@@ -454,33 +454,6 @@ func (s *Slurper) handleConnection(ctx context.Context, conn *websocket.Conn, su
 			s.logger.Debug("info event", "name", info.Name, "message", info.Message, "host", sub.Hostname)
 			return nil
 		},
-		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error { // DEPRECATED
-			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "handle")
-			logger.Debug("got remote handle update event", "handle", evt.Handle)
-			if err := s.processCallback(context.Background(), &stream.XRPCStreamEvent{RepoHandle: evt}, sub.Hostname, sub.HostID); err != nil {
-				logger.Error("failed handling event", "err", err)
-			}
-			sub.UpdateSeq()
-			return nil
-		},
-		RepoMigrate: func(evt *comatproto.SyncSubscribeRepos_Migrate) error { // DEPRECATED
-			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "migrate")
-			logger.Debug("got remote repo migrate event", "migrateTo", evt.MigrateTo)
-			if err := s.processCallback(context.Background(), &stream.XRPCStreamEvent{RepoMigrate: evt}, sub.Hostname, sub.HostID); err != nil {
-				logger.Error("failed handling event", "err", err)
-			}
-			sub.UpdateSeq()
-			return nil
-		},
-		RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error { // DEPRECATED
-			logger := s.logger.With("host", sub.Hostname, "did", evt.Did, "seq", evt.Seq, "eventType", "tombstone")
-			logger.Debug("got remote repo tombstone event")
-			if err := s.processCallback(context.Background(), &stream.XRPCStreamEvent{RepoTombstone: evt}, sub.Hostname, sub.HostID); err != nil {
-				logger.Error("failed handling event", "err", err)
-			}
-			sub.UpdateSeq()
-			return nil
-		},
 	}
 
 	limiters := []*slidingwindow.Limiter{

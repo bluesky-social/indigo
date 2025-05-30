@@ -109,23 +109,6 @@ func (s *Sonar) HandleStreamEvent(ctx context.Context, xe *events.XRPCStreamEven
 	case xe.RepoCommit != nil:
 		eventsProcessedCounter.WithLabelValues("repo_commit", s.SocketURL).Inc()
 		return s.HandleRepoCommit(ctx, xe.RepoCommit)
-	case xe.RepoHandle != nil:
-		eventsProcessedCounter.WithLabelValues("repo_handle", s.SocketURL).Inc()
-		now := time.Now()
-		s.ProgMux.Lock()
-		s.Progress.LastSeq = xe.RepoHandle.Seq
-		s.Progress.LastSeqProcessedAt = now
-		s.ProgMux.Unlock()
-		// Parse time from the event time string
-		t, err := time.Parse(time.RFC3339, xe.RepoHandle.Time)
-		if err != nil {
-			s.Logger.Error("error parsing time", "err", err)
-			return nil
-		}
-		lastEvtCreatedAtGauge.WithLabelValues(s.SocketURL).Set(float64(t.UnixNano()))
-		lastEvtProcessedAtGauge.WithLabelValues(s.SocketURL).Set(float64(now.UnixNano()))
-		lastEvtCreatedEvtProcessedGapGauge.WithLabelValues(s.SocketURL).Set(float64(now.Sub(t).Seconds()))
-		lastSeqGauge.WithLabelValues(s.SocketURL).Set(float64(xe.RepoHandle.Seq))
 	case xe.RepoIdentity != nil:
 		eventsProcessedCounter.WithLabelValues("identity", s.SocketURL).Inc()
 		now := time.Now()
@@ -142,25 +125,6 @@ func (s *Sonar) HandleStreamEvent(ctx context.Context, xe *events.XRPCStreamEven
 		s.ProgMux.Unlock()
 	case xe.RepoInfo != nil:
 		eventsProcessedCounter.WithLabelValues("repo_info", s.SocketURL).Inc()
-	case xe.RepoMigrate != nil:
-		eventsProcessedCounter.WithLabelValues("repo_migrate", s.SocketURL).Inc()
-		now := time.Now()
-		s.ProgMux.Lock()
-		s.Progress.LastSeq = xe.RepoMigrate.Seq
-		s.Progress.LastSeqProcessedAt = time.Now()
-		s.ProgMux.Unlock()
-		// Parse time from the event time string
-		t, err := time.Parse(time.RFC3339, xe.RepoMigrate.Time)
-		if err != nil {
-			s.Logger.Error("error parsing time", "err", err)
-			return nil
-		}
-		lastEvtCreatedAtGauge.WithLabelValues(s.SocketURL).Set(float64(t.UnixNano()))
-		lastEvtProcessedAtGauge.WithLabelValues(s.SocketURL).Set(float64(now.UnixNano()))
-		lastEvtCreatedEvtProcessedGapGauge.WithLabelValues(s.SocketURL).Set(float64(now.Sub(t).Seconds()))
-		lastSeqGauge.WithLabelValues(s.SocketURL).Set(float64(xe.RepoHandle.Seq))
-	case xe.RepoTombstone != nil:
-		eventsProcessedCounter.WithLabelValues("repo_tombstone", s.SocketURL).Inc()
 	case xe.LabelInfo != nil:
 		eventsProcessedCounter.WithLabelValues("label_info", s.SocketURL).Inc()
 	case xe.LabelLabels != nil:

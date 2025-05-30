@@ -903,37 +903,6 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		repoCommitsResultCounter.WithLabelValues(host.Host, "ok").Inc()
 		return nil
-	case env.RepoHandle != nil:
-		bgs.log.Info("bgs got repo handle event", "did", env.RepoHandle.Did, "handle", env.RepoHandle.Handle)
-		// Flush any cached DID documents for this user
-		bgs.didr.FlushCacheFor(env.RepoHandle.Did)
-
-		// TODO: ignoring the data in the message and just going out to the DID doc
-		act, err := bgs.createExternalUser(ctx, env.RepoHandle.Did)
-		if err != nil {
-			return err
-		}
-
-		if act.Handle.String != env.RepoHandle.Handle {
-			bgs.log.Warn("handle update did not update handle to asserted value", "did", env.RepoHandle.Did, "expected", env.RepoHandle.Handle, "actual", act.Handle)
-		}
-
-		// TODO: Update the ReposHandle event type to include "verified" or something
-
-		// Broadcast the handle update to all consumers
-		err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
-			RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
-				Did:    env.RepoHandle.Did,
-				Handle: env.RepoHandle.Handle,
-				Time:   env.RepoHandle.Time,
-			},
-		})
-		if err != nil {
-			bgs.log.Error("failed to broadcast RepoHandle event", "error", err, "did", env.RepoHandle.Did, "handle", env.RepoHandle.Handle)
-			return fmt.Errorf("failed to broadcast RepoHandle event: %w", err)
-		}
-
-		return nil
 	case env.RepoIdentity != nil:
 		bgs.log.Info("bgs got identity event", "did", env.RepoIdentity.Did)
 		// Flush any cached DID documents for this user
@@ -1035,56 +1004,9 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		return nil
-	case env.RepoMigrate != nil:
-		if _, err := bgs.createExternalUser(ctx, env.RepoMigrate.Did); err != nil {
-			return err
-		}
-
-		return nil
-	case env.RepoTombstone != nil:
-		if err := bgs.handleRepoTombstone(ctx, host, env.RepoTombstone); err != nil {
-			return err
-		}
-
-		return nil
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
-}
-
-func (bgs *BGS) handleRepoTombstone(ctx context.Context, pds *models.PDS, evt *atproto.SyncSubscribeRepos_Tombstone) error {
-	u, err := bgs.lookupUserByDid(ctx, evt.Did)
-	if err != nil {
-		return err
-	}
-
-	if u.PDS != pds.ID {
-		return fmt.Errorf("unauthoritative tombstone event from %s for %s", pds.Host, evt.Did)
-	}
-
-	if err := bgs.db.Model(&User{}).Where("id = ?", u.ID).UpdateColumns(map[string]any{
-		"tombstoned": true,
-		"handle":     nil,
-	}).Error; err != nil {
-		return err
-	}
-	u.SetTombstoned(true)
-
-	if err := bgs.db.Model(&models.ActorInfo{}).Where("uid = ?", u.ID).UpdateColumns(map[string]any{
-		"handle": nil,
-	}).Error; err != nil {
-		return err
-	}
-
-	// delete data from carstore
-	if err := bgs.repoman.TakeDownRepo(ctx, u.ID); err != nil {
-		// don't let a failure here prevent us from propagating this event
-		bgs.log.Error("failed to delete user data from carstore", "err", err)
-	}
-
-	return bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoTombstone: evt,
-	})
 }
 
 // TODO: rename? This also updates users, and 'external' is an old phrasing

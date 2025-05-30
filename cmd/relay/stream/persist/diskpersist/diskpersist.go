@@ -484,14 +484,10 @@ func (dp *DiskPersistence) doPersist(ctx context.Context, pjob persistJob) error
 		pjob.Evt.RepoCommit.Seq = seq
 	case pjob.Evt.RepoSync != nil:
 		pjob.Evt.RepoSync.Seq = seq
-	case pjob.Evt.RepoHandle != nil:
-		pjob.Evt.RepoHandle.Seq = seq
 	case pjob.Evt.RepoIdentity != nil:
 		pjob.Evt.RepoIdentity.Seq = seq
 	case pjob.Evt.RepoAccount != nil:
 		pjob.Evt.RepoAccount.Seq = seq
-	case pjob.Evt.RepoTombstone != nil:
-		pjob.Evt.RepoTombstone.Seq = seq
 	default:
 		// only those three get peristed right now
 		// we should not actually ever get here...
@@ -547,12 +543,6 @@ func (dp *DiskPersistence) Persist(ctx context.Context, xevt *stream.XRPCStreamE
 		if err := xevt.RepoSync.MarshalCBOR(cw); err != nil {
 			return fmt.Errorf("failed to marshal: %w", err)
 		}
-	case xevt.RepoHandle != nil:
-		evtKind = evtKindHandle
-		did = xevt.RepoHandle.Did
-		if err := xevt.RepoHandle.MarshalCBOR(cw); err != nil {
-			return fmt.Errorf("failed to marshal: %w", err)
-		}
 	case xevt.RepoIdentity != nil:
 		evtKind = evtKindIdentity
 		did = xevt.RepoIdentity.Did
@@ -563,12 +553,6 @@ func (dp *DiskPersistence) Persist(ctx context.Context, xevt *stream.XRPCStreamE
 		evtKind = evtKindAccount
 		did = xevt.RepoAccount.Did
 		if err := xevt.RepoAccount.MarshalCBOR(cw); err != nil {
-			return fmt.Errorf("failed to marshal: %w", err)
-		}
-	case xevt.RepoTombstone != nil:
-		evtKind = evtKindTombstone
-		did = xevt.RepoTombstone.Did
-		if err := xevt.RepoTombstone.MarshalCBOR(cw); err != nil {
 			return fmt.Errorf("failed to marshal: %w", err)
 		}
 	default:
@@ -810,15 +794,6 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 			if err := cb(&stream.XRPCStreamEvent{RepoSync: &evt}); err != nil {
 				return nil, err
 			}
-		case evtKindHandle:
-			var evt atproto.SyncSubscribeRepos_Handle
-			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
-				return nil, err
-			}
-			evt.Seq = h.Seq
-			if err := cb(&stream.XRPCStreamEvent{RepoHandle: &evt}); err != nil {
-				return nil, err
-			}
 		case evtKindIdentity:
 			var evt atproto.SyncSubscribeRepos_Identity
 			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
@@ -835,15 +810,6 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 			}
 			evt.Seq = h.Seq
 			if err := cb(&stream.XRPCStreamEvent{RepoAccount: &evt}); err != nil {
-				return nil, err
-			}
-		case evtKindTombstone:
-			var evt atproto.SyncSubscribeRepos_Tombstone
-			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
-				return nil, err
-			}
-			evt.Seq = h.Seq
-			if err := cb(&stream.XRPCStreamEvent{RepoTombstone: &evt}); err != nil {
 				return nil, err
 			}
 		default:
