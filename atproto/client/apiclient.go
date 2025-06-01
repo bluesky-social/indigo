@@ -166,6 +166,10 @@ func (c *APIClient) WithService(ref string) *APIClient {
 
 // Configures labeler header (Atproto-Accept-Labelers) with the indicated "redact" level labelers, and regular labelers.
 func (c *APIClient) SetLabelers(redact, other []syntax.DID) {
+	c.Headers.Set("Atproto-Accept-Labelers", encodeLabelerHeader(redact, other))
+}
+
+func encodeLabelerHeader(redact, other []syntax.DID) string {
 	val := ""
 	for _, did := range redact {
 		if val != "" {
@@ -179,5 +183,5 @@ func (c *APIClient) SetLabelers(redact, other []syntax.DID) {
 		}
 		val = val + did.String()
 	}
-	c.Headers.Set("Atproto-Accept-Labelers", val)
+	return val
 }
