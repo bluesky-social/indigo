@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
@@ -41,6 +40,35 @@ func (sd *PasswordSessionData) Clone() PasswordSessionData {
 		AccountDID:   sd.AccountDID,
 		Host:         sd.Host,
 	}
+}
+
+type createSessionRequest struct {
+	//AllowTakendown  *bool   `json:"allowTakendown,omitempty" cborgen:"allowTakendown,omitempty"`
+	AuthFactorToken *string `json:"authFactorToken,omitempty" cborgen:"authFactorToken,omitempty"`
+	// identifier: Handle or other identifier supported by the server for the authenticating user.
+	Identifier string `json:"identifier" cborgen:"identifier"`
+	Password   string `json:"password" cborgen:"password"`
+}
+
+type createSessionResponse struct {
+	AccessJwt string `json:"accessJwt" cborgen:"accessJwt"`
+	Active    *bool  `json:"active,omitempty" cborgen:"active,omitempty"`
+	Did       string `json:"did" cborgen:"did"`
+	//Email           *string      `json:"email,omitempty" cborgen:"email,omitempty"`
+	//EmailAuthFactor *bool        `json:"emailAuthFactor,omitempty" cborgen:"emailAuthFactor,omitempty"`
+	//EmailConfirmed  *bool        `json:"emailConfirmed,omitempty" cborgen:"emailConfirmed,omitempty"`
+	//Handle          string       `json:"handle" cborgen:"handle"`
+	RefreshJwt string  `json:"refreshJwt" cborgen:"refreshJwt"`
+	Status     *string `json:"status,omitempty" cborgen:"status,omitempty"`
+}
+
+type refreshSessionResponse struct {
+	AccessJwt string `json:"accessJwt" cborgen:"accessJwt"`
+	Active    *bool  `json:"active,omitempty" cborgen:"active,omitempty"`
+	Did       string `json:"did" cborgen:"did"`
+	//Handle     string       `json:"handle" cborgen:"handle"`
+	RefreshJwt string  `json:"refreshJwt" cborgen:"refreshJwt"`
+	Status     *string `json:"status,omitempty" cborgen:"status,omitempty"`
 }
 
 func (a *PasswordAuth) DoWithAuth(c *http.Client, req *http.Request, endpoint syntax.NSID) (*http.Response, error) {
@@ -138,7 +166,7 @@ func (a *PasswordAuth) Refresh(ctx context.Context, c *http.Client, priorRefresh
 		return eb.APIError(resp.StatusCode)
 	}
 
-	var out comatproto.ServerRefreshSession_Output
+	var out refreshSessionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return err
 	}
@@ -219,7 +247,7 @@ func LoginWithPassword(ctx context.Context, dir identity.Directory, username syn
 func LoginWithPasswordHost(ctx context.Context, host, username, password, authToken string, cb RefreshCallback) (*APIClient, error) {
 
 	c := NewAPIClient(host)
-	reqBody := comatproto.ServerCreateSession_Input{
+	reqBody := createSessionRequest{
 		Identifier: username,
 		Password:   password,
 	}
@@ -227,8 +255,7 @@ func LoginWithPasswordHost(ctx context.Context, host, username, password, authTo
 		reqBody.AuthFactorToken = &authToken
 	}
 
-	// TODO: copy/vendor in session objects
-	var out comatproto.ServerCreateSession_Output
+	var out createSessionResponse
 	if err := c.Post(ctx, syntax.NSID("com.atproto.server.createSession"), &reqBody, &out); err != nil {
 		return nil, err
 	}
