@@ -2,16 +2,15 @@ package util
 
 import (
 	"context"
+	"net/http"
 )
 
-type XRPCRequestType int
-
 const (
-	Query = XRPCRequestType(iota)
-	Procedure
+	Query     = http.MethodGet
+	Procedure = http.MethodPost
 )
 
 // API client interface used in lexgen.
 type LexClient interface {
-	LexDo(ctx context.Context, kind XRPCRequestType, inpenc string, method string, params map[string]any, bodyobj any, out any) error
+	LexDo(ctx context.Context, kind string, inpenc string, method string, params map[string]any, bodyobj any, out any) error
 }
