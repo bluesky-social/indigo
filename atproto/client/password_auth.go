@@ -43,7 +43,7 @@ func (sd *PasswordSessionData) Clone() PasswordSessionData {
 	}
 }
 
-func (a *PasswordAuth) DoWithAuth(c *http.Client, req *http.Request) (*http.Response, error) {
+func (a *PasswordAuth) DoWithAuth(c *http.Client, req *http.Request, endpoint syntax.NSID) (*http.Response, error) {
 	accessToken, refreshToken := a.GetTokens()
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	resp, err := c.Do(req)

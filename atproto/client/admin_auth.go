@@ -2,13 +2,15 @@ package client
 
 import (
 	"net/http"
+
+	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
 type AdminAuth struct {
 	Password string
 }
 
-func (a *AdminAuth) DoWithAuth(c *http.Client, req *http.Request) (*http.Response, error) {
+func (a *AdminAuth) DoWithAuth(c *http.Client, req *http.Request, endpoint syntax.NSID) (*http.Response, error) {
 	req.SetBasicAuth("admin", a.Password)
 	return c.Do(req)
 }
