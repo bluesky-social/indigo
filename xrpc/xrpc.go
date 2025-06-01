@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/carlmjohnson/versioninfo"
 )
@@ -35,11 +34,9 @@ func (c *Client) getClient() *http.Client {
 	return c.Client
 }
 
-type XRPCRequestType = lexutil.XRPCRequestType
-
 var (
-	Query     = lexutil.Query
-	Procedure = lexutil.Procedure
+	Query     = http.MethodGet
+	Procedure = http.MethodPost
 )
 
 type AuthInfo struct {
@@ -134,7 +131,7 @@ func makeParams(p map[string]any) string {
 	return params.Encode()
 }
 
-func (c *Client) Do(ctx context.Context, kind lexutil.XRPCRequestType, inpenc string, method string, params map[string]interface{}, bodyobj interface{}, out interface{}) error {
+func (c *Client) Do(ctx context.Context, kind string, inpenc string, method string, params map[string]interface{}, bodyobj interface{}, out interface{}) error {
 	var body io.Reader
 	if bodyobj != nil {
 		if rr, ok := bodyobj.(io.Reader); ok {
@@ -151,12 +148,12 @@ func (c *Client) Do(ctx context.Context, kind lexutil.XRPCRequestType, inpenc st
 
 	var m string
 	switch kind {
-	case lexutil.Query:
+	case Query:
 		m = "GET"
-	case lexutil.Procedure:
+	case Procedure:
 		m = "POST"
 	default:
-		return fmt.Errorf("unsupported request kind: %d", kind)
+		return fmt.Errorf("unsupported request kind: %s", kind)
 	}
 
 	var paramStr string
@@ -229,6 +226,6 @@ func (c *Client) Do(ctx context.Context, kind lexutil.XRPCRequestType, inpenc st
 	return nil
 }
 
-func (c *Client) LexDo(ctx context.Context, kind lexutil.XRPCRequestType, inpenc string, method string, params map[string]any, bodyobj any, out any) error {
+func (c *Client) LexDo(ctx context.Context, kind string, inpenc string, method string, params map[string]any, bodyobj any, out any) error {
 	return c.Do(ctx, kind, inpenc, method, params, bodyobj, out)
 }
