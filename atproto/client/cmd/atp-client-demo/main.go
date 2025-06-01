@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 
+	comatproto "github.com/bluesky-social/indigo/api/agnostic"
 	"github.com/bluesky-social/indigo/atproto/client"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -27,6 +28,18 @@ func main() {
 					&cli.StringFlag{
 						Name:  "host",
 						Value: "https://public.api.bsky.app",
+						Usage: "service host",
+					},
+				},
+			},
+			&cli.Command{
+				Name:   "list-records-public",
+				Usage:  "do a basic GET request (listRecords)",
+				Action: runListRecordsPublic,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "host",
+						Value: "https://enoki.us-east.host.bsky.network",
 						Usage: "service host",
 					},
 				},
@@ -107,7 +120,7 @@ func main() {
 	app.RunAndExitOnError()
 }
 
-func simpleGet(ctx context.Context, c *client.APIClient) error {
+func getFeed(ctx context.Context, c *client.APIClient) error {
 	params := map[string]any{
 		"actor":       "atproto.com",
 		"limit":       2,
@@ -128,6 +141,21 @@ func simpleGet(ctx context.Context, c *client.APIClient) error {
 	return nil
 }
 
+func listRecords(ctx context.Context, c *client.APIClient) error {
+
+	list, err := comatproto.RepoListRecords(ctx, c, "app.bsky.actor.profile", "", 10, "did:plc:ewvi7nxzyoun6zhxrhs64oiz", false)
+	if err != nil {
+		return err
+	}
+
+	out, err := json.MarshalIndent(list, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(out))
+	return nil
+}
+
 func runGetFeedPublic(cctx *cli.Context) error {
 	ctx := cctx.Context
 
@@ -135,7 +163,17 @@ func runGetFeedPublic(cctx *cli.Context) error {
 		Host: cctx.String("host"),
 	}
 
-	return simpleGet(ctx, &c)
+	return getFeed(ctx, &c)
+}
+
+func runListRecordsPublic(cctx *cli.Context) error {
+	ctx := cctx.Context
+
+	c := client.APIClient{
+		Host: cctx.String("host"),
+	}
+
+	return listRecords(ctx, &c)
 }
 
 func runLoginAuth(cctx *cli.Context) error {
@@ -183,7 +221,7 @@ func runGetFeedAuth(cctx *cli.Context) error {
 	}
 	c = c.WithService(cctx.String("appview"))
 
-	return simpleGet(ctx, c)
+	return getFeed(ctx, c)
 }
 
 func runLookupAdmin(cctx *cli.Context) error {
