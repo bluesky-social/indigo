@@ -11,7 +11,8 @@ import (
 )
 
 type AuthMethod interface {
-	DoWithAuth(c *http.Client, req *http.Request) (*http.Response, error)
+	// endpoint parameter is included for auth methods which need to include the NSID in authorization tokens
+	DoWithAuth(c *http.Client, req *http.Request, endpoint syntax.NSID) (*http.Response, error)
 }
 
 type APIClient struct {
@@ -137,7 +138,7 @@ func (c *APIClient) Do(ctx context.Context, req *APIRequest) (*http.Response, er
 
 	var resp *http.Response
 	if c.Auth != nil {
-		resp, err = c.Auth.DoWithAuth(c.Client, httpReq)
+		resp, err = c.Auth.DoWithAuth(c.Client, httpReq, req.Endpoint)
 	} else {
 		resp, err = c.Client.Do(httpReq)
 	}
