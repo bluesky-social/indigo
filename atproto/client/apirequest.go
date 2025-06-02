@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	// atproto API "Query" Lexicon method, which is HTTP GET. Not to be confused with proposed "HTTP QUERY" method.
+	// atproto API "Query" Lexicon method, which is HTTP GET. Not to be confused with the IETF draft "HTTP QUERY" method.
 	MethodQuery = http.MethodGet
 
 	// atproto API "Procedure" Lexicon method, which is HTTP POST.
@@ -28,7 +28,7 @@ type APIRequest struct {
 	// Optional request body (may be nil). If this is provided, then 'Content-Type' header should be specified
 	Body io.Reader
 
-	// Optional function to return new reader for request body; used for retries. strongly recommended if Body is defined. Body still needs to be defined, even if this function is provided.
+	// Optional function to return new reader for request body; used for retries. Strongly recommended if Body is defined. Body still needs to be defined, even if this function is provided.
 	GetBody func() (io.ReadCloser, error)
 
 	// Optional query parameters (field may be nil). These will be encoded as provided.
@@ -40,7 +40,7 @@ type APIRequest struct {
 
 // Initializes a new request struct. Initializes Headers and QueryParams so they can be manipulated immediately.
 //
-// If body is provided (it can be nil), will try to turn it in to the most retry-able form (and wrap as io.ReadCloser).
+// If body is provided (it can be nil), will try to turn it in to the most retry-able form (and wrap as [io.ReadCloser]).
 func NewAPIRequest(method string, endpoint syntax.NSID, body io.Reader) *APIRequest {
 	req := APIRequest{
 		Method:      method,
@@ -66,10 +66,11 @@ func NewAPIRequest(method string, endpoint syntax.NSID, body io.Reader) *APIRequ
 	return &req
 }
 
-// Creates an `http.Request` for this API request.
+// Creates an [http.Request] for this API request.
 //
 // `host` parameter should be a URL prefix: schema, hostname, port (required)
-// `headers` parameters are treated as client-level defaults. Only a single value is allowed per key ("Set" behavior), and will be clobbered by any request-level header values. (optional; may be nil)
+//
+// `clientHeaders`, if provided, is treated as client-level defaults. Only a single value is allowed per key ("Set" behavior), and will be clobbered by any request-level header values. (optional; may be nil)
 func (r *APIRequest) HTTPRequest(ctx context.Context, host string, clientHeaders http.Header) (*http.Request, error) {
 	u, err := url.Parse(host)
 	if err != nil {
