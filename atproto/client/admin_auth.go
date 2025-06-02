@@ -6,6 +6,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
+// Simple [AuthMethod] implementation for atproto "admin auth".
 type AdminAuth struct {
 	Password string
 }

@@ -14,6 +14,9 @@ import (
 
 type RefreshCallback = func(ctx context.Context, data PasswordSessionData)
 
+// Implementation of [AuthMethod] for password-based auth sessions with atproto PDS hosts. Automatically refreshes "access token" using a "refresh token" when needed.
+//
+// It is safe to use this auth method concurrently from multiple goroutines.
 type PasswordAuth struct {
 	Session PasswordSessionData
 
@@ -26,6 +29,7 @@ type PasswordAuth struct {
 	lk sync.RWMutex
 }
 
+// Data about a PDS password auth session which can be persisted and then used to resume the session later.
 type PasswordSessionData struct {
 	AccessToken  string     `json:"access_token"`
 	RefreshToken string     `json:"refresh_token"`
@@ -33,6 +37,7 @@ type PasswordSessionData struct {
 	Host         string     `json:"host"`
 }
 
+// Creates a deep copy of the session data.
 func (sd *PasswordSessionData) Clone() PasswordSessionData {
 	return PasswordSessionData{
 		AccessToken:  sd.AccessToken,
@@ -114,7 +119,7 @@ func (a *PasswordAuth) DoWithAuth(c *http.Client, req *http.Request, endpoint sy
 	if err != nil {
 		return nil, err
 	}
-	// TODO: could handle auth failure as special error type here
+	// NOTE: could handle auth failure as special error type here
 	return retryResp, err
 }
 
@@ -128,8 +133,6 @@ func (a *PasswordAuth) GetTokens() (string, string) {
 // Refreshes auth tokens (takes a write-lock on session data).
 //
 // `priorRefreshToken` argument is used to check if a concurrent refresh already took place.
-//
-// TODO: need a "Logout" method as well? which takes the refresh token (not access token)
 func (a *PasswordAuth) Refresh(ctx context.Context, c *http.Client, priorRefreshToken string) error {
 
 	a.lk.Lock()
@@ -162,7 +165,7 @@ func (a *PasswordAuth) Refresh(ctx context.Context, c *http.Client, priorRefresh
 		if err := json.NewDecoder(resp.Body).Decode(&eb); err != nil {
 			return &APIError{StatusCode: resp.StatusCode}
 		}
-		// TODO: indicate in this error that it was from refresh process, not original request?
+		// TODO: indicate in the error that it was from refresh process, not original request?
 		return eb.APIError(resp.StatusCode)
 	}
 
@@ -212,10 +215,11 @@ func (a *PasswordAuth) Logout(ctx context.Context, c *http.Client) error {
 	return nil
 }
 
-// Creates a new APIClient with PasswordAuth for the provided user. The provided identity directory is used to resolve the PDS host for the account.
+// Creates a new [APIClient] with [PasswordAuth] for the provided user. The provided identity directory is used to resolve the PDS host for the account.
 //
 // `authToken` is optional; is used when multi-factor authentication is enabled for the account.
-// `cb` is an optional callback which will be called with updated session data after any token refresh, in a goroutine.
+//
+// `cb` is an optional callback which will be called with updated session data after any token refresh.
 func LoginWithPassword(ctx context.Context, dir identity.Directory, username syntax.AtIdentifier, password, authToken string, cb RefreshCallback) (*APIClient, error) {
 
 	ident, err := dir.Lookup(ctx, username)
@@ -240,10 +244,11 @@ func LoginWithPassword(ctx context.Context, dir identity.Directory, username syn
 	return c, nil
 }
 
-// Creates a new APIClient with PasswordAuth, based on a login to the provided host. Note that with some PDS implementations, 'username' could be an email address. This login method also works in situations where an account's network identity does not resolve to this specific host.
+// Creates a new [APIClient] with [PasswordAuth], based on a login to the provided host. Note that with some PDS implementations, 'username' could be an email address. This login method also works in situations where an account's network identity does not resolve to this specific host.
 //
 // `authToken` is optional; is used when multi-factor authentication is enabled for the account.
-// `cb` is an optional callback which will be called with updated session data after any token refresh, in a goroutine.
+//
+// `cb` is an optional callback which will be called with updated session data after any token refresh.
 func LoginWithPasswordHost(ctx context.Context, host, username, password, authToken string, cb RefreshCallback) (*APIClient, error) {
 
 	c := NewAPIClient(host)
@@ -283,9 +288,9 @@ func LoginWithPasswordHost(ctx context.Context, host, username, password, authTo
 	return c, nil
 }
 
-// Creates an APIClient using PasswordAuth, based on existing session data.
+// Creates an [APIClient] using [PasswordAuth], based on existing session data.
 //
-// `cb` is an optional callback which will be called with updated session data after any token refresh, in a goroutine.
+// `cb` is an optional callback which will be called with updated session data after any token refresh.
 func ResumePasswordSession(data PasswordSessionData, cb RefreshCallback) *APIClient {
 	c := NewAPIClient(data.Host)
 	ra := PasswordAuth{
