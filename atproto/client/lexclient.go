@@ -10,7 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// Implements the `LexClient` interface, for use with code-generated API helpers.
+// Implements the [github.com/bluesky-social/indigo/lex/util.LexClient] interface, for use with code-generated API helpers.
 func (c *APIClient) LexDo(ctx context.Context, kind string, inpenc string, method string, params map[string]any, bodyobj any, out any) error {
 	// some of the code here is copied from indigo:xrpc/xrpc.go
 
