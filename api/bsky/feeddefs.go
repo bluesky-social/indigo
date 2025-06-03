@@ -211,7 +211,9 @@ type FeedDefs_ReasonPin struct {
 type FeedDefs_ReasonRepost struct {
 	LexiconTypeID string                      `json:"$type,const=app.bsky.feed.defs#reasonRepost" cborgen:"$type,const=app.bsky.feed.defs#reasonRepost"`
 	By            *ActorDefs_ProfileViewBasic `json:"by" cborgen:"by"`
+	Cid           *string                     `json:"cid,omitempty" cborgen:"cid,omitempty"`
 	IndexedAt     string                      `json:"indexedAt" cborgen:"indexedAt"`
+	Uri           *string                     `json:"uri,omitempty" cborgen:"uri,omitempty"`
 }
 
 // FeedDefs_ReplyRef is a "replyRef" in the app.bsky.feed.defs schema.
