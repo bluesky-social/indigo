@@ -11,6 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func webHome(w http.ResponseWriter, r *http.Request) {
@@ -71,19 +72,16 @@ func TestAdminAuthMiddleware(t *testing.T) {
 
 func TestServiceAuthMiddleware(t *testing.T) {
 	assert := assert.New(t)
+	require := require.New(t)
 
 	iss := syntax.DID("did:example:iss")
 	aud := "did:example:aud#svc"
 	lxm := syntax.NSID("com.example.api")
 
 	priv, err := crypto.GeneratePrivateKeyP256()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 	pub, err := priv.PublicKey()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
 	dir := identity.NewMockDirectory()
 	dir.Insert(identity.Identity{
@@ -123,9 +121,7 @@ func TestServiceAuthMiddleware(t *testing.T) {
 	{
 		// mandatory middleware, valid auth
 		tok, err := SignServiceAuth(iss, aud, time.Minute, &lxm, priv)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(err)
 		req := httptest.NewRequest(http.MethodGet, "/xrpc/com.example.api", nil)
 		req.Header.Set("Authorization", "Bearer "+tok)
 		middle := v.Middleware(webHome, true)
@@ -148,9 +144,7 @@ func TestServiceAuthMiddleware(t *testing.T) {
 	{
 		// wrong path
 		tok, err := SignServiceAuth(iss, aud, time.Minute, &lxm, priv)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(err)
 		req := httptest.NewRequest(http.MethodGet, "/xrpc/com.example.other.api", nil)
 		req.Header.Set("Authorization", "Bearer "+tok)
 		middle := v.Middleware(webHome, true)
