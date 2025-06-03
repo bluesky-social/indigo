@@ -1043,11 +1043,11 @@ func (t *ModerationDefs_SubjectStatusView_Subject) UnmarshalJSON(b []byte) error
 //
 // Detailed view of a subject. For record subjects, the author's repo and profile will be returned.
 type ModerationDefs_SubjectView struct {
-	Record  *ModerationDefs_RecordViewDetail    `json:"record,omitempty" cborgen:"record,omitempty"`
-	Repo    *ModerationDefs_RepoViewDetail      `json:"repo,omitempty" cborgen:"repo,omitempty"`
-	Status  *ModerationDefs_SubjectStatusView   `json:"status,omitempty" cborgen:"status,omitempty"`
-	Subject string                              `json:"subject" cborgen:"subject"`
-	Type    *string                             `json:"type" cborgen:"type"`
+	Record  *ModerationDefs_RecordViewDetail  `json:"record,omitempty" cborgen:"record,omitempty"`
+	Repo    *ModerationDefs_RepoViewDetail    `json:"repo,omitempty" cborgen:"repo,omitempty"`
+	Status  *ModerationDefs_SubjectStatusView `json:"status,omitempty" cborgen:"status,omitempty"`
+	Subject string                            `json:"subject" cborgen:"subject"`
+	Type    *string                           `json:"type" cborgen:"type"`
 }
 
 // ModerationDefs_VideoDetails is a "videoDetails" in the tools.ozone.moderation.defs schema.
