@@ -28,6 +28,8 @@ func (yp *YoloPersister) Persist(ctx context.Context, e *events.XRPCStreamEvent)
 	switch {
 	case e.RepoCommit != nil:
 		e.RepoCommit.Seq = yp.seq
+	case e.RepoSync != nil:
+		e.RepoSync.Seq = yp.seq
 	case e.RepoHandle != nil:
 		e.RepoHandle.Seq = yp.seq
 	case e.RepoIdentity != nil:
