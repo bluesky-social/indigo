@@ -37,6 +37,7 @@ import (
 	promclient "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
@@ -223,6 +224,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
+	e.Use(otelecho.Middleware("bgs"))
 
 	if !bgs.ssl {
 		e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
