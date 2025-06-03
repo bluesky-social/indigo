@@ -14,11 +14,7 @@ func ParseParams(raw map[string]any) (url.Values, error) {
 		switch v := raw[k].(type) {
 		case nil:
 			out.Set(k, "")
-		case bool:
-			out.Set(k, fmt.Sprint(v))
-		case string:
-			out.Set(k, v)
-		case int, uint, int8, int16, int32, int64, uint8, uint16, uint32, uint64, uintptr:
+		case bool, string, int, uint, int8, int16, int32, int64, uint8, uint16, uint32, uint64, uintptr:
 			out.Set(k, fmt.Sprint(v))
 		case encoding.TextMarshaler:
 			out.Set(k, fmt.Sprint(v))
@@ -29,11 +25,7 @@ func ParseParams(raw map[string]any) (url.Values, error) {
 					switch elem := ref.Index(i).Interface().(type) {
 					case nil:
 						out.Add(k, "")
-					case bool:
-						out.Add(k, fmt.Sprint(elem))
-					case string:
-						out.Add(k, elem)
-					case int, uint, int8, int16, int32, int64, uint8, uint16, uint32, uint64, uintptr:
+					case bool, string, int, uint, int8, int16, int32, int64, uint8, uint16, uint32, uint64, uintptr:
 						out.Add(k, fmt.Sprint(elem))
 					case encoding.TextMarshaler:
 						out.Add(k, fmt.Sprint(elem))

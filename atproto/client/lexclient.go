@@ -65,6 +65,8 @@ func (c *APIClient) LexDo(ctx context.Context, method string, inputEncoding stri
 	}
 
 	if out == nil {
+		// drain body before returning
+		io.ReadAll(resp.Body)
 		return nil
 	}
 
