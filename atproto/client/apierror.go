@@ -11,11 +11,12 @@ type APIError struct {
 }
 
 func (ae *APIError) Error() string {
-	if ae.StatusCode > 0 && ae.Name != "" && ae.Message != "" {
-		return fmt.Sprintf("API request failed (HTTP %d): %s: %s", ae.StatusCode, ae.Name, ae.Message)
-	} else if ae.StatusCode > 0 && ae.Name != "" {
-		return fmt.Sprintf("API request failed (HTTP %d): %s", ae.StatusCode, ae.Name)
-	} else if ae.StatusCode > 0 {
+	if ae.StatusCode > 0 {
+		if ae.Name != "" && ae.Message != "" {
+			return fmt.Sprintf("API request failed (HTTP %d): %s: %s", ae.StatusCode, ae.Name, ae.Message)
+		} else if ae.Name != "" {
+			return fmt.Sprintf("API request failed (HTTP %d): %s", ae.StatusCode, ae.Name)
+		}
 		return fmt.Sprintf("API request failed (HTTP %d)", ae.StatusCode)
 	}
 	return "API request failed"
