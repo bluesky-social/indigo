@@ -11,32 +11,35 @@ import (
 )
 
 // Implements the [github.com/bluesky-social/indigo/lex/util.LexClient] interface, for use with code-generated API helpers.
-func (c *APIClient) LexDo(ctx context.Context, kind string, inpenc string, method string, params map[string]any, bodyobj any, out any) error {
+func (c *APIClient) LexDo(ctx context.Context, method string, inputEncoding string, endpoint string, params map[string]any, bodyData any, out any) error {
 	// some of the code here is copied from indigo:xrpc/xrpc.go
 
-	nsid, err := syntax.ParseNSID(method)
+	nsid, err := syntax.ParseNSID(endpoint)
 	if err != nil {
 		return err
 	}
 
 	var body io.Reader
-	if bodyobj != nil {
-		if rr, ok := bodyobj.(io.Reader); ok {
+	if bodyData != nil {
+		if rr, ok := bodyData.(io.Reader); ok {
 			body = rr
 		} else {
-			b, err := json.Marshal(bodyobj)
+			b, err := json.Marshal(bodyData)
 			if err != nil {
 				return err
 			}
 
 			body = bytes.NewReader(b)
+			if inputEncoding == "" {
+				inputEncoding = "application/json"
+			}
 		}
 	}
 
-	req := NewAPIRequest(kind, nsid, body)
+	req := NewAPIRequest(method, nsid, body)
 
-	if bodyobj != nil && inpenc != "" {
-		req.Headers.Set("Content-Type", inpenc)
+	if inputEncoding != "" {
+		req.Headers.Set("Content-Type", inputEncoding)
 	}
 
 	if params != nil {
