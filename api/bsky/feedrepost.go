@@ -17,4 +17,5 @@ type FeedRepost struct {
 	LexiconTypeID string                         `json:"$type,const=app.bsky.feed.repost" cborgen:"$type,const=app.bsky.feed.repost"`
 	CreatedAt     string                         `json:"createdAt" cborgen:"createdAt"`
 	Subject       *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
+	Via           *comatprototypes.RepoStrongRef `json:"via,omitempty" cborgen:"via,omitempty"`
 }
