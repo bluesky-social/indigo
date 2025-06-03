@@ -49,16 +49,6 @@ type SyncSubscribeRepos_Commit struct {
 	TooBig bool `json:"tooBig" cborgen:"tooBig"`
 }
 
-// SyncSubscribeRepos_Handle is a "handle" in the com.atproto.sync.subscribeRepos schema.
-//
-// DEPRECATED -- Use #identity event instead
-type SyncSubscribeRepos_Handle struct {
-	Did    string `json:"did" cborgen:"did"`
-	Handle string `json:"handle" cborgen:"handle"`
-	Seq    int64  `json:"seq" cborgen:"seq"`
-	Time   string `json:"time" cborgen:"time"`
-}
-
 // SyncSubscribeRepos_Identity is a "identity" in the com.atproto.sync.subscribeRepos schema.
 //
 // Represents a change to an account's identity. Could be an updated handle, signing key, or pds hosting endpoint. Serves as a prod to all downstream services to refresh their identity cache.
@@ -74,16 +64,6 @@ type SyncSubscribeRepos_Identity struct {
 type SyncSubscribeRepos_Info struct {
 	Message *string `json:"message,omitempty" cborgen:"message,omitempty"`
 	Name    string  `json:"name" cborgen:"name"`
-}
-
-// SyncSubscribeRepos_Migrate is a "migrate" in the com.atproto.sync.subscribeRepos schema.
-//
-// DEPRECATED -- Use #account event instead
-type SyncSubscribeRepos_Migrate struct {
-	Did       string  `json:"did" cborgen:"did"`
-	MigrateTo *string `json:"migrateTo" cborgen:"migrateTo"`
-	Seq       int64   `json:"seq" cborgen:"seq"`
-	Time      string  `json:"time" cborgen:"time"`
 }
 
 // SyncSubscribeRepos_RepoOp is a "repoOp" in the com.atproto.sync.subscribeRepos schema.
@@ -111,14 +91,5 @@ type SyncSubscribeRepos_Sync struct {
 	// seq: The stream sequence number of this message.
 	Seq int64 `json:"seq" cborgen:"seq"`
 	// time: Timestamp of when this message was originally broadcast.
-	Time string `json:"time" cborgen:"time"`
-}
-
-// SyncSubscribeRepos_Tombstone is a "tombstone" in the com.atproto.sync.subscribeRepos schema.
-//
-// DEPRECATED -- Use #account event instead
-type SyncSubscribeRepos_Tombstone struct {
-	Did  string `json:"did" cborgen:"did"`
-	Seq  int64  `json:"seq" cborgen:"seq"`
 	Time string `json:"time" cborgen:"time"`
 }

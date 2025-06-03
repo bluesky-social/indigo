@@ -21,7 +21,7 @@ func init() {
 type ActorStatus struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.actor.status" cborgen:"$type,const=app.bsky.actor.status"`
 	CreatedAt     string `json:"createdAt" cborgen:"createdAt"`
-	// durationMinutes: The duration of the status in minutes. Applications can choose to limit the duration.
+	// durationMinutes: The duration of the status in minutes. Applications can choose to impose minimum and maximum limits.
 	DurationMinutes *int64 `json:"durationMinutes,omitempty" cborgen:"durationMinutes,omitempty"`
 	// embed: An optional embed associated with the status.
 	Embed *ActorStatus_Embed `json:"embed,omitempty" cborgen:"embed,omitempty"`

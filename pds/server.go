@@ -598,9 +598,6 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		case evt.RepoCommit != nil:
 			header.MsgType = "#commit"
 			obj = evt.RepoCommit
-		case evt.RepoHandle != nil:
-			header.MsgType = "#handle"
-			obj = evt.RepoHandle
 		case evt.RepoIdentity != nil:
 			header.MsgType = "#identity"
 			obj = evt.RepoIdentity
@@ -610,12 +607,6 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		case evt.RepoInfo != nil:
 			header.MsgType = "#info"
 			obj = evt.RepoInfo
-		case evt.RepoMigrate != nil:
-			header.MsgType = "#migrate"
-			obj = evt.RepoMigrate
-		case evt.RepoTombstone != nil:
-			header.MsgType = "#tombstone"
-			obj = evt.RepoTombstone
 		default:
 			return fmt.Errorf("unrecognized event kind")
 		}
@@ -660,17 +651,6 @@ func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) e
 		return fmt.Errorf("failed to update handle: %w", err)
 	}
 
-	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
-			Did:    u.Did,
-			Handle: handle,
-			Time:   time.Now().Format(util.ISO8601),
-		},
-	}); err != nil {
-		return fmt.Errorf("failed to push event: %s", err)
-	}
-
-	// Also push an Identity event
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
 			Did:  u.Did,
