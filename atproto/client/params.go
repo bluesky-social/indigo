@@ -15,17 +15,13 @@ func ParseParams(raw map[string]any) (url.Values, error) {
 		case nil:
 			out.Set(k, "")
 		case bool:
-			if v {
-				out.Set(k, "true")
-			} else {
-				out.Set(k, "false")
-			}
+			out.Set(k, fmt.Sprint(v))
 		case string:
 			out.Set(k, v)
-		case int, uint, int8, int16, int32, int64, uint8, uint16, uint32, uint64:
-			out.Set(k, fmt.Sprintf("%d", v))
+		case int, uint, int8, int16, int32, int64, uint8, uint16, uint32, uint64, uintptr:
+			out.Set(k, fmt.Sprint(v))
 		case encoding.TextMarshaler:
-			out.Set(k, fmt.Sprintf("%s", v))
+			out.Set(k, fmt.Sprint(v))
 		default:
 			ref := reflect.ValueOf(v)
 			if ref.Kind() == reflect.Slice {
@@ -34,23 +30,19 @@ func ParseParams(raw map[string]any) (url.Values, error) {
 					case nil:
 						out.Add(k, "")
 					case bool:
-						if elem {
-							out.Add(k, "true")
-						} else {
-							out.Add(k, "false")
-						}
+						out.Add(k, fmt.Sprint(elem))
 					case string:
 						out.Add(k, elem)
-					case int, uint, int8, int16, int32, int64, uint8, uint16, uint32, uint64:
-						out.Add(k, fmt.Sprintf("%d", elem))
+					case int, uint, int8, int16, int32, int64, uint8, uint16, uint32, uint64, uintptr:
+						out.Add(k, fmt.Sprint(elem))
 					case encoding.TextMarshaler:
-						out.Add(k, fmt.Sprintf("%s", elem))
+						out.Add(k, fmt.Sprint(elem))
 					default:
-						return nil, fmt.Errorf("can't marshal query param type: %T", v)
+						return nil, fmt.Errorf("can't marshal query param '%s' with type: %T", k, v)
 					}
 				}
 			} else {
-				return nil, fmt.Errorf("can't marshal query param type: %T", v)
+				return nil, fmt.Errorf("can't marshal query param '%s' with type: %T", k, v)
 			}
 		}
 	}
