@@ -226,6 +226,6 @@ func (c *Client) Do(ctx context.Context, kind string, inpenc string, method stri
 	return nil
 }
 
-func (c *Client) LexDo(ctx context.Context, kind string, inpenc string, method string, params map[string]any, bodyobj any, out any) error {
-	return c.Do(ctx, kind, inpenc, method, params, bodyobj, out)
+func (c *Client) LexDo(ctx context.Context, method string, inputEncoding string, endpoint string, params map[string]any, bodyData any, out any) error {
+	return c.Do(ctx, method, inputEncoding, endpoint, params, bodyData, out)
 }
