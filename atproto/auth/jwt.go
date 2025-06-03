@@ -2,11 +2,11 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
-	"math/rand"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/crypto"
@@ -91,11 +91,11 @@ func (s *ServiceAuthValidator) fetchIssuerKeyFunc(ctx context.Context) func(toke
 	return func(token *jwt.Token) (any, error) {
 		claims, ok := token.Claims.(*serviceAuthClaims)
 		if !ok {
-			return nil, fmt.Errorf("%w: missing 'iss'", jwt.ErrTokenInvalidClaims)
+			return nil, jwt.ErrTokenInvalidClaims
 		}
 		iss, err := claims.GetIssuer()
 		if err != nil {
-			return nil, fmt.Errorf("%w: missing 'iss'", jwt.ErrTokenInvalidClaims)
+			return nil, fmt.Errorf("%w: missing 'iss' claim", jwt.ErrTokenInvalidIssuer)
 		}
 		did, err := syntax.ParseDID(iss)
 		if err != nil {
@@ -139,7 +139,7 @@ func SignServiceAuth(iss syntax.DID, aud string, ttl time.Duration, lexMethod *s
 	case *crypto.PrivateKeyK256:
 		sm = signingMethodES256K
 	default:
-		return "", fmt.Errorf("unknown signing key type")
+		return "", fmt.Errorf("unknown signing key type: %T", priv)
 	}
 
 	token := jwt.NewWithClaims(sm, claims)
