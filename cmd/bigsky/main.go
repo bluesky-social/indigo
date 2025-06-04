@@ -37,6 +37,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
@@ -234,8 +235,13 @@ func run(args []string) error {
 	return app.Run(os.Args)
 }
 
-func setupOTEL(cctx *cli.Context) error {
-
+func setupOTEL(cctx *cli.Context) (func(), error) {
+	var cleanups []func()
+	cleanup := func()  {
+		for i := len(cleanups) - 1; i >= 0; i-- {
+			cleanups[i]()
+		}
+	}
 	env := cctx.String("env")
 	if env == "" {
 		env = "dev"
@@ -244,8 +250,15 @@ func setupOTEL(cctx *cli.Context) error {
 		jaegerUrl := "http://localhost:14268/api/traces"
 		exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(jaegerUrl)))
 		if err != nil {
-			return err
+			return cleanup, err
 		}
+		cleanups = append(cleanups, func() {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			if err := exp.Shutdown(ctx); err != nil {
+				slog.Error("failed to shutdown jaeger trace exporter", "error", err)
+			}
+		})
 		tp := tracesdk.NewTracerProvider(
 			// Always be sure to batch in production.
 			tracesdk.WithBatcher(exp),
@@ -277,13 +290,13 @@ func setupOTEL(cctx *cli.Context) error {
 			slog.Error("failed to create trace exporter", "error", err)
 			os.Exit(1)
 		}
-		defer func() {
+		cleanups = append(cleanups, func() {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 			if err := exp.Shutdown(ctx); err != nil {
 				slog.Error("failed to shutdown trace exporter", "error", err)
 			}
-		}()
+		})
 
 		tp := tracesdk.NewTracerProvider(
 			tracesdk.WithBatcher(exp),
@@ -296,9 +309,10 @@ func setupOTEL(cctx *cli.Context) error {
 			)),
 		)
 		otel.SetTracerProvider(tp)
+		otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	}
 
-	return nil
+	return cleanup, nil
 }
 
 func runBigsky(cctx *cli.Context) error {
@@ -312,9 +326,12 @@ func runBigsky(cctx *cli.Context) error {
 	}
 
 	// start observability/tracing (OTEL and jaeger)
-	if err := setupOTEL(cctx); err != nil {
+	cleanupOTEL, err := setupOTEL(cctx)
+	if err != nil {
+		cleanupOTEL()
 		return err
 	}
+	defer cleanupOTEL()
 
 	// ensure data directory exists; won't error if it does
 	datadir := cctx.String("data-dir")
