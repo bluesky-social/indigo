@@ -127,6 +127,8 @@ func evtOp(evt *events.XRPCStreamEvent) string {
 		return "ERROR"
 	case evt.RepoCommit != nil:
 		return "#commit"
+	case evt.RepoSync != nil:
+		return "#sync"
 	case evt.RepoInfo != nil:
 		return "#info"
 	default:

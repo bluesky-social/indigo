@@ -338,6 +338,9 @@ func Reload(cctx *cli.Context) error {
 				case evt.RepoCommit != nil:
 					header.MsgType = "#commit"
 					obj = evt.RepoCommit
+				case evt.RepoSync != nil:
+					header.MsgType = "#sync"
+					obj = evt.RepoSync
 				case evt.RepoInfo != nil:
 					header.MsgType = "#info"
 					obj = evt.RepoInfo

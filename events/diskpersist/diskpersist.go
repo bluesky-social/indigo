@@ -278,8 +278,8 @@ func scanForLastSeq(fi *os.File, end int64) (int64, error) {
 
 const (
 	evtKindCommit    = 1
-	evtKindHandle    = 2
-	evtKindTombstone = 3
+	evtKindHandle    = 2 // DEPRECATED
+	evtKindTombstone = 3 // DEPRECATED
 	evtKindIdentity  = 4
 	evtKindAccount   = 5
 	evtKindSync      = 6

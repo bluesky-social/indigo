@@ -109,6 +109,13 @@ func (s *Sonar) HandleStreamEvent(ctx context.Context, xe *events.XRPCStreamEven
 	case xe.RepoCommit != nil:
 		eventsProcessedCounter.WithLabelValues("repo_commit", s.SocketURL).Inc()
 		return s.HandleRepoCommit(ctx, xe.RepoCommit)
+	case xe.RepoSync != nil:
+		eventsProcessedCounter.WithLabelValues("sync", s.SocketURL).Inc()
+		now := time.Now()
+		s.ProgMux.Lock()
+		s.Progress.LastSeq = xe.RepoSync.Seq
+		s.Progress.LastSeqProcessedAt = now
+		s.ProgMux.Unlock()
 	case xe.RepoIdentity != nil:
 		eventsProcessedCounter.WithLabelValues("identity", s.SocketURL).Inc()
 		now := time.Now()
