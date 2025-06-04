@@ -65,7 +65,7 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatpr
 	}
 	go s.ForwardSiblingRequest(c, b)
 
-	return s.relay.SubscribeToHost(ctx, hostname, noSSL, false)
+	return s.relay.SubscribeToHost(ctx, hostname, noSSL, admin)
 }
 
 func (s *Service) handleComAtprotoSyncListHosts(c echo.Context, cursor int64, limit int) (*comatproto.SyncListHosts_Output, error) {

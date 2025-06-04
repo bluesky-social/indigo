@@ -11,7 +11,7 @@ import (
 
 func parseFloat(f float64) (int64, error) {
 	if f != float64(int64(f)) {
-		return 0, fmt.Errorf("number was is not a safe integer: %f", f)
+		return 0, fmt.Errorf("number is not a safe integer: %f", f)
 	}
 	return int64(f), nil
 }

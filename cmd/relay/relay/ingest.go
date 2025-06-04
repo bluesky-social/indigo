@@ -43,15 +43,6 @@ func (r *Relay) processRepoEvent(ctx context.Context, evt *stream.XRPCStreamEven
 	case evt.RepoAccount != nil:
 		//repoAccountReceivedCounter.WithLabelValues(hostname).Add(1)
 		return r.processAccountEvent(ctx, evt.RepoAccount, hostname, hostID)
-	case evt.RepoHandle != nil: // DEPRECATED
-		eventsWarningsCounter.WithLabelValues(hostname, "handle").Add(1)
-		return nil
-	case evt.RepoMigrate != nil: // DEPRECATED
-		eventsWarningsCounter.WithLabelValues(hostname, "migrate").Add(1)
-		return nil
-	case evt.RepoTombstone != nil: // DEPRECATED
-		eventsWarningsCounter.WithLabelValues(hostname, "tombstone").Add(1)
-		return nil
 	default:
 		return fmt.Errorf("unhandled repo stream event type")
 	}
