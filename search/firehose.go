@@ -115,22 +115,6 @@ func (idx *Indexer) RunIndexer(ctx context.Context) error {
 			return nil
 
 		},
-		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-			ctx := context.Background()
-			ctx, span := tracer.Start(ctx, "RepoHandle")
-			defer span.End()
-
-			did, err := syntax.ParseDID(evt.Did)
-			if err != nil {
-				idx.logger.Error("bad DID in RepoHandle event", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
-				return nil
-			}
-			if err := idx.updateUserHandle(ctx, did, evt.Handle); err != nil {
-				// TODO: handle this case (instead of return nil)
-				idx.logger.Error("failed to update user handle", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
-			}
-			return nil
-		},
 	}
 
 	return events.HandleRepoStream(

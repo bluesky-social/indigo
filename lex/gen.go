@@ -135,7 +135,6 @@ func GenCodeForSchema(pkg Package, reqcode bool, s *Schema, packages []Package, 
 	pf("\t\"fmt\"\n")
 	pf("\t\"encoding/json\"\n")
 	pf("\tcbg \"github.com/whyrusleeping/cbor-gen\"\n")
-	pf("\t\"github.com/bluesky-social/indigo/xrpc\"\n")
 	pf("\t\"github.com/bluesky-social/indigo/lex/util\"\n")
 	for _, xpkg := range packages {
 		if xpkg.Prefix != pkg.Prefix {
@@ -468,8 +467,8 @@ func ParsePackages(jsonBytes []byte) ([]Package, error) {
 	return packages, nil
 }
 
-func Run(schemas []*Schema, packages []Package) error {
-	defmap := BuildExtDefMap(schemas, packages)
+func Run(schemas []*Schema, externalSchemas []*Schema, packages []Package) error {
+	defmap := BuildExtDefMap(append(schemas, externalSchemas...), packages)
 
 	for _, pkg := range packages {
 		prefix := pkg.Prefix

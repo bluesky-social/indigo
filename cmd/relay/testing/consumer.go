@@ -62,14 +62,6 @@ func (c *Consumer) eventCallbacks() *stream.RepoStreamCallbacks {
 			c.LastSeq = evt.Seq
 			return nil
 		},
-		// NOTE: this is included to test that the events are *not* passed through; can be removed in the near future
-		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-			c.eventsLk.Lock()
-			defer c.eventsLk.Unlock()
-			c.Events = append(c.Events, &stream.XRPCStreamEvent{RepoHandle: evt})
-			c.LastSeq = evt.Seq
-			return nil
-		},
 	}
 	return rsc
 }

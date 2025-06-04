@@ -14,6 +14,8 @@ import (
 type FeedGetFeedSkeleton_Output struct {
 	Cursor *string                      `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Feed   []*FeedDefs_SkeletonFeedPost `json:"feed" cborgen:"feed"`
+	// reqId: Unique identifier per request that may be passed back alongside interactions.
+	ReqId *string `json:"reqId,omitempty" cborgen:"reqId,omitempty"`
 }
 
 // FeedGetFeedSkeleton calls the XRPC method "app.bsky.feed.getFeedSkeleton".

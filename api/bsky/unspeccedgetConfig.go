@@ -10,9 +10,16 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
+// UnspeccedGetConfig_LiveNowConfig is a "liveNowConfig" in the app.bsky.unspecced.getConfig schema.
+type UnspeccedGetConfig_LiveNowConfig struct {
+	Did     string   `json:"did" cborgen:"did"`
+	Domains []string `json:"domains" cborgen:"domains"`
+}
+
 // UnspeccedGetConfig_Output is the output of a app.bsky.unspecced.getConfig call.
 type UnspeccedGetConfig_Output struct {
-	CheckEmailConfirmed *bool `json:"checkEmailConfirmed,omitempty" cborgen:"checkEmailConfirmed,omitempty"`
+	CheckEmailConfirmed *bool                               `json:"checkEmailConfirmed,omitempty" cborgen:"checkEmailConfirmed,omitempty"`
+	LiveNow             []*UnspeccedGetConfig_LiveNowConfig `json:"liveNow,omitempty" cborgen:"liveNow,omitempty"`
 }
 
 // UnspeccedGetConfig calls the XRPC method "app.bsky.unspecced.getConfig".

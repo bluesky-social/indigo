@@ -30,7 +30,8 @@ type PrivateKeyExportable interface {
 	// No ASN.1 or other enclosing structure is applied to the bytes.
 	Bytes() []byte
 
-	// NOTE: should Multibase() (string, error) be part of this interface? Probably.
+	// String serialization of the key bytes in "Multibase" format.
+	Multibase() string
 }
 
 // Common interface for all the supported atproto cryptographic systems.
@@ -63,6 +64,9 @@ type PublicKey interface {
 	// For systems with no compressed/uncompressed distinction, returns the same
 	// value as Bytes().
 	UncompressedBytes() []byte
+
+	// Serialization as JWK struct (which can be marshalled to JSON)
+	JWK() (*JWK, error)
 }
 
 var ErrInvalidSignature = errors.New("crytographic signature invalid")

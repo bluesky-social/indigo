@@ -299,8 +299,6 @@ func TestHandleChange(t *testing.T) {
 
 	initevt := evts.Next()
 	t.Log(initevt.RepoCommit)
-	hcevt := evts.Next()
-	t.Log(hcevt.RepoHandle)
 	idevt := evts.Next()
 	t.Log(idevt.RepoIdentity)
 }
