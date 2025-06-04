@@ -284,6 +284,20 @@ var readRepoStreamCmd = &cli.Command{
 
 				return nil
 			},
+			RepoSync: func(sync *comatproto.SyncSubscribeRepos_Sync) error {
+				if jsonfmt {
+					b, err := json.Marshal(sync)
+					if err != nil {
+						return err
+					}
+					fmt.Println(string(b))
+				} else {
+					fmt.Printf("(%d) Sync: %s\n", sync.Seq, sync.Did)
+				}
+
+				return nil
+
+			},
 			RepoInfo: func(info *comatproto.SyncSubscribeRepos_Info) error {
 				if jsonfmt {
 					b, err := json.Marshal(info)

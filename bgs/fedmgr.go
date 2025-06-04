@@ -569,6 +569,21 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 
 			return nil
 		},
+		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
+			log.Info("sync event", "did", evt.Did, "pdsHost", host.Host, "seq", evt.Seq)
+			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+				RepoSync: evt,
+			}); err != nil {
+				log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
+			}
+			*lastCursor = evt.Seq
+
+			if err := s.updateCursor(sub, *lastCursor); err != nil {
+				return fmt.Errorf("updating cursor: %w", err)
+			}
+
+			return nil
+		},
 		RepoInfo: func(info *comatproto.SyncSubscribeRepos_Info) error {
 			log.Info("info event", "name", info.Name, "message", info.Message, "pdsHost", host.Host)
 			return nil
