@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedSearchPostsSkeleton_Output is the output of a app.bsky.unspecced.searchPostsSkeleton call.
@@ -32,7 +32,7 @@ type UnspeccedSearchPostsSkeleton_Output struct {
 // until: Filter results for posts before the indicated datetime (not inclusive). Expected to use 'sortAt' timestamp, which may not match 'createdAt'. Can be a datetime, or just an ISO date (YYY-MM-DD).
 // url: Filter to posts with links (facet links or embeds) pointing to this URL. Server may apply URL normalization or fuzzy matching.
 // viewer: DID of the account making the request (not included for public/unauthenticated queries). Used for 'from:me' queries.
-func UnspeccedSearchPostsSkeleton(ctx context.Context, c *xrpc.Client, author string, cursor string, domain string, lang string, limit int64, mentions string, q string, since string, sort string, tag []string, until string, url string, viewer string) (*UnspeccedSearchPostsSkeleton_Output, error) {
+func UnspeccedSearchPostsSkeleton(ctx context.Context, c util.LexClient, author string, cursor string, domain string, lang string, limit int64, mentions string, q string, since string, sort string, tag []string, until string, url string, viewer string) (*UnspeccedSearchPostsSkeleton_Output, error) {
 	var out UnspeccedSearchPostsSkeleton_Output
 
 	params := map[string]interface{}{}
@@ -73,7 +73,7 @@ func UnspeccedSearchPostsSkeleton(ctx context.Context, c *xrpc.Client, author st
 	if viewer != "" {
 		params["viewer"] = viewer
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.searchPostsSkeleton", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.searchPostsSkeleton", params, nil, &out); err != nil {
 		return nil, err
 	}
 

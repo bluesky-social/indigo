@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // VerificationRevokeVerifications_Input is the input argument to a tools.ozone.verification.revokeVerifications call.
@@ -37,9 +37,9 @@ type VerificationRevokeVerifications_RevokeError struct {
 }
 
 // VerificationRevokeVerifications calls the XRPC method "tools.ozone.verification.revokeVerifications".
-func VerificationRevokeVerifications(ctx context.Context, c *xrpc.Client, input *VerificationRevokeVerifications_Input) (*VerificationRevokeVerifications_Output, error) {
+func VerificationRevokeVerifications(ctx context.Context, c util.LexClient, input *VerificationRevokeVerifications_Input) (*VerificationRevokeVerifications_Output, error) {
 	var out VerificationRevokeVerifications_Output
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "tools.ozone.verification.revokeVerifications", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.verification.revokeVerifications", nil, input, &out); err != nil {
 		return nil, err
 	}
 

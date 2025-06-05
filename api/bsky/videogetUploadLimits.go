@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // VideoGetUploadLimits_Output is the output of a app.bsky.video.getUploadLimits call.
@@ -20,9 +20,9 @@ type VideoGetUploadLimits_Output struct {
 }
 
 // VideoGetUploadLimits calls the XRPC method "app.bsky.video.getUploadLimits".
-func VideoGetUploadLimits(ctx context.Context, c *xrpc.Client) (*VideoGetUploadLimits_Output, error) {
+func VideoGetUploadLimits(ctx context.Context, c util.LexClient) (*VideoGetUploadLimits_Output, error) {
 	var out VideoGetUploadLimits_Output
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.video.getUploadLimits", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.video.getUploadLimits", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

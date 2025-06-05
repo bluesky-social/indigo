@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // TeamAddMember_Input is the input argument to a tools.ozone.team.addMember call.
@@ -17,9 +17,9 @@ type TeamAddMember_Input struct {
 }
 
 // TeamAddMember calls the XRPC method "tools.ozone.team.addMember".
-func TeamAddMember(ctx context.Context, c *xrpc.Client, input *TeamAddMember_Input) (*TeamDefs_Member, error) {
+func TeamAddMember(ctx context.Context, c util.LexClient, input *TeamAddMember_Input) (*TeamDefs_Member, error) {
 	var out TeamDefs_Member
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "tools.ozone.team.addMember", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.team.addMember", nil, input, &out); err != nil {
 		return nil, err
 	}
 

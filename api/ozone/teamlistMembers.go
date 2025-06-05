@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // TeamListMembers_Output is the output of a tools.ozone.team.listMembers call.
@@ -17,7 +17,7 @@ type TeamListMembers_Output struct {
 }
 
 // TeamListMembers calls the XRPC method "tools.ozone.team.listMembers".
-func TeamListMembers(ctx context.Context, c *xrpc.Client, cursor string, disabled bool, limit int64, q string, roles []string) (*TeamListMembers_Output, error) {
+func TeamListMembers(ctx context.Context, c util.LexClient, cursor string, disabled bool, limit int64, q string, roles []string) (*TeamListMembers_Output, error) {
 	var out TeamListMembers_Output
 
 	params := map[string]interface{}{}
@@ -36,7 +36,7 @@ func TeamListMembers(ctx context.Context, c *xrpc.Client, cursor string, disable
 	if len(roles) != 0 {
 		params["roles"] = roles
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.team.listMembers", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.team.listMembers", params, nil, &out); err != nil {
 		return nil, err
 	}
 

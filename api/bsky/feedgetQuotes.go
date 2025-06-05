@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedGetQuotes_Output is the output of a app.bsky.feed.getQuotes call.
@@ -22,7 +22,7 @@ type FeedGetQuotes_Output struct {
 //
 // cid: If supplied, filters to quotes of specific version (by CID) of the post record.
 // uri: Reference (AT-URI) of post record
-func FeedGetQuotes(ctx context.Context, c *xrpc.Client, cid string, cursor string, limit int64, uri string) (*FeedGetQuotes_Output, error) {
+func FeedGetQuotes(ctx context.Context, c util.LexClient, cid string, cursor string, limit int64, uri string) (*FeedGetQuotes_Output, error) {
 	var out FeedGetQuotes_Output
 
 	params := map[string]interface{}{}
@@ -36,7 +36,7 @@ func FeedGetQuotes(ctx context.Context, c *xrpc.Client, cid string, cursor strin
 		params["limit"] = limit
 	}
 	params["uri"] = uri
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getQuotes", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.getQuotes", params, nil, &out); err != nil {
 		return nil, err
 	}
 

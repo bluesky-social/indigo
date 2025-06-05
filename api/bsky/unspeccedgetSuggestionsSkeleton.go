@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetSuggestionsSkeleton_Output is the output of a app.bsky.unspecced.getSuggestionsSkeleton call.
@@ -24,7 +24,7 @@ type UnspeccedGetSuggestionsSkeleton_Output struct {
 //
 // relativeToDid: DID of the account to get suggestions relative to. If not provided, suggestions will be based on the viewer.
 // viewer: DID of the account making the request (not included for public/unauthenticated queries). Used to boost followed accounts in ranking.
-func UnspeccedGetSuggestionsSkeleton(ctx context.Context, c *xrpc.Client, cursor string, limit int64, relativeToDid string, viewer string) (*UnspeccedGetSuggestionsSkeleton_Output, error) {
+func UnspeccedGetSuggestionsSkeleton(ctx context.Context, c util.LexClient, cursor string, limit int64, relativeToDid string, viewer string) (*UnspeccedGetSuggestionsSkeleton_Output, error) {
 	var out UnspeccedGetSuggestionsSkeleton_Output
 
 	params := map[string]interface{}{}
@@ -40,7 +40,7 @@ func UnspeccedGetSuggestionsSkeleton(ctx context.Context, c *xrpc.Client, cursor
 	if viewer != "" {
 		params["viewer"] = viewer
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getSuggestionsSkeleton", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getSuggestionsSkeleton", params, nil, &out); err != nil {
 		return nil, err
 	}
 

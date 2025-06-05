@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // CommunicationUpdateTemplate_Input is the input argument to a tools.ozone.communication.updateTemplate call.
@@ -28,9 +28,9 @@ type CommunicationUpdateTemplate_Input struct {
 }
 
 // CommunicationUpdateTemplate calls the XRPC method "tools.ozone.communication.updateTemplate".
-func CommunicationUpdateTemplate(ctx context.Context, c *xrpc.Client, input *CommunicationUpdateTemplate_Input) (*CommunicationDefs_TemplateView, error) {
+func CommunicationUpdateTemplate(ctx context.Context, c util.LexClient, input *CommunicationUpdateTemplate_Input) (*CommunicationDefs_TemplateView, error) {
 	var out CommunicationDefs_TemplateView
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "tools.ozone.communication.updateTemplate", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.communication.updateTemplate", nil, input, &out); err != nil {
 		return nil, err
 	}
 

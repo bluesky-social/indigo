@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphGetKnownFollowers_Output is the output of a app.bsky.graph.getKnownFollowers call.
@@ -18,7 +18,7 @@ type GraphGetKnownFollowers_Output struct {
 }
 
 // GraphGetKnownFollowers calls the XRPC method "app.bsky.graph.getKnownFollowers".
-func GraphGetKnownFollowers(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*GraphGetKnownFollowers_Output, error) {
+func GraphGetKnownFollowers(ctx context.Context, c util.LexClient, actor string, cursor string, limit int64) (*GraphGetKnownFollowers_Output, error) {
 	var out GraphGetKnownFollowers_Output
 
 	params := map[string]interface{}{}
@@ -29,7 +29,7 @@ func GraphGetKnownFollowers(ctx context.Context, c *xrpc.Client, actor string, c
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.getKnownFollowers", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.graph.getKnownFollowers", params, nil, &out); err != nil {
 		return nil, err
 	}
 

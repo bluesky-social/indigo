@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // AdminUpdateAccountEmail_Input is the input argument to a com.atproto.admin.updateAccountEmail call.
@@ -18,8 +18,8 @@ type AdminUpdateAccountEmail_Input struct {
 }
 
 // AdminUpdateAccountEmail calls the XRPC method "com.atproto.admin.updateAccountEmail".
-func AdminUpdateAccountEmail(ctx context.Context, c *xrpc.Client, input *AdminUpdateAccountEmail_Input) error {
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.admin.updateAccountEmail", nil, input, nil); err != nil {
+func AdminUpdateAccountEmail(ctx context.Context, c util.LexClient, input *AdminUpdateAccountEmail_Input) error {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.admin.updateAccountEmail", nil, input, nil); err != nil {
 		return err
 	}
 

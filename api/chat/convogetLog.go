@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // ConvoGetLog_Output is the output of a chat.bsky.convo.getLog call.
@@ -119,14 +118,14 @@ func (t *ConvoGetLog_Output_Logs_Elem) UnmarshalJSON(b []byte) error {
 }
 
 // ConvoGetLog calls the XRPC method "chat.bsky.convo.getLog".
-func ConvoGetLog(ctx context.Context, c *xrpc.Client, cursor string) (*ConvoGetLog_Output, error) {
+func ConvoGetLog(ctx context.Context, c util.LexClient, cursor string) (*ConvoGetLog_Output, error) {
 	var out ConvoGetLog_Output
 
 	params := map[string]interface{}{}
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "chat.bsky.convo.getLog", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.convo.getLog", params, nil, &out); err != nil {
 		return nil, err
 	}
 

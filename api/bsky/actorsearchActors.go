@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ActorSearchActors_Output is the output of a app.bsky.actor.searchActors call.
@@ -20,7 +20,7 @@ type ActorSearchActors_Output struct {
 //
 // q: Search query string. Syntax, phrase, boolean, and faceting is unspecified, but Lucene query syntax is recommended.
 // term: DEPRECATED: use 'q' instead.
-func ActorSearchActors(ctx context.Context, c *xrpc.Client, cursor string, limit int64, q string, term string) (*ActorSearchActors_Output, error) {
+func ActorSearchActors(ctx context.Context, c util.LexClient, cursor string, limit int64, q string, term string) (*ActorSearchActors_Output, error) {
 	var out ActorSearchActors_Output
 
 	params := map[string]interface{}{}
@@ -36,7 +36,7 @@ func ActorSearchActors(ctx context.Context, c *xrpc.Client, cursor string, limit
 	if term != "" {
 		params["term"] = term
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.actor.searchActors", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.actor.searchActors", params, nil, &out); err != nil {
 		return nil, err
 	}
 

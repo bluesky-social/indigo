@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // AdminDeleteAccount_Input is the input argument to a com.atproto.admin.deleteAccount call.
@@ -16,8 +16,8 @@ type AdminDeleteAccount_Input struct {
 }
 
 // AdminDeleteAccount calls the XRPC method "com.atproto.admin.deleteAccount".
-func AdminDeleteAccount(ctx context.Context, c *xrpc.Client, input *AdminDeleteAccount_Input) error {
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.admin.deleteAccount", nil, input, nil); err != nil {
+func AdminDeleteAccount(ctx context.Context, c util.LexClient, input *AdminDeleteAccount_Input) error {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.admin.deleteAccount", nil, input, nil); err != nil {
 		return err
 	}
 

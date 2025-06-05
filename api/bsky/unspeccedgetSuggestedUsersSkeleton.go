@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetSuggestedUsersSkeleton_Output is the output of a app.bsky.unspecced.getSuggestedUsersSkeleton call.
@@ -19,7 +19,7 @@ type UnspeccedGetSuggestedUsersSkeleton_Output struct {
 //
 // category: Category of users to get suggestions for.
 // viewer: DID of the account making the request (not included for public/unauthenticated queries).
-func UnspeccedGetSuggestedUsersSkeleton(ctx context.Context, c *xrpc.Client, category string, limit int64, viewer string) (*UnspeccedGetSuggestedUsersSkeleton_Output, error) {
+func UnspeccedGetSuggestedUsersSkeleton(ctx context.Context, c util.LexClient, category string, limit int64, viewer string) (*UnspeccedGetSuggestedUsersSkeleton_Output, error) {
 	var out UnspeccedGetSuggestedUsersSkeleton_Output
 
 	params := map[string]interface{}{}
@@ -32,7 +32,7 @@ func UnspeccedGetSuggestedUsersSkeleton(ctx context.Context, c *xrpc.Client, cat
 	if viewer != "" {
 		params["viewer"] = viewer
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getSuggestedUsersSkeleton", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getSuggestedUsersSkeleton", params, nil, &out); err != nil {
 		return nil, err
 	}
 

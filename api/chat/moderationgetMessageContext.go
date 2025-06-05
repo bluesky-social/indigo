@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // ModerationGetMessageContext_Output is the output of a chat.bsky.moderation.getMessageContext call.
@@ -56,7 +55,7 @@ func (t *ModerationGetMessageContext_Output_Messages_Elem) UnmarshalJSON(b []byt
 // ModerationGetMessageContext calls the XRPC method "chat.bsky.moderation.getMessageContext".
 //
 // convoId: Conversation that the message is from. NOTE: this field will eventually be required.
-func ModerationGetMessageContext(ctx context.Context, c *xrpc.Client, after int64, before int64, convoId string, messageId string) (*ModerationGetMessageContext_Output, error) {
+func ModerationGetMessageContext(ctx context.Context, c util.LexClient, after int64, before int64, convoId string, messageId string) (*ModerationGetMessageContext_Output, error) {
 	var out ModerationGetMessageContext_Output
 
 	params := map[string]interface{}{}
@@ -70,7 +69,7 @@ func ModerationGetMessageContext(ctx context.Context, c *xrpc.Client, after int6
 		params["convoId"] = convoId
 	}
 	params["messageId"] = messageId
-	if err := c.Do(ctx, xrpc.Query, "", "chat.bsky.moderation.getMessageContext", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.moderation.getMessageContext", params, nil, &out); err != nil {
 		return nil, err
 	}
 
