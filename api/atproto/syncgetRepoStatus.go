@@ -26,9 +26,8 @@ type SyncGetRepoStatus_Output struct {
 func SyncGetRepoStatus(ctx context.Context, c *xrpc.Client, did string) (*SyncGetRepoStatus_Output, error) {
 	var out SyncGetRepoStatus_Output
 
-	params := map[string]interface{}{
-		"did": did,
-	}
+	params := map[string]interface{}{}
+	params["did"] = did
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getRepoStatus", params, nil, &out); err != nil {
 		return nil, err
 	}

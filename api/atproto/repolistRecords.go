@@ -33,12 +33,17 @@ type RepoListRecords_Record struct {
 func RepoListRecords(ctx context.Context, c *xrpc.Client, collection string, cursor string, limit int64, repo string, reverse bool) (*RepoListRecords_Output, error) {
 	var out RepoListRecords_Output
 
-	params := map[string]interface{}{
-		"collection": collection,
-		"cursor":     cursor,
-		"limit":      limit,
-		"repo":       repo,
-		"reverse":    reverse,
+	params := map[string]interface{}{}
+	params["collection"] = collection
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	params["repo"] = repo
+	if reverse {
+		params["reverse"] = reverse
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.repo.listRecords", params, nil, &out); err != nil {
 		return nil, err

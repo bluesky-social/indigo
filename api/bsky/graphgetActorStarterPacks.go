@@ -20,10 +20,13 @@ type GraphGetActorStarterPacks_Output struct {
 func GraphGetActorStarterPacks(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*GraphGetActorStarterPacks_Output, error) {
 	var out GraphGetActorStarterPacks_Output
 
-	params := map[string]interface{}{
-		"actor":  actor,
-		"cursor": cursor,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	params["actor"] = actor
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.getActorStarterPacks", params, nil, &out); err != nil {
 		return nil, err

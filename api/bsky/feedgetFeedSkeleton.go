@@ -24,10 +24,13 @@ type FeedGetFeedSkeleton_Output struct {
 func FeedGetFeedSkeleton(ctx context.Context, c *xrpc.Client, cursor string, feed string, limit int64) (*FeedGetFeedSkeleton_Output, error) {
 	var out FeedGetFeedSkeleton_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"feed":   feed,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	params["feed"] = feed
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getFeedSkeleton", params, nil, &out); err != nil {
 		return nil, err

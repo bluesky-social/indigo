@@ -59,12 +59,17 @@ func (t *ModerationGetMessageContext_Output_Messages_Elem) UnmarshalJSON(b []byt
 func ModerationGetMessageContext(ctx context.Context, c *xrpc.Client, after int64, before int64, convoId string, messageId string) (*ModerationGetMessageContext_Output, error) {
 	var out ModerationGetMessageContext_Output
 
-	params := map[string]interface{}{
-		"after":     after,
-		"before":    before,
-		"convoId":   convoId,
-		"messageId": messageId,
+	params := map[string]interface{}{}
+	if after != 0 {
+		params["after"] = after
 	}
+	if before != 0 {
+		params["before"] = before
+	}
+	if convoId != "" {
+		params["convoId"] = convoId
+	}
+	params["messageId"] = messageId
 	if err := c.Do(ctx, xrpc.Query, "", "chat.bsky.moderation.getMessageContext", params, nil, &out); err != nil {
 		return nil, err
 	}

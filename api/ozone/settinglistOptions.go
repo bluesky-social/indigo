@@ -23,12 +23,21 @@ type SettingListOptions_Output struct {
 func SettingListOptions(ctx context.Context, c *xrpc.Client, cursor string, keys []string, limit int64, prefix string, scope string) (*SettingListOptions_Output, error) {
 	var out SettingListOptions_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"keys":   keys,
-		"limit":  limit,
-		"prefix": prefix,
-		"scope":  scope,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if len(keys) != 0 {
+		params["keys"] = keys
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if prefix != "" {
+		params["prefix"] = prefix
+	}
+	if scope != "" {
+		params["scope"] = scope
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.setting.listOptions", params, nil, &out); err != nil {
 		return nil, err

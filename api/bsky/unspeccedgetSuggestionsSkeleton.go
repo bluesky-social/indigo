@@ -27,11 +27,18 @@ type UnspeccedGetSuggestionsSkeleton_Output struct {
 func UnspeccedGetSuggestionsSkeleton(ctx context.Context, c *xrpc.Client, cursor string, limit int64, relativeToDid string, viewer string) (*UnspeccedGetSuggestionsSkeleton_Output, error) {
 	var out UnspeccedGetSuggestionsSkeleton_Output
 
-	params := map[string]interface{}{
-		"cursor":        cursor,
-		"limit":         limit,
-		"relativeToDid": relativeToDid,
-		"viewer":        viewer,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if relativeToDid != "" {
+		params["relativeToDid"] = relativeToDid
+	}
+	if viewer != "" {
+		params["viewer"] = viewer
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getSuggestionsSkeleton", params, nil, &out); err != nil {
 		return nil, err

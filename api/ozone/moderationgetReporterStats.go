@@ -19,9 +19,8 @@ type ModerationGetReporterStats_Output struct {
 func ModerationGetReporterStats(ctx context.Context, c *xrpc.Client, dids []string) (*ModerationGetReporterStats_Output, error) {
 	var out ModerationGetReporterStats_Output
 
-	params := map[string]interface{}{
-		"dids": dids,
-	}
+	params := map[string]interface{}{}
+	params["dids"] = dids
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.moderation.getReporterStats", params, nil, &out); err != nil {
 		return nil, err
 	}

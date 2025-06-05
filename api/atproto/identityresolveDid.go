@@ -22,9 +22,8 @@ type IdentityResolveDid_Output struct {
 func IdentityResolveDid(ctx context.Context, c *xrpc.Client, did string) (*IdentityResolveDid_Output, error) {
 	var out IdentityResolveDid_Output
 
-	params := map[string]interface{}{
-		"did": did,
-	}
+	params := map[string]interface{}{}
+	params["did"] = did
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.identity.resolveDid", params, nil, &out); err != nil {
 		return nil, err
 	}
