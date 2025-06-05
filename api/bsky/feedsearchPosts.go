@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedSearchPosts_Output is the output of a app.bsky.feed.searchPosts call.
@@ -31,7 +31,7 @@ type FeedSearchPosts_Output struct {
 // tag: Filter to posts with the given tag (hashtag), based on rich-text facet or tag field. Do not include the hash (#) prefix. Multiple tags can be specified, with 'AND' matching.
 // until: Filter results for posts before the indicated datetime (not inclusive). Expected to use 'sortAt' timestamp, which may not match 'createdAt'. Can be a datetime, or just an ISO date (YYY-MM-DD).
 // url: Filter to posts with links (facet links or embeds) pointing to this URL. Server may apply URL normalization or fuzzy matching.
-func FeedSearchPosts(ctx context.Context, c *xrpc.Client, author string, cursor string, domain string, lang string, limit int64, mentions string, q string, since string, sort string, tag []string, until string, url string) (*FeedSearchPosts_Output, error) {
+func FeedSearchPosts(ctx context.Context, c util.LexClient, author string, cursor string, domain string, lang string, limit int64, mentions string, q string, since string, sort string, tag []string, until string, url string) (*FeedSearchPosts_Output, error) {
 	var out FeedSearchPosts_Output
 
 	params := map[string]interface{}{}
@@ -69,7 +69,7 @@ func FeedSearchPosts(ctx context.Context, c *xrpc.Client, author string, cursor 
 	if url != "" {
 		params["url"] = url
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.searchPosts", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.searchPosts", params, nil, &out); err != nil {
 		return nil, err
 	}
 

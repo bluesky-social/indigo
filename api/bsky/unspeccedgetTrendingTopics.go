@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetTrendingTopics_Output is the output of a app.bsky.unspecced.getTrendingTopics call.
@@ -19,7 +19,7 @@ type UnspeccedGetTrendingTopics_Output struct {
 // UnspeccedGetTrendingTopics calls the XRPC method "app.bsky.unspecced.getTrendingTopics".
 //
 // viewer: DID of the account making the request (not included for public/unauthenticated queries). Used to boost followed accounts in ranking.
-func UnspeccedGetTrendingTopics(ctx context.Context, c *xrpc.Client, limit int64, viewer string) (*UnspeccedGetTrendingTopics_Output, error) {
+func UnspeccedGetTrendingTopics(ctx context.Context, c util.LexClient, limit int64, viewer string) (*UnspeccedGetTrendingTopics_Output, error) {
 	var out UnspeccedGetTrendingTopics_Output
 
 	params := map[string]interface{}{}
@@ -29,7 +29,7 @@ func UnspeccedGetTrendingTopics(ctx context.Context, c *xrpc.Client, limit int64
 	if viewer != "" {
 		params["viewer"] = viewer
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getTrendingTopics", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getTrendingTopics", params, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -11,7 +11,6 @@ import (
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // ModerationEmitEvent_Input is the input argument to a tools.ozone.moderation.emitEvent call.
@@ -229,9 +228,9 @@ func (t *ModerationEmitEvent_Input_Subject) UnmarshalJSON(b []byte) error {
 }
 
 // ModerationEmitEvent calls the XRPC method "tools.ozone.moderation.emitEvent".
-func ModerationEmitEvent(ctx context.Context, c *xrpc.Client, input *ModerationEmitEvent_Input) (*ModerationDefs_ModEventView, error) {
+func ModerationEmitEvent(ctx context.Context, c util.LexClient, input *ModerationEmitEvent_Input) (*ModerationDefs_ModEventView, error) {
 	var out ModerationDefs_ModEventView
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "tools.ozone.moderation.emitEvent", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.moderation.emitEvent", nil, input, &out); err != nil {
 		return nil, err
 	}
 

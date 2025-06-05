@@ -7,12 +7,12 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerRequestEmailConfirmation calls the XRPC method "com.atproto.server.requestEmailConfirmation".
-func ServerRequestEmailConfirmation(ctx context.Context, c *xrpc.Client) error {
-	if err := c.Do(ctx, xrpc.Procedure, "", "com.atproto.server.requestEmailConfirmation", nil, nil, nil); err != nil {
+func ServerRequestEmailConfirmation(ctx context.Context, c util.LexClient) error {
+	if err := c.LexDo(ctx, util.Procedure, "", "com.atproto.server.requestEmailConfirmation", nil, nil, nil); err != nil {
 		return err
 	}
 

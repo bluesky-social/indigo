@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerRequestEmailUpdate_Output is the output of a com.atproto.server.requestEmailUpdate call.
@@ -16,9 +16,9 @@ type ServerRequestEmailUpdate_Output struct {
 }
 
 // ServerRequestEmailUpdate calls the XRPC method "com.atproto.server.requestEmailUpdate".
-func ServerRequestEmailUpdate(ctx context.Context, c *xrpc.Client) (*ServerRequestEmailUpdate_Output, error) {
+func ServerRequestEmailUpdate(ctx context.Context, c util.LexClient) (*ServerRequestEmailUpdate_Output, error) {
 	var out ServerRequestEmailUpdate_Output
-	if err := c.Do(ctx, xrpc.Procedure, "", "com.atproto.server.requestEmailUpdate", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "", "com.atproto.server.requestEmailUpdate", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // IdentityRefreshIdentity_Input is the input argument to a com.atproto.identity.refreshIdentity call.
@@ -16,9 +16,9 @@ type IdentityRefreshIdentity_Input struct {
 }
 
 // IdentityRefreshIdentity calls the XRPC method "com.atproto.identity.refreshIdentity".
-func IdentityRefreshIdentity(ctx context.Context, c *xrpc.Client, input *IdentityRefreshIdentity_Input) (*IdentityDefs_IdentityInfo, error) {
+func IdentityRefreshIdentity(ctx context.Context, c util.LexClient, input *IdentityRefreshIdentity_Input) (*IdentityDefs_IdentityInfo, error) {
 	var out IdentityDefs_IdentityInfo
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.identity.refreshIdentity", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.identity.refreshIdentity", nil, input, &out); err != nil {
 		return nil, err
 	}
 

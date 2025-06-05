@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // TempFetchLabels_Output is the output of a com.atproto.temp.fetchLabels call.
@@ -16,7 +16,7 @@ type TempFetchLabels_Output struct {
 }
 
 // TempFetchLabels calls the XRPC method "com.atproto.temp.fetchLabels".
-func TempFetchLabels(ctx context.Context, c *xrpc.Client, limit int64, since int64) (*TempFetchLabels_Output, error) {
+func TempFetchLabels(ctx context.Context, c util.LexClient, limit int64, since int64) (*TempFetchLabels_Output, error) {
 	var out TempFetchLabels_Output
 
 	params := map[string]interface{}{}
@@ -26,7 +26,7 @@ func TempFetchLabels(ctx context.Context, c *xrpc.Client, limit int64, since int
 	if since != 0 {
 		params["since"] = since
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.temp.fetchLabels", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.temp.fetchLabels", params, nil, &out); err != nil {
 		return nil, err
 	}
 

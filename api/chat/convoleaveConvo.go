@@ -7,7 +7,7 @@ package chat
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ConvoLeaveConvo_Input is the input argument to a chat.bsky.convo.leaveConvo call.
@@ -22,9 +22,9 @@ type ConvoLeaveConvo_Output struct {
 }
 
 // ConvoLeaveConvo calls the XRPC method "chat.bsky.convo.leaveConvo".
-func ConvoLeaveConvo(ctx context.Context, c *xrpc.Client, input *ConvoLeaveConvo_Input) (*ConvoLeaveConvo_Output, error) {
+func ConvoLeaveConvo(ctx context.Context, c util.LexClient, input *ConvoLeaveConvo_Input) (*ConvoLeaveConvo_Output, error) {
 	var out ConvoLeaveConvo_Output
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "chat.bsky.convo.leaveConvo", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.leaveConvo", nil, input, &out); err != nil {
 		return nil, err
 	}
 

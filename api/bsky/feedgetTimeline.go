@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedGetTimeline_Output is the output of a app.bsky.feed.getTimeline call.
@@ -19,7 +19,7 @@ type FeedGetTimeline_Output struct {
 // FeedGetTimeline calls the XRPC method "app.bsky.feed.getTimeline".
 //
 // algorithm: Variant 'algorithm' for timeline. Implementation-specific. NOTE: most feed flexibility has been moved to feed generator mechanism.
-func FeedGetTimeline(ctx context.Context, c *xrpc.Client, algorithm string, cursor string, limit int64) (*FeedGetTimeline_Output, error) {
+func FeedGetTimeline(ctx context.Context, c util.LexClient, algorithm string, cursor string, limit int64) (*FeedGetTimeline_Output, error) {
 	var out FeedGetTimeline_Output
 
 	params := map[string]interface{}{}
@@ -32,7 +32,7 @@ func FeedGetTimeline(ctx context.Context, c *xrpc.Client, algorithm string, curs
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getTimeline", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.getTimeline", params, nil, &out); err != nil {
 		return nil, err
 	}
 

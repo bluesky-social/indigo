@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedDescribeFeedGenerator_Feed is a "feed" in the app.bsky.feed.describeFeedGenerator schema.
@@ -29,9 +29,9 @@ type FeedDescribeFeedGenerator_Output struct {
 }
 
 // FeedDescribeFeedGenerator calls the XRPC method "app.bsky.feed.describeFeedGenerator".
-func FeedDescribeFeedGenerator(ctx context.Context, c *xrpc.Client) (*FeedDescribeFeedGenerator_Output, error) {
+func FeedDescribeFeedGenerator(ctx context.Context, c util.LexClient) (*FeedDescribeFeedGenerator_Output, error) {
 	var out FeedDescribeFeedGenerator_Output
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.describeFeedGenerator", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.describeFeedGenerator", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

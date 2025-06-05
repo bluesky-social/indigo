@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerCreateInviteCodes_AccountCodes is a "accountCodes" in the com.atproto.server.createInviteCodes schema.
@@ -29,9 +29,9 @@ type ServerCreateInviteCodes_Output struct {
 }
 
 // ServerCreateInviteCodes calls the XRPC method "com.atproto.server.createInviteCodes".
-func ServerCreateInviteCodes(ctx context.Context, c *xrpc.Client, input *ServerCreateInviteCodes_Input) (*ServerCreateInviteCodes_Output, error) {
+func ServerCreateInviteCodes(ctx context.Context, c util.LexClient, input *ServerCreateInviteCodes_Input) (*ServerCreateInviteCodes_Output, error) {
 	var out ServerCreateInviteCodes_Output
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.createInviteCodes", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.server.createInviteCodes", nil, input, &out); err != nil {
 		return nil, err
 	}
 

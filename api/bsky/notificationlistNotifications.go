@@ -9,7 +9,6 @@ import (
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // NotificationListNotifications_Notification is a "notification" in the app.bsky.notification.listNotifications schema.
@@ -37,7 +36,7 @@ type NotificationListNotifications_Output struct {
 // NotificationListNotifications calls the XRPC method "app.bsky.notification.listNotifications".
 //
 // reasons: Notification reasons to include in response.
-func NotificationListNotifications(ctx context.Context, c *xrpc.Client, cursor string, limit int64, priority bool, reasons []string, seenAt string) (*NotificationListNotifications_Output, error) {
+func NotificationListNotifications(ctx context.Context, c util.LexClient, cursor string, limit int64, priority bool, reasons []string, seenAt string) (*NotificationListNotifications_Output, error) {
 	var out NotificationListNotifications_Output
 
 	params := map[string]interface{}{}
@@ -56,7 +55,7 @@ func NotificationListNotifications(ctx context.Context, c *xrpc.Client, cursor s
 	if seenAt != "" {
 		params["seenAt"] = seenAt
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.notification.listNotifications", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.notification.listNotifications", params, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -7,7 +7,7 @@ package chat
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ConvoAddReaction_Input is the input argument to a chat.bsky.convo.addReaction call.
@@ -23,9 +23,9 @@ type ConvoAddReaction_Output struct {
 }
 
 // ConvoAddReaction calls the XRPC method "chat.bsky.convo.addReaction".
-func ConvoAddReaction(ctx context.Context, c *xrpc.Client, input *ConvoAddReaction_Input) (*ConvoAddReaction_Output, error) {
+func ConvoAddReaction(ctx context.Context, c util.LexClient, input *ConvoAddReaction_Input) (*ConvoAddReaction_Output, error) {
 	var out ConvoAddReaction_Output
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "chat.bsky.convo.addReaction", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.addReaction", nil, input, &out); err != nil {
 		return nil, err
 	}
 

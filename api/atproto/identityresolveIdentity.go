@@ -7,18 +7,18 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // IdentityResolveIdentity calls the XRPC method "com.atproto.identity.resolveIdentity".
 //
 // identifier: Handle or DID to resolve.
-func IdentityResolveIdentity(ctx context.Context, c *xrpc.Client, identifier string) (*IdentityDefs_IdentityInfo, error) {
+func IdentityResolveIdentity(ctx context.Context, c util.LexClient, identifier string) (*IdentityDefs_IdentityInfo, error) {
 	var out IdentityDefs_IdentityInfo
 
 	params := map[string]interface{}{}
 	params["identifier"] = identifier
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.identity.resolveIdentity", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.identity.resolveIdentity", params, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -7,7 +7,7 @@ package chat
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationUpdateActorAccess_Input is the input argument to a chat.bsky.moderation.updateActorAccess call.
@@ -18,8 +18,8 @@ type ModerationUpdateActorAccess_Input struct {
 }
 
 // ModerationUpdateActorAccess calls the XRPC method "chat.bsky.moderation.updateActorAccess".
-func ModerationUpdateActorAccess(ctx context.Context, c *xrpc.Client, input *ModerationUpdateActorAccess_Input) error {
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "chat.bsky.moderation.updateActorAccess", nil, input, nil); err != nil {
+func ModerationUpdateActorAccess(ctx context.Context, c util.LexClient, input *ModerationUpdateActorAccess_Input) error {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.moderation.updateActorAccess", nil, input, nil); err != nil {
 		return err
 	}
 
