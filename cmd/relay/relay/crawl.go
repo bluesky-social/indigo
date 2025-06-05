@@ -73,7 +73,7 @@ func (r *Relay) ResubscribeAllHosts(ctx context.Context) error {
 			logger.Warn("failed to re-subscribe to host", "err", err)
 		}
 		// sleep for a very short period, so we don't open tons of sockets at the same time
-		time.Sleep(1 * time.Milisecond)
+		time.Sleep(1 * time.Millisecond)
 	}
 	return nil
 }
