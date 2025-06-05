@@ -3,6 +3,7 @@ package relay
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
 )
@@ -71,6 +72,8 @@ func (r *Relay) ResubscribeAllHosts(ctx context.Context) error {
 		if err != nil {
 			logger.Warn("failed to re-subscribe to host", "err", err)
 		}
+		// sleep for a very short period, so we don't open tons of sockets at the same time
+		time.Sleep(1 * time.Milisecond)
 	}
 	return nil
 }
