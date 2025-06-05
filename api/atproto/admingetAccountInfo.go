@@ -14,9 +14,8 @@ import (
 func AdminGetAccountInfo(ctx context.Context, c *xrpc.Client, did string) (*AdminDefs_AccountView, error) {
 	var out AdminDefs_AccountView
 
-	params := map[string]interface{}{
-		"did": did,
-	}
+	params := map[string]interface{}{}
+	params["did"] = did
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.getAccountInfo", params, nil, &out); err != nil {
 		return nil, err
 	}

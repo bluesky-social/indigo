@@ -14,10 +14,11 @@ import (
 func ModerationGetRecord(ctx context.Context, c *xrpc.Client, cid string, uri string) (*ModerationDefs_RecordViewDetail, error) {
 	var out ModerationDefs_RecordViewDetail
 
-	params := map[string]interface{}{
-		"cid": cid,
-		"uri": uri,
+	params := map[string]interface{}{}
+	if cid != "" {
+		params["cid"] = cid
 	}
+	params["uri"] = uri
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.moderation.getRecord", params, nil, &out); err != nil {
 		return nil, err
 	}

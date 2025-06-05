@@ -31,9 +31,12 @@ type SyncListHosts_Output struct {
 func SyncListHosts(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*SyncListHosts_Output, error) {
 	var out SyncListHosts_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.listHosts", params, nil, &out); err != nil {
 		return nil, err

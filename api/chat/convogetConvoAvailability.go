@@ -20,9 +20,8 @@ type ConvoGetConvoAvailability_Output struct {
 func ConvoGetConvoAvailability(ctx context.Context, c *xrpc.Client, members []string) (*ConvoGetConvoAvailability_Output, error) {
 	var out ConvoGetConvoAvailability_Output
 
-	params := map[string]interface{}{
-		"members": members,
-	}
+	params := map[string]interface{}{}
+	params["members"] = members
 	if err := c.Do(ctx, xrpc.Query, "", "chat.bsky.convo.getConvoAvailability", params, nil, &out); err != nil {
 		return nil, err
 	}

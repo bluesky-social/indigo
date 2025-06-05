@@ -3,6 +3,7 @@ package lex
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 )
 
@@ -145,17 +146,29 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 	queryparams := "nil"
 	if s.Parameters != nil {
 		queryparams = "params"
-		pf(`
-	params := map[string]interface{}{
-`)
+		pf("\n\tparams := map[string]interface{}{}\n")
 		if err := orderedMapIter(s.Parameters.Properties, func(name string, t *TypeSchema) error {
-			pf(`"%s": %s,
-`, name, name)
+			if slices.Contains(s.Parameters.Required, name) || slices.Contains(s.Parameters.Nullable, name) {
+				pf("params[\"%s\"] = %s\n", name, name)
+			} else {
+				// if parameter isn't required, only include conditionally
+				switch t.Type {
+				case "integer":
+					pf("if %s != 0 { params[\"%s\"] = %s }\n", name, name, name)
+				case "string":
+					pf("if %s != \"\" { params[\"%s\"] = %s }\n", name, name, name)
+				case "array":
+					pf("if len(%s) != 0 { params[\"%s\"] = %s }\n", name, name, name)
+				case "boolean":
+					pf("if %s { params[\"%s\"] = %s }\n", name, name, name)
+				default:
+					return fmt.Errorf("unhandled query param type: %s", t.Type)
+				}
+			}
 			return nil
 		}); err != nil {
 			return err
 		}
-		pf("}\n")
 	}
 
 	var reqtype string

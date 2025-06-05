@@ -20,10 +20,15 @@ type UnspeccedGetPopularFeedGenerators_Output struct {
 func UnspeccedGetPopularFeedGenerators(ctx context.Context, c *xrpc.Client, cursor string, limit int64, query string) (*UnspeccedGetPopularFeedGenerators_Output, error) {
 	var out UnspeccedGetPopularFeedGenerators_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
-		"query":  query,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if query != "" {
+		params["query"] = query
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getPopularFeedGenerators", params, nil, &out); err != nil {
 		return nil, err

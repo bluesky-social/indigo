@@ -22,11 +22,14 @@ type FeedGetListFeed_Output struct {
 func FeedGetListFeed(ctx context.Context, c *xrpc.Client, cursor string, limit int64, list string) (*FeedGetListFeed_Output, error) {
 	var out FeedGetListFeed_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
-		"list":   list,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	params["list"] = list
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getListFeed", params, nil, &out); err != nil {
 		return nil, err
 	}

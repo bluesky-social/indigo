@@ -23,12 +23,17 @@ type LabelQueryLabels_Output struct {
 func LabelQueryLabels(ctx context.Context, c *xrpc.Client, cursor string, limit int64, sources []string, uriPatterns []string) (*LabelQueryLabels_Output, error) {
 	var out LabelQueryLabels_Output
 
-	params := map[string]interface{}{
-		"cursor":      cursor,
-		"limit":       limit,
-		"sources":     sources,
-		"uriPatterns": uriPatterns,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if len(sources) != 0 {
+		params["sources"] = sources
+	}
+	params["uriPatterns"] = uriPatterns
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.label.queryLabels", params, nil, &out); err != nil {
 		return nil, err
 	}

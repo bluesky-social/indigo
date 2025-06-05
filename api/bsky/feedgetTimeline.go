@@ -22,10 +22,15 @@ type FeedGetTimeline_Output struct {
 func FeedGetTimeline(ctx context.Context, c *xrpc.Client, algorithm string, cursor string, limit int64) (*FeedGetTimeline_Output, error) {
 	var out FeedGetTimeline_Output
 
-	params := map[string]interface{}{
-		"algorithm": algorithm,
-		"cursor":    cursor,
-		"limit":     limit,
+	params := map[string]interface{}{}
+	if algorithm != "" {
+		params["algorithm"] = algorithm
+	}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getTimeline", params, nil, &out); err != nil {
 		return nil, err

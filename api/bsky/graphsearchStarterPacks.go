@@ -22,11 +22,14 @@ type GraphSearchStarterPacks_Output struct {
 func GraphSearchStarterPacks(ctx context.Context, c *xrpc.Client, cursor string, limit int64, q string) (*GraphSearchStarterPacks_Output, error) {
 	var out GraphSearchStarterPacks_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
-		"q":      q,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	params["q"] = q
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.searchStarterPacks", params, nil, &out); err != nil {
 		return nil, err
 	}

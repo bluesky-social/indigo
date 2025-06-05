@@ -57,9 +57,8 @@ func (t *ModerationGetRecords_Output_Records_Elem) UnmarshalJSON(b []byte) error
 func ModerationGetRecords(ctx context.Context, c *xrpc.Client, uris []string) (*ModerationGetRecords_Output, error) {
 	var out ModerationGetRecords_Output
 
-	params := map[string]interface{}{
-		"uris": uris,
-	}
+	params := map[string]interface{}{}
+	params["uris"] = uris
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.moderation.getRecords", params, nil, &out); err != nil {
 		return nil, err
 	}

@@ -19,9 +19,12 @@ type TempFetchLabels_Output struct {
 func TempFetchLabels(ctx context.Context, c *xrpc.Client, limit int64, since int64) (*TempFetchLabels_Output, error) {
 	var out TempFetchLabels_Output
 
-	params := map[string]interface{}{
-		"limit": limit,
-		"since": since,
+	params := map[string]interface{}{}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if since != 0 {
+		params["since"] = since
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.temp.fetchLabels", params, nil, &out); err != nil {
 		return nil, err

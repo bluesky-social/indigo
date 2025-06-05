@@ -20,10 +20,15 @@ type AdminSearchAccounts_Output struct {
 func AdminSearchAccounts(ctx context.Context, c *xrpc.Client, cursor string, email string, limit int64) (*AdminSearchAccounts_Output, error) {
 	var out AdminSearchAccounts_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"email":  email,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if email != "" {
+		params["email"] = email
+	}
+	if limit != 0 {
+		params["limit"] = limit
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.searchAccounts", params, nil, &out); err != nil {
 		return nil, err
