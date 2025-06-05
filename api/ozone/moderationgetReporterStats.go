@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationGetReporterStats_Output is the output of a tools.ozone.moderation.getReporterStats call.
@@ -16,12 +16,12 @@ type ModerationGetReporterStats_Output struct {
 }
 
 // ModerationGetReporterStats calls the XRPC method "tools.ozone.moderation.getReporterStats".
-func ModerationGetReporterStats(ctx context.Context, c *xrpc.Client, dids []string) (*ModerationGetReporterStats_Output, error) {
+func ModerationGetReporterStats(ctx context.Context, c util.LexClient, dids []string) (*ModerationGetReporterStats_Output, error) {
 	var out ModerationGetReporterStats_Output
 
 	params := map[string]interface{}{}
 	params["dids"] = dids
-	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.moderation.getReporterStats", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.moderation.getReporterStats", params, nil, &out); err != nil {
 		return nil, err
 	}
 

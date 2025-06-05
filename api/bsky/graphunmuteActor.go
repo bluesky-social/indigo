@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphUnmuteActor_Input is the input argument to a app.bsky.graph.unmuteActor call.
@@ -16,8 +16,8 @@ type GraphUnmuteActor_Input struct {
 }
 
 // GraphUnmuteActor calls the XRPC method "app.bsky.graph.unmuteActor".
-func GraphUnmuteActor(ctx context.Context, c *xrpc.Client, input *GraphUnmuteActor_Input) error {
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "app.bsky.graph.unmuteActor", nil, input, nil); err != nil {
+func GraphUnmuteActor(ctx context.Context, c util.LexClient, input *GraphUnmuteActor_Input) error {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "app.bsky.graph.unmuteActor", nil, input, nil); err != nil {
 		return err
 	}
 

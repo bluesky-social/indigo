@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // VideoUploadVideo_Output is the output of a app.bsky.video.uploadVideo call.
@@ -17,9 +17,9 @@ type VideoUploadVideo_Output struct {
 }
 
 // VideoUploadVideo calls the XRPC method "app.bsky.video.uploadVideo".
-func VideoUploadVideo(ctx context.Context, c *xrpc.Client, input io.Reader) (*VideoUploadVideo_Output, error) {
+func VideoUploadVideo(ctx context.Context, c util.LexClient, input io.Reader) (*VideoUploadVideo_Output, error) {
 	var out VideoUploadVideo_Output
-	if err := c.Do(ctx, xrpc.Procedure, "video/mp4", "app.bsky.video.uploadVideo", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "video/mp4", "app.bsky.video.uploadVideo", nil, input, &out); err != nil {
 		return nil, err
 	}
 

@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedGetLikes_Like is a "like" in the app.bsky.feed.getLikes schema.
@@ -29,7 +29,7 @@ type FeedGetLikes_Output struct {
 //
 // cid: CID of the subject record (aka, specific version of record), to filter likes.
 // uri: AT-URI of the subject (eg, a post record).
-func FeedGetLikes(ctx context.Context, c *xrpc.Client, cid string, cursor string, limit int64, uri string) (*FeedGetLikes_Output, error) {
+func FeedGetLikes(ctx context.Context, c util.LexClient, cid string, cursor string, limit int64, uri string) (*FeedGetLikes_Output, error) {
 	var out FeedGetLikes_Output
 
 	params := map[string]interface{}{}
@@ -43,7 +43,7 @@ func FeedGetLikes(ctx context.Context, c *xrpc.Client, cid string, cursor string
 		params["limit"] = limit
 	}
 	params["uri"] = uri
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getLikes", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.getLikes", params, nil, &out); err != nil {
 		return nil, err
 	}
 

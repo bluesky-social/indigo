@@ -7,7 +7,7 @@ package chat
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ConvoUpdateAllRead_Input is the input argument to a chat.bsky.convo.updateAllRead call.
@@ -22,9 +22,9 @@ type ConvoUpdateAllRead_Output struct {
 }
 
 // ConvoUpdateAllRead calls the XRPC method "chat.bsky.convo.updateAllRead".
-func ConvoUpdateAllRead(ctx context.Context, c *xrpc.Client, input *ConvoUpdateAllRead_Input) (*ConvoUpdateAllRead_Output, error) {
+func ConvoUpdateAllRead(ctx context.Context, c util.LexClient, input *ConvoUpdateAllRead_Input) (*ConvoUpdateAllRead_Output, error) {
 	var out ConvoUpdateAllRead_Output
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "chat.bsky.convo.updateAllRead", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.updateAllRead", nil, input, &out); err != nil {
 		return nil, err
 	}
 

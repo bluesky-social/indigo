@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // RepoListMissingBlobs_Output is the output of a com.atproto.repo.listMissingBlobs call.
@@ -23,7 +23,7 @@ type RepoListMissingBlobs_RecordBlob struct {
 }
 
 // RepoListMissingBlobs calls the XRPC method "com.atproto.repo.listMissingBlobs".
-func RepoListMissingBlobs(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*RepoListMissingBlobs_Output, error) {
+func RepoListMissingBlobs(ctx context.Context, c util.LexClient, cursor string, limit int64) (*RepoListMissingBlobs_Output, error) {
 	var out RepoListMissingBlobs_Output
 
 	params := map[string]interface{}{}
@@ -33,7 +33,7 @@ func RepoListMissingBlobs(ctx context.Context, c *xrpc.Client, cursor string, li
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.repo.listMissingBlobs", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.repo.listMissingBlobs", params, nil, &out); err != nil {
 		return nil, err
 	}
 

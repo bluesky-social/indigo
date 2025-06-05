@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // ModerationGetRecords_Output is the output of a tools.ozone.moderation.getRecords call.
@@ -54,12 +53,12 @@ func (t *ModerationGetRecords_Output_Records_Elem) UnmarshalJSON(b []byte) error
 }
 
 // ModerationGetRecords calls the XRPC method "tools.ozone.moderation.getRecords".
-func ModerationGetRecords(ctx context.Context, c *xrpc.Client, uris []string) (*ModerationGetRecords_Output, error) {
+func ModerationGetRecords(ctx context.Context, c util.LexClient, uris []string) (*ModerationGetRecords_Output, error) {
 	var out ModerationGetRecords_Output
 
 	params := map[string]interface{}{}
 	params["uris"] = uris
-	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.moderation.getRecords", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.moderation.getRecords", params, nil, &out); err != nil {
 		return nil, err
 	}
 

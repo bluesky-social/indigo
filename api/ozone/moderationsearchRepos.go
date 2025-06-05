@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationSearchRepos_Output is the output of a tools.ozone.moderation.searchRepos call.
@@ -19,7 +19,7 @@ type ModerationSearchRepos_Output struct {
 // ModerationSearchRepos calls the XRPC method "tools.ozone.moderation.searchRepos".
 //
 // term: DEPRECATED: use 'q' instead
-func ModerationSearchRepos(ctx context.Context, c *xrpc.Client, cursor string, limit int64, q string, term string) (*ModerationSearchRepos_Output, error) {
+func ModerationSearchRepos(ctx context.Context, c util.LexClient, cursor string, limit int64, q string, term string) (*ModerationSearchRepos_Output, error) {
 	var out ModerationSearchRepos_Output
 
 	params := map[string]interface{}{}
@@ -35,7 +35,7 @@ func ModerationSearchRepos(ctx context.Context, c *xrpc.Client, cursor string, l
 	if term != "" {
 		params["term"] = term
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.moderation.searchRepos", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.moderation.searchRepos", params, nil, &out); err != nil {
 		return nil, err
 	}
 

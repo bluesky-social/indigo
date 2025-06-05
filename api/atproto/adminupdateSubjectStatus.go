@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // AdminUpdateSubjectStatus_Input is the input argument to a com.atproto.admin.updateSubjectStatus call.
@@ -113,9 +112,9 @@ func (t *AdminUpdateSubjectStatus_Output_Subject) UnmarshalJSON(b []byte) error 
 }
 
 // AdminUpdateSubjectStatus calls the XRPC method "com.atproto.admin.updateSubjectStatus".
-func AdminUpdateSubjectStatus(ctx context.Context, c *xrpc.Client, input *AdminUpdateSubjectStatus_Input) (*AdminUpdateSubjectStatus_Output, error) {
+func AdminUpdateSubjectStatus(ctx context.Context, c util.LexClient, input *AdminUpdateSubjectStatus_Input) (*AdminUpdateSubjectStatus_Output, error) {
 	var out AdminUpdateSubjectStatus_Output
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.admin.updateSubjectStatus", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.admin.updateSubjectStatus", nil, input, &out); err != nil {
 		return nil, err
 	}
 

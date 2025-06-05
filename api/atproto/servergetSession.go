@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerGetSession_Output is the output of a com.atproto.server.getSession call.
@@ -24,9 +24,9 @@ type ServerGetSession_Output struct {
 }
 
 // ServerGetSession calls the XRPC method "com.atproto.server.getSession".
-func ServerGetSession(ctx context.Context, c *xrpc.Client) (*ServerGetSession_Output, error) {
+func ServerGetSession(ctx context.Context, c util.LexClient) (*ServerGetSession_Output, error) {
 	var out ServerGetSession_Output
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.server.getSession", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.server.getSession", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

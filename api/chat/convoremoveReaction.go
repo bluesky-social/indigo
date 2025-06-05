@@ -7,7 +7,7 @@ package chat
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ConvoRemoveReaction_Input is the input argument to a chat.bsky.convo.removeReaction call.
@@ -23,9 +23,9 @@ type ConvoRemoveReaction_Output struct {
 }
 
 // ConvoRemoveReaction calls the XRPC method "chat.bsky.convo.removeReaction".
-func ConvoRemoveReaction(ctx context.Context, c *xrpc.Client, input *ConvoRemoveReaction_Input) (*ConvoRemoveReaction_Output, error) {
+func ConvoRemoveReaction(ctx context.Context, c util.LexClient, input *ConvoRemoveReaction_Input) (*ConvoRemoveReaction_Output, error) {
 	var out ConvoRemoveReaction_Output
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "chat.bsky.convo.removeReaction", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.removeReaction", nil, input, &out); err != nil {
 		return nil, err
 	}
 

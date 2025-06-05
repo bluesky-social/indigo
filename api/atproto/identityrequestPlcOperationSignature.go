@@ -7,12 +7,12 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // IdentityRequestPlcOperationSignature calls the XRPC method "com.atproto.identity.requestPlcOperationSignature".
-func IdentityRequestPlcOperationSignature(ctx context.Context, c *xrpc.Client) error {
-	if err := c.Do(ctx, xrpc.Procedure, "", "com.atproto.identity.requestPlcOperationSignature", nil, nil, nil); err != nil {
+func IdentityRequestPlcOperationSignature(ctx context.Context, c util.LexClient) error {
+	if err := c.LexDo(ctx, util.Procedure, "", "com.atproto.identity.requestPlcOperationSignature", nil, nil, nil); err != nil {
 		return err
 	}
 

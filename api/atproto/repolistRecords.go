@@ -8,7 +8,6 @@ import (
 	"context"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // RepoListRecords_Output is the output of a com.atproto.repo.listRecords call.
@@ -30,7 +29,7 @@ type RepoListRecords_Record struct {
 // limit: The number of records to return.
 // repo: The handle or DID of the repo.
 // reverse: Flag to reverse the order of the returned records.
-func RepoListRecords(ctx context.Context, c *xrpc.Client, collection string, cursor string, limit int64, repo string, reverse bool) (*RepoListRecords_Output, error) {
+func RepoListRecords(ctx context.Context, c util.LexClient, collection string, cursor string, limit int64, repo string, reverse bool) (*RepoListRecords_Output, error) {
 	var out RepoListRecords_Output
 
 	params := map[string]interface{}{}
@@ -45,7 +44,7 @@ func RepoListRecords(ctx context.Context, c *xrpc.Client, collection string, cur
 	if reverse {
 		params["reverse"] = reverse
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.repo.listRecords", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.repo.listRecords", params, nil, &out); err != nil {
 		return nil, err
 	}
 

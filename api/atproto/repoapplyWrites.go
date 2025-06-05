@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // RepoApplyWrites_Create is a "create" in the com.atproto.repo.applyWrites schema.
@@ -180,9 +179,9 @@ type RepoApplyWrites_UpdateResult struct {
 }
 
 // RepoApplyWrites calls the XRPC method "com.atproto.repo.applyWrites".
-func RepoApplyWrites(ctx context.Context, c *xrpc.Client, input *RepoApplyWrites_Input) (*RepoApplyWrites_Output, error) {
+func RepoApplyWrites(ctx context.Context, c util.LexClient, input *RepoApplyWrites_Input) (*RepoApplyWrites_Output, error) {
 	var out RepoApplyWrites_Output
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.applyWrites", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.repo.applyWrites", nil, input, &out); err != nil {
 		return nil, err
 	}
 

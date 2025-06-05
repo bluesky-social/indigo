@@ -8,14 +8,14 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // SyncGetRepo calls the XRPC method "com.atproto.sync.getRepo".
 //
 // did: The DID of the repo.
 // since: The revision ('rev') of the repo to create a diff from.
-func SyncGetRepo(ctx context.Context, c *xrpc.Client, did string, since string) ([]byte, error) {
+func SyncGetRepo(ctx context.Context, c util.LexClient, did string, since string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
@@ -23,7 +23,7 @@ func SyncGetRepo(ctx context.Context, c *xrpc.Client, did string, since string) 
 	if since != "" {
 		params["since"] = since
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getRepo", params, nil, buf); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.sync.getRepo", params, nil, buf); err != nil {
 		return nil, err
 	}
 

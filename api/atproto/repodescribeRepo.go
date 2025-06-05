@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // RepoDescribeRepo_Output is the output of a com.atproto.repo.describeRepo call.
@@ -25,12 +25,12 @@ type RepoDescribeRepo_Output struct {
 // RepoDescribeRepo calls the XRPC method "com.atproto.repo.describeRepo".
 //
 // repo: The handle or DID of the repo.
-func RepoDescribeRepo(ctx context.Context, c *xrpc.Client, repo string) (*RepoDescribeRepo_Output, error) {
+func RepoDescribeRepo(ctx context.Context, c util.LexClient, repo string) (*RepoDescribeRepo_Output, error) {
 	var out RepoDescribeRepo_Output
 
 	params := map[string]interface{}{}
 	params["repo"] = repo
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.repo.describeRepo", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.repo.describeRepo", params, nil, &out); err != nil {
 		return nil, err
 	}
 

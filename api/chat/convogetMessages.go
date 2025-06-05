@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // ConvoGetMessages_Output is the output of a chat.bsky.convo.getMessages call.
@@ -55,7 +54,7 @@ func (t *ConvoGetMessages_Output_Messages_Elem) UnmarshalJSON(b []byte) error {
 }
 
 // ConvoGetMessages calls the XRPC method "chat.bsky.convo.getMessages".
-func ConvoGetMessages(ctx context.Context, c *xrpc.Client, convoId string, cursor string, limit int64) (*ConvoGetMessages_Output, error) {
+func ConvoGetMessages(ctx context.Context, c util.LexClient, convoId string, cursor string, limit int64) (*ConvoGetMessages_Output, error) {
 	var out ConvoGetMessages_Output
 
 	params := map[string]interface{}{}
@@ -66,7 +65,7 @@ func ConvoGetMessages(ctx context.Context, c *xrpc.Client, convoId string, curso
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "chat.bsky.convo.getMessages", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.convo.getMessages", params, nil, &out); err != nil {
 		return nil, err
 	}
 

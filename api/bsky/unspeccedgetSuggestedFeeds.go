@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetSuggestedFeeds_Output is the output of a app.bsky.unspecced.getSuggestedFeeds call.
@@ -16,14 +16,14 @@ type UnspeccedGetSuggestedFeeds_Output struct {
 }
 
 // UnspeccedGetSuggestedFeeds calls the XRPC method "app.bsky.unspecced.getSuggestedFeeds".
-func UnspeccedGetSuggestedFeeds(ctx context.Context, c *xrpc.Client, limit int64) (*UnspeccedGetSuggestedFeeds_Output, error) {
+func UnspeccedGetSuggestedFeeds(ctx context.Context, c util.LexClient, limit int64) (*UnspeccedGetSuggestedFeeds_Output, error) {
 	var out UnspeccedGetSuggestedFeeds_Output
 
 	params := map[string]interface{}{}
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getSuggestedFeeds", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getSuggestedFeeds", params, nil, &out); err != nil {
 		return nil, err
 	}
 
