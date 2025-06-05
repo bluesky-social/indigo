@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // SetGetValues_Output is the output of a tools.ozone.set.getValues call.
@@ -18,7 +18,7 @@ type SetGetValues_Output struct {
 }
 
 // SetGetValues calls the XRPC method "tools.ozone.set.getValues".
-func SetGetValues(ctx context.Context, c *xrpc.Client, cursor string, limit int64, name string) (*SetGetValues_Output, error) {
+func SetGetValues(ctx context.Context, c util.LexClient, cursor string, limit int64, name string) (*SetGetValues_Output, error) {
 	var out SetGetValues_Output
 
 	params := map[string]interface{}{}
@@ -29,7 +29,7 @@ func SetGetValues(ctx context.Context, c *xrpc.Client, cursor string, limit int6
 		params["limit"] = limit
 	}
 	params["name"] = name
-	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.set.getValues", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.set.getValues", params, nil, &out); err != nil {
 		return nil, err
 	}
 

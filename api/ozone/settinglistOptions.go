@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // SettingListOptions_Output is the output of a tools.ozone.setting.listOptions call.
@@ -20,7 +20,7 @@ type SettingListOptions_Output struct {
 //
 // keys: Filter for only the specified keys. Ignored if prefix is provided
 // prefix: Filter keys by prefix
-func SettingListOptions(ctx context.Context, c *xrpc.Client, cursor string, keys []string, limit int64, prefix string, scope string) (*SettingListOptions_Output, error) {
+func SettingListOptions(ctx context.Context, c util.LexClient, cursor string, keys []string, limit int64, prefix string, scope string) (*SettingListOptions_Output, error) {
 	var out SettingListOptions_Output
 
 	params := map[string]interface{}{}
@@ -39,7 +39,7 @@ func SettingListOptions(ctx context.Context, c *xrpc.Client, cursor string, keys
 	if scope != "" {
 		params["scope"] = scope
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.setting.listOptions", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.setting.listOptions", params, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerDescribeServer_Contact is a "contact" in the com.atproto.server.describeServer schema.
@@ -37,9 +37,9 @@ type ServerDescribeServer_Output struct {
 }
 
 // ServerDescribeServer calls the XRPC method "com.atproto.server.describeServer".
-func ServerDescribeServer(ctx context.Context, c *xrpc.Client) (*ServerDescribeServer_Output, error) {
+func ServerDescribeServer(ctx context.Context, c util.LexClient) (*ServerDescribeServer_Output, error) {
 	var out ServerDescribeServer_Output
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.server.describeServer", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.server.describeServer", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

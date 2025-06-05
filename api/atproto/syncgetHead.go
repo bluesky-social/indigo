@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // SyncGetHead_Output is the output of a com.atproto.sync.getHead call.
@@ -18,12 +18,12 @@ type SyncGetHead_Output struct {
 // SyncGetHead calls the XRPC method "com.atproto.sync.getHead".
 //
 // did: The DID of the repo.
-func SyncGetHead(ctx context.Context, c *xrpc.Client, did string) (*SyncGetHead_Output, error) {
+func SyncGetHead(ctx context.Context, c util.LexClient, did string) (*SyncGetHead_Output, error) {
 	var out SyncGetHead_Output
 
 	params := map[string]interface{}{}
 	params["did"] = did
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getHead", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.sync.getHead", params, nil, &out); err != nil {
 		return nil, err
 	}
 

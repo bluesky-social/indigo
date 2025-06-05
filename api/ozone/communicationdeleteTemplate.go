@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // CommunicationDeleteTemplate_Input is the input argument to a tools.ozone.communication.deleteTemplate call.
@@ -16,8 +16,8 @@ type CommunicationDeleteTemplate_Input struct {
 }
 
 // CommunicationDeleteTemplate calls the XRPC method "tools.ozone.communication.deleteTemplate".
-func CommunicationDeleteTemplate(ctx context.Context, c *xrpc.Client, input *CommunicationDeleteTemplate_Input) error {
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "tools.ozone.communication.deleteTemplate", nil, input, nil); err != nil {
+func CommunicationDeleteTemplate(ctx context.Context, c util.LexClient, input *CommunicationDeleteTemplate_Input) error {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.communication.deleteTemplate", nil, input, nil); err != nil {
 		return err
 	}
 

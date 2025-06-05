@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedGetRepostedBy_Output is the output of a app.bsky.feed.getRepostedBy call.
@@ -22,7 +22,7 @@ type FeedGetRepostedBy_Output struct {
 //
 // cid: If supplied, filters to reposts of specific version (by CID) of the post record.
 // uri: Reference (AT-URI) of post record
-func FeedGetRepostedBy(ctx context.Context, c *xrpc.Client, cid string, cursor string, limit int64, uri string) (*FeedGetRepostedBy_Output, error) {
+func FeedGetRepostedBy(ctx context.Context, c util.LexClient, cid string, cursor string, limit int64, uri string) (*FeedGetRepostedBy_Output, error) {
 	var out FeedGetRepostedBy_Output
 
 	params := map[string]interface{}{}
@@ -36,7 +36,7 @@ func FeedGetRepostedBy(ctx context.Context, c *xrpc.Client, cid string, cursor s
 		params["limit"] = limit
 	}
 	params["uri"] = uri
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getRepostedBy", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.getRepostedBy", params, nil, &out); err != nil {
 		return nil, err
 	}
 

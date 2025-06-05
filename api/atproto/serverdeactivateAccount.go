@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerDeactivateAccount_Input is the input argument to a com.atproto.server.deactivateAccount call.
@@ -17,8 +17,8 @@ type ServerDeactivateAccount_Input struct {
 }
 
 // ServerDeactivateAccount calls the XRPC method "com.atproto.server.deactivateAccount".
-func ServerDeactivateAccount(ctx context.Context, c *xrpc.Client, input *ServerDeactivateAccount_Input) error {
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.deactivateAccount", nil, input, nil); err != nil {
+func ServerDeactivateAccount(ctx context.Context, c util.LexClient, input *ServerDeactivateAccount_Input) error {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.server.deactivateAccount", nil, input, nil); err != nil {
 		return err
 	}
 

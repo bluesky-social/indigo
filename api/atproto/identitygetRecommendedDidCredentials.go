@@ -8,7 +8,6 @@ import (
 	"context"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // IdentityGetRecommendedDidCredentials_Output is the output of a com.atproto.identity.getRecommendedDidCredentials call.
@@ -21,9 +20,9 @@ type IdentityGetRecommendedDidCredentials_Output struct {
 }
 
 // IdentityGetRecommendedDidCredentials calls the XRPC method "com.atproto.identity.getRecommendedDidCredentials".
-func IdentityGetRecommendedDidCredentials(ctx context.Context, c *xrpc.Client) (*IdentityGetRecommendedDidCredentials_Output, error) {
+func IdentityGetRecommendedDidCredentials(ctx context.Context, c util.LexClient) (*IdentityGetRecommendedDidCredentials_Output, error) {
 	var out IdentityGetRecommendedDidCredentials_Output
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.identity.getRecommendedDidCredentials", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.identity.getRecommendedDidCredentials", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

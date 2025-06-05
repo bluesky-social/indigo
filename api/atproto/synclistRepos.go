@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // SyncListRepos_Output is the output of a com.atproto.sync.listRepos call.
@@ -28,7 +28,7 @@ type SyncListRepos_Repo struct {
 }
 
 // SyncListRepos calls the XRPC method "com.atproto.sync.listRepos".
-func SyncListRepos(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*SyncListRepos_Output, error) {
+func SyncListRepos(ctx context.Context, c util.LexClient, cursor string, limit int64) (*SyncListRepos_Output, error) {
 	var out SyncListRepos_Output
 
 	params := map[string]interface{}{}
@@ -38,7 +38,7 @@ func SyncListRepos(ctx context.Context, c *xrpc.Client, cursor string, limit int
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.listRepos", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.sync.listRepos", params, nil, &out); err != nil {
 		return nil, err
 	}
 

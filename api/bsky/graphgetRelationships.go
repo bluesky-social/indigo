@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // GraphGetRelationships_Output is the output of a app.bsky.graph.getRelationships call.
@@ -58,7 +57,7 @@ func (t *GraphGetRelationships_Output_Relationships_Elem) UnmarshalJSON(b []byte
 //
 // actor: Primary account requesting relationships for.
 // others: List of 'other' accounts to be related back to the primary.
-func GraphGetRelationships(ctx context.Context, c *xrpc.Client, actor string, others []string) (*GraphGetRelationships_Output, error) {
+func GraphGetRelationships(ctx context.Context, c util.LexClient, actor string, others []string) (*GraphGetRelationships_Output, error) {
 	var out GraphGetRelationships_Output
 
 	params := map[string]interface{}{}
@@ -66,7 +65,7 @@ func GraphGetRelationships(ctx context.Context, c *xrpc.Client, actor string, ot
 	if len(others) != 0 {
 		params["others"] = others
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.getRelationships", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.graph.getRelationships", params, nil, &out); err != nil {
 		return nil, err
 	}
 
