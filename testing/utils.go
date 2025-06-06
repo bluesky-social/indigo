@@ -57,7 +57,7 @@ type TestPDS struct {
 	shutdown func()
 }
 
-// HTTPHost returns a host:port string that the PDS server is running at
+// RawHost returns a host:port string that the PDS server is running at
 func (tp *TestPDS) RawHost() string {
 	return tp.listener.Addr().String()
 }
