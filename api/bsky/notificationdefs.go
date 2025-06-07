@@ -4,6 +4,42 @@ package bsky
 
 // schema: app.bsky.notification.defs
 
+// NotificationDefs_ChatPreference is a "chatPreference" in the app.bsky.notification.defs schema.
+type NotificationDefs_ChatPreference struct {
+	Filter string `json:"filter" cborgen:"filter"`
+	Push   bool   `json:"push" cborgen:"push"`
+}
+
+// NotificationDefs_FilterablePreference is a "filterablePreference" in the app.bsky.notification.defs schema.
+type NotificationDefs_FilterablePreference struct {
+	Filter string `json:"filter" cborgen:"filter"`
+	List   bool   `json:"list" cborgen:"list"`
+	Push   bool   `json:"push" cborgen:"push"`
+}
+
+// NotificationDefs_Preference is a "preference" in the app.bsky.notification.defs schema.
+type NotificationDefs_Preference struct {
+	List bool `json:"list" cborgen:"list"`
+	Push bool `json:"push" cborgen:"push"`
+}
+
+// NotificationDefs_Preferences is a "preferences" in the app.bsky.notification.defs schema.
+type NotificationDefs_Preferences struct {
+	Chat              *NotificationDefs_ChatPreference       `json:"chat" cborgen:"chat"`
+	Follow            *NotificationDefs_FilterablePreference `json:"follow" cborgen:"follow"`
+	Like              *NotificationDefs_FilterablePreference `json:"like" cborgen:"like"`
+	LikeViaRepost     *NotificationDefs_FilterablePreference `json:"likeViaRepost" cborgen:"likeViaRepost"`
+	Mention           *NotificationDefs_FilterablePreference `json:"mention" cborgen:"mention"`
+	Quote             *NotificationDefs_FilterablePreference `json:"quote" cborgen:"quote"`
+	Reply             *NotificationDefs_FilterablePreference `json:"reply" cborgen:"reply"`
+	Repost            *NotificationDefs_FilterablePreference `json:"repost" cborgen:"repost"`
+	RepostViaRepost   *NotificationDefs_FilterablePreference `json:"repostViaRepost" cborgen:"repostViaRepost"`
+	StarterpackJoined *NotificationDefs_Preference           `json:"starterpackJoined" cborgen:"starterpackJoined"`
+	SubscribedPost    *NotificationDefs_Preference           `json:"subscribedPost" cborgen:"subscribedPost"`
+	Unverified        *NotificationDefs_Preference           `json:"unverified" cborgen:"unverified"`
+	Verified          *NotificationDefs_Preference           `json:"verified" cborgen:"verified"`
+}
+
 // NotificationDefs_RecordDeleted is a "recordDeleted" in the app.bsky.notification.defs schema.
 type NotificationDefs_RecordDeleted struct {
 }
