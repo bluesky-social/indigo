@@ -1,7 +1,9 @@
 package lexicon
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"reflect"
 )
 
@@ -55,6 +57,49 @@ func validateRecordConfig(cat Catalog, recordData any, ref string, flags Validat
 	return validateObject(cat, s.Record, d, flags)
 }
 
+// Checks Lexicon schema (fetched from the catalog) for the given input and parameters, with optional flags tweaking default validation rules.
+//
+// 'inputData' is typed as 'any', but is expected to be 'map[string]any'
+// 'parameters' are the HTTP request parameters to be validated
+// 'ref' is a reference to the schema type, as an NSID with optional fragment. For records, the '$type' must match 'ref'
+// 'flags' are parameters tweaking Lexicon validation rules. Zero value is default.
+func ValidateQuery(cat Catalog, parameters url.Values, ref string, flags ValidateFlags) error {
+	return validateRequestConfig(cat, nil, parameters, ref, flags)
+}
+
+// Checks Lexicon schema (fetched from the catalog) for the given input and parameters, with optional flags tweaking default validation rules.
+//
+// 'inputData' is typed as 'any', but is expected to be 'map[string]any'
+// 'parameters' are the HTTP request parameters to be validated
+// 'ref' is a reference to the schema type, as an NSID with optional fragment. For records, the '$type' must match 'ref'
+// 'flags' are parameters tweaking Lexicon validation rules. Zero value is default.
+func ValidateProcedure(cat Catalog, inputData any, parameters url.Values, ref string, flags ValidateFlags) error {
+	return validateRequestConfig(cat, inputData, parameters, ref, flags)
+}
+
+func validateRequestConfig(cat Catalog, inputData any, parameters url.Values, ref string, flags ValidateFlags) error {
+	def, err := cat.Resolve(ref)
+	if err != nil {
+		return err
+	}
+
+	if qs, ok := def.Def.(SchemaQuery); ok {
+		if err := validateParameters(cat, qs.Parameters, parameters, flags); err != nil {
+			return err
+		}
+	} else if ps, ok := def.Def.(SchemaProcedure); ok {
+		if err := validateParameters(cat, qs.Parameters, parameters, flags); err != nil {
+			return err
+		}
+		if err := validateData(cat, ps.Input.Schema.Inner, inputData, flags); err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("schema is not of query or procedure type: %s", ref)
+	}
+	return nil
+}
+
 func validateData(cat Catalog, def any, d any, flags ValidateFlags) error {
 	switch v := def.(type) {
 	case SchemaNull:
@@ -104,7 +149,7 @@ func validateData(cat Catalog, def any, d any, flags ValidateFlags) error {
 func validateObject(cat Catalog, s SchemaObject, d map[string]any, flags ValidateFlags) error {
 	for _, k := range s.Required {
 		if _, ok := d[k]; !ok {
-			return fmt.Errorf("required field missing: %s", k)
+			return fmt.Errorf("required property missing: %s", k)
 		}
 	}
 	for k, def := range s.Properties {
@@ -114,7 +159,63 @@ func validateObject(cat Catalog, s SchemaObject, d map[string]any, flags Validat
 			}
 			err := validateData(cat, def.Inner, v, flags)
 			if err != nil {
-				return err
+				return fmt.Errorf("property is invalid (%s) : %s", err, k)
+			}
+		}
+	}
+	return nil
+}
+
+func convertParameterValue(def SchemaDef, values []string) (any, error) {
+
+	var rv any
+	switch t := def.Inner.(type) {
+	case SchemaBoolean, SchemaUnknown:
+		if err := json.Unmarshal([]byte(values[0]), &rv); err != nil {
+			return nil, err
+		}
+		return rv, nil
+	case SchemaInteger:
+		if err := json.Unmarshal([]byte(values[0]), &rv); err != nil {
+			return nil, err
+		}
+		if rv != float64(int64(rv.(float64))) {
+			return nil, fmt.Errorf("number is not a integer: %f", rv)
+		}
+		return int64(rv.(float64)), nil
+	case SchemaString:
+		return values[0], nil
+	case SchemaArray:
+		rv := make([]any, 0)
+		for _, v := range values {
+			cv, err := convertParameterValue(t.Items, []string{v})
+			if err != nil {
+				return nil, err
+			}
+			rv = append(rv, cv)
+		}
+		return rv, nil
+	default:
+		return nil, fmt.Errorf("invalid parameter type")
+	}
+}
+
+func validateParameters(cat Catalog, s SchemaParams, parameters url.Values, flags ValidateFlags) error {
+	for _, k := range s.Required {
+		if _, ok := parameters[k]; !ok {
+			return fmt.Errorf("required parameter missing: %s", k)
+		}
+	}
+	for k, def := range s.Properties {
+		if v, ok := parameters[k]; ok {
+
+			cv, err := convertParameterValue(def, v)
+			if err != nil {
+				return fmt.Errorf("parameter is invalid (%s) : %s", k, err)
+			}
+			err = validateData(cat, def.Inner, cv, flags)
+			if err != nil {
+				return fmt.Errorf("parameter is invalid (%s) : %s", k, err)
 			}
 		}
 	}
