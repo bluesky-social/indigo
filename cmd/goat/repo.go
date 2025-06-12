@@ -302,7 +302,7 @@ func runRepoUnpack(cctx *cli.Context) error {
 
 		recPath := topDir + "/" + string(k)
 		fmt.Printf("%s.json\n", recPath)
-		os.MkdirAll(filepath.Dir(recPath), os.ModePerm)
+		err = os.MkdirAll(filepath.Dir(recPath), os.ModePerm)
 		if err != nil {
 			return err
 		}
