@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"slices"
 	"sync"
 )
 
@@ -94,10 +95,8 @@ func (e *Effects) IncrementDistinct(name, bucket, val string) {
 func (e *Effects) AddAccountLabel(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.AccountLabels {
-		if v == val {
-			return
-		}
+	if slices.Contains(e.AccountLabels, val) {
+		return
 	}
 	e.AccountLabels = append(e.AccountLabels, val)
 }
@@ -106,10 +105,8 @@ func (e *Effects) AddAccountLabel(val string) {
 func (e *Effects) RemoveAccountLabel(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.RemovedAccountLabels {
-		if v == val {
-			return
-		}
+	if slices.Contains(e.RemovedAccountLabels, val) {
+		return
 	}
 	e.RemovedAccountLabels = append(e.RemovedAccountLabels, val)
 }
@@ -118,10 +115,8 @@ func (e *Effects) RemoveAccountLabel(val string) {
 func (e *Effects) AddAccountTag(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.AccountTags {
-		if v == val {
-			return
-		}
+	if slices.Contains(e.AccountTags, val) {
+		return
 	}
 	e.AccountTags = append(e.AccountTags, val)
 }
@@ -130,10 +125,8 @@ func (e *Effects) AddAccountTag(val string) {
 func (e *Effects) AddAccountFlag(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.AccountFlags {
-		if v == val {
-			return
-		}
+	if slices.Contains(e.AccountFlags, val) {
+		return
 	}
 	e.AccountFlags = append(e.AccountFlags, val)
 }
@@ -172,10 +165,8 @@ func (e *Effects) AcknowledgeAccount() {
 func (e *Effects) AddRecordLabel(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.RecordLabels {
-		if v == val {
-			return
-		}
+	if slices.Contains(e.RecordLabels, val) {
+		return
 	}
 	e.RecordLabels = append(e.RecordLabels, val)
 }
@@ -184,10 +175,8 @@ func (e *Effects) AddRecordLabel(val string) {
 func (e *Effects) RemoveRecordLabel(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.RemovedRecordLabels {
-		if v == val {
-			return
-		}
+	if slices.Contains(e.RemovedRecordLabels, val) {
+		return
 	}
 	e.RemovedRecordLabels = append(e.RemovedRecordLabels, val)
 }
@@ -196,10 +185,8 @@ func (e *Effects) RemoveRecordLabel(val string) {
 func (e *Effects) AddRecordTag(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.RecordTags {
-		if v == val {
-			return
-		}
+	if slices.Contains(e.RecordTags, val) {
+		return
 	}
 	e.RecordTags = append(e.RecordTags, val)
 }
@@ -208,10 +195,8 @@ func (e *Effects) AddRecordTag(val string) {
 func (e *Effects) AddRecordFlag(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.RecordFlags {
-		if v == val {
-			return
-		}
+	if slices.Contains(e.RecordFlags, val) {
+		return
 	}
 	e.RecordFlags = append(e.RecordFlags, val)
 }
@@ -250,10 +235,8 @@ func (e *Effects) AcknowledgeRecord() {
 func (e *Effects) TakedownBlob(cid string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.BlobTakedowns {
-		if v == cid {
-			return
-		}
+	if slices.Contains(e.BlobTakedowns, cid) {
+		return
 	}
 	e.BlobTakedowns = append(e.BlobTakedowns, cid)
 }
@@ -262,10 +245,8 @@ func (e *Effects) TakedownBlob(cid string) {
 func (e *Effects) Notify(srv string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.NotifyServices {
-		if v == srv {
-			return
-		}
+	if slices.Contains(e.NotifyServices, srv) {
+		return
 	}
 	e.NotifyServices = append(e.NotifyServices, srv)
 }
