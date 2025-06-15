@@ -20,8 +20,9 @@ import (
 
 type ServiceAuthValidator struct {
 	// Service DID reference for this validator: a DID with optional #-separated fragment
-	Audience string
-	Dir      identity.Directory
+	Audience        string
+	Dir             identity.Directory
+	TimestampLeeway time.Duration
 }
 
 type serviceAuthClaims struct {
@@ -32,12 +33,17 @@ type serviceAuthClaims struct {
 
 func (s *ServiceAuthValidator) Validate(ctx context.Context, tokenString string, lexMethod *syntax.NSID) (syntax.DID, error) {
 
+	leeway := s.TimestampLeeway
+	if leeway == 0 {
+		leeway = 5 * time.Second
+	}
+
 	opts := []jwt.ParserOption{
 		jwt.WithValidMethods(supportedAlgs),
 		jwt.WithAudience(s.Audience),
 		jwt.WithExpirationRequired(),
 		jwt.WithIssuedAt(),
-		jwt.WithLeeway(5 * time.Second), // TODO: configurable? better default?
+		jwt.WithLeeway(leeway),
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, &serviceAuthClaims{}, s.fetchIssuerKeyFunc(ctx), opts...)
@@ -73,7 +79,7 @@ func (s *ServiceAuthValidator) Validate(ctx context.Context, tokenString string,
 	}
 	claims, ok := token.Claims.(*serviceAuthClaims)
 	if !ok {
-		// TODO: is this the best error here?
+		// TODO: is the error message returned descriptive enough?
 		return "", jwt.ErrTokenInvalidClaims
 	}
 
