@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"crypto/subtle"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -26,8 +28,12 @@ func AdminAuthMiddleware(handler http.HandlerFunc, adminPasswords []string) http
 			}
 		}
 		w.Header().Set("WWW-Authenticate", `Basic realm="admin", charset="UTF-8"`)
-		// TODO: XRPC error body?
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error":   "Unauthorized",
+			"message": "atproto admin auth required, but missing or incorrect password",
+		})
 	}
 }
 
@@ -40,9 +46,13 @@ func (v *ServiceAuthValidator) Middleware(handler http.HandlerFunc, mandatory bo
 		if hdr := r.Header.Get("Authorization"); hdr != "" {
 			parts := strings.Split(hdr, " ")
 			if parts[0] != "Bearer" || len(parts) != 2 {
-				// TODO: XRPC error body?
 				w.Header().Set("WWW-Authenticate", "Bearer")
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error":   "Unauthorized",
+					"message": "atproto service auth required, but missing or incorrect formatting",
+				})
 				return
 			}
 
@@ -59,8 +69,12 @@ func (v *ServiceAuthValidator) Middleware(handler http.HandlerFunc, mandatory bo
 			did, err := v.Validate(r.Context(), parts[1], lxm)
 			if err != nil {
 				w.Header().Set("WWW-Authenticate", "Bearer")
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				// TODO: XRPC error body?
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error":   "Unauthorized",
+					"message": fmt.Sprintf("invalid service auth: %s", err),
+				})
 				return
 			}
 			ctx := context.WithValue(r.Context(), "did", did)
@@ -69,9 +83,13 @@ func (v *ServiceAuthValidator) Middleware(handler http.HandlerFunc, mandatory bo
 		}
 
 		if mandatory {
-			// TODO: XRPC error body?
 			w.Header().Set("WWW-Authenticate", "Bearer")
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error":   "Unauthorized",
+				"message": "atproto service auth required",
+			})
 			return
 		}
 		handler(w, r)
