@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"testing"
@@ -8,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TODO: attempting to resolve unsafe (SSRF) URLs should error
 // TODO: localhost (dev mode) resolution
 
 func TestValidateMetadata(t *testing.T) {
@@ -116,5 +116,34 @@ func TestValidateMetadata(t *testing.T) {
 		if err := json.Unmarshal(b, &meta); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func TestResolver(t *testing.T) {
+	assert := assert.New(t)
+	ctx := context.Background()
+
+	resolver := NewResolver()
+
+	{
+		// Live network tests (disabled by default)
+		/*
+			_, err := resolver.ResolveAuthServerURL(ctx, "https://morel.us-east.host.bsky.network")
+			assert.NoError(err)
+			_, err = resolver.ResolveAuthServerMetadata(ctx, "https://bsky.social")
+			assert.NoError(err)
+			_, err = resolver.ResolveClientMetadata(ctx, "https://oauth-flask.demo.bsky.dev/oauth/client-metadata.json")
+			assert.NoError(err)
+		*/
+	}
+
+	{
+		// local unsafe should fail
+		_, err := resolver.ResolveAuthServerURL(ctx, "https://127.0.0.1")
+		assert.ErrorContains(err, "is not a public IP address")
+		_, err = resolver.ResolveAuthServerMetadata(ctx, "https://10.0.0.1")
+		assert.ErrorContains(err, "is not a public IP address")
+		_, err = resolver.ResolveClientMetadata(ctx, "https://127.0.0.1/oauth/client-metadata.json")
+		assert.ErrorContains(err, "is not a public IP address")
 	}
 }
