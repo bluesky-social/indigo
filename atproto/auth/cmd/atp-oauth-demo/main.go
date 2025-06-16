@@ -203,8 +203,6 @@ func (s *Server) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// XXX: dpopAuthserverPrivateKey := crypto.GenerateP256PrivateKey()
-
 	callbackURL, err := url.Parse(s.Config.ClientID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -291,7 +289,7 @@ func (s *Server) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	s.AuthStore.SaveSession(authSess)
 
-	// XXX: create signed cookie session with `account_did`:
+	// create signed cookie session, indicating account DID
 	sess, _ := s.CookieStore.Get(r, "oauth-demo")
 	sess.Values["account_did"] = authSess.AccountDID.String()
 	if err := sess.Save(r, w); err != nil {
