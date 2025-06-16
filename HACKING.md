@@ -5,7 +5,7 @@ Run with, eg, `go run ./cmd/rainbow`):
 
 - `cmd/bigsky`: relay daemon
 - `cmd/relay`: new (sync v1.1) relay daemon
-- `cmd/palomar`: search indexer and query servcie (OpenSearch)
+- `cmd/palomar`: search indexer and query service (OpenSearch)
 - `cmd/gosky`: client CLI for talking to a PDS
 - `cmd/lexgen`: codegen tool for lexicons (Lexicon JSON to Go package)
 - `cmd/stress`: connects to local/default PDS and creates a ton of random posts
