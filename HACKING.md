@@ -5,7 +5,7 @@ Run with, eg, `go run ./cmd/rainbow`):
 
 - `cmd/bigsky`: relay daemon
 - `cmd/relay`: new (sync v1.1) relay daemon
-- `cmd/palomar`: search indexer and query servcie (OpenSearch)
+- `cmd/palomar`: search indexer and query service (OpenSearch)
 - `cmd/gosky`: client CLI for talking to a PDS
 - `cmd/lexgen`: codegen tool for lexicons (Lexicon JSON to Go package)
 - `cmd/stress`: connects to local/default PDS and creates a ton of random posts
@@ -26,7 +26,7 @@ Packages:
     - `api/bsky`: generated types for `app.bsky` lexicon
     - `api/chat`: generated types for `chat.bsky` lexicon
     - `api/ozone`: generated types for `tools.ozone` lexicon
-- `atproto/crypto`: crytographic helpers (signing, key generation and serialization)
+- `atproto/crypto`: cryptographic helpers (signing, key generation and serialization)
 - `atproto/syntax`: string types and parsers for identifiers, datetimes, etc
 - `atproto/identity`: DID and handle resolution
 - `atproto/data`: helpers for atproto data as JSON or CBOR with unknown schema
