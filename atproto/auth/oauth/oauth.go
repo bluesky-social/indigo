@@ -132,22 +132,6 @@ func ResumeSession(config *ClientConfig, data *SessionData) (*Session, error) {
 	return &sess, nil
 }
 
-/* XXX
-func NewOAuthClient(clientID string) OAuthClient {
-	// TODO: include SSRF protections on http.Client{} by default
-	c := OAuthClient{
-		Client: http.DefaultClient,
-		Config: ClientConfig{
-			ClientID: clientID,
-			KeyID:    "0",
-			TTL:      30 * time.Second,
-		},
-		Resolver: NewResolver(),
-	}
-	return c
-}
-*/
-
 type clientAssertionClaims struct {
 	jwt.RegisteredClaims
 
@@ -351,27 +335,6 @@ func (c *ClientConfig) SendAuthRequest(ctx context.Context, authMeta *AuthServer
 
 	return &parInfo, nil
 }
-
-/* XXX
-func ResumeAuthRequest(clientID string, info *AuthRequestData) (*Session, error) {
-
-	priv, err := crypto.ParsePrivateMultibase(info.DpopKeyMultibase)
-	if err != nil {
-		return nil, err
-	}
-
-	sess := Session{
-		Client: http.DefaultClient()
-	}
-
-	c := NewOAuthClient(clientID)
-	c.DpopSecretKey = priv
-	//XXX ClientSecretKey
-	//XXX HostURL: info.HostURL,
-	c.AuthServerURL = info.AuthServerURL
-	return &c, nil
-}
-*/
 
 func (c *ClientConfig) SendInitialTokenRequest(ctx context.Context, authCode string, info AuthRequestData) (*TokenResponse, error) {
 
