@@ -128,7 +128,7 @@ type AuthServerMetadata struct {
 }
 
 func (m *AuthServerMetadata) Validate(serverURL string) error {
-	// XXX: check that issues matches domain this metadata document was fetched from
+	// XXX: check that Issuer matches domain this metadata document was fetched from
 
 	if m.Issuer == "" {
 		return fmt.Errorf("%w: empty issuer", ErrInvalidAuthServerMetadata)
@@ -271,8 +271,7 @@ type SessionData struct {
 	// Base URL of the "auth server" (eg, PDS or entryway). Should include scheme, hostname, port; no path or auth info.
 	AuthServerURL string `json:"authserver_url"`
 
-	//XXX: persist this through... from initial request?
-	//AuthServerTokenEndpoint string `json:"authserver_token_endpoint"`
+	AuthServerTokenEndpoint string `json:"authserver_token_endpoint"`
 
 	// Token which can be used directly against host ("resource server", eg PDS)
 	AccessToken string `json:"access_token"`

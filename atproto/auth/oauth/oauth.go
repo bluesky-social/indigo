@@ -16,44 +16,136 @@ import (
 )
 
 type ClientConfig struct {
-	ClientID   string
-	PrivateKey crypto.PrivateKey
-	KeyID      string
+	ClientID    string
+	CallbackURL string
+	PrivateKey  crypto.PrivateKey
+	KeyID       string
 
-	// TODO: ClientMetadata() method, with required fields?
-	// TODO: JWKS() method, returns public keys?
+	// TODO: better name (and default?) for this JWT expiration value
+	TTL time.Duration
 }
 
-type Session struct {
-	Config ClientConfig
-	Data   SessionData
-}
-
-type OAuthClient struct {
-	Client              *http.Client
-	ClientID            string
-	Resolver            *Resolver
-	TTL                 time.Duration
-	DpopSecretKey       crypto.PrivateKey
-	DpopSecretMultibase string
-	ClientSecretKey     crypto.PrivateKey
-	//HostURL string
-	AuthServerURL string
-
-	// XXX: hack
-	Session *SessionData
-}
-
-func NewOAuthClient(clientID string) OAuthClient {
-	// TODO: include SSRF protections on http.Client{} by default
-	c := OAuthClient{
-		Client:   http.DefaultClient,
-		ClientID: clientID,
-		Resolver: NewResolver(),
-		TTL:      30 * time.Second,
+func NewClientConfig(clientID, callbackURL string) ClientConfig {
+	c := ClientConfig{
+		ClientID:    clientID,
+		CallbackURL: callbackURL,
+		//PrivateKey
+		KeyID: "0",
+		TTL:   30 * time.Second,
 	}
 	return c
 }
+
+// Returns public JWK corresponding to the client's private attestation key.
+//
+// If the client does not have a key (eg, a non-confidential client), returns an error.
+func (c *ClientConfig) PublicJWK() (*crypto.JWK, error) {
+	if c.PrivateKey == nil {
+		return nil, fmt.Errorf("non-confidential client has no public JWK")
+	}
+	pub, err := c.PrivateKey.PublicKey()
+	if err != nil {
+		return nil, err
+	}
+	jwk, err := pub.JWK()
+	if err != nil {
+		return nil, err
+	}
+	jwk.KeyID = strPtr(c.KeyID)
+	return jwk, nil
+}
+
+// Returns a "JWKS" representation of public keys for the client. This can be returned as JSON, as part of client metadata.
+//
+// If the client does not have any keys, returns an empty set.
+func (c *ClientConfig) PublicJWKS() JWKS {
+	// public client with no keys
+	if c.PrivateKey == nil {
+		return JWKS{}
+	}
+	jwk, err := c.PublicJWK()
+	if err != nil {
+		return JWKS{}
+	}
+	jwks := JWKS{
+		Keys: []crypto.JWK{*jwk},
+	}
+	return jwks
+}
+
+func (c *ClientConfig) signingMethod() (jwt.SigningMethod, error) {
+	switch c.PrivateKey.(type) {
+	case *crypto.PrivateKeyP256:
+		return signingMethodES256, nil
+	case *crypto.PrivateKeyK256:
+		return signingMethodES256K, nil
+	}
+	return nil, fmt.Errorf("unknown clientSecretKey type")
+}
+
+// Returns a ClientMetadata struct with the required fields populated based on this client configuration. Clients may want to populate additional metadata fields on top of this response.
+//
+// TODO: confidential clients currently must provide JWKSUri after the fact
+func (c *ClientConfig) ClientMetadata(scope string) ClientMetadata {
+	if scope == "" {
+		scope = "atproto"
+	}
+	m := ClientMetadata{
+		ClientID:              c.ClientID,
+		ApplicationType:       strPtr("web"),
+		GrantTypes:            []string{"authorization_code", "refresh_token"},
+		Scope:                 scope,
+		ResponseTypes:         []string{"code"},
+		RedirectURIs:          []string{c.CallbackURL},
+		DpopBoundAccessTokens: true,
+	}
+	if c.PrivateKey != nil {
+		m.TokenEndpointAuthMethod = strPtr("private_key_jwt")
+		m.TokenEndpointAuthSigningAlg = strPtr("ES256")
+		// TODO: what is the correct format for in-line JWKS?
+		//m.JWKS = c.JWKS()
+	}
+	return m
+}
+
+type Session struct {
+	// HTTP client used for token refresh requests
+	Client *http.Client
+
+	Config         *ClientConfig
+	Data           *SessionData
+	DpopPrivateKey crypto.PrivateKey
+}
+
+func ResumeSession(config *ClientConfig, data *SessionData) (*Session, error) {
+	sess := Session{
+		Client: http.DefaultClient,
+		Config: config,
+		Data:   data,
+	}
+	priv, err := crypto.ParsePrivateMultibase(data.DpopKeyMultibase)
+	if err != nil {
+		return nil, err
+	}
+	sess.DpopPrivateKey = priv
+	return &sess, nil
+}
+
+/* XXX
+func NewOAuthClient(clientID string) OAuthClient {
+	// TODO: include SSRF protections on http.Client{} by default
+	c := OAuthClient{
+		Client: http.DefaultClient,
+		Config: ClientConfig{
+			ClientID: clientID,
+			KeyID:    "0",
+			TTL:      30 * time.Second,
+		},
+		Resolver: NewResolver(),
+	}
+	return c
+}
+*/
 
 type clientAssertionClaims struct {
 	jwt.RegisteredClaims
@@ -73,8 +165,10 @@ type dpopClaims struct {
 	Nonce           *string `json:"nonce,omitempty"`
 }
 
-// TODO: params are just fields on OAuthClient
-func (c *OAuthClient) NewClientAssertionJWT(clientID, authURL string, clientSecretKey crypto.PrivateKey, kid string) (string, error) {
+func (c *ClientConfig) NewAssertionJWT(authURL string) (string, error) {
+	if c.PrivateKey == nil {
+		return "", fmt.Errorf("non-confidential client")
+	}
 	claims := clientAssertionClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:   c.ClientID,
@@ -85,22 +179,20 @@ func (c *OAuthClient) NewClientAssertionJWT(clientID, authURL string, clientSecr
 		},
 	}
 
-	var keyMethod jwt.SigningMethod
-	switch clientSecretKey.(type) {
-	case *crypto.PrivateKeyP256:
-		keyMethod = signingMethodES256
-	case *crypto.PrivateKeyK256:
-		keyMethod = signingMethodES256K
-	default:
-		return "", fmt.Errorf("unknown clientSecretKey type")
+	signingMethod, err := c.signingMethod()
+	if err != nil {
+		return "", err
 	}
 
-	token := jwt.NewWithClaims(keyMethod, claims)
-	token.Header["kid"] = kid
-	return token.SignedString(clientSecretKey)
+	token := jwt.NewWithClaims(signingMethod, claims)
+	token.Header["kid"] = c.KeyID
+	return token.SignedString(c.PrivateKey)
 }
 
-func (c *OAuthClient) NewDPoPJWT(httpMethod, url, dpopNonce string) (string, error) {
+func NewDPoPJWT(httpMethod, url, dpopNonce string, privKey crypto.PrivateKey) (string, error) {
+
+	// TODO: argument? config?
+	ttl := 30 * time.Second
 
 	claims := dpopClaims{
 		HTTPMethod: httpMethod,
@@ -108,7 +200,7 @@ func (c *OAuthClient) NewDPoPJWT(httpMethod, url, dpopNonce string) (string, err
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        randomNonce(),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(c.TTL)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
 		},
 	}
 	if dpopNonce != "" {
@@ -117,7 +209,7 @@ func (c *OAuthClient) NewDPoPJWT(httpMethod, url, dpopNonce string) (string, err
 
 	// XXX: refactor to helper method
 	var keyMethod jwt.SigningMethod
-	switch c.DpopSecretKey.(type) {
+	switch privKey.(type) {
 	case *crypto.PrivateKeyP256:
 		keyMethod = signingMethodES256
 	case *crypto.PrivateKeyK256:
@@ -127,7 +219,7 @@ func (c *OAuthClient) NewDPoPJWT(httpMethod, url, dpopNonce string) (string, err
 	}
 
 	// XXX: parse/cache this elsewhere
-	pub, err := c.DpopSecretKey.PublicKey()
+	pub, err := privKey.PublicKey()
 	if err != nil {
 		return "", err
 	}
@@ -139,11 +231,15 @@ func (c *OAuthClient) NewDPoPJWT(httpMethod, url, dpopNonce string) (string, err
 	token := jwt.NewWithClaims(keyMethod, claims)
 	token.Header["typ"] = "dpop+jwt"
 	token.Header["jwk"] = pubJWK
-	return token.SignedString(c.DpopSecretKey)
+	return token.SignedString(privKey)
 }
 
 // Sends PAR request to auth server
-func (c *OAuthClient) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, redirectURI, loginHint, scope string) (*AuthRequestData, error) {
+func (c *ClientConfig) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, loginHint, scope string) (*AuthRequestData, error) {
+
+	// TODO: pass as argument?
+	httpClient := http.DefaultClient
+
 	parURL := authMeta.PushedAuthorizationRequestEndpoint
 	state := randomNonce()
 	pkceVerifier := fmt.Sprintf("%s%s%s", randomNonce(), randomNonce(), randomNonce())
@@ -153,7 +249,7 @@ func (c *OAuthClient) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 
 	// self-signed JWT using private key in client metadata (confidential client)
 	// TODO: make "confidential client" mode optional
-	assertionJWT, err := c.NewClientAssertionJWT(c.ClientID, authMeta.Issuer, c.ClientSecretKey, "one") // XXX: keyID
+	assertionJWT, err := c.NewAssertionJWT(authMeta.Issuer)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +257,7 @@ func (c *OAuthClient) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 	body := PushedAuthRequest{
 		ClientID:            c.ClientID,
 		State:               state,
-		RedirectURI:         redirectURI,
+		RedirectURI:         c.CallbackURL,
 		Scope:               scope,
 		ResponseType:        "code",
 		ClientAssertionType: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
@@ -180,11 +276,17 @@ func (c *OAuthClient) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 
 	dpopServerNonce := ""
 
-	slog.Info("sending auth request", "scope", scope, "state", state, "redirectURI", redirectURI)
+	// create new key for the session
+	dpopPrivKey, err := crypto.GeneratePrivateKeyP256()
+	if err != nil {
+		return nil, err
+	}
+
+	slog.Info("sending auth request", "scope", scope, "state", state, "redirectURI", c.CallbackURL)
 
 	var resp *http.Response
 	for range 2 {
-		dpopJWT, err := c.NewDPoPJWT("POST", parURL, dpopServerNonce)
+		dpopJWT, err := NewDPoPJWT("POST", parURL, dpopServerNonce, dpopPrivKey)
 		if err != nil {
 			return nil, err
 		}
@@ -196,7 +298,7 @@ func (c *OAuthClient) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Set("DPoP", dpopJWT)
 
-		resp, err = c.Client.Do(req)
+		resp, err = httpClient.Do(req)
 		if err != nil {
 			return nil, err
 		}
@@ -238,23 +340,28 @@ func (c *OAuthClient) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 
 	parInfo := AuthRequestData{
 		State:         state,
-		AuthServerURL: c.AuthServerURL,
+		AuthServerURL: authMeta.Issuer,
 		//XXX: HostURL
 		Scope:               scope,
 		PKCEVerifier:        pkceVerifier,
 		RequestURI:          parResp.RequestURI,
 		DpopAuthServerNonce: dpopServerNonce,
-		DpopKeyMultibase:    c.DpopSecretMultibase,
+		DpopKeyMultibase:    dpopPrivKey.Multibase(),
 	}
 
 	return &parInfo, nil
 }
 
-func ResumeAuthRequest(clientID string, info *AuthRequestData) (*OAuthClient, error) {
+/* XXX
+func ResumeAuthRequest(clientID string, info *AuthRequestData) (*Session, error) {
 
 	priv, err := crypto.ParsePrivateMultibase(info.DpopKeyMultibase)
 	if err != nil {
 		return nil, err
+	}
+
+	sess := Session{
+		Client: http.DefaultClient()
 	}
 
 	c := NewOAuthClient(clientID)
@@ -264,28 +371,38 @@ func ResumeAuthRequest(clientID string, info *AuthRequestData) (*OAuthClient, er
 	c.AuthServerURL = info.AuthServerURL
 	return &c, nil
 }
+*/
 
-func (c *OAuthClient) SendInitialTokenRequest(ctx context.Context, authCode string, info AuthRequestData, redirectURI string) (*TokenResponse, error) {
+func (c *ClientConfig) SendInitialTokenRequest(ctx context.Context, authCode string, info AuthRequestData) (*TokenResponse, error) {
 
-	clientAssertion, err := c.NewClientAssertionJWT(c.ClientID, c.AuthServerURL, c.ClientSecretKey, "one") // XXX: keyID
+	clientAssertion, err := c.NewAssertionJWT(info.AuthServerURL)
 	if err != nil {
 		return nil, err
 	}
 
+	// XXX: pass in?
+	resolv := NewResolver()
+	httpClient := http.DefaultClient
+
 	// TODO: don't re-fetch? caching?
-	authServerMeta, err := c.Resolver.ResolveAuthServerMetadata(ctx, c.AuthServerURL)
+	authServerMeta, err := resolv.ResolveAuthServerMetadata(ctx, info.AuthServerURL)
 	if err != nil {
 		return nil, err
 	}
 
 	body := InitialTokenRequest{
 		ClientID:            c.ClientID,
-		RedirectURI:         redirectURI,
+		RedirectURI:         c.CallbackURL,
 		GrantType:           "authorization_code",
 		Code:                authCode,
 		CodeVerifier:        info.PKCEVerifier,
 		ClientAssertionType: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
 		ClientAssertion:     clientAssertion,
+	}
+
+	dpopPrivKey, err := crypto.ParsePrivateMultibase(info.DpopKeyMultibase)
+	if err != nil {
+		return nil, err
 	}
 
 	vals, err := query.Values(body)
@@ -298,7 +415,7 @@ func (c *OAuthClient) SendInitialTokenRequest(ctx context.Context, authCode stri
 
 	var resp *http.Response
 	for range 2 {
-		dpopJWT, err := c.NewDPoPJWT("POST", authServerMeta.TokenEndpoint, dpopServerNonce)
+		dpopJWT, err := NewDPoPJWT("POST", authServerMeta.TokenEndpoint, dpopServerNonce, dpopPrivKey)
 		if err != nil {
 			return nil, err
 		}
@@ -310,7 +427,7 @@ func (c *OAuthClient) SendInitialTokenRequest(ctx context.Context, authCode stri
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Set("DPoP", dpopJWT)
 
-		resp, err = c.Client.Do(req)
+		resp, err = httpClient.Do(req)
 		if err != nil {
 			return nil, err
 		}
@@ -353,23 +470,18 @@ func (c *OAuthClient) SendInitialTokenRequest(ctx context.Context, authCode stri
 	return &tokenResp, nil
 }
 
-func (c *OAuthClient) RefreshTokens(ctx context.Context, sess *SessionData) error {
+func (sess *Session) RefreshTokens(ctx context.Context) error {
 
-	clientAssertion, err := c.NewClientAssertionJWT(c.ClientID, sess.AuthServerURL, c.ClientSecretKey, "one") // XXX: keyID
-	if err != nil {
-		return err
-	}
-
-	// TODO: don't re-fetch? caching?
-	authServerMeta, err := c.Resolver.ResolveAuthServerMetadata(ctx, sess.AuthServerURL)
+	// TODO: assuming confidential client
+	clientAssertion, err := sess.Config.NewAssertionJWT(sess.Data.AuthServerURL)
 	if err != nil {
 		return err
 	}
 
 	body := RefreshTokenRequest{
-		ClientID:            c.ClientID,
+		ClientID:            sess.Config.ClientID,
 		GrantType:           "authorization_code",
-		RefreshToken:        sess.RefreshToken,
+		RefreshToken:        sess.Data.RefreshToken,
 		ClientAssertionType: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
 		ClientAssertion:     clientAssertion,
 	}
@@ -380,23 +492,25 @@ func (c *OAuthClient) RefreshTokens(ctx context.Context, sess *SessionData) erro
 	}
 	bodyBytes := []byte(vals.Encode())
 
-	dpopServerNonce := sess.DpopAuthServerNonce
+	// XXX: persist this back to the data?
+	dpopServerNonce := sess.Data.DpopAuthServerNonce
+	tokenURL := sess.Data.AuthServerTokenEndpoint
 
 	var resp *http.Response
 	for range 2 {
-		dpopJWT, err := c.NewDPoPJWT("POST", authServerMeta.TokenEndpoint, dpopServerNonce)
+		dpopJWT, err := NewDPoPJWT("POST", tokenURL, dpopServerNonce, sess.DpopPrivateKey)
 		if err != nil {
 			return err
 		}
 
-		req, err := http.NewRequestWithContext(ctx, "POST", authServerMeta.TokenEndpoint, bytes.NewBuffer(bodyBytes))
+		req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, bytes.NewBuffer(bodyBytes))
 		if err != nil {
 			return err
 		}
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Set("DPoP", dpopJWT)
 
-		resp, err = c.Client.Do(req)
+		resp, err = sess.Client.Do(req)
 		if err != nil {
 			return err
 		}
@@ -407,9 +521,9 @@ func (c *OAuthClient) RefreshTokens(ctx context.Context, sess *SessionData) erro
 			// TODO: also check that body is JSON with an 'error' string field value of 'use_dpop_nonce'
 			var errResp map[string]any
 			if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-				slog.Warn("initial token request failed", "authServer", authServerMeta.TokenEndpoint, "err", err, "statusCode", resp.StatusCode)
+				slog.Warn("initial token request failed", "authServer", tokenURL, "err", err, "statusCode", resp.StatusCode)
 			} else {
-				slog.Warn("initial token request failed", "authServer", authServerMeta.TokenEndpoint, "resp", errResp, "statusCode", resp.StatusCode)
+				slog.Warn("initial token request failed", "authServer", tokenURL, "resp", errResp, "statusCode", resp.StatusCode)
 			}
 
 			// loop around try again
@@ -424,9 +538,9 @@ func (c *OAuthClient) RefreshTokens(ctx context.Context, sess *SessionData) erro
 	if resp.StatusCode != 200 {
 		var errResp map[string]any
 		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			slog.Warn("initial token request failed", "authServer", authServerMeta.TokenEndpoint, "err", err, "statusCode", resp.StatusCode)
+			slog.Warn("initial token request failed", "authServer", tokenURL, "err", err, "statusCode", resp.StatusCode)
 		} else {
-			slog.Warn("initial token request failed", "authServer", authServerMeta.TokenEndpoint, "resp", errResp, "statusCode", resp.StatusCode)
+			slog.Warn("initial token request failed", "authServer", tokenURL, "resp", errResp, "statusCode", resp.StatusCode)
 		}
 		return fmt.Errorf("initial token request failed: HTTP %d", resp.StatusCode)
 	}
@@ -437,33 +551,33 @@ func (c *OAuthClient) RefreshTokens(ctx context.Context, sess *SessionData) erro
 	}
 	// XXX: more validation of response?
 
-	sess.AccessToken = tokenResp.AccessToken
-	sess.RefreshToken = tokenResp.RefreshToken
+	sess.Data.AccessToken = tokenResp.AccessToken
+	sess.Data.RefreshToken = tokenResp.RefreshToken
 
 	return nil
 }
 
-func (c *OAuthClient) NewPDSDPoPJWT(httpMethod, url, dpopNonce, accessToken string) (string, error) {
+func (sess *Session) NewAccessDPoP(method, reqURL string) (string, error) {
 
-	ath := S256CodeChallenge(accessToken)
+	ath := S256CodeChallenge(sess.Data.AccessToken)
 	claims := dpopClaims{
-		HTTPMethod:      httpMethod,
-		TargetURI:       url,
+		HTTPMethod:      method,
+		TargetURI:       reqURL,
 		AccessTokenHash: &ath,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    c.AuthServerURL,
+			Issuer:    sess.Data.AuthServerURL,
 			ID:        randomNonce(),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(c.TTL)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(sess.Config.TTL)),
 		},
 	}
-	if dpopNonce != "" {
-		claims.Nonce = &dpopNonce
+	if sess.Data.DpopHostNonce != "" {
+		claims.Nonce = &sess.Data.DpopHostNonce
 	}
 
 	// XXX: refactor to helper method
 	var keyMethod jwt.SigningMethod
-	switch c.DpopSecretKey.(type) {
+	switch sess.DpopPrivateKey.(type) {
 	case *crypto.PrivateKeyP256:
 		keyMethod = signingMethodES256
 	case *crypto.PrivateKeyK256:
@@ -472,8 +586,8 @@ func (c *OAuthClient) NewPDSDPoPJWT(httpMethod, url, dpopNonce, accessToken stri
 		return "", fmt.Errorf("unknown clientSecretKey type")
 	}
 
-	// XXX: parse/cache this elsewhere
-	pub, err := c.DpopSecretKey.PublicKey()
+	// TODO: parse/cache this elsewhere
+	pub, err := sess.DpopPrivateKey.PublicKey()
 	if err != nil {
 		return "", err
 	}
@@ -485,22 +599,22 @@ func (c *OAuthClient) NewPDSDPoPJWT(httpMethod, url, dpopNonce, accessToken stri
 	token := jwt.NewWithClaims(keyMethod, claims)
 	token.Header["typ"] = "dpop+jwt"
 	token.Header["jwk"] = pubJWK
-	return token.SignedString(c.DpopSecretKey)
+	return token.SignedString(sess.DpopPrivateKey)
 }
 
-func (c *OAuthClient) DoWithAuth(req *http.Request, httpClient *http.Client) (*http.Response, error) {
+func (sess *Session) DoWithAuth(req *http.Request, httpClient *http.Client) (*http.Response, error) {
 
-	sess := c.Session
+	// XXX: copy URL and strip query params
 	u := req.URL.String()
-	dpopServerNonce := sess.DpopAuthServerNonce
 
+	dpopServerNonce := sess.Data.DpopHostNonce
 	var resp *http.Response
 	for range 2 {
-		dpopJWT, err := c.NewPDSDPoPJWT("POST", u, dpopServerNonce, sess.AccessToken)
+		dpopJWT, err := sess.NewAccessDPoP(req.Method, u)
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set("Authorization", fmt.Sprintf("DPoP %s", sess.AccessToken))
+		req.Header.Set("Authorization", fmt.Sprintf("DPoP %s", sess.Data.AccessToken))
 		req.Header.Set("DPoP", dpopJWT)
 
 		resp, err = httpClient.Do(req)

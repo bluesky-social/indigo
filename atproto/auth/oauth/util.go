@@ -17,3 +17,7 @@ func S256CodeChallenge(raw string) string {
 	b := sha256.Sum256([]byte(raw))
 	return base64.RawURLEncoding.EncodeToString(b[:])
 }
+
+func strPtr(raw string) *string {
+	return &raw
+}
