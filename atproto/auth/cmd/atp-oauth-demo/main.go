@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 	"os"
 
 	"github.com/bluesky-social/indigo/atproto/auth/oauth"
+	"github.com/bluesky-social/indigo/atproto/client"
 	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -396,7 +396,10 @@ func (s *Server) Post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u := fmt.Sprintf("%s/xrpc/com.atproto.repo.createRecord", oauthSess.Data.HostURL)
+	c := client.NewAPIClient(oauthSess.Data.HostURL)
+	c.Auth = oauthSess
+	c.Headers.Set("User-Agent", "indigo-oauth-demo")
+
 	body := map[string]any{
 		"repo":       oauthSess.Data.AccountDID.String(),
 		"collection": "app.bsky.feed.post",
@@ -406,34 +409,10 @@ func (s *Server) Post(w http.ResponseWriter, r *http.Request) {
 			"createdAt": syntax.DatetimeNow(),
 		},
 	}
-	bodyBytes, err := json.Marshal(&body)
-	if err != nil {
-		http.Error(w, fmt.Errorf("creating post body: %w", err).Error(), http.StatusInternalServerError)
-		return
-	}
-	req, err := http.NewRequestWithContext(ctx, "POST", u, bytes.NewBuffer(bodyBytes))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "indigo-oauth-demo")
 
 	slog.Info("attempting post...", "text", text)
-	resp, err := oauthSess.DoWithAuth(req, oauthSess.Client)
-	if err != nil {
+	if err := c.Post(ctx, "com.atproto.repo.createRecord", body, nil); err != nil {
 		http.Error(w, fmt.Errorf("posting failed: %w", err).Error(), http.StatusBadRequest)
-		return
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		var errResp map[string]any
-		if err := json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
-			slog.Warn("posting failed", "resp", errResp, "statusCode", resp.StatusCode)
-		} else {
-			slog.Warn("posting failed, parsing error response also failed")
-		}
-		http.Error(w, "posting failed", http.StatusBadRequest)
 		return
 	}
 

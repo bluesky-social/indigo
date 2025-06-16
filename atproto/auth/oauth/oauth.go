@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-querystring/query"
@@ -236,7 +237,6 @@ func NewDPoPJWT(httpMethod, url, dpopNonce string, privKey crypto.PrivateKey) (s
 
 // Sends PAR request to auth server
 func (c *ClientConfig) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, loginHint, scope string) (*AuthRequestData, error) {
-
 	// TODO: pass as argument?
 	httpClient := http.DefaultClient
 
@@ -602,7 +602,7 @@ func (sess *Session) NewAccessDPoP(method, reqURL string) (string, error) {
 	return token.SignedString(sess.DpopPrivateKey)
 }
 
-func (sess *Session) DoWithAuth(req *http.Request, httpClient *http.Client) (*http.Response, error) {
+func (sess *Session) DoWithAuth(c *http.Client, req *http.Request, endpoint syntax.NSID) (*http.Response, error) {
 
 	// XXX: copy URL and strip query params
 	u := req.URL.String()
@@ -617,7 +617,7 @@ func (sess *Session) DoWithAuth(req *http.Request, httpClient *http.Client) (*ht
 		req.Header.Set("Authorization", fmt.Sprintf("DPoP %s", sess.Data.AccessToken))
 		req.Header.Set("DPoP", dpopJWT)
 
-		resp, err = httpClient.Do(req)
+		resp, err = c.Do(req)
 		if err != nil {
 			return nil, err
 		}
