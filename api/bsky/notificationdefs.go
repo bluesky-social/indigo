@@ -6,15 +6,15 @@ package bsky
 
 // NotificationDefs_ChatPreference is a "chatPreference" in the app.bsky.notification.defs schema.
 type NotificationDefs_ChatPreference struct {
-	Filter string `json:"filter" cborgen:"filter"`
-	Push   bool   `json:"push" cborgen:"push"`
+	Include string `json:"include" cborgen:"include"`
+	Push    bool   `json:"push" cborgen:"push"`
 }
 
 // NotificationDefs_FilterablePreference is a "filterablePreference" in the app.bsky.notification.defs schema.
 type NotificationDefs_FilterablePreference struct {
-	Filter string `json:"filter" cborgen:"filter"`
-	List   bool   `json:"list" cborgen:"list"`
-	Push   bool   `json:"push" cborgen:"push"`
+	Include string `json:"include" cborgen:"include"`
+	List    bool   `json:"list" cborgen:"list"`
+	Push    bool   `json:"push" cborgen:"push"`
 }
 
 // NotificationDefs_Preference is a "preference" in the app.bsky.notification.defs schema.
