@@ -196,7 +196,11 @@ func (i *Identity) GetServiceEndpoint(id string) string {
 func (i *Identity) DeclaredHandle() (syntax.Handle, error) {
 	for _, u := range i.AlsoKnownAs {
 		if strings.HasPrefix(u, "at://") && len(u) > len("at://") {
-			return syntax.ParseHandle(u[5:])
+			hdl, err := syntax.ParseHandle(u[5:])
+			if err != nil {
+				continue
+			}
+			return hdl.Normalize(), nil
 		}
 	}
 	return "", ErrHandleNotDeclared
