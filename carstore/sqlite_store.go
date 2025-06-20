@@ -215,9 +215,6 @@ func (sqs *SQLiteStore) GetUserRepoHead(ctx context.Context, user models.Uid) (c
 	if lastShard == nil {
 		return cid.Undef, nil
 	}
-	if lastShard.ID == 0 {
-		return cid.Undef, nil
-	}
 
 	return lastShard.Root.CID, nil
 }
@@ -229,9 +226,6 @@ func (sqs *SQLiteStore) GetUserRepoRev(ctx context.Context, user models.Uid) (st
 		return "", err
 	}
 	if lastShard == nil {
-		return "", nil
-	}
-	if lastShard.ID == 0 {
 		return "", nil
 	}
 
