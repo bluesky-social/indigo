@@ -3,7 +3,7 @@ package client
 import (
 	"testing"
 
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/stretchr/testify/assert"
 )

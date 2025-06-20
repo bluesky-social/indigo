@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/crypto"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/crypto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

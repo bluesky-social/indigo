@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/util"
 	"github.com/carlmjohnson/versioninfo"
+	"github.com/gander-social/gander-indigo-sovereign/util"
 )
 
 type Client struct {

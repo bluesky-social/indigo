@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	toolsozone "github.com/bluesky-social/indigo/api/ozone"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/xrpc"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	toolsozone "github.com/gander-social/gander-indigo-sovereign/api/ozone"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 )
 
 var newAccountRetryDuration = 3 * 1000 * time.Millisecond
@@ -60,16 +60,16 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 	am.AccountFlags = flags
 
 	// fetch account metadata from AppView
-	pv, err := appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
+	pv, err := appgndr.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
 	// most common cause of this is a race between automod and ozone/appview for new accounts. just sleep a couple seconds and retry!
 	var xrpcError *xrpc.Error
 	if err != nil && errors.As(err, &xrpcError) && (xrpcError.StatusCode == 400 || xrpcError.StatusCode == 404) {
-		logger.Debug("account profile lookup initially failed (from bsky appview), will retry", "err", err, "sleepDuration", newAccountRetryDuration)
+		logger.Debug("account profile lookup initially failed (from gndr appview), will retry", "err", err, "sleepDuration", newAccountRetryDuration)
 		time.Sleep(newAccountRetryDuration)
-		pv, err = appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
+		pv, err = appgndr.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
 	}
 	if err != nil {
-		logger.Warn("account profile lookup failed (from bsky appview)", "err", err)
+		logger.Warn("account profile lookup failed (from gndr appview)", "err", err)
 		return &am, nil
 	}
 

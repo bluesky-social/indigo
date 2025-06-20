@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // AdminGetAccountInfo calls the XRPC method "com.atproto.admin.getAccountInfo".

@@ -44,7 +44,7 @@ test-coverage.out
 !.golangci.yaml
 
 # Don't commit your (default location) creds
-bsky.auth
+gndr.auth
 
 # Sonar cursor file
 sonar_cursor.json
@@ -55,3 +55,4 @@ netsync-out/
 # Relay dash output
 /public/
 /cmd/relay/public
+/pkg/mod/*

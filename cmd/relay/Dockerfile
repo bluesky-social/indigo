@@ -44,6 +44,6 @@ EXPOSE 2470
 
 CMD ["/relay", "serve"]
 
-LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
+LABEL org.opencontainers.image.source=https://github.com/gander-social/gander-indigo-sovereign
 LABEL org.opencontainers.image.description="atproto Relay"
 LABEL org.opencontainers.image.licenses=MIT

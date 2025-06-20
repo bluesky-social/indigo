@@ -9,7 +9,7 @@ Run with, eg, `go run ./cmd/rainbow`):
 - `cmd/gosky`: client CLI for talking to a PDS
 - `cmd/lexgen`: codegen tool for lexicons (Lexicon JSON to Go package)
 - `cmd/stress`: connects to local/default PDS and creates a ton of random posts
-- `cmd/beemo`: slack bot for moderation reporting (Bluesky Moderation Observer)
+- `cmd/beemo`: slack bot for moderation reporting (Gander Moderation Observer)
 - `cmd/fakermaker`: helper to generate fake accounts and content for testing
 - `cmd/supercollider`: event stream load generation tool
 - `cmd/sonar`: event stream monitoring tool
@@ -23,8 +23,8 @@ Packages:
 - `api`: mostly output of lexgen (codegen) for lexicons: structs, CBOR marshaling. some higher-level code, and a PLC client (may rename)
     - `api/atproto`: generated types for `com.atproto` lexicon
     - `api/agnostic`: variants of `com.atproto` types which work better with unknown lexicon data
-    - `api/bsky`: generated types for `app.bsky` lexicon
-    - `api/chat`: generated types for `chat.bsky` lexicon
+    - `api/gndr`: generated types for `gndr.app` lexicon
+    - `api/chat`: generated types for `chat.gndr` lexicon
     - `api/ozone`: generated types for `tools.ozone` lexicon
 - `atproto/crypto`: cryptographic helpers (signing, key generation and serialization)
 - `atproto/syntax`: string types and parsers for identifiers, datetimes, etc
@@ -78,7 +78,7 @@ Packages:
 
 To run codegen for new or updated Lexicons, using lexgen, first place (or git checkout) the JSON lexicon files at `../atproto/`. Then, in *this* repository (indigo), run commands like:
 
-    go run ./cmd/lexgen/ --package bsky --prefix app.bsky --outdir api/bsky ../atproto/lexicons/app/bsky/
+    go run ./cmd/lexgen/ --package gndr --prefix gndr.app --outdir api/gndr ../atproto/lexicons/gndr.app/
     go run ./cmd/lexgen/ --package atproto --prefix com.atproto --outdir api/atproto ../atproto/lexicons/com/atproto/
 
 You may want to delete all the codegen files before re-generating, to detect deleted files.
@@ -88,7 +88,7 @@ It can require some manual munging between the lexgen step and a later `go run .
 To generate server stubs and handlers, push them in a temporary directory first, then merge changes in to the actual PDS code:
 
     mkdir tmppds
-    go run ./cmd/lexgen/ --package pds --gen-server --types-import com.atproto:github.com/bluesky-social/indigo/api/atproto --types-import app.bsky:github.com/bluesky-social/indigo/api/bsky --outdir tmppds --gen-handlers ../atproto/lexicons
+    go run ./cmd/lexgen/ --package pds --gen-server --types-import com.atproto:github.com/gander-social/gander-indigo-sovereign/api/atproto --types-import gndr.app:github.com/gander-social/gander-indigo-sovereign/api/gndr --outdir tmppds --gen-handlers ../atproto/lexicons
 
 
 ## Tips and Tricks
@@ -116,9 +116,9 @@ Set the log level to be more verbose, using an env variable:
 Running against local typescript PDS in `dev-env` mode:
 
 	# as "alice" user
-	go run ./cmd/gosky/ --pds-host http://localhost:2583 account create-session alice.test hunter2 > bsky.auth
+	go run ./cmd/gosky/ --pds-host http://localhost:2583 account create-session alice.test hunter2 > gndr.auth
 
-The `bsky.auth` file is the default place that `gosky` and other client commands will look for auth info.
+The `gndr.auth` file is the default place that `gosky` and other client commands will look for auth info.
 
 
 ## Integrated Development
@@ -130,10 +130,10 @@ First, you need PostgreSQL running locally. This could be via docker, or the fol
 Create a user and databases for PLC+PDS:
 
     # use 'yksb' as weak default password for local-only dev
-    sudo -u postgres createuser -P -s bsky
+    sudo -u postgres createuser -P -s gndr
 
-    sudo -u postgres createdb plc_dev -O bsky
-    sudo -u postgres createdb pds_dev -O bsky
+    sudo -u postgres createdb plc_dev -O gndr
+    sudo -u postgres createdb pds_dev -O gndr
 
 If you end up needing to wipe the databases:
 

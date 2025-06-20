@@ -8,13 +8,13 @@ import (
 )
 
 // Schema is a lexicon json file
-// e.g. atproto/lexicons/app/bsky/feed/post.json
+// e.g. atproto/lexicons/gndr.app/feed/post.json
 // https://atproto.com/specs/lexicon
 type Schema struct {
 	// path of json file read
 	path string
 
-	// prefix of lexicon group, e.g. "app.bsky" or "com.atproto"
+	// prefix of lexicon group, e.g. "gndr.app" or "com.atproto"
 	prefix string
 
 	// Lexicon version, e.g. 1

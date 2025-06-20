@@ -9,10 +9,10 @@ import (
 	"os"
 	"testing"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	gndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
 	"github.com/ipfs/go-cid"
 
 	"github.com/stretchr/testify/assert"
@@ -21,16 +21,16 @@ import (
 func TestFeedPostParse(t *testing.T) {
 	assert := assert.New(t)
 
-	// this is a post-lex-refactor app.bsky.feed.post record
+	// this is a post-lex-refactor gndr.app.feed.post record
 	inFile, err := os.Open("testdata/feedpost_record.cbor")
 	assert.NoError(err)
 	cborBytes, err := io.ReadAll(inFile)
 	assert.NoError(err)
 
-	var fp appbsky.FeedPost
+	var fp appgndr.FeedPost
 	assert.NoError(fp.UnmarshalCBOR(bytes.NewReader(cborBytes)))
 
-	assert.Equal("app.bsky.feed.post", fp.LexiconTypeID)
+	assert.Equal("gndr.app.feed.post", fp.LexiconTypeID)
 	assert.Equal("Who the hell do you think you are", fp.Text)
 	assert.Equal("2023-03-29T20:59:19.417Z", fp.CreatedAt)
 	assert.Nil(fp.Entities)
@@ -40,7 +40,7 @@ func TestFeedPostParse(t *testing.T) {
 	assert.Nil(fp.Embed.EmbedExternal)
 	assert.Nil(fp.Embed.EmbedRecord)
 	assert.NotNil(fp.Embed.EmbedRecordWithMedia)
-	assert.Equal("app.bsky.embed.recordWithMedia", fp.Embed.EmbedRecordWithMedia.LexiconTypeID)
+	assert.Equal("gndr.app.embed.recordWithMedia", fp.Embed.EmbedRecordWithMedia.LexiconTypeID)
 
 	cc, err := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlumdylagaqa")
 	if err != nil {
@@ -48,13 +48,13 @@ func TestFeedPostParse(t *testing.T) {
 	}
 
 	assert.Equal(
-		&appbsky.EmbedRecordWithMedia{
-			LexiconTypeID: "app.bsky.embed.recordWithMedia",
-			Media: &appbsky.EmbedRecordWithMedia_Media{
-				EmbedImages: &appbsky.EmbedImages{
-					LexiconTypeID: "app.bsky.embed.images",
-					Images: []*appbsky.EmbedImages_Image{
-						&appbsky.EmbedImages_Image{
+		&appgndr.EmbedRecordWithMedia{
+			LexiconTypeID: "gndr.app.embed.recordWithMedia",
+			Media: &appgndr.EmbedRecordWithMedia_Media{
+				EmbedImages: &appgndr.EmbedImages{
+					LexiconTypeID: "gndr.app.embed.images",
+					Images: []*appgndr.EmbedImages_Image{
+						&appgndr.EmbedImages_Image{
 							Image: &lexutil.LexBlob{
 								//LexiconTypeID: "blob",
 								Ref:      lexutil.LexLink(cc), // 000155122090873DBDFF810882487CCF6127D8D62F241D6F4F919A73151DABA3078580C080
@@ -65,11 +65,11 @@ func TestFeedPostParse(t *testing.T) {
 					},
 				},
 			},
-			Record: &appbsky.EmbedRecord{
-				LexiconTypeID: "app.bsky.embed.record",
+			Record: &appgndr.EmbedRecord{
+				LexiconTypeID: "gndr.app.embed.record",
 				Record: &comatproto.RepoStrongRef{
 					Cid: "bafyreiaku7udekkiijxcuue3sn6esz7qijqj637rigz4xqdw57fk5houji",
-					Uri: "at://did:plc:rbtury4cp2sdk4tvnedaqu54/app.bsky.feed.post/3jilislho4s2k",
+					Uri: "at://did:plc:rbtury4cp2sdk4tvnedaqu54/gndr.app.feed.post/3jilislho4s2k",
 				},
 			},
 		},
@@ -85,12 +85,12 @@ func TestFeedPostParse(t *testing.T) {
 
 	// marshal as JSON, compare against expected
 	expectedJson := `{
-		"$type": "app.bsky.feed.post",
+		"$type": "gndr.app.feed.post",
 		"createdAt": "2023-03-29T20:59:19.417Z",
 		"embed": {
-			"$type": "app.bsky.embed.recordWithMedia",
+			"$type": "gndr.app.embed.recordWithMedia",
 			"media": {
-				"$type": "app.bsky.embed.images",
+				"$type": "gndr.app.embed.images",
 				"images": [
 					{
 						"alt": "",
@@ -106,10 +106,10 @@ func TestFeedPostParse(t *testing.T) {
 				]
 			},
 			"record": {
-				"$type": "app.bsky.embed.record",
+				"$type": "gndr.app.embed.record",
 				"record": {
 					"cid": "bafyreiaku7udekkiijxcuue3sn6esz7qijqj637rigz4xqdw57fk5houji",
-					"uri": "at://did:plc:rbtury4cp2sdk4tvnedaqu54/app.bsky.feed.post/3jilislho4s2k"
+					"uri": "at://did:plc:rbtury4cp2sdk4tvnedaqu54/gndr.app.feed.post/3jilislho4s2k"
 				}
 			}
 		},
@@ -134,7 +134,7 @@ func TestPostToJson(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var fp bsky.FeedPost
+	var fp gndr.FeedPost
 	if err := fp.UnmarshalCBOR(bytes.NewReader(b)); err != nil {
 		t.Fatal(err)
 	}
@@ -147,12 +147,12 @@ func TestPostToJson(t *testing.T) {
 	fmt.Println(string(outb))
 }
 
-// checks a corner-case with $type: "app.bsky.richtext.facet#link"
+// checks a corner-case with $type: "gndr.app.richtext.facet#link"
 func TestFeedPostRichtextLink(t *testing.T) {
 	assert := assert.New(t)
 	cidBuilder := cid.V1Builder{Codec: 0x71, MhType: 0x12, MhLength: 0}
 
-	// this is a app.bsky.feed.post with richtext link
+	// this is a gndr.app.feed.post with richtext link
 	inFile, err := os.Open("testdata/post_richtext_link.cbor")
 	if err != nil {
 		t.Fatal(err)
@@ -169,10 +169,10 @@ func TestFeedPostRichtextLink(t *testing.T) {
 	}
 
 	recordCBOR := new(bytes.Buffer)
-	var recordOrig appbsky.FeedPost
-	var recordRepro appbsky.FeedPost
+	var recordOrig appgndr.FeedPost
+	var recordRepro appgndr.FeedPost
 	assert.NoError(recordOrig.UnmarshalCBOR(bytes.NewReader(cborBytes)))
-	assert.Equal("app.bsky.feed.post", recordOrig.LexiconTypeID)
+	assert.Equal("gndr.app.feed.post", recordOrig.LexiconTypeID)
 
 	recordJSON, err := json.Marshal(recordOrig)
 	fmt.Println(string(recordJSON))

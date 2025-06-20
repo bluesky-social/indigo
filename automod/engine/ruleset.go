@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // Holds configuration of which rules of various types should be run, and helps dispatch events to those rules.
@@ -32,10 +32,10 @@ func (r *RuleSet) CallRecordRules(c *RecordContext) error {
 	}
 	// then any record-type-specific rules
 	switch c.RecordOp.Collection.String() {
-	case "app.bsky.feed.post":
-		var post appbsky.FeedPost
+	case "gndr.app.feed.post":
+		var post appgndr.FeedPost
 		if err := post.UnmarshalCBOR(bytes.NewReader(c.RecordOp.RecordCBOR)); err != nil {
-			return fmt.Errorf("failed to parse app.bsky.feed.post record: %v", err)
+			return fmt.Errorf("failed to parse gndr.app.feed.post record: %v", err)
 		}
 		for _, f := range r.PostRules {
 			err := f(c, &post)
@@ -43,10 +43,10 @@ func (r *RuleSet) CallRecordRules(c *RecordContext) error {
 				c.Logger.Error("post rule execution failed", "err", err)
 			}
 		}
-	case "app.bsky.actor.profile":
-		var profile appbsky.ActorProfile
+	case "gndr.app.actor.profile":
+		var profile appgndr.ActorProfile
 		if err := profile.UnmarshalCBOR(bytes.NewReader(c.RecordOp.RecordCBOR)); err != nil {
-			return fmt.Errorf("failed to parse app.bsky.actor.profile record: %v", err)
+			return fmt.Errorf("failed to parse gndr.app.actor.profile record: %v", err)
 		}
 		for _, f := range r.ProfileRules {
 			err := f(c, &profile)

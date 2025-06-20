@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // ServerCreateInviteCodes_AccountCodes is a "accountCodes" in the com.atproto.server.createInviteCodes schema.

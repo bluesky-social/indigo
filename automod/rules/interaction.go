@@ -3,8 +3,8 @@ package rules
 import (
 	"fmt"
 
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/countstore"
 )
 
 var interactionDailyThreshold = 800
@@ -17,7 +17,7 @@ func InteractionChurnRule(c *automod.RecordContext) error {
 
 	did := c.Account.Identity.DID.String()
 	switch c.RecordOp.Collection {
-	case "app.bsky.feed.like":
+	case "gndr.app.feed.like":
 		c.Increment("like", did)
 		created := c.GetCount("like", did, countstore.PeriodDay)
 		deleted := c.GetCount("unlike", did, countstore.PeriodDay)
@@ -30,7 +30,7 @@ func InteractionChurnRule(c *automod.RecordContext) error {
 			c.Notify("slack")
 			return nil
 		}
-	case "app.bsky.graph.follow":
+	case "gndr.app.graph.follow":
 		c.Increment("follow", did)
 		created := c.GetCount("follow", did, countstore.PeriodDay)
 		deleted := c.GetCount("unfollow", did, countstore.PeriodDay)
@@ -60,9 +60,9 @@ var _ automod.RecordRuleFunc = DeleteInteractionRule
 func DeleteInteractionRule(c *automod.RecordContext) error {
 	did := c.Account.Identity.DID.String()
 	switch c.RecordOp.Collection {
-	case "app.bsky.feed.like":
+	case "gndr.app.feed.like":
 		c.Increment("unlike", did)
-	case "app.bsky.graph.follow":
+	case "gndr.app.graph.follow":
 		c.Increment("unfollow", did)
 	}
 	return nil

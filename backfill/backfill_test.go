@@ -36,8 +36,8 @@ func TestBackfill(t *testing.T) {
 	ts := &testState{}
 
 	opts := backfill.DefaultBackfillOptions()
-	opts.CheckoutPath = "https://bsky.network/xrpc/com.atproto.sync.getRepo"
-	opts.NSIDFilter = "app.bsky.feed.follow/"
+	opts.CheckoutPath = "https://gndr.network/xrpc/com.atproto.sync.getRepo"
+	opts.NSIDFilter = "gndr.app.feed.follow/"
 
 	bf := backfill.NewBackfiller(
 		"backfill-test",
@@ -63,15 +63,15 @@ func TestBackfill(t *testing.T) {
 			t.Fatal(err)
 		}
 		if s.State() == backfill.StateInProgress {
-			bf.BufferOp(ctx, testRepos[0], repomgr.EvtKindDeleteRecord, "app.bsky.feed.follow/1", nil, &cid.Undef)
-			bf.BufferOp(ctx, testRepos[0], repomgr.EvtKindDeleteRecord, "app.bsky.feed.follow/2", nil, &cid.Undef)
-			bf.BufferOp(ctx, testRepos[0], repomgr.EvtKindDeleteRecord, "app.bsky.feed.follow/3", nil, &cid.Undef)
-			bf.BufferOp(ctx, testRepos[0], repomgr.EvtKindDeleteRecord, "app.bsky.feed.follow/4", nil, &cid.Undef)
-			bf.BufferOp(ctx, testRepos[0], repomgr.EvtKindDeleteRecord, "app.bsky.feed.follow/5", nil, &cid.Undef)
+			bf.BufferOp(ctx, testRepos[0], repomgr.EvtKindDeleteRecord, "gndr.app.feed.follow/1", nil, &cid.Undef)
+			bf.BufferOp(ctx, testRepos[0], repomgr.EvtKindDeleteRecord, "gndr.app.feed.follow/2", nil, &cid.Undef)
+			bf.BufferOp(ctx, testRepos[0], repomgr.EvtKindDeleteRecord, "gndr.app.feed.follow/3", nil, &cid.Undef)
+			bf.BufferOp(ctx, testRepos[0], repomgr.EvtKindDeleteRecord, "gndr.app.feed.follow/4", nil, &cid.Undef)
+			bf.BufferOp(ctx, testRepos[0], repomgr.EvtKindDeleteRecord, "gndr.app.feed.follow/5", nil, &cid.Undef)
 
-			bf.BufferOp(ctx, testRepos[0], repomgr.EvtKindCreateRecord, "app.bsky.feed.follow/1", nil, &cid.Undef)
+			bf.BufferOp(ctx, testRepos[0], repomgr.EvtKindCreateRecord, "gndr.app.feed.follow/1", nil, &cid.Undef)
 
-			bf.BufferOp(ctx, testRepos[0], repomgr.EvtKindUpdateRecord, "app.bsky.feed.follow/1", nil, &cid.Undef)
+			bf.BufferOp(ctx, testRepos[0], repomgr.EvtKindUpdateRecord, "gndr.app.feed.follow/1", nil, &cid.Undef)
 
 			break
 		}

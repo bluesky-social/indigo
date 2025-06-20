@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"net/url"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/xrpc"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 
 	"github.com/labstack/echo/v4"
 )
@@ -29,7 +29,7 @@ var homeMessage string = `
 | '_/ _' | | ' \| '_ \/ _ \ V  V /
 |_| \__,_|_|_||_|_.__/\___/\_/\_/
 
-This is an atproto [https://atproto.com] firehose fanout service, running the 'rainbow' codebase [https://github.com/bluesky-social/indigo]
+This is an atproto [https://atproto.com] firehose fanout service, running the 'rainbow' codebase [https://github.com/gander-social/gander-indigo-sovereign]
 
 The firehose WebSocket path is at:  /xrpc/com.atproto.sync.subscribeRepos
 `

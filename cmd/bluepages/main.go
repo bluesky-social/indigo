@@ -11,8 +11,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/bluesky-social/indigo/atproto/identity/apidir"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity/apidir"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/carlmjohnson/versioninfo"
 	_ "github.com/joho/godotenv/autoload"
@@ -36,7 +36,7 @@ func run(args []string) error {
 			&cli.StringFlag{
 				Name:    "atp-relay-host",
 				Usage:   "hostname and port of Relay to subscribe to",
-				Value:   "wss://bsky.network",
+				Value:   "wss://gndr.network",
 				EnvVars: []string{"ATP_RELAY_HOST", "ATP_BGS_HOST"},
 			},
 			&cli.StringFlag{

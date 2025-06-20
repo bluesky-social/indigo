@@ -11,7 +11,7 @@
         "services": {
           "atproto_pds": {
             "type": "AtprotoPersonalDataServer",
-            "url": "https://morel.us-east.host.bsky.network"
+            "url": "https://morel.us-east.host.gndr.network"
           }
         },
         "keys": {
@@ -45,7 +45,7 @@
               "cid": {
                 "$link": "bafyreicftwsv77h736dhuqe6mdhbanbxyronlwwoogdqyvjkxkvggubhwy"
               },
-              "path": "app.bsky.feed.like/3lmxjza3h2i27"
+              "path": "gndr.app.feed.like/3lmxjza3h2i27"
             }
           ],
           "prevData": {
@@ -85,7 +85,7 @@
             {
               "action": "delete",
               "cid": null,
-              "path": "app.bsky.feed.like/3lmxjza3h2i27",
+              "path": "gndr.app.feed.like/3lmxjza3h2i27",
               "prev": {
                 "$link": "bafyreicftwsv77h736dhuqe6mdhbanbxyronlwwoogdqyvjkxkvggubhwy"
               }
@@ -125,7 +125,7 @@
             {
               "action": "delete",
               "cid": null,
-              "path": "app.bsky.feed.like/3lmxjza3h2i27",
+              "path": "gndr.app.feed.like/3lmxjza3h2i27",
               "prev": {
                 "$link": "bafyreicftwsv77h736dhuqe6mdhbanbxyronlwwoogdqyvjkxkvggubhwy"
               }
@@ -165,7 +165,7 @@
             {
               "action": "delete",
               "cid": null,
-              "path": "app.bsky.feed.like/3lmxjza3h2i27",
+              "path": "gndr.app.feed.like/3lmxjza3h2i27",
               "prev": {
                 "$link": "bafyreicftwsv77h736dhuqe6mdhbanbxyronlwwoogdqyvjkxkvggubhwy"
               }

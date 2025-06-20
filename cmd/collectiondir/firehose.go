@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/bluesky-social/indigo/events"
+	"github.com/gander-social/gander-indigo-sovereign/events"
 
 	"github.com/gorilla/websocket"
 )

@@ -7,16 +7,16 @@ import (
 	"testing"
 	"time"
 
-	atproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/diskpersist"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/models"
-	pds "github.com/bluesky-social/indigo/pds/data"
-	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/util"
+	atproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/carstore"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/events/diskpersist"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/models"
+	pds "github.com/gander-social/gander-indigo-sovereign/pds/data"
+	"github.com/gander-social/gander-indigo-sovereign/repomgr"
+	"github.com/gander-social/gander-indigo-sovereign/util"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -55,7 +55,7 @@ func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.
 		t.Fatal(err)
 	}
 
-	_, cid, err := mgr.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
+	_, cid, err := mgr.CreateRecord(ctx, 1, "gndr.app.feed.post", &gndr.FeedPost{
 		Text:      "hello world",
 		CreatedAt: time.Now().Format(util.ISO8601),
 	})

@@ -37,5 +37,5 @@ func TestExtract(t *testing.T) {
 
 	tp, err = ExtractTypeCBOR(cborBytes)
 	assert.NoError(err)
-	assert.Equal("app.bsky.feed.post", tp)
+	assert.Equal("gndr.app.feed.post", tp)
 }

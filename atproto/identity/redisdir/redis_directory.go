@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/go-redis/cache/v9"
 	"github.com/redis/go-redis/v9"

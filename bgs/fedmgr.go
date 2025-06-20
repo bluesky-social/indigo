@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/RussellLuo/slidingwindow"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/schedulers/parallel"
-	"github.com/bluesky-social/indigo/models"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/events/schedulers/parallel"
+	"github.com/gander-social/gander-indigo-sovereign/models"
 	"go.opentelemetry.io/otel"
 	"golang.org/x/time/rate"
 
@@ -478,8 +478,8 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS, s
 		protocol = "wss"
 	}
 
-	// Special case `.host.bsky.network` PDSs to rewind cursor by 200 events to smooth over unclean shutdowns
-	if strings.HasSuffix(host.Host, ".host.bsky.network") && host.Cursor > 200 {
+	// Special case `.host.gndr.network` PDSs to rewind cursor by 200 events to smooth over unclean shutdowns
+	if strings.HasSuffix(host.Host, ".host.gndr.network") && host.Cursor > 200 {
 		host.Cursor -= 200
 	}
 

@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // ServerDescribeServer_Contact is a "contact" in the com.atproto.server.describeServer schema.

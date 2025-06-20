@@ -23,7 +23,7 @@ func TestRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := r.ForEach(ctx, "app.bsky.feed.post", func(k string, v cid.Cid) error {
+	if err := r.ForEach(ctx, "gndr.app.feed.post", func(k string, v cid.Cid) error {
 		fmt.Println(k, v)
 		return nil
 	}); err != nil {

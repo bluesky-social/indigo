@@ -3,13 +3,13 @@ package helpers
 import (
 	"fmt"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/keyword"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/keyword"
 )
 
-func ExtractHashtagsPost(post *appbsky.FeedPost) []string {
+func ExtractHashtagsPost(post *appgndr.FeedPost) []string {
 	var tags []string
 	tags = append(tags, post.Tags...)
 	for _, facet := range post.Facets {
@@ -33,7 +33,7 @@ type PostFacet struct {
 	Tag  *string
 }
 
-func ExtractFacets(post *appbsky.FeedPost) ([]PostFacet, error) {
+func ExtractFacets(post *appgndr.FeedPost) ([]PostFacet, error) {
 	var out []PostFacet
 
 	for _, facet := range post.Facets {
@@ -70,7 +70,7 @@ func ExtractFacets(post *appbsky.FeedPost) ([]PostFacet, error) {
 	return out, nil
 }
 
-func ExtractPostBlobCIDsPost(post *appbsky.FeedPost) []string {
+func ExtractPostBlobCIDsPost(post *appgndr.FeedPost) []string {
 	var out []string
 	if post.Embed.EmbedImages != nil {
 		for _, img := range post.Embed.EmbedImages.Images {
@@ -88,7 +88,7 @@ func ExtractPostBlobCIDsPost(post *appbsky.FeedPost) []string {
 	return DedupeStrings(out)
 }
 
-func ExtractBlobCIDsProfile(profile *appbsky.ActorProfile) []string {
+func ExtractBlobCIDsProfile(profile *appgndr.ActorProfile) []string {
 	var out []string
 	if profile.Avatar != nil {
 		out = append(out, profile.Avatar.Ref.String())
@@ -99,7 +99,7 @@ func ExtractBlobCIDsProfile(profile *appbsky.ActorProfile) []string {
 	return DedupeStrings(out)
 }
 
-func ExtractTextTokensPost(post *appbsky.FeedPost) []string {
+func ExtractTextTokensPost(post *appgndr.FeedPost) []string {
 	s := post.Text
 	if post.Embed != nil {
 		if post.Embed.EmbedImages != nil {
@@ -123,7 +123,7 @@ func ExtractTextTokensPost(post *appbsky.FeedPost) []string {
 	return keyword.TokenizeText(s)
 }
 
-func ExtractTextTokensProfile(profile *appbsky.ActorProfile) []string {
+func ExtractTextTokensProfile(profile *appgndr.ActorProfile) []string {
 	s := ""
 	if profile.Description != nil {
 		s += " " + *profile.Description
@@ -134,7 +134,7 @@ func ExtractTextTokensProfile(profile *appbsky.ActorProfile) []string {
 	return keyword.TokenizeText(s)
 }
 
-func ExtractTextURLsProfile(profile *appbsky.ActorProfile) []string {
+func ExtractTextURLsProfile(profile *appgndr.ActorProfile) []string {
 	s := ""
 	if profile.Description != nil {
 		s += " " + *profile.Description
@@ -146,7 +146,7 @@ func ExtractTextURLsProfile(profile *appbsky.ActorProfile) []string {
 }
 
 // checks if the post event is a reply post for which the author is replying to themselves, or author is the root author (OP)
-func IsSelfThread(c *automod.RecordContext, post *appbsky.FeedPost) bool {
+func IsSelfThread(c *automod.RecordContext, post *appgndr.FeedPost) bool {
 	if post.Reply == nil {
 		return false
 	}
@@ -166,7 +166,7 @@ func IsSelfThread(c *automod.RecordContext, post *appbsky.FeedPost) bool {
 	return false
 }
 
-func ParentOrRootIsFollower(c *automod.RecordContext, post *appbsky.FeedPost) bool {
+func ParentOrRootIsFollower(c *automod.RecordContext, post *appgndr.FeedPost) bool {
 	if post.Reply == nil || IsSelfThread(c, post) {
 		return false
 	}
@@ -209,7 +209,7 @@ func ParentOrRootIsFollower(c *automod.RecordContext, post *appbsky.FeedPost) bo
 	return false
 }
 
-func PostParentOrRootIsDid(post *appbsky.FeedPost, did string) bool {
+func PostParentOrRootIsDid(post *appgndr.FeedPost, did string) bool {
 	if post.Reply == nil {
 		return false
 	}
@@ -227,7 +227,7 @@ func PostParentOrRootIsDid(post *appbsky.FeedPost, did string) bool {
 	return rootUri.Authority().String() == did || parentUri.Authority().String() == did
 }
 
-func PostParentOrRootIsAnyDid(post *appbsky.FeedPost, dids []string) bool {
+func PostParentOrRootIsAnyDid(post *appgndr.FeedPost, dids []string) bool {
 	if post.Reply == nil {
 		return false
 	}
@@ -241,7 +241,7 @@ func PostParentOrRootIsAnyDid(post *appbsky.FeedPost, dids []string) bool {
 	return false
 }
 
-func PostMentionsDid(post *appbsky.FeedPost, did string) bool {
+func PostMentionsDid(post *appgndr.FeedPost, did string) bool {
 	facets, err := ExtractFacets(post)
 	if err != nil {
 		return false
@@ -256,7 +256,7 @@ func PostMentionsDid(post *appbsky.FeedPost, did string) bool {
 	return false
 }
 
-func PostMentionsAnyDid(post *appbsky.FeedPost, dids []string) bool {
+func PostMentionsAnyDid(post *appgndr.FeedPost, dids []string) bool {
 	for _, did := range dids {
 		if PostMentionsDid(post, did) {
 			return true

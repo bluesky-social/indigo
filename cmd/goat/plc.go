@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/util"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/util"
 
 	"github.com/urfave/cli/v2"
 )

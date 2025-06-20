@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/bluesky-social/indigo/atproto/repo/mst"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/repo/mst"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"

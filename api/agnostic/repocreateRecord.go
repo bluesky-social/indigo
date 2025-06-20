@@ -7,7 +7,7 @@ package agnostic
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // RepoDefs_CommitMeta is a "commitMeta" in the com.atproto.repo.defs schema.

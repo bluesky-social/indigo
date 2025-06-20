@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"io"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/models"
+	comatprototypes "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/models"
 	"github.com/ipfs/go-cid"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )

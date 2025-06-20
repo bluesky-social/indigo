@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 )
 
 // Resolves a DID to a parsed `DIDDocument` struct.

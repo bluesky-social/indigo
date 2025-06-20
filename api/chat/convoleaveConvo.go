@@ -2,29 +2,29 @@
 
 package chat
 
-// schema: chat.bsky.convo.leaveConvo
+// schema: chat.gndr.convo.leaveConvo
 
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ConvoLeaveConvo_Input is the input argument to a chat.bsky.convo.leaveConvo call.
+// ConvoLeaveConvo_Input is the input argument to a chat.gndr.convo.leaveConvo call.
 type ConvoLeaveConvo_Input struct {
 	ConvoId string `json:"convoId" cborgen:"convoId"`
 }
 
-// ConvoLeaveConvo_Output is the output of a chat.bsky.convo.leaveConvo call.
+// ConvoLeaveConvo_Output is the output of a chat.gndr.convo.leaveConvo call.
 type ConvoLeaveConvo_Output struct {
 	ConvoId string `json:"convoId" cborgen:"convoId"`
 	Rev     string `json:"rev" cborgen:"rev"`
 }
 
-// ConvoLeaveConvo calls the XRPC method "chat.bsky.convo.leaveConvo".
+// ConvoLeaveConvo calls the XRPC method "chat.gndr.convo.leaveConvo".
 func ConvoLeaveConvo(ctx context.Context, c util.LexClient, input *ConvoLeaveConvo_Input) (*ConvoLeaveConvo_Output, error) {
 	var out ConvoLeaveConvo_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.leaveConvo", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.gndr.convo.leaveConvo", nil, input, &out); err != nil {
 		return nil, err
 	}
 

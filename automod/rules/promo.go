@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/automod/helpers"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/countstore"
+	"github.com/gander-social/gander-indigo-sovereign/automod/helpers"
 )
 
 var _ automod.PostRuleFunc = AggressivePromotionRule
@@ -16,7 +16,7 @@ var _ automod.PostRuleFunc = AggressivePromotionRule
 // looks for new accounts, with a commercial or donation link in profile, which directly reply to several accounts
 //
 // this rule depends on ReplyCountPostRule() to set counts
-func AggressivePromotionRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func AggressivePromotionRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(&c.AccountContext, 7*24*time.Hour) {
 		return nil
 	}

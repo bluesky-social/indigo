@@ -4,17 +4,17 @@ import (
 	"context"
 	"fmt"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
 
 	"github.com/urfave/cli/v2"
 )
 
 var cmdBsky = &cli.Command{
-	Name:  "bsky",
-	Usage: "sub-commands for bsky app",
+	Name:  "gndr",
+	Usage: "sub-commands for gndr app",
 	Flags: []cli.Flag{},
 	Subcommands: []*cli.Command{
 		&cli.Command{
@@ -41,12 +41,12 @@ func runBskyPost(cctx *cli.Context) error {
 		return err
 	}
 
-	post := appbsky.FeedPost{
+	post := appgndr.FeedPost{
 		Text:      text,
 		CreatedAt: syntax.DatetimeNow().String(),
 	}
 	resp, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.feed.post",
+		Collection: "gndr.app.feed.post",
 		Repo:       xrpcc.Auth.Did,
 		Record:     &lexutil.LexiconTypeDecoder{Val: &post},
 	})
@@ -59,6 +59,6 @@ func runBskyPost(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("view post at: https://bsky.app/profile/%s/post/%s\n", aturi.Authority(), aturi.RecordKey())
+	fmt.Printf("view post at: https://gndr.app/profile/%s/post/%s\n", aturi.Authority(), aturi.RecordKey())
 	return nil
 }

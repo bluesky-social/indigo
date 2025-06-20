@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/bluesky-social/indigo/atproto/data"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/lexicon"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/data"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/lexicon"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/urfave/cli/v2"
 )

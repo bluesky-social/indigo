@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/automod/helpers"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/countstore"
+	"github.com/gander-social/gander-indigo-sovereign/automod/helpers"
 )
 
 var dailyRepostThresholdWithoutPost = 30
@@ -32,9 +32,9 @@ func TooManyRepostRule(c *automod.RecordContext) error {
 	}
 
 	switch c.RecordOp.Collection {
-	case "app.bsky.feed.post":
+	case "gndr.app.feed.post":
 		c.Increment("post", did)
-	case "app.bsky.feed.repost":
+	case "gndr.app.feed.repost":
 		c.Increment("repost", did)
 		// +1 to avoid potential divide by 0 issue
 		repostCount := c.GetCount("repost", did, countstore.PeriodDay)

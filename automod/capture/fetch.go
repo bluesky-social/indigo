@@ -5,11 +5,11 @@ import (
 	"context"
 	"fmt"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/xrpc"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 )
 
 func FetchAndProcessRecord(ctx context.Context, eng *automod.Engine, aturi syntax.ATURI) error {
@@ -63,7 +63,7 @@ func FetchRecent(ctx context.Context, eng *automod.Engine, atid syntax.AtIdentif
 	}
 	pdsClient := xrpc.Client{Host: pdsURL}
 
-	resp, err := comatproto.RepoListRecords(ctx, &pdsClient, "app.bsky.feed.post", "", int64(limit), ident.DID.String(), false)
+	resp, err := comatproto.RepoListRecords(ctx, &pdsClient, "gndr.app.feed.post", "", int64(limit), ident.DID.String(), false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch record list: %v", err)
 	}

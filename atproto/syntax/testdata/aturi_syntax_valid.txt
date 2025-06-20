@@ -1,7 +1,7 @@
 
 # enforces spec basics
 at://did:plc:asdf123
-at://user.bsky.social
+at://user.gndr.social
 at://did:plc:asdf123/com.atproto.feed.post
 at://did:plc:asdf123/com.atproto.feed.post/record
 
@@ -10,7 +10,7 @@ at://did:plc:asdf123/com.atproto.feed.post/ooooooooooooooooooooooooooooooooooooo
 
 # enforces no trailing slashes
 at://did:plc:asdf123
-at://user.bsky.social
+at://user.gndr.social
 at://did:plc:asdf123/com.atproto.feed.post
 at://did:plc:asdf123/com.atproto.feed.post/record
 

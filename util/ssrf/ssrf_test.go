@@ -26,7 +26,7 @@ func TestPublicOnlyTransport(t *testing.T) {
 	}
 
 	{
-		_, err := c.Get("http://bsky.app:8080/path")
+		_, err := c.Get("http://gndr.app:8080/path")
 		assert.Error(err)
 	}
 }

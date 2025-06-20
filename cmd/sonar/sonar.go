@@ -12,13 +12,13 @@ import (
 	"time"
 
 	"github.com/araddon/dateparse"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
 
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/repo"
+	"github.com/gander-social/gander-indigo-sovereign/repomgr"
 	"go.opentelemetry.io/otel"
 )
 
@@ -211,39 +211,39 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 
 			// Unpack the record and process it
 			switch rec := rec.(type) {
-			case *bsky.FeedPost:
+			case *gndr.FeedPost:
 				labelValues = append(labelValues, "feed_post")
 				if rec.Embed != nil && rec.Embed.EmbedRecord != nil && rec.Embed.EmbedRecord.Record != nil {
 					quoteRepostsProcessedCounter.WithLabelValues(s.SocketURL).Inc()
 				}
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
-			case *bsky.FeedLike:
+			case *gndr.FeedLike:
 				labelValues = append(labelValues, "feed_like")
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
-			case *bsky.FeedRepost:
+			case *gndr.FeedRepost:
 				labelValues = append(labelValues, "feed_repost")
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
-			case *bsky.GraphBlock:
+			case *gndr.GraphBlock:
 				labelValues = append(labelValues, "graph_block")
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
-			case *bsky.GraphFollow:
+			case *gndr.GraphFollow:
 				labelValues = append(labelValues, "graph_follow")
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
-			case *bsky.ActorProfile:
+			case *gndr.ActorProfile:
 				labelValues = append(labelValues, "actor_profile")
-			case *bsky.FeedGenerator:
+			case *gndr.FeedGenerator:
 				labelValues = append(labelValues, "feed_generator")
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
-			case *bsky.GraphList:
+			case *gndr.GraphList:
 				labelValues = append(labelValues, "graph_list")
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
-			case *bsky.GraphListitem:
+			case *gndr.GraphListitem:
 				labelValues = append(labelValues, "graph_listitem")
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
-			case *bsky.FeedThreadgate:
+			case *gndr.FeedThreadgate:
 				labelValues = append(labelValues, "feed_threadgate")
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
-			case *bsky.LabelerService:
+			case *gndr.LabelerService:
 				labelValues = append(labelValues, "labeler_service")
 			default:
 				log.Warn("unknown record type", "rec", rec)

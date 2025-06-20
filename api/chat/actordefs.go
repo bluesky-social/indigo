@@ -2,16 +2,16 @@
 
 package chat
 
-// schema: chat.bsky.actor.defs
+// schema: chat.gndr.actor.defs
 
 import (
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
+	comatprototypes "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	appgndrtypes "github.com/gander-social/gander-indigo-sovereign/api/gndr"
 )
 
-// ActorDefs_ProfileViewBasic is a "profileViewBasic" in the chat.bsky.actor.defs schema.
+// ActorDefs_ProfileViewBasic is a "profileViewBasic" in the chat.gndr.actor.defs schema.
 type ActorDefs_ProfileViewBasic struct {
-	Associated *appbskytypes.ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Associated *appgndrtypes.ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
 	Avatar     *string                                   `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	// chatDisabled: Set to true when the actor cannot actively participate in conversations
 	ChatDisabled *bool                                     `json:"chatDisabled,omitempty" cborgen:"chatDisabled,omitempty"`
@@ -19,6 +19,6 @@ type ActorDefs_ProfileViewBasic struct {
 	DisplayName  *string                                   `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
 	Handle       string                                    `json:"handle" cborgen:"handle"`
 	Labels       []*comatprototypes.LabelDefs_Label        `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	Verification *appbskytypes.ActorDefs_VerificationState `json:"verification,omitempty" cborgen:"verification,omitempty"`
-	Viewer       *appbskytypes.ActorDefs_ViewerState       `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	Verification *appgndrtypes.ActorDefs_VerificationState `json:"verification,omitempty" cborgen:"verification,omitempty"`
+	Viewer       *appgndrtypes.ActorDefs_ViewerState       `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }

@@ -8,18 +8,18 @@ import (
 	"os"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/cachestore"
-	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/automod/engine"
-	"github.com/bluesky-social/indigo/automod/flagstore"
-	"github.com/bluesky-social/indigo/automod/rules"
-	"github.com/bluesky-social/indigo/automod/setstore"
-	"github.com/bluesky-social/indigo/automod/visual"
-	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/cachestore"
+	"github.com/gander-social/gander-indigo-sovereign/automod/countstore"
+	"github.com/gander-social/gander-indigo-sovereign/automod/engine"
+	"github.com/gander-social/gander-indigo-sovereign/automod/flagstore"
+	"github.com/gander-social/gander-indigo-sovereign/automod/rules"
+	"github.com/gander-social/gander-indigo-sovereign/automod/setstore"
+	"github.com/gander-social/gander-indigo-sovereign/automod/visual"
+	"github.com/gander-social/gander-indigo-sovereign/util"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
@@ -195,13 +195,13 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		}
 	}
 
-	bskyClient := xrpc.Client{
+	gndrClient := xrpc.Client{
 		Client: util.RobustHTTPClient(),
 		Host:   config.BskyHost,
 	}
 	if config.RatelimitBypass != "" {
-		bskyClient.Headers = make(map[string]string)
-		bskyClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
+		gndrClient.Headers = make(map[string]string)
+		gndrClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
 	}
 	blobClient := util.RobustHTTPClient()
 	eng := automod.Engine{
@@ -213,7 +213,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		Cache:       cache,
 		Rules:       ruleset,
 		Notifier:    notifier,
-		BskyClient:  &bskyClient,
+		BskyClient:  &gndrClient,
 		OzoneClient: ozoneClient,
 		AdminClient: adminClient,
 		BlobClient:  blobClient,

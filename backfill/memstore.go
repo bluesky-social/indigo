@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/gander-social/gander-indigo-sovereign/repomgr"
 	"github.com/ipfs/go-cid"
 )
 

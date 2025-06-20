@@ -2,15 +2,15 @@
 
 package chat
 
-// schema: chat.bsky.moderation.getActorMetadata
+// schema: chat.gndr.moderation.getActorMetadata
 
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ModerationGetActorMetadata_Metadata is a "metadata" in the chat.bsky.moderation.getActorMetadata schema.
+// ModerationGetActorMetadata_Metadata is a "metadata" in the chat.gndr.moderation.getActorMetadata schema.
 type ModerationGetActorMetadata_Metadata struct {
 	Convos           int64 `json:"convos" cborgen:"convos"`
 	ConvosStarted    int64 `json:"convosStarted" cborgen:"convosStarted"`
@@ -18,20 +18,20 @@ type ModerationGetActorMetadata_Metadata struct {
 	MessagesSent     int64 `json:"messagesSent" cborgen:"messagesSent"`
 }
 
-// ModerationGetActorMetadata_Output is the output of a chat.bsky.moderation.getActorMetadata call.
+// ModerationGetActorMetadata_Output is the output of a chat.gndr.moderation.getActorMetadata call.
 type ModerationGetActorMetadata_Output struct {
 	All   *ModerationGetActorMetadata_Metadata `json:"all" cborgen:"all"`
 	Day   *ModerationGetActorMetadata_Metadata `json:"day" cborgen:"day"`
 	Month *ModerationGetActorMetadata_Metadata `json:"month" cborgen:"month"`
 }
 
-// ModerationGetActorMetadata calls the XRPC method "chat.bsky.moderation.getActorMetadata".
+// ModerationGetActorMetadata calls the XRPC method "chat.gndr.moderation.getActorMetadata".
 func ModerationGetActorMetadata(ctx context.Context, c util.LexClient, actor string) (*ModerationGetActorMetadata_Output, error) {
 	var out ModerationGetActorMetadata_Output
 
 	params := map[string]interface{}{}
 	params["actor"] = actor
-	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.moderation.getActorMetadata", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "chat.gndr.moderation.getActorMetadata", params, nil, &out); err != nil {
 		return nil, err
 	}
 

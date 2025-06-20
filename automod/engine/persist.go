@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	toolsozone "github.com/bluesky-social/indigo/api/ozone"
-	"github.com/bluesky-social/indigo/automod/keyword"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	toolsozone "github.com/gander-social/gander-indigo-sovereign/api/ozone"
+	"github.com/gander-social/gander-indigo-sovereign/automod/keyword"
 )
 
 func (eng *Engine) persistCounters(ctx context.Context, eff *Effects) error {

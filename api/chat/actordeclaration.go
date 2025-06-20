@@ -2,17 +2,17 @@
 
 package chat
 
-// schema: chat.bsky.actor.declaration
+// schema: chat.gndr.actor.declaration
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 func init() {
-	util.RegisterType("chat.bsky.actor.declaration", &ActorDeclaration{})
+	util.RegisterType("chat.gndr.actor.declaration", &ActorDeclaration{})
 } //
 // RECORDTYPE: ActorDeclaration
 type ActorDeclaration struct {
-	LexiconTypeID string `json:"$type,const=chat.bsky.actor.declaration" cborgen:"$type,const=chat.bsky.actor.declaration"`
+	LexiconTypeID string `json:"$type,const=chat.gndr.actor.declaration" cborgen:"$type,const=chat.gndr.actor.declaration"`
 	AllowIncoming string `json:"allowIncoming" cborgen:"allowIncoming"`
 }

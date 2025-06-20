@@ -32,6 +32,6 @@ EXPOSE 6600
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/bluepages", "serve"]
 
-LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
+LABEL org.opencontainers.image.source=https://github.com/gander-social/gander-indigo-sovereign
 LABEL org.opencontainers.image.description="atproto identity directory (bluepages)"
 LABEL org.opencontainers.image.licenses=MIT

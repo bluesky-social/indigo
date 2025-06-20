@@ -4,7 +4,7 @@ import (
 	"io"
 	"strconv"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	comatprototypes "github.com/gander-social/gander-indigo-sovereign/api/atproto"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
 )

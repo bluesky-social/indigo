@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/backfill"
-	"github.com/bluesky-social/indigo/xrpc"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/backfill"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel/attribute"
@@ -62,13 +62,13 @@ type IndexerConfig struct {
 
 type ProfileIndexJob struct {
 	ident  *identity.Identity
-	record *appbsky.ActorProfile
+	record *appgndr.ActorProfile
 	rcid   cid.Cid
 }
 
 type PostIndexJob struct {
 	did    syntax.DID
-	record *appbsky.FeedPost
+	record *appgndr.FeedPost
 	rcid   cid.Cid
 	rkey   string
 }
@@ -136,7 +136,7 @@ func NewIndexer(db *gorm.DB, escli *es.Client, dir identity.Directory, config In
 	} else {
 		opts.ParallelRecordCreates = 20
 	}
-	opts.NSIDFilter = "app.bsky."
+	opts.NSIDFilter = "gndr.app."
 	bf := backfill.NewBackfiller(
 		"search",
 		bfstore,

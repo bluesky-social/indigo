@@ -7,14 +7,14 @@ import (
 	"net/http"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod/cachestore"
-	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/automod/flagstore"
-	"github.com/bluesky-social/indigo/automod/setstore"
-	"github.com/bluesky-social/indigo/xrpc"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/automod/cachestore"
+	"github.com/gander-social/gander-indigo-sovereign/automod/countstore"
+	"github.com/gander-social/gander-indigo-sovereign/automod/flagstore"
+	"github.com/gander-social/gander-indigo-sovereign/automod/setstore"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 )
 
 // runtime for executing rules, managing state, and recording moderation actions.
@@ -280,7 +280,7 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 	}
 	eng.CanonicalLogLineRecord(&rc)
 	// purge the account meta cache when profile is updated
-	if rc.RecordOp.Collection == "app.bsky.actor.profile" {
+	if rc.RecordOp.Collection == "gndr.app.actor.profile" {
 		if err := eng.PurgeAccountCaches(ctx, op.DID); err != nil {
 			eng.Logger.Error("failed to purge identity cache", "err", err)
 		}

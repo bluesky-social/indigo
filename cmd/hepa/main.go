@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/identity/redisdir"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod/capture"
-	"github.com/bluesky-social/indigo/automod/consumer"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity/redisdir"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/automod/capture"
+	"github.com/gander-social/gander-indigo-sovereign/automod/consumer"
 
 	"github.com/carlmjohnson/versioninfo"
 	_ "github.com/joho/godotenv/autoload"
@@ -44,7 +44,7 @@ func run(args []string) error {
 		&cli.StringFlag{
 			Name:    "atp-relay-host",
 			Usage:   "hostname and port of Relay to subscribe to",
-			Value:   "wss://bsky.network",
+			Value:   "wss://gndr.network",
 			EnvVars: []string{"ATP_RELAY_HOST", "ATP_BGS_HOST"},
 		},
 		&cli.StringFlag{
@@ -54,15 +54,15 @@ func run(args []string) error {
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
 		&cli.StringFlag{
-			Name:    "atp-bsky-host",
-			Usage:   "method, hostname, and port of bsky API (appview) service. does not use auth",
-			Value:   "https://public.api.bsky.app",
+			Name:    "atp-gndr-host",
+			Usage:   "method, hostname, and port of gndr API (appview) service. does not use auth",
+			Value:   "https://public.api.gndr.app",
 			EnvVars: []string{"ATP_BSKY_HOST"},
 		},
 		&cli.StringFlag{
 			Name:    "atp-ozone-host",
 			Usage:   "method, hostname, and port of ozone instance. requires ozone-admin-token as well",
-			Value:   "https://mod.bsky.app",
+			Value:   "https://mod.gndr.app",
 			EnvVars: []string{"ATP_OZONE_HOST", "ATP_MOD_HOST"},
 		},
 		&cli.StringFlag{
@@ -78,7 +78,7 @@ func run(args []string) error {
 		&cli.StringFlag{
 			Name:    "atp-pds-host",
 			Usage:   "method, hostname, and port of PDS (or entryway) for admin account info; uses admin auth",
-			Value:   "https://bsky.social",
+			Value:   "https://gndr.social",
 			EnvVars: []string{"ATP_PDS_HOST"},
 		},
 		&cli.StringFlag{
@@ -211,7 +211,7 @@ func configDirectory(cctx *cli.Context) (identity.Directory, error) {
 		},
 		PLCLimiter:            rate.NewLimiter(rate.Limit(cctx.Int("plc-rate-limit")), 1),
 		TryAuthoritativeDNS:   true,
-		SkipDNSDomainSuffixes: []string{".bsky.social", ".staging.bsky.dev"},
+		SkipDNSDomainSuffixes: []string{".gndr.social", ".staging.gndr.dev"},
 	}
 	var dir identity.Directory
 	if cctx.String("redis-url") != "" {
@@ -279,7 +279,7 @@ var runCmd = &cli.Command{
 			dir,
 			Config{
 				Logger:               logger,
-				BskyHost:             cctx.String("atp-bsky-host"),
+				BskyHost:             cctx.String("atp-gndr-host"),
 				OzoneHost:            cctx.String("atp-ozone-host"),
 				OzoneDID:             cctx.String("ozone-did"),
 				OzoneAdminToken:      cctx.String("ozone-admin-token"),
@@ -380,7 +380,7 @@ func configEphemeralServer(cctx *cli.Context) (*Server, error) {
 		dir,
 		Config{
 			Logger:          logger,
-			BskyHost:        cctx.String("atp-bsky-host"),
+			BskyHost:        cctx.String("atp-gndr-host"),
 			OzoneHost:       cctx.String("atp-ozone-host"),
 			OzoneDID:        cctx.String("ozone-did"),
 			OzoneAdminToken: cctx.String("ozone-admin-token"),

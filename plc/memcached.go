@@ -7,7 +7,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"time"
 
-	"github.com/bluesky-social/indigo/did"
+	"github.com/gander-social/gander-indigo-sovereign/did"
 	"go.opentelemetry.io/otel"
 )
 

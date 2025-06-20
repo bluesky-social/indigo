@@ -11,7 +11,7 @@
         "services": {
           "atproto_pds": {
             "type": "AtprotoPersonalDataServer",
-            "url": "https://morel.us-east.host.bsky.network"
+            "url": "https://morel.us-east.host.gndr.network"
           }
         },
         "keys": {
@@ -45,7 +45,7 @@
               "cid": {
                 "$link": "bafyreicftwsv77h736dhuqe6mdhbanbxyronlwwoogdqyvjkxkvggubhwy"
               },
-              "path": "app.bsky.feed.like/3lmxjza3h2i27"
+              "path": "gndr.app.feed.like/3lmxjza3h2i27"
             }
           ],
           "prevData": {
@@ -85,7 +85,7 @@
             {
               "action": "delete",
               "cid": null,
-              "path": "app.bsky.feed.like/3lmxjza3h2i27",
+              "path": "gndr.app.feed.like/3lmxjza3h2i27",
               "prev": {
                 "$link": "bafyreicftwsv77h736dhuqe6mdhbanbxyronlwwoogdqyvjkxkvggubhwy"
               }
@@ -127,7 +127,7 @@
               "cid": {
                 "$link": "bafyreih5mktscghqb7t2zmqb7s755iqk23rw7zc5525ifp53b3ksr2kk2i"
               },
-              "path": "app.bsky.feed.post/3lmxjzlexp22k"
+              "path": "gndr.app.feed.post/3lmxjzlexp22k"
             }
           ],
           "prevData": {
@@ -164,7 +164,7 @@
             {
               "action": "delete",
               "cid": null,
-              "path": "app.bsky.feed.post/3lmxjzlexp22k",
+              "path": "gndr.app.feed.post/3lmxjzlexp22k",
               "prev": {
                 "$link": "bafyreih5mktscghqb7t2zmqb7s755iqk23rw7zc5525ifp53b3ksr2kk2i"
               }
@@ -206,7 +206,7 @@
               "cid": {
                 "$link": "bafyreib5ojewycjw3oge3zwphhs6g6s4yo4mezubfqzujglonqdkcx7dda"
               },
-              "path": "app.bsky.actor.profile/self",
+              "path": "gndr.app.actor.profile/self",
               "prev": {
                 "$link": "bafyreib6e4oxoxrlxpwhfvz3smwmcdmrdmtupwtjikoscnls5lvswk5224"
               }
@@ -248,21 +248,21 @@
               "cid": {
                 "$link": "bafyreie7e7nxgitx52m2e65k273y7dbzekcqzcbu2cnalmuzzzkzzczxpq"
               },
-              "path": "app.bsky.feed.post/3lmxk35znys2k"
+              "path": "gndr.app.feed.post/3lmxk35znys2k"
             },
             {
               "action": "create",
               "cid": {
                 "$link": "bafyreiejdf727mby46epic6uzhta5f4o6d63ei54jc75hddrblbyomcgza"
               },
-              "path": "app.bsky.feed.threadgate/3lmxk35znys2k"
+              "path": "gndr.app.feed.threadgate/3lmxk35znys2k"
             },
             {
               "action": "create",
               "cid": {
                 "$link": "bafyreigof52xenkrpqpff4hfmvj42oe2zixc7k36dcgeqe63n6itk34ybm"
               },
-              "path": "app.bsky.feed.postgate/3lmxk35znys2k"
+              "path": "gndr.app.feed.postgate/3lmxk35znys2k"
             }
           ],
           "prevData": {

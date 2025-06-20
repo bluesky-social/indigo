@@ -2,9 +2,9 @@
 
 {% block head_title %}
 {%- if postView.Post -%}
-  @{{ postView.Post.Author.Handle }} on Bluesky
+  @{{ postView.Post.Author.Handle }} on Gander
 {%- else -%}
-  Bluesky
+  Gander
 {%- endif -%}
 {% endblock %}
 
@@ -12,14 +12,14 @@
 {%- if postView.Post -%}
   {{ postView.Post.Author.Handle }}
 {%- else -%}
-  Bluesky
+  Gander
 {%- endif -%}
 {% endblock %}
 
 {% block html_head_extra -%}
 {%- if postView.Post -%}
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Bluesky Social">
+  <meta property="og:site_name" content="Gander Social">
   {%- if requestURI %}
   <meta property="og:url" content="{{ requestURI }}">
   {% endif -%}
@@ -41,7 +41,7 @@
   {% endif %}
   <meta name="twitter:label1" content="Posted At">
   <meta name="twitter:value1" content="{{ postView.Post.CreatedAt }}">
-  <meta name="twitter:site" content="@bluesky">
+  <meta name="twitter:site" content="@gander">
 {% endif -%}
 {%- endblock %}
 

@@ -11,8 +11,8 @@ import (
 	"net/http"
 	"time"
 
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/util"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/util"
 
 	"github.com/carlmjohnson/versioninfo"
 )

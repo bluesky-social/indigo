@@ -7,31 +7,31 @@ import (
 	"strings"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/util/cliutil"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/util"
+	"github.com/gander-social/gander-indigo-sovereign/util/cliutil"
 
 	cli "github.com/urfave/cli/v2"
 )
 
-var bskyCmd = &cli.Command{
-	Name:  "bsky",
-	Usage: "sub-commands for bsky-specific endpoints",
+var gndrCmd = &cli.Command{
+	Name:  "gndr",
+	Usage: "sub-commands for gndr-specific endpoints",
 	Subcommands: []*cli.Command{
-		bskyFollowCmd,
-		bskyListFollowsCmd,
-		bskyPostCmd,
-		bskyGetFeedCmd,
-		bskyLikeCmd,
-		bskyDeletePostCmd,
-		bskyActorGetSuggestionsCmd,
-		bskyNotificationsCmd,
+		gndrFollowCmd,
+		gndrListFollowsCmd,
+		gndrPostCmd,
+		gndrGetFeedCmd,
+		gndrLikeCmd,
+		gndrDeletePostCmd,
+		gndrActorGetSuggestionsCmd,
+		gndrNotificationsCmd,
 	},
 }
 
-var bskyFollowCmd = &cli.Command{
+var gndrFollowCmd = &cli.Command{
 	Name:      "follow",
 	Usage:     "create a follow relationship (auth required)",
 	Flags:     []cli.Flag{},
@@ -44,14 +44,14 @@ var bskyFollowCmd = &cli.Command{
 
 		user := cctx.Args().First()
 
-		follow := appbsky.GraphFollow{
-			LexiconTypeID: "app.bsky.graph.follow",
+		follow := appgndr.GraphFollow{
+			LexiconTypeID: "gndr.app.graph.follow",
 			CreatedAt:     time.Now().Format(time.RFC3339),
 			Subject:       user,
 		}
 
 		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
-			Collection: "app.bsky.graph.follow",
+			Collection: "gndr.app.graph.follow",
 			Repo:       xrpcc.Auth.Did,
 			Record:     &lexutil.LexiconTypeDecoder{Val: &follow},
 		})
@@ -65,7 +65,7 @@ var bskyFollowCmd = &cli.Command{
 	},
 }
 
-var bskyListFollowsCmd = &cli.Command{
+var gndrListFollowsCmd = &cli.Command{
 	Name:      "list-follows",
 	Usage:     "print list of follows for account",
 	ArgsUsage: `[actor]`,
@@ -81,7 +81,7 @@ var bskyListFollowsCmd = &cli.Command{
 		}
 
 		ctx := context.TODO()
-		resp, err := appbsky.GraphGetFollows(ctx, xrpcc, user, "", 100)
+		resp, err := appgndr.GraphGetFollows(ctx, xrpcc, user, "", 100)
 		if err != nil {
 			return err
 		}
@@ -94,7 +94,7 @@ var bskyListFollowsCmd = &cli.Command{
 	},
 }
 
-var bskyPostCmd = &cli.Command{
+var gndrPostCmd = &cli.Command{
 	Name:      "post",
 	Usage:     "create a post record",
 	ArgsUsage: `<text>`,
@@ -109,9 +109,9 @@ var bskyPostCmd = &cli.Command{
 		text := strings.Join(cctx.Args().Slice(), " ")
 
 		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
-			Collection: "app.bsky.feed.post",
+			Collection: "gndr.app.feed.post",
 			Repo:       auth.Did,
-			Record: &lexutil.LexiconTypeDecoder{Val: &appbsky.FeedPost{
+			Record: &lexutil.LexiconTypeDecoder{Val: &appgndr.FeedPost{
 				Text:      text,
 				CreatedAt: time.Now().Format(util.ISO8601),
 			}},
@@ -127,9 +127,9 @@ var bskyPostCmd = &cli.Command{
 	},
 }
 
-func prettyPrintPost(p *appbsky.FeedDefs_FeedViewPost, uris bool) {
+func prettyPrintPost(p *appgndr.FeedDefs_FeedViewPost, uris bool) {
 	fmt.Println(strings.Repeat("-", 60))
-	rec := p.Post.Record.Val.(*appbsky.FeedPost)
+	rec := p.Post.Record.Val.(*appgndr.FeedPost)
 	fmt.Printf("%s (%s)", p.Post.Author.Handle, rec.CreatedAt)
 	if uris {
 		fmt.Println(" -- ", p.Post.Uri)
@@ -139,9 +139,9 @@ func prettyPrintPost(p *appbsky.FeedDefs_FeedViewPost, uris bool) {
 	fmt.Println(rec.Text)
 }
 
-var bskyGetFeedCmd = &cli.Command{
+var gndrGetFeedCmd = &cli.Command{
 	Name:  "get-feed",
-	Usage: "fetch bsky feed",
+	Usage: "fetch gndr feed",
 	Flags: []cli.Flag{
 		&cli.IntFlag{
 			Name:  "count",
@@ -178,7 +178,7 @@ var bskyGetFeedCmd = &cli.Command{
 				author = xrpcc.Auth.Did
 			}
 
-			tl, err := appbsky.FeedGetAuthorFeed(ctx, xrpcc, author, "", "", false, 99)
+			tl, err := appgndr.FeedGetAuthorFeed(ctx, xrpcc, author, "", "", false, 99)
 			if err != nil {
 				return err
 			}
@@ -193,7 +193,7 @@ var bskyGetFeedCmd = &cli.Command{
 			}
 		} else {
 			algo := "reverse-chronological"
-			tl, err := appbsky.FeedGetTimeline(ctx, xrpcc, algo, "", int64(cctx.Int("count")))
+			tl, err := appgndr.FeedGetTimeline(ctx, xrpcc, algo, "", int64(cctx.Int("count")))
 			if err != nil {
 				return err
 			}
@@ -213,7 +213,7 @@ var bskyGetFeedCmd = &cli.Command{
 	},
 }
 
-var bskyActorGetSuggestionsCmd = &cli.Command{
+var gndrActorGetSuggestionsCmd = &cli.Command{
 	Name:      "actor-get-suggestions",
 	ArgsUsage: "[author]",
 	Action: func(cctx *cli.Context) error {
@@ -229,7 +229,7 @@ var bskyActorGetSuggestionsCmd = &cli.Command{
 			author = xrpcc.Auth.Did
 		}
 
-		resp, err := appbsky.ActorGetSuggestions(ctx, xrpcc, "", 100)
+		resp, err := appgndr.ActorGetSuggestions(ctx, xrpcc, "", 100)
 		if err != nil {
 			return err
 		}
@@ -246,9 +246,9 @@ var bskyActorGetSuggestionsCmd = &cli.Command{
 	},
 }
 
-var bskyLikeCmd = &cli.Command{
+var gndrLikeCmd = &cli.Command{
 	Name:      "like",
-	Usage:     "create bsky 'like' record",
+	Usage:     "create gndr 'like' record",
 	ArgsUsage: "<post>",
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
@@ -274,10 +274,10 @@ var bskyLikeCmd = &cli.Command{
 		}
 
 		out, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
-			Collection: "app.bsky.feed.like",
+			Collection: "gndr.app.feed.like",
 			Repo:       xrpcc.Auth.Did,
 			Record: &lexutil.LexiconTypeDecoder{
-				Val: &appbsky.FeedLike{
+				Val: &appgndr.FeedLike{
 					CreatedAt: time.Now().Format(util.ISO8601),
 					Subject:   &comatproto.RepoStrongRef{Uri: resp.Uri, Cid: *resp.Cid},
 				},
@@ -292,7 +292,7 @@ var bskyLikeCmd = &cli.Command{
 	},
 }
 
-var bskyDeletePostCmd = &cli.Command{
+var gndrDeletePostCmd = &cli.Command{
 	Name:      "delete-post",
 	ArgsUsage: `<rkey>`,
 	Action: func(cctx *cli.Context) error {
@@ -307,7 +307,7 @@ var bskyDeletePostCmd = &cli.Command{
 			return fmt.Errorf("must specify rkey of post to delete")
 		}
 
-		schema := "app.bsky.feed.post"
+		schema := "gndr.app.feed.post"
 		if strings.Contains(rkey, "/") {
 			parts := strings.Split(rkey, "/")
 			schema = parts[0]
@@ -323,9 +323,9 @@ var bskyDeletePostCmd = &cli.Command{
 	},
 }
 
-var bskyNotificationsCmd = &cli.Command{
+var gndrNotificationsCmd = &cli.Command{
 	Name:  "notifs",
-	Usage: "fetch bsky notifications (requires auth)",
+	Usage: "fetch gndr notifications (requires auth)",
 	Flags: []cli.Flag{},
 	Action: func(cctx *cli.Context) error {
 		ctx := context.TODO()
@@ -335,7 +335,7 @@ var bskyNotificationsCmd = &cli.Command{
 			return err
 		}
 
-		notifs, err := appbsky.NotificationListNotifications(ctx, xrpcc, "", 50, false, nil, "")
+		notifs, err := appgndr.NotificationListNotifications(ctx, xrpcc, "", 50, false, nil, "")
 		if err != nil {
 			return err
 		}

@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/util/ssrf"
-	"github.com/bluesky-social/indigo/xrpc"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/util/ssrf"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 )
 
 // Simple interface for doing host and account status checks.

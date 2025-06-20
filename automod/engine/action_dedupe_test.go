@@ -5,10 +5,10 @@ import (
 	"context"
 	"testing"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod/countstore"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/automod/countstore"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -28,9 +28,9 @@ func TestAccountReportDedupe(t *testing.T) {
 		},
 	}
 
-	//path := "app.bsky.feed.post/abc123"
+	//path := "gndr.app.feed.post/abc123"
 	cid1 := syntax.CID("cid123")
-	p1 := appbsky.FeedPost{Text: "some post blah"}
+	p1 := appgndr.FeedPost{Text: "some post blah"}
 	p1buf := new(bytes.Buffer)
 	assert.NoError(p1.MarshalCBOR(p1buf))
 	p1cbor := p1buf.Bytes()
@@ -43,7 +43,7 @@ func TestAccountReportDedupe(t *testing.T) {
 	op := RecordOp{
 		Action:     CreateOp,
 		DID:        id1.DID,
-		Collection: "app.bsky.feed.post",
+		Collection: "gndr.app.feed.post",
 		RecordKey:  "abc123",
 		CID:        &cid1,
 		RecordCBOR: p1cbor,

@@ -15,19 +15,19 @@ func TestCidFromCdnUrl(t *testing.T) {
 		cid *string
 	}{
 		{
-			url: "https://cdn.bsky.app/img/avatar/plain/did:plc:abc123/abcdefghijk@jpeg",
+			url: "https://cdn.gndr.app/img/avatar/plain/did:plc:abc123/abcdefghijk@jpeg",
 			cid: &fixCid,
 		},
 		{
-			url: "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:abc123/abcdefghijk@jpeg",
+			url: "https://cdn.gndr.app/img/feed_fullsize/plain/did:plc:abc123/abcdefghijk@jpeg",
 			cid: &fixCid,
 		},
 		{
-			url: "https://cdn.bsky.app/img/feed_fullsize",
+			url: "https://cdn.gndr.app/img/feed_fullsize",
 			cid: nil,
 		},
 		{
-			url: "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:abc123/abcdefghijk",
+			url: "https://cdn.gndr.app/img/feed_fullsize/plain/did:plc:abc123/abcdefghijk",
 			cid: &fixCid,
 		},
 		{

@@ -2,17 +2,17 @@
 
 package chat
 
-// schema: chat.bsky.moderation.getMessageContext
+// schema: chat.gndr.moderation.getMessageContext
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ModerationGetMessageContext_Output is the output of a chat.bsky.moderation.getMessageContext call.
+// ModerationGetMessageContext_Output is the output of a chat.gndr.moderation.getMessageContext call.
 type ModerationGetMessageContext_Output struct {
 	Messages []*ModerationGetMessageContext_Output_Messages_Elem `json:"messages" cborgen:"messages"`
 }
@@ -24,11 +24,11 @@ type ModerationGetMessageContext_Output_Messages_Elem struct {
 
 func (t *ModerationGetMessageContext_Output_Messages_Elem) MarshalJSON() ([]byte, error) {
 	if t.ConvoDefs_MessageView != nil {
-		t.ConvoDefs_MessageView.LexiconTypeID = "chat.bsky.convo.defs#messageView"
+		t.ConvoDefs_MessageView.LexiconTypeID = "chat.gndr.convo.defs#messageView"
 		return json.Marshal(t.ConvoDefs_MessageView)
 	}
 	if t.ConvoDefs_DeletedMessageView != nil {
-		t.ConvoDefs_DeletedMessageView.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		t.ConvoDefs_DeletedMessageView.LexiconTypeID = "chat.gndr.convo.defs#deletedMessageView"
 		return json.Marshal(t.ConvoDefs_DeletedMessageView)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
@@ -40,10 +40,10 @@ func (t *ModerationGetMessageContext_Output_Messages_Elem) UnmarshalJSON(b []byt
 	}
 
 	switch typ {
-	case "chat.bsky.convo.defs#messageView":
+	case "chat.gndr.convo.defs#messageView":
 		t.ConvoDefs_MessageView = new(ConvoDefs_MessageView)
 		return json.Unmarshal(b, t.ConvoDefs_MessageView)
-	case "chat.bsky.convo.defs#deletedMessageView":
+	case "chat.gndr.convo.defs#deletedMessageView":
 		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
 		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
 
@@ -52,7 +52,7 @@ func (t *ModerationGetMessageContext_Output_Messages_Elem) UnmarshalJSON(b []byt
 	}
 }
 
-// ModerationGetMessageContext calls the XRPC method "chat.bsky.moderation.getMessageContext".
+// ModerationGetMessageContext calls the XRPC method "chat.gndr.moderation.getMessageContext".
 //
 // convoId: Conversation that the message is from. NOTE: this field will eventually be required.
 func ModerationGetMessageContext(ctx context.Context, c util.LexClient, after int64, before int64, convoId string, messageId string) (*ModerationGetMessageContext_Output, error) {
@@ -69,7 +69,7 @@ func ModerationGetMessageContext(ctx context.Context, c util.LexClient, after in
 		params["convoId"] = convoId
 	}
 	params["messageId"] = messageId
-	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.moderation.getMessageContext", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "chat.gndr.moderation.getMessageContext", params, nil, &out); err != nil {
 		return nil, err
 	}
 

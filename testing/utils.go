@@ -19,23 +19,23 @@ import (
 	"testing"
 	"time"
 
-	atproto "github.com/bluesky-social/indigo/api/atproto"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/bgs"
-	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/diskpersist"
-	"github.com/bluesky-social/indigo/events/schedulers/sequential"
-	"github.com/bluesky-social/indigo/handles"
-	"github.com/bluesky-social/indigo/indexer"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/pds"
-	"github.com/bluesky-social/indigo/plc"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/repomgr"
-	bsutil "github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/xrpc"
+	atproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	gndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/bgs"
+	"github.com/gander-social/gander-indigo-sovereign/carstore"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/events/diskpersist"
+	"github.com/gander-social/gander-indigo-sovereign/events/schedulers/sequential"
+	"github.com/gander-social/gander-indigo-sovereign/handles"
+	"github.com/gander-social/gander-indigo-sovereign/indexer"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/models"
+	"github.com/gander-social/gander-indigo-sovereign/pds"
+	"github.com/gander-social/gander-indigo-sovereign/plc"
+	"github.com/gander-social/gander-indigo-sovereign/repo"
+	"github.com/gander-social/gander-indigo-sovereign/repomgr"
+	bsutil "github.com/gander-social/gander-indigo-sovereign/util"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 	"github.com/whyrusleeping/go-did"
@@ -373,12 +373,12 @@ func (u *TestUser) Reply(t *testing.T, replyto, root *atproto.RepoStrongRef, bod
 
 	ctx := context.TODO()
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.feed.post",
+		Collection: "gndr.app.feed.post",
 		Repo:       u.did,
-		Record: &lexutil.LexiconTypeDecoder{Val: &bsky.FeedPost{
+		Record: &lexutil.LexiconTypeDecoder{Val: &gndr.FeedPost{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Text:      body,
-			Reply: &bsky.FeedPost_ReplyRef{
+			Reply: &gndr.FeedPost_ReplyRef{
 				Parent: replyto,
 				Root:   root,
 			}},
@@ -400,9 +400,9 @@ func (u *TestUser) Post(t *testing.T, body string) *atproto.RepoStrongRef {
 
 	ctx := context.TODO()
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.feed.post",
+		Collection: "gndr.app.feed.post",
 		Repo:       u.did,
-		Record: &lexutil.LexiconTypeDecoder{Val: &bsky.FeedPost{
+		Record: &lexutil.LexiconTypeDecoder{Val: &gndr.FeedPost{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Text:      body,
 		}},
@@ -423,10 +423,10 @@ func (u *TestUser) Like(t *testing.T, post *atproto.RepoStrongRef) {
 
 	ctx := context.TODO()
 	_, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.feed.like",
+		Collection: "gndr.app.feed.like",
 		Repo:       u.did,
-		Record: &lexutil.LexiconTypeDecoder{Val: &bsky.FeedLike{
-			LexiconTypeID: "app.bsky.feed.like",
+		Record: &lexutil.LexiconTypeDecoder{Val: &gndr.FeedLike{
+			LexiconTypeID: "gndr.app.feed.like",
 			CreatedAt:     time.Now().Format(time.RFC3339),
 			Subject:       post,
 		}},
@@ -442,9 +442,9 @@ func (u *TestUser) Follow(t *testing.T, did string) string {
 
 	ctx := context.TODO()
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.graph.follow",
+		Collection: "gndr.app.graph.follow",
 		Repo:       u.did,
-		Record: &lexutil.LexiconTypeDecoder{Val: &bsky.GraphFollow{
+		Record: &lexutil.LexiconTypeDecoder{Val: &gndr.GraphFollow{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Subject:   did,
 		}},
@@ -457,11 +457,11 @@ func (u *TestUser) Follow(t *testing.T, did string) string {
 	return resp.Uri
 }
 
-func (u *TestUser) GetFeed(t *testing.T) []*bsky.FeedDefs_FeedViewPost {
+func (u *TestUser) GetFeed(t *testing.T) []*gndr.FeedDefs_FeedViewPost {
 	t.Helper()
 
 	ctx := context.TODO()
-	resp, err := bsky.FeedGetTimeline(ctx, u.client, "reverse-chronlogical", "", 100)
+	resp, err := gndr.FeedGetTimeline(ctx, u.client, "reverse-chronlogical", "", 100)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -788,7 +788,7 @@ var words = []string{
 	"reply",
 	"fish",
 	"sunshine",
-	"bluesky",
+	"gander",
 	"make",
 	"equal",
 	"stars",
@@ -906,7 +906,7 @@ func GenerateFakeRepo(r *repo.Repo, size int) (cid.Cid, error) {
 	for i := 0; i < size; i++ {
 		switch RandAction() {
 		case "post":
-			_, _, err := r.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
+			_, _, err := r.CreateRecord(ctx, "gndr.app.feed.post", &gndr.FeedPost{
 				CreatedAt: time.Now().Format(bsutil.ISO8601),
 				Text:      RandSentence(words, 200),
 			})
@@ -914,10 +914,10 @@ func GenerateFakeRepo(r *repo.Repo, size int) (cid.Cid, error) {
 				return cid.Undef, err
 			}
 		case "repost":
-			_, _, err := r.CreateRecord(ctx, "app.bsky.feed.repost", &bsky.FeedRepost{
+			_, _, err := r.CreateRecord(ctx, "gndr.app.feed.repost", &gndr.FeedRepost{
 				CreatedAt: time.Now().Format(bsutil.ISO8601),
 				Subject: &atproto.RepoStrongRef{
-					Uri: RandFakeAtUri("app.bsky.feed.post", ""),
+					Uri: RandFakeAtUri("gndr.app.feed.post", ""),
 					Cid: RandFakeCid().String(),
 				},
 			})
@@ -925,16 +925,16 @@ func GenerateFakeRepo(r *repo.Repo, size int) (cid.Cid, error) {
 				return cid.Undef, err
 			}
 		case "reply":
-			_, _, err := r.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
+			_, _, err := r.CreateRecord(ctx, "gndr.app.feed.post", &gndr.FeedPost{
 				CreatedAt: time.Now().Format(bsutil.ISO8601),
 				Text:      RandSentence(words, 200),
-				Reply: &bsky.FeedPost_ReplyRef{
+				Reply: &gndr.FeedPost_ReplyRef{
 					Root: &atproto.RepoStrongRef{
-						Uri: RandFakeAtUri("app.bsky.feed.post", ""),
+						Uri: RandFakeAtUri("gndr.app.feed.post", ""),
 						Cid: RandFakeCid().String(),
 					},
 					Parent: &atproto.RepoStrongRef{
-						Uri: RandFakeAtUri("app.bsky.feed.post", ""),
+						Uri: RandFakeAtUri("gndr.app.feed.post", ""),
 						Cid: RandFakeCid().String(),
 					},
 				},
@@ -943,10 +943,10 @@ func GenerateFakeRepo(r *repo.Repo, size int) (cid.Cid, error) {
 				return cid.Undef, err
 			}
 		case "like":
-			_, _, err := r.CreateRecord(ctx, "app.bsky.feed.like", &bsky.FeedLike{
+			_, _, err := r.CreateRecord(ctx, "gndr.app.feed.like", &gndr.FeedLike{
 				CreatedAt: time.Now().Format(bsutil.ISO8601),
 				Subject: &atproto.RepoStrongRef{
-					Uri: RandFakeAtUri("app.bsky.feed.post", ""),
+					Uri: RandFakeAtUri("gndr.app.feed.post", ""),
 					Cid: RandFakeCid().String(),
 				},
 			})

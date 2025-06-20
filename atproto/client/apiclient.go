@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 )
 
 // Interface for auth implementations which can be used with [APIClient].

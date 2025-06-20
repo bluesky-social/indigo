@@ -11,7 +11,7 @@
         "services": {
           "atproto_pds": {
             "type": "AtprotoPersonalDataServer",
-            "url": "https://morel.us-east.host.bsky.network"
+            "url": "https://morel.us-east.host.gndr.network"
           }
         },
         "keys": {
@@ -78,7 +78,7 @@
               "cid": {
                 "$link": "bafyreigewdja54vltktm26nis7j7tbnwu32fauquzmclqanvrgje5lzrci"
               },
-              "path": "app.bsky.feed.like/3llpyftcvih2r"
+              "path": "gndr.app.feed.like/3llpyftcvih2r"
             }
           ],
           "rebase": false,

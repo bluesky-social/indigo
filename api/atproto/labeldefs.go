@@ -5,7 +5,7 @@ package atproto
 // schema: com.atproto.label.defs
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // LabelDefs_Label is a "label" in the com.atproto.label.defs schema.

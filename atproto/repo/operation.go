@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/bluesky-social/indigo/atproto/repo/mst"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/repo/mst"
 
 	"github.com/ipfs/go-cid"
 )

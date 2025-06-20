@@ -2,28 +2,28 @@
 
 package chat
 
-// schema: chat.bsky.convo.unmuteConvo
+// schema: chat.gndr.convo.unmuteConvo
 
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ConvoUnmuteConvo_Input is the input argument to a chat.bsky.convo.unmuteConvo call.
+// ConvoUnmuteConvo_Input is the input argument to a chat.gndr.convo.unmuteConvo call.
 type ConvoUnmuteConvo_Input struct {
 	ConvoId string `json:"convoId" cborgen:"convoId"`
 }
 
-// ConvoUnmuteConvo_Output is the output of a chat.bsky.convo.unmuteConvo call.
+// ConvoUnmuteConvo_Output is the output of a chat.gndr.convo.unmuteConvo call.
 type ConvoUnmuteConvo_Output struct {
 	Convo *ConvoDefs_ConvoView `json:"convo" cborgen:"convo"`
 }
 
-// ConvoUnmuteConvo calls the XRPC method "chat.bsky.convo.unmuteConvo".
+// ConvoUnmuteConvo calls the XRPC method "chat.gndr.convo.unmuteConvo".
 func ConvoUnmuteConvo(ctx context.Context, c util.LexClient, input *ConvoUnmuteConvo_Input) (*ConvoUnmuteConvo_Output, error) {
 	var out ConvoUnmuteConvo_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.unmuteConvo", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.gndr.convo.unmuteConvo", nil, input, &out); err != nil {
 		return nil, err
 	}
 

@@ -3,7 +3,7 @@ package labels
 import (
 	"bytes"
 
-	"github.com/bluesky-social/indigo/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/api/atproto"
 )
 
 // UnsignedLabel is a label without the signature so we can validate it

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
 
 	cbg "github.com/whyrusleeping/cbor-gen"
 )

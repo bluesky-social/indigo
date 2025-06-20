@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"time"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/automod/helpers"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/countstore"
+	"github.com/gander-social/gander-indigo-sovereign/automod/helpers"
 )
 
 var _ automod.PostRuleFunc = HarassmentTargetInteractionPostRule
 
 // looks for new accounts, which interact with frequently-harassed accounts, and report them for review
-func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(&c.AccountContext, 24*time.Hour) {
 		return nil
 	}
@@ -114,7 +114,7 @@ func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky
 var _ automod.PostRuleFunc = HarassmentTrivialPostRule
 
 // looks for new accounts, which frequently post the same type of content
-func HarassmentTrivialPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func HarassmentTrivialPostRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(&c.AccountContext, 7*24*time.Hour) {
 		return nil
 	}

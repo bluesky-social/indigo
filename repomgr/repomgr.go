@@ -11,15 +11,15 @@ import (
 	"sync"
 	"time"
 
-	atproto "github.com/bluesky-social/indigo/api/atproto"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/carstore"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/mst"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/util"
+	atproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	gndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/carstore"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/models"
+	"github.com/gander-social/gander-indigo-sovereign/mst"
+	"github.com/gander-social/gander-indigo-sovereign/repo"
+	"github.com/gander-social/gander-indigo-sovereign/util"
 
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
@@ -376,11 +376,11 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user models.Uid, handle
 
 	r := repo.NewRepo(ctx, did, ds)
 
-	profile := &bsky.ActorProfile{
+	profile := &gndr.ActorProfile{
 		DisplayName: &displayname,
 	}
 
-	_, err = r.PutRecord(ctx, "app.bsky.actor.profile/self", profile)
+	_, err = r.PutRecord(ctx, "gndr.app.actor.profile/self", profile)
 	if err != nil {
 		return fmt.Errorf("setting initial actor profile: %w", err)
 	}
@@ -398,7 +398,7 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user models.Uid, handle
 	if rm.events != nil {
 		op := RepoOp{
 			Kind:       EvtKindCreateRecord,
-			Collection: "app.bsky.actor.profile",
+			Collection: "gndr.app.actor.profile",
 			Rkey:       "self",
 		}
 
@@ -490,7 +490,7 @@ func (rm *RepoManager) GetRecordProof(ctx context.Context, user models.Uid, coll
 	return head, bs.GetLoggedBlocks(), nil
 }
 
-func (rm *RepoManager) GetProfile(ctx context.Context, uid models.Uid) (*bsky.ActorProfile, error) {
+func (rm *RepoManager) GetProfile(ctx context.Context, uid models.Uid) (*gndr.ActorProfile, error) {
 	bs, err := rm.cs.ReadOnlySession(uid)
 	if err != nil {
 		return nil, err
@@ -506,12 +506,12 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid models.Uid) (*bsky.Ac
 		return nil, err
 	}
 
-	_, val, err := r.GetRecord(ctx, "app.bsky.actor.profile/self")
+	_, val, err := r.GetRecord(ctx, "gndr.app.actor.profile/self")
 	if err != nil {
 		return nil, err
 	}
 
-	ap, ok := val.(*bsky.ActorProfile)
+	ap, ok := val.(*gndr.ActorProfile)
 	if !ok {
 		return nil, fmt.Errorf("found wrong type in actor profile location in tree")
 	}

@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"os"
 
-	comatproto "github.com/bluesky-social/indigo/api/agnostic"
-	"github.com/bluesky-social/indigo/atproto/client"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/agnostic"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/client"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/urfave/cli/v2"
 )
@@ -27,7 +27,7 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:  "host",
-						Value: "https://public.api.bsky.app",
+						Value: "https://public.api.gndr.app",
 						Usage: "service host",
 					},
 				},
@@ -39,7 +39,7 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:  "host",
-						Value: "https://enoki.us-east.host.bsky.network",
+						Value: "https://enoki.us-east.host.gndr.network",
 						Usage: "service host",
 					},
 				},
@@ -85,8 +85,8 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name:  "appview",
-						Value: "did:web:api.bsky.app#bsky_appview",
-						Usage: "bsky appview service DID ref",
+						Value: "did:web:api.gndr.gndr.app_appview",
+						Usage: "gndr appview service DID ref",
 					},
 				},
 			},
@@ -128,7 +128,7 @@ func getFeed(ctx context.Context, c *client.APIClient) error {
 	}
 
 	var d json.RawMessage
-	err := c.Get(ctx, "app.bsky.feed.getAuthorFeed", params, &d)
+	err := c.Get(ctx, "gndr.app.feed.getAuthorFeed", params, &d)
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func getFeed(ctx context.Context, c *client.APIClient) error {
 
 func listRecords(ctx context.Context, c *client.APIClient) error {
 
-	list, err := comatproto.RepoListRecords(ctx, c, "app.bsky.actor.profile", "", 10, "did:plc:ewvi7nxzyoun6zhxrhs64oiz", false)
+	list, err := comatproto.RepoListRecords(ctx, c, "gndr.app.actor.profile", "", 10, "did:plc:ewvi7nxzyoun6zhxrhs64oiz", false)
 	if err != nil {
 		return err
 	}

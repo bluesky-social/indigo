@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/labstack/echo/v4"
@@ -150,8 +150,8 @@ func (s *Server) RunAPI(listen string) error {
 	e.GET("/", s.handleHealthCheck)
 	e.GET("/_health", s.handleHealthCheck)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
-	e.GET("/xrpc/app.bsky.unspecced.searchPostsSkeleton", s.handleSearchPostsSkeleton)
-	e.GET("/xrpc/app.bsky.unspecced.searchActorsSkeleton", s.handleSearchActorsSkeleton)
+	e.GET("/xrpc/gndr.app.unspecced.searchPostsSkeleton", s.handleSearchPostsSkeleton)
+	e.GET("/xrpc/gndr.app.unspecced.searchActorsSkeleton", s.handleSearchActorsSkeleton)
 	s.echo = e
 
 	s.logger.Info("starting search API daemon", "bind", listen)

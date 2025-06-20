@@ -5,11 +5,11 @@ import (
 	"context"
 	"testing"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/engine"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/engine"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -26,7 +26,7 @@ func TestBadHashtagPostRule(t *testing.T) {
 		},
 	}
 	cid1 := syntax.CID("cid123")
-	p1 := appbsky.FeedPost{
+	p1 := appgndr.FeedPost{
 		Text: "some post blah",
 	}
 	p1buf := new(bytes.Buffer)
@@ -35,7 +35,7 @@ func TestBadHashtagPostRule(t *testing.T) {
 	op := engine.RecordOp{
 		Action:     engine.CreateOp,
 		DID:        am1.Identity.DID,
-		Collection: syntax.NSID("app.bsky.feed.post"),
+		Collection: syntax.NSID("gndr.app.feed.post"),
 		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
 		RecordCBOR: p1cbor,
@@ -45,7 +45,7 @@ func TestBadHashtagPostRule(t *testing.T) {
 	eff1 := engine.ExtractEffects(&c1.BaseContext)
 	assert.Empty(eff1.RecordFlags)
 
-	p2 := appbsky.FeedPost{
+	p2 := appgndr.FeedPost{
 		Text: "some post blah",
 		Tags: []string{"one", "slur"},
 	}

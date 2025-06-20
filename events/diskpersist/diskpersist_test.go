@@ -11,15 +11,15 @@ import (
 	"testing"
 	"time"
 
-	atproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/events"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/models"
-	pds "github.com/bluesky-social/indigo/pds/data"
-	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/util"
+	atproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/carstore"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/models"
+	pds "github.com/gander-social/gander-indigo-sovereign/pds/data"
+	"github.com/gander-social/gander-indigo-sovereign/repomgr"
+	"github.com/gander-social/gander-indigo-sovereign/util"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -48,7 +48,7 @@ func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.
 		t.Fatal(err)
 	}
 
-	_, cid, err := mgr.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
+	_, cid, err := mgr.CreateRecord(ctx, 1, "gndr.app.feed.post", &gndr.FeedPost{
 		Text:      "hello world",
 		CreatedAt: time.Now().Format(util.ISO8601),
 	})
@@ -213,7 +213,7 @@ func runPersisterBenchmark(b *testing.B, cs carstore.CarStore, db *gorm.DB, p ev
 		b.Fatal(err)
 	}
 
-	_, cid, err := mgr.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
+	_, cid, err := mgr.CreateRecord(ctx, 1, "gndr.app.feed.post", &gndr.FeedPost{
 		Text:      "hello world",
 		CreatedAt: time.Now().Format(util.ISO8601),
 	})
@@ -328,7 +328,7 @@ func runEventManagerTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p even
 		t.Fatal(err)
 	}
 
-	_, cid, err := mgr.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
+	_, cid, err := mgr.CreateRecord(ctx, 1, "gndr.app.feed.post", &gndr.FeedPost{
 		Text:      "hello world",
 		CreatedAt: time.Now().Format(util.ISO8601),
 	})
@@ -452,7 +452,7 @@ func runTakedownTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p events.E
 	inEvts := make([]*events.XRPCStreamEvent, testSize*userCount)
 	for i := 0; i < testSize*userCount; i++ {
 		user := users[i%userCount]
-		_, cid, err := mgr.CreateRecord(ctx, user.Uid, "app.bsky.feed.post", &bsky.FeedPost{
+		_, cid, err := mgr.CreateRecord(ctx, user.Uid, "gndr.app.feed.post", &gndr.FeedPost{
 			Text:      fmt.Sprintf("hello world from user %d", user.Uid),
 			CreatedAt: time.Now().Format(util.ISO8601),
 		})

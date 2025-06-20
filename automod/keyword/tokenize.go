@@ -47,7 +47,7 @@ func splitIdentRune(c rune) bool {
 
 // Splits an identifier in to tokens. Removes any single-character tokens.
 //
-// For example, the-handle.bsky.social would be split in to ["the", "handle", "bsky", "social"]
+// For example, the-handle.gndr.social would be split in to ["the", "handle", "gndr", "social"]
 func TokenizeIdentifier(orig string) []string {
 	fields := strings.FieldsFunc(orig, splitIdentRune)
 	out := make([]string, 0, len(fields))

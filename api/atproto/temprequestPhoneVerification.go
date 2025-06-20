@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // TempRequestPhoneVerification_Input is the input argument to a com.atproto.temp.requestPhoneVerification call.

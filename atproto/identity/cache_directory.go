@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
 )

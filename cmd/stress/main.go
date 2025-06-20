@@ -9,14 +9,14 @@ import (
 	"sync"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/carstore"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/testing"
-	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/xrpc"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/carstore"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/repo"
+	"github.com/gander-social/gander-indigo-sovereign/testing"
+	"github.com/gander-social/gander-indigo-sovereign/util/cliutil"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -130,9 +130,9 @@ var postingCmd = &cli.Command{
 					rand.Read(buf)
 
 					res, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
-						Collection: "app.bsky.feed.post",
+						Collection: "gndr.app.feed.post",
 						Repo:       xrpcc.Auth.Did,
-						Record: &lexutil.LexiconTypeDecoder{Val: &appbsky.FeedPost{
+						Record: &lexutil.LexiconTypeDecoder{Val: &appgndr.FeedPost{
 							Text:      hex.EncodeToString(buf),
 							CreatedAt: time.Now().Format(time.RFC3339),
 						}},

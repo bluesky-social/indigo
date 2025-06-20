@@ -6,8 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/bluesky-social/indigo/cmd/relay/stream"
-	"github.com/bluesky-social/indigo/cmd/relay/stream/schedulers"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream/schedulers"
 
 	"github.com/prometheus/client_golang/prometheus"
 )

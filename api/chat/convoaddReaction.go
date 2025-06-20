@@ -2,30 +2,30 @@
 
 package chat
 
-// schema: chat.bsky.convo.addReaction
+// schema: chat.gndr.convo.addReaction
 
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ConvoAddReaction_Input is the input argument to a chat.bsky.convo.addReaction call.
+// ConvoAddReaction_Input is the input argument to a chat.gndr.convo.addReaction call.
 type ConvoAddReaction_Input struct {
 	ConvoId   string `json:"convoId" cborgen:"convoId"`
 	MessageId string `json:"messageId" cborgen:"messageId"`
 	Value     string `json:"value" cborgen:"value"`
 }
 
-// ConvoAddReaction_Output is the output of a chat.bsky.convo.addReaction call.
+// ConvoAddReaction_Output is the output of a chat.gndr.convo.addReaction call.
 type ConvoAddReaction_Output struct {
 	Message *ConvoDefs_MessageView `json:"message" cborgen:"message"`
 }
 
-// ConvoAddReaction calls the XRPC method "chat.bsky.convo.addReaction".
+// ConvoAddReaction calls the XRPC method "chat.gndr.convo.addReaction".
 func ConvoAddReaction(ctx context.Context, c util.LexClient, input *ConvoAddReaction_Input) (*ConvoAddReaction_Output, error) {
 	var out ConvoAddReaction_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.addReaction", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.gndr.convo.addReaction", nil, input, &out); err != nil {
 		return nil, err
 	}
 

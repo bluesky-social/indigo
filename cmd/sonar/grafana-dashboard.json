@@ -1300,7 +1300,7 @@
                         "uid": "${DS_MIMIR}"
                     },
                     "editorMode": "code",
-                    "expr": "increase(sonar_ops_processed_total{kind=~\"create\",socket_url=~\"wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos\", op_path=\"app.bsky.actor.profile\"}[$__range])",
+                    "expr": "increase(sonar_ops_processed_total{kind=~\"create\",socket_url=~\"wss://gndr.network/xrpc/com.atproto.sync.subscribeRepos\", op_path=\"gndr.app.actor.profile\"}[$__range])",
                     "instant": false,
                     "legendFormat": "__auto",
                     "range": true,
@@ -1420,7 +1420,7 @@
                 {
                     "id": "renameByRegex",
                     "options": {
-                        "regex": "(.*)(app.bsky.)(.*)",
+                        "regex": "(.*)(gndr.app.)(.*)",
                         "renamePattern": "$1 $3"
                     }
                 }

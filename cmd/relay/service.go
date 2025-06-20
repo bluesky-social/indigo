@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/cmd/relay/relay"
-	"github.com/bluesky-social/indigo/util/svcutil"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/relay"
+	"github.com/gander-social/gander-indigo-sovereign/util/svcutil"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"

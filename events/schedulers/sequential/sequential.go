@@ -2,8 +2,8 @@ package sequential
 
 import (
 	"context"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/schedulers"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/events/schedulers"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

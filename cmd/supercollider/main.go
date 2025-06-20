@@ -18,17 +18,17 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/bluesky-social/indigo/api/atproto"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/did"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/yolopersist"
-	"github.com/bluesky-social/indigo/indexer"
-	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/plc"
 	petname "github.com/dustinkirkland/golang-petname"
+	"github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/carstore"
+	"github.com/gander-social/gander-indigo-sovereign/did"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/events/yolopersist"
+	"github.com/gander-social/gander-indigo-sovereign/indexer"
+	"github.com/gander-social/gander-indigo-sovereign/models"
+	"github.com/gander-social/gander-indigo-sovereign/plc"
 	"github.com/icrowley/fake"
 	"github.com/labstack/echo-contrib/pprof"
 	"github.com/urfave/cli/v2"
@@ -36,9 +36,9 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/time/rate"
 
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/util"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/repomgr"
+	"github.com/gander-social/gander-indigo-sovereign/util"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -627,7 +627,7 @@ func (s *Server) EventGenerationLoop(ctx context.Context, cancel context.CancelF
 		if len(text) > 300 {
 			text = text[:300]
 		}
-		_, _, err := s.RepoManager.CreateRecord(ctx, models.Uid(i%len(s.Dids)+1), "app.bsky.feed.post", &bsky.FeedPost{
+		_, _, err := s.RepoManager.CreateRecord(ctx, models.Uid(i%len(s.Dids)+1), "gndr.app.feed.post", &gndr.FeedPost{
 			CreatedAt: time.Now().Format(util.ISO8601),
 			Text:      text,
 		})

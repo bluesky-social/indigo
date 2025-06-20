@@ -5,7 +5,7 @@ package ozone
 // schema: tools.ozone.setting.defs
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // SettingDefs_Option is a "option" in the tools.ozone.setting.defs schema.

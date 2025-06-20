@@ -32,6 +32,6 @@ EXPOSE 3999
 
 CMD ["/palomar", "run"]
 
-LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
-LABEL org.opencontainers.image.description="atproto Search Service (for app.bsky Lexicon)"
+LABEL org.opencontainers.image.source=https://github.com/gander-social/gander-indigo-sovereign
+LABEL org.opencontainers.image.description="atproto Search Service (for gndr.app Lexicon)"
 LABEL org.opencontainers.image.licenses=MIT

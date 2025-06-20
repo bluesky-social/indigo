@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/models"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/models"
 )
 
 func NewEventRingBuffer(chunkSize, nchunks int) *EventRingBuffer {

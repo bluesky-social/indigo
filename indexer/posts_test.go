@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	bsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/plc"
-	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/util"
+	gndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/carstore"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/plc"
+	"github.com/gander-social/gander-indigo-sovereign/repomgr"
+	"github.com/gander-social/gander-indigo-sovereign/util"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -101,7 +101,7 @@ func TestBasicIndexing(t *testing.T) {
 	tt := testIndexer(t)
 	defer tt.Cleanup()
 
-	post := &bsky.FeedPost{
+	post := &gndr.FeedPost{
 		CreatedAt: time.Now().Format(util.ISO8601),
 		Text:      "im the OP, the best",
 	}
@@ -112,7 +112,7 @@ func TestBasicIndexing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	uri, cc, err := tt.rm.CreateRecord(ctx, 1, "app.bsky.feed.post", post)
+	uri, cc, err := tt.rm.CreateRecord(ctx, 1, "gndr.app.feed.post", post)
 	if err != nil {
 		t.Fatal(err)
 	}

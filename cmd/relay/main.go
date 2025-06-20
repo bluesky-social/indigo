@@ -16,11 +16,11 @@ import (
 	_ "go.uber.org/automaxprocs"
 	_ "net/http/pprof"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/cmd/relay/relay"
-	"github.com/bluesky-social/indigo/cmd/relay/stream/eventmgr"
-	"github.com/bluesky-social/indigo/cmd/relay/stream/persist/diskpersist"
-	"github.com/bluesky-social/indigo/util/cliutil"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/relay"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream/eventmgr"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream/persist/diskpersist"
+	"github.com/gander-social/gander-indigo-sovereign/util/cliutil"
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/urfave/cli/v2"
@@ -148,7 +148,7 @@ func run(args []string) error {
 				&cli.StringSliceFlag{
 					Name:    "trusted-domains",
 					Usage:   "domain names which mark trusted hosts; use wildcard prefix to match suffixes",
-					Value:   cli.NewStringSlice("*.host.bsky.network"),
+					Value:   cli.NewStringSlice("*.host.gndr.network"),
 					EnvVars: []string{"RELAY_TRUSTED_DOMAINS"},
 				},
 				&cli.StringFlag{
@@ -226,7 +226,7 @@ func runRelay(cctx *cli.Context) error {
 	// TODO: add shared external cache
 	baseDir := identity.BaseDirectory{
 		SkipHandleVerification: true,
-		SkipDNSDomainSuffixes:  []string{".bsky.social"},
+		SkipDNSDomainSuffixes:  []string{".gndr.social"},
 		TryAuthoritativeDNS:    true,
 		PLCURL:                 cctx.String("plc-host"),
 	}

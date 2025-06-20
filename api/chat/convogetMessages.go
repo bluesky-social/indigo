@@ -2,17 +2,17 @@
 
 package chat
 
-// schema: chat.bsky.convo.getMessages
+// schema: chat.gndr.convo.getMessages
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ConvoGetMessages_Output is the output of a chat.bsky.convo.getMessages call.
+// ConvoGetMessages_Output is the output of a chat.gndr.convo.getMessages call.
 type ConvoGetMessages_Output struct {
 	Cursor   *string                                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Messages []*ConvoGetMessages_Output_Messages_Elem `json:"messages" cborgen:"messages"`
@@ -25,11 +25,11 @@ type ConvoGetMessages_Output_Messages_Elem struct {
 
 func (t *ConvoGetMessages_Output_Messages_Elem) MarshalJSON() ([]byte, error) {
 	if t.ConvoDefs_MessageView != nil {
-		t.ConvoDefs_MessageView.LexiconTypeID = "chat.bsky.convo.defs#messageView"
+		t.ConvoDefs_MessageView.LexiconTypeID = "chat.gndr.convo.defs#messageView"
 		return json.Marshal(t.ConvoDefs_MessageView)
 	}
 	if t.ConvoDefs_DeletedMessageView != nil {
-		t.ConvoDefs_DeletedMessageView.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		t.ConvoDefs_DeletedMessageView.LexiconTypeID = "chat.gndr.convo.defs#deletedMessageView"
 		return json.Marshal(t.ConvoDefs_DeletedMessageView)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
@@ -41,10 +41,10 @@ func (t *ConvoGetMessages_Output_Messages_Elem) UnmarshalJSON(b []byte) error {
 	}
 
 	switch typ {
-	case "chat.bsky.convo.defs#messageView":
+	case "chat.gndr.convo.defs#messageView":
 		t.ConvoDefs_MessageView = new(ConvoDefs_MessageView)
 		return json.Unmarshal(b, t.ConvoDefs_MessageView)
-	case "chat.bsky.convo.defs#deletedMessageView":
+	case "chat.gndr.convo.defs#deletedMessageView":
 		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
 		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
 
@@ -53,7 +53,7 @@ func (t *ConvoGetMessages_Output_Messages_Elem) UnmarshalJSON(b []byte) error {
 	}
 }
 
-// ConvoGetMessages calls the XRPC method "chat.bsky.convo.getMessages".
+// ConvoGetMessages calls the XRPC method "chat.gndr.convo.getMessages".
 func ConvoGetMessages(ctx context.Context, c util.LexClient, convoId string, cursor string, limit int64) (*ConvoGetMessages_Output, error) {
 	var out ConvoGetMessages_Output
 
@@ -65,7 +65,7 @@ func ConvoGetMessages(ctx context.Context, c util.LexClient, convoId string, cur
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.convo.getMessages", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "chat.gndr.convo.getMessages", params, nil, &out); err != nil {
 		return nil, err
 	}
 

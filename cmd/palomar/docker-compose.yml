@@ -34,7 +34,7 @@ services:
     environment:
       - "GOLOG_LOG_LEVEL=info"
       - "ATP_PLC_HOST=https://plc.directory"
-      - "ATP_BGS_HOST=wss://bsky.network"
+      - "ATP_BGS_HOST=wss://gndr.network"
       - "ELASTIC_HOSTS=http://opensearch:9200"
       - "ES_INSECURE_SSL=true"
       - "ENVIRONMENT=dev"
@@ -63,7 +63,7 @@ services:
   #   environment:
   #     - "GOLOG_LOG_LEVEL=info"
   #     - "ATP_PLC_HOST=https://plc.directory"
-  #     - "ATP_BGS_HOST=wss://bsky.network"
+  #     - "ATP_BGS_HOST=wss://gndr.network"
   #     - "ELASTIC_HOSTS=http://opensearch:9200"
   #     - "ES_INSECURE_SSL=true"
   #     - "ENVIRONMENT=dev"
@@ -91,7 +91,7 @@ services:
     environment:
       - "GOLOG_LOG_LEVEL=info"
       - "ATP_PLC_HOST=https://plc.directory"
-      - "ATP_BGS_HOST=wss://bsky.network"
+      - "ATP_BGS_HOST=wss://gndr.network"
       - "ELASTIC_HOSTS=http://opensearch:9200"
       - "ES_INSECURE_SSL=true"
       - "ENVIRONMENT=dev"

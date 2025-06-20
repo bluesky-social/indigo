@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/plc"
-	"github.com/bluesky-social/indigo/util/cliutil"
+	"github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/carstore"
+	"github.com/gander-social/gander-indigo-sovereign/plc"
+	"github.com/gander-social/gander-indigo-sovereign/util/cliutil"
 	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
 )

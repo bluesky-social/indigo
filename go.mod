@@ -1,4 +1,4 @@
-module github.com/bluesky-social/indigo
+module github.com/gander-social/gander-indigo-sovereign
 
 go 1.24
 

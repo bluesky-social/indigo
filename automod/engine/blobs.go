@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/data"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/data"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
 
 	"github.com/carlmjohnson/versioninfo"
 )
@@ -62,7 +62,7 @@ func (c *RecordContext) fetchBlob(blob lexutil.LexBlob) ([]byte, error) {
 
 	req.Header.Set("User-Agent", "indigo-automod/"+versioninfo.Short())
 	// TODO: more robust PDS hostname check (eg, future trailing slash or partial path)
-	if c.engine.BskyClient.Headers != nil && strings.HasSuffix(pdsEndpoint, ".bsky.network") {
+	if c.engine.BskyClient.Headers != nil && strings.HasSuffix(pdsEndpoint, ".gndr.network") {
 		val, ok := c.engine.BskyClient.Headers["x-ratelimit-bypass"]
 		if ok {
 			req.Header.Set("x-ratelimit-bypass", val)

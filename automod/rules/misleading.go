@@ -6,10 +6,10 @@ import (
 	"strings"
 	"unicode"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/helpers"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/helpers"
 )
 
 func isMisleadingURLFacet(facet helpers.PostFacet, logger *slog.Logger) bool {
@@ -80,7 +80,7 @@ func isMisleadingURLFacet(facet helpers.PostFacet, logger *slog.Logger) bool {
 
 var _ automod.PostRuleFunc = MisleadingURLPostRule
 
-func MisleadingURLPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func MisleadingURLPostRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	// TODO: make this an InSet() config?
 	if c.Account.Identity.Handle == "nowbreezing.ntw.app" {
 		return nil
@@ -105,7 +105,7 @@ func MisleadingURLPostRule(c *automod.RecordContext, post *appbsky.FeedPost) err
 
 var _ automod.PostRuleFunc = MisleadingMentionPostRule
 
-func MisleadingMentionPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func MisleadingMentionPostRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	facets, err := helpers.ExtractFacets(post)
 	if err != nil {
 		c.Logger.Warn("invalid facets", "err", err)

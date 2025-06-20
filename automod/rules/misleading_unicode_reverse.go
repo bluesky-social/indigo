@@ -3,11 +3,11 @@ package rules
 import (
 	"strings"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/automod"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
 )
 
-func MisleadingLinkUnicodeReversalPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func MisleadingLinkUnicodeReversalPostRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 
 	if !strings.Contains(post.Text, "\u202E") {
 		return nil

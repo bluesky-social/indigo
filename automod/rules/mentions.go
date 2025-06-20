@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/automod/helpers"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/countstore"
+	"github.com/gander-social/gander-indigo-sovereign/automod/helpers"
 )
 
 var _ automod.PostRuleFunc = DistinctMentionsRule
@@ -16,7 +16,7 @@ var _ automod.PostRuleFunc = DistinctMentionsRule
 var mentionHourlyThreshold = 40
 
 // DistinctMentionsRule looks for accounts which mention an unusually large number of distinct accounts per period.
-func DistinctMentionsRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func DistinctMentionsRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	did := c.Account.Identity.DID.String()
 
 	// Increment counters for all new mentions in this post.
@@ -47,7 +47,7 @@ func DistinctMentionsRule(c *automod.RecordContext, post *appbsky.FeedPost) erro
 var youngMentionAccountLimit = 12
 var _ automod.PostRuleFunc = YoungAccountDistinctMentionsRule
 
-func YoungAccountDistinctMentionsRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func YoungAccountDistinctMentionsRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(&c.AccountContext, 14*24*time.Hour) {
 		return nil
 	}

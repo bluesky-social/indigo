@@ -16,11 +16,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/pebblepersist"
-	"github.com/bluesky-social/indigo/events/schedulers/sequential"
-	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/util/svcutil"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/events/pebblepersist"
+	"github.com/gander-social/gander-indigo-sovereign/events/schedulers/sequential"
+	"github.com/gander-social/gander-indigo-sovereign/util"
+	"github.com/gander-social/gander-indigo-sovereign/util/svcutil"
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"

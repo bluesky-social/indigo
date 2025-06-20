@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/rivo/uniseg"
 )
@@ -67,7 +67,7 @@ func (d *PostDoc) DocId() string {
 	return d.DID + "_" + d.RecordRkey
 }
 
-func TransformProfile(profile *appbsky.ActorProfile, ident *identity.Identity, cid string) ProfileDoc {
+func TransformProfile(profile *appgndr.ActorProfile, ident *identity.Identity, cid string) ProfileDoc {
 	// TODO: placeholder for future alt text on profile blobs
 	var altText []string
 	var tags []string
@@ -102,7 +102,7 @@ func TransformProfile(profile *appbsky.ActorProfile, ident *identity.Identity, c
 	}
 }
 
-func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) PostDoc {
+func TransformPost(post *appgndr.FeedPost, did syntax.DID, rkey, cid string) PostDoc {
 	altText := []string{}
 	if post.Embed != nil && post.Embed.EmbedImages != nil {
 		for _, img := range post.Embed.EmbedImages.Images {
@@ -249,7 +249,7 @@ func dedupeStrings(in []string) []string {
 	return out
 }
 
-func parseProfileTags(p *appbsky.ActorProfile) []string {
+func parseProfileTags(p *appgndr.ActorProfile) []string {
 	// TODO: waiting for profile tag lexicon support
 	var ret []string = []string{}
 	if len(ret) == 0 {
@@ -258,7 +258,7 @@ func parseProfileTags(p *appbsky.ActorProfile) []string {
 	return dedupeStrings(ret)
 }
 
-func parsePostTags(p *appbsky.FeedPost) []string {
+func parsePostTags(p *appgndr.FeedPost) []string {
 	var ret []string = []string{}
 	for _, facet := range p.Facets {
 		for _, feat := range facet.Features {

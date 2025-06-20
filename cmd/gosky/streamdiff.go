@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/schedulers/sequential"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/events/schedulers/sequential"
 	"github.com/gorilla/websocket"
 	cli "github.com/urfave/cli/v2"
 )

@@ -14,19 +14,19 @@ import (
 	"syscall"
 	"time"
 
-	libbgs "github.com/bluesky-social/indigo/bgs"
-	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/did"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/dbpersist"
-	"github.com/bluesky-social/indigo/events/diskpersist"
-	"github.com/bluesky-social/indigo/handles"
-	"github.com/bluesky-social/indigo/indexer"
-	"github.com/bluesky-social/indigo/plc"
-	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/xrpc"
+	libbgs "github.com/gander-social/gander-indigo-sovereign/bgs"
+	"github.com/gander-social/gander-indigo-sovereign/carstore"
+	"github.com/gander-social/gander-indigo-sovereign/did"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/events/dbpersist"
+	"github.com/gander-social/gander-indigo-sovereign/events/diskpersist"
+	"github.com/gander-social/gander-indigo-sovereign/handles"
+	"github.com/gander-social/gander-indigo-sovereign/indexer"
+	"github.com/gander-social/gander-indigo-sovereign/plc"
+	"github.com/gander-social/gander-indigo-sovereign/repomgr"
+	"github.com/gander-social/gander-indigo-sovereign/util"
+	"github.com/gander-social/gander-indigo-sovereign/util/cliutil"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 
 	_ "github.com/joho/godotenv/autoload"
 	_ "go.uber.org/automaxprocs"
@@ -163,9 +163,9 @@ func run(args []string) error {
 			EnvVars: []string{"OTEL_EXPORTER_OTLP_ENDPOINT"},
 		},
 		&cli.StringFlag{
-			Name:    "bsky-social-rate-limit-skip",
+			Name:    "gndr-social-rate-limit-skip",
 			EnvVars: []string{"BSKY_SOCIAL_RATE_LIMIT_SKIP"},
-			Usage:   "ratelimit bypass secret token for *.bsky.social domains",
+			Usage:   "ratelimit bypass secret token for *.gndr.social domains",
 		},
 		&cli.IntFlag{
 			Name:    "default-repo-limit",
@@ -453,12 +453,12 @@ func runBigsky(cctx *cli.Context) error {
 	}
 	defer ix.Shutdown()
 
-	rlskip := cctx.String("bsky-social-rate-limit-skip")
+	rlskip := cctx.String("gndr-social-rate-limit-skip")
 	ix.ApplyPDSClientSettings = func(c *xrpc.Client) {
 		if c.Client == nil {
 			c.Client = util.RobustHTTPClient()
 		}
-		if strings.HasSuffix(c.Host, ".bsky.network") {
+		if strings.HasSuffix(c.Host, ".gndr.network") {
 			c.Client.Timeout = time.Minute * 30
 			if rlskip != "" {
 				c.Headers = map[string]string{
@@ -484,7 +484,7 @@ func runBigsky(cctx *cli.Context) error {
 	}
 	if rlskip != "" {
 		prodHR.ReqMod = func(req *http.Request, host string) error {
-			if strings.HasSuffix(host, ".bsky.social") {
+			if strings.HasSuffix(host, ".gndr.social") {
 				req.Header.Set("x-ratelimit-bypass", rlskip)
 			}
 			return nil

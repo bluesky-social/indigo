@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/cmd/relay/stream"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream"
 
 	"github.com/gorilla/websocket"
 	promclient "github.com/prometheus/client_golang/prometheus"

@@ -13,7 +13,7 @@ Sonar's main use is to provide an operational dashboard of activity on the netwo
 
 To run sonar in Docker locally, you can run: `make sonar-up` from the root of the `indigo` directory.
 
-This will start a sonar instance that connects to the Bluesky-operated Relay firehose at `bsky.network` and will expose metrics at `http://localhost:8345`
+This will start a sonar instance that connects to the Gander-operated Relay firehose at `gndr.network` and will expose metrics at `http://localhost:8345`
 
 Feel free to modify the `docker-compose.yml` in this directory to change any settings via environment variables i.e. to change the firehose host `SONAR_WS_URL` or the listen port `SONAR_PORT`.
 

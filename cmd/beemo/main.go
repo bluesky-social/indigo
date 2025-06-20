@@ -1,4 +1,4 @@
-// Bluesky MOderation bot (BMO), a chatops helper for slack
+// Gander MOderation bot (BMO), a chatops helper for slack
 // For now, polls a PDS for new moderation reports and publishes notifications to slack
 
 package main
@@ -27,7 +27,7 @@ func run(args []string) error {
 
 	app := cli.App{
 		Name:    "beemo",
-		Usage:   "bluesky moderation reporting bot",
+		Usage:   "gander moderation reporting bot",
 		Version: versioninfo.Short(),
 	}
 
@@ -97,7 +97,7 @@ func run(args []string) error {
 				&cli.StringFlag{
 					Name:    "relay-host",
 					Usage:   "method, hostname, and port of Relay instance (websocket)",
-					Value:   "wss://bsky.network",
+					Value:   "wss://gndr.network",
 					EnvVars: []string{"ATP_RELAY_HOST"},
 				},
 				&cli.StringFlag{

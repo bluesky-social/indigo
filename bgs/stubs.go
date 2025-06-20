@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	comatprototypes "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"

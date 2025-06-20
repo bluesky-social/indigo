@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	toolsozone "github.com/bluesky-social/indigo/api/ozone"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	toolsozone "github.com/gander-social/gander-indigo-sovereign/api/ozone"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 )
 
 func NewOzoneEventContext(ctx context.Context, eng *Engine, eventView *toolsozone.ModerationDefs_ModEventView) (*OzoneEventContext, error) {

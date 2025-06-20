@@ -3,7 +3,7 @@ package auth
 import (
 	"crypto"
 
-	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
+	atcrypto "github.com/gander-social/gander-indigo-sovereign/atproto/crypto"
 	"github.com/golang-jwt/jwt/v5"
 )
 

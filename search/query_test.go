@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"testing"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/ipfs/go-cid"
 	es "github.com/opensearch-project/opensearch-go/v2"
@@ -104,26 +104,26 @@ func TestJapaneseRegressions(t *testing.T) {
 	}
 	assert.Equal(0, len(res.Hits.Hits))
 
-	p1 := appbsky.FeedPost{Text: "basic english post", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p1, "app.bsky.feed.post/3kpnillluoh2y", cid.Undef))
+	p1 := appgndr.FeedPost{Text: "basic english post", CreatedAt: "2024-01-02T03:04:05.006Z"}
+	assert.NoError(srv.indexPost(ctx, &ident, &p1, "gndr.app.feed.post/3kpnillluoh2y", cid.Undef))
 
-	// https://github.com/bluesky-social/indigo/issues/302
-	p2 := appbsky.FeedPost{Text: "学校から帰って熱いお風呂に入ったら力一杯がんばる", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p2, "app.bsky.feed.post/3kpnillluo222", cid.Undef))
-	p3 := appbsky.FeedPost{Text: "熱力学", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p3, "app.bsky.feed.post/3kpnillluo333", cid.Undef))
-	p4 := appbsky.FeedPost{Text: "東京都", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p4, "app.bsky.feed.post/3kpnillluo444", cid.Undef))
-	p5 := appbsky.FeedPost{Text: "京都", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p5, "app.bsky.feed.post/3kpnillluo555", cid.Undef))
-	p6 := appbsky.FeedPost{Text: "パリ", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p6, "app.bsky.feed.post/3kpnillluo666", cid.Undef))
-	p7 := appbsky.FeedPost{Text: "ハリー・ポッター", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p7, "app.bsky.feed.post/3kpnillluo777", cid.Undef))
-	p8 := appbsky.FeedPost{Text: "ハリ", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p8, "app.bsky.feed.post/3kpnillluo223", cid.Undef))
-	p9 := appbsky.FeedPost{Text: "multilingual 多言語", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p9, "app.bsky.feed.post/3kpnillluo224", cid.Undef))
+	// https://github.com/gander-social/gander-indigo-sovereign/issues/302
+	p2 := appgndr.FeedPost{Text: "学校から帰って熱いお風呂に入ったら力一杯がんばる", CreatedAt: "2024-01-02T03:04:05.006Z"}
+	assert.NoError(srv.indexPost(ctx, &ident, &p2, "gndr.app.feed.post/3kpnillluo222", cid.Undef))
+	p3 := appgndr.FeedPost{Text: "熱力学", CreatedAt: "2024-01-02T03:04:05.006Z"}
+	assert.NoError(srv.indexPost(ctx, &ident, &p3, "gndr.app.feed.post/3kpnillluo333", cid.Undef))
+	p4 := appgndr.FeedPost{Text: "東京都", CreatedAt: "2024-01-02T03:04:05.006Z"}
+	assert.NoError(srv.indexPost(ctx, &ident, &p4, "gndr.app.feed.post/3kpnillluo444", cid.Undef))
+	p5 := appgndr.FeedPost{Text: "京都", CreatedAt: "2024-01-02T03:04:05.006Z"}
+	assert.NoError(srv.indexPost(ctx, &ident, &p5, "gndr.app.feed.post/3kpnillluo555", cid.Undef))
+	p6 := appgndr.FeedPost{Text: "パリ", CreatedAt: "2024-01-02T03:04:05.006Z"}
+	assert.NoError(srv.indexPost(ctx, &ident, &p6, "gndr.app.feed.post/3kpnillluo666", cid.Undef))
+	p7 := appgndr.FeedPost{Text: "ハリー・ポッター", CreatedAt: "2024-01-02T03:04:05.006Z"}
+	assert.NoError(srv.indexPost(ctx, &ident, &p7, "gndr.app.feed.post/3kpnillluo777", cid.Undef))
+	p8 := appgndr.FeedPost{Text: "ハリ", CreatedAt: "2024-01-02T03:04:05.006Z"}
+	assert.NoError(srv.indexPost(ctx, &ident, &p8, "gndr.app.feed.post/3kpnillluo223", cid.Undef))
+	p9 := appgndr.FeedPost{Text: "multilingual 多言語", CreatedAt: "2024-01-02T03:04:05.006Z"}
+	assert.NoError(srv.indexPost(ctx, &ident, &p9, "gndr.app.feed.post/3kpnillluo224", cid.Undef))
 
 	_, err = srv.escli.Indices.Refresh()
 	assert.NoError(err)
@@ -224,78 +224,78 @@ func TestParsedQuery(t *testing.T) {
 	}
 	assert.Equal(0, len(res.Hits.Hits))
 
-	p1 := appbsky.FeedPost{Text: "basic english post", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p1, "app.bsky.feed.post/3kpnillluoh2y", cid.Undef))
-	p2 := appbsky.FeedPost{Text: "another english post", CreatedAt: "2024-01-02T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p2, "app.bsky.feed.post/3kpnilllu2222", cid.Undef))
-	p3 := appbsky.FeedPost{
+	p1 := appgndr.FeedPost{Text: "basic english post", CreatedAt: "2024-01-02T03:04:05.006Z"}
+	assert.NoError(srv.indexPost(ctx, &ident, &p1, "gndr.app.feed.post/3kpnillluoh2y", cid.Undef))
+	p2 := appgndr.FeedPost{Text: "another english post", CreatedAt: "2024-01-02T03:04:05.006Z"}
+	assert.NoError(srv.indexPost(ctx, &ident, &p2, "gndr.app.feed.post/3kpnilllu2222", cid.Undef))
+	p3 := appgndr.FeedPost{
 		Text:      "#cat post with hashtag",
 		CreatedAt: "2024-01-02T03:04:05.006Z",
-		Facets: []*appbsky.RichtextFacet{
-			&appbsky.RichtextFacet{
-				Features: []*appbsky.RichtextFacet_Features_Elem{
-					&appbsky.RichtextFacet_Features_Elem{
-						RichtextFacet_Tag: &appbsky.RichtextFacet_Tag{
+		Facets: []*appgndr.RichtextFacet{
+			&appgndr.RichtextFacet{
+				Features: []*appgndr.RichtextFacet_Features_Elem{
+					&appgndr.RichtextFacet_Features_Elem{
+						RichtextFacet_Tag: &appgndr.RichtextFacet_Tag{
 							Tag: "trick",
 						},
 					},
 				},
-				Index: &appbsky.RichtextFacet_ByteSlice{
+				Index: &appgndr.RichtextFacet_ByteSlice{
 					ByteStart: 0,
 					ByteEnd:   4,
 				},
 			},
 		},
 	}
-	assert.NoError(srv.indexPost(ctx, &ident, &p3, "app.bsky.feed.post/3kpnilllu3333", cid.Undef))
-	p4 := appbsky.FeedPost{
+	assert.NoError(srv.indexPost(ctx, &ident, &p3, "gndr.app.feed.post/3kpnilllu3333", cid.Undef))
+	p4 := appgndr.FeedPost{
 		Text:      "@other.example.com post with mention",
 		CreatedAt: "2024-01-02T03:04:05.006Z",
-		Facets: []*appbsky.RichtextFacet{
-			&appbsky.RichtextFacet{
-				Features: []*appbsky.RichtextFacet_Features_Elem{
-					&appbsky.RichtextFacet_Features_Elem{
-						RichtextFacet_Mention: &appbsky.RichtextFacet_Mention{
+		Facets: []*appgndr.RichtextFacet{
+			&appgndr.RichtextFacet{
+				Features: []*appgndr.RichtextFacet_Features_Elem{
+					&appgndr.RichtextFacet_Features_Elem{
+						RichtextFacet_Mention: &appgndr.RichtextFacet_Mention{
 							Did: "did:plc:abc222",
 						},
 					},
 				},
-				Index: &appbsky.RichtextFacet_ByteSlice{
+				Index: &appgndr.RichtextFacet_ByteSlice{
 					ByteStart: 0,
 					ByteEnd:   18,
 				},
 			},
 		},
 	}
-	assert.NoError(srv.indexPost(ctx, &ident, &p4, "app.bsky.feed.post/3kpnilllu4444", cid.Undef))
-	p5 := appbsky.FeedPost{
-		Text:      "https://bsky.app... post with hashtag #cat",
+	assert.NoError(srv.indexPost(ctx, &ident, &p4, "gndr.app.feed.post/3kpnilllu4444", cid.Undef))
+	p5 := appgndr.FeedPost{
+		Text:      "https://gndr.app... post with hashtag #cat",
 		CreatedAt: "2024-01-02T03:04:05.006Z",
-		Facets: []*appbsky.RichtextFacet{
-			&appbsky.RichtextFacet{
-				Features: []*appbsky.RichtextFacet_Features_Elem{
-					&appbsky.RichtextFacet_Features_Elem{
-						RichtextFacet_Link: &appbsky.RichtextFacet_Link{
+		Facets: []*appgndr.RichtextFacet{
+			&appgndr.RichtextFacet{
+				Features: []*appgndr.RichtextFacet_Features_Elem{
+					&appgndr.RichtextFacet_Features_Elem{
+						RichtextFacet_Link: &appgndr.RichtextFacet_Link{
 							Uri: "htTPS://www.en.wikipedia.org/wiki/CBOR?q=3&a=1&utm_campaign=123",
 						},
 					},
 				},
-				Index: &appbsky.RichtextFacet_ByteSlice{
+				Index: &appgndr.RichtextFacet_ByteSlice{
 					ByteStart: 0,
 					ByteEnd:   19,
 				},
 			},
 		},
 	}
-	assert.NoError(srv.indexPost(ctx, &ident, &p5, "app.bsky.feed.post/3kpnilllu5555", cid.Undef))
-	p6 := appbsky.FeedPost{
+	assert.NoError(srv.indexPost(ctx, &ident, &p5, "gndr.app.feed.post/3kpnilllu5555", cid.Undef))
+	p6 := appgndr.FeedPost{
 		Text:      "post with lang (deutsch)",
 		CreatedAt: "2024-01-02T03:04:05.006Z",
 		Langs:     []string{"ja", "de-DE"},
 	}
-	assert.NoError(srv.indexPost(ctx, &ident, &p6, "app.bsky.feed.post/3kpnilllu6666", cid.Undef))
-	p7 := appbsky.FeedPost{Text: "post with old date", CreatedAt: "2020-05-03T03:04:05.006Z"}
-	assert.NoError(srv.indexPost(ctx, &ident, &p7, "app.bsky.feed.post/3kpnilllu7777", cid.Undef))
+	assert.NoError(srv.indexPost(ctx, &ident, &p6, "gndr.app.feed.post/3kpnilllu6666", cid.Undef))
+	p7 := appgndr.FeedPost{Text: "post with old date", CreatedAt: "2020-05-03T03:04:05.006Z"}
+	assert.NoError(srv.indexPost(ctx, &ident, &p7, "gndr.app.feed.post/3kpnilllu7777", cid.Undef))
 
 	_, err = srv.escli.Indices.Refresh()
 	assert.NoError(err)

@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -73,7 +73,7 @@ func NewServer(config Config) (*Server, error) {
 		},
 		PLCLimiter:            rate.NewLimiter(rate.Limit(config.PLCRateLimit), 1),
 		TryAuthoritativeDNS:   true,
-		SkipDNSDomainSuffixes: []string{".bsky.social", ".staging.bsky.dev"},
+		SkipDNSDomainSuffixes: []string{".gndr.social", ".staging.gndr.dev"},
 		// TODO: UserAgent: "bluepages",
 	}
 

@@ -1,8 +1,8 @@
 package automod
 
 import (
-	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/automod/engine"
+	"github.com/gander-social/gander-indigo-sovereign/automod/countstore"
+	"github.com/gander-social/gander-indigo-sovereign/automod/engine"
 )
 
 type Engine = engine.Engine

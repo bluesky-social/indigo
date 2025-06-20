@@ -11,7 +11,7 @@
         "services": {
           "atproto_pds": {
             "type": "AtprotoPersonalDataServer",
-            "url": "https://morel.us-east.host.bsky.network"
+            "url": "https://morel.us-east.host.gndr.network"
           }
         },
         "keys": {
@@ -45,7 +45,7 @@
               "cid": {
                 "$link": "bafyreigewdja54vltktm26nis7j7tbnwu32fauquzmclqanvrgje5lzrci"
               },
-              "path": "app.bsky.feed.like/3llpyftcvih2r"
+              "path": "gndr.app.feed.like/3llpyftcvih2r"
             }
           ],
           "rebase": false,
@@ -84,7 +84,7 @@
               "cid": {
                 "$link": "bafyreido2m557t23ooasos6qjsbi6adrl34jodbvsnt3ifhcaudllh45km"
               },
-              "path": "app.bsky.feed.post/3llxv7pnd3s2q"
+              "path": "gndr.app.feed.post/3llxv7pnd3s2q"
             }
           ],
           "rebase": false,
@@ -120,7 +120,7 @@
               "cid": {
                 "$link": "bafyreihqwqjw6f64lc5ju5y2xpntmad5pvu3rhnkaqyfquy6aijc5dwrz4"
               },
-              "path": "app.bsky.feed.like/3llxva3wc7x22"
+              "path": "gndr.app.feed.like/3llxva3wc7x22"
             }
           ],
           "rebase": false,
@@ -154,7 +154,7 @@
             {
               "action": "delete",
               "cid": null,
-              "path": "app.bsky.feed.like/3llxva3wc7x22"
+              "path": "gndr.app.feed.like/3llxva3wc7x22"
             }
           ],
           "rebase": false,
@@ -190,7 +190,7 @@
               "cid": {
                 "$link": "bafyreiekrhjrt6rynumupipsqleynzcla37ei5pt6ymsv3bgyg5wwsmd7i"
               },
-              "path": "app.bsky.feed.threadgate/3llxv7pnd3s2q"
+              "path": "gndr.app.feed.threadgate/3llxv7pnd3s2q"
             }
           ],
           "rebase": false,
@@ -224,7 +224,7 @@
             {
               "action": "delete",
               "cid": null,
-              "path": "app.bsky.feed.post/3llxv7pnd3s2q"
+              "path": "gndr.app.feed.post/3llxv7pnd3s2q"
             }
           ],
           "rebase": false,

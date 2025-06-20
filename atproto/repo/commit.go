@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/atproto/crypto"
-	"github.com/bluesky-social/indigo/atproto/data"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/crypto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/data"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/ipfs/go-cid"
 )

@@ -19,8 +19,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/data"
-	"github.com/bluesky-social/indigo/repo"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/data"
+	"github.com/gander-social/gander-indigo-sovereign/repo"
 	"github.com/ipfs/go-cid"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/prometheus/client_golang/prometheus"
@@ -74,7 +74,7 @@ func main() {
 		&cli.StringFlag{
 			Name:  "checkout-path",
 			Usage: "path to checkout endpoint",
-			Value: "https://bsky.network/xrpc/com.atproto.sync.getRepo",
+			Value: "https://gndr.network/xrpc/com.atproto.sync.getRepo",
 		},
 		&cli.StringFlag{
 			Name:    "magic-header-key",

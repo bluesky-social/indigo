@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/agnostic"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/gander-social/gander-indigo-sovereign/api/agnostic"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 
 	"github.com/urfave/cli/v2"
 )

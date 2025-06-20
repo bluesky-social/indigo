@@ -8,9 +8,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/repo"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/repo"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/urfave/cli/v2"
 )
@@ -48,7 +48,7 @@ func main() {
 				&cli.StringFlag{
 					Name:    "relay-host",
 					Usage:   "method, hostname, and port of Relay instance (websocket)",
-					Value:   "wss://bsky.network",
+					Value:   "wss://gndr.network",
 					EnvVars: []string{"ATP_RELAY_HOST"},
 				},
 			},

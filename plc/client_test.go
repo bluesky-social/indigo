@@ -40,16 +40,16 @@ func TestPLCCreateVector(t *testing.T) {
     "type": "create",
     "signingKey": "did:key:zDnaeRSYs7c2NpcNA5NRAUqS8DCkLWDyNLnATi28D6w7no7hX",
     "recoveryKey": "did:key:zDnaeRSYs7c2NpcNA5NRAUqS8DCkLWDyNLnATi28D6w7no7hX",
-    "handle": "why.bsky.social",
-    "service": "bsky.social",
+    "handle": "why.gndr.social",
+    "service": "gndr.social",
     "prev": null
   }`,
 		SignedOp: `{
     "type": "create",
     "signingKey": "did:key:zDnaeRSYs7c2NpcNA5NRAUqS8DCkLWDyNLnATi28D6w7no7hX",
     "recoveryKey": "did:key:zDnaeRSYs7c2NpcNA5NRAUqS8DCkLWDyNLnATi28D6w7no7hX",
-    "handle": "why.bsky.social",
-    "service": "bsky.social",
+    "handle": "why.gndr.social",
+    "service": "gndr.social",
     "prev": null,
     "sig": "e8h6dCx405Z_95cZWWkZtfLgDPvfdXDG9pCZQi1NhduooZgb4d1w-CzahA3J-iNGCCgP3D0O5l997G3vQfxKOA"
   }`,

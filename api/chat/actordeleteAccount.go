@@ -2,22 +2,22 @@
 
 package chat
 
-// schema: chat.bsky.actor.deleteAccount
+// schema: chat.gndr.actor.deleteAccount
 
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ActorDeleteAccount_Output is the output of a chat.bsky.actor.deleteAccount call.
+// ActorDeleteAccount_Output is the output of a chat.gndr.actor.deleteAccount call.
 type ActorDeleteAccount_Output struct {
 }
 
-// ActorDeleteAccount calls the XRPC method "chat.bsky.actor.deleteAccount".
+// ActorDeleteAccount calls the XRPC method "chat.gndr.actor.deleteAccount".
 func ActorDeleteAccount(ctx context.Context, c util.LexClient) (*ActorDeleteAccount_Output, error) {
 	var out ActorDeleteAccount_Output
-	if err := c.LexDo(ctx, util.Procedure, "", "chat.bsky.actor.deleteAccount", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "", "chat.gndr.actor.deleteAccount", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

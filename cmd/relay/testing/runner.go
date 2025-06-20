@@ -10,12 +10,12 @@ import (
 	"os"
 	"reflect"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/cmd/relay/relay"
-	"github.com/bluesky-social/indigo/cmd/relay/stream"
-	"github.com/bluesky-social/indigo/cmd/relay/stream/eventmgr"
-	"github.com/bluesky-social/indigo/cmd/relay/stream/persist/diskpersist"
-	"github.com/bluesky-social/indigo/util/cliutil"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/relay"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream/eventmgr"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream/persist/diskpersist"
+	"github.com/gander-social/gander-indigo-sovereign/util/cliutil"
 )
 
 type SimpleRelay struct {

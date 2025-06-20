@@ -3,7 +3,7 @@ package helpers
 import (
 	"testing"
 
-	"github.com/bluesky-social/indigo/automod/keyword"
+	"github.com/gander-social/gander-indigo-sovereign/automod/keyword"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -46,8 +46,8 @@ func TestExtractURL(t *testing.T) {
 			out: []string{"example.com"},
 		},
 		{
-			s:   "this is another example with https://en.wikipedia.org/index.html: and archive.org, and https://eff.org/... and bsky.app.",
-			out: []string{"https://en.wikipedia.org/index.html", "archive.org", "https://eff.org/", "bsky.app"},
+			s:   "this is another example with https://en.wikipedia.org/index.html: and archive.org, and https://eff.org/... and gndr.app.",
+			out: []string{"https://en.wikipedia.org/index.html", "archive.org", "https://eff.org/", "gndr.app"},
 		},
 	}
 

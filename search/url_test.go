@@ -15,7 +15,7 @@ func TestNormalizeLossyURL(t *testing.T) {
 	}{
 		{orig: "", clean: ""},
 		{orig: "asdf", clean: "asdf"},
-		{orig: "HTTP://bSky.app:80/index.html", clean: "http://bsky.app"},
+		{orig: "HTTP://bSky.app:80/index.html", clean: "http://gndr.app"},
 		{orig: "https://example.com/thing?c=123&utm_campaign=blah&a=first", clean: "https://example.com/thing?a=first&c=123"},
 		{orig: "https://example.com/thing?c=123&utm_campaign=blah&a=first", clean: "https://example.com/thing?a=first&c=123"},
 		{orig: "http://example.com/foo//bar.html", clean: "http://example.com/foo/bar.html"},

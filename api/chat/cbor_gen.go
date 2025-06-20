@@ -42,10 +42,10 @@ func (t *ActorDeclaration) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("chat.bsky.actor.declaration"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("chat.gndr.actor.declaration"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("chat.bsky.actor.declaration")); err != nil {
+	if _, err := cw.WriteString(string("chat.gndr.actor.declaration")); err != nil {
 		return err
 	}
 

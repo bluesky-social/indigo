@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	bsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/util"
+	gndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/carstore"
+	"github.com/gander-social/gander-indigo-sovereign/util"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -76,7 +76,7 @@ func BenchmarkRepoMgrCreates(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _, err = repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
+		_, _, err = repoman.CreateRecord(ctx, 1, "gndr.app.feed.post", &gndr.FeedPost{
 			Text: "cats",
 		})
 		if err != nil {

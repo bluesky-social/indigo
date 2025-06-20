@@ -6,8 +6,8 @@ import (
 
 	"gorm.io/gorm"
 
-	bsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/xrpc"
+	gndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 )
 
 type FeedPost struct {
@@ -48,8 +48,8 @@ type ActorInfo struct {
 	ValidHandle bool `gorm:"default:true"`
 }
 
-func (ai *ActorInfo) ActorRef() *bsky.ActorDefs_ProfileViewBasic {
-	return &bsky.ActorDefs_ProfileViewBasic{
+func (ai *ActorInfo) ActorRef() *gndr.ActorDefs_ProfileViewBasic {
+	return &gndr.ActorDefs_ProfileViewBasic{
 		Did:         ai.Did,
 		Handle:      ai.Handle.String,
 		DisplayName: &ai.DisplayName,
@@ -57,8 +57,8 @@ func (ai *ActorInfo) ActorRef() *bsky.ActorDefs_ProfileViewBasic {
 }
 
 // TODO: this is just s stub; needs to populate more info
-func (ai *ActorInfo) ActorView() *bsky.ActorDefs_ProfileView {
-	return &bsky.ActorDefs_ProfileView{
+func (ai *ActorInfo) ActorView() *gndr.ActorDefs_ProfileView {
+	return &gndr.ActorDefs_ProfileView{
 		Did:         ai.Did,
 		Handle:      ai.Handle.String,
 		DisplayName: &ai.DisplayName,

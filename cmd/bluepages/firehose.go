@@ -8,12 +8,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/events/schedulers/parallel"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/events/schedulers/parallel"
 
-	"github.com/bluesky-social/indigo/events"
 	"github.com/carlmjohnson/versioninfo"
+	"github.com/gander-social/gander-indigo-sovereign/events"
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"
 )

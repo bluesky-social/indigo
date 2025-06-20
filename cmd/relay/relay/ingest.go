@@ -7,11 +7,11 @@ import (
 	"log/slog"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
-	"github.com/bluesky-social/indigo/cmd/relay/stream"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/relay/models"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream"
 
 	"go.opentelemetry.io/otel/attribute"
 )

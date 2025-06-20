@@ -11,12 +11,12 @@ func ParseServiceURL(raw string) string {
 	if len(parts) < 3 || parts[0] != "https:" {
 		return raw
 	}
-	if parts[2] == "bsky.app" && len(parts) >= 5 && parts[3] == "profile" {
+	if parts[2] == "gndr.app" && len(parts) >= 5 && parts[3] == "profile" {
 		if len(parts) == 5 {
 			return parts[4]
 		}
 		if len(parts) == 7 && parts[5] == "post" {
-			return fmt.Sprintf("at://%s/app.bsky.feed.post/%s", parts[4], parts[6])
+			return fmt.Sprintf("at://%s/gndr.app.feed.post/%s", parts[4], parts[6])
 		}
 	}
 	return raw

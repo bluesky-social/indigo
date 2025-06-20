@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/cmd/relay/stream"
-	"github.com/bluesky-social/indigo/cmd/relay/stream/schedulers/sequential"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream/schedulers/sequential"
 
 	"github.com/gorilla/websocket"
 )

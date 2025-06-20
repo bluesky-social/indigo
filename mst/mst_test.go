@@ -12,9 +12,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/bluesky-social/indigo/util"
+	"github.com/gander-social/gander-indigo-sovereign/util"
 
-	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car/v2"

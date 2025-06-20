@@ -15,20 +15,20 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/atproto"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/did"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/schedulers/sequential"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/did"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/events/schedulers/sequential"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/repo"
+	"github.com/gander-social/gander-indigo-sovereign/repomgr"
+	"github.com/gander-social/gander-indigo-sovereign/util"
+	"github.com/gander-social/gander-indigo-sovereign/util/cliutil"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
@@ -484,7 +484,7 @@ var debugFeedGenCmd = &cli.Command{
 			return fmt.Errorf("getting record: %w", err)
 		}
 
-		fgr, ok := out.Value.Val.(*bsky.FeedGenerator)
+		fgr, ok := out.Value.Val.(*gndr.FeedGenerator)
 		if !ok {
 			return fmt.Errorf("invalid feedgen record")
 		}
@@ -504,7 +504,7 @@ var debugFeedGenCmd = &cli.Command{
 
 		var ss *did.Service
 		for _, s := range doc.Service {
-			if s.ID.String() == "#bsky_fg" {
+			if s.ID.String() == "#gndr_fg" {
 				cp := s
 				ss = &cp
 				break
@@ -512,7 +512,7 @@ var debugFeedGenCmd = &cli.Command{
 		}
 
 		if ss == nil {
-			return fmt.Errorf("No '#bsky_fg' service entry found in feedgens DID document")
+			return fmt.Errorf("No '#gndr_fg' service entry found in feedgens DID document")
 		}
 
 		fmt.Println("Service endpoint is: ", ss.ServiceEndpoint)
@@ -521,7 +521,7 @@ var debugFeedGenCmd = &cli.Command{
 			Host: ss.ServiceEndpoint,
 		}
 
-		desc, err := bsky.FeedDescribeFeedGenerator(ctx, fgclient)
+		desc, err := gndr.FeedDescribeFeedGenerator(ctx, fgclient)
 		if err != nil {
 			return err
 		}
@@ -540,7 +540,7 @@ var debugFeedGenCmd = &cli.Command{
 			return fmt.Errorf("specified feed was not present in linked feedGenerators 'describe' method output")
 		}
 
-		skel, err := bsky.FeedGetFeedSkeleton(ctx, fgclient, "", uri, 30)
+		skel, err := gndr.FeedGetFeedSkeleton(ctx, fgclient, "", uri, 30)
 		if err != nil {
 			return fmt.Errorf("failed to fetch feed skeleton: %w", err)
 		}
@@ -563,7 +563,7 @@ var debugFeedGenCmd = &cli.Command{
 		curs := skel.Cursor
 		for i := 0; i < 10 && curs != nil; i++ {
 			fmt.Println("Response had cursor: ", *curs)
-			nresp, err := bsky.FeedGetFeedSkeleton(ctx, fgclient, *curs, uri, 10)
+			nresp, err := gndr.FeedGetFeedSkeleton(ctx, fgclient, *curs, uri, 10)
 			if err != nil {
 				return fmt.Errorf("fetching paginated feed failed: %w", err)
 			}
@@ -616,7 +616,7 @@ var debugFeedViewCmd = &cli.Command{
 			return fmt.Errorf("getting record: %w", err)
 		}
 
-		fgr, ok := out.Value.Val.(*bsky.FeedGenerator)
+		fgr, ok := out.Value.Val.(*gndr.FeedGenerator)
 		if !ok {
 			return fmt.Errorf("invalid feedgen record")
 		}
@@ -628,7 +628,7 @@ var debugFeedViewCmd = &cli.Command{
 
 		var ss *did.Service
 		for _, s := range doc.Service {
-			if s.ID.String() == "#bsky_fg" {
+			if s.ID.String() == "#gndr_fg" {
 				cp := s
 				ss = &cp
 				break
@@ -636,7 +636,7 @@ var debugFeedViewCmd = &cli.Command{
 		}
 
 		if ss == nil {
-			return fmt.Errorf("No '#bsky_fg' service entry found in feedgens DID document")
+			return fmt.Errorf("No '#gndr_fg' service entry found in feedgens DID document")
 		}
 
 		fgclient := &xrpc.Client{
@@ -650,8 +650,8 @@ var debugFeedViewCmd = &cli.Command{
 		var cacheUpdate bool
 
 		var cursor string
-		getPage := func(curs string) ([]*bsky.FeedDefs_PostView, error) {
-			skel, err := bsky.FeedGetFeedSkeleton(ctx, fgclient, cursor, uri, 30)
+		getPage := func(curs string) ([]*gndr.FeedDefs_PostView, error) {
+			skel, err := gndr.FeedGetFeedSkeleton(ctx, fgclient, cursor, uri, 30)
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch feed skeleton: %w", err)
 			}
@@ -660,14 +660,14 @@ var debugFeedViewCmd = &cli.Command{
 				cursor = *skel.Cursor
 			}
 
-			var posts []*bsky.FeedDefs_PostView
+			var posts []*gndr.FeedDefs_PostView
 			for _, fp := range skel.Feed {
 				cached, ok := cache[fp.Post]
 				if ok {
 					posts = append(posts, cached)
 					continue
 				}
-				fps, err := bsky.FeedGetPosts(ctx, xrpcc, []string{fp.Post})
+				fps, err := gndr.FeedGetPosts(ctx, xrpcc, []string{fp.Post})
 				if err != nil {
 					return nil, err
 				}
@@ -677,7 +677,7 @@ var debugFeedViewCmd = &cli.Command{
 					continue
 				}
 				p := fps.Posts[0]
-				rec := p.Record.Val.(*bsky.FeedPost)
+				rec := p.Record.Val.(*gndr.FeedPost)
 				rec.Embed = nil // nil out embeds since they sometimes fail to json marshal...
 				posts = append(posts, p)
 				cache[fp.Post] = p
@@ -687,9 +687,9 @@ var debugFeedViewCmd = &cli.Command{
 			return posts, nil
 		}
 
-		printPosts := func(posts []*bsky.FeedDefs_PostView) {
+		printPosts := func(posts []*gndr.FeedDefs_PostView) {
 			for _, p := range posts {
-				fp, ok := p.Record.Val.(*bsky.FeedPost)
+				fp, ok := p.Record.Val.(*gndr.FeedPost)
 				if !ok {
 					fmt.Printf("ERROR: Post had invalid record type: %T\n", p.Record.Val)
 					continue
@@ -739,13 +739,13 @@ var debugFeedViewCmd = &cli.Command{
 	},
 }
 
-func loadCache(filename string) (map[string]*bsky.FeedDefs_PostView, error) {
-	var data map[string]*bsky.FeedDefs_PostView
+func loadCache(filename string) (map[string]*gndr.FeedDefs_PostView, error) {
+	var data map[string]*gndr.FeedDefs_PostView
 
 	jsonFile, err := os.Open(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return make(map[string]*bsky.FeedDefs_PostView), nil
+			return make(map[string]*gndr.FeedDefs_PostView), nil
 		}
 
 		return nil, fmt.Errorf("failed to open file: %w", err)
@@ -765,7 +765,7 @@ func loadCache(filename string) (map[string]*bsky.FeedDefs_PostView, error) {
 	return data, nil
 }
 
-func saveCache(filename string, data map[string]*bsky.FeedDefs_PostView) error {
+func saveCache(filename string, data map[string]*gndr.FeedDefs_PostView) error {
 	file, err := json.MarshalIndent(data, "", " ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal json: %w", err)
@@ -827,12 +827,12 @@ var debugCompareReposCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:  "host-1",
 			Usage: "method, hostname, and port of PDS instance",
-			Value: "https://bsky.social",
+			Value: "https://gndr.social",
 		},
 		&cli.StringFlag{
 			Name:  "host-2",
 			Usage: "method, hostname, and port of PDS instance",
-			Value: "https://bsky.network",
+			Value: "https://gndr.network",
 		},
 	},
 	ArgsUsage: `<did>`,

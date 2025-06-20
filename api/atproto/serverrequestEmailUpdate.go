@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // ServerRequestEmailUpdate_Output is the output of a com.atproto.server.requestEmailUpdate call.

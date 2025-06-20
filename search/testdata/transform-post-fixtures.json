@@ -5,14 +5,14 @@
 		"rkey": "3k4duaz5vfs2b",
 		"cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
 		"PostRecord": {
-			"$type": "app.bsky.feed.post",
+			"$type": "gndr.app.feed.post",
 			"text": "post which embeds an external URL as a card",
 			"createdAt": "2023-08-07T05:46:14.423045Z",
 			"embed": {
-				"$type": "app.bsky.embed.external",
+				"$type": "gndr.app.embed.external",
 				"external": {
-					"uri": "https://www.bsky.app:443/index.html",
-					"title": "Bluesky Social",
+					"uri": "https://www.gndr.app:443/index.html",
+					"title": "Gander Social",
 					"description": "See what's next.",
 					"thumb": {
 						"$type": "blob",
@@ -35,10 +35,10 @@
 			"created_at": "2023-08-07T05:46:14.423045Z",
 			"text": "post which embeds an external URL as a card",
 			"url": [
-				"https://bsky.app"
+				"https://gndr.app"
 			],
 			"domain": [
-				"bsky.app"
+				"gndr.app"
 			],
 			"embed_img_count": 0
 		}
@@ -49,7 +49,7 @@
 		"rkey": "3k4duaz5vfs2b",
 		"cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
 		"PostRecord": {
-			"$type": "app.bsky.feed.post",
+			"$type": "gndr.app.feed.post",
 			"text": "longer example with #some #hashtags, emoji \u2620 \ud83d\ude42 \ud83c\udf85\ud83c\udfff, flags \ud83c\uddf8\ud83c\udde8 ",
 			"createdAt": "2023-08-07T05:46:14.423045Z",
 			"langs": [
@@ -64,7 +64,7 @@
 					},
 					"features": [
 						{
-							"$type": "app.bsky.richtext.facet#mention",
+							"$type": "gndr.app.richtext.facet#mention",
 							"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"
 						}
 					]
@@ -76,7 +76,7 @@
 					},
 					"features": [
 						{
-							"$type": "app.bsky.richtext.facet#link",
+							"$type": "gndr.app.richtext.facet#link",
 							"uri": "https://en.wikipedia.org/wiki/CBOR?utm_campaign=123"
 						}
 					]
@@ -88,7 +88,7 @@
 					},
 					"features": [
 						{
-							"$type": "app.bsky.richtext.facet#tag",
+							"$type": "gndr.app.richtext.facet#tag",
 							"tag": "some"
 						}
 					]
@@ -104,18 +104,18 @@
 			},
 			"reply": {
 				"root": {
-					"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k43tv4rft22g",
+					"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/gndr.app.feed.post/3k43tv4rft22g",
 					"cid": "bafyreig2fjxi3rptqdgylg7e5hmjl6mcke7rn2b6cugzlqq3i4zu6rq52q"
 				},
 				"parent": {
-					"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k43tv4rft22g",
+					"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/gndr.app.feed.post/3k43tv4rft22g",
 					"cid": "bafyreig2fjxi3rptqdgylg7e5hmjl6mcke7rn2b6cugzlqq3i4zu6rq52q"
 				}
 			},
 			"embed": {
-				"$type": "app.bsky.embed.record",
+				"$type": "gndr.app.embed.record",
 				"record": {
-					"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k44deefqdk2g",
+					"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/gndr.app.feed.post/3k44deefqdk2g",
 					"cid": "bafyreiecx6dujwoeqpdzl27w67z4h46hyklk3an4i4cvvmioaqb2qbyo5u"
 				}
 			},
@@ -132,11 +132,11 @@
 			"record_cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
 			"created_at": "2023-08-07T05:46:14.423045Z",
 			"text": "longer example with #some #hashtags, emoji \u2620 \ud83d\ude42 \ud83c\udf85\ud83c\udfff, flags \ud83c\uddf8\ud83c\udde8 ",
-			"reply_root_aturi": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k43tv4rft22g",
+			"reply_root_aturi": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/gndr.app.feed.post/3k43tv4rft22g",
 			"mention_did": [
 				"did:plc:ewvi7nxzyoun6zhxrhs64oiz"
 			],
-			"embed_aturi": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k44deefqdk2g",
+			"embed_aturi": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/gndr.app.feed.post/3k44deefqdk2g",
 			"lang_code": [
 				"th",
 				"en-US"
@@ -173,11 +173,11 @@
 		"rkey": "3k4duaz5vfs2b",
 		"cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
 		"PostRecord": {
-			"$type": "app.bsky.feed.post",
+			"$type": "gndr.app.feed.post",
 			"text": "",
 			"createdAt": "2023-08-07T05:46:14.423045Z",
 			"embed": {
-				"$type": "app.bsky.embed.images",
+				"$type": "gndr.app.embed.images",
 				"images": [
 					{
 						"alt": "brief alt text description of the first image",
@@ -226,11 +226,11 @@
 		"rkey": "3k4duaz5vfs2b",
 		"cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
 		"PostRecord": {
-			"$type": "app.bsky.feed.post",
+			"$type": "gndr.app.feed.post",
 			"text": "学校から帰って熱いお風呂に入ったら力一杯がんばる",
 			"createdAt": "2023-08-07T05:46:14.423045Z",
 			"embed": {
-				"$type": "app.bsky.embed.images",
+				"$type": "gndr.app.embed.images",
 				"images": [
 					{
 						"alt": "brief alt text description of the first image ハリー・ポッター",
@@ -283,13 +283,13 @@
 		"rkey": "3k4duaz5vfs2d",
 		"cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
 		"PostRecord": {
-			"$type": "app.bsky.feed.post",
+			"$type": "gndr.app.feed.post",
 			"text": "",
 			"createdAt": "2023-08-07T05:46:14.423045Z",
 			"embed": {
-				"$type": "app.bsky.embed.recordWithMedia",
+				"$type": "gndr.app.embed.recordWithMedia",
 				"media": {
-					"$type": "app.bsky.embed.images",
+					"$type": "gndr.app.embed.images",
 					"images": [
 						{
 							"alt": "brief alt text description of the first image",
@@ -316,10 +316,10 @@
 					]
 				},
 				"record": {
-					"$type": "app.bsky.embed.record",
+					"$type": "gndr.app.embed.record",
 					"record": {
 						"cid": "bafyreiecx6dujwoeqpdzl27w67z4h46hyklk3an4i4cvvmioaqb2qbyo5u",
-						"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k44deefqdk2g"
+						"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/gndr.app.feed.post/3k44deefqdk2g"
 					}
 				}
 			}
@@ -338,7 +338,7 @@
 				"brief alt text description of the second image"
 			],
 			"embed_img_count": 2,
-			"embed_aturi": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k44deefqdk2g"
+			"embed_aturi": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/gndr.app.feed.post/3k44deefqdk2g"
 		}
 	}
 ]

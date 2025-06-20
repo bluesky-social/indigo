@@ -3,7 +3,7 @@ package helpers
 import (
 	"time"
 
-	"github.com/bluesky-social/indigo/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
 )
 
 // no accounts exist before this time

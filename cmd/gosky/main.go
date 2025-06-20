@@ -15,19 +15,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/atproto"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/schedulers/sequential"
-	"github.com/bluesky-social/indigo/handles"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/events/schedulers/sequential"
+	"github.com/gander-social/gander-indigo-sovereign/handles"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/repo"
+	"github.com/gander-social/gander-indigo-sovereign/util"
+	"github.com/gander-social/gander-indigo-sovereign/util/cliutil"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 	"golang.org/x/time/rate"
 
 	"github.com/gorilla/websocket"
@@ -56,7 +56,7 @@ func run(args []string) {
 
 	app := cli.App{
 		Name:    "gosky",
-		Usage:   "client CLI for atproto and bluesky",
+		Usage:   "client CLI for atproto and gander",
 		Version: versioninfo.Short(),
 	}
 
@@ -64,13 +64,13 @@ func run(args []string) {
 		&cli.StringFlag{
 			Name:    "pds-host",
 			Usage:   "method, hostname, and port of PDS instance",
-			Value:   "https://bsky.social",
+			Value:   "https://gndr.social",
 			EnvVars: []string{"ATP_PDS_HOST"},
 		},
 		&cli.StringFlag{
 			Name:    "auth",
 			Usage:   "path to JSON file with ATP auth info",
-			Value:   "bsky.auth",
+			Value:   "gndr.auth",
 			EnvVars: []string{"ATP_AUTH_FILE"},
 		},
 		&cli.StringFlag{
@@ -91,7 +91,7 @@ func run(args []string) {
 	app.Commands = []*cli.Command{
 		accountCmd,
 		adminCmd,
-		bskyCmd,
+		gndrCmd,
 		bgsAdminCmd,
 		carCmd,
 		debugCmd,
@@ -274,7 +274,7 @@ var readRepoStreamCmd = &cli.Command{
 
 						for _, rec := range recs {
 							switch rec := rec.(type) {
-							case *bsky.FeedPost:
+							case *gndr.FeedPost:
 								fmt.Printf("\tPost: %q\n", strings.Replace(rec.Text, "\n", " ", -1))
 							}
 						}
@@ -414,7 +414,7 @@ var getRecordCmd = &cli.Command{
 
 			fmt.Println(string(b))
 			return nil
-		} else if strings.HasPrefix(cctx.Args().First(), "https://bsky.app") {
+		} else if strings.HasPrefix(cctx.Args().First(), "https://gndr.app") {
 			xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 			if err != nil {
 				return err
@@ -430,13 +430,13 @@ var getRecordCmd = &cli.Command{
 			var collection string
 			switch parts[len(parts)-2] {
 			case "post":
-				collection = "app.bsky.feed.post"
+				collection = "gndr.app.feed.post"
 			case "profile":
-				collection = "app.bsky.actor.profile"
+				collection = "gndr.app.actor.profile"
 				did = rkey
 				rkey = "self"
 			case "feed":
-				collection = "app.bsky.feed.generator"
+				collection = "gndr.app.feed.generator"
 			default:
 				return fmt.Errorf("unrecognized link")
 			}
@@ -574,18 +574,18 @@ var createFeedGeneratorCmd = &cli.Command{
 
 		ctx := context.TODO()
 
-		rec := &lexutil.LexiconTypeDecoder{Val: &bsky.FeedGenerator{
+		rec := &lexutil.LexiconTypeDecoder{Val: &gndr.FeedGenerator{
 			CreatedAt:   time.Now().Format(util.ISO8601),
 			Description: desc,
 			Did:         did,
 			DisplayName: name,
 		}}
 
-		ex, err := atproto.RepoGetRecord(ctx, xrpcc, "", "app.bsky.feed.generator", xrpcc.Auth.Did, rkey)
+		ex, err := atproto.RepoGetRecord(ctx, xrpcc, "", "gndr.app.feed.generator", xrpcc.Auth.Did, rkey)
 		if err == nil {
 			resp, err := atproto.RepoPutRecord(ctx, xrpcc, &atproto.RepoPutRecord_Input{
 				SwapRecord: ex.Cid,
-				Collection: "app.bsky.feed.generator",
+				Collection: "gndr.app.feed.generator",
 				Repo:       xrpcc.Auth.Did,
 				Rkey:       rkey,
 				Record:     rec,
@@ -597,7 +597,7 @@ var createFeedGeneratorCmd = &cli.Command{
 			fmt.Println(resp.Uri)
 		} else {
 			resp, err := atproto.RepoCreateRecord(ctx, xrpcc, &atproto.RepoCreateRecord_Input{
-				Collection: "app.bsky.feed.generator",
+				Collection: "gndr.app.feed.generator",
 				Repo:       xrpcc.Auth.Did,
 				Rkey:       &rkey,
 				Record:     rec,
@@ -666,7 +666,7 @@ var listAllRecordsCmd = &cli.Command{
 			return err
 		}
 
-		collection := "app.bsky.feed.post"
+		collection := "gndr.app.feed.post"
 		if cctx.Bool("all") {
 			collection = ""
 		}
@@ -756,7 +756,7 @@ var listLabelsCmd = &cli.Command{
 		since := time.Now().Add(-1 * delta).UnixMilli()
 
 		xrpcc := &xrpc.Client{
-			Host: "https://mod.bsky.app",
+			Host: "https://mod.gndr.app",
 		}
 
 		for {
@@ -812,12 +812,12 @@ var verifyUserCmd = &cli.Command{
 			return err
 		}
 
-		profrec, err := atproto.RepoGetRecord(ctx, xrpcc, "", "app.bsky.actor.profile", ident.DID.String(), "self")
+		profrec, err := atproto.RepoGetRecord(ctx, xrpcc, "", "gndr.app.actor.profile", ident.DID.String(), "self")
 		if err != nil {
 			return err
 		}
 
-		ap, ok := profrec.Value.Val.(*bsky.ActorProfile)
+		ap, ok := profrec.Value.Val.(*gndr.ActorProfile)
 		if !ok {
 			return fmt.Errorf("got wrong record type back")
 		}
@@ -827,7 +827,7 @@ var verifyUserCmd = &cli.Command{
 			dn = *ap.DisplayName
 		}
 
-		rec := &lexutil.LexiconTypeDecoder{Val: &bsky.GraphVerification{
+		rec := &lexutil.LexiconTypeDecoder{Val: &gndr.GraphVerification{
 			CreatedAt:   time.Now().Format(util.ISO8601),
 			DisplayName: dn,
 			Handle:      ident.Handle.String(),
@@ -835,7 +835,7 @@ var verifyUserCmd = &cli.Command{
 		}}
 
 		resp, err := atproto.RepoCreateRecord(ctx, xrpcc, &atproto.RepoCreateRecord_Input{
-			Collection: "app.bsky.graph.verification",
+			Collection: "gndr.app.graph.verification",
 			Repo:       xrpcc.Auth.Did,
 			Record:     rec,
 		})

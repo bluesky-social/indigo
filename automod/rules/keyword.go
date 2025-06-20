@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"strings"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/helpers"
-	"github.com/bluesky-social/indigo/automod/keyword"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/helpers"
+	"github.com/gander-social/gander-indigo-sovereign/automod/keyword"
 )
 
-func BadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func BadWordPostRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	isJapanese := false
 	for _, lang := range post.Langs {
 		if lang == "ja" || strings.HasPrefix(lang, "ja-") {
@@ -46,7 +46,7 @@ func BadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 
 var _ automod.PostRuleFunc = BadWordPostRule
 
-func BadWordProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile) error {
+func BadWordProfileRule(c *automod.RecordContext, profile *appgndr.ActorProfile) error {
 	if profile.DisplayName != nil {
 		word := keyword.SlugContainsExplicitSlur(keyword.Slugify(*profile.DisplayName))
 		if word != "" {
@@ -71,7 +71,7 @@ func BadWordProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile)
 var _ automod.ProfileRuleFunc = BadWordProfileRule
 
 // looks for the specific harassment situation of a replay to another user with only a single word
-func ReplySingleBadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func ReplySingleBadWordPostRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	if post.Reply != nil && !helpers.IsSelfThread(c, post) {
 		tokens := helpers.ExtractTextTokensPost(post)
 		if len(tokens) != 1 {
@@ -94,10 +94,10 @@ func BadWordOtherRecordRule(c *automod.RecordContext) error {
 	name := ""
 	text := ""
 	switch c.RecordOp.Collection.String() {
-	case "app.bsky.graph.list":
-		var list appbsky.GraphList
+	case "gndr.app.graph.list":
+		var list appgndr.GraphList
 		if err := list.UnmarshalCBOR(bytes.NewReader(c.RecordOp.RecordCBOR)); err != nil {
-			return fmt.Errorf("failed to parse app.bsky.graph.list record: %v", err)
+			return fmt.Errorf("failed to parse gndr.app.graph.list record: %v", err)
 		}
 		name += " " + list.Name
 		if list.Description != nil {
@@ -106,10 +106,10 @@ func BadWordOtherRecordRule(c *automod.RecordContext) error {
 		if list.Purpose != nil {
 			text += " " + *list.Purpose
 		}
-	case "app.bsky.feed.generator":
-		var generator appbsky.FeedGenerator
+	case "gndr.app.feed.generator":
+		var generator appgndr.FeedGenerator
 		if err := generator.UnmarshalCBOR(bytes.NewReader(c.RecordOp.RecordCBOR)); err != nil {
-			return fmt.Errorf("failed to parse app.bsky.feed.generator record: %v", err)
+			return fmt.Errorf("failed to parse gndr.app.feed.generator record: %v", err)
 		}
 		name += " " + generator.DisplayName
 		if generator.Description != nil {

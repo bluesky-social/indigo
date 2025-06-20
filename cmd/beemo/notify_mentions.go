@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/urfave/cli/v2"
 )
@@ -22,7 +22,7 @@ type MentionChecker struct {
 	minimumWords    int
 }
 
-func (mc *MentionChecker) ProcessPost(ctx context.Context, did syntax.DID, rkey syntax.RecordKey, post appbsky.FeedPost) error {
+func (mc *MentionChecker) ProcessPost(ctx context.Context, did syntax.DID, rkey syntax.RecordKey, post appgndr.FeedPost) error {
 	mc.logger.Debug("processing post record", "did", did, "rkey", rkey)
 
 	if mc.minimumWords > 0 {
@@ -49,7 +49,7 @@ func (mc *MentionChecker) ProcessPost(ctx context.Context, did syntax.DID, rkey 
 					if err != nil {
 						return err
 					}
-					msg := fmt.Sprintf("Mention of `@%s` by `@%s` (<https://bsky.app/profile/%s/post/%s|post link>):\n```%s```", targetIdent.Handle, authorIdent.Handle, did, rkey, post.Text)
+					msg := fmt.Sprintf("Mention of `@%s` by `@%s` (<https://gndr.app/profile/%s/post/%s|post link>):\n```%s```", targetIdent.Handle, authorIdent.Handle, did, rkey, post.Text)
 					if post.Embed != nil && (post.Embed.EmbedImages != nil || post.Embed.EmbedRecordWithMedia != nil || post.Embed.EmbedRecord != nil || post.Embed.EmbedExternal != nil) {
 						msg += "\n(post also contains an embed/quote/media)"
 					}

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/util"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/repo"
+	"github.com/gander-social/gander-indigo-sovereign/util"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -112,9 +112,9 @@ func reproduceRecord(t *testing.T, path string, c cid.Cid, rec cbg.CBORMarshaler
 
 	// TODO: refactor this to be short+generic
 	switch nsid {
-	case "app.bsky.feed.post":
-		var recordRepro appbsky.FeedPost
-		recordOrig, suc := rec.(*appbsky.FeedPost)
+	case "gndr.app.feed.post":
+		var recordRepro appgndr.FeedPost
+		recordOrig, suc := rec.(*appgndr.FeedPost)
 		assert.Equal(true, suc)
 		recordJSON, err := json.Marshal(recordOrig)
 		assert.NoError(err)
@@ -131,9 +131,9 @@ func reproduceRecord(t *testing.T, path string, c cid.Cid, rec cbg.CBORMarshaler
 			fmt.Println(hex.EncodeToString(recordBytes.Bytes()))
 		}
 		assert.Equal(c.String(), reproCID.String())
-	case "app.bsky.actor.profile":
-		var recordRepro appbsky.ActorProfile
-		recordOrig, suc := rec.(*appbsky.ActorProfile)
+	case "gndr.app.actor.profile":
+		var recordRepro appgndr.ActorProfile
+		recordOrig, suc := rec.(*appgndr.ActorProfile)
 
 		assert.Equal(true, suc)
 		recordJSON, err := json.Marshal(recordOrig)
@@ -144,9 +144,9 @@ func reproduceRecord(t *testing.T, path string, c cid.Cid, rec cbg.CBORMarshaler
 		reproCID, err := cidBuilder.Sum(recordCBOR.Bytes())
 		assert.NoError(err)
 		assert.Equal(c.String(), reproCID.String())
-	case "app.bsky.graph.follow":
-		var recordRepro appbsky.GraphFollow
-		recordOrig, suc := rec.(*appbsky.GraphFollow)
+	case "gndr.app.graph.follow":
+		var recordRepro appgndr.GraphFollow
+		recordOrig, suc := rec.(*appgndr.GraphFollow)
 
 		assert.Equal(true, suc)
 		recordJSON, err := json.Marshal(recordOrig)
@@ -157,9 +157,9 @@ func reproduceRecord(t *testing.T, path string, c cid.Cid, rec cbg.CBORMarshaler
 		reproCID, err := cidBuilder.Sum(recordCBOR.Bytes())
 		assert.NoError(err)
 		assert.Equal(c.String(), reproCID.String())
-	case "app.bsky.feed.repost":
-		var recordRepro appbsky.FeedRepost
-		recordOrig, suc := rec.(*appbsky.FeedRepost)
+	case "gndr.app.feed.repost":
+		var recordRepro appgndr.FeedRepost
+		recordOrig, suc := rec.(*appgndr.FeedRepost)
 
 		assert.Equal(true, suc)
 		recordJSON, err := json.Marshal(recordOrig)
@@ -170,9 +170,9 @@ func reproduceRecord(t *testing.T, path string, c cid.Cid, rec cbg.CBORMarshaler
 		reproCID, err := cidBuilder.Sum(recordCBOR.Bytes())
 		assert.NoError(err)
 		assert.Equal(c.String(), reproCID.String())
-	case "app.bsky.feed.like":
-		var recordRepro appbsky.FeedLike
-		recordOrig, suc := rec.(*appbsky.FeedLike)
+	case "gndr.app.feed.like":
+		var recordRepro appgndr.FeedLike
+		recordOrig, suc := rec.(*appgndr.FeedLike)
 
 		assert.Equal(true, suc)
 		recordJSON, err := json.Marshal(recordOrig)
@@ -191,9 +191,9 @@ func reproduceRecord(t *testing.T, path string, c cid.Cid, rec cbg.CBORMarshaler
 func TestReproduceRepo(t *testing.T) {
 
 	// to get from prod, first resolve handle then save DID doc and repo CAR file like:
-	// 	http get https://bsky.social/xrpc/com.atproto.identity.resolveHandle handle==greenground.bsky.social
+	// 	http get https://gndr.social/xrpc/com.atproto.identity.resolveHandle handle==greenground.gndr.social
 	//  http get https://plc.directory/did:plc:wqgdnqlv2mwiio6pfchwtrff > greenground.didDoc.json
-	//  http get https://bsky.social/xrpc/com.atproto.sync.getRepo did==did:plc:wqgdnqlv2mwiio6pfchwtrff > greenground.repo.car
+	//  http get https://gndr.social/xrpc/com.atproto.sync.getRepo did==did:plc:wqgdnqlv2mwiio6pfchwtrff > greenground.repo.car
 
 	// to fetch from local dev:
 	//  http get localhost:2582/did:plc:dpg45vsnuir2vqqqadsn6afg > fakermaker.didDoc.json

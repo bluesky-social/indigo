@@ -13,9 +13,9 @@ import (
 	_ "go.uber.org/automaxprocs"
 	_ "net/http/pprof"
 
-	"github.com/bluesky-social/indigo/events/pebblepersist"
-	"github.com/bluesky-social/indigo/splitter"
-	"github.com/bluesky-social/indigo/util/svcutil"
+	"github.com/gander-social/gander-indigo-sovereign/events/pebblepersist"
+	"github.com/gander-social/gander-indigo-sovereign/splitter"
+	"github.com/gander-social/gander-indigo-sovereign/util/svcutil"
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/urfave/cli/v2"

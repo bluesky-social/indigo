@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 	"golang.org/x/time/rate"
 
 	"github.com/stretchr/testify/assert"
@@ -22,7 +22,7 @@ func testDirectoryLive(t *testing.T, d Directory) {
 
 	handle := syntax.Handle("atproto.com")
 	did := syntax.DID("did:plc:ewvi7nxzyoun6zhxrhs64oiz")
-	pdsSuffix := "host.bsky.network"
+	pdsSuffix := "host.gndr.network"
 
 	resp, err := d.LookupHandle(ctx, handle)
 	assert.NoError(err)
@@ -85,7 +85,7 @@ func TestCacheCoalesce(t *testing.T) {
 		// Limit the number of requests we can make to the PLC to 1 per second
 		PLCLimiter:            rate.NewLimiter(1, 1),
 		TryAuthoritativeDNS:   true,
-		SkipDNSDomainSuffixes: []string{".bsky.social"},
+		SkipDNSDomainSuffixes: []string{".gndr.social"},
 	}
 	dir := NewCacheDirectory(&base, 1000, time.Hour*1, time.Hour*1, time.Hour*1)
 	// All 60 routines launch at the same time, so they should all miss the cache initially

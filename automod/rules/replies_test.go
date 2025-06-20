@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/capture"
-	"github.com/bluesky-social/indigo/automod/engine"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/capture"
+	"github.com/gander-social/gander-indigo-sovereign/automod/engine"
 
 	"github.com/stretchr/testify/assert"
 )

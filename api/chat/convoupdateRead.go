@@ -2,29 +2,29 @@
 
 package chat
 
-// schema: chat.bsky.convo.updateRead
+// schema: chat.gndr.convo.updateRead
 
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ConvoUpdateRead_Input is the input argument to a chat.bsky.convo.updateRead call.
+// ConvoUpdateRead_Input is the input argument to a chat.gndr.convo.updateRead call.
 type ConvoUpdateRead_Input struct {
 	ConvoId   string  `json:"convoId" cborgen:"convoId"`
 	MessageId *string `json:"messageId,omitempty" cborgen:"messageId,omitempty"`
 }
 
-// ConvoUpdateRead_Output is the output of a chat.bsky.convo.updateRead call.
+// ConvoUpdateRead_Output is the output of a chat.gndr.convo.updateRead call.
 type ConvoUpdateRead_Output struct {
 	Convo *ConvoDefs_ConvoView `json:"convo" cborgen:"convo"`
 }
 
-// ConvoUpdateRead calls the XRPC method "chat.bsky.convo.updateRead".
+// ConvoUpdateRead calls the XRPC method "chat.gndr.convo.updateRead".
 func ConvoUpdateRead(ctx context.Context, c util.LexClient, input *ConvoUpdateRead_Input) (*ConvoUpdateRead_Output, error) {
 	var out ConvoUpdateRead_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.updateRead", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.gndr.convo.updateRead", nil, input, &out); err != nil {
 		return nil, err
 	}
 

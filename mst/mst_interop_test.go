@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/bluesky-social/indigo/util"
+	"github.com/gander-social/gander-indigo-sovereign/util"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/ipfs/go-cid"
@@ -23,8 +23,8 @@ func TestLeadingZeros(t *testing.T) {
 	assert.Equal(t, leadingZerosOnHash("88bfafc7"), 2, msg)
 	assert.Equal(t, leadingZerosOnHash("2a92d355"), 4, msg)
 	assert.Equal(t, leadingZerosOnHash("884976f5"), 6, msg)
-	assert.Equal(t, leadingZerosOnHash("app.bsky.feed.post/454397e440ec"), 4, msg)
-	assert.Equal(t, leadingZerosOnHash("app.bsky.feed.post/9adeb165882c"), 8, msg)
+	assert.Equal(t, leadingZerosOnHash("gndr.app.feed.post/454397e440ec"), 4, msg)
+	assert.Equal(t, leadingZerosOnHash("gndr.app.feed.post/9adeb165882c"), 8, msg)
 }
 
 func TestPrefixLen(t *testing.T) {

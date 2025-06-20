@@ -9,7 +9,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/bluesky-social/indigo/models"
+	"github.com/gander-social/gander-indigo-sovereign/models"
 	blockformat "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	car "github.com/ipld/go-car"

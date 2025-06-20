@@ -1,0 +1,147 @@
+# Gander Social Sovereignty Configuration
+# This file controls all Canadian data sovereignty features
+
+sovereignty:
+  # Master switch - set to false during development, true for production
+  enabled: true
+  country_code: "CA"
+  
+  # ThinkOn data centers in Canada
+  data_centers: 
+    - "thinkon-toronto-1"
+    - "thinkon-montreal-1"
+    - "thinkon-vancouver-1"
+  
+  # Geographic filtering controls who can access Canadian data
+  geo_filtering:
+    enabled: true
+    # Countries that can access standard Canadian content
+    allowed_countries: ["CA", "US", "GB", "FR", "DE", "AU", "NZ"]
+    # Countries explicitly blocked from all access
+    blocked_countries: ["RU", "CN", "IR", "KP", "BY"]
+    # What to do with countries not explicitly listed
+    default_action: "review"  # "allow", "block", or "review"
+    # Detect and handle VPN usage
+    vpn_detection: true
+    vpn_action: "flag"  # "allow", "block", or "flag"
+  
+  # Private messaging encryption for enterprise/government users
+  private_messaging:
+    enabled: true
+    encryption_algorithm: "AES-256-GCM"
+    # How often to rotate encryption keys (for security)
+    key_rotation_interval: "720h" # 30 days
+    # Use Hardware Security Module for key storage
+    hsm_enabled: true
+    hsm_provider: "thinkon-hsm"
+    # Backup encryption keys to multiple Canadian facilities
+    key_backup_locations: 
+      - "thinkon-toronto-hsm"
+      - "thinkon-montreal-hsm"
+  
+  # Enterprise Single Sign-On integration
+  enterprise_auth:
+    enabled: true
+    saml_enabled: true
+    oidc_enabled: true
+    # How long enterprise sessions last before re-authentication
+    session_ttl: "8h"
+    # Require VPN for government users
+    require_vpn: false  # Set per organization
+    
+    # Different identity providers for different organizations
+    providers:
+      - name: "government-of-canada"
+        type: "saml"
+        metadata_url: "https://idp.gc.ca/saml/metadata"
+        certificate_path: "/certs/gc-saml.crt"
+        organizations: ["gc.ca", "canada.ca"]
+        require_vpn: true
+        clearance_levels: ["protected-a", "protected-b", "secret"]
+      
+      - name: "azure-ad-enterprise"
+        type: "oidc"
+        issuer: "https://login.microsoftonline.com/{tenant-id}/v2.0"
+        client_id: "${AZURE_CLIENT_ID}"
+        client_secret: "${AZURE_CLIENT_SECRET}"
+        organizations: ["*.onmicrosoft.com"]
+        require_vpn: false
+        clearance_levels: ["public", "internal", "confidential"]
+      
+      - name: "okta-enterprise"
+        type: "oidc"
+        issuer: "https://{domain}.okta.com"
+        client_id: "${OKTA_CLIENT_ID}"
+        client_secret: "${OKTA_CLIENT_SECRET}"
+        organizations: ["*.ca"]
+        require_vpn: false
+        clearance_levels: ["public", "internal"]
+  
+  # Legal compliance with Canadian privacy laws
+  compliance:
+    # Personal Information Protection and Electronic Documents Act
+    pipeda_compliance: true
+    # How long to keep user data (days)
+    data_retention_days: 365
+    # Log all access to sensitive data
+    audit_logging: true
+    # Support user's right to delete their data
+    right_to_erasure: true
+    # Support user's right to export their data
+    data_portability: true
+    # Automatic compliance checking
+    automated_compliance_checks: true
+    # Where to send compliance reports
+    compliance_contact: "privacy@gandersocial.ca"
+
+# Technical infrastructure settings
+infrastructure:
+  # Database settings for Canadian data
+  database:
+    primary_region: "canada-central"
+    backup_regions: ["canada-east"]
+    encryption_at_rest: true
+    encryption_in_transit: true
+    backup_retention_days: 90
+  
+  # Content Delivery Network settings
+  cdn:
+    provider: "thinkon-cdn"
+    canadian_only: true
+    cache_duration: "1h"
+    purge_on_deletion: true
+  
+  # Monitoring and alerting
+  monitoring:
+    prometheus_enabled: true
+    grafana_enabled: true
+    alert_manager_enabled: true
+    # Alert on any potential privacy violations
+    privacy_violation_alerts: true
+    # Alert on cross-border data access attempts
+    cross_border_alerts: true
+    # Performance monitoring
+    performance_monitoring: true
+
+# Development and testing settings
+development:
+  # Use mock services during development
+  mock_hsm: true
+  mock_geo_service: true
+  mock_vpn_detection: true
+  # Load test data
+  load_test_data: true
+  # Debug logging
+  debug_logging: true
+  # Skip some security checks during development
+  relaxed_security: true
+
+# Feature flags for gradual rollout
+feature_flags:
+  dual_mode_relay: true
+  private_messaging: true
+  enterprise_sso: true
+  geo_filtering: true
+  automated_moderation: false  # Enable later
+  ai_content_filtering: false  # Enable later
+  advanced_analytics: false   # Enable later

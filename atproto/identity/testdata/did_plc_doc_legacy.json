@@ -19,7 +19,7 @@
     {
       "id": "#atproto_pds",
       "type": "AtprotoPersonalDataServer",
-      "serviceEndpoint": "https://bsky.social"
+      "serviceEndpoint": "https://gndr.social"
     }
   ]
 }

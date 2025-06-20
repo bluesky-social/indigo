@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bluesky-social/indigo/cmd/relay/relay"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/relay"
 
 	"github.com/labstack/echo/v4"
 )

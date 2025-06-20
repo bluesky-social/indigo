@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"strings"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/relay/relay"
-	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
-	"github.com/bluesky-social/indigo/xrpc"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/relay"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/relay/models"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 
 	"github.com/labstack/echo/v4"
 )
@@ -266,7 +266,7 @@ var homeMessage string = `
 .##....##..##.......##.......##.....##....##...
 .##.....##.########.########.##.....##....##...
 
-This is an atproto [https://atproto.com] relay instance, running the 'relay' codebase [https://github.com/bluesky-social/indigo]
+This is an atproto [https://atproto.com] relay instance, running the 'relay' codebase [https://github.com/gander-social/gander-indigo-sovereign]
 
 The firehose WebSocket path is at:  /xrpc/com.atproto.sync.subscribeRepos
 `

@@ -23,11 +23,11 @@ import (
 	"syscall"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/util/svcutil"
-	"github.com/bluesky-social/indigo/xrpc"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/util/svcutil"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 
 	"github.com/hashicorp/golang-lru/v2"
 	"github.com/labstack/echo/v4"
@@ -61,7 +61,7 @@ var serveCmd = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name:    "upstream",
-			Usage:   "URL, e.g. wss://bsky.network",
+			Usage:   "URL, e.g. wss://gndr.network",
 			EnvVars: []string{"COLLECTIONS_UPSTREAM"},
 		},
 		&cli.StringFlag{
@@ -629,7 +629,7 @@ func (cs *collectionServer) hasBadword(collection string) bool {
 // admin may set ?stalesec={} for a maximum number of seconds stale data is accepted
 //
 // returns
-// {"collections":{"app.bsky.feed.post": 123456789, "some collection": 42}, "cursor":"opaque text"}
+// {"collections":{"gndr.app.feed.post": 123456789, "some collection": 42}, "cursor":"opaque text"}
 func (cs *collectionServer) listCollections(c echo.Context) error {
 	stalenessAllowed := statsCacheDuration
 	stalesecStr := c.QueryParam("stalesec")

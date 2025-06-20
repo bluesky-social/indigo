@@ -16,7 +16,7 @@ The `automod/rules` package contains a set of example rules and some shared help
 
 Automod rules are golang functions which get called every time a relevant event takes place in the network. Rule functions receive static metadata about the event; can fetch additional state or metadata as needed; and can optionally output "effects". These effects can include state mutations (such as incrementing counters), or taking moderation actions.
 
-There are multiple rule function types (eg, specifically for bsky "posts", or for atproto identity updates), but they all receive a `c` "Context" argument as the primary API for the rules system, including both accessing metadata and recording effects.
+There are multiple rule function types (eg, specifically for gndr "posts", or for atproto identity updates), but they all receive a `c` "Context" argument as the primary API for the rules system, including both accessing metadata and recording effects.
 
 Multiple rules for the same event may be run concurrently, or in arbitrary order. Effects *are not* visible between rule execution on the same event, and are only persisted after all rules have finished executing. This means that if one rule increments a counter or adds a label, other rules will not "see" that effect when processing the same event.
 
@@ -40,10 +40,10 @@ The notable rule function types are:
 
 - `type IdentityRuleFunc = func(c *AccountContext) error`: triggers on events like handle updates or account migrations
 - `type RecordRuleFunc = func(c *RecordContext) error`: triggers on every repo operation: create, update, or delete. Triggers for every record type, including posts and profiles
-- `type PostRuleFunc = func(c *RecordContext, post *appbsky.FeedPost) error`: triggers on creation or update of any `app.bsky.feed.post` record. The post record is de-serialized for convenience, but otherwise this is basically just `RecordRuleFunc`
-- `type ProfileRuleFunc = func(c *RecordContext, profile *appbsky.ActorProfile) error`: same as `PostRuleFunc`, but for profile
+- `type PostRuleFunc = func(c *RecordContext, post *appgndr.FeedPost) error`: triggers on creation or update of any `gndr.app.feed.post` record. The post record is de-serialized for convenience, but otherwise this is basically just `RecordRuleFunc`
+- `type ProfileRuleFunc = func(c *RecordContext, profile *appgndr.ActorProfile) error`: same as `PostRuleFunc`, but for profile
 
-The `PostRuleFunc` and `ProfileRuleFunc` are simply affordances so that rules for those common record types don't all need to filter and type-cast. Rules for other record types (such as `app.bsky.graph.follow`) do need to use `RecordRuleFunc` and implement that filtering and type-casting.
+The `PostRuleFunc` and `ProfileRuleFunc` are simply affordances so that rules for those common record types don't all need to filter and type-cast. Rules for other record types (such as `gndr.app.graph.follow`) do need to use `RecordRuleFunc` and implement that filtering and type-casting.
 
 ### Pre-Hydrated Metadata
 
@@ -51,7 +51,7 @@ The `c *automod.AccountContext` parameter provides the following pre-hydrated me
 
 - `c.Account.Identity`: atproto identity for the account, including `DID` and `Handle` fields, and the PDS endpoint URL (if declared)
 - `c.Account.Private` (optional): contains things like `.IndexedAt` (account first seen), `.Email` (the current registered account email), and `.EmailConfirmed` (boolean). Only hydrated when the rule engine is configured with admin privileges, and the account is on a PDS those privileges have access to
-- `c.Account.Profile` (optional): a cached subset of the account's bsky profile record
+- `c.Account.Profile` (optional): a cached subset of the account's gndr profile record
 - `c.Account.AccountLabels` (array of strings): cached view of any moderation labels applied to the account, by the relevant "local" moderation service
 - `c.Account.AccountNegatedLabels` (array of strings)
 - `c.Account.Takendown` (bool): if the account is currently taken down or not
@@ -124,9 +124,9 @@ When deploying a new rule, it is recommended to start with a minimal action, lik
 
 ### Network Data
 
-The `hepa` command provides `process-record` and `process-recent` sub-commands which will pull an existing individual record (by AT-URI) or all recent bsky posts for an account (by handle or DID), which can be helpful for testing.
+The `hepa` command provides `process-record` and `process-recent` sub-commands which will pull an existing individual record (by AT-URI) or all recent gndr posts for an account (by handle or DID), which can be helpful for testing.
 
-There is also a `capture-recent` sub-command which will save a snapshot ("capture") of the current account identity and profile, and recent bsky posts, as JSON. This can be combined with testing helpers (which will load the capture and push it through a mock rules engine) to test that new rules actually trigger as expected against real-world data.
+There is also a `capture-recent` sub-command which will save a snapshot ("capture") of the current account identity and profile, and recent gndr posts, as JSON. This can be combined with testing helpers (which will load the capture and push it through a mock rules engine) to test that new rules actually trigger as expected against real-world data.
 
 Note that, of course, any real-world captures should have identifying or otherwise sensitive information redacted or replaced before committing to git.
 
@@ -139,7 +139,7 @@ Here is a trivial post record rule:
 // the GTUBE string is a special value historically used to test email spam filtering behavior
 var gtubeString = "XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X"
 
-func GtubePostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func GtubePostRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	if strings.Contains(post.Text, gtubeString) {
 		c.AddRecordLabel("spam")
 	}

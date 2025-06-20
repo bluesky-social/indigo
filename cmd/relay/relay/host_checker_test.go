@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -40,7 +40,7 @@ func TestLiveHostChecker(t *testing.T) {
 	dir := identity.DefaultDirectory()
 	hc := NewHostClient("indigo-tests")
 
-	assert.NoError(hc.CheckHost(ctx, "https://morel.us-east.host.bsky.network"))
+	assert.NoError(hc.CheckHost(ctx, "https://morel.us-east.host.gndr.network"))
 	assert.Error(hc.CheckHost(ctx, "https://dummy.example.com"))
 
 	ident, err := dir.LookupHandle(ctx, syntax.Handle("atproto.com"))

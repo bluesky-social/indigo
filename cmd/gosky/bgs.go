@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 	cli "github.com/urfave/cli/v2"
 )
 

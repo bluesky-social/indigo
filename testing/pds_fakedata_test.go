@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluesky-social/indigo/fakedata"
-	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/gander-social/gander-indigo-sovereign/fakedata"
+	"github.com/gander-social/gander-indigo-sovereign/util"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 
 	"github.com/stretchr/testify/assert"
 )

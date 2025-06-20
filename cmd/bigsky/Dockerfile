@@ -46,6 +46,6 @@ EXPOSE 2470
 
 CMD ["/bigsky"]
 
-LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
+LABEL org.opencontainers.image.source=https://github.com/gander-social/gander-indigo-sovereign
 LABEL org.opencontainers.image.description="ATP Relay (aka BGS)"
 LABEL org.opencontainers.image.licenses=MIT

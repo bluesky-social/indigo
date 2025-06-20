@@ -3,7 +3,7 @@ package lexicon
 import (
 	"fmt"
 
-	atdata "github.com/bluesky-social/indigo/atproto/data"
+	atdata "github.com/gander-social/gander-indigo-sovereign/atproto/data"
 )
 
 func ExampleValidateRecord() {

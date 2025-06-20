@@ -9,12 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	atproto "github.com/bluesky-social/indigo/api/atproto"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/util"
+	atproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	gndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/carstore"
+	"github.com/gander-social/gander-indigo-sovereign/models"
+	"github.com/gander-social/gander-indigo-sovereign/repo"
+	"github.com/gander-social/gander-indigo-sovereign/util"
 	"github.com/ipfs/go-cid"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -132,7 +132,7 @@ func TestIngestWithGap(t *testing.T) {
 		ops := []*atproto.SyncSubscribeRepos_RepoOp{
 			{
 				Action: "create",
-				Path:   "app.bsky.feed.post/" + tid,
+				Path:   "gndr.app.feed.post/" + tid,
 			},
 		}
 
@@ -168,7 +168,7 @@ func doPost(t *testing.T, cs carstore.CarStore, did string, prev *string, postid
 
 	r := repo.NewRepo(ctx, did, ds)
 
-	_, tid, err := r.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
+	_, tid, err := r.CreateRecord(ctx, "gndr.app.feed.post", &gndr.FeedPost{
 		Text: fmt.Sprintf("hello friend %d", postid),
 	})
 	if err != nil {
@@ -215,14 +215,14 @@ func TestDuplicateRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p1, _, err := repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
+	p1, _, err := repoman.CreateRecord(ctx, 1, "gndr.app.feed.post", &gndr.FeedPost{
 		Text: "hello friend",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	p2, _, err := repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
+	p2, _, err := repoman.CreateRecord(ctx, 1, "gndr.app.feed.post", &gndr.FeedPost{
 		Text: "hello friend",
 	})
 	if err != nil {
@@ -230,12 +230,12 @@ func TestDuplicateRecord(t *testing.T) {
 	}
 
 	rkey2 := strings.Split(p2, "/")[1]
-	if err := repoman.DeleteRecord(ctx, 1, "app.bsky.feed.post", rkey2); err != nil {
+	if err := repoman.DeleteRecord(ctx, 1, "gndr.app.feed.post", rkey2); err != nil {
 		t.Fatal(err)
 	}
 
 	rkey1 := strings.Split(p1, "/")[1]
-	c, rec, err := repoman.GetRecord(ctx, 1, "app.bsky.feed.post", rkey1, cid.Undef)
+	c, rec, err := repoman.GetRecord(ctx, 1, "gndr.app.feed.post", rkey1, cid.Undef)
 	if err != nil {
 		t.Fatal(err)
 	}

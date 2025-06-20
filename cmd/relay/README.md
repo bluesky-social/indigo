@@ -4,7 +4,7 @@
 
 *NOTE: "relays" used to be called "Big Graph Servers", or "BGS", or "bigsky". Many variables and packages still reference "bgs"*
 
-This is a reference implementation of an atproto relay, written and operated by Bluesky.
+This is a reference implementation of an atproto relay, written and operated by Gander.
 
 In [atproto](https://atproto.com), a relay subscribes to multiple PDS hosts and outputs a combined "firehose" event stream. Downstream services can subscribe to this single firehose a get all relevant events for the entire network, or a specific sub-graph of the network. The relay verifies repo data structure integrity and identity signatures. It is application-agnostic, and does not validate data records against atproto Lexicon schemas.
 
@@ -102,7 +102,7 @@ Some notable configuration env vars:
 - `RELAY_PERSIST_DIR`: storage location for "backfill" events, eg `/data/relay/persist`
 - `RELAY_REPLAY_WINDOW`: the duration of output "backfill window", eg `24h`
 - `RELAY_LENIENT_SYNC_VALIDATION`: if `true`, allow legacy upstreams which don't implement atproto sync v1.1
-- `RELAY_TRUSTED_DOMAINS`: patterns of PDS hosts which get larger quotas by default, eg `*.host.bsky.network`
+- `RELAY_TRUSTED_DOMAINS`: patterns of PDS hosts which get larger quotas by default, eg `*.host.gndr.network`
 
 There is a health check endpoint at `/xrpc/_health`. Prometheus metrics are exposed by default on port 2471, path `/metrics`. The service logs fairly verbosely to stdout; use `LOG_LEVEL` to control log volume (`warn`, `info`, etc).
 
@@ -145,7 +145,7 @@ An alternative method, using `goat` and `parallel`, which is more gentle and may
 
     # dump a host list using goat
     # 'rg' is ripgrep
-    RELAY_HOST=https://relay1.us-west.bsky.network goat relay host list | rg '\tactive' | cut -f1 > hosts.txt
+    RELAY_HOST=https://relay1.us-west.gndr.network goat relay host list | rg '\tactive' | cut -f1 > hosts.txt
 
     # assuming that .env contains local relay configuration and admin credential
     shuf hosts.txt | parallel goat relay admin host add {}

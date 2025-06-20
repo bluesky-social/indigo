@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	toolsozone "github.com/bluesky-social/indigo/api/ozone"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	toolsozone "github.com/gander-social/gander-indigo-sovereign/api/ozone"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 )
 
 // The primary interface exposed to rules. All other contexts derive from this "base" struct.

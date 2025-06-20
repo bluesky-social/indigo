@@ -2,24 +2,24 @@
 
 package chat
 
-// schema: chat.bsky.moderation.updateActorAccess
+// schema: chat.gndr.moderation.updateActorAccess
 
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ModerationUpdateActorAccess_Input is the input argument to a chat.bsky.moderation.updateActorAccess call.
+// ModerationUpdateActorAccess_Input is the input argument to a chat.gndr.moderation.updateActorAccess call.
 type ModerationUpdateActorAccess_Input struct {
 	Actor       string  `json:"actor" cborgen:"actor"`
 	AllowAccess bool    `json:"allowAccess" cborgen:"allowAccess"`
 	Ref         *string `json:"ref,omitempty" cborgen:"ref,omitempty"`
 }
 
-// ModerationUpdateActorAccess calls the XRPC method "chat.bsky.moderation.updateActorAccess".
+// ModerationUpdateActorAccess calls the XRPC method "chat.gndr.moderation.updateActorAccess".
 func ModerationUpdateActorAccess(ctx context.Context, c util.LexClient, input *ModerationUpdateActorAccess_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.moderation.updateActorAccess", nil, input, nil); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.gndr.moderation.updateActorAccess", nil, input, nil); err != nil {
 		return err
 	}
 

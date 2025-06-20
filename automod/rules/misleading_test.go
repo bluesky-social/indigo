@@ -6,12 +6,12 @@ import (
 	"log/slog"
 	"testing"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/engine"
-	"github.com/bluesky-social/indigo/automod/helpers"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/engine"
+	"github.com/gander-social/gander-indigo-sovereign/automod/helpers"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -28,18 +28,18 @@ func TestMisleadingURLPostRule(t *testing.T) {
 		},
 	}
 	cid1 := syntax.CID("cid123")
-	p1 := appbsky.FeedPost{
+	p1 := appgndr.FeedPost{
 		Text: "https://safe.com/ is very reputable",
-		Facets: []*appbsky.RichtextFacet{
-			&appbsky.RichtextFacet{
-				Features: []*appbsky.RichtextFacet_Features_Elem{
-					&appbsky.RichtextFacet_Features_Elem{
-						RichtextFacet_Link: &appbsky.RichtextFacet_Link{
+		Facets: []*appgndr.RichtextFacet{
+			&appgndr.RichtextFacet{
+				Features: []*appgndr.RichtextFacet_Features_Elem{
+					&appgndr.RichtextFacet_Features_Elem{
+						RichtextFacet_Link: &appgndr.RichtextFacet_Link{
 							Uri: "https://evil.com",
 						},
 					},
 				},
-				Index: &appbsky.RichtextFacet_ByteSlice{
+				Index: &appgndr.RichtextFacet_ByteSlice{
 					ByteStart: 0,
 					ByteEnd:   16,
 				},
@@ -52,7 +52,7 @@ func TestMisleadingURLPostRule(t *testing.T) {
 	op := engine.RecordOp{
 		Action:     engine.CreateOp,
 		DID:        am1.Identity.DID,
-		Collection: syntax.NSID("app.bsky.feed.post"),
+		Collection: syntax.NSID("gndr.app.feed.post"),
 		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
 		RecordCBOR: p1cbor,
@@ -75,18 +75,18 @@ func TestMisleadingMentionPostRule(t *testing.T) {
 		},
 	}
 	cid1 := syntax.CID("cid123")
-	p1 := appbsky.FeedPost{
+	p1 := appgndr.FeedPost{
 		Text: "@handle.example.com is a friend",
-		Facets: []*appbsky.RichtextFacet{
-			&appbsky.RichtextFacet{
-				Features: []*appbsky.RichtextFacet_Features_Elem{
-					&appbsky.RichtextFacet_Features_Elem{
-						RichtextFacet_Mention: &appbsky.RichtextFacet_Mention{
+		Facets: []*appgndr.RichtextFacet{
+			&appgndr.RichtextFacet{
+				Features: []*appgndr.RichtextFacet_Features_Elem{
+					&appgndr.RichtextFacet_Features_Elem{
+						RichtextFacet_Mention: &appgndr.RichtextFacet_Mention{
 							Did: "did:plc:abc222",
 						},
 					},
 				},
-				Index: &appbsky.RichtextFacet_ByteSlice{
+				Index: &appgndr.RichtextFacet_ByteSlice{
 					ByteStart: 1,
 					ByteEnd:   19,
 				},
@@ -99,7 +99,7 @@ func TestMisleadingMentionPostRule(t *testing.T) {
 	op := engine.RecordOp{
 		Action:     engine.CreateOp,
 		DID:        am1.Identity.DID,
-		Collection: syntax.NSID("app.bsky.feed.post"),
+		Collection: syntax.NSID("gndr.app.feed.post"),
 		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
 		RecordCBOR: p1cbor,

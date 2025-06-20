@@ -13,8 +13,8 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/bluesky-social/indigo/querycheck"
-	"github.com/bluesky-social/indigo/util/tracing"
+	"github.com/gander-social/gander-indigo-sovereign/querycheck"
+	"github.com/gander-social/gander-indigo-sovereign/util/tracing"
 	"github.com/labstack/echo-contrib/pprof"
 	"github.com/labstack/echo/v4"
 
@@ -118,7 +118,7 @@ func Querycheck(cctx *cli.Context) error {
 	// 	getLikeCountQuery := `SELECT *
 	// FROM like_counts
 	// WHERE actor_did = 'did:plc:q6gjnaw2blty4crticxkmujt'
-	// 	AND ns = 'app.bsky.feed.post'
+	// 	AND ns = 'gndr.app.feed.post'
 	// 	AND rkey = '3k3jf5lgbsw24'
 	// LIMIT 1;`
 

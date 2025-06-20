@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // RepoImportRepo calls the XRPC method "com.atproto.repo.importRepo".

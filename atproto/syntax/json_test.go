@@ -74,11 +74,11 @@ func TestJSONEncoding(t *testing.T) {
 func TestJSONHandle(t *testing.T) {
 	assert := assert.New(t)
 
-	blob := `["atproto.com", "bsky.app"]`
+	blob := `["atproto.com", "gndr.app"]`
 	var handleList []Handle
 	if err := json.Unmarshal([]byte(blob), &handleList); err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(Handle("atproto.com"), handleList[0])
-	assert.Equal(Handle("bsky.app"), handleList[1])
+	assert.Equal(Handle("gndr.app"), handleList[1])
 }

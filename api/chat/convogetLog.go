@@ -2,17 +2,17 @@
 
 package chat
 
-// schema: chat.bsky.convo.getLog
+// schema: chat.gndr.convo.getLog
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ConvoGetLog_Output is the output of a chat.bsky.convo.getLog call.
+// ConvoGetLog_Output is the output of a chat.gndr.convo.getLog call.
 type ConvoGetLog_Output struct {
 	Cursor *string                         `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Logs   []*ConvoGetLog_Output_Logs_Elem `json:"logs" cborgen:"logs"`
@@ -33,43 +33,43 @@ type ConvoGetLog_Output_Logs_Elem struct {
 
 func (t *ConvoGetLog_Output_Logs_Elem) MarshalJSON() ([]byte, error) {
 	if t.ConvoDefs_LogBeginConvo != nil {
-		t.ConvoDefs_LogBeginConvo.LexiconTypeID = "chat.bsky.convo.defs#logBeginConvo"
+		t.ConvoDefs_LogBeginConvo.LexiconTypeID = "chat.gndr.convo.defs#logBeginConvo"
 		return json.Marshal(t.ConvoDefs_LogBeginConvo)
 	}
 	if t.ConvoDefs_LogAcceptConvo != nil {
-		t.ConvoDefs_LogAcceptConvo.LexiconTypeID = "chat.bsky.convo.defs#logAcceptConvo"
+		t.ConvoDefs_LogAcceptConvo.LexiconTypeID = "chat.gndr.convo.defs#logAcceptConvo"
 		return json.Marshal(t.ConvoDefs_LogAcceptConvo)
 	}
 	if t.ConvoDefs_LogLeaveConvo != nil {
-		t.ConvoDefs_LogLeaveConvo.LexiconTypeID = "chat.bsky.convo.defs#logLeaveConvo"
+		t.ConvoDefs_LogLeaveConvo.LexiconTypeID = "chat.gndr.convo.defs#logLeaveConvo"
 		return json.Marshal(t.ConvoDefs_LogLeaveConvo)
 	}
 	if t.ConvoDefs_LogMuteConvo != nil {
-		t.ConvoDefs_LogMuteConvo.LexiconTypeID = "chat.bsky.convo.defs#logMuteConvo"
+		t.ConvoDefs_LogMuteConvo.LexiconTypeID = "chat.gndr.convo.defs#logMuteConvo"
 		return json.Marshal(t.ConvoDefs_LogMuteConvo)
 	}
 	if t.ConvoDefs_LogUnmuteConvo != nil {
-		t.ConvoDefs_LogUnmuteConvo.LexiconTypeID = "chat.bsky.convo.defs#logUnmuteConvo"
+		t.ConvoDefs_LogUnmuteConvo.LexiconTypeID = "chat.gndr.convo.defs#logUnmuteConvo"
 		return json.Marshal(t.ConvoDefs_LogUnmuteConvo)
 	}
 	if t.ConvoDefs_LogCreateMessage != nil {
-		t.ConvoDefs_LogCreateMessage.LexiconTypeID = "chat.bsky.convo.defs#logCreateMessage"
+		t.ConvoDefs_LogCreateMessage.LexiconTypeID = "chat.gndr.convo.defs#logCreateMessage"
 		return json.Marshal(t.ConvoDefs_LogCreateMessage)
 	}
 	if t.ConvoDefs_LogDeleteMessage != nil {
-		t.ConvoDefs_LogDeleteMessage.LexiconTypeID = "chat.bsky.convo.defs#logDeleteMessage"
+		t.ConvoDefs_LogDeleteMessage.LexiconTypeID = "chat.gndr.convo.defs#logDeleteMessage"
 		return json.Marshal(t.ConvoDefs_LogDeleteMessage)
 	}
 	if t.ConvoDefs_LogReadMessage != nil {
-		t.ConvoDefs_LogReadMessage.LexiconTypeID = "chat.bsky.convo.defs#logReadMessage"
+		t.ConvoDefs_LogReadMessage.LexiconTypeID = "chat.gndr.convo.defs#logReadMessage"
 		return json.Marshal(t.ConvoDefs_LogReadMessage)
 	}
 	if t.ConvoDefs_LogAddReaction != nil {
-		t.ConvoDefs_LogAddReaction.LexiconTypeID = "chat.bsky.convo.defs#logAddReaction"
+		t.ConvoDefs_LogAddReaction.LexiconTypeID = "chat.gndr.convo.defs#logAddReaction"
 		return json.Marshal(t.ConvoDefs_LogAddReaction)
 	}
 	if t.ConvoDefs_LogRemoveReaction != nil {
-		t.ConvoDefs_LogRemoveReaction.LexiconTypeID = "chat.bsky.convo.defs#logRemoveReaction"
+		t.ConvoDefs_LogRemoveReaction.LexiconTypeID = "chat.gndr.convo.defs#logRemoveReaction"
 		return json.Marshal(t.ConvoDefs_LogRemoveReaction)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
@@ -81,34 +81,34 @@ func (t *ConvoGetLog_Output_Logs_Elem) UnmarshalJSON(b []byte) error {
 	}
 
 	switch typ {
-	case "chat.bsky.convo.defs#logBeginConvo":
+	case "chat.gndr.convo.defs#logBeginConvo":
 		t.ConvoDefs_LogBeginConvo = new(ConvoDefs_LogBeginConvo)
 		return json.Unmarshal(b, t.ConvoDefs_LogBeginConvo)
-	case "chat.bsky.convo.defs#logAcceptConvo":
+	case "chat.gndr.convo.defs#logAcceptConvo":
 		t.ConvoDefs_LogAcceptConvo = new(ConvoDefs_LogAcceptConvo)
 		return json.Unmarshal(b, t.ConvoDefs_LogAcceptConvo)
-	case "chat.bsky.convo.defs#logLeaveConvo":
+	case "chat.gndr.convo.defs#logLeaveConvo":
 		t.ConvoDefs_LogLeaveConvo = new(ConvoDefs_LogLeaveConvo)
 		return json.Unmarshal(b, t.ConvoDefs_LogLeaveConvo)
-	case "chat.bsky.convo.defs#logMuteConvo":
+	case "chat.gndr.convo.defs#logMuteConvo":
 		t.ConvoDefs_LogMuteConvo = new(ConvoDefs_LogMuteConvo)
 		return json.Unmarshal(b, t.ConvoDefs_LogMuteConvo)
-	case "chat.bsky.convo.defs#logUnmuteConvo":
+	case "chat.gndr.convo.defs#logUnmuteConvo":
 		t.ConvoDefs_LogUnmuteConvo = new(ConvoDefs_LogUnmuteConvo)
 		return json.Unmarshal(b, t.ConvoDefs_LogUnmuteConvo)
-	case "chat.bsky.convo.defs#logCreateMessage":
+	case "chat.gndr.convo.defs#logCreateMessage":
 		t.ConvoDefs_LogCreateMessage = new(ConvoDefs_LogCreateMessage)
 		return json.Unmarshal(b, t.ConvoDefs_LogCreateMessage)
-	case "chat.bsky.convo.defs#logDeleteMessage":
+	case "chat.gndr.convo.defs#logDeleteMessage":
 		t.ConvoDefs_LogDeleteMessage = new(ConvoDefs_LogDeleteMessage)
 		return json.Unmarshal(b, t.ConvoDefs_LogDeleteMessage)
-	case "chat.bsky.convo.defs#logReadMessage":
+	case "chat.gndr.convo.defs#logReadMessage":
 		t.ConvoDefs_LogReadMessage = new(ConvoDefs_LogReadMessage)
 		return json.Unmarshal(b, t.ConvoDefs_LogReadMessage)
-	case "chat.bsky.convo.defs#logAddReaction":
+	case "chat.gndr.convo.defs#logAddReaction":
 		t.ConvoDefs_LogAddReaction = new(ConvoDefs_LogAddReaction)
 		return json.Unmarshal(b, t.ConvoDefs_LogAddReaction)
-	case "chat.bsky.convo.defs#logRemoveReaction":
+	case "chat.gndr.convo.defs#logRemoveReaction":
 		t.ConvoDefs_LogRemoveReaction = new(ConvoDefs_LogRemoveReaction)
 		return json.Unmarshal(b, t.ConvoDefs_LogRemoveReaction)
 
@@ -117,7 +117,7 @@ func (t *ConvoGetLog_Output_Logs_Elem) UnmarshalJSON(b []byte) error {
 	}
 }
 
-// ConvoGetLog calls the XRPC method "chat.bsky.convo.getLog".
+// ConvoGetLog calls the XRPC method "chat.gndr.convo.getLog".
 func ConvoGetLog(ctx context.Context, c util.LexClient, cursor string) (*ConvoGetLog_Output, error) {
 	var out ConvoGetLog_Output
 
@@ -125,7 +125,7 @@ func ConvoGetLog(ctx context.Context, c util.LexClient, cursor string) (*ConvoGe
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
-	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.convo.getLog", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "chat.gndr.convo.getLog", params, nil, &out); err != nil {
 		return nil, err
 	}
 

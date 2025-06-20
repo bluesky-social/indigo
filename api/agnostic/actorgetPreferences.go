@@ -1,26 +1,26 @@
-// Copied from indigo:api/bsky/actorgetPreferences.go
+// Copied from indigo:api/gndr/actorgetPreferences.go
 
 package agnostic
 
-// schema: app.bsky.actor.getPreferences
+// schema: gndr.app.actor.getPreferences
 
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ActorGetPreferences_Output is the output of a app.bsky.actor.getPreferences call.
+// ActorGetPreferences_Output is the output of a gndr.app.actor.getPreferences call.
 type ActorGetPreferences_Output struct {
 	Preferences []map[string]any `json:"preferences" cborgen:"preferences"`
 }
 
-// ActorGetPreferences calls the XRPC method "app.bsky.actor.getPreferences".
+// ActorGetPreferences calls the XRPC method "gndr.app.actor.getPreferences".
 func ActorGetPreferences(ctx context.Context, c util.LexClient) (*ActorGetPreferences_Output, error) {
 	var out ActorGetPreferences_Output
 
 	params := map[string]interface{}{}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.actor.getPreferences", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "gndr.app.actor.getPreferences", params, nil, &out); err != nil {
 		return nil, err
 	}
 

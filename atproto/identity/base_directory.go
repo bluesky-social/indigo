@@ -7,7 +7,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 	"golang.org/x/time/rate"
 )
 

@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatprototypes "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // ModerationEmitEvent_Input is the input argument to a tools.ozone.moderation.emitEvent call.

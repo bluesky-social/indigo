@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/flosch/pongo2/v6"
 	"github.com/labstack/echo/v4"
@@ -24,7 +24,7 @@ func (srv *Server) reqHandle(c echo.Context) syntax.Handle {
 }
 
 func (srv *Server) WebHome(c echo.Context) error {
-	return c.Redirect(http.StatusFound, "/bsky")
+	return c.Redirect(http.StatusFound, "/gndr")
 }
 
 func (srv *Server) WebRepoCar(c echo.Context) error {
@@ -45,7 +45,7 @@ func (srv *Server) WebPost(c echo.Context) error {
 	rkey := c.Param("rkey")
 
 	// requires two fetches: first fetch profile (!)
-	pv, err := appbsky.ActorGetProfile(ctx, srv.xrpcc, handle.String())
+	pv, err := appgndr.ActorGetProfile(ctx, srv.xrpcc, handle.String())
 	if err != nil {
 		slog.Warn("failed to fetch handle", "handle", handle, "err", err)
 		// TODO: only if "not found"
@@ -55,8 +55,8 @@ func (srv *Server) WebPost(c echo.Context) error {
 	data["did"] = did
 
 	// then fetch the post thread (with extra context)
-	aturi := fmt.Sprintf("at://%s/app.bsky.feed.post/%s", did, rkey)
-	tpv, err := appbsky.FeedGetPostThread(ctx, srv.xrpcc, 8, 8, aturi)
+	aturi := fmt.Sprintf("at://%s/gndr.app.feed.post/%s", did, rkey)
+	tpv, err := appgndr.FeedGetPostThread(ctx, srv.xrpcc, 8, 8, aturi)
 	if err != nil {
 		slog.Warn("failed to fetch post", "aturi", aturi, "err", err)
 		// TODO: only if "not found"
@@ -72,7 +72,7 @@ func (srv *Server) WebProfile(c echo.Context) error {
 	data := pongo2.Context{}
 	handle := srv.reqHandle(c)
 
-	pv, err := appbsky.ActorGetProfile(ctx, srv.xrpcc, handle.String())
+	pv, err := appgndr.ActorGetProfile(ctx, srv.xrpcc, handle.String())
 	if err != nil {
 		slog.Warn("failed to fetch handle", "handle", handle, "err", err)
 		// TODO: only if "not found"
@@ -85,7 +85,7 @@ func (srv *Server) WebProfile(c echo.Context) error {
 	did := pv.Did
 	data["did"] = did
 
-	af, err := appbsky.FeedGetAuthorFeed(ctx, srv.xrpcc, handle.String(), "", "posts_no_replies", false, 100)
+	af, err := appgndr.FeedGetAuthorFeed(ctx, srv.xrpcc, handle.String(), "", "posts_no_replies", false, 100)
 	if err != nil {
 		slog.Warn("failed to fetch author feed", "handle", handle, "err", err)
 		// TODO: show some error?
@@ -118,7 +118,7 @@ func (srv *Server) WebRepoRSS(c echo.Context) error {
 	ctx := c.Request().Context()
 	handle := srv.reqHandle(c)
 
-	pv, err := appbsky.ActorGetProfile(ctx, srv.xrpcc, handle.String())
+	pv, err := appgndr.ActorGetProfile(ctx, srv.xrpcc, handle.String())
 	if err != nil {
 		slog.Warn("failed to fetch handle", "handle", handle, "err", err)
 		// TODO: only if "not found"
@@ -126,7 +126,7 @@ func (srv *Server) WebRepoRSS(c echo.Context) error {
 		//return err
 	}
 
-	af, err := appbsky.FeedGetAuthorFeed(ctx, srv.xrpcc, handle.String(), "", "posts_no_replies", false, 30)
+	af, err := appgndr.FeedGetAuthorFeed(ctx, srv.xrpcc, handle.String(), "", "posts_no_replies", false, 30)
 	if err != nil {
 		slog.Warn("failed to fetch author feed", "handle", handle, "err", err)
 		return err
@@ -142,14 +142,14 @@ func (srv *Server) WebRepoRSS(c echo.Context) error {
 		if err != nil {
 			return err
 		}
-		rec := p.Post.Record.Val.(*appbsky.FeedPost)
+		rec := p.Post.Record.Val.(*appgndr.FeedPost)
 		// only top-level posts in RSS
 		if rec.Reply != nil {
 			continue
 		}
 		posts = append(posts, Item{
 			Title:       "@" + handle.String() + " post",
-			Link:        fmt.Sprintf("https://%s/bsky/post/%s", handle, aturi.RecordKey().String()),
+			Link:        fmt.Sprintf("https://%s/gndr/post/%s", handle, aturi.RecordKey().String()),
 			Description: rec.Text,
 			PubDate:     rec.CreatedAt,
 		})
@@ -166,7 +166,7 @@ func (srv *Server) WebRepoRSS(c echo.Context) error {
 	feed := &rss{
 		Version:     "2.0",
 		Description: desc,
-		Link:        fmt.Sprintf("https://%s/bsky", handle.String()),
+		Link:        fmt.Sprintf("https://%s/gndr", handle.String()),
 		Title:       title,
 		Item:        posts,
 	}

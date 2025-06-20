@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 )
 
 // HTTP Middleware for atproto admin auth, which is HTTP Basic auth with the username "admin".

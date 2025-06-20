@@ -5,9 +5,9 @@ import (
 	"context"
 	"testing"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -22,7 +22,7 @@ func TestEngineBasics(t *testing.T) {
 		Handle: syntax.Handle("handle.example.com"),
 	}
 	cid1 := syntax.CID("cid123")
-	p1 := appbsky.FeedPost{
+	p1 := appgndr.FeedPost{
 		Text: "some post blah",
 	}
 	p1buf := new(bytes.Buffer)
@@ -32,14 +32,14 @@ func TestEngineBasics(t *testing.T) {
 	op := RecordOp{
 		Action:     CreateOp,
 		DID:        id1.DID,
-		Collection: syntax.NSID("app.bsky.feed.post"),
+		Collection: syntax.NSID("gndr.app.feed.post"),
 		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
 		RecordCBOR: p1cbor,
 	}
 	assert.NoError(eng.ProcessRecordOp(ctx, op))
 
-	p2 := appbsky.FeedPost{
+	p2 := appgndr.FeedPost{
 		Text: "some post blah",
 		Tags: []string{"one", "slur"},
 	}

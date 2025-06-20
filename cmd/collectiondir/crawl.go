@@ -11,9 +11,9 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/util"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 
 	"github.com/urfave/cli/v2"
 	"golang.org/x/time/rate"

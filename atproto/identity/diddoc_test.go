@@ -38,7 +38,7 @@ func TestDIDDocParse(t *testing.T) {
 		pk, err := id.PublicKey()
 		assert.NoError(err)
 		assert.NotNil(pk)
-		assert.Equal("https://bsky.social", id.PDSEndpoint())
+		assert.Equal("https://gndr.social", id.PDSEndpoint())
 		hdl, err := id.DeclaredHandle()
 		assert.NoError(err)
 		assert.Equal("atproto.com", hdl.String())
@@ -69,7 +69,7 @@ func TestDIDDocFeedGenParse(t *testing.T) {
 
 	id := ParseIdentity(&doc)
 
-	assert.Equal("did:web:discover.bsky.social", id.DID.String())
+	assert.Equal("did:web:discover.gndr.social", id.DID.String())
 	assert.Equal([]string{}, id.AlsoKnownAs)
 	pk, err := id.PublicKey()
 	assert.Error(err)
@@ -79,7 +79,7 @@ func TestDIDDocFeedGenParse(t *testing.T) {
 	hdl, err := id.DeclaredHandle()
 	assert.Error(err)
 	assert.Empty(hdl)
-	svc, ok := id.Services["bsky_fg"]
+	svc, ok := id.Services["gndr_fg"]
 	assert.True(ok)
-	assert.Equal("https://discover.bsky.social", svc.URL)
+	assert.Equal("https://discover.gndr.social", svc.URL)
 }

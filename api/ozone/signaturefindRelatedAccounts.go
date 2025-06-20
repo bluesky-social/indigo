@@ -7,8 +7,8 @@ package ozone
 import (
 	"context"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatprototypes "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // SignatureFindRelatedAccounts_Output is the output of a tools.ozone.signature.findRelatedAccounts call.

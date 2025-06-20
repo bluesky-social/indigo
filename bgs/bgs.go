@@ -15,17 +15,17 @@ import (
 	"sync"
 	"time"
 
-	atproto "github.com/bluesky-social/indigo/api/atproto"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/did"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/handles"
-	"github.com/bluesky-social/indigo/indexer"
-	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/util/svcutil"
-	"github.com/bluesky-social/indigo/xrpc"
+	atproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/carstore"
+	"github.com/gander-social/gander-indigo-sovereign/did"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/handles"
+	"github.com/gander-social/gander-indigo-sovereign/indexer"
+	"github.com/gander-social/gander-indigo-sovereign/models"
+	"github.com/gander-social/gander-indigo-sovereign/repomgr"
+	"github.com/gander-social/gander-indigo-sovereign/util/svcutil"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
@@ -363,7 +363,7 @@ d8888b. d888888b  d888b  .d8888. db   dD db    db
 88   8D   .88.   88. ~8~ db   8D 88 '88.    88
 Y8888P' Y888888P  Y888P  '8888Y' YP   YD    YP
 
-This is an atproto [https://atproto.com] relay instance, running the 'bigsky' codebase [https://github.com/bluesky-social/indigo]
+This is an atproto [https://atproto.com] relay instance, running the 'bigsky' codebase [https://github.com/gander-social/gander-indigo-sovereign]
 
 The firehose WebSocket path is at:  /xrpc/com.atproto.sync.subscribeRepos
 `

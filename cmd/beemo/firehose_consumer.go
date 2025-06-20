@@ -8,20 +8,20 @@ import (
 	"net/http"
 	"net/url"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/events/schedulers/parallel"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/events/schedulers/parallel"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
 
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/carlmjohnson/versioninfo"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/repo"
+	"github.com/gander-social/gander-indigo-sovereign/repomgr"
 	"github.com/gorilla/websocket"
 )
 
-func RunFirehoseConsumer(ctx context.Context, logger *slog.Logger, relayHost string, postCallback func(context.Context, syntax.DID, syntax.RecordKey, appbsky.FeedPost) error) error {
+func RunFirehoseConsumer(ctx context.Context, logger *slog.Logger, relayHost string, postCallback func(context.Context, syntax.DID, syntax.RecordKey, appgndr.FeedPost) error) error {
 
 	dialer := websocket.DefaultDialer
 	u, err := url.Parse(relayHost)
@@ -60,7 +60,7 @@ func RunFirehoseConsumer(ctx context.Context, logger *slog.Logger, relayHost str
 }
 
 // NOTE: for now, this function basically never errors, just logs and returns nil. Should think through error processing better.
-func HandleRepoCommit(ctx context.Context, logger *slog.Logger, evt *comatproto.SyncSubscribeRepos_Commit, postCallback func(context.Context, syntax.DID, syntax.RecordKey, appbsky.FeedPost) error) error {
+func HandleRepoCommit(ctx context.Context, logger *slog.Logger, evt *comatproto.SyncSubscribeRepos_Commit, postCallback func(context.Context, syntax.DID, syntax.RecordKey, appgndr.FeedPost) error) error {
 
 	logger = logger.With("event", "commit", "did", evt.Repo, "rev", evt.Rev, "seq", evt.Seq)
 	logger.Debug("received commit event")
@@ -105,10 +105,10 @@ func HandleRepoCommit(ctx context.Context, logger *slog.Logger, evt *comatproto.
 			}
 
 			switch collection {
-			case "app.bsky.feed.post":
-				var post appbsky.FeedPost
+			case "gndr.app.feed.post":
+				var post appgndr.FeedPost
 				if err := post.UnmarshalCBOR(bytes.NewReader(*recordCBOR)); err != nil {
-					logger.Error("failed to parse app.bsky.feed.post record", "err", err)
+					logger.Error("failed to parse gndr.app.feed.post record", "err", err)
 					continue
 				}
 				if err := postCallback(ctx, did, rkey, post); err != nil {

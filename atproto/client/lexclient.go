@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 )
 
-// Implements the [github.com/bluesky-social/indigo/lex/util.LexClient] interface, for use with code-generated API helpers.
+// Implements the [github.com/gander-social/gander-indigo-sovereign/lex/util.LexClient] interface, for use with code-generated API helpers.
 func (c *APIClient) LexDo(ctx context.Context, method string, inputEncoding string, endpoint string, params map[string]any, bodyData any, out any) error {
 	// some of the code here is copied from indigo:xrpc/xrpc.go
 

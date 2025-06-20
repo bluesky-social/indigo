@@ -2,29 +2,29 @@
 
 package chat
 
-// schema: chat.bsky.convo.acceptConvo
+// schema: chat.gndr.convo.acceptConvo
 
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ConvoAcceptConvo_Input is the input argument to a chat.bsky.convo.acceptConvo call.
+// ConvoAcceptConvo_Input is the input argument to a chat.gndr.convo.acceptConvo call.
 type ConvoAcceptConvo_Input struct {
 	ConvoId string `json:"convoId" cborgen:"convoId"`
 }
 
-// ConvoAcceptConvo_Output is the output of a chat.bsky.convo.acceptConvo call.
+// ConvoAcceptConvo_Output is the output of a chat.gndr.convo.acceptConvo call.
 type ConvoAcceptConvo_Output struct {
 	// rev: Rev when the convo was accepted. If not present, the convo was already accepted.
 	Rev *string `json:"rev,omitempty" cborgen:"rev,omitempty"`
 }
 
-// ConvoAcceptConvo calls the XRPC method "chat.bsky.convo.acceptConvo".
+// ConvoAcceptConvo calls the XRPC method "chat.gndr.convo.acceptConvo".
 func ConvoAcceptConvo(ctx context.Context, c util.LexClient, input *ConvoAcceptConvo_Input) (*ConvoAcceptConvo_Output, error) {
 	var out ConvoAcceptConvo_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.acceptConvo", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.gndr.convo.acceptConvo", nil, input, &out); err != nil {
 		return nil, err
 	}
 

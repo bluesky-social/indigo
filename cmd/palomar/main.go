@@ -21,9 +21,9 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"golang.org/x/time/rate"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/search"
-	"github.com/bluesky-social/indigo/util/cliutil"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/search"
+	"github.com/gander-social/gander-indigo-sovereign/util/cliutil"
 
 	"github.com/carlmjohnson/versioninfo"
 	es "github.com/opensearch-project/opensearch-go/v2"
@@ -89,7 +89,7 @@ func run(args []string) error {
 		&cli.StringFlag{
 			Name:    "atp-relay-host",
 			Usage:   "hostname and port of Relay to subscribe to",
-			Value:   "wss://bsky.network",
+			Value:   "wss://gndr.network",
 			EnvVars: []string{"ATP_RELAY_HOST", "ATP_BGS_HOST"},
 		},
 		&cli.StringFlag{
@@ -257,7 +257,7 @@ var runCmd = &cli.Command{
 			},
 			PLCLimiter:            rate.NewLimiter(rate.Limit(cctx.Int("plc-rate-limit")), 1),
 			TryAuthoritativeDNS:   true,
-			SkipDNSDomainSuffixes: []string{".bsky.social"},
+			SkipDNSDomainSuffixes: []string{".gndr.social"},
 		}
 		dir := identity.NewCacheDirectory(&base, 1_500_000, time.Hour*24, time.Minute*2, time.Minute*5)
 

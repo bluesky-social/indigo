@@ -8,9 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	chatbskytypes "github.com/bluesky-social/indigo/api/chat"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatprototypes "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	chatgndrtypes "github.com/gander-social/gander-indigo-sovereign/api/chat"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // ModerationDefs_AccountEvent is a "accountEvent" in the tools.ozone.moderation.defs schema.
@@ -734,7 +734,7 @@ func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
 type ModerationDefs_ModEventView_Subject struct {
 	AdminDefs_RepoRef    *comatprototypes.AdminDefs_RepoRef
 	RepoStrongRef        *comatprototypes.RepoStrongRef
-	ConvoDefs_MessageRef *chatbskytypes.ConvoDefs_MessageRef
+	ConvoDefs_MessageRef *chatgndrtypes.ConvoDefs_MessageRef
 }
 
 func (t *ModerationDefs_ModEventView_Subject) MarshalJSON() ([]byte, error) {
@@ -747,7 +747,7 @@ func (t *ModerationDefs_ModEventView_Subject) MarshalJSON() ([]byte, error) {
 		return json.Marshal(t.RepoStrongRef)
 	}
 	if t.ConvoDefs_MessageRef != nil {
-		t.ConvoDefs_MessageRef.LexiconTypeID = "chat.bsky.convo.defs#messageRef"
+		t.ConvoDefs_MessageRef.LexiconTypeID = "chat.gndr.convo.defs#messageRef"
 		return json.Marshal(t.ConvoDefs_MessageRef)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
@@ -765,8 +765,8 @@ func (t *ModerationDefs_ModEventView_Subject) UnmarshalJSON(b []byte) error {
 	case "com.atproto.repo.strongRef":
 		t.RepoStrongRef = new(comatprototypes.RepoStrongRef)
 		return json.Unmarshal(b, t.RepoStrongRef)
-	case "chat.bsky.convo.defs#messageRef":
-		t.ConvoDefs_MessageRef = new(chatbskytypes.ConvoDefs_MessageRef)
+	case "chat.gndr.convo.defs#messageRef":
+		t.ConvoDefs_MessageRef = new(chatgndrtypes.ConvoDefs_MessageRef)
 		return json.Unmarshal(b, t.ConvoDefs_MessageRef)
 
 	default:

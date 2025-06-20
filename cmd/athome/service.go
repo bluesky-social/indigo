@@ -11,10 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/util"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 
 	"github.com/flosch/pongo2/v6"
 	"github.com/labstack/echo-contrib/echoprometheus"
@@ -116,10 +116,10 @@ func serve(cctx *cli.Context) error {
 
 	// actual content
 	e.GET("/", srv.WebHome)
-	e.GET("/bsky", srv.WebProfile)
-	e.GET("/bsky/post/:rkey", srv.WebPost)
-	e.GET("/bsky/repo.car", srv.WebRepoCar)
-	e.GET("/bsky/rss.xml", srv.WebRepoRSS)
+	e.GET("/gndr", srv.WebProfile)
+	e.GET("/gndr/post/:rkey", srv.WebPost)
+	e.GET("/gndr/repo.car", srv.WebRepoCar)
+	e.GET("/gndr/rss.xml", srv.WebRepoRSS)
 
 	// Start the server
 	slog.Info("starting server", "bind", httpAddress)

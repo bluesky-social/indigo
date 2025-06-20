@@ -38,6 +38,6 @@ COPY --from=build-env /collectiondir-bin /usr/bin/collectiondir
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/usr/bin/collectiondir"]
 
-LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
+LABEL org.opencontainers.image.source=https://github.com/gander-social/gander-indigo-sovereign
 LABEL org.opencontainers.image.description="collectiondir "
 LABEL org.opencontainers.image.licenses=MIT

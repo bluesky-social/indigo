@@ -9,8 +9,8 @@ import (
 	"strings"
 	"sync"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/labstack/echo/v4"
 	otel "go.opentelemetry.io/otel"
@@ -278,7 +278,7 @@ func (s *Server) handleSearchActorsSkeleton(e echo.Context) error {
 	return e.JSON(200, out)
 }
 
-func (s *Server) SearchPosts(ctx context.Context, params *PostSearchParams) (*appbsky.UnspeccedSearchPostsSkeleton_Output, error) {
+func (s *Server) SearchPosts(ctx context.Context, params *PostSearchParams) (*appgndr.UnspeccedSearchPostsSkeleton_Output, error) {
 	ctx, span := tracer.Start(ctx, "SearchPosts")
 	defer span.End()
 
@@ -287,7 +287,7 @@ func (s *Server) SearchPosts(ctx context.Context, params *PostSearchParams) (*ap
 		return nil, err
 	}
 
-	posts := []*appbsky.UnspeccedDefs_SkeletonSearchPost{}
+	posts := []*appgndr.UnspeccedDefs_SkeletonSearchPost{}
 	for _, r := range resp.Hits.Hits {
 		var doc PostDoc
 		if err := json.Unmarshal(r.Source, &doc); err != nil {
@@ -299,12 +299,12 @@ func (s *Server) SearchPosts(ctx context.Context, params *PostSearchParams) (*ap
 			return nil, fmt.Errorf("invalid DID in indexed document: %w", err)
 		}
 
-		posts = append(posts, &appbsky.UnspeccedDefs_SkeletonSearchPost{
-			Uri: fmt.Sprintf("at://%s/app.bsky.feed.post/%s", did, doc.RecordRkey),
+		posts = append(posts, &appgndr.UnspeccedDefs_SkeletonSearchPost{
+			Uri: fmt.Sprintf("at://%s/gndr.app.feed.post/%s", did, doc.RecordRkey),
 		})
 	}
 
-	out := appbsky.UnspeccedSearchPostsSkeleton_Output{Posts: posts}
+	out := appgndr.UnspeccedSearchPostsSkeleton_Output{Posts: posts}
 	if len(posts) == params.Size && (params.Offset+params.Size) < 10000 {
 		s := fmt.Sprintf("%d", params.Offset+params.Size)
 		out.Cursor = &s
@@ -316,7 +316,7 @@ func (s *Server) SearchPosts(ctx context.Context, params *PostSearchParams) (*ap
 	return &out, nil
 }
 
-func (s *Server) SearchProfiles(ctx context.Context, params *ActorSearchParams) (*appbsky.UnspeccedSearchActorsSkeleton_Output, error) {
+func (s *Server) SearchProfiles(ctx context.Context, params *ActorSearchParams) (*appgndr.UnspeccedSearchActorsSkeleton_Output, error) {
 	ctx, span := tracer.Start(ctx, "SearchProfiles")
 	defer span.End()
 	span.SetAttributes(
@@ -443,7 +443,7 @@ func (s *Server) SearchProfiles(ctx context.Context, params *ActorSearchParams) 
 		globalResp.Hits.Hits = deduped
 	}
 
-	actors := []*appbsky.UnspeccedDefs_SkeletonSearchActor{}
+	actors := []*appgndr.UnspeccedDefs_SkeletonSearchActor{}
 	for _, r := range globalResp.Hits.Hits {
 		var doc ProfileDoc
 		if err := json.Unmarshal(r.Source, &doc); err != nil {
@@ -455,12 +455,12 @@ func (s *Server) SearchProfiles(ctx context.Context, params *ActorSearchParams) 
 			return nil, fmt.Errorf("invalid DID in indexed document: %w", err)
 		}
 
-		actors = append(actors, &appbsky.UnspeccedDefs_SkeletonSearchActor{
+		actors = append(actors, &appgndr.UnspeccedDefs_SkeletonSearchActor{
 			Did: did.String(),
 		})
 	}
 
-	out := appbsky.UnspeccedSearchActorsSkeleton_Output{Actors: actors}
+	out := appgndr.UnspeccedSearchActorsSkeleton_Output{Actors: actors}
 	if len(actors) == params.Size && (params.Offset+params.Size) < 10000 {
 		s := fmt.Sprintf("%d", params.Offset+params.Size)
 		out.Cursor = &s

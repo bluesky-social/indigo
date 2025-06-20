@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/repo"
+	"github.com/gander-social/gander-indigo-sovereign/repomgr"
 
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -72,7 +72,7 @@ type Backfiller struct {
 	ParallelBackfills int
 	// Number of records to process in parallel for each backfill
 	ParallelRecordCreates int
-	// Prefix match for records to backfill i.e. app.bsky.feed.app/
+	// Prefix match for records to backfill i.e. gndr.app.feed.app/
 	// If empty, all records will be backfilled
 	NSIDFilter string
 	RelayHost  string
@@ -126,7 +126,7 @@ func DefaultBackfillOptions() *BackfillOptions {
 		ParallelRecordCreates: 100,
 		NSIDFilter:            "",
 		SyncRequestsPerSecond: 2,
-		RelayHost:             "https://bsky.network",
+		RelayHost:             "https://gndr.network",
 	}
 }
 

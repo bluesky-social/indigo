@@ -3,14 +3,14 @@ package rules
 import (
 	"fmt"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/helpers"
-	"github.com/bluesky-social/indigo/automod/keyword"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/helpers"
+	"github.com/gander-social/gander-indigo-sovereign/automod/keyword"
 )
 
 // looks for specific hashtags from known lists
-func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func BadHashtagsPostRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	for _, tag := range helpers.ExtractHashtagsPost(post) {
 		tag = helpers.NormalizeHashtag(tag)
 		// skip some bad-word hashtags which frequently false-positive
@@ -35,7 +35,7 @@ func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error
 var _ automod.PostRuleFunc = BadHashtagsPostRule
 
 // if a post is "almost all" hashtags, it might be a form of search spam
-func TooManyHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func TooManyHashtagsPostRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	tags := helpers.ExtractHashtagsPost(post)
 	tagChars := 0
 	for _, tag := range tags {

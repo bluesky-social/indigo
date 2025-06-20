@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // HostingGetAccountHistory_AccountCreated is a "accountCreated" in the tools.ozone.hosting.getAccountHistory schema.

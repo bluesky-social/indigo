@@ -9,14 +9,14 @@ import (
 	"strings"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/backfill"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/repo"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	gndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/backfill"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/events/schedulers/autoscaling"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/repo"
 	typegen "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/carlmjohnson/versioninfo"
@@ -192,7 +192,7 @@ func (idx *Indexer) discoverRepos() {
 func (idx *Indexer) handleCreateOrUpdate(ctx context.Context, rawDID string, rev string, path string, recB *[]byte, rcid *cid.Cid) error {
 	logger := idx.logger.With("func", "handleCreateOrUpdate", "did", rawDID, "rev", rev, "path", path)
 	// Since this gets called in a backfill job, we need to check if the path is a post or profile
-	if !strings.Contains(path, "app.bsky.feed.post") && !strings.Contains(path, "app.bsky.actor.profile") {
+	if !strings.Contains(path, "gndr.app.feed.post") && !strings.Contains(path, "gndr.app.actor.profile") {
 		return nil
 	}
 
@@ -219,7 +219,7 @@ func (idx *Indexer) handleCreateOrUpdate(ctx context.Context, rawDID string, rev
 	}
 
 	switch rec := rec.(type) {
-	case *bsky.FeedPost:
+	case *gndr.FeedPost:
 		rkey, err := syntax.ParseTID(parts[1])
 		if err != nil {
 			logger.Warn("skipping post record with non-TID rkey")
@@ -236,7 +236,7 @@ func (idx *Indexer) handleCreateOrUpdate(ctx context.Context, rawDID string, rev
 		// Send the job to the bulk indexer
 		idx.postQueue <- &job
 		postsIndexed.Inc()
-	case *bsky.ActorProfile:
+	case *gndr.ActorProfile:
 		if parts[1] != "self" {
 			return nil
 		}
@@ -265,7 +265,7 @@ func (idx *Indexer) handleCreateOrUpdate(ctx context.Context, rawDID string, rev
 
 func (idx *Indexer) handleDelete(ctx context.Context, rawDID, rev, path string) error {
 	// Since this gets called in a backfill job, we need to check if the path is a post or profile
-	if !strings.Contains(path, "app.bsky.feed.post") && !strings.Contains(path, "app.bsky.actor.profile") {
+	if !strings.Contains(path, "gndr.app.feed.post") && !strings.Contains(path, "gndr.app.actor.profile") {
 		return nil
 	}
 
@@ -276,12 +276,12 @@ func (idx *Indexer) handleDelete(ctx context.Context, rawDID, rev, path string) 
 
 	switch {
 	// TODO: handle profile deletes, its an edge case, but worth doing still
-	case strings.Contains(path, "app.bsky.feed.post"):
+	case strings.Contains(path, "gndr.app.feed.post"):
 		if err := idx.deletePost(ctx, did, path); err != nil {
 			return err
 		}
 		postsDeleted.Inc()
-	case strings.Contains(path, "app.bsky.actor.profile"):
+	case strings.Contains(path, "gndr.app.actor.profile"):
 		// profilesDeleted.Inc()
 	}
 
@@ -315,7 +315,7 @@ func (idx *Indexer) processTooBigCommit(ctx context.Context, evt *comatproto.Syn
 	}
 
 	return r.ForEach(ctx, "", func(k string, v cid.Cid) error {
-		if strings.HasPrefix(k, "app.bsky.feed.post") || strings.HasPrefix(k, "app.bsky.actor.profile") {
+		if strings.HasPrefix(k, "gndr.app.feed.post") || strings.HasPrefix(k, "gndr.app.actor.profile") {
 			rcid, rec, err := r.GetRecord(ctx, k)
 			if err != nil {
 				// TODO: handle this case (instead of return nil)
@@ -330,7 +330,7 @@ func (idx *Indexer) processTooBigCommit(ctx context.Context, evt *comatproto.Syn
 			}
 
 			switch rec := rec.(type) {
-			case *bsky.FeedPost:
+			case *gndr.FeedPost:
 				rkey, err := syntax.ParseTID(parts[1])
 				if err != nil {
 					logger.Warn("skipping post record with non-TID rkey")
@@ -346,7 +346,7 @@ func (idx *Indexer) processTooBigCommit(ctx context.Context, evt *comatproto.Syn
 
 				// Send the job to the bulk indexer
 				idx.postQueue <- &job
-			case *bsky.ActorProfile:
+			case *gndr.ActorProfile:
 				if parts[1] != "self" {
 					return nil
 				}

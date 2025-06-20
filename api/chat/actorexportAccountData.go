@@ -2,19 +2,19 @@
 
 package chat
 
-// schema: chat.bsky.actor.exportAccountData
+// schema: chat.gndr.actor.exportAccountData
 
 import (
 	"bytes"
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ActorExportAccountData calls the XRPC method "chat.bsky.actor.exportAccountData".
+// ActorExportAccountData calls the XRPC method "chat.gndr.actor.exportAccountData".
 func ActorExportAccountData(ctx context.Context, c util.LexClient) ([]byte, error) {
 	buf := new(bytes.Buffer)
-	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.actor.exportAccountData", nil, nil, buf); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "chat.gndr.actor.exportAccountData", nil, nil, buf); err != nil {
 		return nil, err
 	}
 

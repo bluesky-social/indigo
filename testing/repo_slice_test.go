@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/repo"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/repo"
 )
 
 // ipfs dag import testing/repo_slice.car
@@ -27,12 +27,12 @@ func TestRepoSliceParse(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, rec, err := sliceRepo.GetRecord(ctx, "app.bsky.feed.post/3jquh3emtzo2o")
+	_, rec, err := sliceRepo.GetRecord(ctx, "gndr.app.feed.post/3jquh3emtzo2o")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	post, suc := rec.(*appbsky.FeedPost)
+	post, suc := rec.(*appgndr.FeedPost)
 	if !suc {
 		t.Fatal("failed to deserialize post")
 	}

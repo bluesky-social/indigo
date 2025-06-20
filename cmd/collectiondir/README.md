@@ -38,7 +38,7 @@ With no `c` parameter it returns all known collections with cursor paging.
 With up to 20 repeated `c` parameters it returns only those collections (no paging).
 It may be the cached result of a computation, up to several minutes out of date.
 ```json
-{"collections":{"app.bsky.feed.post": 123456789, "some collection": 42},
+{"collections":{"gndr.app.feed.post": 123456789, "some collection": 42},
 "cursor":"opaque text"}
 ```
 

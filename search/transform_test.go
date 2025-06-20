@@ -6,9 +6,9 @@ import (
 	"os"
 	"testing"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -28,7 +28,7 @@ type profileFixture struct {
 	Rkey          string `json:"rkey"`
 	Cid           string `json:"cid"`
 	DocId         string `json:"doc_id"`
-	ProfileRecord *appbsky.ActorProfile
+	ProfileRecord *appgndr.ActorProfile
 	ProfileDoc    ProfileDoc
 }
 
@@ -74,7 +74,7 @@ type postFixture struct {
 	Rkey       string `json:"rkey"`
 	Cid        string `json:"cid"`
 	DocId      string `json:"doc_id"`
-	PostRecord *appbsky.FeedPost
+	PostRecord *appgndr.FeedPost
 	PostDoc    PostDoc
 }
 

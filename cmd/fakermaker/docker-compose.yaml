@@ -7,9 +7,8 @@ services:
     image: postgres:14.3-alpine
     restart: always
     environment:
-      - POSTGRES_USER=bsky
+      - POSTGRES_USER=gndr
       - POSTGRES_PASSWORD=yksb
-    # intentionally *not* exposing default postgresql port to host (conflicts with other local dev DBs)
     command: -p 6543
     ports:
       - '6543:6543'
@@ -19,20 +18,20 @@ services:
       - dbvol:/var/lib/postgresql/docker
       - ./docker-create-dev-dbs.sql:/docker-entrypoint-initdb.d/create-dev-dbs.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -p 6543 -U bsky"]
+      test: ["CMD-SHELL", "pg_isready -p 6543 -U gndr"]
       interval: 3s
       timeout: 2s
       retries: 3
 
   plc:
-    image: ghcr.io/bluesky-social/did-method-plc:plc-c54aea0373e65df0b87f5bc81710007092f539b1 # DID doc iteration branch
+    build: ../../plc
     ports:
       - "2582:2582"
     expose:
       - "2582"
     environment:
       - ENV=dev
-      - DATABASE_URL=postgres://bsky:yksb@db:6543/plc_dev
+      - DATABASE_URL=postgres://gndr:yksb@db:6543/plc_dev
       - PORT=2582
       - DEBUG_MODE=1
       - LOG_ENABLED=true
@@ -47,15 +46,15 @@ services:
         condition: service_healthy
 
   pds-one:
-    image: ghcr.io/bluesky-social/atproto:pds-19d2bdc4576bfabe6609afe160cc2c220c351579
+    build: ../../pds
     ports:
       - "2583:2583"
     expose:
       - "2583"
     environment:
       - ENV=dev
-      - DB_POSTGRES_URL=postgres://bsky:yksb@db:6543/pds_dev
-      - AVAILABLE_USER_DOMAINS=.test,.dev.bsky.dev
+      - DB_POSTGRES_URL=postgres://gndr:yksb@db:6543/pds_dev
+      - AVAILABLE_USER_DOMAINS=.test,.dev.gndr.dev
       - DID_PLC_URL=http://plc:2582
       - PORT=2583
       - DEBUG_MODE=1
@@ -74,9 +73,7 @@ services:
         condition: service_started
 
   bgs:
-    # to build/run locally, uncomment this instead
-    #build: ../bigsky/
-    image: ghcr.io/bluesky-social/indigo:bigsky-ed809269938c453ebed3a05487acc6417d77bb4e
+    build: ../bigsky/
     ports:
       - "2470:2470"
     environment:
@@ -96,21 +93,25 @@ services:
         condition: service_started
 
   appview:
-    image: ghcr.io/bluesky-social/atproto:bsky-19d2bdc4576bfabe6609afe160cc2c220c351579
+    # TODO: Add a local build context and Dockerfile for appview if available
+    # build: ../../appview
+    # If not available, this service will need to be implemented or removed for local dev
+    # TODO: - update to a call to ghcr.io/gander-social/atproto
+    image: ghcr.io/bluesky-social/atproto:gndr-19d2bdc4576bfabe6609afe160cc2c220c351579
     ports:
       - "2584:2584"
     expose:
       - "2584"
     environment:
       - ENV=dev
-      - DB_POSTGRES_URL=postgres://bsky:yksb@db:6543/bsky_dev
+      - DB_POSTGRES_URL=postgres://gndr:yksb@db:6543/gndr_dev
       - DID_PLC_URL=http://plc:2582
       - PORT=2584
       - DEBUG_MODE=1
       - LOG_LEVEL=info
       - LOG_ENABLED=true
       - LOG_DESTINATION=1
-    working_dir: /app/packages/bsky
+    working_dir: /app/packages/gndr
     command: yarn run start
     links:
       - db

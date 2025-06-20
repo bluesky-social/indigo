@@ -1,6 +1,6 @@
 # Palomar
 
-Palomar is a backend search service for atproto, specifically the `bsky.app` post and profile record types. It works by consuming a repo event stream ("firehose") and updating an OpenSearch cluster (fork of Elasticsearch) with docs.
+Palomar is a backend search service for atproto, specifically the `gndr.app` post and profile record types. It works by consuming a repo event stream ("firehose") and updating an OpenSearch cluster (fork of Elasticsearch) with docs.
 
 Almost all the code for this service is actually in the `search/` directory at the top of this repo.
 
@@ -19,7 +19,7 @@ Currently only a simple query string syntax is supported. Double-quotes can surr
 
 Palomar uses environment variables for configuration.
 
-- `ATP_RELAY_HOST`: URL of firehose to subscribe to, either global Relay or individual PDS (default: `wss://bsky.network`)
+- `ATP_RELAY_HOST`: URL of firehose to subscribe to, either global Relay or individual PDS (default: `wss://gndr.network`)
 - `ATP_PLC_HOST`: PLC directory for identity lookups (default: `https://plc.directory`)
 - `DATABASE_URL`: connection string for database to persist firehose cursor subscription state
 - `PALOMAR_BIND`: IP/port to have HTTP API listen on (default: `:3999`)
@@ -33,7 +33,7 @@ Palomar uses environment variables for configuration.
 
 ## HTTP API
 
-### Query Posts: `/xrpc/app.bsky.unspecced.searchPostsSkeleton`
+### Query Posts: `/xrpc/gndr.app.unspecced.searchPostsSkeleton`
 
 HTTP Query Params:
 
@@ -47,7 +47,7 @@ Response:
 - `hits_total`: integer; optional number of search hits (may not be populated for large result sets, eg over 10k hits)
 - `cursor`: string; optionally included if there are more results that can be paginated
 
-### Query Profiles: `/xrpc/app.bsky.unspecced.searchActorsSkeleton`
+### Query Profiles: `/xrpc/gndr.app.unspecced.searchActorsSkeleton`
 
 HTTP Query Params:
 

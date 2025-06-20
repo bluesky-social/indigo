@@ -11,9 +11,9 @@ import (
 	"strings"
 	"sync"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/ipfs/go-cid"
 )
@@ -285,7 +285,7 @@ func (idx *Indexer) processPostCSVLine(line string) error {
 		return fmt.Errorf("invalid raw record (%s/%s): %s", did, rkey, parts[5][2:])
 	}
 
-	post := appbsky.FeedPost{}
+	post := appgndr.FeedPost{}
 	if err := json.Unmarshal(raw, &post); err != nil {
 		return fmt.Errorf("failed to unmarshal post: %w", err)
 	}
@@ -344,7 +344,7 @@ func (idx *Indexer) processProfileCSVLine(line string) error {
 		return fmt.Errorf("invalid raw record (%s): %s", did, parts[4][2:])
 	}
 
-	profile := appbsky.ActorProfile{}
+	profile := appgndr.ActorProfile{}
 	if err := json.Unmarshal(raw, &profile); err != nil {
 		return fmt.Errorf("failed to unmarshal profile: %w", err)
 	}

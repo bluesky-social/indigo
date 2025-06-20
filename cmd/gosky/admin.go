@@ -10,13 +10,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/atproto"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	toolsozone "github.com/bluesky-social/indigo/api/ozone"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/handles"
-	"github.com/bluesky-social/indigo/util/cliutil"
+	"github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	toolsozone "github.com/gander-social/gander-indigo-sovereign/api/ozone"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/handles"
+	"github.com/gander-social/gander-indigo-sovereign/util/cliutil"
 	cli "github.com/urfave/cli/v2"
 )
 
@@ -31,7 +31,7 @@ var adminCmd = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name:  "admin-endpoint",
-			Value: "https://mod.bsky.app",
+			Value: "https://mod.gndr.app",
 		},
 	},
 	Subcommands: []*cli.Command{

@@ -3,7 +3,7 @@ package lex
 import "testing"
 
 func TestParsePackages(t *testing.T) {
-	text := `[{"package": "bsky", "prefix": "app.bsky", "outdir": "api/bsky", "import": "github.com/bluesky-social/indigo/api/bsky"}]`
+	text := `[{"package": "gndr", "prefix": "gndr.app", "outdir": "api/gndr", "import": "github.com/gander-social/gander-indigo-sovereign/api/gndr"}]`
 	parsed, err := ParsePackages([]byte(text))
 	if err != nil {
 		t.Fatalf("error parsing json: %s", err)
@@ -11,7 +11,7 @@ func TestParsePackages(t *testing.T) {
 	if len(parsed) != 1 {
 		t.Fatalf("expected 1, got %d", len(parsed))
 	}
-	expected := Package{"bsky", "app.bsky", "api/bsky", "github.com/bluesky-social/indigo/api/bsky"}
+	expected := Package{"gndr", "gndr.app", "api/gndr", "github.com/gander-social/gander-indigo-sovereign/api/gndr"}
 	if expected != parsed[0] {
 		t.Fatalf("expected %#v, got %#v", expected, parsed[0])
 	}

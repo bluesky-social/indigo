@@ -7,9 +7,9 @@ import (
 	"os"
 	"testing"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/relay/stream"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -66,7 +66,7 @@ func TestScenarioLoad(t *testing.T) {
 	}
 	assert.Equal(1, len(s.Accounts))
 	assert.Equal("active", s.Accounts[0].Status)
-	assert.Equal("https://morel.us-east.host.bsky.network", s.Accounts[0].Identity.PDSEndpoint())
+	assert.Equal("https://morel.us-east.host.gndr.network", s.Accounts[0].Identity.PDSEndpoint())
 	_, err = s.Accounts[0].Identity.PublicKey()
 	assert.NoError(err)
 	assert.Equal(3, len(s.Messages))

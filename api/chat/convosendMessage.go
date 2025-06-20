@@ -2,24 +2,24 @@
 
 package chat
 
-// schema: chat.bsky.convo.sendMessage
+// schema: chat.gndr.convo.sendMessage
 
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ConvoSendMessage_Input is the input argument to a chat.bsky.convo.sendMessage call.
+// ConvoSendMessage_Input is the input argument to a chat.gndr.convo.sendMessage call.
 type ConvoSendMessage_Input struct {
 	ConvoId string                  `json:"convoId" cborgen:"convoId"`
 	Message *ConvoDefs_MessageInput `json:"message" cborgen:"message"`
 }
 
-// ConvoSendMessage calls the XRPC method "chat.bsky.convo.sendMessage".
+// ConvoSendMessage calls the XRPC method "chat.gndr.convo.sendMessage".
 func ConvoSendMessage(ctx context.Context, c util.LexClient, input *ConvoSendMessage_Input) (*ConvoDefs_MessageView, error) {
 	var out ConvoDefs_MessageView
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.sendMessage", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.gndr.convo.sendMessage", nil, input, &out); err != nil {
 		return nil, err
 	}
 

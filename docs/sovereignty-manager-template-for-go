@@ -1,0 +1,451 @@
+// Package sovereignty provides the core Canadian data sovereignty implementation
+// for the Gander Social AT Protocol relay system.
+//
+// This package coordinates all sovereignty features including geographic filtering,
+// dual-mode streaming, private messaging encryption, and compliance monitoring.
+package sovereignty
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"gopkg.in/yaml.v3"
+)
+
+// Manager orchestrates all Canadian sovereignty features
+//
+// Think of this as the conductor of an orchestra - it doesn't play the music itself,
+// but it coordinates all the different sections (geo-filtering, encryption, etc.)
+// to create a harmonious system that protects Canadian data sovereignty.
+type Manager struct {
+	config          *Config
+	geoService      *GeoLocationService
+	encryptionSvc   *EncryptionService
+	complianceMgr   *ComplianceManager
+	auditLogger     *AuditLogger
+	metrics         *SovereigntyMetrics
+	
+	// Running state
+	isEnabled       bool
+	startTime       time.Time
+	mu              sync.RWMutex
+}
+
+// Config holds all Canadian sovereignty configuration
+//
+// This structure mirrors the YAML configuration file and provides type safety
+// and validation for all sovereignty settings. Every setting here has legal
+// and privacy implications, so changes should be reviewed carefully.
+type Config struct {
+	// Core sovereignty settings
+	Enabled     bool     `yaml:"enabled"`
+	CountryCode string   `yaml:"country_code"`
+	DataCenters []string `yaml:"data_centers"`
+	
+	// Component configurations
+	GeoFiltering     GeoFilterConfig     `yaml:"geo_filtering"`
+	PrivateMessaging PrivateMessageConfig `yaml:"private_messaging"`
+	EnterpriseAuth   EnterpriseAuthConfig `yaml:"enterprise_auth"`
+	Compliance       ComplianceConfig    `yaml:"compliance"`
+	Infrastructure   InfrastructureConfig `yaml:"infrastructure"`
+	Development      DevelopmentConfig   `yaml:"development"`
+	FeatureFlags     FeatureFlagConfig   `yaml:"feature_flags"`
+}
+
+// GeoFilterConfig controls geographic access to Canadian data
+//
+// These settings determine who can access Canadian content and under what
+// circumstances. Changes to these settings directly impact data sovereignty
+// and should be made in consultation with legal and privacy teams.
+type GeoFilterConfig struct {
+	Enabled            bool     `yaml:"enabled"`
+	AllowedCountries   []string `yaml:"allowed_countries"`
+	BlockedCountries   []string `yaml:"blocked_countries"`
+	DefaultAction      string   `yaml:"default_action"` // "allow", "block", "review"
+	VPNDetection       bool     `yaml:"vpn_detection"`
+	VPNAction          string   `yaml:"vpn_action"`     // "allow", "block", "flag"
+	BorderToleranceKM  int      `yaml:"border_tolerance_km"` // For US-Canada border regions
+}
+
+// PrivateMessageConfig controls encryption for enterprise messaging
+//
+// These settings ensure that private communications between authorized users
+// cannot be intercepted or read by unauthorized parties, including foreign
+// governments or other service providers.
+type PrivateMessageConfig struct {
+	Enabled             bool          `yaml:"enabled"`
+	EncryptionAlgorithm string        `yaml:"encryption_algorithm"`
+	KeyRotationInterval time.Duration `yaml:"key_rotation_interval"`
+	HSMEnabled          bool          `yaml:"hsm_enabled"`
+	HSMProvider         string        `yaml:"hsm_provider"`
+	KeyBackupLocations  []string      `yaml:"key_backup_locations"`
+	MaxMessageSizeBytes int           `yaml:"max_message_size_bytes"`
+}
+
+// EnterpriseAuthConfig controls SSO integration for organizations
+//
+// This enables government agencies and businesses to use their existing
+// identity systems while maintaining data sovereignty. Each provider
+// can have different security requirements based on their risk profile.
+type EnterpriseAuthConfig struct {
+	Enabled      bool           `yaml:"enabled"`
+	SAMLEnabled  bool           `yaml:"saml_enabled"`
+	OIDCEnabled  bool           `yaml:"oidc_enabled"`
+	SessionTTL   time.Duration  `yaml:"session_ttl"`
+	RequireVPN   bool           `yaml:"require_vpn"`
+	Providers    []AuthProvider `yaml:"providers"`
+}
+
+// AuthProvider represents a single SSO identity provider
+//
+// Each provider can serve multiple organizations and have different
+// security requirements. Government providers typically require VPN
+// access and support higher clearance levels.
+type AuthProvider struct {
+	Name            string   `yaml:"name"`
+	Type            string   `yaml:"type"` // "saml" or "oidc"
+	MetadataURL     string   `yaml:"metadata_url"`
+	CertificatePath string   `yaml:"certificate_path"`
+	ClientID        string   `yaml:"client_id"`
+	ClientSecret    string   `yaml:"client_secret"`
+	Organizations   []string `yaml:"organizations"`
+	RequireVPN      bool     `yaml:"require_vpn"`
+	ClearanceLevels []string `yaml:"clearance_levels"`
+}
+
+// ComplianceConfig ensures adherence to Canadian privacy laws
+//
+// These settings implement the technical requirements of PIPEDA
+// (Personal Information Protection and Electronic Documents Act)
+// and other Canadian privacy regulations.
+type ComplianceConfig struct {
+	PIPEDACompliance           bool   `yaml:"pipeda_compliance"`
+	DataRetentionDays          int    `yaml:"data_retention_days"`
+	AuditLogging               bool   `yaml:"audit_logging"`
+	RightToErasure             bool   `yaml:"right_to_erasure"`
+	DataPortability            bool   `yaml:"data_portability"`
+	AutomatedComplianceChecks  bool   `yaml:"automated_compliance_checks"`
+	ComplianceContact          string `yaml:"compliance_contact"`
+}
+
+// InfrastructureConfig controls the technical infrastructure
+//
+// These settings ensure that all data processing happens within
+// Canadian borders and meets security requirements for government
+// and enterprise clients.
+type InfrastructureConfig struct {
+	Database   DatabaseConfig   `yaml:"database"`
+	CDN        CDNConfig        `yaml:"cdn"`
+	Monitoring MonitoringConfig `yaml:"monitoring"`
+}
+
+type DatabaseConfig struct {
+	PrimaryRegion       string   `yaml:"primary_region"`
+	BackupRegions       []string `yaml:"backup_regions"`
+	EncryptionAtRest    bool     `yaml:"encryption_at_rest"`
+	EncryptionInTransit bool     `yaml:"encryption_in_transit"`
+	BackupRetentionDays int      `yaml:"backup_retention_days"`
+}
+
+type CDNConfig struct {
+	Provider       string        `yaml:"provider"`
+	CanadianOnly   bool          `yaml:"canadian_only"`
+	CacheDuration  time.Duration `yaml:"cache_duration"`
+	PurgeOnDeletion bool         `yaml:"purge_on_deletion"`
+}
+
+type MonitoringConfig struct {
+	PrometheusEnabled       bool `yaml:"prometheus_enabled"`
+	GrafanaEnabled          bool `yaml:"grafana_enabled"`
+	AlertManagerEnabled     bool `yaml:"alert_manager_enabled"`
+	PrivacyViolationAlerts  bool `yaml:"privacy_violation_alerts"`
+	CrossBorderAlerts       bool `yaml:"cross_border_alerts"`
+	PerformanceMonitoring   bool `yaml:"performance_monitoring"`
+}
+
+// DevelopmentConfig provides settings for development environments
+//
+// These settings allow developers to work with mock services and
+// relaxed security during development, while ensuring production
+// environments remain secure.
+type DevelopmentConfig struct {
+	MockHSM           bool `yaml:"mock_hsm"`
+	MockGeoService    bool `yaml:"mock_geo_service"`
+	MockVPNDetection  bool `yaml:"mock_vpn_detection"`
+	LoadTestData      bool `yaml:"load_test_data"`
+	DebugLogging      bool `yaml:"debug_logging"`
+	RelaxedSecurity   bool `yaml:"relaxed_security"`
+}
+
+// FeatureFlagConfig controls gradual rollout of sovereignty features
+//
+// These flags allow you to enable features gradually and disable them
+// quickly if issues are discovered. This is crucial for a system that
+// handles sensitive data and privacy requirements.
+type FeatureFlagConfig struct {
+	DualModeRelay        bool `yaml:"dual_mode_relay"`
+	PrivateMessaging     bool `yaml:"private_messaging"`
+	EnterpriseSSO        bool `yaml:"enterprise_sso"`
+	GeoFiltering         bool `yaml:"geo_filtering"`
+	AutomatedModeration  bool `yaml:"automated_moderation"`
+	AIContentFiltering   bool `yaml:"ai_content_filtering"`
+	AdvancedAnalytics    bool `yaml:"advanced_analytics"`
+}
+
+// NewManager creates a new sovereignty manager with the given configuration
+//
+// This is the main entry point for initializing all sovereignty features.
+// It validates the configuration, initializes all sub-services, and
+// prepares the system for handling Canadian data sovereignty requirements.
+func NewManager(configPath string) (*Manager, error) {
+	// Load and validate configuration
+	config, err := LoadConfig(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load sovereignty config: %w", err)
+	}
+	
+	// Validate configuration for security and compliance
+	if err := validateConfig(config); err != nil {
+		return nil, fmt.Errorf("invalid sovereignty configuration: %w", err)
+	}
+	
+	// Initialize monitoring first so we can track all operations
+	metrics := NewSovereigntyMetrics()
+	
+	// Initialize audit logging for compliance
+	auditLogger, err := NewAuditLogger(config.Compliance)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize audit logger: %w", err)
+	}
+	
+	// Initialize geographic location service
+	geoService, err := NewGeoLocationService(config.GeoFiltering, config.Development)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize geo service: %w", err)
+	}
+	
+	// Initialize encryption service for private messaging
+	var encryptionSvc *EncryptionService
+	if config.FeatureFlags.PrivateMessaging {
+		encryptionSvc, err = NewEncryptionService(config.PrivateMessaging, config.Development)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize encryption service: %w", err)
+		}
+	}
+	
+	// Initialize compliance manager
+	complianceMgr, err := NewComplianceManager(config.Compliance, auditLogger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize compliance manager: %w", err)
+	}
+	
+	manager := &Manager{
+		config:        config,
+		geoService:    geoService,
+		encryptionSvc: encryptionSvc,
+		complianceMgr: complianceMgr,
+		auditLogger:   auditLogger,
+		metrics:       metrics,
+		isEnabled:     config.Enabled,
+		startTime:     time.Now(),
+	}
+	
+	// Log successful initialization
+	auditLogger.LogEvent(AuditEvent{
+		Type:        "sovereignty_manager_initialized",
+		Timestamp:   time.Now(),
+		Severity:    "info",
+		Description: "Canadian sovereignty manager successfully initialized",
+		Metadata: map[string]interface{}{
+			"config_path":       configPath,
+			"features_enabled":  config.FeatureFlags,
+			"compliance_mode":   config.Compliance.PIPEDACompliance,
+		},
+	})
+	
+	return manager, nil
+}
+
+// ProcessATProtoEvent processes an AT Protocol event for sovereignty compliance
+//
+// This is the main entry point for all event processing. Every post, like,
+// follow, or other user action goes through this function to determine
+// how it should be handled under Canadian data sovereignty rules.
+func (m *Manager) ProcessATProtoEvent(ctx context.Context, event *ATProtoEvent) (*EventDecision, error) {
+	startTime := time.Now()
+	
+	// If sovereignty is disabled, allow everything through with minimal processing
+	if !m.isEnabled {
+		return &EventDecision{
+			AllowStandardStream:  true,
+			AllowSovereignStream: false,
+			RequiresEncryption:   false,
+			Reason:               "sovereignty_disabled",
+		}, nil
+	}
+	
+	// Create decision context with all relevant information
+	decision := &EventDecision{
+		EventID:              event.ID,
+		UserDID:              event.UserDID,
+		Timestamp:            time.Now(),
+		AllowStandardStream:  true, // Default: always allow standard stream
+		AllowSovereignStream: false, // Default: be conservative about sovereign stream
+		RequiresEncryption:   false,
+		Metadata:            make(map[string]interface{}),
+	}
+	
+	// Step 1: Determine if this user/content qualifies for sovereign treatment
+	isCanadian, geoReason, err := m.isCanadianEvent(ctx, event)
+	if err != nil {
+		// Log error but don't fail the whole pipeline
+		m.auditLogger.LogError("geo_classification_failed", err, event)
+		m.metrics.RecordGeoFilterCheck("error", "unknown", err.Error(), time.Since(startTime))
+		
+		// Default to non-sovereign processing
+		decision.Reason = "geo_classification_failed"
+		return decision, nil
+	}
+	
+	decision.Metadata["geo_reason"] = geoReason
+	decision.Metadata["is_canadian"] = isCanadian
+	
+	// Step 2: If Canadian, apply sovereign stream processing
+	if isCanadian {
+		decision.AllowSovereignStream = true
+		decision.Reason = "canadian_content"
+		
+		// Check if this requires enterprise encryption
+		if m.config.FeatureFlags.PrivateMessaging && m.requiresEncryption(event) {
+			decision.RequiresEncryption = true
+			decision.Metadata["encryption_reason"] = "enterprise_private_message"
+		}
+		
+		// Apply additional sovereign processing
+		if err := m.applySovereignProcessing(ctx, event, decision); err != nil {
+			m.auditLogger.LogError("sovereign_processing_failed", err, event)
+			// Don't fail the event, but log the issue
+			decision.Metadata["processing_error"] = err.Error()
+		}
+	}
+	
+	// Step 3: Record metrics and audit trail
+	processingDuration := time.Since(startTime)
+	m.metrics.RecordEventProcessed(
+		map[bool]string{true: "sovereign", false: "standard"}[decision.AllowSovereignStream],
+		event.Type,
+		map[bool]string{true: "CA", false: "foreign"}[isCanadian],
+		processingDuration,
+	)
+	
+	// Log decision for audit trail
+	m.auditLogger.LogEvent(AuditEvent{
+		Type:        "event_processed",
+		Timestamp:   time.Now(),
+		Severity:    "info",
+		Description: fmt.Sprintf("AT Protocol event processed: %s", decision.Reason),
+		Metadata: map[string]interface{}{
+			"event_id":           event.ID,
+			"user_did":           event.UserDID,
+			"decision":           decision,
+			"processing_time_ms": processingDuration.Milliseconds(),
+		},
+	})
+	
+	return decision, nil
+}
+
+// isCanadianEvent determines if an event qualifies for sovereign treatment
+//
+// This is one of the most critical functions in the entire system. It determines
+// whether content should be included in the Canadian sovereign stream or not.
+// The logic here directly impacts data sovereignty compliance.
+func (m *Manager) isCanadianEvent(ctx context.Context, event *ATProtoEvent) (bool, string, error) {
+	// Method 1: Check if user's PDS is in Canada
+	if pdsLocation, err := m.geoService.GetPDSLocation(ctx, event.UserPDS); err == nil {
+		if pdsLocation.Country == "CA" {
+			return true, "canadian_pds", nil
+		}
+	}
+	
+	// Method 2: Check if user has explicitly opted into Canadian stream
+	if userPrefs, err := m.getUserPreferences(ctx, event.UserDID); err == nil {
+		if userPrefs.CanadianSovereign {
+			return true, "user_opted_in", nil
+		}
+	}
+	
+	// Method 3: Check if content contains Canadian-specific elements
+	if m.hasCanadianContent(event) {
+		return true, "canadian_content_detected", nil
+	}
+	
+	// Method 4: Check if user is accessing from Canada
+	if event.ClientIP != "" {
+		if location, err := m.geoService.GetIPLocation(ctx, event.ClientIP); err == nil {
+			if location.Country == "CA" {
+				return true, "canadian_ip", nil
+			}
+		}
+	}
+	
+	// Default: not Canadian
+	return false, "not_canadian", nil
+}
+
+// ATProtoEvent represents an event in the AT Protocol system
+//
+// This structure contains all the information we need to make sovereignty
+// decisions about user actions, posts, and other activities.
+type ATProtoEvent struct {
+	ID          string                 `json:"id"`
+	Type        string                 `json:"type"`        // "post", "like", "follow", etc.
+	UserDID     string                 `json:"user_did"`
+	UserPDS     string                 `json:"user_pds"`
+	Content     map[string]interface{} `json:"content"`
+	Timestamp   time.Time              `json:"timestamp"`
+	ClientIP    string                 `json:"client_ip,omitempty"`
+	Metadata    map[string]interface{} `json:"metadata"`
+}
+
+// EventDecision represents the sovereignty decision for an event
+//
+// This structure contains all the information about how an event should
+// be processed under Canadian data sovereignty rules.
+type EventDecision struct {
+	EventID              string                 `json:"event_id"`
+	UserDID              string                 `json:"user_did"`
+	Timestamp            time.Time              `json:"timestamp"`
+	AllowStandardStream  bool                   `json:"allow_standard_stream"`
+	AllowSovereignStream bool                   `json:"allow_sovereign_stream"`
+	RequiresEncryption   bool                   `json:"requires_encryption"`
+	Reason               string                 `json:"reason"`
+	Metadata             map[string]interface{} `json:"metadata"`
+}
+
+// LoadConfig loads sovereignty configuration from a YAML file
+//
+// This function handles loading, parsing, and initial validation of the
+// sovereignty configuration. The configuration drives all aspects of
+// the system's behavior, so this function is critical for security.
+func LoadConfig(configPath string) (*Config, error) {
+	// Implementation details would go here
+	// This is a placeholder showing the function signature and documentation
+	return nil, fmt.Errorf("not implemented yet")
+}
+
+// validateConfig performs comprehensive validation of sovereignty configuration
+//
+// This function ensures that the configuration is not only syntactically valid
+// but also makes sense from a security and compliance perspective. For example,
+// it checks that blocked countries aren't also in the allowed list.
+func validateConfig(config *Config) error {
+	// Implementation details would go here
+	// This would validate all configuration settings for consistency and security
+	return fmt.Errorf("not implemented yet")
+}
+
+// Helper methods and additional types would continue here...

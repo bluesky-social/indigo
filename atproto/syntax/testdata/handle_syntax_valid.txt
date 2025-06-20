@@ -7,7 +7,7 @@ jan.test
 a234567890123456789.test
 john2.test
 john-john.test
-john.bsky.app
+john.gndr.app
 jo.hn
 a.co
 a.org
@@ -15,7 +15,7 @@ joh.n
 j0.h0
 jaymome-johnber123456.test
 jay.mome-johnber123456.test
-john.test.bsky.app
+john.test.gndr.app
 
 # max over all handle: 'shoooort' + '.loooooooooooooooooooooooooong'.repeat(8) + '.test'
 shoooort.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.test

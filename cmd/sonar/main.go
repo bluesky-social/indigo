@@ -13,8 +13,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/schedulers/sequential"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/events/schedulers/sequential"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "go.uber.org/automaxprocs"
@@ -34,7 +34,7 @@ func main() {
 		&cli.StringFlag{
 			Name:    "ws-url",
 			Usage:   "full websocket path to the ATProto SubscribeRepos XRPC endpoint",
-			Value:   "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
+			Value:   "wss://gndr.network/xrpc/com.atproto.sync.subscribeRepos",
 			EnvVars: []string{"SONAR_WS_URL"},
 		},
 		&cli.StringFlag{

@@ -4,14 +4,14 @@
     {
       "identity": {
         "did": "did:plc:vvpy7d6y2li5yo73cgbszibl",
-        "handle": "pengua.bsky.social",
+        "handle": "pengua.gndr.social",
         "alsoKnownAs": [
-          "at://pengua.bsky.social"
+          "at://pengua.gndr.social"
         ],
         "services": {
           "atproto_pds": {
             "type": "AtprotoPersonalDataServer",
-            "url": "https://calocybe.us-west.host.bsky.network"
+            "url": "https://calocybe.us-west.host.gndr.network"
           }
         },
         "keys": {
@@ -33,7 +33,7 @@
         },
         "body": {
           "did": "did:plc:vvpy7d6y2li5yo73cgbszibl",
-          "handle": "pengua.bsky.social",
+          "handle": "pengua.gndr.social",
           "seq": 110,
           "time": "2025-04-16T23:40:33.895Z"
         }

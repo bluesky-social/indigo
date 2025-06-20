@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/repo/mst"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/repo/mst"
 
 	"github.com/stretchr/testify/assert"
 )

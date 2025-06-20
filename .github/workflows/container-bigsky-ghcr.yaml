@@ -10,7 +10,7 @@ env:
 
 jobs:
   container-bigsky-ghcr:
-    if: github.repository == 'bluesky-social/indigo'
+    if: github.repository == 'gander-social/gander-indigo-sovereign'
     runs-on: ubuntu-latest
     permissions:
       contents: read

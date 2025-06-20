@@ -3,8 +3,8 @@ package visual
 import (
 	"strings"
 
-	"github.com/bluesky-social/indigo/automod"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 func (ac *AbyssClient) AbyssScanBlobRule(c *automod.RecordContext, blob lexutil.LexBlob, data []byte) error {

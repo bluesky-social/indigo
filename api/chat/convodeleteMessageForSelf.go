@@ -2,24 +2,24 @@
 
 package chat
 
-// schema: chat.bsky.convo.deleteMessageForSelf
+// schema: chat.gndr.convo.deleteMessageForSelf
 
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ConvoDeleteMessageForSelf_Input is the input argument to a chat.bsky.convo.deleteMessageForSelf call.
+// ConvoDeleteMessageForSelf_Input is the input argument to a chat.gndr.convo.deleteMessageForSelf call.
 type ConvoDeleteMessageForSelf_Input struct {
 	ConvoId   string `json:"convoId" cborgen:"convoId"`
 	MessageId string `json:"messageId" cborgen:"messageId"`
 }
 
-// ConvoDeleteMessageForSelf calls the XRPC method "chat.bsky.convo.deleteMessageForSelf".
+// ConvoDeleteMessageForSelf calls the XRPC method "chat.gndr.convo.deleteMessageForSelf".
 func ConvoDeleteMessageForSelf(ctx context.Context, c util.LexClient, input *ConvoDeleteMessageForSelf_Input) (*ConvoDefs_DeletedMessageView, error) {
 	var out ConvoDefs_DeletedMessageView
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.deleteMessageForSelf", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.gndr.convo.deleteMessageForSelf", nil, input, &out); err != nil {
 		return nil, err
 	}
 

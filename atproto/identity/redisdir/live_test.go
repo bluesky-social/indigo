@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 	"golang.org/x/time/rate"
 
 	"github.com/stretchr/testify/assert"
@@ -25,7 +25,7 @@ func testDirectoryLive(t *testing.T, d identity.Directory) {
 
 	handle := syntax.Handle("atproto.com")
 	did := syntax.DID("did:plc:ewvi7nxzyoun6zhxrhs64oiz")
-	pdsSuffix := "host.bsky.network"
+	pdsSuffix := "host.gndr.network"
 
 	resp, err := d.LookupHandle(ctx, handle)
 	assert.NoError(err)
@@ -100,7 +100,7 @@ func TestRedisCoalesce(t *testing.T) {
 		// Limit the number of requests we can make to the PLC to 1 per second
 		PLCLimiter:            rate.NewLimiter(1, 1),
 		TryAuthoritativeDNS:   true,
-		SkipDNSDomainSuffixes: []string{".bsky.social"},
+		SkipDNSDomainSuffixes: []string{".gndr.social"},
 	}
 	dir, err := NewRedisDirectory(&base, redisLocalTestURL, time.Hour*1, time.Hour*1, time.Hour*1, 1000)
 	if err != nil {

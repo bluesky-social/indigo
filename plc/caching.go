@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/bluesky-social/indigo/did"
+	"github.com/gander-social/gander-indigo-sovereign/did"
 	arc "github.com/hashicorp/golang-lru/arc/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"

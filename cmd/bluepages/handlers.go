@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/labstack/echo/v4"
 )
@@ -254,7 +254,7 @@ This is an AT Protocol Identity Service
 
 Most API routes are under /xrpc/
 
-      Code: https://github.com/bluesky-social/indigo/tree/main/cmd/bluepages
+      Code: https://github.com/gander-social/gander-indigo-sovereign/tree/main/cmd/bluepages
   Protocol: https://atproto.com
 	`)
 

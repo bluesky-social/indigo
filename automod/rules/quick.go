@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/helpers"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/helpers"
 )
 
 var botLinkStrings = []string{"ainna13762491", "LINK押して", "→ https://tiny", "⇒ http://tiny"}
@@ -16,7 +16,7 @@ var botSpamStrings = []string{"515-9719"}
 
 var _ automod.ProfileRuleFunc = BotLinkProfileRule
 
-func BotLinkProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile) error {
+func BotLinkProfileRule(c *automod.RecordContext, profile *appgndr.ActorProfile) error {
 	if profile.Description != nil {
 		for _, str := range botLinkStrings {
 			if strings.Contains(*profile.Description, str) {
@@ -39,7 +39,7 @@ func BotLinkProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile)
 
 var _ automod.PostRuleFunc = SimpleBotPostRule
 
-func SimpleBotPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func SimpleBotPostRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	for _, str := range botSpamStrings {
 		if strings.Contains(post.Text, str) {
 			// NOTE: reporting the *account* not individual posts
@@ -73,7 +73,7 @@ func NewAccountBotEmailRule(c *automod.AccountContext) error {
 var _ automod.PostRuleFunc = TrivialSpamPostRule
 
 // looks for new accounts, which frequently post the same type of content
-func TrivialSpamPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func TrivialSpamPostRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(&c.AccountContext, 8*24*time.Hour) {
 		return nil
 	}

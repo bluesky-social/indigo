@@ -1,6 +1,6 @@
 /*
  * Written in 2019 by Andrew Ayer.
- * Patched 2025, Bluesky Social PBC.
+ * Patched 2025, Gander Social PBC.
  *
  * Original: https://www.agwa.name/blog/post/preventing_server_side_request_forgery_in_golang
  *

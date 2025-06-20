@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
-	"github.com/bluesky-social/indigo/cmd/relay/stream/eventmgr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/relay/models"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream/eventmgr"
 
 	"github.com/RussellLuo/slidingwindow"
 	"github.com/hashicorp/golang-lru/v2"

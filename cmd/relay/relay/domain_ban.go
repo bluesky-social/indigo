@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/relay/models"
 
 	"gorm.io/gorm"
 )

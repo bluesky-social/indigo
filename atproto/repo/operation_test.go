@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/bluesky-social/indigo/atproto/repo/mst"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/repo/mst"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"

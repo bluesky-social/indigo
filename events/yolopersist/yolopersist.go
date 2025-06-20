@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/models"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/models"
 )
 
 // YoloPersister is used for benchmarking, it has no persistence, it just emits events and forgets them

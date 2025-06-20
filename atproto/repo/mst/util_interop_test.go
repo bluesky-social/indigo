@@ -71,8 +71,8 @@ func TestHeightForKey(t *testing.T) {
 	assert.Equal(HeightForKey([]byte("88bfafc7")), 2, msg)
 	assert.Equal(HeightForKey([]byte("2a92d355")), 4, msg)
 	assert.Equal(HeightForKey([]byte("884976f5")), 6, msg)
-	assert.Equal(HeightForKey([]byte("app.bsky.feed.post/454397e440ec")), 4, msg)
-	assert.Equal(HeightForKey([]byte("app.bsky.feed.post/9adeb165882c")), 8, msg)
+	assert.Equal(HeightForKey([]byte("gndr.app.feed.post/454397e440ec")), 4, msg)
+	assert.Equal(HeightForKey([]byte("gndr.app.feed.post/9adeb165882c")), 8, msg)
 
 	assert.Equal(HeightForKey([]byte("R2/359107")), 2, msg)
 }

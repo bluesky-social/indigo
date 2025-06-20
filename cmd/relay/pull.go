@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/cmd/relay/relay"
-	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
-	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/xrpc"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/relay"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/relay/models"
+	"github.com/gander-social/gander-indigo-sovereign/util/cliutil"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 
 	"github.com/urfave/cli/v2"
 )
@@ -22,7 +22,7 @@ var cmdPullHosts = &cli.Command{
 		&cli.StringFlag{
 			Name:    "relay-host",
 			Usage:   "method, hostname, and port of relay to pull from",
-			Value:   "https://bsky.network",
+			Value:   "https://gndr.network",
 			EnvVars: []string{"RELAY_HOST"},
 		},
 		&cli.StringFlag{
@@ -46,7 +46,7 @@ var cmdPullHosts = &cli.Command{
 		&cli.StringSliceFlag{
 			Name:    "trusted-domains",
 			Usage:   "domain names which mark trusted hosts; use wildcard prefix to match suffixes",
-			Value:   cli.NewStringSlice("*.host.bsky.network"),
+			Value:   cli.NewStringSlice("*.host.gndr.network"),
 			EnvVars: []string{"RELAY_TRUSTED_DOMAINS"},
 		},
 		&cli.BoolFlag{

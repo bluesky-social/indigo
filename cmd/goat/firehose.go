@@ -13,14 +13,14 @@ import (
 	"strings"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/data"
-	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/repo"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/schedulers/parallel"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/data"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/identity"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/repo"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/events/schedulers/parallel"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
 
 	"github.com/gorilla/websocket"
 	"github.com/urfave/cli/v2"
@@ -33,7 +33,7 @@ var cmdFirehose = &cli.Command{
 		&cli.StringFlag{
 			Name:    "relay-host",
 			Usage:   "method, hostname, and port of Relay instance (websocket)",
-			Value:   "wss://bsky.network",
+			Value:   "wss://gndr.network",
 			EnvVars: []string{"ATP_RELAY_HOST", "RELAY_HOST"},
 		},
 		&cli.IntFlag{
@@ -102,7 +102,7 @@ func runFirehose(cctx *cli.Context) error {
 	bdir := identity.BaseDirectory{
 		SkipHandleVerification: true,
 		TryAuthoritativeDNS:    false,
-		SkipDNSDomainSuffixes:  []string{".bsky.social"},
+		SkipDNSDomainSuffixes:  []string{".gndr.social"},
 		UserAgent:              *userAgent(),
 	}
 	cdir := identity.NewCacheDirectory(&bdir, 1_000_000, time.Hour*24, time.Minute*2, time.Minute*5)

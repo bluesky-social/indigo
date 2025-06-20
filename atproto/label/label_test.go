@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/crypto"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -71,7 +71,7 @@ func TestSignLabel(t *testing.T) {
 	l := Label{
 		Version:   ATPROTO_LABEL_VERSION,
 		CreatedAt: "2024-10-23T17:51:19.128Z",
-		URI:       "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.actor.profile/self",
+		URI:       "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/gndr.app.actor.profile/self",
 		Val:       "good",
 		SourceDID: "did:plc:ewvi7nxzyoun6zhxrhs64oiz",
 	}

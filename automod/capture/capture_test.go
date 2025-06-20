@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/automod/engine"
+	"github.com/gander-social/gander-indigo-sovereign/automod/countstore"
+	"github.com/gander-social/gander-indigo-sovereign/automod/engine"
 	"github.com/stretchr/testify/assert"
 )
 

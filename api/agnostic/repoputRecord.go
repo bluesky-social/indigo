@@ -7,7 +7,7 @@ package agnostic
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // RepoPutRecord_Input is the input argument to a com.atproto.repo.putRecord call.

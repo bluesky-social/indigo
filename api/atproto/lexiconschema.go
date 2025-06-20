@@ -5,7 +5,7 @@ package atproto
 // schema: com.atproto.lexicon.schema
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 func init() {

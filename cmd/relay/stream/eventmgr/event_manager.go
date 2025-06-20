@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/cmd/relay/stream"
-	"github.com/bluesky-social/indigo/cmd/relay/stream/persist"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream/persist"
 
 	"go.opentelemetry.io/otel"
 )

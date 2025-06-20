@@ -8,7 +8,7 @@ import (
 	"net"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
 
 	"github.com/RussellLuo/slidingwindow"
 	"github.com/gorilla/websocket"

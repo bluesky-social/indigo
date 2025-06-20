@@ -5,17 +5,17 @@ import (
 	"time"
 	"unicode/utf8"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/automod/helpers"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/countstore"
+	"github.com/gander-social/gander-indigo-sovereign/automod/helpers"
 )
 
 var _ automod.PostRuleFunc = ReplyCountPostRule
 
 // does not count "self-replies" (direct to self, or in own post thread)
-func ReplyCountPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func ReplyCountPostRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	if post.Reply == nil || helpers.IsSelfThread(c, post) {
 		return nil
 	}
@@ -47,7 +47,7 @@ var _ automod.PostRuleFunc = IdenticalReplyPostRule
 // Looks for accounts posting the exact same text multiple times. Does not currently count the number of distinct accounts replied to, just counts replies at all.
 //
 // There can be legitimate situations that trigger this rule, so in most situations should be a "report" not "label" action.
-func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func IdenticalReplyPostRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	if post.Reply == nil || helpers.IsSelfThread(c, post) {
 		return nil
 	}
@@ -91,7 +91,7 @@ var identicalReplySameParentMaxAge = 24 * time.Hour
 var identicalReplySameParentMaxPosts int64 = 50
 var _ automod.PostRuleFunc = IdenticalReplyPostSameParentRule
 
-func IdenticalReplyPostSameParentRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func IdenticalReplyPostSameParentRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	if post.Reply == nil || helpers.IsSelfThread(c, post) {
 		return nil
 	}
@@ -125,7 +125,7 @@ func IdenticalReplyPostSameParentRule(c *automod.RecordContext, post *appbsky.Fe
 var youngReplyAccountLimit = 200
 var _ automod.PostRuleFunc = YoungAccountDistinctRepliesRule
 
-func YoungAccountDistinctRepliesRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func YoungAccountDistinctRepliesRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	// only replies, and skip self-replies (eg, threads)
 	if post.Reply == nil || helpers.IsSelfThread(c, post) {
 		return nil

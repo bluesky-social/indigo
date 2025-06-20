@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // ServerListAppPasswords_AppPassword is a "appPassword" in the com.atproto.server.listAppPasswords schema.

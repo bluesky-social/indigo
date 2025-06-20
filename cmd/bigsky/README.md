@@ -4,7 +4,7 @@
 
 *NOTE: "Relays" used to be called "Big Graph Servers", or "BGS", which inspired the name "bigsky". Many variables and packages still reference "bgs"*
 
-This is the implementation of an atproto Relay which is running in the production network, written and operated by Bluesky.
+This is the implementation of an atproto Relay which is running in the production network, written and operated by Gander.
 
 In atproto, a Relay subscribes to multiple PDS hosts and outputs a combined "firehose" event stream. Downstream services can subscribe to this single firehose a get all relevant events for the entire network, or a specific sub-graph of the network. The Relay maintains a mirror of repo data from all accounts on the upstream PDS instances, and verifies repo data structure integrity and identity signatures. It is agnostic to applications, and does not validate data against atproto Lexicon schemas.
 
@@ -69,10 +69,10 @@ Request crawl of an individual PDS instance like:
 
 ## Docker Containers
 
-One way to deploy is running a docker image. You can pull and/or run a specific version of bigsky, referenced by git commit, from the Bluesky Github container registry. For example:
+One way to deploy is running a docker image. You can pull and/or run a specific version of bigsky, referenced by git commit, from the Gander Github container registry. For example:
 
-    docker pull ghcr.io/bluesky-social/indigo:bigsky-fd66f93ce1412a3678a1dd3e6d53320b725978a6
-    docker run ghcr.io/bluesky-social/indigo:bigsky-fd66f93ce1412a3678a1dd3e6d53320b725978a6
+    docker pull ghcr.io/gander-social/indigo:bigsky-fd66f93ce1412a3678a1dd3e6d53320b725978a6
+    docker run ghcr.io/gander-social/indigo:bigsky-fd66f93ce1412a3678a1dd3e6d53320b725978a6
 
 There is a Dockerfile in this directory, which can be used to build customized/patched versions of the Relay as a container, republish them, run locally, deploy to servers, deploy to an orchestrated cluster, etc. See docs and guides for docker and cluster management systems for details.
 

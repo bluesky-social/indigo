@@ -3,7 +3,7 @@ package client
 import (
 	"net/http"
 
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 )
 
 // Simple [AuthMethod] implementation for atproto "admin auth".

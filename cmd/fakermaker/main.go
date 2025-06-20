@@ -11,9 +11,9 @@ import (
 	"os"
 	"runtime"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/fakedata"
-	"github.com/bluesky-social/indigo/util/cliutil"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/fakedata"
+	"github.com/gander-social/gander-indigo-sovereign/util/cliutil"
 
 	_ "github.com/joho/godotenv/autoload"
 	_ "go.uber.org/automaxprocs"
@@ -31,7 +31,7 @@ func run(args []string) {
 
 	app := cli.App{
 		Name:    "fakermaker",
-		Usage:   "bluesky fake account/content generator",
+		Usage:   "gander fake account/content generator",
 		Version: versioninfo.Short(),
 	}
 

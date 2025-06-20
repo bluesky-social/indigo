@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 )
 
 func ExampleAPIDirectory() {
@@ -36,6 +36,6 @@ func ExampleAPIDirectory() {
 
 	/// Output:
 	// did:plc:ewvi7nxzyoun6zhxrhs64oiz
-	// [{#atproto_pds AtprotoPersonalDataServer https://enoki.us-east.host.bsky.network}]
-	// https://enoki.us-east.host.bsky.network
+	// [{#atproto_pds AtprotoPersonalDataServer https://enoki.us-east.host.gndr.network}]
+	// https://enoki.us-east.host.gndr.network
 }

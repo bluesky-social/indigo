@@ -5,7 +5,7 @@ package ozone
 // schema: tools.ozone.team.defs
 
 import (
-	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
+	appgndrtypes "github.com/gander-social/gander-indigo-sovereign/api/gndr"
 )
 
 // TeamDefs_Member is a "member" in the tools.ozone.team.defs schema.
@@ -14,7 +14,7 @@ type TeamDefs_Member struct {
 	Did           string                                      `json:"did" cborgen:"did"`
 	Disabled      *bool                                       `json:"disabled,omitempty" cborgen:"disabled,omitempty"`
 	LastUpdatedBy *string                                     `json:"lastUpdatedBy,omitempty" cborgen:"lastUpdatedBy,omitempty"`
-	Profile       *appbskytypes.ActorDefs_ProfileViewDetailed `json:"profile,omitempty" cborgen:"profile,omitempty"`
+	Profile       *appgndrtypes.ActorDefs_ProfileViewDetailed `json:"profile,omitempty" cborgen:"profile,omitempty"`
 	Role          string                                      `json:"role" cborgen:"role"`
 	UpdatedAt     *string                                     `json:"updatedAt,omitempty" cborgen:"updatedAt,omitempty"`
 }

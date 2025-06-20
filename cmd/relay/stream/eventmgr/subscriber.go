@@ -3,7 +3,7 @@ package eventmgr
 import (
 	"sync"
 
-	"github.com/bluesky-social/indigo/cmd/relay/stream"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream"
 
 	"github.com/prometheus/client_golang/prometheus"
 )

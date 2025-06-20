@@ -5,7 +5,7 @@
 		"cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
         "handle": "handle.example.com",
 		"ProfileRecord": {
-  			"$type": "app.bsky.actor.profile"
+  			"$type": "gndr.app.actor.profile"
 		},
 		"doc_id": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
 		"ProfileDoc": {
@@ -23,7 +23,7 @@
 		"cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
         "handle": "handle.example.com",
 		"ProfileRecord": {
-  			"$type": "app.bsky.actor.profile",
+  			"$type": "gndr.app.actor.profile",
     		"displayName": "Big Bubba",
     		"description": "Big Description 🥸 #cheese",
             "labels": {

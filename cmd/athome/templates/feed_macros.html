@@ -18,9 +18,9 @@
     {% endif %}
     <div class="summary">
       {% if feedItem.Post.Author.Did == selfDID %}
-      <a href="/bsky" class="user">
+      <a href="/gndr" class="user">
       {% else %}
-      <a href="https://bsky.app/profile/{{ feedItem.Post.Author.Handle }}" class="user">
+      <a href="https://gndr.app/profile/{{ feedItem.Post.Author.Handle }}" class="user">
       {% endif %}
         {% if feedItem.Post.Author.DisplayName %}
         <b>{{ feedItem.Post.Author.DisplayName }}</b>
@@ -35,9 +35,9 @@
         {# TODO: relative time#}
         {# TODO: parse and fix link (custom filter?) #}
         {% if feedItem.Post.Author.Did == selfDID %}
-        <a href="/bsky/post/{{ feedItem.Post.Uri|split:"/"|last }}">{{ feedItem.Post.IndexedAt }}</a>
+        <a href="/gndr/post/{{ feedItem.Post.Uri|split:"/"|last }}">{{ feedItem.Post.IndexedAt }}</a>
         {% else %}
-        <a href="https://bsky.app/profile/{{ feedItem.Post.Author.Handle }}/post/{{ feedItem.Post.Uri|split:"/"|last }}">{{ feedItem.Post.IndexedAt }}</a>
+        <a href="https://gndr.app/profile/{{ feedItem.Post.Author.Handle }}/post/{{ feedItem.Post.Uri|split:"/"|last }}">{{ feedItem.Post.IndexedAt }}</a>
         {% endif %}
       </div>
     </div>

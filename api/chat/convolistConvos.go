@@ -2,21 +2,21 @@
 
 package chat
 
-// schema: chat.bsky.convo.listConvos
+// schema: chat.gndr.convo.listConvos
 
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ConvoListConvos_Output is the output of a chat.bsky.convo.listConvos call.
+// ConvoListConvos_Output is the output of a chat.gndr.convo.listConvos call.
 type ConvoListConvos_Output struct {
 	Convos []*ConvoDefs_ConvoView `json:"convos" cborgen:"convos"`
 	Cursor *string                `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 }
 
-// ConvoListConvos calls the XRPC method "chat.bsky.convo.listConvos".
+// ConvoListConvos calls the XRPC method "chat.gndr.convo.listConvos".
 func ConvoListConvos(ctx context.Context, c util.LexClient, cursor string, limit int64, readState string, status string) (*ConvoListConvos_Output, error) {
 	var out ConvoListConvos_Output
 
@@ -33,7 +33,7 @@ func ConvoListConvos(ctx context.Context, c util.LexClient, cursor string, limit
 	if status != "" {
 		params["status"] = status
 	}
-	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.convo.listConvos", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "chat.gndr.convo.listConvos", params, nil, &out); err != nil {
 		return nil, err
 	}
 

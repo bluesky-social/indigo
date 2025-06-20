@@ -2,12 +2,12 @@
   "cid": "bafyreiapesxwibnujg44xphqq23ekkozgcmnenj2onnx4gkgy4uipziyc4",
   "indexedAt": "2023-03-14T02:48:20.484Z",
   "takedownId": null,
-  "uri": "at://did:plc:6evlgoug7wwijzxhzt2riyic/app.bsky.feed.post/3jquh3emtzo2o",
+  "uri": "at://did:plc:6evlgoug7wwijzxhzt2riyic/gndr.app.feed.post/3jquh3emtzo2o",
   "value": {
-    "$type": "app.bsky.feed.post",
+    "$type": "gndr.app.feed.post",
     "createdAt": "2023-03-13T19:48:20-07:00",
     "embed": {
-      "$type": "app.bsky.embed.images",
+      "$type": "gndr.app.embed.images",
       "images": [
         {
           "alt": "Sausage sandwich italian style",

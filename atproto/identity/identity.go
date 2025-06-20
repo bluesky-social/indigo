@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/bluesky-social/indigo/atproto/crypto"
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/crypto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/mr-tron/base58"
 )

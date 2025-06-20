@@ -4,15 +4,15 @@ import (
 	"strings"
 	"time"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/helpers"
+	appgndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/automod"
+	"github.com/gander-social/gander-indigo-sovereign/automod/helpers"
 )
 
 var _ automod.PostRuleFunc = NostrSpamPostRule
 
 // looks for new accounts, which frequently post the same type of content
-func NostrSpamPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+func NostrSpamPostRule(c *automod.RecordContext, post *appgndr.FeedPost) error {
 	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(&c.AccountContext, 2*24*time.Hour) {
 		return nil
 	}

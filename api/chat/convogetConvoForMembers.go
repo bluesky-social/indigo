@@ -2,26 +2,26 @@
 
 package chat
 
-// schema: chat.bsky.convo.getConvoForMembers
+// schema: chat.gndr.convo.getConvoForMembers
 
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ConvoGetConvoForMembers_Output is the output of a chat.bsky.convo.getConvoForMembers call.
+// ConvoGetConvoForMembers_Output is the output of a chat.gndr.convo.getConvoForMembers call.
 type ConvoGetConvoForMembers_Output struct {
 	Convo *ConvoDefs_ConvoView `json:"convo" cborgen:"convo"`
 }
 
-// ConvoGetConvoForMembers calls the XRPC method "chat.bsky.convo.getConvoForMembers".
+// ConvoGetConvoForMembers calls the XRPC method "chat.gndr.convo.getConvoForMembers".
 func ConvoGetConvoForMembers(ctx context.Context, c util.LexClient, members []string) (*ConvoGetConvoForMembers_Output, error) {
 	var out ConvoGetConvoForMembers_Output
 
 	params := map[string]interface{}{}
 	params["members"] = members
-	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.convo.getConvoForMembers", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "chat.gndr.convo.getConvoForMembers", params, nil, &out); err != nil {
 		return nil, err
 	}
 

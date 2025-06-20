@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
 
 	"github.com/carlmjohnson/versioninfo"
 )
@@ -80,8 +80,8 @@ func DefaultDirectory() Directory {
 			},
 		},
 		TryAuthoritativeDNS: true,
-		// primary Bluesky PDS instance only supports HTTP resolution method
-		SkipDNSDomainSuffixes: []string{".bsky.social"},
+		// primary Gander PDS instance only supports HTTP resolution method
+		SkipDNSDomainSuffixes: []string{".gndr.social"},
 		UserAgent:             "indigo-identity/" + versioninfo.Short(),
 	}
 	cached := NewCacheDirectory(&base, 250_000, time.Hour*24, time.Minute*2, time.Minute*5)

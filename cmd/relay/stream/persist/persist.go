@@ -3,7 +3,7 @@ package persist
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/cmd/relay/stream"
+	"github.com/gander-social/gander-indigo-sovereign/cmd/relay/stream"
 )
 
 // Note that this interface looks generic, but some persisters might only work with RepoAppend or LabelLabels

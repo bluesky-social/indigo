@@ -9,13 +9,13 @@ This is a re-implementation of [adenosine-cli](https://gitlab.com/bnewbold/adeno
 If you have the Go toolchain installed and configured correctly, you can directly build and install the tool for your local account:
 
 ```bash
-go install github.com/bluesky-social/indigo/cmd/goat@latest
+go install github.com/gander-social/gander-indigo-sovereign/cmd/goat@latest
 ```
 
 A more manual way to install is:
 
 ```bash
-git clone https://github.com/bluesky-social/indigo
+git clone https://github.com/gander-social/gander-indigo-sovereign
 go build ./cmd/goat
 sudo cp goat /usr/local/bin
 ```
@@ -29,8 +29,8 @@ The intention is to also provide a Homebrew "cask" and Debian/Ubuntu packages.
 
 ```bash
 goat --help
-goat bsky -h
-goat help bsky
+goat gndr -h
+goat help gndr
 # etc
 ```
 
@@ -63,7 +63,7 @@ $ goat resolve wyden.senate.gov
     {
       "id": "#atproto_pds",
       "type": "AtprotoPersonalDataServer",
-      "serviceEndpoint": "https://shimeji.us-east.host.bsky.network"
+      "serviceEndpoint": "https://shimeji.us-east.host.gndr.network"
     }
   ]
 }
@@ -72,20 +72,20 @@ $ goat resolve wyden.senate.gov
 List record collection types for an account:
 
 ```bash
-$ goat ls -c dril.bsky.social
-app.bsky.actor.profile
-app.bsky.feed.post
-app.bsky.feed.repost
-app.bsky.graph.follow
-chat.bsky.actor.declaration
+$ goat ls -c dril.gndr.social
+gndr.app.actor.profile
+gndr.app.feed.post
+gndr.app.feed.repost
+gndr.app.graph.follow
+chat.gndr.actor.declaration
 ```
 
 Fetch a record from the network as JSON:
 
 ```bash
-$ goat get at://dril.bsky.social/app.bsky.feed.post/3kkreaz3amd27
+$ goat get at://dril.gndr.social/gndr.app.feed.post/3kkreaz3amd27
 {
-  "$type": "app.bsky.feed.post",
+  "$type": "gndr.app.feed.post",
   "createdAt": "2024-02-06T18:15:19.802Z",
   "langs": [
     "en"
@@ -97,13 +97,13 @@ $ goat get at://dril.bsky.social/app.bsky.feed.post/3kkreaz3amd27
 Make a public snapshot of your account:
 
 ```bash
-$ goat repo export jay.bsky.team
-downloading from https://morel.us-east.host.bsky.network to: jay.bsky.team.20240811183155.car
+$ goat repo export jay.gndr.team
+downloading from https://morel.us-east.host.gndr.network to: jay.gndr.team.20240811183155.car
 
-$ downloading blobs to: jay.bsky.team_blobs
-jay.bsky.team_blobs/bafkreia2x4faux5y7v7v54yl5ebkbaek7z7nhmsd4cooubz3yj4zox34cq	downloaded
-jay.bsky.team_blobs/bafkreia3qgbww7odprmysd6jcyxoh5sczkwoxinnmzpsp73gs623fqfm3a	downloaded
-jay.bsky.team_blobs/bafkreia3rgnywdrysy65vid42ulyno2cybxhxrn3ragm7cw3smmsxzvbs4	downloaded
+$ downloading blobs to: jay.gndr.team_blobs
+jay.gndr.team_blobs/bafkreia2x4faux5y7v7v54yl5ebkbaek7z7nhmsd4cooubz3yj4zox34cq	downloaded
+jay.gndr.team_blobs/bafkreia3qgbww7odprmysd6jcyxoh5sczkwoxinnmzpsp73gs623fqfm3a	downloaded
+jay.gndr.team_blobs/bafkreia3rgnywdrysy65vid42ulyno2cybxhxrn3ragm7cw3smmsxzvbs4	downloaded
 [...]
 ```
 
@@ -144,11 +144,11 @@ $ goat firehose --account-events | jq .payload.handle
 [...]
 
 # text of posts (empty lines for post-deletions)
-$ goat firehose - app.bsky.feed.post --ops | jq .record.text
+$ goat firehose - gndr.app.feed.post --ops | jq .record.text
 [...]
 
 # sample ratio of languages in current posts
-$ goat firehose --ops -c app.bsky.feed.post | head -n100 | jq .record.langs[0] -c | sort | uniq -c | sort -nr
+$ goat firehose --ops -c gndr.app.feed.post | head -n100 | jq .record.langs[0] -c | sort | uniq -c | sort -nr
      51 "en"
      33 "ja"
       7 null
@@ -160,8 +160,8 @@ $ goat firehose --ops -c app.bsky.feed.post | head -n100 | jq .record.langs[0] -
       1 "am"
 ```
 
-A minimal bsky posting interface, requires account login:
+A minimal gndr posting interface, requires account login:
 
 ```bash
-$ goat bsky post "hello from goat"
+$ goat gndr post "hello from goat"
 ```

@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // AdminUpdateSubjectStatus_Input is the input argument to a com.atproto.admin.updateSubjectStatus call.

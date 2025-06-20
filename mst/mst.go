@@ -37,8 +37,8 @@
 // - the rest of the string
 //
 // For example:
-// If the first leaf in a tree is `bsky/posts/abcdefg` and the second is `bsky/posts/abcdehi`
-// Then the first will be described as `prefix: 0, key: 'bsky/posts/abcdefg'`,
+// If the first leaf in a tree is `gndr/posts/abcdefg` and the second is `gndr/posts/abcdehi`
+// Then the first will be described as `prefix: 0, key: 'gndr/posts/abcdefg'`,
 // and the second will be described as `prefix: 16, key: 'hi'.`
 package mst
 

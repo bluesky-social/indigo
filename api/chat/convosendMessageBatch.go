@@ -2,34 +2,34 @@
 
 package chat
 
-// schema: chat.bsky.convo.sendMessageBatch
+// schema: chat.gndr.convo.sendMessageBatch
 
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
-// ConvoSendMessageBatch_BatchItem is a "batchItem" in the chat.bsky.convo.sendMessageBatch schema.
+// ConvoSendMessageBatch_BatchItem is a "batchItem" in the chat.gndr.convo.sendMessageBatch schema.
 type ConvoSendMessageBatch_BatchItem struct {
 	ConvoId string                  `json:"convoId" cborgen:"convoId"`
 	Message *ConvoDefs_MessageInput `json:"message" cborgen:"message"`
 }
 
-// ConvoSendMessageBatch_Input is the input argument to a chat.bsky.convo.sendMessageBatch call.
+// ConvoSendMessageBatch_Input is the input argument to a chat.gndr.convo.sendMessageBatch call.
 type ConvoSendMessageBatch_Input struct {
 	Items []*ConvoSendMessageBatch_BatchItem `json:"items" cborgen:"items"`
 }
 
-// ConvoSendMessageBatch_Output is the output of a chat.bsky.convo.sendMessageBatch call.
+// ConvoSendMessageBatch_Output is the output of a chat.gndr.convo.sendMessageBatch call.
 type ConvoSendMessageBatch_Output struct {
 	Items []*ConvoDefs_MessageView `json:"items" cborgen:"items"`
 }
 
-// ConvoSendMessageBatch calls the XRPC method "chat.bsky.convo.sendMessageBatch".
+// ConvoSendMessageBatch calls the XRPC method "chat.gndr.convo.sendMessageBatch".
 func ConvoSendMessageBatch(ctx context.Context, c util.LexClient, input *ConvoSendMessageBatch_Input) (*ConvoSendMessageBatch_Output, error) {
 	var out ConvoSendMessageBatch_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.sendMessageBatch", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.gndr.convo.sendMessageBatch", nil, input, &out); err != nil {
 		return nil, err
 	}
 

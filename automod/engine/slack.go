@@ -70,7 +70,7 @@ func (n *SlackNotifier) sendSlackMsg(ctx context.Context, msg string) error {
 
 func slackBody(header string, acct AccountMeta, newLabels, rmdLabels, newFlags []string, newReports []ModReport, newTakedown bool) string {
 	msg := header
-	msg += fmt.Sprintf("`%s` / `%s` / <https://bsky.app/profile/%s|bsky> / <https://admin.prod.bsky.dev/repositories/%s|ozone>\n",
+	msg += fmt.Sprintf("`%s` / `%s` / <https://gndr.app/profile/%s|gndr> / <https://admin.prod.gndr.dev/repositories/%s|ozone>\n",
 		acct.Identity.DID,
 		acct.Identity.Handle,
 		acct.Identity.DID,

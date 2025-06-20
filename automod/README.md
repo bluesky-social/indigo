@@ -9,7 +9,7 @@ Some example rules are included in the `automod/rules` package, but the expectat
 
 Code for subscribing to a firehose is not included here; see `../cmd/hepa` for a service daemon built on this package.
 
-API reference documentation can be found on [pkg.go.dev](https://pkg.go.dev/github.com/bluesky-social/indigo/automod).
+API reference documentation can be found on [pkg.go.dev](https://pkg.go.dev/github.com/gander-social/gander-indigo-sovereign/automod).
 
 ## Architecture
 

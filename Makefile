@@ -1,4 +1,3 @@
-
 SHELL = /bin/bash
 .SHELLFLAGS = -o pipefail -c
 
@@ -68,7 +67,7 @@ check: ## Compile everything, checking syntax (does not output binaries)
 
 .PHONY: lexgen
 lexgen: ## Run codegen tool for lexicons (lexicon JSON to Go packages)
-	go run ./cmd/lexgen/ --build-file cmd/lexgen/bsky.json $(LEXDIR)
+	go run ./cmd/lexgen/ --build-file cmd/lexgen/gndr.json $(LEXDIR)
 
 .PHONY: cborgen
 cborgen: ## Run codegen tool for CBOR serialization
@@ -154,3 +153,52 @@ run-scylla:
 stop-scylla:
 	@echo "==> Stopping test instance of Scylla $(SCYLLA_VERSION)"
 	@docker stop scylla
+
+.PHONY: docker-build-plc
+
+docker-build-plc: ## Build the plc Docker image
+	docker build -t gander-plc ./plc
+
+.PHONY: docker-run-plc
+
+docker-run-plc: ## Run the plc service in Docker
+	docker run --rm -it -p 2583:2583 --name gander-plc gander-plc
+
+.PHONY: docker-build-pds-one
+
+docker-build-pds-one: ## Build the pds-one Docker image
+	docker build -t gander-pds-one ./pds
+
+.PHONY: docker-run-pds-one
+
+docker-run-pds-one: ## Run the pds-one service in Docker
+	docker run --rm -it -p 2582:2582 --name gander-pds-one gander-pds-one
+
+.PHONY: docker-build-bgs
+
+docker-build-bgs: ## Build the bgs Docker image
+	docker build -t gander-bgs ./cmd/bigsky
+
+.PHONY: docker-run-bgs
+
+docker-run-bgs: ## Run the bgs service in Docker
+	docker run --rm -it -p 2470:2470 --name gander-bgs gander-bgs
+
+# Optionally, add appview targets if a Dockerfile is present
+.PHONY: docker-build-appview
+
+docker-build-appview: ## Build the appview Docker image (if Dockerfile exists)
+	@if [ -f ./appview/Dockerfile ]; then \
+		docker build -t gander-appview ./appview; \
+	else \
+		echo "No Dockerfile found for appview. Skipping."; \
+	fi
+
+.PHONY: docker-run-appview
+
+docker-run-appview: ## Run the appview service in Docker (if image exists)
+	@if docker image inspect gander-appview > /dev/null 2>&1; then \
+		docker run --rm -it -p 2584:2584 --name gander-appview gander-appview; \
+	else \
+		echo "No image found for appview. Build it first or add a Dockerfile."; \
+	fi

@@ -3,19 +3,19 @@ package main
 import (
 	"reflect"
 
-	atproto "github.com/bluesky-social/indigo/api/atproto"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
-	chat "github.com/bluesky-social/indigo/api/chat"
-	"github.com/bluesky-social/indigo/atproto/data"
-	"github.com/bluesky-social/indigo/atproto/label"
-	atrepo "github.com/bluesky-social/indigo/atproto/repo"
-	atmst "github.com/bluesky-social/indigo/atproto/repo/mst"
-	"github.com/bluesky-social/indigo/events"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/mst"
-	"github.com/bluesky-social/indigo/plc"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/util/labels"
+	atproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	chat "github.com/gander-social/gander-indigo-sovereign/api/chat"
+	gndr "github.com/gander-social/gander-indigo-sovereign/api/gndr"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/data"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/label"
+	atrepo "github.com/gander-social/gander-indigo-sovereign/atproto/repo"
+	atmst "github.com/gander-social/gander-indigo-sovereign/atproto/repo/mst"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	lexutil "github.com/gander-social/gander-indigo-sovereign/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/mst"
+	"github.com/gander-social/gander-indigo-sovereign/plc"
+	"github.com/gander-social/gander-indigo-sovereign/repo"
+	"github.com/gander-social/gander-indigo-sovereign/util/labels"
 
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
@@ -46,43 +46,43 @@ func main() {
 		panic(err)
 	}
 
-	if err := genCfg.WriteMapEncodersToFile("api/bsky/cbor_gen.go", "bsky",
-		bsky.FeedPost{}, bsky.FeedRepost{}, bsky.FeedPost_Entity{},
-		bsky.FeedPost_ReplyRef{}, bsky.FeedPost_TextSlice{}, bsky.EmbedImages{},
-		bsky.EmbedExternal{}, bsky.EmbedExternal_External{},
-		bsky.EmbedImages_Image{}, bsky.GraphFollow{}, bsky.ActorProfile{},
-		bsky.EmbedRecord{}, bsky.FeedLike{}, bsky.RichtextFacet{},
-		bsky.RichtextFacet_ByteSlice{},
-		bsky.RichtextFacet_Link{}, bsky.RichtextFacet_Mention{}, bsky.RichtextFacet_Tag{},
-		bsky.EmbedRecordWithMedia{},
-		bsky.FeedDefs_NotFoundPost{},
-		bsky.GraphBlock{},
-		bsky.GraphList{},
-		bsky.GraphListitem{},
-		bsky.FeedGenerator{},
-		bsky.GraphListblock{},
-		bsky.EmbedDefs_AspectRatio{},
-		bsky.FeedThreadgate{},
-		bsky.FeedThreadgate_ListRule{},
-		bsky.FeedThreadgate_MentionRule{},
-		bsky.FeedThreadgate_FollowerRule{},
-		bsky.FeedThreadgate_FollowingRule{},
-		bsky.GraphStarterpack_FeedItem{},
-		bsky.GraphStarterpack{},
-		bsky.LabelerService{},
-		bsky.LabelerDefs_LabelerPolicies{},
-		bsky.EmbedVideo{}, bsky.EmbedVideo_Caption{},
-		bsky.FeedPostgate{},
-		bsky.FeedPostgate_DisableRule{},
-		bsky.GraphVerification{},
-		bsky.ActorStatus{},
+	if err := genCfg.WriteMapEncodersToFile("api/gndr/cbor_gen.go", "gndr",
+		gndr.FeedPost{}, gndr.FeedRepost{}, gndr.FeedPost_Entity{},
+		gndr.FeedPost_ReplyRef{}, gndr.FeedPost_TextSlice{}, gndr.EmbedImages{},
+		gndr.EmbedExternal{}, gndr.EmbedExternal_External{},
+		gndr.EmbedImages_Image{}, gndr.GraphFollow{}, gndr.ActorProfile{},
+		gndr.EmbedRecord{}, gndr.FeedLike{}, gndr.RichtextFacet{},
+		gndr.RichtextFacet_ByteSlice{},
+		gndr.RichtextFacet_Link{}, gndr.RichtextFacet_Mention{}, gndr.RichtextFacet_Tag{},
+		gndr.EmbedRecordWithMedia{},
+		gndr.FeedDefs_NotFoundPost{},
+		gndr.GraphBlock{},
+		gndr.GraphList{},
+		gndr.GraphListitem{},
+		gndr.FeedGenerator{},
+		gndr.GraphListblock{},
+		gndr.EmbedDefs_AspectRatio{},
+		gndr.FeedThreadgate{},
+		gndr.FeedThreadgate_ListRule{},
+		gndr.FeedThreadgate_MentionRule{},
+		gndr.FeedThreadgate_FollowerRule{},
+		gndr.FeedThreadgate_FollowingRule{},
+		gndr.GraphStarterpack_FeedItem{},
+		gndr.GraphStarterpack{},
+		gndr.LabelerService{},
+		gndr.LabelerDefs_LabelerPolicies{},
+		gndr.EmbedVideo{}, gndr.EmbedVideo_Caption{},
+		gndr.FeedPostgate{},
+		gndr.FeedPostgate_DisableRule{},
+		gndr.GraphVerification{},
+		gndr.ActorStatus{},
 		bsky.NotificationDeclaration{},
-		/*bsky.EmbedImages_View{},
-		bsky.EmbedRecord_View{}, bsky.EmbedRecordWithMedia_View{},
-		bsky.EmbedExternal_View{}, bsky.EmbedImages_ViewImage{},
-		bsky.EmbedExternal_ViewExternal{}, bsky.EmbedRecord_ViewNotFound{},
-		bsky.FeedDefs_ThreadViewPost{}, bsky.EmbedRecord_ViewRecord{},
-		bsky.FeedDefs_PostView{}, bsky.ActorDefs_ProfileViewBasic{},
+		/*gndr.EmbedImages_View{},
+		gndr.EmbedRecord_View{}, gndr.EmbedRecordWithMedia_View{},
+		gndr.EmbedExternal_View{}, gndr.EmbedImages_ViewImage{},
+		gndr.EmbedExternal_ViewExternal{}, gndr.EmbedRecord_ViewNotFound{},
+		gndr.FeedDefs_ThreadViewPost{}, gndr.EmbedRecord_ViewRecord{},
+		gndr.FeedDefs_PostView{}, gndr.ActorDefs_ProfileViewBasic{},
 		*/
 	); err != nil {
 		panic(err)

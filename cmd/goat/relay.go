@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sort"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/xrpc"
+	comatproto "github.com/gander-social/gander-indigo-sovereign/api/atproto"
+	"github.com/gander-social/gander-indigo-sovereign/atproto/syntax"
+	"github.com/gander-social/gander-indigo-sovereign/xrpc"
 
 	"github.com/urfave/cli/v2"
 )
@@ -20,7 +20,7 @@ var cmdRelay = &cli.Command{
 		&cli.StringFlag{
 			Name:    "relay-host",
 			Usage:   "method, hostname, and port of Relay instance",
-			Value:   "https://bsky.network",
+			Value:   "https://gndr.network",
 			EnvVars: []string{"ATP_RELAY_HOST", "RELAY_HOST"},
 		},
 	},

@@ -17,14 +17,14 @@ func dedupeStrings(in []string) []string {
 	return out
 }
 
-// get the cid from a bluesky cdn url
+// get the cid from a gander cdn url
 func cidFromCdnUrl(str *string) *string {
 	if str == nil {
 		return nil
 	}
 
 	u, err := url.Parse(*str)
-	if err != nil || u.Host != "cdn.bsky.app" {
+	if err != nil || u.Host != "cdn.gndr.app" {
 		return nil
 	}
 

@@ -5,7 +5,7 @@ package atproto
 // schema: com.atproto.sync.subscribeRepos
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/gander-social/gander-indigo-sovereign/lex/util"
 )
 
 // SyncSubscribeRepos_Account is a "account" in the com.atproto.sync.subscribeRepos schema.

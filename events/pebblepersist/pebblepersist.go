@@ -10,9 +10,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/models"
 	"github.com/cockroachdb/pebble"
+	"github.com/gander-social/gander-indigo-sovereign/events"
+	"github.com/gander-social/gander-indigo-sovereign/models"
 )
 
 var log = slog.Default().With("system", "pebblepersist")
