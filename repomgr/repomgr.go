@@ -224,6 +224,72 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user models.Uid, collec
 	return collection + "/" + tid, cc, nil
 }
 
+func (rm *RepoManager) PutRecord(ctx context.Context, user models.Uid, collection string, rkey string, rec cbg.CBORMarshaler) (string, cid.Cid, error) {
+	ctx, span := otel.Tracer("repoman").Start(ctx, "PutRecord")
+	defer span.End()
+
+	unlock := rm.lockUser(ctx, user)
+	defer unlock()
+
+	rev, err := rm.cs.GetUserRepoRev(ctx, user)
+	if err != nil {
+		return "", cid.Undef, err
+	}
+
+	ds, err := rm.cs.NewDeltaSession(ctx, user, &rev)
+	if err != nil {
+		return "", cid.Undef, err
+	}
+
+	head := ds.BaseCid()
+
+	r, err := repo.OpenRepo(ctx, ds, head)
+	if err != nil {
+		return "", cid.Undef, err
+	}
+
+	rpath := collection + "/" + rkey
+	cc, err := r.PutRecord(ctx, rpath, rec)
+	if err != nil {
+		return "", cid.Undef, err
+	}
+
+	nroot, nrev, err := r.Commit(ctx, rm.kmgr.SignForUser)
+	if err != nil {
+		return "", cid.Undef, err
+	}
+
+	rslice, err := ds.CloseWithRoot(ctx, nroot, nrev)
+	if err != nil {
+		return "", cid.Undef, fmt.Errorf("close with root: %w", err)
+	}
+
+	var oldroot *cid.Cid
+	if head.Defined() {
+		oldroot = &head
+	}
+
+	if rm.events != nil {
+		rm.events(ctx, &RepoEvent{
+			User:    user,
+			OldRoot: oldroot,
+			NewRoot: nroot,
+			Rev:     nrev,
+			Since:   &rev,
+			Ops: []RepoOp{{
+				Kind:       EvtKindCreateRecord,
+				Collection: collection,
+				Rkey:       rkey,
+				Record:     rec,
+				RecCid:     &cc,
+			}},
+			RepoSlice: rslice,
+		})
+	}
+
+	return rpath, cc, nil
+}
+
 func (rm *RepoManager) UpdateRecord(ctx context.Context, user models.Uid, collection, rkey string, rec cbg.CBORMarshaler) (cid.Cid, error) {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "UpdateRecord")
 	defer span.End()
