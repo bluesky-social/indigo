@@ -16,19 +16,19 @@ type CacheDirectory struct {
 	Inner             Directory
 	ErrTTL            time.Duration
 	InvalidHandleTTL  time.Duration
-	handleCache       *expirable.LRU[syntax.Handle, HandleEntry]
-	identityCache     *expirable.LRU[syntax.DID, IdentityEntry]
+	handleCache       *expirable.LRU[syntax.Handle, handleEntry]
+	identityCache     *expirable.LRU[syntax.DID, identityEntry]
 	didLookupChans    sync.Map
 	handleLookupChans sync.Map
 }
 
-type HandleEntry struct {
+type handleEntry struct {
 	Updated time.Time
 	DID     syntax.DID
 	Err     error
 }
 
-type IdentityEntry struct {
+type identityEntry struct {
 	Updated  time.Time
 	Identity *Identity
 	Err      error
@@ -42,19 +42,19 @@ func NewCacheDirectory(inner Directory, capacity int, hitTTL, errTTL, invalidHan
 		ErrTTL:           errTTL,
 		InvalidHandleTTL: invalidHandleTTL,
 		Inner:            inner,
-		handleCache:      expirable.NewLRU[syntax.Handle, HandleEntry](capacity, nil, hitTTL),
-		identityCache:    expirable.NewLRU[syntax.DID, IdentityEntry](capacity, nil, hitTTL),
+		handleCache:      expirable.NewLRU[syntax.Handle, handleEntry](capacity, nil, hitTTL),
+		identityCache:    expirable.NewLRU[syntax.DID, identityEntry](capacity, nil, hitTTL),
 	}
 }
 
-func (d *CacheDirectory) IsHandleStale(e *HandleEntry) bool {
+func (d *CacheDirectory) isHandleStale(e *handleEntry) bool {
 	if e.Err != nil && time.Since(e.Updated) > d.ErrTTL {
 		return true
 	}
 	return false
 }
 
-func (d *CacheDirectory) IsIdentityStale(e *IdentityEntry) bool {
+func (d *CacheDirectory) isIdentityStale(e *identityEntry) bool {
 	if e.Err != nil && time.Since(e.Updated) > d.ErrTTL {
 		return true
 	}
@@ -64,10 +64,10 @@ func (d *CacheDirectory) IsIdentityStale(e *IdentityEntry) bool {
 	return false
 }
 
-func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) HandleEntry {
+func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) handleEntry {
 	ident, err := d.Inner.LookupHandle(ctx, h)
 	if err != nil {
-		he := HandleEntry{
+		he := handleEntry{
 			Updated: time.Now(),
 			DID:     "",
 			Err:     err,
@@ -76,12 +76,12 @@ func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) Hand
 		return he
 	}
 
-	entry := IdentityEntry{
+	entry := identityEntry{
 		Updated:  time.Now(),
 		Identity: ident,
 		Err:      nil,
 	}
-	he := HandleEntry{
+	he := handleEntry{
 		Updated: time.Now(),
 		DID:     ident.DID,
 		Err:     nil,
@@ -98,7 +98,7 @@ func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 	}
 	start := time.Now()
 	entry, ok := d.handleCache.Get(h)
-	if ok && !d.IsHandleStale(&entry) {
+	if ok && !d.isHandleStale(&entry) {
 		handleCacheHits.Inc()
 		handleResolution.WithLabelValues("lru", "cached").Inc()
 		handleResolutionDuration.WithLabelValues("lru", "cached").Observe(time.Since(start).Seconds())
@@ -118,7 +118,7 @@ func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 		case <-val.(chan struct{}):
 			// The result should now be in the cache
 			entry, ok := d.handleCache.Get(h)
-			if ok && !d.IsHandleStale(&entry) {
+			if ok && !d.isHandleStale(&entry) {
 				return entry.DID, entry.Err
 			}
 			return "", fmt.Errorf("identity not found in cache after coalesce returned")
@@ -148,18 +148,18 @@ func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 	return "", fmt.Errorf("unexpected control-flow error")
 }
 
-func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) IdentityEntry {
+func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) identityEntry {
 	ident, err := d.Inner.LookupDID(ctx, did)
 	// persist the identity lookup error, instead of processing it immediately
-	entry := IdentityEntry{
+	entry := identityEntry{
 		Updated:  time.Now(),
 		Identity: ident,
 		Err:      err,
 	}
-	var he *HandleEntry
+	var he *handleEntry
 	// if *not* an error, then also update the handle cache
 	if nil == err && !ident.Handle.IsInvalidHandle() {
-		he = &HandleEntry{
+		he = &handleEntry{
 			Updated: time.Now(),
 			DID:     did,
 			Err:     nil,
@@ -174,14 +174,14 @@ func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) Identity
 }
 
 func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
-	id, _, err := d.LookupDIDWithCacheState(ctx, did)
+	id, _, err := d.lookupDIDWithCacheState(ctx, did)
 	return id, err
 }
 
-func (d *CacheDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax.DID) (*Identity, bool, error) {
+func (d *CacheDirectory) lookupDIDWithCacheState(ctx context.Context, did syntax.DID) (*Identity, bool, error) {
 	start := time.Now()
 	entry, ok := d.identityCache.Get(did)
-	if ok && !d.IsIdentityStale(&entry) {
+	if ok && !d.isIdentityStale(&entry) {
 		identityCacheHits.Inc()
 		didResolution.WithLabelValues("lru", "cached").Inc()
 		didResolutionDuration.WithLabelValues("lru", "cached").Observe(time.Since(start).Seconds())
@@ -201,7 +201,7 @@ func (d *CacheDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 		case <-val.(chan struct{}):
 			// The result should now be in the cache
 			entry, ok := d.identityCache.Get(did)
-			if ok && !d.IsIdentityStale(&entry) {
+			if ok && !d.isIdentityStale(&entry) {
 				return entry.Identity, false, entry.Err
 			}
 			return nil, false, fmt.Errorf("identity not found in cache after coalesce returned")
@@ -232,17 +232,17 @@ func (d *CacheDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 }
 
 func (d *CacheDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
-	ident, _, err := d.LookupHandleWithCacheState(ctx, h)
+	ident, _, err := d.lookupHandleWithCacheState(ctx, h)
 	return ident, err
 }
 
-func (d *CacheDirectory) LookupHandleWithCacheState(ctx context.Context, h syntax.Handle) (*Identity, bool, error) {
+func (d *CacheDirectory) lookupHandleWithCacheState(ctx context.Context, h syntax.Handle) (*Identity, bool, error) {
 	h = h.Normalize()
 	did, err := d.ResolveHandle(ctx, h)
 	if err != nil {
 		return nil, false, err
 	}
-	ident, hit, err := d.LookupDIDWithCacheState(ctx, did)
+	ident, hit, err := d.lookupDIDWithCacheState(ctx, did)
 	if err != nil {
 		return nil, hit, err
 	}
