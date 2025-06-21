@@ -62,7 +62,7 @@ func ParsePostQuery(ctx context.Context, dir identity.Directory, raw string, vie
 
 		switch tokParts[0] {
 		case "did":
-			// Used as a hack for `from:me` when suppplied by the client
+			// Used as a hack for `from:me` when supplied by the client
 			did, err := syntax.ParseDID(p)
 			if err != nil {
 				continue
