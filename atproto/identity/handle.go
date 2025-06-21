@@ -177,6 +177,8 @@ func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle)
 	var dnsErr error
 	var did syntax.DID
 
+	handle = handle.Normalize()
+
 	if handle.IsInvalidHandle() {
 		return "", fmt.Errorf("can not resolve handle: %w", ErrInvalidHandle)
 	}
