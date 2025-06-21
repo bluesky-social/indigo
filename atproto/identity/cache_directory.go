@@ -93,6 +93,7 @@ func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) Hand
 }
 
 func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
+	h = h.Normalize()
 	if h.IsInvalidHandle() {
 		return "", fmt.Errorf("can not resolve handle: %w", ErrInvalidHandle)
 	}
@@ -251,6 +252,7 @@ func (d *CacheDirectory) LookupHandleWithCacheState(ctx context.Context, h synta
 	if err != nil {
 		return nil, hit, fmt.Errorf("could not verify handle/DID mapping: %w", err)
 	}
+	// NOTE: DeclaredHandle() returns a normalized handle, and we already normalized 'h' above
 	if declared != h {
 		return nil, hit, fmt.Errorf("%w: %s != %s", ErrHandleMismatch, declared, h)
 	}

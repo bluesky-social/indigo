@@ -156,6 +156,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 
 func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
 	start := time.Now()
+	h = h.Normalize()
 	if h.IsInvalidHandle() {
 		return "", fmt.Errorf("can not resolve handle: %w", identity.ErrInvalidHandle)
 	}
@@ -359,6 +360,7 @@ func (d *RedisDirectory) LookupHandleWithCacheState(ctx context.Context, h synta
 	if err != nil {
 		return nil, hit, err
 	}
+	// NOTE: DeclaredHandle() returns a normalized handle, and we already normalized 'h' above
 	if declared != h {
 		return nil, hit, identity.ErrHandleMismatch
 	}
