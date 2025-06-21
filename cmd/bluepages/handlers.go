@@ -182,7 +182,7 @@ func (srv *Server) resolveIdentityFromDID(c echo.Context, did syntax.DID) error 
 		})
 	} else if err != nil {
 		return c.JSON(http.StatusBadGateway, GenericError{
-			Error:   "DIDResolutionFailed",
+			Error:   "DidResolutionFailed",
 			Message: err.Error(),
 		})
 	}
