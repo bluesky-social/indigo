@@ -121,7 +121,7 @@ func TestPasswordAuth(t *testing.T) {
 	dir.Insert(identity.Identity{
 		DID:    "did:web:account.example.com",
 		Handle: "user1.example.com",
-		Services: map[string]identity.Service{
+		Services: map[string]identity.ServiceEndpoint{
 			"atproto_pds": {
 				Type: "AtprotoPersonalDataServer",
 				URL:  srv.URL,
