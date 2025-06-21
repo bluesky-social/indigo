@@ -65,4 +65,9 @@ func TestMockDirectory(t *testing.T) {
 
 	_, err = c.ResolveDID(ctx, syntax.DID("did:plc:abc999"))
 	assert.ErrorIs(err, ErrDIDNotFound)
+
+	// handle lookups should be case-insensitive
+	_, err = c.ResolveHandle(ctx, syntax.Handle("handle.EXAMPLE.com"))
+	assert.NoError(err)
+	assert.Equal(id1.DID, did)
 }
