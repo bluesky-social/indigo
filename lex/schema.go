@@ -123,11 +123,13 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 
 		if ts.Input != nil {
 			if ts.Input.Schema == nil {
-				if ts.Input.Encoding != EncodingCBOR &&
-					ts.Input.Encoding != EncodingANY &&
-					ts.Input.Encoding != EncodingCAR &&
-					ts.Input.Encoding != EncodingMP4 {
-					panic(fmt.Sprintf("strange input type def in %s", s.ID))
+				for _, encoding := range ts.Input.Encoding {
+					if encoding != EncodingCBOR &&
+						encoding != EncodingANY &&
+						encoding != EncodingCAR &&
+						encoding != EncodingMP4 {
+						panic(fmt.Sprintf("strange input type def in %s", s.ID))
+					}
 				}
 			} else {
 				walk(name+"_Input", ts.Input.Schema, ts.needsCbor)
@@ -136,12 +138,14 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 
 		if ts.Output != nil {
 			if ts.Output.Schema == nil {
-				if ts.Output.Encoding != EncodingCBOR &&
-					ts.Output.Encoding != EncodingCAR &&
-					ts.Output.Encoding != EncodingANY &&
-					ts.Output.Encoding != EncodingJSONL &&
-					ts.Output.Encoding != EncodingMP4 {
-					panic(fmt.Sprintf("strange output type def in %s", s.ID))
+				for _, encoding := range ts.Output.Encoding {
+					if encoding != EncodingCBOR &&
+						encoding != EncodingCAR &&
+						encoding != EncodingANY &&
+						encoding != EncodingJSONL &&
+						encoding != EncodingMP4 {
+						panic(fmt.Sprintf("strange output type def in %s", s.ID))
+					}
 				}
 			} else {
 				walk(name+"_Output", ts.Output.Schema, ts.needsCbor)
