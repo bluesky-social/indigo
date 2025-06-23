@@ -86,7 +86,7 @@ func TestServiceAuthMiddleware(t *testing.T) {
 	dir := identity.NewMockDirectory()
 	dir.Insert(identity.Identity{
 		DID: iss,
-		Keys: map[string]identity.IdentityKey{
+		Keys: map[string]identity.VerificationMethod{
 			"atproto": {
 				Type:               "Multikey",
 				PublicKeyMultibase: pub.Multibase(),
