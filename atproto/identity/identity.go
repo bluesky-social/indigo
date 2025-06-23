@@ -21,14 +21,16 @@ type Identity struct {
 	// These fields represent a parsed subset of a DID document. They are all nullable. Note that the services and keys maps do not preserve order, so they don't exactly round-trip DID documents.
 	AlsoKnownAs []string
 	Services    map[string]ServiceEndpoint
-	Keys        map[string]IdentityKey
+	Keys        map[string]VerificationMethod
 }
 
-type IdentityKey struct {
+// Sub-field type for [Identity], representing a crytographic public key declared as a "verificationMethod" in the DID document.
+type VerificationMethod struct {
 	Type               string
 	PublicKeyMultibase string
 }
 
+// Sub-field type for [Identity], representing a service endpoint URL declared in the DID document.
 type ServiceEndpoint struct {
 	Type string
 	URL  string
@@ -38,7 +40,7 @@ type ServiceEndpoint struct {
 //
 // Always returns an invalid Handle field; calling code should only populate that field if it has been bi-directionally verified.
 func ParseIdentity(doc *DIDDocument) Identity {
-	keys := make(map[string]IdentityKey, len(doc.VerificationMethod))
+	keys := make(map[string]VerificationMethod, len(doc.VerificationMethod))
 	for _, vm := range doc.VerificationMethod {
 		parts := strings.SplitN(vm.ID, "#", 2)
 		if len(parts) < 2 {
@@ -53,7 +55,7 @@ func ParseIdentity(doc *DIDDocument) Identity {
 			continue
 		}
 		// TODO: verify that ID and type match for atproto-specific services?
-		keys[parts[1]] = IdentityKey{
+		keys[parts[1]] = VerificationMethod{
 			Type:               vm.Type,
 			PublicKeyMultibase: vm.PublicKeyMultibase,
 		}
