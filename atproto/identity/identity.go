@@ -20,16 +20,18 @@ type Identity struct {
 
 	// These fields represent a parsed subset of a DID document. They are all nullable. Note that the services and keys maps do not preserve order, so they don't exactly round-trip DID documents.
 	AlsoKnownAs []string
-	Services    map[string]Service
-	Keys        map[string]Key
+	Services    map[string]ServiceEndpoint
+	Keys        map[string]VerificationMethod
 }
 
-type Key struct {
+// Sub-field type for [Identity], representing a crytographic public key declared as a "verificationMethod" in the DID document.
+type VerificationMethod struct {
 	Type               string
 	PublicKeyMultibase string
 }
 
-type Service struct {
+// Sub-field type for [Identity], representing a service endpoint URL declared in the DID document.
+type ServiceEndpoint struct {
 	Type string
 	URL  string
 }
@@ -38,7 +40,7 @@ type Service struct {
 //
 // Always returns an invalid Handle field; calling code should only populate that field if it has been bi-directionally verified.
 func ParseIdentity(doc *DIDDocument) Identity {
-	keys := make(map[string]Key, len(doc.VerificationMethod))
+	keys := make(map[string]VerificationMethod, len(doc.VerificationMethod))
 	for _, vm := range doc.VerificationMethod {
 		parts := strings.SplitN(vm.ID, "#", 2)
 		if len(parts) < 2 {
@@ -53,12 +55,12 @@ func ParseIdentity(doc *DIDDocument) Identity {
 			continue
 		}
 		// TODO: verify that ID and type match for atproto-specific services?
-		keys[parts[1]] = Key{
+		keys[parts[1]] = VerificationMethod{
 			Type:               vm.Type,
 			PublicKeyMultibase: vm.PublicKeyMultibase,
 		}
 	}
-	svc := make(map[string]Service, len(doc.Service))
+	svc := make(map[string]ServiceEndpoint, len(doc.Service))
 	for _, s := range doc.Service {
 		parts := strings.SplitN(s.ID, "#", 2)
 		if len(parts) < 2 {
@@ -69,7 +71,7 @@ func ParseIdentity(doc *DIDDocument) Identity {
 			continue
 		}
 		// TODO: verify that ID and type match for atproto-specific services?
-		svc[parts[1]] = Service{
+		svc[parts[1]] = ServiceEndpoint{
 			Type: s.Type,
 			URL:  s.ServiceEndpoint,
 		}
