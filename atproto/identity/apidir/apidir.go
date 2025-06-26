@@ -153,6 +153,7 @@ func (dir *APIDirectory) ResolveDID(ctx context.Context, did syntax.DID) (*ident
 }
 
 func (dir *APIDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
+	handle = handle.Normalize()
 	var body handleBody
 	u := dir.Host + "/xrpc/com.atproto.identity.resolveHandle?handle=" + handle.String()
 
