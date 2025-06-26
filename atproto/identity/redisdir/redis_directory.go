@@ -273,11 +273,11 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) identity
 }
 
 func (d *RedisDirectory) LookupDID(ctx context.Context, did syntax.DID) (*identity.Identity, error) {
-	id, _, err := d.lookupDIDWithCacheState(ctx, did)
+	id, _, err := d.LookupDIDWithCacheState(ctx, did)
 	return id, err
 }
 
-func (d *RedisDirectory) lookupDIDWithCacheState(ctx context.Context, did syntax.DID) (*identity.Identity, bool, error) {
+func (d *RedisDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax.DID) (*identity.Identity, bool, error) {
 	start := time.Now()
 	var entry identityEntry
 	err := d.identityCache.Get(ctx, redisDirPrefix+did.String(), &entry)
@@ -340,17 +340,17 @@ func (d *RedisDirectory) lookupDIDWithCacheState(ctx context.Context, did syntax
 }
 
 func (d *RedisDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*identity.Identity, error) {
-	ident, _, err := d.lookupHandleWithCacheState(ctx, h)
+	ident, _, err := d.LookupHandleWithCacheState(ctx, h)
 	return ident, err
 }
 
-func (d *RedisDirectory) lookupHandleWithCacheState(ctx context.Context, h syntax.Handle) (*identity.Identity, bool, error) {
+func (d *RedisDirectory) LookupHandleWithCacheState(ctx context.Context, h syntax.Handle) (*identity.Identity, bool, error) {
 	h = h.Normalize()
 	did, err := d.ResolveHandle(ctx, h)
 	if err != nil {
 		return nil, false, err
 	}
-	ident, hit, err := d.lookupDIDWithCacheState(ctx, did)
+	ident, hit, err := d.LookupDIDWithCacheState(ctx, did)
 	if err != nil {
 		return nil, hit, err
 	}

@@ -174,11 +174,11 @@ func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) identity
 }
 
 func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
-	id, _, err := d.lookupDIDWithCacheState(ctx, did)
+	id, _, err := d.LookupDIDWithCacheState(ctx, did)
 	return id, err
 }
 
-func (d *CacheDirectory) lookupDIDWithCacheState(ctx context.Context, did syntax.DID) (*Identity, bool, error) {
+func (d *CacheDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax.DID) (*Identity, bool, error) {
 	start := time.Now()
 	entry, ok := d.identityCache.Get(did)
 	if ok && !d.isIdentityStale(&entry) {
@@ -232,17 +232,17 @@ func (d *CacheDirectory) lookupDIDWithCacheState(ctx context.Context, did syntax
 }
 
 func (d *CacheDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
-	ident, _, err := d.lookupHandleWithCacheState(ctx, h)
+	ident, _, err := d.LookupHandleWithCacheState(ctx, h)
 	return ident, err
 }
 
-func (d *CacheDirectory) lookupHandleWithCacheState(ctx context.Context, h syntax.Handle) (*Identity, bool, error) {
+func (d *CacheDirectory) LookupHandleWithCacheState(ctx context.Context, h syntax.Handle) (*Identity, bool, error) {
 	h = h.Normalize()
 	did, err := d.ResolveHandle(ctx, h)
 	if err != nil {
 		return nil, false, err
 	}
-	ident, hit, err := d.lookupDIDWithCacheState(ctx, did)
+	ident, hit, err := d.LookupDIDWithCacheState(ctx, did)
 	if err != nil {
 		return nil, hit, err
 	}
