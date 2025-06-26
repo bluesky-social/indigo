@@ -31,6 +31,46 @@ type UnspeccedDefs_SkeletonTrend struct {
 	Topic       string   `json:"topic" cborgen:"topic"`
 }
 
+// UnspeccedDefs_ThreadItemBlocked is a "threadItemBlocked" in the app.bsky.unspecced.defs schema.
+//
+// RECORDTYPE: UnspeccedDefs_ThreadItemBlocked
+type UnspeccedDefs_ThreadItemBlocked struct {
+	LexiconTypeID string                  `json:"$type,const=app.bsky.unspecced.defs#threadItemBlocked" cborgen:"$type,const=app.bsky.unspecced.defs#threadItemBlocked"`
+	Author        *FeedDefs_BlockedAuthor `json:"author" cborgen:"author"`
+}
+
+// UnspeccedDefs_ThreadItemNoUnauthenticated is a "threadItemNoUnauthenticated" in the app.bsky.unspecced.defs schema.
+//
+// RECORDTYPE: UnspeccedDefs_ThreadItemNoUnauthenticated
+type UnspeccedDefs_ThreadItemNoUnauthenticated struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.unspecced.defs#threadItemNoUnauthenticated" cborgen:"$type,const=app.bsky.unspecced.defs#threadItemNoUnauthenticated"`
+}
+
+// UnspeccedDefs_ThreadItemNotFound is a "threadItemNotFound" in the app.bsky.unspecced.defs schema.
+//
+// RECORDTYPE: UnspeccedDefs_ThreadItemNotFound
+type UnspeccedDefs_ThreadItemNotFound struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.unspecced.defs#threadItemNotFound" cborgen:"$type,const=app.bsky.unspecced.defs#threadItemNotFound"`
+}
+
+// UnspeccedDefs_ThreadItemPost is a "threadItemPost" in the app.bsky.unspecced.defs schema.
+//
+// RECORDTYPE: UnspeccedDefs_ThreadItemPost
+type UnspeccedDefs_ThreadItemPost struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.unspecced.defs#threadItemPost" cborgen:"$type,const=app.bsky.unspecced.defs#threadItemPost"`
+	// hiddenByThreadgate: The threadgate created by the author indicates this post as a reply to be hidden for everyone consuming the thread.
+	HiddenByThreadgate bool `json:"hiddenByThreadgate" cborgen:"hiddenByThreadgate"`
+	// moreParents: This post has more parents that were not present in the response. This is just a boolean, without the number of parents.
+	MoreParents bool `json:"moreParents" cborgen:"moreParents"`
+	// moreReplies: This post has more replies that were not present in the response. This is a numeric value, which is best-effort and might not be accurate.
+	MoreReplies int64 `json:"moreReplies" cborgen:"moreReplies"`
+	// mutedByViewer: This is by an account muted by the viewer requesting it.
+	MutedByViewer bool `json:"mutedByViewer" cborgen:"mutedByViewer"`
+	// opThread: This post is part of a contiguous thread by the OP from the thread root. Many different OP threads can happen in the same thread.
+	OpThread bool               `json:"opThread" cborgen:"opThread"`
+	Post     *FeedDefs_PostView `json:"post" cborgen:"post"`
+}
+
 // UnspeccedDefs_TrendView is a "trendView" in the app.bsky.unspecced.defs schema.
 type UnspeccedDefs_TrendView struct {
 	Actors      []*ActorDefs_ProfileViewBasic `json:"actors" cborgen:"actors"`
