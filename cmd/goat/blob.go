@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -31,6 +33,16 @@ var cmdBlob = &cli.Command{
 				&cli.StringFlag{
 					Name:  "pds-host",
 					Usage: "URL of the PDS to export blobs from (overrides DID doc)",
+				},
+				&cli.DurationFlag{
+					Name: "delay",
+					Usage: "Delay between individual blob downloads",
+					DefaultText: "0s",
+				},
+				&cli.IntFlag{
+					Name: "concurrent",
+					Usage: "Concurrent downloads",
+					Value: 1,
 				},
 			},
 			Action: runBlobExport,
@@ -99,28 +111,65 @@ func runBlobExport(cctx *cli.Context) error {
 	fmt.Printf("downloading blobs to: %s\n", topDir)
 	os.MkdirAll(topDir, os.ModePerm)
 
+	delayCh := make(chan any)
+	go func() {
+		for {
+			delayCh <- 0
+			time.Sleep(cctx.Duration("delay"))
+		}
+	}()
+
+
 	cursor := ""
 	for {
 		resp, err := comatproto.SyncListBlobs(ctx, &xrpcc, cursor, ident.DID.String(), 500, "")
 		if err != nil {
 			return err
 		}
+
+		sem := make(chan any, cctx.Int("concurrent"))
+		var wg sync.WaitGroup
+		errCh := make(chan error, len(resp.Cids))
+
 		for _, cidStr := range resp.Cids {
-			blobPath := topDir + "/" + cidStr
-			if _, err := os.Stat(blobPath); err == nil {
-				fmt.Printf("%s\texists\n", blobPath)
-				continue
-			}
-			blobBytes, err := comatproto.SyncGetBlob(ctx, &xrpcc, cidStr, ident.DID.String())
-			if err != nil {
-				fmt.Printf("%s\tfailed %s\n", blobPath, err)
-				continue
-			}
-			if err := os.WriteFile(blobPath, blobBytes, 0666); err != nil {
-				return err
-			}
-			fmt.Printf("%s\tdownloaded\n", blobPath)
+			sem <- 1
+			wg.Add(1)
+
+			go func() {
+				defer wg.Done()
+				defer func() { <-sem }()
+
+				if cctx.Duration("delay") != 0 {
+					<-delayCh
+				}
+
+				cidStr := cidStr
+
+				blobPath := topDir + "/" + cidStr
+				if _, err := os.Stat(blobPath); err == nil {
+					fmt.Printf("%s\texists\n", blobPath)
+					return
+				}
+				blobBytes, err := comatproto.SyncGetBlob(ctx, &xrpcc, cidStr, ident.DID.String())
+				if err != nil {
+					fmt.Printf("%s\tfailed %s\n", blobPath, err)
+					return
+				}
+				if err := os.WriteFile(blobPath, blobBytes, 0666); err != nil {
+					errCh <- err
+				}
+				fmt.Printf("%s\tdownloaded\n", blobPath)
+			}()
+
+			time.Sleep(cctx.Duration("delay"))
 		}
+
+		wg.Wait()
+		close(errCh)
+		for err := range errCh {
+			return err
+		}
+
 		if resp.Cursor != nil && *resp.Cursor != "" {
 			cursor = *resp.Cursor
 		} else {
