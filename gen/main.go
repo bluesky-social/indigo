@@ -76,6 +76,7 @@ func main() {
 		bsky.FeedPostgate_DisableRule{},
 		bsky.GraphVerification{},
 		bsky.ActorStatus{},
+		bsky.NotificationDeclaration{},
 		/*bsky.EmbedImages_View{},
 		bsky.EmbedRecord_View{}, bsky.EmbedRecordWithMedia_View{},
 		bsky.EmbedExternal_View{}, bsky.EmbedImages_ViewImage{},

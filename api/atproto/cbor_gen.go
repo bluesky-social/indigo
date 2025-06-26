@@ -1206,7 +1206,6 @@ func (t *SyncSubscribeRepos_Sync) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-
 func (t *SyncSubscribeRepos_Identity) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
@@ -1879,7 +1878,6 @@ func (t *SyncSubscribeRepos_Info) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-
 func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
@@ -2094,7 +2092,6 @@ func (t *SyncSubscribeRepos_RepoOp) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-
 func (t *LabelDefs_SelfLabels) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
