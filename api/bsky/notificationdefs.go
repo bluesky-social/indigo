@@ -4,6 +4,12 @@ package bsky
 
 // schema: app.bsky.notification.defs
 
+// NotificationDefs_ActivitySubscription is a "activitySubscription" in the app.bsky.notification.defs schema.
+type NotificationDefs_ActivitySubscription struct {
+	Post  bool `json:"post" cborgen:"post"`
+	Reply bool `json:"reply" cborgen:"reply"`
+}
+
 // NotificationDefs_ChatPreference is a "chatPreference" in the app.bsky.notification.defs schema.
 type NotificationDefs_ChatPreference struct {
 	Include string `json:"include" cborgen:"include"`
@@ -42,4 +48,12 @@ type NotificationDefs_Preferences struct {
 
 // NotificationDefs_RecordDeleted is a "recordDeleted" in the app.bsky.notification.defs schema.
 type NotificationDefs_RecordDeleted struct {
+}
+
+// NotificationDefs_SubjectActivitySubscription is a "subjectActivitySubscription" in the app.bsky.notification.defs schema.
+//
+// Object used to store activity subscription data in stash.
+type NotificationDefs_SubjectActivitySubscription struct {
+	ActivitySubscription *NotificationDefs_ActivitySubscription `json:"activitySubscription" cborgen:"activitySubscription"`
+	Subject              string                                 `json:"subject" cborgen:"subject"`
 }
