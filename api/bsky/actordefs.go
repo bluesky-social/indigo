@@ -379,11 +379,17 @@ func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
 
 // ActorDefs_ProfileAssociated is a "profileAssociated" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileAssociated struct {
-	Chat         *ActorDefs_ProfileAssociatedChat `json:"chat,omitempty" cborgen:"chat,omitempty"`
-	Feedgens     *int64                           `json:"feedgens,omitempty" cborgen:"feedgens,omitempty"`
-	Labeler      *bool                            `json:"labeler,omitempty" cborgen:"labeler,omitempty"`
-	Lists        *int64                           `json:"lists,omitempty" cborgen:"lists,omitempty"`
-	StarterPacks *int64                           `json:"starterPacks,omitempty" cborgen:"starterPacks,omitempty"`
+	ActivitySubscription *ActorDefs_ProfileAssociatedActivitySubscription `json:"activitySubscription,omitempty" cborgen:"activitySubscription,omitempty"`
+	Chat                 *ActorDefs_ProfileAssociatedChat                 `json:"chat,omitempty" cborgen:"chat,omitempty"`
+	Feedgens             *int64                                           `json:"feedgens,omitempty" cborgen:"feedgens,omitempty"`
+	Labeler              *bool                                            `json:"labeler,omitempty" cborgen:"labeler,omitempty"`
+	Lists                *int64                                           `json:"lists,omitempty" cborgen:"lists,omitempty"`
+	StarterPacks         *int64                                           `json:"starterPacks,omitempty" cborgen:"starterPacks,omitempty"`
+}
+
+// ActorDefs_ProfileAssociatedActivitySubscription is a "profileAssociatedActivitySubscription" in the app.bsky.actor.defs schema.
+type ActorDefs_ProfileAssociatedActivitySubscription struct {
+	AllowSubscriptions string `json:"allowSubscriptions" cborgen:"allowSubscriptions"`
 }
 
 // ActorDefs_ProfileAssociatedChat is a "profileAssociatedChat" in the app.bsky.actor.defs schema.
@@ -562,11 +568,14 @@ type ActorDefs_VerificationView struct {
 //
 // Metadata about the requesting account's relationship with the subject account. Only has meaningful content for authed requests.
 type ActorDefs_ViewerState struct {
-	BlockedBy      *bool                     `json:"blockedBy,omitempty" cborgen:"blockedBy,omitempty"`
-	Blocking       *string                   `json:"blocking,omitempty" cborgen:"blocking,omitempty"`
-	BlockingByList *GraphDefs_ListViewBasic  `json:"blockingByList,omitempty" cborgen:"blockingByList,omitempty"`
-	FollowedBy     *string                   `json:"followedBy,omitempty" cborgen:"followedBy,omitempty"`
-	Following      *string                   `json:"following,omitempty" cborgen:"following,omitempty"`
+	// activitySubscription: This property is present only in selected cases, as an optimization.
+	ActivitySubscription *NotificationDefs_ActivitySubscription `json:"activitySubscription,omitempty" cborgen:"activitySubscription,omitempty"`
+	BlockedBy            *bool                                  `json:"blockedBy,omitempty" cborgen:"blockedBy,omitempty"`
+	Blocking             *string                                `json:"blocking,omitempty" cborgen:"blocking,omitempty"`
+	BlockingByList       *GraphDefs_ListViewBasic               `json:"blockingByList,omitempty" cborgen:"blockingByList,omitempty"`
+	FollowedBy           *string                                `json:"followedBy,omitempty" cborgen:"followedBy,omitempty"`
+	Following            *string                                `json:"following,omitempty" cborgen:"following,omitempty"`
+	// knownFollowers: This property is present only in selected cases, as an optimization.
 	KnownFollowers *ActorDefs_KnownFollowers `json:"knownFollowers,omitempty" cborgen:"knownFollowers,omitempty"`
 	Muted          *bool                     `json:"muted,omitempty" cborgen:"muted,omitempty"`
 	MutedByList    *GraphDefs_ListViewBasic  `json:"mutedByList,omitempty" cborgen:"mutedByList,omitempty"`
