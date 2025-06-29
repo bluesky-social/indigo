@@ -12,7 +12,10 @@ import (
 	"os/signal"
 	"runtime/debug"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
@@ -144,18 +147,18 @@ func Sync(cctx *cli.Context) error {
 		logger: logger,
 
 		out:        backfillOutFile,
-		outChan:    make(chan []byte, 100_000),
+		outChan:    make(chan []byte, 1_000_000),
 		fileClosed: make(chan struct{}),
 
 		teardown: make(chan struct{}),
 	}
 
-	linear.startWriter()
+	linear.startWriters()
 
 	opts := backfill.DefaultBackfillerOptions()
 	opts.GlobalRecordCreateConcurrency = 100_000
 	opts.PerPDSSyncsPerSecond = 10
-	opts.PerPDSBackfillConcurrency = 15
+	opts.PerPDSBackfillConcurrency = 50
 
 	bf := backfill.NewBackfiller("linear-backfiller-v2", store, linear.handleCreate, opts)
 
@@ -232,12 +235,17 @@ func Sync(cctx *cli.Context) error {
 					}
 
 					for _, repo := range page.Repos {
-						logger.Info("found repo to backfill", "pds", pds, "repo", repo.Did)
+						logger.Debug("found repo to backfill", "pds", pds, "repo", repo.Did)
+
+						if repo.Active == nil || !*repo.Active {
+							logger.Debug("skipping inactive repo", "pds", pds, "repo", repo.Did)
+							continue
+						}
 
 						if err := bf.EnqueueJob(ctx, pds, repo.Did); err != nil {
 							logger.Error("failed to enqueue job for PDS", "pds", pds, "repo", repo.Did, "err", err)
 						} else {
-							logger.Info("enqueued job for PDS", "pds", pds, "repo", repo.Did)
+							logger.Debug("enqueued job for PDS", "pds", pds, "repo", repo.Did)
 						}
 					}
 
@@ -302,6 +310,9 @@ func (l *Linear) handleCreate(ctx context.Context, repo string, rev string, path
 		return fmt.Errorf("failed to marshal line to json: %w", err)
 	}
 
+	// Append a newline to the JSON line
+	lineB = append(lineB, '\n')
+
 	l.outChan <- lineB
 
 	return nil
@@ -320,7 +331,7 @@ func setupBackfillStore(ctx context.Context, sqlitePath string) (*backfill.Gorms
 		return nil, nil, err
 	}
 
-	if err := bfdb.Exec("PRAGMA synchronous=normal;").Error; err != nil {
+	if err := bfdb.Exec("PRAGMA synchronous=off;").Error; err != nil {
 		return nil, nil, err
 	}
 
@@ -351,33 +362,64 @@ func splitPath(p string) (string, string, error) {
 	return parts[0], parts[1], nil
 }
 
-func (lin *Linear) startWriter() {
+func (lin *Linear) startWriters() {
 	log := lin.logger.With("source", "writer")
-	log.Info("starting writer")
-	newline := []byte("\n")
+	log.Info("starting writers")
 
-	// Start the writer
+	// Start some writers to handle output
+	wg := sync.WaitGroup{}
+
+	recordsProcessed := atomic.Int64{}
+
+	for range 10 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			recs := 0
+			for {
+				select {
+				case <-lin.teardown:
+					log.Info("received shutdown signal, closing writer")
+					return
+				case line := <-lin.outChan:
+					if _, err := lin.out.Write(line); err != nil {
+						log.Error("failed to write line to output file", "err", err)
+					}
+					recs++
+					if recs%1000 == 0 {
+						recordsProcessed.Add(int64(recs))
+						recs = 0
+					}
+				}
+			}
+		}()
+	}
+
 	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-lin.teardown:
-				if err := lin.out.Sync(); err != nil {
-					log.Error("failed to sync output file", "err", err)
-				}
-				if err := lin.out.Close(); err != nil {
-					log.Error("failed to close output file", "err", err)
-				}
-				close(lin.fileClosed)
-				close(lin.outChan)
+				log.Info("received shutdown signal, stopping metrics ticker")
 				return
-			case line := <-lin.outChan:
-				if _, err := lin.out.Write(line); err != nil {
-					log.Error("failed to write line to output file", "err", err)
-				}
-				if _, err := lin.out.Write(newline); err != nil {
-					log.Error("failed to write newline to output file", "err", err)
-				}
+			case <-ticker.C:
+				count := recordsProcessed.Swap(0)
+				log.Info("processed records", "count", count, "per_second", float64(count)/10.0)
 			}
 		}
+	}()
+
+	go func() {
+		wg.Wait()
+		if err := lin.out.Sync(); err != nil {
+			log.Error("failed to sync output file", "err", err)
+		}
+		if err := lin.out.Close(); err != nil {
+			log.Error("failed to close output file", "err", err)
+		}
+		log.Info("all writers have finished")
+		close(lin.fileClosed)
+		close(lin.outChan)
 	}()
 }

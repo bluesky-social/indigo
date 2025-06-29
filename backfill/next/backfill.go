@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"strings"
 	"sync"
@@ -115,7 +116,7 @@ func NewBackfiller(
 
 func (b *Backfiller) EnqueueJob(ctx context.Context, pds, repo string) error {
 	log := slog.With("component", "backfiller", "name", b.Name, "pds", pds, "repo", repo)
-	log.Info("enqueueing backfill job")
+	log.Debug("enqueueing backfill job")
 
 	if err := b.Store.EnqueueJob(ctx, pds, repo); err != nil {
 		log.Error("failed to enqueue backfill job", "error", err)
@@ -128,14 +129,16 @@ func (b *Backfiller) EnqueueJob(ctx context.Context, pds, repo string) error {
 	if _, exists := b.pdsBackfillers[pds]; !exists {
 		log.Info("creating new PDS backfiller", "pds", pds)
 		opts := DefaultPDSBackfillerOptions()
-		opts.ParallelBackfills = b.perPDSBackfillConcurrency
-		opts.ParallelRecordCreates = b.globalRecordCreateConcurrency / 10
+		opts.ParallelRecordCreates = 2
 		opts.SyncRequestsPerSecond = b.perPDSSyncsPerSecond
 		opts.RecordCreateLimiter = b.globalRecordCreationLimiter
 		opts.NSIDFilter = b.NSIDFilter
 
 		if strings.HasSuffix(pds, ".host.bsky.network") {
 			opts.Client.Timeout = 600 * time.Second
+			opts.ParallelBackfills = b.perPDSBackfillConcurrency
+		} else {
+			opts.ParallelBackfills = int(math.Min(2, float64(b.perPDSBackfillConcurrency)))
 		}
 
 		pdsBackfiller := NewPDSBackfiller(pds, pds, b.Store, b.HandleCreateRecord, opts)
@@ -143,7 +146,7 @@ func (b *Backfiller) EnqueueJob(ctx context.Context, pds, repo string) error {
 		pdsBackfiller.Start()
 	}
 	backfillJobsEnqueued.WithLabelValues(b.Name).Inc()
-	log.Info("backfill job enqueued successfully")
+	log.Debug("backfill job enqueued successfully")
 	return nil
 }
 
@@ -200,7 +203,7 @@ type PDSBackfillerOptions struct {
 func DefaultPDSBackfillerOptions() *PDSBackfillerOptions {
 	return &PDSBackfillerOptions{
 		ParallelBackfills:     10,
-		ParallelRecordCreates: 100,
+		ParallelRecordCreates: 2,
 		RecordCreateLimiter:   rate.NewLimiter(rate.Limit(100), 100),
 		NSIDFilter:            "",
 		SyncRequestsPerSecond: 2,
@@ -267,10 +270,10 @@ func (b *PDSBackfiller) Start() {
 			job, err := b.Store.GetNextEnqueuedJob(ctx, b.Hostname)
 			if err != nil {
 				log.Error("failed to get next enqueued job", "error", err)
-				time.Sleep(1 * time.Second)
+				time.Sleep(5 * time.Second)
 				continue
 			} else if job == nil {
-				time.Sleep(1 * time.Second)
+				time.Sleep(5 * time.Second)
 				continue
 			}
 			jobs <- job
@@ -283,16 +286,17 @@ func (b *PDSBackfiller) Start() {
 		go func() {
 			defer b.wg.Done()
 			log := log.With("subcomponent", "worker", "worker_id", i)
+			defer log.Info("stopping backfill worker")
+
 			for job := range jobs {
 				select {
 				case <-b.stop:
-					log.Info("stopping backfill worker")
 					return
 				default:
 				}
 
 				log := log.With("job", job.Repo(), "state", job.State())
-				log.Info("processing backfill job")
+				log.Debug("processing backfill job")
 
 				if err := job.SetState(ctx, StateInProgress); err != nil {
 					log.Error("failed to set job state to in_progress", "error", err)
@@ -303,7 +307,7 @@ func (b *PDSBackfiller) Start() {
 				if err != nil {
 					log.Error("failed to backfill repo", "error", err)
 				} else {
-					log.Info("backfill job completed successfully", "new_state", newState)
+					log.Debug("backfill job completed successfully", "new_state", newState)
 				}
 
 				if err := job.SetState(ctx, newState); err != nil {
@@ -359,7 +363,7 @@ func (b *PDSBackfiller) BackfillRepo(ctx context.Context, job Job) (string, erro
 	if job.RetryCount() > 0 {
 		log = log.With("retry_count", job.RetryCount())
 	}
-	log.Info(fmt.Sprintf("processing backfill for %s", repoDID))
+	log.Debug(fmt.Sprintf("processing backfill for %s", repoDID))
 
 	r, err := b.fetchRepo(ctx, repoDID, b.Hostname)
 	if err != nil {
@@ -438,7 +442,7 @@ func (b *PDSBackfiller) BackfillRepo(ctx context.Context, job Job) (string, erro
 	close(recordErrors)
 	resultWG.Wait()
 
-	log.Info("backfill complete",
+	log.Debug("backfill complete",
 		"records_backfilled", numRecords,
 		"duration", time.Since(start),
 	)
