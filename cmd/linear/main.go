@@ -158,7 +158,7 @@ func Sync(cctx *cli.Context) error {
 	opts := backfill.DefaultBackfillerOptions()
 	opts.GlobalRecordCreateConcurrency = 100_000
 	opts.PerPDSSyncsPerSecond = 10
-	opts.PerPDSBackfillConcurrency = 50
+	opts.PerPDSBackfillConcurrency = 30
 
 	bf := backfill.NewBackfiller("linear-backfiller-v2", store, linear.handleCreate, opts)
 
@@ -216,7 +216,11 @@ func Sync(cctx *cli.Context) error {
 			go func(pds string) {
 				logger.Info("enqueuing PDS for backfill", "pds", pds)
 
-				xrpcc := xrpc.Client{}
+				xrpcc := xrpc.Client{
+					Client: &http.Client{
+						Timeout: 5 * time.Second,
+					},
+				}
 				xrpcc.Host = fmt.Sprintf("https://%s", pds)
 
 				listLimiter := rate.NewLimiter(5, 1)
@@ -371,29 +375,27 @@ func (lin *Linear) startWriters() {
 
 	recordsProcessed := atomic.Int64{}
 
-	for range 10 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			recs := 0
-			for {
-				select {
-				case <-lin.teardown:
-					log.Info("received shutdown signal, closing writer")
-					return
-				case line := <-lin.outChan:
-					if _, err := lin.out.Write(line); err != nil {
-						log.Error("failed to write line to output file", "err", err)
-					}
-					recs++
-					if recs%1000 == 0 {
-						recordsProcessed.Add(int64(recs))
-						recs = 0
-					}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		recs := 0
+		for {
+			select {
+			case <-lin.teardown:
+				log.Info("received shutdown signal, closing writer")
+				return
+			case line := <-lin.outChan:
+				if _, err := lin.out.Write(line); err != nil {
+					log.Error("failed to write line to output file", "err", err)
+				}
+				recs++
+				if recs%1000 == 0 {
+					recordsProcessed.Add(int64(recs))
+					recs = 0
 				}
 			}
-		}()
-	}
+		}
+	}()
 
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
