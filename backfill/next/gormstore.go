@@ -114,6 +114,47 @@ func (s *Gormstore) loadJobs(ctx context.Context, limit int) error {
 	return nil
 }
 
+func (s *Gormstore) loadJobsForPDS(ctx context.Context, pds string, limit int) error {
+	enqueuedIndexClause := ""
+	retryableIndexClause := ""
+
+	// If the DB is a SQLite DB, we can use INDEXED BY to speed up the query
+	if s.db.Dialector.Name() == "sqlite" {
+		enqueuedIndexClause = "INDEXED BY enqueued_pds_job_idx"
+		retryableIndexClause = "INDEXED BY retryable_pds_job_idx"
+	}
+
+	enqueuedSelect := fmt.Sprintf(`SELECT pds, repo FROM gorm_db_jobs %s WHERE pds = ? AND state  = 'enqueued' LIMIT ?`, enqueuedIndexClause)
+	retryableSelect := fmt.Sprintf(`SELECT pds, repo FROM gorm_db_jobs %s WHERE pds = ? AND state like 'failed%%' AND (retry_after = NULL OR retry_after < ?) LIMIT ?`, retryableIndexClause)
+
+	todoJobs := make([]todoJob, 0, limit)
+	if err := s.db.Raw(enqueuedSelect, pds, limit).Scan(&todoJobs).Error; err != nil {
+		return err
+	}
+
+	if len(todoJobs) < limit {
+		moreTodo := make([]todoJob, 0, limit-len(todoJobs))
+		if err := s.db.Raw(retryableSelect, pds, time.Now(), limit-len(todoJobs)).Scan(&moreTodo).Error; err != nil {
+			return err
+		}
+		todoJobs = append(todoJobs, moreTodo...)
+	}
+
+	for _, job := range todoJobs {
+		if pdsQueue, ok := s.pdsQueues[job.pds]; ok {
+			pdsQueue.qlk.Lock()
+			pdsQueue.taskQueue = append(pdsQueue.taskQueue, job.repo)
+			pdsQueue.qlk.Unlock()
+		} else {
+			s.pdsQueues[job.pds] = &queue{
+				taskQueue: []string{job.repo},
+			}
+		}
+	}
+
+	return nil
+}
+
 func (s *Gormstore) GetOrCreateJob(ctx context.Context, pds, repo, state string) (Job, error) {
 	j, err := s.getJob(ctx, repo)
 	if err == nil {
@@ -288,7 +329,7 @@ func (s *Gormstore) GetNextEnqueuedJob(ctx context.Context, pds string) (Job, er
 	defer pdsQueue.qlk.Unlock()
 
 	if len(pdsQueue.taskQueue) == 0 {
-		if err := s.loadJobs(ctx, 1000); err != nil {
+		if err := s.loadJobsForPDS(ctx, pds, 1000); err != nil {
 			return nil, err
 		}
 

@@ -7,8 +7,10 @@ import (
 	"log/slog"
 	"net/http"
 	_ "net/http/pprof"
+	"net/url"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strings"
 	"syscall"
 
@@ -79,6 +81,18 @@ func main() {
 					EnvVars: []string{"LINEAR_OUTPUT_FILE"},
 					Value:   "data/linear.jsonl",
 				},
+				&cli.BoolFlag{
+					Name:    "discover-pds",
+					Usage:   "discover PDSs from the listHosts endpoint on the Relay",
+					Value:   false,
+					EnvVars: []string{"LINEAR_DISCOVER_PDS"},
+				},
+				&cli.StringFlag{
+					Name:    "relay-host",
+					Usage:   "host of the Relay to use for discovery",
+					Value:   "https://relay.pop1.bsky.network",
+					EnvVars: []string{"LINEAR_RELAY_HOST"},
+				},
 			},
 		},
 	}
@@ -106,6 +120,14 @@ func Sync(cctx *cli.Context) error {
 			logger.Error("failed to set up metrics listener", "err", err)
 		}
 	}()
+
+	crashout, err := os.OpenFile("crash.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open crash log file: %w", err)
+	}
+	defer crashout.Close()
+
+	debug.SetCrashOutput(crashout, debug.CrashOptions{})
 
 	store, db, err := setupBackfillStore(cctx.Context, cctx.String("backfill-sqlite-path"))
 	if err != nil {
@@ -139,16 +161,55 @@ func Sync(cctx *cli.Context) error {
 
 	linear.bf = bf
 
-	err = store.LoadJobs(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to load jobs from store: %w", err)
-	}
-
 	// Walk the PDS list's listRepos endpoints and add jobs to the backfiller
 	pdsList := cctx.StringSlice("pds-list")
 
+	if cctx.Bool("discover-pds") {
+		logger.Info("discovering PDSs from Relay", "relayHost", cctx.String("relay-host"))
+		xrpcc := xrpc.Client{}
+		xrpcc.Host = cctx.String("relay-host")
+
+		limiter := rate.NewLimiter(5, 1)
+
+		newPDSList := []string{}
+
+		cursor := ""
+		for {
+			if err := limiter.Wait(ctx); err != nil {
+				logger.Error("failed to wait for rate limiter", "err", err)
+				break
+			}
+			page, err := comatproto.SyncListHosts(ctx, &xrpcc, cursor, 1000)
+			if err != nil {
+				return fmt.Errorf("failed to list hosts from Relay: %w", err)
+			}
+			for _, host := range page.Hosts {
+				if host.Hostname != "" && host.Status != nil && *host.Status == "active" {
+					newPDSList = append(newPDSList, host.Hostname)
+				}
+			}
+			if page.Cursor == nil {
+				break
+			}
+			cursor = *page.Cursor
+		}
+
+		pdsList = newPDSList
+
+		logger.Info("discovered PDSs", "count", len(newPDSList), "pdsList", newPDSList)
+	}
+
 	go func() {
 		for _, pds := range pdsList {
+			// Ensure the PDS host is valid
+			u, err := url.Parse(fmt.Sprintf("https://%s", pds))
+			if err != nil || u.Host == "" {
+				logger.Error("invalid PDS host", "pds", pds, "err", err)
+				continue
+			}
+
+			pds = u.Host
+
 			go func(pds string) {
 				logger.Info("enqueuing PDS for backfill", "pds", pds)
 
@@ -161,13 +222,13 @@ func Sync(cctx *cli.Context) error {
 				for {
 					if err := listLimiter.Wait(ctx); err != nil {
 						logger.Error("failed to wait for rate limiter", "pds", pds, "err", err)
-						continue
+						break
 					}
 
 					page, err := comatproto.SyncListRepos(ctx, &xrpcc, cursor, 1000)
 					if err != nil {
 						logger.Error("failed to list repos for PDS", "pds", pds, "err", err)
-						continue
+						break
 					}
 
 					for _, repo := range page.Repos {
@@ -259,6 +320,10 @@ func setupBackfillStore(ctx context.Context, sqlitePath string) (*backfill.Gorms
 		return nil, nil, err
 	}
 
+	if err := bfdb.Exec("PRAGMA synchronous=normal;").Error; err != nil {
+		return nil, nil, err
+	}
+
 	if err := bfdb.AutoMigrate(&backfill.GormDBJob{}); err != nil {
 		return nil, nil, err
 	}
@@ -267,6 +332,12 @@ func setupBackfillStore(ctx context.Context, sqlitePath string) (*backfill.Gorms
 	if err := store.LoadJobs(ctx); err != nil {
 		return nil, nil, err
 	}
+
+	rawDB, err := bfdb.DB()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get raw DB from gorm: %w", err)
+	}
+	rawDB.SetMaxOpenConns(10)
 
 	return store, bfdb, nil
 }

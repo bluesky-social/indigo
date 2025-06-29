@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -127,9 +129,14 @@ func (b *Backfiller) EnqueueJob(ctx context.Context, pds, repo string) error {
 		log.Info("creating new PDS backfiller", "pds", pds)
 		opts := DefaultPDSBackfillerOptions()
 		opts.ParallelBackfills = b.perPDSBackfillConcurrency
+		opts.ParallelRecordCreates = b.globalRecordCreateConcurrency / 10
 		opts.SyncRequestsPerSecond = b.perPDSSyncsPerSecond
 		opts.RecordCreateLimiter = b.globalRecordCreationLimiter
 		opts.NSIDFilter = b.NSIDFilter
+
+		if strings.HasSuffix(pds, ".host.bsky.network") {
+			opts.Client.Timeout = 600 * time.Second
+		}
 
 		pdsBackfiller := NewPDSBackfiller(pds, pds, b.Store, b.HandleCreateRecord, opts)
 		b.pdsBackfillers[pds] = pdsBackfiller
@@ -173,6 +180,7 @@ type PDSBackfiller struct {
 
 	recordCreateConcurrency int
 	recordCreateLimiter     *rate.Limiter
+	recordsProcessed        prometheus.Counter
 
 	NSIDFilter string
 
@@ -198,7 +206,7 @@ func DefaultPDSBackfillerOptions() *PDSBackfillerOptions {
 		SyncRequestsPerSecond: 2,
 		Client: &http.Client{
 			Transport: otelhttp.NewTransport(http.DefaultTransport),
-			Timeout:   600 * time.Second,
+			Timeout:   120 * time.Second,
 		},
 	}
 }
@@ -222,6 +230,7 @@ func NewPDSBackfiller(
 		HandleCreateRecord:      handleCreate,
 		backfillConcurrency:     opts.ParallelBackfills,
 		recordCreateConcurrency: opts.ParallelRecordCreates,
+		recordsProcessed:        backfillRecordsProcessed.WithLabelValues(name),
 		NSIDFilter:              opts.NSIDFilter,
 		syncLimiter:             rate.NewLimiter(rate.Limit(opts.SyncRequestsPerSecond), opts.SyncRequestsPerSecond),
 		recordCreateLimiter:     opts.RecordCreateLimiter,
@@ -322,11 +331,6 @@ type recordQueueItem struct {
 	nodeCid    cid.Cid
 }
 
-type recordResult struct {
-	recordPath string
-	err        error
-}
-
 type FetchRepoError struct {
 	StatusCode int
 	Status     string
@@ -370,7 +374,7 @@ func (b *PDSBackfiller) BackfillRepo(ctx context.Context, job Job) (string, erro
 	numRecords := 0
 	numRoutines := b.recordCreateConcurrency
 	recordQueue := make(chan recordQueueItem, numRoutines)
-	recordResults := make(chan recordResult, numRoutines)
+	recordErrors := make(chan error, numRoutines)
 
 	// Producer routine
 	go func() {
@@ -395,25 +399,25 @@ func (b *PDSBackfiller) BackfillRepo(ctx context.Context, job Job) (string, erro
 			for item := range recordQueue {
 				blk, err := r.Blockstore().Get(ctx, item.nodeCid)
 				if err != nil {
-					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to get blocks for record: %w", err)}
+					recordErrors <- fmt.Errorf("failed to get blocks for record %q: %w", item.recordPath, err)
 					continue
 				}
 
 				raw := blk.RawData()
 
 				if err := b.recordCreateLimiter.Wait(ctx); err != nil {
-					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to wait for record create limiter: %w", err)}
+					recordErrors <- fmt.Errorf("failed to wait for record create limiter %q: %w", item.recordPath, err)
 					break
 				}
 
 				err = b.HandleCreateRecord(ctx, repoDID, rev, item.recordPath, &raw, &item.nodeCid)
 				if err != nil {
-					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to handle create record: %w", err)}
+					recordErrors <- fmt.Errorf("failed to handle create record %q: %w", item.recordPath, err)
 					continue
 				}
 
-				backfillRecordsProcessed.WithLabelValues(b.Name).Inc()
-				recordResults <- recordResult{recordPath: item.recordPath, err: err}
+				b.recordsProcessed.Inc()
+				recordErrors <- nil
 			}
 		}()
 	}
@@ -423,15 +427,15 @@ func (b *PDSBackfiller) BackfillRepo(ctx context.Context, job Job) (string, erro
 	// Handle results
 	go func() {
 		defer resultWG.Done()
-		for result := range recordResults {
-			if result.err != nil {
-				log.Error("Error processing record", "record", result.recordPath, "error", result.err)
+		for err := range recordErrors {
+			if err != nil {
+				log.Error("Error processing record", "error", err)
 			}
 		}
 	}()
 
 	wg.Wait()
-	close(recordResults)
+	close(recordErrors)
 	resultWG.Wait()
 
 	log.Info("backfill complete",
