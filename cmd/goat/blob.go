@@ -111,14 +111,7 @@ func runBlobExport(cctx *cli.Context) error {
 	fmt.Printf("downloading blobs to: %s\n", topDir)
 	os.MkdirAll(topDir, os.ModePerm)
 
-	delayCh := make(chan any)
-	go func() {
-		for {
-			delayCh <- 0
-			time.Sleep(cctx.Duration("delay"))
-		}
-	}()
-
+	delayCh := time.NewTicker(cctx.Duration("delay"))
 
 	cursor := ""
 	for {
@@ -148,7 +141,7 @@ func runBlobExport(cctx *cli.Context) error {
 				}
 
 				if cctx.Duration("delay") != 0 {
-					<-delayCh
+					<-delayCh.C
 				}
 
 				blobBytes, err := comatproto.SyncGetBlob(ctx, &xrpcc, cidStr, ident.DID.String())
@@ -161,8 +154,6 @@ func runBlobExport(cctx *cli.Context) error {
 				}
 				fmt.Printf("%s\tdownloaded\n", blobPath)
 			}()
-
-			time.Sleep(cctx.Duration("delay"))
 		}
 
 		wg.Wait()
