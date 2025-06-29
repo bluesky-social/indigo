@@ -138,11 +138,7 @@ func runBlobExport(cctx *cli.Context) error {
 			go func() {
 				defer wg.Done()
 				defer func() { <-sem }()
-
-				if cctx.Duration("delay") != 0 {
-					<-delayCh
-				}
-
+				
 				cidStr := cidStr
 
 				blobPath := topDir + "/" + cidStr
@@ -150,6 +146,11 @@ func runBlobExport(cctx *cli.Context) error {
 					fmt.Printf("%s\texists\n", blobPath)
 					return
 				}
+
+				if cctx.Duration("delay") != 0 {
+					<-delayCh
+				}
+
 				blobBytes, err := comatproto.SyncGetBlob(ctx, &xrpcc, cidStr, ident.DID.String())
 				if err != nil {
 					fmt.Printf("%s\tfailed %s\n", blobPath, err)
