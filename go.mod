@@ -16,6 +16,7 @@ require (
 	github.com/dustinkirkland/golang-petname v0.0.0-20231002161417-6a283f1aaaf2
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/go-redis/cache/v9 v9.0.0
+	github.com/goccy/go-json v0.10.2
 	github.com/gocql/gocql v1.7.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang-jwt/jwt/v5 v5.2.2
@@ -91,7 +92,6 @@ require (
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/go-redis/redis v6.15.9+incompatible // indirect
-	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
