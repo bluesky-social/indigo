@@ -26,7 +26,7 @@ func (r instrumentedReader) Close() error {
 		r.counter.Add(float64(n))
 	}
 	closeerr := r.source.Close()
-	if err != nil && err != io.EOF {
+	if err != io.EOF {
 		return err
 	}
 	return closeerr

@@ -18,8 +18,11 @@ import (
 
 	"github.com/goccy/go-json"
 
+	"github.com/ClickHouse/ch-go"
+	"github.com/ClickHouse/ch-go/proto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	backfill "github.com/bluesky-social/indigo/backfill/next"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
@@ -38,9 +41,14 @@ type Linear struct {
 	bf       *backfill.Backfiller
 	teardown chan struct{}
 
-	out        *os.File
-	outChan    chan []byte
-	fileClosed chan struct{}
+	chClient   *ch.Client
+	chAddress  string
+	chUser     string
+	chPassword string
+	chDatabase string
+
+	outChan     chan *chRow
+	writingDone chan struct{}
 }
 
 type Line struct {
@@ -80,11 +88,6 @@ func main() {
 					Value:   cli.NewStringSlice("blusher.us-east.host.bsky.network", "yellowfoot.us-west.host.bsky.network", "psathyrella.us-west.host.bsky.network", "hollowfoot.us-west.host.bsky.network", "fuzzyfoot.us-west.host.bsky.network", "panus.us-west.host.bsky.network", "mazegill.us-west.host.bsky.network", "pioppino.us-west.host.bsky.network", "waxcap.us-west.host.bsky.network", "elfcup.us-east.host.bsky.network"),
 					EnvVars: []string{"LINEAR_PDS_LIST"},
 				},
-				&cli.StringFlag{
-					Name:    "output-file",
-					EnvVars: []string{"LINEAR_OUTPUT_FILE"},
-					Value:   "data/linear.jsonl",
-				},
 				&cli.BoolFlag{
 					Name:    "discover-pds",
 					Usage:   "discover PDSs from the listHosts endpoint on the Relay",
@@ -96,6 +99,30 @@ func main() {
 					Usage:   "host of the Relay to use for discovery",
 					Value:   "https://relay.pop1.bsky.network",
 					EnvVars: []string{"LINEAR_RELAY_HOST"},
+				},
+				&cli.StringFlag{
+					Name:    "clickhouse-address",
+					Usage:   "address of the ClickHouse server",
+					Value:   "localhost:9000",
+					EnvVars: []string{"LINEAR_CLICKHOUSE_ADDRESS"},
+				},
+				&cli.StringFlag{
+					Name:    "clickhouse-user",
+					Usage:   "username for ClickHouse",
+					Value:   "linear_user",
+					EnvVars: []string{"LINEAR_CLICKHOUSE_USER"},
+				},
+				&cli.StringFlag{
+					Name:    "clickhouse-password",
+					Usage:   "password for ClickHouse",
+					Value:   "localdev",
+					EnvVars: []string{"LINEAR_CLICKHOUSE_PASSWORD"},
+				},
+				&cli.StringFlag{
+					Name:    "clickhouse-database",
+					Usage:   "database name in ClickHouse",
+					Value:   "linear",
+					EnvVars: []string{"LINEAR_CLICKHOUSE_DATABASE"},
 				},
 			},
 		},
@@ -138,28 +165,38 @@ func Sync(cctx *cli.Context) error {
 		return fmt.Errorf("failed to setup backfill store: %w", err)
 	}
 
-	backfillOutFile, err := os.OpenFile(cctx.String("output-file"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	chClient, err := setupClickhouseClient(ctx,
+		cctx.String("clickhouse-address"),
+		cctx.String("clickhouse-user"),
+		cctx.String("clickhouse-password"),
+		cctx.String("clickhouse-database"),
+	)
 	if err != nil {
-		return fmt.Errorf("failed to open output file: %w", err)
+		return fmt.Errorf("failed to setup ClickHouse client: %w", err)
 	}
 
 	linear := &Linear{
-		db:     db,
-		logger: logger,
+		db:       db,
+		logger:   logger,
+		chClient: chClient,
 
-		out:        backfillOutFile,
-		outChan:    make(chan []byte, 1_000_000),
-		fileClosed: make(chan struct{}),
+		chAddress:  cctx.String("clickhouse-address"),
+		chUser:     cctx.String("clickhouse-user"),
+		chPassword: cctx.String("clickhouse-password"),
+		chDatabase: cctx.String("clickhouse-database"),
+
+		outChan:     make(chan *chRow, 1_000_000), // Buffered channel to handle backpressure
+		writingDone: make(chan struct{}),
 
 		teardown: make(chan struct{}),
 	}
 
-	linear.startWriters()
+	linear.startClickhouseWriter()
 
 	opts := backfill.DefaultBackfillerOptions()
-	opts.GlobalRecordCreateConcurrency = 300_000
+	opts.GlobalRecordCreateConcurrency = 200_000
 	opts.PerPDSSyncsPerSecond = 9.5
-	opts.PerPDSBackfillConcurrency = 20
+	opts.PerPDSBackfillConcurrency = 15
 
 	bf := backfill.NewBackfiller("linear-backfiller-v2", store, linear.handleCreate, opts)
 
@@ -286,7 +323,7 @@ func (lin *Linear) shutdown(ctx context.Context) error {
 	// first, close down all 'sources' of work
 	lin.bf.Shutdown(ctx)
 	close(lin.teardown)
-	<-lin.fileClosed
+	<-lin.writingDone
 	return nil
 }
 
@@ -306,23 +343,20 @@ func (l *Linear) handleCreate(ctx context.Context, repo string, rev string, path
 		return fmt.Errorf("failed to marshal record to json: %w", err)
 	}
 
-	line := Line{
-		Repo:       repo,
+	createdAt := time.Now().UTC()
+	tid, err := syntax.ParseTID(rkey)
+	if err == nil {
+		createdAt = tid.Time()
+	}
+
+	l.outChan <- &chRow{
+		DID:        repo,
 		Collection: col,
 		RKey:       rkey,
-		Cid:        cid.String(),
+		CID:        cid.String(),
 		Record:     recJSON,
+		CreatedAt:  createdAt,
 	}
-
-	lineB, err := json.Marshal(line)
-	if err != nil {
-		return fmt.Errorf("failed to marshal line to json: %w", err)
-	}
-
-	// Append a newline to the JSON line
-	lineB = append(lineB, '\n')
-
-	l.outChan <- lineB
 
 	return nil
 }
@@ -362,6 +396,44 @@ func setupBackfillStore(ctx context.Context, sqlitePath string) (*backfill.Gorms
 	return store, bfdb, nil
 }
 
+func setupClickhouseClient(ctx context.Context, address, user, pass, db string) (*ch.Client, error) {
+	conn, err := ch.Dial(ctx, ch.Options{
+		Address:  address,
+		Database: db,
+		User:     user,
+		Password: pass,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to ClickHouse: %w", err)
+	}
+
+	if err := conn.Do(ctx, ch.Query{
+		Body: "SET enable_json_type = 1;",
+	}); err != nil {
+		return nil, fmt.Errorf("failed to set ClickHouse options: %w", err)
+	}
+
+	// Create the table if it doesn't exist
+	createTableQuery := ch.Query{
+		Body: `
+			CREATE TABLE IF NOT EXISTS repo_records (
+				did String,
+				collection String,
+				rkey String,
+				cid String,
+				record JSON,
+				created_at DateTime64(3, 'UTC')
+			) ENGINE = MergeTree
+			ORDER BY (collection, did, rkey);
+		`,
+	}
+	if err := conn.Do(ctx, createTableQuery); err != nil {
+		return nil, fmt.Errorf("failed to create ClickHouse table: %w", err)
+	}
+
+	return conn, nil
+}
+
 func splitPath(p string) (string, string, error) {
 	parts := strings.Split(p, "/")
 	if len(parts) != 2 {
@@ -371,36 +443,109 @@ func splitPath(p string) (string, string, error) {
 	return parts[0], parts[1], nil
 }
 
-func (lin *Linear) startWriters() {
-	log := lin.logger.With("source", "writer")
-	log.Info("starting writers")
+// SET enable_json_type = 1;
+// CREATE TABLE repo_records (
+// 	`did` String,
+// 	`collection` String,
+// 	`rkey` String,
+// 	`cid` String,
+// 	`record` JSON,
+// 	`created_at` DateTime64(3, 'UTC'),
+// )
+// ENGINE = MergeTree
+// ORDER BY (collection, did, rkey)
+
+type chRow struct {
+	DID        string
+	Collection string
+	RKey       string
+	CID        string
+	Record     json.RawMessage
+	CreatedAt  time.Time
+}
+
+func (lin *Linear) startClickhouseWriter() {
+	log := lin.logger.With("source", "clickhouse-writer")
+	log.Info("starting ClickHouse writer")
+
+	ctx := context.Background()
 
 	// Start some writers to handle output
 	wg := sync.WaitGroup{}
-
 	recordsProcessed := atomic.Int64{}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		recs := 0
-		for {
-			select {
-			case <-lin.teardown:
-				log.Info("received shutdown signal, closing writer")
+	insertQueryStr := `INSERT INTO repo_records (did, collection, rkey, cid, record, created_at) VALUES`
+
+	for range 3 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			recs := 0
+
+			// Define the columns of the table
+			var (
+				didCol        proto.ColStr
+				collectionCol proto.ColStr
+				rkeyCol       proto.ColStr
+				cidCol        proto.ColStr
+				recordCol     proto.ColJSONBytes
+				createdAtCol  = new(proto.ColDateTime64).WithPrecision(3)
+			)
+
+			input := proto.Input{
+				{Name: "did", Data: &didCol},
+				{Name: "collection", Data: &collectionCol},
+				{Name: "rkey", Data: &rkeyCol},
+				{Name: "cid", Data: &cidCol},
+				{Name: "record", Data: &recordCol},
+				{Name: "created_at", Data: createdAtCol},
+			}
+
+			// Initialize a client
+			chClient, err := ch.Dial(ctx, ch.Options{
+				Address:  lin.chAddress,
+				Database: lin.chDatabase,
+				User:     lin.chUser,
+				Password: lin.chPassword,
+			})
+			if err != nil {
+				log.Error("failed to connect to ClickHouse", "err", err)
 				return
-			case line := <-lin.outChan:
-				if _, err := lin.out.Write(line); err != nil {
-					log.Error("failed to write line to output file", "err", err)
-				}
-				recs++
-				if recs%1000 == 0 {
-					recordsProcessed.Add(int64(recs))
-					recs = 0
+			}
+			defer chClient.Close()
+
+			for {
+				select {
+				case <-lin.teardown:
+					log.Info("received shutdown signal, closing writer")
+					return
+				case row := <-lin.outChan:
+					recs++
+
+					didCol.Append(row.DID)
+					collectionCol.Append(row.Collection)
+					rkeyCol.Append(row.RKey)
+					cidCol.Append(row.CID)
+					recordCol.Append(row.Record)
+					createdAtCol.Append(row.CreatedAt)
+
+					if recs%100_000 == 0 {
+						if err := chClient.Do(ctx, ch.Query{
+							Body:  insertQueryStr,
+							Input: input,
+						}); err != nil {
+							log.Error("failed to insert records into ClickHouse", "err", err)
+						} else {
+							recordsProcessed.Add(int64(recs))
+							log.Info("inserted records into ClickHouse", "count", recs)
+						}
+						recs = 0
+						input.Reset()
+					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
@@ -419,14 +564,11 @@ func (lin *Linear) startWriters() {
 
 	go func() {
 		wg.Wait()
-		if err := lin.out.Sync(); err != nil {
-			log.Error("failed to sync output file", "err", err)
-		}
-		if err := lin.out.Close(); err != nil {
-			log.Error("failed to close output file", "err", err)
+		if err := lin.chClient.Close(); err != nil {
+			log.Error("failed to close ClickHouse client", "err", err)
 		}
 		log.Info("all writers have finished")
-		close(lin.fileClosed)
+		close(lin.writingDone)
 		close(lin.outChan)
 	}()
 }
