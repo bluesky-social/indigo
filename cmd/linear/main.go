@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -16,6 +15,8 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/goccy/go-json"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
@@ -156,9 +157,9 @@ func Sync(cctx *cli.Context) error {
 	linear.startWriters()
 
 	opts := backfill.DefaultBackfillerOptions()
-	opts.GlobalRecordCreateConcurrency = 100_000
-	opts.PerPDSSyncsPerSecond = 10
-	opts.PerPDSBackfillConcurrency = 30
+	opts.GlobalRecordCreateConcurrency = 300_000
+	opts.PerPDSSyncsPerSecond = 9.5
+	opts.PerPDSBackfillConcurrency = 20
 
 	bf := backfill.NewBackfiller("linear-backfiller-v2", store, linear.handleCreate, opts)
 
@@ -172,7 +173,7 @@ func Sync(cctx *cli.Context) error {
 		xrpcc := xrpc.Client{}
 		xrpcc.Host = cctx.String("relay-host")
 
-		limiter := rate.NewLimiter(5, 1)
+		limiter := rate.NewLimiter(2, 1)
 
 		newPDSList := []string{}
 
@@ -202,6 +203,9 @@ func Sync(cctx *cli.Context) error {
 		logger.Info("discovered PDSs", "count", len(newPDSList), "pdsList", newPDSList)
 	}
 
+	listCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	go func() {
 		for _, pds := range pdsList {
 			// Ensure the PDS host is valid
@@ -227,12 +231,12 @@ func Sync(cctx *cli.Context) error {
 
 				cursor := ""
 				for {
-					if err := listLimiter.Wait(ctx); err != nil {
+					if err := listLimiter.Wait(listCtx); err != nil {
 						logger.Error("failed to wait for rate limiter", "pds", pds, "err", err)
 						break
 					}
 
-					page, err := comatproto.SyncListRepos(ctx, &xrpcc, cursor, 1000)
+					page, err := comatproto.SyncListRepos(listCtx, &xrpcc, cursor, 1000)
 					if err != nil {
 						logger.Error("failed to list repos for PDS", "pds", pds, "err", err)
 						break
@@ -246,7 +250,7 @@ func Sync(cctx *cli.Context) error {
 							continue
 						}
 
-						if err := bf.EnqueueJob(ctx, pds, repo.Did); err != nil {
+						if err := bf.EnqueueJob(listCtx, pds, repo.Did); err != nil {
 							logger.Error("failed to enqueue job for PDS", "pds", pds, "repo", repo.Did, "err", err)
 						} else {
 							logger.Debug("enqueued job for PDS", "pds", pds, "repo", repo.Did)
@@ -269,6 +273,7 @@ func Sync(cctx *cli.Context) error {
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	<-signals
+	cancel()
 	if err := linear.shutdown(ctx); err != nil {
 		logger.Error("shutdown encountered an error", "err", err)
 	}

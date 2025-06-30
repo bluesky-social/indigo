@@ -60,7 +60,7 @@ type Backfiller struct {
 	Store              Store
 
 	perPDSBackfillConcurrency     int
-	perPDSSyncsPerSecond          int
+	perPDSSyncsPerSecond          float64
 	globalRecordCreateConcurrency int
 
 	globalRecordCreationLimiter *rate.Limiter
@@ -75,7 +75,7 @@ type Backfiller struct {
 
 type BackfillerOptions struct {
 	PerPDSBackfillConcurrency     int
-	PerPDSSyncsPerSecond          int
+	PerPDSSyncsPerSecond          float64
 	GlobalRecordCreateConcurrency int
 	NSIDFilter                    string
 	Client                        *http.Client
@@ -196,7 +196,7 @@ type PDSBackfillerOptions struct {
 	ParallelRecordCreates int
 	RecordCreateLimiter   *rate.Limiter
 	NSIDFilter            string
-	SyncRequestsPerSecond int
+	SyncRequestsPerSecond float64
 	Client                *http.Client
 }
 
@@ -235,7 +235,7 @@ func NewPDSBackfiller(
 		recordCreateConcurrency: opts.ParallelRecordCreates,
 		recordsProcessed:        backfillRecordsProcessed.WithLabelValues(name),
 		NSIDFilter:              opts.NSIDFilter,
-		syncLimiter:             rate.NewLimiter(rate.Limit(opts.SyncRequestsPerSecond), opts.SyncRequestsPerSecond),
+		syncLimiter:             rate.NewLimiter(rate.Limit(opts.SyncRequestsPerSecond), int(opts.SyncRequestsPerSecond)),
 		recordCreateLimiter:     opts.RecordCreateLimiter,
 		stop:                    make(chan struct{}),
 		client:                  opts.Client,
