@@ -185,7 +185,7 @@ func Sync(cctx *cli.Context) error {
 		chPassword: cctx.String("clickhouse-password"),
 		chDatabase: cctx.String("clickhouse-database"),
 
-		outChan:     make(chan *chRow, 1_000_000), // Buffered channel to handle backpressure
+		outChan:     make(chan *chRow, 500_000),
 		writingDone: make(chan struct{}),
 
 		teardown: make(chan struct{}),
@@ -194,7 +194,7 @@ func Sync(cctx *cli.Context) error {
 	linear.startClickhouseWriter()
 
 	opts := backfill.DefaultBackfillerOptions()
-	opts.GlobalRecordCreateConcurrency = 200_000
+	opts.GlobalRecordCreateConcurrency = 500_000
 	opts.PerPDSSyncsPerSecond = 9.5
 	opts.PerPDSBackfillConcurrency = 15
 
@@ -378,6 +378,11 @@ func setupBackfillStore(ctx context.Context, sqlitePath string) (*backfill.Gorms
 		return nil, nil, err
 	}
 
+	// Extend the busy timeout to 30 seconds
+	if err := bfdb.Exec("PRAGMA busy_timeout=30000;").Error; err != nil {
+		return nil, nil, err
+	}
+
 	if err := bfdb.AutoMigrate(&backfill.GormDBJob{}); err != nil {
 		return nil, nil, err
 	}
@@ -392,6 +397,22 @@ func setupBackfillStore(ctx context.Context, sqlitePath string) (*backfill.Gorms
 		return nil, nil, fmt.Errorf("failed to get raw DB from gorm: %w", err)
 	}
 	rawDB.SetMaxOpenConns(10)
+
+	// Periodically truncate the WAL with a checkpoint
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := bfdb.Exec("PRAGMA wal_checkpoint(TRUNCATE);").Error; err != nil {
+					slog.Error("failed to checkpoint WAL", "err", err)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	return store, bfdb, nil
 }
@@ -421,7 +442,7 @@ func setupClickhouseClient(ctx context.Context, address, user, pass, db string) 
 				collection String,
 				rkey String,
 				cid String,
-				record JSON,
+				record String,
 				created_at DateTime64(3, 'UTC')
 			) ENGINE = MergeTree
 			ORDER BY (collection, did, rkey);
@@ -476,7 +497,7 @@ func (lin *Linear) startClickhouseWriter() {
 
 	insertQueryStr := `INSERT INTO repo_records (did, collection, rkey, cid, record, created_at) VALUES`
 
-	for range 3 {
+	for range 5 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -488,7 +509,7 @@ func (lin *Linear) startClickhouseWriter() {
 				collectionCol proto.ColStr
 				rkeyCol       proto.ColStr
 				cidCol        proto.ColStr
-				recordCol     proto.ColJSONBytes
+				recordCol     proto.ColBytes
 				createdAtCol  = new(proto.ColDateTime64).WithPrecision(3)
 			)
 
@@ -514,6 +535,9 @@ func (lin *Linear) startClickhouseWriter() {
 			}
 			defer chClient.Close()
 
+			t := time.NewTicker(30 * time.Second)
+			defer t.Stop()
+
 			for {
 				select {
 				case <-lin.teardown:
@@ -529,7 +553,21 @@ func (lin *Linear) startClickhouseWriter() {
 					recordCol.Append(row.Record)
 					createdAtCol.Append(row.CreatedAt)
 
-					if recs%100_000 == 0 {
+					if recs >= 400_000 {
+						if err := chClient.Do(ctx, ch.Query{
+							Body:  insertQueryStr,
+							Input: input,
+						}); err != nil {
+							log.Error("failed to insert records into ClickHouse", "err", err)
+						} else {
+							recordsProcessed.Add(int64(recs))
+							log.Info("inserted records into ClickHouse", "count", recs)
+						}
+						recs = 0
+						input.Reset()
+					}
+				case <-t.C:
+					if recs > 0 {
 						if err := chClient.Do(ctx, ch.Query{
 							Body:  insertQueryStr,
 							Input: input,
