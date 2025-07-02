@@ -55,6 +55,7 @@ func (d *BaseDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Ide
 	if err != nil {
 		return nil, fmt.Errorf("could not verify handle/DID match: %w", err)
 	}
+	// NOTE: DeclaredHandle() returns a normalized handle, and we already normalized 'h' above
 	if declared != h {
 		return nil, fmt.Errorf("%w: %s != %s", ErrHandleMismatch, declared, h)
 	}
