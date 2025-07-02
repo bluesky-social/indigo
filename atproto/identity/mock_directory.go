@@ -26,7 +26,7 @@ func NewMockDirectory() MockDirectory {
 
 func (d *MockDirectory) Insert(ident Identity) {
 	if !ident.Handle.IsInvalidHandle() {
-		d.Handles[ident.Handle] = ident.DID
+		d.Handles[ident.Handle.Normalize()] = ident.DID
 	}
 	d.Identities[ident.DID] = ident
 }

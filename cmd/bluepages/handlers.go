@@ -74,6 +74,8 @@ func (srv *Server) ResolveDid(c echo.Context) error {
 func (srv *Server) resolveIdentityFromHandle(c echo.Context, handle syntax.Handle) error {
 	ctx := c.Request().Context()
 
+	handle = handle.Normalize()
+
 	did, err := srv.dir.ResolveHandle(ctx, handle)
 	if err != nil && errors.Is(err, identity.ErrHandleNotFound) {
 		return c.JSON(404, GenericError{
@@ -110,6 +112,7 @@ func (srv *Server) resolveIdentityFromHandle(c echo.Context, handle syntax.Handl
 	}
 
 	ident := identity.ParseIdentity(&doc)
+	// NOTE: 'handle' was resolved above, and 'DeclaredHandle()' returns a normalized handle
 	declHandle, err := ident.DeclaredHandle()
 	if err != nil || declHandle != handle {
 		return c.JSON(400, GenericError{
