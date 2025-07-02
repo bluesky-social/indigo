@@ -13,7 +13,8 @@ import (
 	"testing"
 
 	"github.com/bluesky-social/indigo/util"
-	cid "github.com/ipfs/go-cid"
+
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car/v2"
@@ -32,16 +33,16 @@ func randCid() cid.Cid {
 }
 
 func TestBasicMst(t *testing.T) {
-	rand.Seed(6123123)
 
 	ctx := context.Background()
 	cst := util.CborStore(blockstore.NewBlockstore(datastore.NewMapDatastore()))
 	mst := createMST(cst, cid.Undef, []nodeEntry{}, -1)
 
+	// NOTE: these were previously generated randomly, but the random seed behavior changed
 	vals := map[string]cid.Cid{
-		"cats/cats":  randCid(),
-		"dogs/dogs":  randCid(),
-		"cats/bears": randCid(),
+		"cats/cats":  mustCid(t, "bafkreicwamkg77pijyudfbdmskelsnuztr6gp62lqfjv3e3urbs3gxnv2m"),
+		"dogs/dogs":  mustCid(t, "bafkreihwoet2mghoduxannw3uqsq44a3if37i5omnlqmjcfuhcdegzpyn4"),
+		"cats/bears": mustCid(t, "bafkreiealwcgkpqxmr75a2vubzdertnbrip65nclv6gbsss4w7ef7fh6oy"),
 	}
 
 	for k, v := range vals {
