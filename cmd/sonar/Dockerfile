@@ -21,10 +21,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /sonar ./cmd/sonar
 FROM scratch
 
 # Import the SSL certificates from the first stage.
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build-env /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # Copy the binary from the first stage.
-COPY --from=builder /sonar /sonar
+COPY --from=build-env /sonar /sonar
 
 # Set the startup command to run the binary
 CMD ["/sonar"]
