@@ -118,11 +118,6 @@ func (b *Backfiller) EnqueueJob(ctx context.Context, pds, repo string) error {
 	log := slog.With("component", "backfiller", "name", b.Name, "pds", pds, "repo", repo)
 	log.Debug("enqueueing backfill job")
 
-	if err := b.Store.EnqueueJob(ctx, pds, repo); err != nil {
-		log.Error("failed to enqueue backfill job", "error", err)
-		return err
-	}
-
 	// Check if we already have a backfiller for this PDS
 	b.lk.Lock()
 	defer b.lk.Unlock()
@@ -145,6 +140,12 @@ func (b *Backfiller) EnqueueJob(ctx context.Context, pds, repo string) error {
 		b.pdsBackfillers[pds] = pdsBackfiller
 		pdsBackfiller.Start()
 	}
+
+	if err := b.Store.EnqueueJob(ctx, pds, repo); err != nil {
+		log.Error("failed to enqueue backfill job", "error", err)
+		return err
+	}
+
 	backfillJobsEnqueued.WithLabelValues(b.Name).Inc()
 	log.Debug("backfill job enqueued successfully")
 	return nil

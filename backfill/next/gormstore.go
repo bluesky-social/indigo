@@ -69,8 +69,8 @@ func (s *Gormstore) LoadJobs(ctx context.Context) error {
 }
 
 type todoJob struct {
-	pds  string
-	repo string
+	PDS  string
+	Repo string
 }
 
 func (s *Gormstore) loadJobs(ctx context.Context, limit int) error {
@@ -100,13 +100,13 @@ func (s *Gormstore) loadJobs(ctx context.Context, limit int) error {
 	}
 
 	for _, job := range todoJobs {
-		if pdsQueue, ok := s.pdsQueues[job.pds]; ok {
+		if pdsQueue, ok := s.pdsQueues[job.PDS]; ok {
 			pdsQueue.qlk.Lock()
-			pdsQueue.taskQueue = append(pdsQueue.taskQueue, job.repo)
+			pdsQueue.taskQueue = append(pdsQueue.taskQueue, job.Repo)
 			pdsQueue.qlk.Unlock()
 		} else {
-			s.pdsQueues[job.pds] = &queue{
-				taskQueue: []string{job.repo},
+			s.pdsQueues[job.PDS] = &queue{
+				taskQueue: []string{job.Repo},
 			}
 		}
 	}
@@ -140,16 +140,11 @@ func (s *Gormstore) loadJobsForPDS(ctx context.Context, pds string, limit int) e
 		todoJobs = append(todoJobs, moreTodo...)
 	}
 
+	// A PDS Queue should always exist for a PDS
+	// The lock on the PDS queue should be held by the caller
+	pdsQueue := s.pdsQueues[pds]
 	for _, job := range todoJobs {
-		if pdsQueue, ok := s.pdsQueues[job.pds]; ok {
-			pdsQueue.qlk.Lock()
-			pdsQueue.taskQueue = append(pdsQueue.taskQueue, job.repo)
-			pdsQueue.qlk.Unlock()
-		} else {
-			s.pdsQueues[job.pds] = &queue{
-				taskQueue: []string{job.repo},
-			}
-		}
+		pdsQueue.taskQueue = append(pdsQueue.taskQueue, job.Repo)
 	}
 
 	return nil
@@ -173,9 +168,13 @@ func (s *Gormstore) GetOrCreateJob(ctx context.Context, pds, repo, state string)
 }
 
 func (s *Gormstore) EnqueueJob(ctx context.Context, pds, repo string) error {
-	_, err := s.GetOrCreateJob(ctx, pds, repo, StateEnqueued)
+	j, err := s.GetOrCreateJob(ctx, pds, repo, StateEnqueued)
 	if err != nil {
 		return err
+	}
+
+	if j.State() == StateComplete {
+		return nil // Job is already complete, no need to enqueue again
 	}
 
 	// Add the job to the task queue for the PDS
@@ -321,10 +320,13 @@ func (s *Gormstore) checkJobCache(ctx context.Context, repo string) *Gormjob {
 func (s *Gormstore) GetNextEnqueuedJob(ctx context.Context, pds string) (Job, error) {
 	s.lk.Lock()
 	pdsQueue, ok := s.pdsQueues[pds]
-	s.lk.Unlock()
 	if !ok {
-		return nil, nil
+		pdsQueue = &queue{
+			taskQueue: []string{},
+		}
+		s.pdsQueues[pds] = pdsQueue
 	}
+	s.lk.Unlock()
 	pdsQueue.qlk.Lock()
 	defer pdsQueue.qlk.Unlock()
 
