@@ -285,7 +285,7 @@ func (s *Server) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		RefreshToken:        tokenResp.RefreshToken,
 		DpopAuthServerNonce: info.DpopAuthServerNonce,
 		DpopHostNonce:       info.DpopAuthServerNonce, // XXX
-		DpopKeyMultibase:    info.DpopKeyMultibase,
+		DpopPrivateKeyMultibase:    info.DpopPrivateKeyMultibase,
 	}
 	s.AuthStore.SaveSession(authSess)
 
