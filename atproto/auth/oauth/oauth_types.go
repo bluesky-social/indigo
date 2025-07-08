@@ -5,12 +5,17 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
+	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-var ErrInvalidAuthServerMetadata = errors.New("invalid auth server metadata")
+var (
+	ErrInvalidAuthServerMetadata = errors.New("invalid auth server metadata")
+	ErrInvalidClientMetadata     = errors.New("invalid client metadata doc")
+	CLIENT_ASSERTION_JWT_BEARER  = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+)
 
 type JWKS struct {
 	Keys []crypto.JWK `json:"keys"`
@@ -18,7 +23,7 @@ type JWKS struct {
 
 // Expected response type from looking up OAuth Protected Resource information on a server (eg, a PDS instance)
 type ProtectedResourceMetadata struct {
-	// TODO: are there other fields worth including?
+	// are there other fields worth including?
 
 	AuthorizationServers []string `json:"authorization_servers"`
 }
@@ -73,9 +78,70 @@ type ClientMetadata struct {
 	PolicyURI *string `json:"policy_uri,omitempty"`
 }
 
+// returns 'true' if client metadata indicates that this is a confidential client
+func (m *ClientMetadata) IsConfidential() bool {
+	if (m.JWKSUri != nil || len(m.JWKS) > 0) && (m.TokenEndpointAuthMethod != nil && *m.TokenEndpointAuthMethod == "private_key_jwt") {
+		return true
+	}
+
+	return false
+}
+
 func (m *ClientMetadata) Validate(clientID string) error {
-	// XXX: validate field syntax, possibly including consistency against a provided URL / clientID
-	// XXX: copy from python tutorial
+
+	if m.ClientID == "" || m.ClientID != clientID {
+		return fmt.Errorf("%w: client_id", ErrInvalidClientMetadata)
+	}
+
+	if m.ApplicationType != nil && !slices.Contains([]string{"web", "native"}, *m.ApplicationType) {
+		return fmt.Errorf("%w: application_type must be 'web', 'native', or undefined", ErrInvalidClientMetadata)
+	}
+
+	if !slices.Contains(m.GrantTypes, "authorization_code") {
+		return fmt.Errorf("%w: grant_type must include 'authorization_code'", ErrInvalidClientMetadata)
+	}
+
+	scopes := strings.Split(m.Scope, " ")
+	if !slices.Contains(scopes, "atproto") {
+		return fmt.Errorf("%w: scope must include 'atproto'", ErrInvalidClientMetadata)
+	}
+
+	if !slices.Contains(m.ResponseTypes, "code") {
+		return fmt.Errorf("%w: response_types must include 'code'", ErrInvalidClientMetadata)
+	}
+
+	if len(m.RedirectURIs) == 0 {
+		return fmt.Errorf("%w: redirect_uris must have at least one element", ErrInvalidClientMetadata)
+	}
+
+	// 'web' redirect URLs have more restrictions
+	if m.ApplicationType == nil || *m.ApplicationType == "web" {
+		for _, ru := range m.RedirectURIs {
+			u, err := url.Parse(ru)
+			if err != nil {
+				return fmt.Errorf("%w: invalid web redirect_uris: %w", ErrInvalidClientMetadata, err)
+			}
+			if u.Scheme != "https" {
+				return fmt.Errorf("%w: web redirect_uris must have 'https' scheme", ErrInvalidClientMetadata)
+			}
+		}
+	}
+
+	if m.TokenEndpointAuthSigningAlg != nil && *m.TokenEndpointAuthSigningAlg == "none" {
+		// NOTE: what if this is a public client?
+		return fmt.Errorf("%w: token_endpoint_auth_signing_alg must not be 'none'", ErrInvalidClientMetadata)
+	}
+
+	if !m.DpopBoundAccessTokens {
+		return fmt.Errorf("%w: dpop_bound_access_tokens must be true (DPoP is required)", ErrInvalidClientMetadata)
+	}
+
+	if m.JWKSUri != nil && *m.JWKSUri == "" {
+		return fmt.Errorf("%w: jwks_uri must be valid URL (when provided)", ErrInvalidClientMetadata)
+	}
+
+	// NOTE: metadata URLs are not validated (they are not an error for overall metadata doc)
+
 	return nil
 }
 
@@ -128,18 +194,27 @@ type AuthServerMetadata struct {
 }
 
 func (m *AuthServerMetadata) Validate(serverURL string) error {
-	// XXX: check that Issuer matches domain this metadata document was fetched from
 
 	if m.Issuer == "" {
 		return fmt.Errorf("%w: empty issuer", ErrInvalidAuthServerMetadata)
 	}
 	u, err := url.Parse(m.Issuer)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: invalid issuer URL: %w", ErrInvalidAuthServerMetadata, err)
 	}
 	if u.Scheme != "https" || u.Port() != "" || u.Path != "" || u.Fragment != "" || u.RawQuery != "" {
 		return fmt.Errorf("%w: issuer URL", ErrInvalidAuthServerMetadata)
 	}
+
+	// check that Issuer matches domain this metadata document was fetched from
+	srvu, err := url.Parse(serverURL)
+	if err != nil {
+		return fmt.Errorf("%w: invalid request URL: %w", ErrInvalidAuthServerMetadata, err)
+	}
+	if u.Scheme != srvu.Scheme || u.Host != srvu.Host {
+		return fmt.Errorf("%w: issuer must match request URL", ErrInvalidAuthServerMetadata)
+	}
+
 	if !slices.Contains(m.ResponseTypesSupported, "code") {
 		return fmt.Errorf("%w: response_types_supported must include 'code'", ErrInvalidAuthServerMetadata)
 	}
@@ -237,12 +312,6 @@ type AuthRequestData struct {
 	// If the flow started with an account identifier (DID or handle), it should be persisted, to verify against the initial token response.
 	AccountDID *syntax.DID `json:"account_did,omitempty"`
 
-	// XXX: if we started from handle, should probably trust / use the resolved DID?
-	//AccountHandle *syntax.Handle `json:"account_handle,omitempty"`
-
-	// Base URL of the "resource server" (eg, PDS), if the auth flow started with a host URL instead of an account identifier.
-	HostURL *string `json:"host_url,omitempty"`
-
 	// OAuth scope string (space-separated list)
 	Scope string `json:"scope"`
 
@@ -256,8 +325,7 @@ type AuthRequestData struct {
 	DpopAuthServerNonce string `json:"dpop_authserver_nonce"`
 
 	// The secret cryptographic key generated by the client for this specific OAuth session
-	// TODO: better name for this field
-	DpopKeyMultibase string `json:"dpop_privatekey_multibase"`
+	DpopPrivateKeyMultibase string `json:"dpop_privatekey_multibase"`
 }
 
 // Persisted information about an OAuth session. Used to resume an active session.
@@ -286,7 +354,7 @@ type SessionData struct {
 	DpopHostNonce string `json:"dpop_host_nonce"`
 
 	// The secret cryptographic key generated by the client for this specific OAuth session
-	DpopKeyMultibase string `json:"dpop_secret_key"`
+	DpopPrivateKeyMultibase string `json:"dpop_privatekey_multibase"`
 
 	// TODO: also persist access token creation time / expiration time? In context that token might not be an easily parsed JWT
 }
@@ -296,26 +364,26 @@ type InitialTokenRequest struct {
 	// Client ID, aka client metadata URL
 	ClientID string `url:"client_id"`
 
-	// Only used in initial token request. Client-specified URL that will get redirected to by auth server at end of user auth flow
-	// XXX: is this really needed in the initial token request?
+	// Only used in initial token request. Auth server will validate that this matches the redirect URI used during the auth flow (resulting in the auth code)
 	RedirectURI string `url:"redirect_uri"`
 
 	// Always `authorization_code`
 	GrantType string `url:"grant_type"`
 
-	// Refresh token.
+	// Refresh token
 	RefreshToken string `url:"refresh_token"`
 
+	// Authorization Code provided by the Auth Server via callback at the end of the auth request flow
 	Code string `url:"code"`
 
-	// PKCE verifier string. Only included in initial token request.
+	// PKCE verifier string. Only included in initial token request
 	CodeVerifier string `url:"code_verifier"`
 
-	// Always "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
-	ClientAssertionType string `url:"client_assertion_type"`
+	// For confidential clients, must be "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+	ClientAssertionType *string `url:"client_assertion_type"`
 
-	// Confidential client signed JWT
-	ClientAssertion string `url:"client_assertion"`
+	// For confidential clients, the signed client assertion JWT
+	ClientAssertion *string `url:"client_assertion"`
 }
 
 // The fields which are included in a token refresh request. These HTTP POST bodies are form-encoded, so use URL encoding syntax, not JSON.
@@ -329,11 +397,11 @@ type RefreshTokenRequest struct {
 	// Refresh token.
 	RefreshToken string `url:"refresh_token"`
 
-	// Always "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
-	ClientAssertionType string `url:"client_assertion_type"`
+	// For confidential clients, must be "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+	ClientAssertionType *string `url:"client_assertion_type"`
 
-	// Confidential client signed JWT
-	ClientAssertion string `url:"client_assertion"`
+	// For confidential clients, the signed client assertion JWT
+	ClientAssertion *string `url:"client_assertion"`
 }
 
 // Expected respose from Auth Server token endpoint, both for initial token request and for refresh requests.

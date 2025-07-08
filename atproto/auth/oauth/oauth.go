@@ -124,7 +124,7 @@ func ResumeSession(config *ClientConfig, data *SessionData) (*Session, error) {
 		Config: config,
 		Data:   data,
 	}
-	priv, err := crypto.ParsePrivateMultibase(data.DpopKeyMultibase)
+	priv, err := crypto.ParsePrivateMultibase(data.DpopPrivateKeyMultibase)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +244,7 @@ func (c *ClientConfig) SendAuthRequest(ctx context.Context, authMeta *AuthServer
 		RedirectURI:         c.CallbackURL,
 		Scope:               scope,
 		ResponseType:        "code",
-		ClientAssertionType: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+		ClientAssertionType: CLIENT_ASSERTION_JWT_BEARER,
 		ClientAssertion:     assertionJWT,
 		CodeChallenge:       codeChallenge,
 		CodeChallengeMethod: "S256",
@@ -323,14 +323,13 @@ func (c *ClientConfig) SendAuthRequest(ctx context.Context, authMeta *AuthServer
 	}
 
 	parInfo := AuthRequestData{
-		State:         state,
-		AuthServerURL: authMeta.Issuer,
-		//XXX: HostURL
-		Scope:               scope,
-		PKCEVerifier:        pkceVerifier,
-		RequestURI:          parResp.RequestURI,
-		DpopAuthServerNonce: dpopServerNonce,
-		DpopKeyMultibase:    dpopPrivKey.Multibase(),
+		State:                   state,
+		AuthServerURL:           authMeta.Issuer,
+		Scope:                   scope,
+		PKCEVerifier:            pkceVerifier,
+		RequestURI:              parResp.RequestURI,
+		DpopAuthServerNonce:     dpopServerNonce,
+		DpopPrivateKeyMultibase: dpopPrivKey.Multibase(),
 	}
 
 	return &parInfo, nil
@@ -359,11 +358,11 @@ func (c *ClientConfig) SendInitialTokenRequest(ctx context.Context, authCode str
 		GrantType:           "authorization_code",
 		Code:                authCode,
 		CodeVerifier:        info.PKCEVerifier,
-		ClientAssertionType: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-		ClientAssertion:     clientAssertion,
+		ClientAssertionType: &CLIENT_ASSERTION_JWT_BEARER,
+		ClientAssertion:     &clientAssertion,
 	}
 
-	dpopPrivKey, err := crypto.ParsePrivateMultibase(info.DpopKeyMultibase)
+	dpopPrivKey, err := crypto.ParsePrivateMultibase(info.DpopPrivateKeyMultibase)
 	if err != nil {
 		return nil, err
 	}
@@ -445,8 +444,8 @@ func (sess *Session) RefreshTokens(ctx context.Context) error {
 		ClientID:            sess.Config.ClientID,
 		GrantType:           "authorization_code",
 		RefreshToken:        sess.Data.RefreshToken,
-		ClientAssertionType: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-		ClientAssertion:     clientAssertion,
+		ClientAssertionType: &CLIENT_ASSERTION_JWT_BEARER,
+		ClientAssertion:     &clientAssertion,
 	}
 
 	vals, err := query.Values(body)
