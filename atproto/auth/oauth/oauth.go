@@ -16,32 +16,45 @@ import (
 	"github.com/google/go-querystring/query"
 )
 
+var JWT_EXPIRATION_DURATION = 30 * time.Second
+
+// Service-level client. Used to establish and refrsh OAuth sessions, but is not itself account or session specific, and can not be used directly to make API calls on behalf of a user.
+type OAuthClient struct {
+	Client   *http.Client
+	Resolver *Resolver
+	Config   *ClientConfig
+}
+
 type ClientConfig struct {
 	ClientID    string
 	CallbackURL string
-	PrivateKey  crypto.PrivateKey
-	KeyID       string
 
-	// TODO: better name (and default?) for this JWT expiration value
-	TTL time.Duration
+	UserAgent string
+
+	// For confidential clients, the private client assertion key. Note that while an interface is used here, only P-256 is allowed by the current specification.
+	PrivateKey crypto.PrivateKey
+
+	// ID for current client assertion key (should be provided if PrivateKey is)
+	KeyID *string
+}
+
+func (conf *ClientConfig) IsConfidential() bool {
+	return conf.PrivateKey != nil && conf.KeyID != nil
 }
 
 func NewClientConfig(clientID, callbackURL string) ClientConfig {
 	c := ClientConfig{
 		ClientID:    clientID,
 		CallbackURL: callbackURL,
-		//PrivateKey
-		KeyID: "0",
-		TTL:   30 * time.Second,
 	}
 	return c
 }
 
-// Returns public JWK corresponding to the client's private attestation key.
+// Returns public JWK corresponding to the client's (private) attestation key.
 //
 // If the client does not have a key (eg, a non-confidential client), returns an error.
 func (c *ClientConfig) PublicJWK() (*crypto.JWK, error) {
-	if c.PrivateKey == nil {
+	if c.PrivateKey == nil || c.KeyID == nil {
 		return nil, fmt.Errorf("non-confidential client has no public JWK")
 	}
 	pub, err := c.PrivateKey.PublicKey()
@@ -52,7 +65,7 @@ func (c *ClientConfig) PublicJWK() (*crypto.JWK, error) {
 	if err != nil {
 		return nil, err
 	}
-	jwk.KeyID = strPtr(c.KeyID)
+	jwk.KeyID = c.KeyID
 	return jwk, nil
 }
 
@@ -74,16 +87,6 @@ func (c *ClientConfig) PublicJWKS() JWKS {
 	return jwks
 }
 
-func (c *ClientConfig) signingMethod() (jwt.SigningMethod, error) {
-	switch c.PrivateKey.(type) {
-	case *crypto.PrivateKeyP256:
-		return signingMethodES256, nil
-	case *crypto.PrivateKeyK256:
-		return signingMethodES256K, nil
-	}
-	return nil, fmt.Errorf("unknown clientSecretKey type")
-}
-
 // Returns a ClientMetadata struct with the required fields populated based on this client configuration. Clients may want to populate additional metadata fields on top of this response.
 //
 // TODO: confidential clients currently must provide JWKSUri after the fact
@@ -100,9 +103,9 @@ func (c *ClientConfig) ClientMetadata(scope string) ClientMetadata {
 		RedirectURIs:          []string{c.CallbackURL},
 		DpopBoundAccessTokens: true,
 	}
-	if c.PrivateKey != nil {
+	if c.IsConfidential() {
 		m.TokenEndpointAuthMethod = strPtr("private_key_jwt")
-		m.TokenEndpointAuthSigningAlg = strPtr("ES256")
+		m.TokenEndpointAuthSigningAlg = strPtr("ES256") // XXX
 		// TODO: what is the correct format for in-line JWKS?
 		//m.JWKS = c.JWKS()
 	}
@@ -150,34 +153,31 @@ type dpopClaims struct {
 	Nonce           *string `json:"nonce,omitempty"`
 }
 
-func (c *ClientConfig) NewAssertionJWT(authURL string) (string, error) {
-	if c.PrivateKey == nil {
+func (conf *ClientConfig) NewAssertionJWT(authURL string) (string, error) {
+	if !conf.IsConfidential() {
 		return "", fmt.Errorf("non-confidential client")
 	}
 	claims := clientAssertionClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:   c.ClientID,
-			Subject:  c.ClientID,
+			Issuer:   conf.ClientID,
+			Subject:  conf.ClientID,
 			Audience: []string{authURL},
 			ID:       randomNonce(),
 			IssuedAt: jwt.NewNumericDate(time.Now()),
 		},
 	}
 
-	signingMethod, err := c.signingMethod()
+	signingMethod, err := keySigningMethod(conf.PrivateKey)
 	if err != nil {
 		return "", err
 	}
 
 	token := jwt.NewWithClaims(signingMethod, claims)
-	token.Header["kid"] = c.KeyID
-	return token.SignedString(c.PrivateKey)
+	token.Header["kid"] = conf.KeyID
+	return token.SignedString(conf.PrivateKey)
 }
 
 func NewDPoPJWT(httpMethod, url, dpopNonce string, privKey crypto.PrivateKey) (string, error) {
-
-	// TODO: argument? config?
-	ttl := 30 * time.Second
 
 	claims := dpopClaims{
 		HTTPMethod: httpMethod,
@@ -185,25 +185,19 @@ func NewDPoPJWT(httpMethod, url, dpopNonce string, privKey crypto.PrivateKey) (s
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        randomNonce(),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(JWT_EXPIRATION_DURATION)),
 		},
 	}
 	if dpopNonce != "" {
 		claims.Nonce = &dpopNonce
 	}
 
-	// XXX: refactor to helper method
-	var keyMethod jwt.SigningMethod
-	switch privKey.(type) {
-	case *crypto.PrivateKeyP256:
-		keyMethod = signingMethodES256
-	case *crypto.PrivateKeyK256:
-		keyMethod = signingMethodES256K
-	default:
-		return "", fmt.Errorf("unknown clientSecretKey type")
+	keyMethod, err := keySigningMethod(privKey)
+	if err != nil {
+		return "", err
 	}
 
-	// XXX: parse/cache this elsewhere
+	// TODO: parse/cache this elsewhere
 	pub, err := privKey.PublicKey()
 	if err != nil {
 		return "", err
@@ -530,22 +524,16 @@ func (sess *Session) NewAccessDPoP(method, reqURL string) (string, error) {
 			Issuer:    sess.Data.AuthServerURL,
 			ID:        randomNonce(),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(sess.Config.TTL)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(JWT_EXPIRATION_DURATION)),
 		},
 	}
 	if sess.Data.DpopHostNonce != "" {
 		claims.Nonce = &sess.Data.DpopHostNonce
 	}
 
-	// XXX: refactor to helper method
-	var keyMethod jwt.SigningMethod
-	switch sess.DpopPrivateKey.(type) {
-	case *crypto.PrivateKeyP256:
-		keyMethod = signingMethodES256
-	case *crypto.PrivateKeyK256:
-		keyMethod = signingMethodES256K
-	default:
-		return "", fmt.Errorf("unknown clientSecretKey type")
+	keyMethod, err := keySigningMethod(sess.DpopPrivateKey)
+	if err != nil {
+		return "", err
 	}
 
 	// TODO: parse/cache this elsewhere

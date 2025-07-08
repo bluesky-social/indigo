@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"crypto"
+	"fmt"
 
 	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/golang-jwt/jwt/v5"
@@ -88,4 +89,14 @@ func toES256K(sig []byte) []byte {
 
 func toES256(sig []byte) []byte {
 	return sig[:64]
+}
+
+func keySigningMethod(key atcrypto.PrivateKey) (jwt.SigningMethod, error) {
+	switch key.(type) {
+	case *atcrypto.PrivateKeyP256:
+		return signingMethodES256, nil
+	case *atcrypto.PrivateKeyK256:
+		return signingMethodES256K, nil
+	}
+	return nil, fmt.Errorf("unknown key type: %T", key)
 }
