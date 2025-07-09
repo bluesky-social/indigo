@@ -552,7 +552,7 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 		return "string", nil
 	case "unknown":
 		// NOTE: sometimes a record, for which we want LexiconTypeDecoder, sometimes any object
-		if k == "didDoc" || k == "plcOp" {
+		if k == "didDoc" || k == "plcOp" || k == "meta" {
 			return "interface{}", nil
 		} else {
 			return "*util.LexiconTypeDecoder", nil
