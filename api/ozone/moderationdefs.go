@@ -323,6 +323,7 @@ type ModerationDefs_ModEventView struct {
 	CreatorHandle   *string                              `json:"creatorHandle,omitempty" cborgen:"creatorHandle,omitempty"`
 	Event           *ModerationDefs_ModEventView_Event   `json:"event" cborgen:"event"`
 	Id              int64                                `json:"id" cborgen:"id"`
+	ModTool         *ModerationDefs_ModTool              `json:"modTool,omitempty" cborgen:"modTool,omitempty"`
 	Subject         *ModerationDefs_ModEventView_Subject `json:"subject" cborgen:"subject"`
 	SubjectBlobCids []string                             `json:"subjectBlobCids" cborgen:"subjectBlobCids"`
 	SubjectHandle   *string                              `json:"subjectHandle,omitempty" cborgen:"subjectHandle,omitempty"`
@@ -334,6 +335,7 @@ type ModerationDefs_ModEventViewDetail struct {
 	CreatedBy    string                                     `json:"createdBy" cborgen:"createdBy"`
 	Event        *ModerationDefs_ModEventViewDetail_Event   `json:"event" cborgen:"event"`
 	Id           int64                                      `json:"id" cborgen:"id"`
+	ModTool      *ModerationDefs_ModTool                    `json:"modTool,omitempty" cborgen:"modTool,omitempty"`
 	Subject      *ModerationDefs_ModEventViewDetail_Subject `json:"subject" cborgen:"subject"`
 	SubjectBlobs []*ModerationDefs_BlobView                 `json:"subjectBlobs" cborgen:"subjectBlobs"`
 }
@@ -774,6 +776,16 @@ func (t *ModerationDefs_ModEventView_Subject) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// ModerationDefs_ModTool is a "modTool" in the tools.ozone.moderation.defs schema.
+//
+// Moderation tool information for tracing the source of the action
+type ModerationDefs_ModTool struct {
+	// meta: Additional arbitrary metadata about the source
+	Meta *interface{} `json:"meta,omitempty" cborgen:"meta,omitempty"`
+	// name: Name/identifier of the source (e.g., 'automod', 'ozone/workspace')
+	Name string `json:"name" cborgen:"name"`
+}
+
 // ModerationDefs_Moderation is a "moderation" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_Moderation struct {
 	SubjectStatus *ModerationDefs_SubjectStatusView `json:"subjectStatus,omitempty" cborgen:"subjectStatus,omitempty"`
@@ -1005,8 +1017,9 @@ func (t *ModerationDefs_SubjectStatusView_Hosting) UnmarshalJSON(b []byte) error
 }
 
 type ModerationDefs_SubjectStatusView_Subject struct {
-	AdminDefs_RepoRef *comatprototypes.AdminDefs_RepoRef
-	RepoStrongRef     *comatprototypes.RepoStrongRef
+	AdminDefs_RepoRef    *comatprototypes.AdminDefs_RepoRef
+	RepoStrongRef        *comatprototypes.RepoStrongRef
+	ConvoDefs_MessageRef *chatbskytypes.ConvoDefs_MessageRef
 }
 
 func (t *ModerationDefs_SubjectStatusView_Subject) MarshalJSON() ([]byte, error) {
@@ -1017,6 +1030,10 @@ func (t *ModerationDefs_SubjectStatusView_Subject) MarshalJSON() ([]byte, error)
 	if t.RepoStrongRef != nil {
 		t.RepoStrongRef.LexiconTypeID = "com.atproto.repo.strongRef"
 		return json.Marshal(t.RepoStrongRef)
+	}
+	if t.ConvoDefs_MessageRef != nil {
+		t.ConvoDefs_MessageRef.LexiconTypeID = "chat.bsky.convo.defs#messageRef"
+		return json.Marshal(t.ConvoDefs_MessageRef)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -1033,6 +1050,9 @@ func (t *ModerationDefs_SubjectStatusView_Subject) UnmarshalJSON(b []byte) error
 	case "com.atproto.repo.strongRef":
 		t.RepoStrongRef = new(comatprototypes.RepoStrongRef)
 		return json.Unmarshal(b, t.RepoStrongRef)
+	case "chat.bsky.convo.defs#messageRef":
+		t.ConvoDefs_MessageRef = new(chatbskytypes.ConvoDefs_MessageRef)
+		return json.Unmarshal(b, t.ConvoDefs_MessageRef)
 
 	default:
 		return nil
@@ -1043,6 +1063,7 @@ func (t *ModerationDefs_SubjectStatusView_Subject) UnmarshalJSON(b []byte) error
 //
 // Detailed view of a subject. For record subjects, the author's repo and profile will be returned.
 type ModerationDefs_SubjectView struct {
+	Profile *util.LexiconTypeDecoder          `json:"profile,omitempty" cborgen:"profile,omitempty"`
 	Record  *ModerationDefs_RecordViewDetail  `json:"record,omitempty" cborgen:"record,omitempty"`
 	Repo    *ModerationDefs_RepoViewDetail    `json:"repo,omitempty" cborgen:"repo,omitempty"`
 	Status  *ModerationDefs_SubjectStatusView `json:"status,omitempty" cborgen:"status,omitempty"`
