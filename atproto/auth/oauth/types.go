@@ -11,10 +11,11 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
+var CLIENT_ASSERTION_JWT_BEARER = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+
 var (
 	ErrInvalidAuthServerMetadata = errors.New("invalid auth server metadata")
 	ErrInvalidClientMetadata     = errors.New("invalid client metadata doc")
-	CLIENT_ASSERTION_JWT_BEARER  = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 )
 
 type JWKS struct {
