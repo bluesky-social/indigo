@@ -19,10 +19,11 @@ import (
 var JWT_EXPIRATION_DURATION = 30 * time.Second
 
 // Service-level client. Used to establish and refrsh OAuth sessions, but is not itself account or session specific, and can not be used directly to make API calls on behalf of a user.
-type OAuthClient struct {
+type ClientApp struct {
 	Client   *http.Client
 	Resolver *Resolver
 	Config   *ClientConfig
+	Store    OAuthStore
 }
 
 type ClientConfig struct {
@@ -38,49 +39,38 @@ type ClientConfig struct {
 	KeyID *string
 }
 
-func (conf *ClientConfig) IsConfidential() bool {
-	return conf.PrivateKey != nil && conf.KeyID != nil
-}
-
-func NewClientConfig(clientID, callbackURL string) ClientConfig {
+func NewPublicConfig(clientID, callbackURL string) ClientConfig {
 	c := ClientConfig{
 		ClientID:    clientID,
 		CallbackURL: callbackURL,
+		UserAgent:   "indigo-sdk",
 	}
 	return c
 }
 
-// Returns public JWK corresponding to the client's (private) attestation key.
-//
-// If the client does not have a key (eg, a non-confidential client), returns an error.
-func (c *ClientConfig) PublicJWK() (*crypto.JWK, error) {
-	if c.PrivateKey == nil || c.KeyID == nil {
-		return nil, fmt.Errorf("non-confidential client has no public JWK")
-	}
-	pub, err := c.PrivateKey.PublicKey()
-	if err != nil {
-		return nil, err
-	}
-	jwk, err := pub.JWK()
-	if err != nil {
-		return nil, err
-	}
-	jwk.KeyID = c.KeyID
-	return jwk, nil
+func (conf *ClientConfig) IsConfidential() bool {
+	return conf.PrivateKey != nil && conf.KeyID != nil
 }
 
 // Returns a "JWKS" representation of public keys for the client. This can be returned as JSON, as part of client metadata.
 //
-// If the client does not have any keys, returns an empty set.
-func (c *ClientConfig) PublicJWKS() JWKS {
+// If the client does not have any keys (eg, public client), returns an empty set.
+func (conf *ClientConfig) PublicJWKS() JWKS {
 	// public client with no keys
-	if c.PrivateKey == nil {
+	if conf.PrivateKey == nil || conf.KeyID == nil {
 		return JWKS{}
 	}
-	jwk, err := c.PublicJWK()
+
+	pub, err := conf.PrivateKey.PublicKey()
 	if err != nil {
 		return JWKS{}
 	}
+	jwk, err := pub.JWK()
+	if err != nil {
+		return JWKS{}
+	}
+	jwk.KeyID = conf.KeyID
+
 	jwks := JWKS{
 		Keys: []crypto.JWK{*jwk},
 	}
@@ -112,22 +102,22 @@ func (c *ClientConfig) ClientMetadata(scope string) ClientMetadata {
 	return m
 }
 
-type Session struct {
-	// HTTP client used for token refresh requests
-	Client *http.Client
+func (c *ClientApp) ResumeSession(ctx context.Context, did syntax.DID) (*Session, error) {
 
-	Config         *ClientConfig
-	Data           *SessionData
-	DpopPrivateKey crypto.PrivateKey
-}
-
-func ResumeSession(config *ClientConfig, data *SessionData) (*Session, error) {
-	sess := Session{
-		Client: http.DefaultClient,
-		Config: config,
-		Data:   data,
+	sd, err := c.Store.GetSession(ctx, did)
+	if err != nil {
+		return nil, err
 	}
-	priv, err := crypto.ParsePrivateMultibase(data.DpopPrivateKeyMultibase)
+
+	sess := Session{
+		Client: c.Client,
+		Config: c.Config,
+		Data:   sd,
+	}
+	// XXX: configure token refresh callback
+
+	// XXX: refactor this in to store layer?
+	priv, err := crypto.ParsePrivateMultibase(sd.DpopPrivateKeyMultibase)
 	if err != nil {
 		return nil, err
 	}
@@ -153,28 +143,28 @@ type dpopClaims struct {
 	Nonce           *string `json:"nonce,omitempty"`
 }
 
-func (conf *ClientConfig) NewAssertionJWT(authURL string) (string, error) {
-	if !conf.IsConfidential() {
+func (cfg *ClientConfig) NewAssertionJWT(authURL string) (string, error) {
+	if !cfg.IsConfidential() {
 		return "", fmt.Errorf("non-confidential client")
 	}
 	claims := clientAssertionClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:   conf.ClientID,
-			Subject:  conf.ClientID,
+			Issuer:   cfg.ClientID,
+			Subject:  cfg.ClientID,
 			Audience: []string{authURL},
 			ID:       randomNonce(),
 			IssuedAt: jwt.NewNumericDate(time.Now()),
 		},
 	}
 
-	signingMethod, err := keySigningMethod(conf.PrivateKey)
+	signingMethod, err := keySigningMethod(cfg.PrivateKey)
 	if err != nil {
 		return "", err
 	}
 
 	token := jwt.NewWithClaims(signingMethod, claims)
-	token.Header["kid"] = conf.KeyID
-	return token.SignedString(conf.PrivateKey)
+	token.Header["kid"] = cfg.KeyID
+	return token.SignedString(cfg.PrivateKey)
 }
 
 func NewDPoPJWT(httpMethod, url, dpopNonce string, privKey crypto.PrivateKey) (string, error) {
@@ -214,7 +204,7 @@ func NewDPoPJWT(httpMethod, url, dpopNonce string, privKey crypto.PrivateKey) (s
 }
 
 // Sends PAR request to auth server
-func (c *ClientConfig) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, loginHint, scope string) (*AuthRequestData, error) {
+func (c *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, loginHint, scope string) (*AuthRequestData, error) {
 	// TODO: pass as argument?
 	httpClient := http.DefaultClient
 
@@ -227,15 +217,15 @@ func (c *ClientConfig) SendAuthRequest(ctx context.Context, authMeta *AuthServer
 
 	// self-signed JWT using private key in client metadata (confidential client)
 	// TODO: make "confidential client" mode optional
-	assertionJWT, err := c.NewAssertionJWT(authMeta.Issuer)
+	assertionJWT, err := c.Config.NewAssertionJWT(authMeta.Issuer)
 	if err != nil {
 		return nil, err
 	}
 
 	body := PushedAuthRequest{
-		ClientID:            c.ClientID,
+		ClientID:            c.Config.ClientID,
 		State:               state,
-		RedirectURI:         c.CallbackURL,
+		RedirectURI:         c.Config.CallbackURL,
 		Scope:               scope,
 		ResponseType:        "code",
 		ClientAssertionType: CLIENT_ASSERTION_JWT_BEARER,
@@ -260,7 +250,7 @@ func (c *ClientConfig) SendAuthRequest(ctx context.Context, authMeta *AuthServer
 		return nil, err
 	}
 
-	slog.Info("sending auth request", "scope", scope, "state", state, "redirectURI", c.CallbackURL)
+	slog.Info("sending auth request", "scope", scope, "state", state, "redirectURI", c.Config.CallbackURL)
 
 	var resp *http.Response
 	for range 2 {
@@ -329,26 +319,22 @@ func (c *ClientConfig) SendAuthRequest(ctx context.Context, authMeta *AuthServer
 	return &parInfo, nil
 }
 
-func (c *ClientConfig) SendInitialTokenRequest(ctx context.Context, authCode string, info AuthRequestData) (*TokenResponse, error) {
+func (c *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode string, info AuthRequestData) (*TokenResponse, error) {
 
-	clientAssertion, err := c.NewAssertionJWT(info.AuthServerURL)
+	clientAssertion, err := c.Config.NewAssertionJWT(info.AuthServerURL)
 	if err != nil {
 		return nil, err
 	}
 
-	// XXX: pass in?
-	resolv := NewResolver()
-	httpClient := http.DefaultClient
-
 	// TODO: don't re-fetch? caching?
-	authServerMeta, err := resolv.ResolveAuthServerMetadata(ctx, info.AuthServerURL)
+	authServerMeta, err := c.Resolver.ResolveAuthServerMetadata(ctx, info.AuthServerURL)
 	if err != nil {
 		return nil, err
 	}
 
 	body := InitialTokenRequest{
-		ClientID:            c.ClientID,
-		RedirectURI:         c.CallbackURL,
+		ClientID:            c.Config.ClientID,
+		RedirectURI:         c.Config.CallbackURL,
 		GrantType:           "authorization_code",
 		Code:                authCode,
 		CodeVerifier:        info.PKCEVerifier,
@@ -383,7 +369,7 @@ func (c *ClientConfig) SendInitialTokenRequest(ctx context.Context, authCode str
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Set("DPoP", dpopJWT)
 
-		resp, err = httpClient.Do(req)
+		resp, err = c.Client.Do(req)
 		if err != nil {
 			return nil, err
 		}
@@ -424,173 +410,4 @@ func (c *ClientConfig) SendInitialTokenRequest(ctx context.Context, authCode str
 	}
 
 	return &tokenResp, nil
-}
-
-func (sess *Session) RefreshTokens(ctx context.Context) error {
-
-	// TODO: assuming confidential client
-	clientAssertion, err := sess.Config.NewAssertionJWT(sess.Data.AuthServerURL)
-	if err != nil {
-		return err
-	}
-
-	body := RefreshTokenRequest{
-		ClientID:            sess.Config.ClientID,
-		GrantType:           "authorization_code",
-		RefreshToken:        sess.Data.RefreshToken,
-		ClientAssertionType: &CLIENT_ASSERTION_JWT_BEARER,
-		ClientAssertion:     &clientAssertion,
-	}
-
-	vals, err := query.Values(body)
-	if err != nil {
-		return err
-	}
-	bodyBytes := []byte(vals.Encode())
-
-	// XXX: persist this back to the data?
-	dpopServerNonce := sess.Data.DpopAuthServerNonce
-	tokenURL := sess.Data.AuthServerTokenEndpoint
-
-	var resp *http.Response
-	for range 2 {
-		dpopJWT, err := NewDPoPJWT("POST", tokenURL, dpopServerNonce, sess.DpopPrivateKey)
-		if err != nil {
-			return err
-		}
-
-		req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, bytes.NewBuffer(bodyBytes))
-		if err != nil {
-			return err
-		}
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("DPoP", dpopJWT)
-
-		resp, err = sess.Client.Do(req)
-		if err != nil {
-			return err
-		}
-
-		// check if a nonce was provided
-		dpopServerNonce = resp.Header.Get("DPoP-Nonce")
-		if resp.StatusCode == 400 && dpopServerNonce != "" {
-			// TODO: also check that body is JSON with an 'error' string field value of 'use_dpop_nonce'
-			var errResp map[string]any
-			if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-				slog.Warn("initial token request failed", "authServer", tokenURL, "err", err, "statusCode", resp.StatusCode)
-			} else {
-				slog.Warn("initial token request failed", "authServer", tokenURL, "resp", errResp, "statusCode", resp.StatusCode)
-			}
-
-			// loop around try again
-			resp.Body.Close()
-			continue
-		}
-		// otherwise process result
-		break
-	}
-
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		var errResp map[string]any
-		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			slog.Warn("initial token request failed", "authServer", tokenURL, "err", err, "statusCode", resp.StatusCode)
-		} else {
-			slog.Warn("initial token request failed", "authServer", tokenURL, "resp", errResp, "statusCode", resp.StatusCode)
-		}
-		return fmt.Errorf("initial token request failed: HTTP %d", resp.StatusCode)
-	}
-
-	var tokenResp TokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return fmt.Errorf("token response failed to decode: %w", err)
-	}
-	// XXX: more validation of response?
-
-	sess.Data.AccessToken = tokenResp.AccessToken
-	sess.Data.RefreshToken = tokenResp.RefreshToken
-
-	return nil
-}
-
-func (sess *Session) NewAccessDPoP(method, reqURL string) (string, error) {
-
-	ath := S256CodeChallenge(sess.Data.AccessToken)
-	claims := dpopClaims{
-		HTTPMethod:      method,
-		TargetURI:       reqURL,
-		AccessTokenHash: &ath,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    sess.Data.AuthServerURL,
-			ID:        randomNonce(),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(JWT_EXPIRATION_DURATION)),
-		},
-	}
-	if sess.Data.DpopHostNonce != "" {
-		claims.Nonce = &sess.Data.DpopHostNonce
-	}
-
-	keyMethod, err := keySigningMethod(sess.DpopPrivateKey)
-	if err != nil {
-		return "", err
-	}
-
-	// TODO: parse/cache this elsewhere
-	pub, err := sess.DpopPrivateKey.PublicKey()
-	if err != nil {
-		return "", err
-	}
-	pubJWK, err := pub.JWK()
-	if err != nil {
-		return "", err
-	}
-
-	token := jwt.NewWithClaims(keyMethod, claims)
-	token.Header["typ"] = "dpop+jwt"
-	token.Header["jwk"] = pubJWK
-	return token.SignedString(sess.DpopPrivateKey)
-}
-
-func (sess *Session) DoWithAuth(c *http.Client, req *http.Request, endpoint syntax.NSID) (*http.Response, error) {
-
-	// XXX: copy URL and strip query params
-	u := req.URL.String()
-
-	dpopServerNonce := sess.Data.DpopHostNonce
-	var resp *http.Response
-	for range 2 {
-		dpopJWT, err := sess.NewAccessDPoP(req.Method, u)
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("Authorization", fmt.Sprintf("DPoP %s", sess.Data.AccessToken))
-		req.Header.Set("DPoP", dpopJWT)
-
-		resp, err = c.Do(req)
-		if err != nil {
-			return nil, err
-		}
-
-		// check if a nonce was provided
-		dpopServerNonce = resp.Header.Get("DPoP-Nonce")
-		if resp.StatusCode == 400 && dpopServerNonce != "" {
-			// TODO: also check that body is JSON with an 'error' string field value of 'use_dpop_nonce'
-			var errResp map[string]any
-			if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-				slog.Warn("authorized request failed", "url", u, "err", err, "statusCode", resp.StatusCode)
-			} else {
-				slog.Warn("authorized request failed", "url", u, "resp", errResp, "statusCode", resp.StatusCode)
-			}
-
-			// XXX: doesn't really work, body might be drained second time
-			// loop around try again
-			resp.Body.Close()
-			continue
-		}
-		// otherwise process result
-		break
-	}
-	// TODO: check for auth-specific errors, and return them as err
-	return resp, nil
 }

@@ -14,7 +14,7 @@ import (
 
 // Helper for resolving OAuth documents from the public web: client metadata, auth server metadata, etc.
 //
-// NOTE: will probably want to add flexible caching to this interface, and that might mean turning it in to an interface.
+// NOTE: will probably want to add flexible caching to this interface, and that may mean turning it in to an interface.
 type Resolver struct {
 	Client    *http.Client
 	UserAgent string
