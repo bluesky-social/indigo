@@ -48,7 +48,8 @@ type ClientMetadata struct {
 	// At least one redirect URI is required.
 	RedirectURIs []string `json:"redirect_uris"`
 
-	// confidential clients must set this to `private_key_jwt`
+	// confidential clients must set this to `private_key_jwt`; public must be `none`
+	// TODO: should this be string not *string?
 	TokenEndpointAuthMethod *string `json:"token_endpoint_auth_method,omitempty"`
 
 	// `none` is never allowed here. The current recommended and most-supported algorithm is ES256, but this may evolve over time.
@@ -58,7 +59,7 @@ type ClientMetadata struct {
 	DpopBoundAccessTokens bool `json:"dpop_bound_access_tokens"`
 
 	// confidential clients must supply at least one public key in JWK format for use with JWT client authentication. Either this field or the `jwks_uri` field must be provided for confidential clients, but not both.
-	JWKS []crypto.JWK `json:"jwks,omitempty"`
+	JWKS *JWKS `json:"jwks,omitempty"`
 
 	// URL pointing to a JWKS JSON object. See `jwks` above for details.
 	JWKSUri *string `json:"jwks_uri,omitempty"`
@@ -81,7 +82,7 @@ type ClientMetadata struct {
 
 // returns 'true' if client metadata indicates that this is a confidential client
 func (m *ClientMetadata) IsConfidential() bool {
-	if (m.JWKSUri != nil || len(m.JWKS) > 0) && (m.TokenEndpointAuthMethod != nil && *m.TokenEndpointAuthMethod == "private_key_jwt") {
+	if (m.JWKSUri != nil || (m.JWKS != nil && len(m.JWKS.Keys) > 0)) && (m.TokenEndpointAuthMethod != nil && *m.TokenEndpointAuthMethod == "private_key_jwt") {
 		return true
 	}
 
@@ -277,6 +278,9 @@ type PushedAuthRequest struct {
 
 	// Optional account identifier (DID or handle) to help with user account login and/or account switching
 	LoginHint *string `url:"login_hint,omitempty"`
+
+	// Optional hint to auth server of what expected auth behavior should be. Eg, 'create', 'none', 'consent', 'login', 'select_account'
+	Prompt *string `url:"prompt,omitempty"`
 
 	// Always "code"
 	ResponseType string `url:"response_type"`
