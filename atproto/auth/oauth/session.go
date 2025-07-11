@@ -71,9 +71,9 @@ type ClientSession struct {
 func (sess *ClientSession) RefreshTokens(ctx context.Context) error {
 
 	body := RefreshTokenRequest{
-		ClientID:            sess.Config.ClientID,
-		GrantType:           "authorization_code",
-		RefreshToken:        sess.Data.RefreshToken,
+		ClientID:     sess.Config.ClientID,
+		GrantType:    "authorization_code",
+		RefreshToken: sess.Data.RefreshToken,
 	}
 
 	if sess.Config.IsConfidential() {

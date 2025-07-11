@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/crypto"
@@ -66,6 +67,20 @@ func NewPublicConfig(clientID, callbackURL string) ClientConfig {
 	return c
 }
 
+func NewLocalhostConfig(callbackURL, scope string) ClientConfig {
+	slog.Info("NewLocalhostConfig", "callbackURL", callbackURL)
+	params := make(url.Values)
+	params.Set("redirect_uri", callbackURL)
+	params.Set("scope", scope)
+	c := ClientConfig{
+		ClientID:    fmt.Sprintf("http://localhost?%s", params.Encode()),
+		CallbackURL: callbackURL,
+		UserAgent:   "indigo-sdk",
+	}
+	slog.Info("DONE NewLocalhostConfig", "callbackURL", c.CallbackURL)
+	return c
+}
+
 func (config *ClientConfig) IsConfidential() bool {
 	return config.PrivateKey != nil && config.KeyID != nil
 }
@@ -109,20 +124,21 @@ func (config *ClientConfig) ClientMetadata(scope string) ClientMetadata {
 		scope = "atproto"
 	}
 	m := ClientMetadata{
-		ClientID:              config.ClientID,
-		ApplicationType:       strPtr("web"),
-		GrantTypes:            []string{"authorization_code", "refresh_token"},
-		Scope:                 scope,
-		ResponseTypes:         []string{"code"},
-		RedirectURIs:          []string{config.CallbackURL},
-		DpopBoundAccessTokens: true,
+		ClientID:                config.ClientID,
+		ApplicationType:         strPtr("web"),
+		GrantTypes:              []string{"authorization_code", "refresh_token"},
+		Scope:                   scope,
+		ResponseTypes:           []string{"code"},
+		RedirectURIs:            []string{config.CallbackURL},
+		DpopBoundAccessTokens:   true,
 		TokenEndpointAuthMethod: strPtr("none"),
 	}
 	if config.IsConfidential() {
 		m.TokenEndpointAuthMethod = strPtr("private_key_jwt")
 		m.TokenEndpointAuthSigningAlg = strPtr("ES256") // XXX
-		jwks := config.PublicJWKS()
-		m.JWKS = &jwks
+		// TODO: need to include 'use' or 'key_ops' for JWKS in the client metadata doc?
+		//jwks := config.PublicJWKS()
+		//m.JWKS = &jwks
 	}
 	return m
 }
@@ -232,7 +248,7 @@ func NewAuthDPoP(httpMethod, url, dpopNonce string, privKey crypto.PrivateKey) (
 }
 
 // Sends PAR request to auth server
-func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, loginHint, scope string) (*AuthRequestData, error) {
+func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, scope, loginHint string) (*AuthRequestData, error) {
 	// TODO: pass as argument?
 	httpClient := http.DefaultClient
 
@@ -243,6 +259,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 	// generate PKCE code challenge for use in PAR request
 	codeChallenge := S256CodeChallenge(pkceVerifier)
 
+	slog.Info("preparing PAR", "client_id", app.Config.ClientID, "callback_url", app.Config.CallbackURL)
 	body := PushedAuthRequest{
 		ClientID:            app.Config.ClientID,
 		State:               state,
@@ -358,11 +375,11 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 	}
 
 	body := InitialTokenRequest{
-		ClientID:            app.Config.ClientID,
-		RedirectURI:         app.Config.CallbackURL,
-		GrantType:           "authorization_code",
-		Code:                authCode,
-		CodeVerifier:        info.PKCEVerifier,
+		ClientID:     app.Config.ClientID,
+		RedirectURI:  app.Config.CallbackURL,
+		GrantType:    "authorization_code",
+		Code:         authCode,
+		CodeVerifier: info.PKCEVerifier,
 	}
 
 	if app.Config.IsConfidential() {
@@ -445,47 +462,51 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 }
 
 func (app *ClientApp) StartAuthFlow(ctx context.Context, username string) (string, error) {
-	// TODO: auth server URL support
-	atid, err := syntax.ParseAtIdentifier(username)
-	if err != nil {
-		return "", fmt.Errorf("not a valid account identifier (%s): %w", username, err)
-	}
-	ident, err := app.Dir.Lookup(ctx, *atid)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve username (%s): %w", username, err)
-	}
-	host := ident.PDSEndpoint()
-	if host == "" {
-		return "", fmt.Errorf("identity does not link to an atproto host (PDS)")
+
+	var authserverURL string
+	var accountDID syntax.DID
+
+	if strings.HasPrefix(username, "https://") {
+		authserverURL = username
+		username = ""
+	} else {
+		atid, err := syntax.ParseAtIdentifier(username)
+		if err != nil {
+			return "", fmt.Errorf("not a valid account identifier (%s): %w", username, err)
+		}
+		ident, err := app.Dir.Lookup(ctx, *atid)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve username (%s): %w", username, err)
+		}
+		host := ident.PDSEndpoint()
+		if host == "" {
+			return "", fmt.Errorf("identity does not link to an atproto host (PDS)")
+		}
+
+		// TODO: logger on ClientApp?
+		logger := slog.Default().With("did", ident.DID, "handle", ident.Handle, "host", host)
+		logger.Info("resolving to auth server metadata")
+		authserverURL, err = app.Resolver.ResolveAuthServerURL(ctx, host)
+		if err != nil {
+			return "", fmt.Errorf("resolving auth server: %w", err)
+		}
 	}
 
-	logger := slog.Default().With("did", ident.DID, "handle", ident.Handle, "host", host)
-	logger.Info("resolving to auth server metadata")
-	authserverURL, err := app.Resolver.ResolveAuthServerURL(ctx, host)
-	if err != nil {
-		return "", fmt.Errorf("resolving auth server: %w", err)
-	}
 	authserverMeta, err := app.Resolver.ResolveAuthServerMetadata(ctx, authserverURL)
 	if err != nil {
 		return "", fmt.Errorf("fetching auth server metadata: %w", err)
 	}
 
-	callbackURL, err := url.Parse(app.Config.ClientID)
-	if err != nil {
-		return "", fmt.Errorf("invalid client_id URL: %w", err)
-	}
-	callbackURL.Path = "/oauth/callback"
-	app.Config.CallbackURL = callbackURL.String()
-
-	// XXX: from config
+	// XXX: scope from config
 	scope := "atproto transition:generic"
-	info, err := app.SendAuthRequest(ctx, authserverMeta, username, scope)
+	info, err := app.SendAuthRequest(ctx, authserverMeta, scope, username)
 	if err != nil {
 		return "", fmt.Errorf("auth request failed: %w", err)
 	}
 
-	// XXX:
-	info.AccountDID = &ident.DID
+	if accountDID != "" {
+		info.AccountDID = &accountDID
+	}
 
 	// persist auth request info
 	app.Store.SaveAuthRequestInfo(ctx, *info)
@@ -493,6 +514,7 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, username string) (strin
 	params := url.Values{}
 	params.Set("client_id", app.Config.ClientID)
 	params.Set("request_uri", info.RequestURI)
+
 	// TODO: check that 'authorization_endpoint' is "safe" (?)
 	redirectURL := fmt.Sprintf("%s?%s", authserverMeta.AuthorizationEndpoint, params.Encode())
 	return redirectURL, nil
@@ -521,11 +543,39 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 		return nil, fmt.Errorf("initial token request: %w", err)
 	}
 
-	// XXX: verify against initial request info (DID, handle, etc)
-	// - account identifier (if started with that)
-	// - if started with PDS URL, resolve identity, and then resolve PDS to auth server, and check it all matches
-	if info.AccountDID == nil || tokenResp.Subject != info.AccountDID.String() {
-		return nil, fmt.Errorf("token subject didn't match original DID")
+	// verify against account/server from start of login
+	var accountDID syntax.DID
+	var hostURL string
+	if info.AccountDID != nil {
+		// if we started with an account DID, verify it against the subject
+		accountDID = *info.AccountDID
+		if tokenResp.Subject != info.AccountDID.String() {
+			return nil, fmt.Errorf("token subject didn't match original DID")
+		}
+		// identity lookup for PDS hostname; this should be cached
+		ident, err := app.Dir.LookupDID(ctx, accountDID)
+		if err != nil {
+			return nil, err
+		}
+		hostURL = ident.PDSEndpoint()
+	} else {
+		// if we started with an auth server URL, resolve and verify the identity
+		accountDID, err = syntax.ParseDID(tokenResp.Subject)
+		if err != nil {
+			return nil, err
+		}
+		ident, err := app.Dir.LookupDID(ctx, accountDID)
+		if err != nil {
+			return nil, err
+		}
+		hostURL = ident.PDSEndpoint()
+		res, err := app.Resolver.ResolveAuthServerURL(ctx, hostURL)
+		if err != nil {
+			return nil, fmt.Errorf("resolving auth server: %w", err)
+		}
+		if res != authserverURL {
+			return nil, fmt.Errorf("token subject auth server did not match original")
+		}
 	}
 
 	// TODO: could be flexible instead of considering this a hard failure?
@@ -534,15 +584,21 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 	}
 
 	sessData := ClientSessionData{
-		AccountDID:              *info.AccountDID,   // nil checked above
-		HostURL:                 info.AuthServerURL, // XXX
+		AccountDID:              accountDID,
+		HostURL:                 hostURL,
 		AuthServerURL:           info.AuthServerURL,
 		AccessToken:             tokenResp.AccessToken,
 		RefreshToken:            tokenResp.RefreshToken,
 		DpopAuthServerNonce:     info.DpopAuthServerNonce,
-		DpopHostNonce:           info.DpopAuthServerNonce, // XXX
+		DpopHostNonce:           info.DpopAuthServerNonce, // bootstrap host nonce from authserver
 		DpopPrivateKeyMultibase: info.DpopPrivateKeyMultibase,
 	}
-	app.Store.SaveSession(ctx, sessData)
+	if err := app.Store.SaveSession(ctx, sessData); err != nil {
+		return nil, err
+	}
+	if err := app.Store.DeleteAuthRequestInfo(ctx, state); err != nil {
+		// only log on failure to delete state info
+		slog.Warn("failed to delete auth request info", "state", state, "did", accountDID, "authserver", info.AuthServerURL, "err", err)
+	}
 	return &sessData, nil
 }
