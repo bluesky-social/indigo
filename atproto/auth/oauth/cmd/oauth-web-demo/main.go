@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 
+	_ "github.com/joho/godotenv/autoload"
+
 	"github.com/bluesky-social/indigo/atproto/auth/oauth"
 	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -20,8 +22,8 @@ import (
 
 func main() {
 	app := cli.App{
-		Name:   "atp-oauth-demo",
-		Usage:  "demo OAuth web server",
+		Name:   "oauth-web-demo",
+		Usage:  "atproto OAuth web server demo",
 		Action: runServer,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
@@ -148,7 +150,7 @@ func (s *Server) ClientMetadata(w http.ResponseWriter, r *http.Request) {
 
 	scope := "atproto transition:generic"
 	meta := s.OAuth.Config.ClientMetadata(scope)
-	meta.JWKSUri = strPtr(fmt.Sprintf("https://%s/oauth/jwks.json", r.Host))
+	// TODO: meta.JWKSUri = strPtr(fmt.Sprintf("https://%s/oauth/jwks.json", r.Host))
 	meta.ClientName = strPtr("indigo atp-oauth-demo")
 	meta.ClientURI = strPtr(fmt.Sprintf("https://%s", r.Host))
 
