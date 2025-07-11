@@ -8,24 +8,26 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// Simple in-memory implementation of OAuthStore
+// Simple in-memory implementation of [ClientAuthStore], for use in development and demos.
+//
+// This is not appropriate even casual real-world use: all users will be logged-out every time the process is restarted.
 type MemStore struct {
 	requests map[string]AuthRequestData
-	sessions map[string]SessionData
+	sessions map[string]ClientSessionData
 
 	lk sync.Mutex
 }
 
-var _ OAuthStore = &MemStore{}
+var _ ClientAuthStore = &MemStore{}
 
 func NewMemStore() *MemStore {
 	return &MemStore{
 		requests: make(map[string]AuthRequestData),
-		sessions: make(map[string]SessionData),
+		sessions: make(map[string]ClientSessionData),
 	}
 }
 
-func (m *MemStore) GetSession(ctx context.Context, did syntax.DID) (*SessionData, error) {
+func (m *MemStore) GetSession(ctx context.Context, did syntax.DID) (*ClientSessionData, error) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
@@ -36,7 +38,7 @@ func (m *MemStore) GetSession(ctx context.Context, did syntax.DID) (*SessionData
 	return &sess, nil
 }
 
-func (m *MemStore) SaveSession(ctx context.Context, sess SessionData) error {
+func (m *MemStore) SaveSession(ctx context.Context, sess ClientSessionData) error {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
