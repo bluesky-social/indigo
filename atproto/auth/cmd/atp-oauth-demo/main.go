@@ -7,11 +7,9 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"os"
 
 	"github.com/bluesky-social/indigo/atproto/auth/oauth"
-	"github.com/bluesky-social/indigo/atproto/client"
 	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -58,7 +56,7 @@ func main() {
 type Server struct {
 	CookieStore *sessions.CookieStore
 	Dir         identity.Directory
-	OAuth       oauth.ClientApp
+	OAuth       *oauth.ClientApp
 }
 
 //go:embed "base.html"
@@ -82,30 +80,28 @@ func (s *Server) Homepage(w http.ResponseWriter, r *http.Request) {
 
 func runServer(cctx *cli.Context) error {
 
-	// XXX: localhost dev mode if hostname is empty
+	// TODO: localhost dev mode if hostname is empty
 	hostname := cctx.String("hostname")
 	conf := oauth.NewPublicConfig(
 		fmt.Sprintf("https://%s/oauth/client-metadata.json", hostname),
 		fmt.Sprintf("https://%s/oauth/callback", hostname),
 	)
 
+	// If a client secret key is provided (as a multibase string), turn this in to a confidential client
 	if cctx.String("client-secret-key") != "" {
 		priv, err := crypto.ParsePrivateMultibase(cctx.String("client-secret-key"))
 		if err != nil {
 			return err
 		}
-		conf.PrivateKey = priv
-		conf.KeyID = strPtr(cctx.String("client-secret-key-id"))
+		conf.AddClientSecret(priv, cctx.String("client-secret-key-id"))
 	}
+
+	oauthClient := oauth.NewClientApp(&conf, oauth.NewMemStore())
+
 	srv := Server{
 		CookieStore: sessions.NewCookieStore([]byte(cctx.String("session-secret"))),
 		Dir:         identity.DefaultDirectory(),
-		OAuth: oauth.ClientApp{
-			Client:   http.DefaultClient,
-			Config:   &conf,
-			Resolver: oauth.NewResolver(),
-			Store:    oauth.NewMemStore(),
-		},
+		OAuth:       oauthClient,
 	}
 
 	http.HandleFunc("GET /", srv.Homepage)
@@ -127,7 +123,7 @@ func runServer(cctx *cli.Context) error {
 	return nil
 }
 
-func (s *Server) loadOAuthSession(r *http.Request) (*oauth.Session, error) {
+func (s *Server) loadOAuthSession(r *http.Request) (*oauth.ClientSession, error) {
 	ctx := r.Context()
 
 	sess, _ := s.CookieStore.Get(r, "oauth-demo")
@@ -147,21 +143,8 @@ func strPtr(raw string) *string {
 	return &raw
 }
 
-func (s *Server) finishConfig(r *http.Request) {
-	host := r.Host
-	if host == "" {
-		return
-	}
-	if s.OAuth.Config.ClientID == "" {
-		s.OAuth.Config.ClientID = fmt.Sprintf("https://%s/oauth/client-metadata.json", host)
-		s.OAuth.Config.CallbackURL = fmt.Sprintf("https://%s/oauth/callback", host)
-	}
-	return
-}
-
 func (s *Server) ClientMetadata(w http.ResponseWriter, r *http.Request) {
 	slog.Info("client metadata request", "url", r.URL, "host", r.Host)
-	s.finishConfig(r)
 
 	scope := "atproto transition:generic"
 	meta := s.OAuth.Config.ClientMetadata(scope)
@@ -181,7 +164,6 @@ func (s *Server) ClientMetadata(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 }
 
 func (s *Server) JWKS(w http.ResponseWriter, r *http.Request) {
@@ -195,7 +177,6 @@ func (s *Server) JWKS(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	s.finishConfig(r)
 
 	if r.Method != "POST" {
 		tmplLogin.Execute(w, nil)
@@ -207,63 +188,14 @@ func (s *Server) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: auth server URL support
 	username := r.PostFormValue("username")
-	atid, err := syntax.ParseAtIdentifier(username)
+
+	redirectURL, err := s.OAuth.StartAuthFlow(ctx, username)
 	if err != nil {
-		http.Error(w, fmt.Errorf("not a valid account identifier (%s): %w", username, err).Error(), http.StatusBadRequest)
-		return
-	}
-	ident, err := s.Dir.Lookup(ctx, *atid)
-	if err != nil {
-		http.Error(w, fmt.Errorf("failed to resolve username (%s): %w", username, err).Error(), http.StatusBadRequest)
-		return
-	}
-	host := ident.PDSEndpoint()
-	if host == "" {
-		http.Error(w, "identity does not link to an atproto host (PDS)", http.StatusBadRequest)
+		http.Error(w, fmt.Errorf("OAuth login failed: %w", err).Error(), http.StatusBadRequest)
 		return
 	}
 
-	logger := slog.Default().With("did", ident.DID, "handle", ident.Handle, "host", host)
-	logger.Info("resolving to auth server metadata")
-	authserverURL, err := s.OAuth.Resolver.ResolveAuthServerURL(ctx, host)
-	if err != nil {
-		http.Error(w, fmt.Errorf("resolving auth server: %w", err).Error(), http.StatusBadRequest)
-		return
-	}
-	authserverMeta, err := s.OAuth.Resolver.ResolveAuthServerMetadata(ctx, authserverURL)
-	if err != nil {
-		http.Error(w, fmt.Errorf("fetching auth server metadata: %w", err).Error(), http.StatusBadRequest)
-		return
-	}
-
-	callbackURL, err := url.Parse(s.OAuth.Config.ClientID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	callbackURL.Path = "/oauth/callback"
-	s.OAuth.Config.CallbackURL = callbackURL.String()
-
-	scope := "atproto transition:generic"
-	info, err := s.OAuth.SendAuthRequest(ctx, authserverMeta, username, scope)
-	if err != nil {
-		http.Error(w, fmt.Errorf("auth request failed: %w", err).Error(), http.StatusBadRequest)
-		return
-	}
-
-	// XXX:
-	info.AccountDID = &ident.DID
-
-	// persist auth request info
-	s.OAuth.Store.SaveAuthRequestInfo(ctx, *info)
-
-	params := url.Values{}
-	params.Set("client_id", s.OAuth.Config.ClientID)
-	params.Set("request_uri", info.RequestURI)
-	// TODO: check that 'authorization_endpoint' is "safe" (?)
-	redirectURL := fmt.Sprintf("%s?%s", authserverMeta.AuthorizationEndpoint, params.Encode())
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 	return
 }
@@ -273,66 +205,21 @@ func (s *Server) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	params := r.URL.Query()
 	slog.Info("received callback", "params", params)
-	state := params.Get("state")
-	authserverURL := params.Get("iss")
-	authCode := params.Get("code")
-	if state == "" || authserverURL == "" || authCode == "" {
-		http.Error(w, "missing required query param", http.StatusBadRequest)
-		return
-	}
 
-	info, err := s.OAuth.Store.GetAuthRequestInfo(ctx, state)
+	sessData, err := s.OAuth.ProcessCallback(ctx, r.URL.Query())
 	if err != nil {
-		http.Error(w, fmt.Errorf("loading auth request info: %w", err).Error(), http.StatusNotFound)
-		return
+		http.Error(w, fmt.Errorf("processing OAuth callback: %w", err).Error(), http.StatusBadRequest)
 	}
-
-	if info.State != state || info.AuthServerURL != authserverURL {
-		http.Error(w, "callback params don't match request info", http.StatusBadRequest)
-		return
-	}
-
-	tokenResp, err := s.OAuth.SendInitialTokenRequest(ctx, authCode, *info)
-	if err != nil {
-		http.Error(w, fmt.Errorf("initial token request: %w", err).Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// XXX: verify against initial request info (DID, handle, etc)
-	// - account identifier (if started with that)
-	// - if started with PDS URL, resolve identity, and then resolve PDS to auth server, and check it all matches
-	if info.AccountDID == nil || tokenResp.Subject != info.AccountDID.String() {
-		http.Error(w, "token subject didn't match original DID", http.StatusBadRequest)
-		return
-	}
-
-	// TODO: could be flexible instead of considering this a hard failure?
-	if tokenResp.Scope != info.Scope {
-		http.Error(w, "token scope didn't match original request", http.StatusBadRequest)
-		return
-	}
-
-	authSess := oauth.SessionData{
-		AccountDID:              *info.AccountDID,   // nil checked above
-		HostURL:                 info.AuthServerURL, // XXX
-		AuthServerURL:           info.AuthServerURL,
-		AccessToken:             tokenResp.AccessToken,
-		RefreshToken:            tokenResp.RefreshToken,
-		DpopAuthServerNonce:     info.DpopAuthServerNonce,
-		DpopHostNonce:           info.DpopAuthServerNonce, // XXX
-		DpopPrivateKeyMultibase: info.DpopPrivateKeyMultibase,
-	}
-	s.OAuth.Store.SaveSession(ctx, authSess)
 
 	// create signed cookie session, indicating account DID
 	sess, _ := s.CookieStore.Get(r, "oauth-demo")
-	sess.Values["account_did"] = authSess.AccountDID.String()
+	sess.Values["account_did"] = sessData.AccountDID.String()
 	if err := sess.Save(r, w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	slog.Info("login successful", "did", authSess.AccountDID.String())
+	slog.Info("login successful", "did", sessData.AccountDID.String())
 	http.Redirect(w, r, "/bsky/post", http.StatusFound)
 }
 
@@ -385,6 +272,7 @@ func (s *Server) Post(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not authenticated", http.StatusUnauthorized)
 		return
 	}
+	c := oauthSess.APIClient()
 
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, fmt.Errorf("parsing form data: %w", err).Error(), http.StatusBadRequest)
@@ -392,12 +280,8 @@ func (s *Server) Post(w http.ResponseWriter, r *http.Request) {
 	}
 	text := r.PostFormValue("post_text")
 
-	c := client.NewAPIClient(oauthSess.Data.HostURL)
-	c.Auth = oauthSess
-	c.Headers.Set("User-Agent", "indigo-oauth-demo")
-
 	body := map[string]any{
-		"repo":       oauthSess.Data.AccountDID.String(),
+		"repo":       c.AccountDID.String(),
 		"collection": "app.bsky.feed.post",
 		"record": map[string]any{
 			"$type":     "app.bsky.feed.post",
