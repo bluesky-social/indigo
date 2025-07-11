@@ -123,7 +123,8 @@ func (m *ClientMetadata) Validate(clientID string) error {
 			if err != nil {
 				return fmt.Errorf("%w: invalid web redirect_uris: %w", ErrInvalidClientMetadata, err)
 			}
-			if u.Scheme != "https" {
+			if u.Scheme != "https" && u.Hostname() != "127.0.0.1" {
+				fmt.Printf("bad redirect_uris: %s\n", ru)
 				return fmt.Errorf("%w: web redirect_uris must have 'https' scheme", ErrInvalidClientMetadata)
 			}
 		}

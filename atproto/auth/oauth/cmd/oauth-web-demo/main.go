@@ -82,23 +82,36 @@ func (s *Server) Homepage(w http.ResponseWriter, r *http.Request) {
 
 func runServer(cctx *cli.Context) error {
 
+	scope := "atproto transition:generic"
+	bind := ":8080"
+
 	// TODO: localhost dev mode if hostname is empty
+	var config oauth.ClientConfig
 	hostname := cctx.String("hostname")
-	conf := oauth.NewPublicConfig(
-		fmt.Sprintf("https://%s/oauth/client-metadata.json", hostname),
-		fmt.Sprintf("https://%s/oauth/callback", hostname),
-	)
+	if hostname == "" {
+		config = oauth.NewLocalhostConfig(
+			fmt.Sprintf("http://127.0.0.1%s/oauth/callback", bind),
+			scope,
+		)
+		slog.Info("configuring localhost OAuth client", "CallbackURL", config.CallbackURL)
+	} else {
+		config = oauth.NewPublicConfig(
+			fmt.Sprintf("https://%s/oauth/client-metadata.json", hostname),
+			fmt.Sprintf("https://%s/oauth/callback", hostname),
+		)
+	}
 
 	// If a client secret key is provided (as a multibase string), turn this in to a confidential client
-	if cctx.String("client-secret-key") != "" {
+	if cctx.String("client-secret-key") != "" && hostname != "" {
 		priv, err := crypto.ParsePrivateMultibase(cctx.String("client-secret-key"))
 		if err != nil {
 			return err
 		}
-		conf.AddClientSecret(priv, cctx.String("client-secret-key-id"))
+		config.AddClientSecret(priv, cctx.String("client-secret-key-id"))
+		slog.Info("configuring confidential OAuth client")
 	}
 
-	oauthClient := oauth.NewClientApp(&conf, oauth.NewMemStore())
+	oauthClient := oauth.NewClientApp(&config, oauth.NewMemStore())
 
 	srv := Server{
 		CookieStore: sessions.NewCookieStore([]byte(cctx.String("session-secret"))),
@@ -117,7 +130,6 @@ func runServer(cctx *cli.Context) error {
 	http.HandleFunc("GET /bsky/post", srv.Post)
 	http.HandleFunc("POST /bsky/post", srv.Post)
 
-	bind := ":8080"
 	slog.Info("starting http server", "bind", bind)
 	if err := http.ListenAndServe(bind, nil); err != nil {
 		slog.Error("http shutdown", "err", err)
@@ -150,7 +162,9 @@ func (s *Server) ClientMetadata(w http.ResponseWriter, r *http.Request) {
 
 	scope := "atproto transition:generic"
 	meta := s.OAuth.Config.ClientMetadata(scope)
-	// TODO: meta.JWKSUri = strPtr(fmt.Sprintf("https://%s/oauth/jwks.json", r.Host))
+	if s.OAuth.Config.IsConfidential() {
+		meta.JWKSUri = strPtr(fmt.Sprintf("https://%s/oauth/jwks.json", r.Host))
+	}
 	meta.ClientName = strPtr("indigo atp-oauth-demo")
 	meta.ClientURI = strPtr(fmt.Sprintf("https://%s", r.Host))
 
@@ -192,6 +206,8 @@ func (s *Server) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 
 	username := r.PostFormValue("username")
 
+	slog.Info("OAuthLogin", "client_id", s.OAuth.Config.ClientID, "callback_url", s.OAuth.Config.CallbackURL)
+
 	redirectURL, err := s.OAuth.StartAuthFlow(ctx, username)
 	if err != nil {
 		http.Error(w, fmt.Errorf("OAuth login failed: %w", err).Error(), http.StatusBadRequest)
@@ -211,6 +227,7 @@ func (s *Server) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	sessData, err := s.OAuth.ProcessCallback(ctx, r.URL.Query())
 	if err != nil {
 		http.Error(w, fmt.Errorf("processing OAuth callback: %w", err).Error(), http.StatusBadRequest)
+		return
 	}
 
 	// create signed cookie session, indicating account DID
