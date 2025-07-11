@@ -70,18 +70,19 @@ type ClientSession struct {
 
 func (sess *ClientSession) RefreshTokens(ctx context.Context) error {
 
-	// TODO: assuming confidential client
-	clientAssertion, err := sess.Config.NewClientAssertion(sess.Data.AuthServerURL)
-	if err != nil {
-		return err
-	}
-
 	body := RefreshTokenRequest{
 		ClientID:            sess.Config.ClientID,
 		GrantType:           "authorization_code",
 		RefreshToken:        sess.Data.RefreshToken,
-		ClientAssertionType: &CLIENT_ASSERTION_JWT_BEARER,
-		ClientAssertion:     &clientAssertion,
+	}
+
+	if sess.Config.IsConfidential() {
+		clientAssertion, err := sess.Config.NewClientAssertion(sess.Data.AuthServerURL)
+		if err != nil {
+			return err
+		}
+		body.ClientAssertionType = &CLIENT_ASSERTION_JWT_BEARER
+		body.ClientAssertion = &clientAssertion
 	}
 
 	vals, err := query.Values(body)
@@ -291,6 +292,7 @@ func (sess *ClientSession) APIClient() *client.APIClient {
 		AccountDID: &sess.Data.AccountDID,
 	}
 	if sess.Config.UserAgent != "" {
+		c.Headers = make(map[string][]string)
 		c.Headers.Set("User-Agent", sess.Config.UserAgent)
 	}
 	return &c

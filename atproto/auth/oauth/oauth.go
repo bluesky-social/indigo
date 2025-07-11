@@ -79,30 +79,31 @@ func (config *ClientConfig) AddClientSecret(priv crypto.PrivateKey, keyID string
 //
 // If the client does not have any keys (eg, public client), returns an empty set.
 func (config *ClientConfig) PublicJWKS() JWKS {
+
+	jwks := JWKS{Keys: []crypto.JWK{}}
+
 	// public client with no keys
 	if config.PrivateKey == nil || config.KeyID == nil {
-		return JWKS{}
+		return jwks
 	}
 
 	pub, err := config.PrivateKey.PublicKey()
 	if err != nil {
-		return JWKS{}
+		return jwks
 	}
 	jwk, err := pub.JWK()
 	if err != nil {
-		return JWKS{}
+		return jwks
 	}
 	jwk.KeyID = config.KeyID
 
-	jwks := JWKS{
-		Keys: []crypto.JWK{*jwk},
-	}
+	jwks.Keys = []crypto.JWK{*jwk}
 	return jwks
 }
 
 // Returns a ClientMetadata struct with the required fields populated based on this client configuration. Clients may want to populate additional metadata fields on top of this response.
 //
-// TODO: confidential clients currently must provide JWKSUri after the fact
+// NOTE: confidential clients currently must provide JWKSUri after the fact
 func (config *ClientConfig) ClientMetadata(scope string) ClientMetadata {
 	if scope == "" {
 		scope = "atproto"
@@ -115,12 +116,13 @@ func (config *ClientConfig) ClientMetadata(scope string) ClientMetadata {
 		ResponseTypes:         []string{"code"},
 		RedirectURIs:          []string{config.CallbackURL},
 		DpopBoundAccessTokens: true,
+		TokenEndpointAuthMethod: strPtr("none"),
 	}
 	if config.IsConfidential() {
 		m.TokenEndpointAuthMethod = strPtr("private_key_jwt")
 		m.TokenEndpointAuthSigningAlg = strPtr("ES256") // XXX
-		// TODO: what is the correct format for in-line JWKS?
-		//m.JWKS = config.JWKS()
+		jwks := config.PublicJWKS()
+		m.JWKS = &jwks
 	}
 	return m
 }
@@ -241,24 +243,26 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 	// generate PKCE code challenge for use in PAR request
 	codeChallenge := S256CodeChallenge(pkceVerifier)
 
-	// self-signed JWT using private key in client metadata (confidential client)
-	// TODO: make "confidential client" mode optional
-	assertionJWT, err := app.Config.NewClientAssertion(authMeta.Issuer)
-	if err != nil {
-		return nil, err
-	}
-
 	body := PushedAuthRequest{
 		ClientID:            app.Config.ClientID,
 		State:               state,
 		RedirectURI:         app.Config.CallbackURL,
 		Scope:               scope,
 		ResponseType:        "code",
-		ClientAssertionType: CLIENT_ASSERTION_JWT_BEARER,
-		ClientAssertion:     assertionJWT,
 		CodeChallenge:       codeChallenge,
 		CodeChallengeMethod: "S256",
 	}
+
+	if app.Config.IsConfidential() {
+		// self-signed JWT using private key in client metadata (confidential client)
+		assertionJWT, err := app.Config.NewClientAssertion(authMeta.Issuer)
+		if err != nil {
+			return nil, err
+		}
+		body.ClientAssertionType = CLIENT_ASSERTION_JWT_BEARER
+		body.ClientAssertion = assertionJWT
+	}
+
 	if loginHint != "" {
 		body.LoginHint = &loginHint
 	}
@@ -347,11 +351,6 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 
 func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode string, info AuthRequestData) (*TokenResponse, error) {
 
-	clientAssertion, err := app.Config.NewClientAssertion(info.AuthServerURL)
-	if err != nil {
-		return nil, err
-	}
-
 	// TODO: don't re-fetch? caching?
 	authServerMeta, err := app.Resolver.ResolveAuthServerMetadata(ctx, info.AuthServerURL)
 	if err != nil {
@@ -364,8 +363,15 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 		GrantType:           "authorization_code",
 		Code:                authCode,
 		CodeVerifier:        info.PKCEVerifier,
-		ClientAssertionType: &CLIENT_ASSERTION_JWT_BEARER,
-		ClientAssertion:     &clientAssertion,
+	}
+
+	if app.Config.IsConfidential() {
+		clientAssertion, err := app.Config.NewClientAssertion(info.AuthServerURL)
+		if err != nil {
+			return nil, err
+		}
+		body.ClientAssertionType = &CLIENT_ASSERTION_JWT_BEARER
+		body.ClientAssertion = &clientAssertion
 	}
 
 	dpopPrivKey, err := crypto.ParsePrivateMultibase(info.DpopPrivateKeyMultibase)
@@ -471,6 +477,7 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, username string) (strin
 	callbackURL.Path = "/oauth/callback"
 	app.Config.CallbackURL = callbackURL.String()
 
+	// XXX: from config
 	scope := "atproto transition:generic"
 	info, err := app.SendAuthRequest(ctx, authserverMeta, username, scope)
 	if err != nil {
