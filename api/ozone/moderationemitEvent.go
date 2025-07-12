@@ -17,7 +17,6 @@ import (
 type ModerationEmitEvent_Input struct {
 	CreatedBy       string                             `json:"createdBy" cborgen:"createdBy"`
 	Event           *ModerationEmitEvent_Input_Event   `json:"event" cborgen:"event"`
-	ModTool         *ModerationDefs_ModTool            `json:"modTool,omitempty" cborgen:"modTool,omitempty"`
 	Subject         *ModerationEmitEvent_Input_Subject `json:"subject" cborgen:"subject"`
 	SubjectBlobCids []string                           `json:"subjectBlobCids,omitempty" cborgen:"subjectBlobCids,omitempty"`
 }
