@@ -173,6 +173,7 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 		xrpcc,
 		nil,            // addedLabels []string
 		nil,            // addedTags []string
+		"",             // ageAssuranceState
 		nil,            // collections []string
 		"",             // comment string
 		"",             // createdAfter string
@@ -182,6 +183,7 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 		false,          // hasComment bool
 		false,          // includeAllUserRecords bool
 		5,              // limit int64
+		nil,            // modTool
 		nil,            // policies []string
 		nil,            // removedLabels []string
 		nil,            // removedTags []string
@@ -255,6 +257,7 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 		xrpcc,
 		nil,            // addedLabels []string
 		nil,            // addedTags []string
+		"",             // ageAssuranceState
 		nil,            // collections []string
 		"",             // comment string
 		"",             // createdAfter string
@@ -264,6 +267,7 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 		false,          // hasComment bool
 		false,          // includeAllUserRecords bool
 		5,              // limit int64
+		nil,            // modTool
 		nil,            // policies []string
 		nil,            // removedLabels []string
 		nil,            // removedTags []string

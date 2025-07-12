@@ -394,6 +394,7 @@ var listReportsCmd = &cli.Command{
 			xrpcc,
 			nil,   // addedLabels []string
 			nil,   // addedTags []string
+			"",    // ageAssuranceState
 			nil,   // collections []string
 			"",    // comment string
 			"",    // createdAfter string
@@ -403,6 +404,7 @@ var listReportsCmd = &cli.Command{
 			false, // hasComment bool
 			false, // includeAllUserRecords bool
 			100,   // limit int64
+			nil,   // modTool
 			nil,   // policies []string
 			nil,   // removedLabels []string
 			nil,   // removedTags []string
@@ -709,6 +711,7 @@ var queryModerationStatusesCmd = &cli.Command{
 			xrpcc,
 			nil,   // addedLabels []string
 			nil,   // addedTags []string
+			"",    // ageAssuranceState
 			nil,   // collections []string
 			"",    // comment string
 			"",    // createdAfter string
@@ -718,6 +721,7 @@ var queryModerationStatusesCmd = &cli.Command{
 			false, // hasComment bool
 			false, // includeAllUserRecords bool
 			100,   // limit int64
+			nil,   // modTool
 			nil,   // policies []string
 			nil,   // removedLabels []string
 			nil,   // removedTags []string
