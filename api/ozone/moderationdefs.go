@@ -370,7 +370,6 @@ type ModerationDefs_ModEventViewDetail struct {
 	CreatedBy    string                                     `json:"createdBy" cborgen:"createdBy"`
 	Event        *ModerationDefs_ModEventViewDetail_Event   `json:"event" cborgen:"event"`
 	Id           int64                                      `json:"id" cborgen:"id"`
-	ModTool      *ModerationDefs_ModTool                    `json:"modTool,omitempty" cborgen:"modTool,omitempty"`
 	Subject      *ModerationDefs_ModEventViewDetail_Subject `json:"subject" cborgen:"subject"`
 	SubjectBlobs []*ModerationDefs_BlobView                 `json:"subjectBlobs" cborgen:"subjectBlobs"`
 }
