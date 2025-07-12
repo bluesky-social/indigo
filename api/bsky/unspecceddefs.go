@@ -4,6 +4,38 @@ package bsky
 
 // schema: app.bsky.unspecced.defs
 
+// UnspeccedDefs_AgeAssuranceEvent is a "ageAssuranceEvent" in the app.bsky.unspecced.defs schema.
+//
+// Object used to store age assurance data in stash.
+type UnspeccedDefs_AgeAssuranceEvent struct {
+	// attemptId: The unique identifier for this instance of the age assurance flow, in UUID format.
+	AttemptId string `json:"attemptId" cborgen:"attemptId"`
+	// completeIp: The IP address used when completing the AA flow.
+	CompleteIp *string `json:"completeIp,omitempty" cborgen:"completeIp,omitempty"`
+	// completeUa: The user agent used when completing the AA flow.
+	CompleteUa *string `json:"completeUa,omitempty" cborgen:"completeUa,omitempty"`
+	// createdAt: The date and time of this write operation.
+	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
+	// email: The email used for AA.
+	Email *string `json:"email,omitempty" cborgen:"email,omitempty"`
+	// initIp: The IP address used when initiating the AA flow.
+	InitIp *string `json:"initIp,omitempty" cborgen:"initIp,omitempty"`
+	// initUa: The user agent used when initiating the AA flow.
+	InitUa *string `json:"initUa,omitempty" cborgen:"initUa,omitempty"`
+	// status: The status of the age assurance process.
+	Status string `json:"status" cborgen:"status"`
+}
+
+// UnspeccedDefs_AgeAssuranceState is a "ageAssuranceState" in the app.bsky.unspecced.defs schema.
+//
+// The computed state of the age assurance process, returned to the user in question on certain authenticated requests.
+type UnspeccedDefs_AgeAssuranceState struct {
+	// lastInitiatedAt: The timestamp when this state was last updated.
+	LastInitiatedAt *string `json:"lastInitiatedAt,omitempty" cborgen:"lastInitiatedAt,omitempty"`
+	// status: The status of the age assurance process.
+	Status string `json:"status" cborgen:"status"`
+}
+
 // UnspeccedDefs_SkeletonSearchActor is a "skeletonSearchActor" in the app.bsky.unspecced.defs schema.
 type UnspeccedDefs_SkeletonSearchActor struct {
 	Did string `json:"did" cborgen:"did"`
