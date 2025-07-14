@@ -60,6 +60,7 @@ func (oc *OzoneConsumer) Run(ctx context.Context) error {
 			oc.OzoneClient,
 			nil,            // addedLabels []string
 			nil,            // addedTags []string
+			"",             // ageAssuranceState
 			nil,            // collections []string
 			"",             // comment string
 			since.String(), // createdAfter string
@@ -69,6 +70,7 @@ func (oc *OzoneConsumer) Run(ctx context.Context) error {
 			false,          // hasComment bool
 			true,           // includeAllUserRecords bool
 			limit,          // limit int64
+			nil,            // modTool
 			nil,            // policies []string
 			nil,            // removedLabels []string
 			nil,            // removedTags []string

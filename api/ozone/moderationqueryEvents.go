@@ -20,18 +20,20 @@ type ModerationQueryEvents_Output struct {
 //
 // addedLabels: If specified, only events where all of these labels were added are returned
 // addedTags: If specified, only events where all of these tags were added are returned
+// ageAssuranceState: If specified, only events where the age assurance state matches the given value are returned
 // collections: If specified, only events where the subject belongs to the given collections will be returned. When subjectType is set to 'account', this will be ignored.
 // comment: If specified, only events with comments containing the keyword are returned. Apply || separator to use multiple keywords and match using OR condition.
 // createdAfter: Retrieve events created after a given timestamp
 // createdBefore: Retrieve events created before a given timestamp
 // hasComment: If true, only events with comments are returned
 // includeAllUserRecords: If true, events on all record types (posts, lists, profile etc.) or records from given 'collections' param, owned by the did are returned.
+// modTool: If specified, only events where the modTool name matches any of the given values are returned
 // removedLabels: If specified, only events where all of these labels were removed are returned
 // removedTags: If specified, only events where all of these tags were removed are returned
 // sortDirection: Sort direction for the events. Defaults to descending order of created at timestamp.
 // subjectType: If specified, only events where the subject is of the given type (account or record) will be returned. When this is set to 'account' the 'collections' parameter will be ignored. When includeAllUserRecords or subject is set, this will be ignored.
 // types: The types of events (fully qualified string in the format of tools.ozone.moderation.defs#modEvent<name>) to filter by. If not specified, all events are returned.
-func ModerationQueryEvents(ctx context.Context, c util.LexClient, addedLabels []string, addedTags []string, collections []string, comment string, createdAfter string, createdBefore string, createdBy string, cursor string, hasComment bool, includeAllUserRecords bool, limit int64, policies []string, removedLabels []string, removedTags []string, reportTypes []string, sortDirection string, subject string, subjectType string, types []string) (*ModerationQueryEvents_Output, error) {
+func ModerationQueryEvents(ctx context.Context, c util.LexClient, addedLabels []string, addedTags []string, ageAssuranceState string, collections []string, comment string, createdAfter string, createdBefore string, createdBy string, cursor string, hasComment bool, includeAllUserRecords bool, limit int64, modTool []string, policies []string, removedLabels []string, removedTags []string, reportTypes []string, sortDirection string, subject string, subjectType string, types []string) (*ModerationQueryEvents_Output, error) {
 	var out ModerationQueryEvents_Output
 
 	params := map[string]interface{}{}
@@ -40,6 +42,9 @@ func ModerationQueryEvents(ctx context.Context, c util.LexClient, addedLabels []
 	}
 	if len(addedTags) != 0 {
 		params["addedTags"] = addedTags
+	}
+	if ageAssuranceState != "" {
+		params["ageAssuranceState"] = ageAssuranceState
 	}
 	if len(collections) != 0 {
 		params["collections"] = collections
@@ -67,6 +72,9 @@ func ModerationQueryEvents(ctx context.Context, c util.LexClient, addedLabels []
 	}
 	if limit != 0 {
 		params["limit"] = limit
+	}
+	if len(modTool) != 0 {
+		params["modTool"] = modTool
 	}
 	if len(policies) != 0 {
 		params["policies"] = policies

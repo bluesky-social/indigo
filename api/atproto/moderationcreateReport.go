@@ -14,6 +14,7 @@ import (
 
 // ModerationCreateReport_Input is the input argument to a com.atproto.moderation.createReport call.
 type ModerationCreateReport_Input struct {
+	ModTool *ModerationCreateReport_ModTool `json:"modTool,omitempty" cborgen:"modTool,omitempty"`
 	// reason: Additional context about the content and violation.
 	Reason *string `json:"reason,omitempty" cborgen:"reason,omitempty"`
 	// reasonType: Indicates the broad category of violation the report is for.
@@ -54,6 +55,16 @@ func (t *ModerationCreateReport_Input_Subject) UnmarshalJSON(b []byte) error {
 	default:
 		return nil
 	}
+}
+
+// ModerationCreateReport_ModTool is a "modTool" in the com.atproto.moderation.createReport schema.
+//
+// Moderation tool information for tracing the source of the action
+type ModerationCreateReport_ModTool struct {
+	// meta: Additional arbitrary metadata about the source
+	Meta *interface{} `json:"meta,omitempty" cborgen:"meta,omitempty"`
+	// name: Name/identifier of the source (e.g., 'bsky-app/android', 'bsky-web/chrome')
+	Name string `json:"name" cborgen:"name"`
 }
 
 // ModerationCreateReport_Output is the output of a com.atproto.moderation.createReport call.
