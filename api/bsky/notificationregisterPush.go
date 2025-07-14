@@ -12,10 +12,12 @@ import (
 
 // NotificationRegisterPush_Input is the input argument to a app.bsky.notification.registerPush call.
 type NotificationRegisterPush_Input struct {
-	AppId      string `json:"appId" cborgen:"appId"`
-	Platform   string `json:"platform" cborgen:"platform"`
-	ServiceDid string `json:"serviceDid" cborgen:"serviceDid"`
-	Token      string `json:"token" cborgen:"token"`
+	// ageRestricted: Set to true when the actor is age restricted
+	AgeRestricted *bool  `json:"ageRestricted,omitempty" cborgen:"ageRestricted,omitempty"`
+	AppId         string `json:"appId" cborgen:"appId"`
+	Platform      string `json:"platform" cborgen:"platform"`
+	ServiceDid    string `json:"serviceDid" cborgen:"serviceDid"`
+	Token         string `json:"token" cborgen:"token"`
 }
 
 // NotificationRegisterPush calls the XRPC method "app.bsky.notification.registerPush".

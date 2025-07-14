@@ -18,6 +18,7 @@ type ModerationQueryStatuses_Output struct {
 
 // ModerationQueryStatuses calls the XRPC method "tools.ozone.moderation.queryStatuses".
 //
+// ageAssuranceState: If specified, only subjects with the given age assurance state will be returned.
 // appealed: Get subjects in unresolved appealed status
 // collections: If specified, subjects belonging to the given collections will be returned. When subjectType is set to 'account', this will be ignored.
 // comment: Search subjects by keyword from comments
@@ -45,10 +46,13 @@ type ModerationQueryStatuses_Output struct {
 // subject: The subject to get the status for.
 // subjectType: If specified, subjects of the given type (account or record) will be returned. When this is set to 'account' the 'collections' parameter will be ignored. When includeAllUserRecords or subject is set, this will be ignored.
 // takendown: Get subjects that were taken down
-func ModerationQueryStatuses(ctx context.Context, c util.LexClient, appealed bool, collections []string, comment string, cursor string, excludeTags []string, hostingDeletedAfter string, hostingDeletedBefore string, hostingStatuses []string, hostingUpdatedAfter string, hostingUpdatedBefore string, ignoreSubjects []string, includeAllUserRecords bool, includeMuted bool, lastReviewedBy string, limit int64, minAccountSuspendCount int64, minPriorityScore int64, minReportedRecordsCount int64, minTakendownRecordsCount int64, onlyMuted bool, queueCount int64, queueIndex int64, queueSeed string, reportedAfter string, reportedBefore string, reviewState string, reviewedAfter string, reviewedBefore string, sortDirection string, sortField string, subject string, subjectType string, tags []string, takendown bool) (*ModerationQueryStatuses_Output, error) {
+func ModerationQueryStatuses(ctx context.Context, c util.LexClient, ageAssuranceState string, appealed bool, collections []string, comment string, cursor string, excludeTags []string, hostingDeletedAfter string, hostingDeletedBefore string, hostingStatuses []string, hostingUpdatedAfter string, hostingUpdatedBefore string, ignoreSubjects []string, includeAllUserRecords bool, includeMuted bool, lastReviewedBy string, limit int64, minAccountSuspendCount int64, minPriorityScore int64, minReportedRecordsCount int64, minTakendownRecordsCount int64, onlyMuted bool, queueCount int64, queueIndex int64, queueSeed string, reportedAfter string, reportedBefore string, reviewState string, reviewedAfter string, reviewedBefore string, sortDirection string, sortField string, subject string, subjectType string, tags []string, takendown bool) (*ModerationQueryStatuses_Output, error) {
 	var out ModerationQueryStatuses_Output
 
 	params := map[string]interface{}{}
+	if ageAssuranceState != "" {
+		params["ageAssuranceState"] = ageAssuranceState
+	}
 	if appealed {
 		params["appealed"] = appealed
 	}
