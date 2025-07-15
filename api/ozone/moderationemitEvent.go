@@ -15,8 +15,10 @@ import (
 
 // ModerationEmitEvent_Input is the input argument to a tools.ozone.moderation.emitEvent call.
 type ModerationEmitEvent_Input struct {
-	CreatedBy       string                             `json:"createdBy" cborgen:"createdBy"`
-	Event           *ModerationEmitEvent_Input_Event   `json:"event" cborgen:"event"`
+	CreatedBy string                           `json:"createdBy" cborgen:"createdBy"`
+	Event     *ModerationEmitEvent_Input_Event `json:"event" cborgen:"event"`
+	// externalId: An optional external ID for the event, used to deduplicate events from external systems. Fails when an event of same type with the same external ID exists for the same subject.
+	ExternalId      *string                            `json:"externalId,omitempty" cborgen:"externalId,omitempty"`
 	ModTool         *ModerationDefs_ModTool            `json:"modTool,omitempty" cborgen:"modTool,omitempty"`
 	Subject         *ModerationEmitEvent_Input_Subject `json:"subject" cborgen:"subject"`
 	SubjectBlobCids []string                           `json:"subjectBlobCids,omitempty" cborgen:"subjectBlobCids,omitempty"`
