@@ -11,6 +11,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/util"
 
 	"github.com/did-method-plc/go-didplc"
@@ -359,22 +360,25 @@ func runPLCGenesis(cctx *cli.Context) error {
 	}
 
 	for _, rotationKey := range cctx.StringSlice("rotation-key") {
-		if !strings.HasPrefix(rotationKey, "did:key:") {
-			return fmt.Errorf("rotation keys must be in did:key format")
+		if _, err := crypto.ParsePublicDIDKey(rotationKey); err != nil {
+			return err
 		}
 		op.RotationKeys = append(op.RotationKeys, rotationKey)
 	}
 
 	handle := cctx.String("handle")
 	if handle != "" {
-		// add at:// prefix if not already present
-		op.AlsoKnownAs = append(op.AlsoKnownAs, "at://"+strings.TrimPrefix(handle, "at://"))
+		parsedHandle, err := syntax.ParseHandle(strings.TrimPrefix(handle, "at://"))
+		if err != nil {
+			return err
+		}
+		op.AlsoKnownAs = append(op.AlsoKnownAs, "at://"+string(parsedHandle))
 	}
 
 	atprotoKey := cctx.String("atproto-key")
 	if atprotoKey != "" {
-		if !strings.HasPrefix(atprotoKey, "did:key:") {
-			return fmt.Errorf("atproto key must be in did:key format")
+		if _, err := crypto.ParsePublicDIDKey(atprotoKey); err != nil {
+			return err
 		}
 		op.VerificationMethods["atproto"] = atprotoKey
 	}
