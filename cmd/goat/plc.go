@@ -100,9 +100,22 @@ var cmdPLC = &cli.Command{
 		&cli.Command{
 			Name:      "calc-did",
 			Usage:     "calculate the DID corresponding to a signed PLC operation (input in JSON format)",
-			ArgsUsage: `<genesis.json>`,
+			ArgsUsage: `<signed_genesis.json>`,
 			Flags:     []cli.Flag{},
 			Action:    runPLCCalcDID,
+		},
+		&cli.Command{
+			Name:      "sign",
+			Usage:     "",
+			ArgsUsage: `<operation.json>`,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "plc-private-rotation-key",
+					Usage:   "private key used as a rotation key, if operation is not signed (multibase syntax)",
+					EnvVars: []string{"PLC_PRIVATE_ROTATION_KEY"},
+				},
+			},
+			Action: runPLCSign,
 		},
 	},
 }
@@ -444,6 +457,51 @@ func runPLCCalcDID(cctx *cli.Context) error {
 	}
 
 	fmt.Println(didplc)
+
+	return nil
+}
+
+func runPLCSign(cctx *cli.Context) error {
+	s := cctx.Args().First()
+	if s == "" {
+		return fmt.Errorf("need to provide PLC operation json path as input")
+	}
+
+	privStr := cctx.String("plc-private-rotation-key")
+	if privStr == "" {
+		return fmt.Errorf("private key must be provided")
+	}
+
+	inputReader, err := getFileOrStdin(s)
+	if err != nil {
+		return err
+	}
+
+	inBytes, err := io.ReadAll(inputReader)
+	if err != nil {
+		return err
+	}
+
+	var enum didplc.OpEnum
+	if err := json.Unmarshal(inBytes, &enum); err != nil {
+		return err
+	}
+	op := enum.AsOperation()
+
+	privkey, err := crypto.ParsePrivateMultibase(privStr)
+	if err != nil {
+		return err
+	}
+
+	if err := op.Sign(privkey); err != nil {
+		return err
+	}
+
+	res, err := json.MarshalIndent(op, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(res))
 
 	return nil
 }
