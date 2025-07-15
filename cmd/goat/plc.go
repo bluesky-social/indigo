@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/util"
 
 	"github.com/did-method-plc/go-didplc"
@@ -96,6 +96,13 @@ var cmdPLC = &cli.Command{
 				},
 			},
 			Action: runPLCGenesis,
+		},
+		&cli.Command{
+			Name:      "calc-did",
+			Usage:     "calculate the DID corresponding to a signed PLC operation (input in JSON format)",
+			ArgsUsage: `<genesis.json>`,
+			Flags:     []cli.Flag{},
+			Action:    runPLCCalcDID,
 		},
 	},
 }
@@ -397,6 +404,46 @@ func runPLCGenesis(cctx *cli.Context) error {
 		return err
 	}
 	fmt.Println(string(res))
+
+	return nil
+}
+
+func runPLCCalcDID(cctx *cli.Context) error {
+	s := cctx.Args().First()
+	if s == "" {
+		return fmt.Errorf("need to provide genesis json path as input")
+	}
+
+	inputReader, err := getFileOrStdin(s)
+	if err != nil {
+		return err
+	}
+
+	inBytes, err := io.ReadAll(inputReader)
+	if err != nil {
+		return err
+	}
+
+	var enum didplc.OpEnum
+	if err := json.Unmarshal(inBytes, &enum); err != nil {
+		return err
+	}
+	op := enum.AsOperation()
+
+	if !op.IsGenesis() {
+		return fmt.Errorf("not a genesis op")
+	}
+
+	if !op.IsSigned() {
+		return fmt.Errorf("genesis op must be signed")
+	}
+
+	didplc, err := op.DID()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(didplc)
 
 	return nil
 }
