@@ -13,6 +13,8 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
 
+	"github.com/did-method-plc/go-didplc"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -70,6 +72,29 @@ var cmdPLC = &cli.Command{
 				},
 			},
 			Action: runPLCDump,
+		},
+		&cli.Command{
+			Name:  "genesis",
+			Usage: "produce an unsigned genesis operation, as JSON",
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "handle",
+					Usage: "atproto handle",
+				},
+				&cli.StringSliceFlag{
+					Name:  "rotation-key",
+					Usage: "rotation public key, in did:key format",
+				},
+				&cli.StringFlag{
+					Name:  "atproto-key",
+					Usage: "atproto repo signing public key, in did:key format",
+				},
+				&cli.StringFlag{
+					Name:  "pds",
+					Usage: "atproto PDS service URL",
+				},
+			},
+			Action: runPLCGenesis,
 		},
 	},
 }
@@ -319,4 +344,55 @@ func fetchPLCData(ctx context.Context, plcHost string, did syntax.DID) (*PLCData
 		return nil, err
 	}
 	return &d, nil
+}
+
+func runPLCGenesis(cctx *cli.Context) error {
+	// TODO: helper function in didplc to make an empty op like this?
+	services := make(map[string]didplc.OpService)
+	verifMethods := make(map[string]string)
+	op := didplc.RegularOp{
+		Type:                "plc_operation",
+		RotationKeys:        []string{},
+		VerificationMethods: verifMethods,
+		AlsoKnownAs:         []string{},
+		Services:            services,
+	}
+
+	for _, rotationKey := range cctx.StringSlice("rotation-key") {
+		if !strings.HasPrefix(rotationKey, "did:key:") {
+			return fmt.Errorf("rotation keys must be in did:key format")
+		}
+		op.RotationKeys = append(op.RotationKeys, rotationKey)
+	}
+
+	handle := cctx.String("handle")
+	if handle != "" {
+		// add at:// prefix if not already present
+		op.AlsoKnownAs = append(op.AlsoKnownAs, "at://"+strings.TrimPrefix(handle, "at://"))
+	}
+
+	atprotoKey := cctx.String("atproto-key")
+	if atprotoKey != "" {
+		if !strings.HasPrefix(atprotoKey, "did:key:") {
+			return fmt.Errorf("atproto key must be in did:key format")
+		}
+		op.VerificationMethods["atproto"] = atprotoKey
+	}
+
+	pds := cctx.String("pds")
+	if pds != "" {
+		// TODO: check pds is valid URI?
+		op.Services["atproto_pds"] = didplc.OpService{
+			Type:     "AtprotoPersonalDataServer",
+			Endpoint: pds,
+		}
+	}
+
+	res, err := json.MarshalIndent(op, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(res))
+
+	return nil
 }
