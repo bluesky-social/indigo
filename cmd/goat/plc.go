@@ -19,6 +19,9 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// TODO: use this consistently for all requests
+const GOAT_PLC_USER_AGENT = "goat-cli"
+
 var cmdPLC = &cli.Command{
 	Name:  "plc",
 	Usage: "sub-commands for DID PLCs",
@@ -116,6 +119,22 @@ var cmdPLC = &cli.Command{
 				},
 			},
 			Action: runPLCSign,
+		},
+		&cli.Command{
+			Name:      "submit",
+			Usage:     "submit a signed operation to the PLC directory (input in JSON format)",
+			ArgsUsage: `<signed_operation.json>`,
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:  "genesis",
+					Usage: "the operation is a genesis operation",
+				},
+				&cli.StringFlag{
+					Name:  "did",
+					Usage: "the DID of the identity to update",
+				},
+			},
+			Action: runPLCSubmit,
 		},
 	},
 }
@@ -488,6 +507,9 @@ func runPLCSign(cctx *cli.Context) error {
 	}
 	op := enum.AsOperation()
 
+	// Note: we do not require that the op is currently unsigned.
+	// If it's already signed, we'll re-sign it.
+
 	privkey, err := crypto.ParsePrivateMultibase(privStr)
 	if err != nil {
 		return err
@@ -502,6 +524,73 @@ func runPLCSign(cctx *cli.Context) error {
 		return err
 	}
 	fmt.Println(string(res))
+
+	return nil
+}
+
+func runPLCSubmit(cctx *cli.Context) error {
+	ctx := context.Background()
+	expect_genesis := cctx.Bool("genesis")
+	did_string := cctx.String("did")
+
+	if !expect_genesis && did_string == "" {
+		return fmt.Errorf("exactly one of either --genesis or --did must be specified")
+	}
+
+	if expect_genesis && did_string != "" {
+		return fmt.Errorf("exactly one of either --genesis or --did must be specified")
+	}
+
+	s := cctx.Args().First()
+	if s == "" {
+		return fmt.Errorf("need to provide PLC operation json path as input")
+	}
+
+	inputReader, err := getFileOrStdin(s)
+	if err != nil {
+		return err
+	}
+
+	inBytes, err := io.ReadAll(inputReader)
+	if err != nil {
+		return err
+	}
+
+	var enum didplc.OpEnum
+	if err := json.Unmarshal(inBytes, &enum); err != nil {
+		return err
+	}
+	op := enum.AsOperation()
+
+	if op.IsGenesis() != expect_genesis {
+		if expect_genesis {
+			return fmt.Errorf("expected genesis operation, but a non-genesis operation was provided")
+		} else {
+			return fmt.Errorf("expected non-genesis operation, but a genesis operation was provided")
+		}
+	}
+
+	if op.IsGenesis() {
+		did_string, err = op.DID()
+		if err != nil {
+			return err
+		}
+	}
+
+	if !op.IsSigned() {
+		return fmt.Errorf("operation must be signed")
+	}
+
+	c := didplc.Client{
+		DirectoryURL: cctx.String("plc-host"),
+		UserAgent:    GOAT_PLC_USER_AGENT,
+	}
+
+	if err = c.Submit(ctx, did_string, op); err != nil {
+		return err
+	}
+
+	// TODO: print confirmation?
 
 	return nil
 }
