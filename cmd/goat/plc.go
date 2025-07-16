@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -18,9 +19,6 @@ import (
 
 	"github.com/urfave/cli/v2"
 )
-
-// TODO: use this consistently for all requests
-const GOAT_PLC_USER_AGENT = "goat-cli"
 
 var cmdPLC = &cli.Command{
 	Name:  "plc",
@@ -113,9 +111,9 @@ var cmdPLC = &cli.Command{
 			ArgsUsage: `<operation.json>`,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:    "plc-private-rotation-key",
-					Usage:   "private key used as a rotation key, if operation is not signed (multibase syntax)",
-					EnvVars: []string{"PLC_PRIVATE_ROTATION_KEY"},
+					Name:    "plc-signing-key",
+					Usage:   "private key used to sign operation (multibase syntax)",
+					EnvVars: []string{"PLC_SIGNING_KEY"},
 				},
 			},
 			Action: runPLCSign,
@@ -443,6 +441,7 @@ func runPLCGenesis(cctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
+		parsedHandle = parsedHandle.Normalize()
 		op.AlsoKnownAs = append(op.AlsoKnownAs, "at://"+string(parsedHandle))
 	}
 
@@ -456,7 +455,13 @@ func runPLCGenesis(cctx *cli.Context) error {
 
 	pds := cctx.String("pds")
 	if pds != "" {
-		// TODO: check pds is valid URI?
+		parsedUrl, err := url.Parse(pds)
+		if err != nil {
+			return err
+		}
+		if !parsedUrl.IsAbs() {
+			return fmt.Errorf("invalid PDS URL: must be absolute")
+		}
 		op.Services["atproto_pds"] = didplc.OpService{
 			Type:     "AtprotoPersonalDataServer",
 			Endpoint: pds,
@@ -510,7 +515,7 @@ func runPLCSign(cctx *cli.Context) error {
 		return fmt.Errorf("need to provide PLC operation json path as input")
 	}
 
-	privStr := cctx.String("plc-private-rotation-key")
+	privStr := cctx.String("plc-signing-key")
 	if privStr == "" {
 		return fmt.Errorf("private key must be provided")
 	}
@@ -607,14 +612,14 @@ func runPLCSubmit(cctx *cli.Context) error {
 
 	c := didplc.Client{
 		DirectoryURL: cctx.String("plc-host"),
-		UserAgent:    GOAT_PLC_USER_AGENT,
+		UserAgent:    *userAgent(),
 	}
 
 	if err = c.Submit(ctx, didString, op); err != nil {
 		return err
 	}
 
-	// TODO: print confirmation?
+	fmt.Println("success")
 
 	return nil
 }
@@ -656,7 +661,7 @@ func fetchOpForUpdate(ctx context.Context, c didplc.Client, did string, base_cid
 		op = *baseOp
 		op.Sig = nil
 	case *didplc.LegacyOp:
-		op = baseOp.RegularOp()
+		op = baseOp.RegularOp() // also strips sig
 	case *didplc.TombstoneOp:
 		return nil, fmt.Errorf("cannot update from a tombstone op")
 	}
@@ -675,7 +680,7 @@ func runPLCUpdate(cctx *cli.Context) error {
 
 	c := didplc.Client{
 		DirectoryURL: cctx.String("plc-host"),
-		UserAgent:    GOAT_PLC_USER_AGENT,
+		UserAgent:    *userAgent(),
 	}
 	op, err := fetchOpForUpdate(ctx, c, didString, prevCID)
 	if err != nil {
@@ -735,7 +740,13 @@ func runPLCUpdate(cctx *cli.Context) error {
 
 	pds := cctx.String("pds")
 	if pds != "" {
-		// TODO: check pds is valid URI?
+		parsedUrl, err := url.Parse(pds)
+		if err != nil {
+			return err
+		}
+		if !parsedUrl.IsAbs() {
+			return fmt.Errorf("invalid PDS URL: must be absolute")
+		}
 		op.Services["atproto_pds"] = didplc.OpService{
 			Type:     "AtprotoPersonalDataServer",
 			Endpoint: pds,
