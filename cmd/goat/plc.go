@@ -494,20 +494,12 @@ func runPLCCalcDID(cctx *cli.Context) error {
 	}
 	op := enum.AsOperation()
 
-	if !op.IsGenesis() {
-		return fmt.Errorf("not a genesis op")
-	}
-
-	if !op.IsSigned() {
-		return fmt.Errorf("genesis op must be signed")
-	}
-
-	didplc, err := op.DID()
+	did, err := op.DID() // errors if op is not a signed genesis op
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(didplc)
+	fmt.Println(did)
 
 	return nil
 }
