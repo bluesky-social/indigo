@@ -136,6 +136,38 @@ var cmdPLC = &cli.Command{
 			},
 			Action: runPLCSubmit,
 		},
+		&cli.Command{
+			Name:      "update",
+			Usage:     "apply updates to a previous operation produce a new one (but don't sign or submit it, yet)",
+			ArgsUsage: `<DID>`,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "prev",
+					Usage: "the CID of the operation to use as a base (uses most recent op if not specified)",
+				},
+				&cli.StringFlag{
+					Name:  "handle",
+					Usage: "atproto handle",
+				},
+				&cli.StringSliceFlag{
+					Name:  "add-rotation-key",
+					Usage: "rotation public key, in did:key format (added to front of rotationKey list)",
+				},
+				&cli.StringSliceFlag{
+					Name:  "remove-rotation-key",
+					Usage: "rotation public key, in did:key format",
+				},
+				&cli.StringFlag{
+					Name:  "atproto-key",
+					Usage: "atproto repo signing public key, in did:key format",
+				},
+				&cli.StringFlag{
+					Name:  "pds",
+					Usage: "atproto PDS service URL",
+				},
+			},
+			Action: runPLCUpdate,
+		},
 	},
 }
 
@@ -591,6 +623,138 @@ func runPLCSubmit(cctx *cli.Context) error {
 	}
 
 	// TODO: print confirmation?
+
+	return nil
+}
+
+// fetch logs from /log/audit, select according to base_cid ("" means use latest), and
+// prepare it for updates:
+//   - convert from legacy op format if needed (and reject tombstone ops)
+//   - strip signature
+//   - set `prev` to appropriate value
+func fetchOpForUpdate(ctx context.Context, c didplc.Client, did string, base_cid string) (*didplc.RegularOp, error) {
+	auditlog, err := c.OpLog(ctx, did, true) // NB: this API changes in a pending go-didplc PR
+	if err != nil {
+		return nil, err
+	}
+
+	if err = didplc.VerifyOpLog(auditlog); err != nil {
+		return nil, err
+	}
+
+	var baseLogEntry *didplc.LogEntry
+	if base_cid == "" {
+		// use most recent entry
+		baseLogEntry = &auditlog[len(auditlog)-1]
+	} else {
+		// scan for the specified entry
+		for _, entry := range auditlog {
+			if entry.CID == base_cid {
+				baseLogEntry = &entry
+				break
+			}
+		}
+		if baseLogEntry == nil {
+			return nil, fmt.Errorf("no operation found matching CID %s", base_cid)
+		}
+	}
+	var op didplc.RegularOp
+	switch baseOp := baseLogEntry.Operation.AsOperation().(type) {
+	case *didplc.RegularOp:
+		op = *baseOp
+		op.Sig = nil
+	case *didplc.LegacyOp:
+		op = baseOp.RegularOp()
+	case *didplc.TombstoneOp:
+		return nil, fmt.Errorf("cannot update from a tombstone op")
+	}
+	op.Prev = &baseLogEntry.CID
+	return &op, nil
+}
+
+func runPLCUpdate(cctx *cli.Context) error {
+	ctx := context.Background()
+	prevCID := cctx.String("prev")
+
+	didString := cctx.Args().First()
+	if didString == "" {
+		return fmt.Errorf("please specify a DID to update")
+	}
+
+	c := didplc.Client{
+		DirectoryURL: cctx.String("plc-host"),
+		UserAgent:    GOAT_PLC_USER_AGENT,
+	}
+	op, err := fetchOpForUpdate(ctx, c, didString, prevCID)
+	if err != nil {
+		return err
+	}
+
+	for _, rotationKey := range cctx.StringSlice("remove-rotation-key") {
+		if _, err := crypto.ParsePublicDIDKey(rotationKey); err != nil {
+			return err
+		}
+		removeSuccess := false
+		for idx, existingRotationKey := range op.RotationKeys {
+			if existingRotationKey == rotationKey {
+				op.RotationKeys = append(op.RotationKeys[:idx], op.RotationKeys[idx+1:]...)
+				removeSuccess = true
+			}
+		}
+		if !removeSuccess {
+			return fmt.Errorf("failed remove rotation key %s, not found in array", rotationKey)
+		}
+	}
+
+	for _, rotationKey := range cctx.StringSlice("add-rotation-key") {
+		if _, err := crypto.ParsePublicDIDKey(rotationKey); err != nil {
+			return err
+		}
+		// prepend (Note: if adding multiple rotation keys at once, they'll end up in reverse order)
+		op.RotationKeys = append([]string{rotationKey}, op.RotationKeys...)
+	}
+
+	handle := cctx.String("handle")
+	if handle != "" {
+		parsedHandle, err := syntax.ParseHandle(strings.TrimPrefix(handle, "at://"))
+		if err != nil {
+			return err
+		}
+
+		// strip any existing at:// akas
+		// (someone might have some non-atproto akas, we will leave them untouched,
+		// they can manually manage those or use some other tool if needed)
+		var akas []string
+		for _, aka := range op.AlsoKnownAs {
+			if !strings.HasPrefix(aka, "at://") {
+				akas = append(akas, aka)
+			}
+		}
+		op.AlsoKnownAs = append(akas, "at://"+string(parsedHandle))
+	}
+
+	atprotoKey := cctx.String("atproto-key")
+	if atprotoKey != "" {
+		if _, err := crypto.ParsePublicDIDKey(atprotoKey); err != nil {
+			return err
+		}
+		op.VerificationMethods["atproto"] = atprotoKey
+	}
+
+	pds := cctx.String("pds")
+	if pds != "" {
+		// TODO: check pds is valid URI?
+		op.Services["atproto_pds"] = didplc.OpService{
+			Type:     "AtprotoPersonalDataServer",
+			Endpoint: pds,
+		}
+	}
+
+	res, err := json.MarshalIndent(op, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(res))
 
 	return nil
 }
