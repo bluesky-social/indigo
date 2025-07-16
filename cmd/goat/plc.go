@@ -79,7 +79,7 @@ var cmdPLC = &cli.Command{
 		},
 		&cli.Command{
 			Name:  "genesis",
-			Usage: "produce an unsigned genesis operation, as JSON",
+			Usage: "produce an unsigned genesis operation",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:  "handle",
@@ -102,14 +102,14 @@ var cmdPLC = &cli.Command{
 		},
 		&cli.Command{
 			Name:      "calc-did",
-			Usage:     "calculate the DID corresponding to a signed PLC operation (input in JSON format)",
+			Usage:     "calculate the DID corresponding to a signed PLC operation",
 			ArgsUsage: `<signed_genesis.json>`,
 			Flags:     []cli.Flag{},
 			Action:    runPLCCalcDID,
 		},
 		&cli.Command{
 			Name:      "sign",
-			Usage:     "",
+			Usage:     "sign an operation, ready to be submitted",
 			ArgsUsage: `<operation.json>`,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
@@ -122,7 +122,7 @@ var cmdPLC = &cli.Command{
 		},
 		&cli.Command{
 			Name:      "submit",
-			Usage:     "submit a signed operation to the PLC directory (input in JSON format)",
+			Usage:     "submit a signed operation to the PLC directory",
 			ArgsUsage: `<signed_operation.json>`,
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
@@ -138,7 +138,7 @@ var cmdPLC = &cli.Command{
 		},
 		&cli.Command{
 			Name:      "update",
-			Usage:     "apply updates to a previous operation produce a new one (but don't sign or submit it, yet)",
+			Usage:     "apply updates to a previous operation to produce a new one (but don't sign or submit it, yet)",
 			ArgsUsage: `<DID>`,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
