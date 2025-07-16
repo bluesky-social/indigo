@@ -89,7 +89,7 @@ require (
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/did-method-plc/go-didplc v0.0.0-20250711123023-0b5df3946d33 // indirect
+	github.com/did-method-plc/go-didplc v0.0.0-20250716114047-da2c163c3a47 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/go-redis/redis v6.15.9+incompatible // indirect
 	github.com/goccy/go-json v0.10.2 // indirect

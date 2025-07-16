@@ -633,7 +633,7 @@ func runPLCSubmit(cctx *cli.Context) error {
 //   - strip signature
 //   - set `prev` to appropriate value
 func fetchOpForUpdate(ctx context.Context, c didplc.Client, did string, base_cid string) (*didplc.RegularOp, error) {
-	auditlog, err := c.OpLog(ctx, did, true) // NB: this API changes in a pending go-didplc PR
+	auditlog, err := c.AuditLog(ctx, did)
 	if err != nil {
 		return nil, err
 	}

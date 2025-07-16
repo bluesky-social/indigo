@@ -86,6 +86,8 @@ github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f h1:lO4WD4F/r
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cuUVRXasLTGF7a8hSLbxyZXjz+1KgoB3wDUb6vlszIc=
 github.com/did-method-plc/go-didplc v0.0.0-20250711123023-0b5df3946d33 h1:wKP1uvcBxWRqi/4fN2gFr1lyRePJLUU2HlcPRJ/hDns=
 github.com/did-method-plc/go-didplc v0.0.0-20250711123023-0b5df3946d33/go.mod h1:g8CMev4weO11RUwJorWYrx7jBAGctxEMvWBomfXO23o=
+github.com/did-method-plc/go-didplc v0.0.0-20250716114047-da2c163c3a47 h1:IuxifXICbU1p/RDHR6uB4Kou6z4md/Qd1z3FuUwre8k=
+github.com/did-method-plc/go-didplc v0.0.0-20250716114047-da2c163c3a47/go.mod h1:g8CMev4weO11RUwJorWYrx7jBAGctxEMvWBomfXO23o=
 github.com/dustinkirkland/golang-petname v0.0.0-20231002161417-6a283f1aaaf2 h1:S6Dco8FtAhEI/qkg/00H6RdEGC+MCy5GPiQ+xweNRFE=
 github.com/dustinkirkland/golang-petname v0.0.0-20231002161417-6a283f1aaaf2/go.mod h1:8AuBTZBRSFqEYBPYULd+NN474/zZBLP+6WeT5S9xlAc=
 github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=
