@@ -6,12 +6,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
+
+	"github.com/did-method-plc/go-didplc"
 
 	"github.com/urfave/cli/v2"
 )
@@ -70,6 +74,97 @@ var cmdPLC = &cli.Command{
 				},
 			},
 			Action: runPLCDump,
+		},
+		&cli.Command{
+			Name:  "genesis",
+			Usage: "produce an unsigned genesis operation",
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "handle",
+					Usage: "atproto handle",
+				},
+				&cli.StringSliceFlag{
+					Name:  "rotation-key",
+					Usage: "rotation public key, in did:key format",
+				},
+				&cli.StringFlag{
+					Name:  "atproto-key",
+					Usage: "atproto repo signing public key, in did:key format",
+				},
+				&cli.StringFlag{
+					Name:  "pds",
+					Usage: "atproto PDS service URL",
+				},
+			},
+			Action: runPLCGenesis,
+		},
+		&cli.Command{
+			Name:      "calc-did",
+			Usage:     "calculate the DID corresponding to a signed PLC operation",
+			ArgsUsage: `<signed_genesis.json>`,
+			Flags:     []cli.Flag{},
+			Action:    runPLCCalcDID,
+		},
+		&cli.Command{
+			Name:      "sign",
+			Usage:     "sign an operation, ready to be submitted",
+			ArgsUsage: `<operation.json>`,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "plc-signing-key",
+					Usage:   "private key used to sign operation (multibase syntax)",
+					EnvVars: []string{"PLC_SIGNING_KEY"},
+				},
+			},
+			Action: runPLCSign,
+		},
+		&cli.Command{
+			Name:      "submit",
+			Usage:     "submit a signed operation to the PLC directory",
+			ArgsUsage: `<signed_operation.json>`,
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:  "genesis",
+					Usage: "the operation is a genesis operation",
+				},
+				&cli.StringFlag{
+					Name:  "did",
+					Usage: "the DID of the identity to update",
+				},
+			},
+			Action: runPLCSubmit,
+		},
+		&cli.Command{
+			Name:      "update",
+			Usage:     "apply updates to a previous operation to produce a new one (but don't sign or submit it, yet)",
+			ArgsUsage: `<DID>`,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "prev",
+					Usage: "the CID of the operation to use as a base (uses most recent op if not specified)",
+				},
+				&cli.StringFlag{
+					Name:  "handle",
+					Usage: "atproto handle",
+				},
+				&cli.StringSliceFlag{
+					Name:  "add-rotation-key",
+					Usage: "rotation public key, in did:key format (added to front of rotationKey list)",
+				},
+				&cli.StringSliceFlag{
+					Name:  "remove-rotation-key",
+					Usage: "rotation public key, in did:key format",
+				},
+				&cli.StringFlag{
+					Name:  "atproto-key",
+					Usage: "atproto repo signing public key, in did:key format",
+				},
+				&cli.StringFlag{
+					Name:  "pds",
+					Usage: "atproto PDS service URL",
+				},
+			},
+			Action: runPLCUpdate,
 		},
 	},
 }
@@ -319,4 +414,350 @@ func fetchPLCData(ctx context.Context, plcHost string, did syntax.DID) (*PLCData
 		return nil, err
 	}
 	return &d, nil
+}
+
+func runPLCGenesis(cctx *cli.Context) error {
+	// TODO: helper function in didplc to make an empty op like this?
+	services := make(map[string]didplc.OpService)
+	verifMethods := make(map[string]string)
+	op := didplc.RegularOp{
+		Type:                "plc_operation",
+		RotationKeys:        []string{},
+		VerificationMethods: verifMethods,
+		AlsoKnownAs:         []string{},
+		Services:            services,
+	}
+
+	for _, rotationKey := range cctx.StringSlice("rotation-key") {
+		if _, err := crypto.ParsePublicDIDKey(rotationKey); err != nil {
+			return err
+		}
+		op.RotationKeys = append(op.RotationKeys, rotationKey)
+	}
+
+	handle := cctx.String("handle")
+	if handle != "" {
+		parsedHandle, err := syntax.ParseHandle(strings.TrimPrefix(handle, "at://"))
+		if err != nil {
+			return err
+		}
+		parsedHandle = parsedHandle.Normalize()
+		op.AlsoKnownAs = append(op.AlsoKnownAs, "at://"+string(parsedHandle))
+	}
+
+	atprotoKey := cctx.String("atproto-key")
+	if atprotoKey != "" {
+		if _, err := crypto.ParsePublicDIDKey(atprotoKey); err != nil {
+			return err
+		}
+		op.VerificationMethods["atproto"] = atprotoKey
+	}
+
+	pds := cctx.String("pds")
+	if pds != "" {
+		parsedUrl, err := url.Parse(pds)
+		if err != nil {
+			return err
+		}
+		if !parsedUrl.IsAbs() {
+			return fmt.Errorf("invalid PDS URL: must be absolute")
+		}
+		op.Services["atproto_pds"] = didplc.OpService{
+			Type:     "AtprotoPersonalDataServer",
+			Endpoint: pds,
+		}
+	}
+
+	res, err := json.MarshalIndent(op, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(res))
+
+	return nil
+}
+
+func runPLCCalcDID(cctx *cli.Context) error {
+	s := cctx.Args().First()
+	if s == "" {
+		return fmt.Errorf("need to provide genesis json path as input")
+	}
+
+	inputReader, err := getFileOrStdin(s)
+	if err != nil {
+		return err
+	}
+
+	inBytes, err := io.ReadAll(inputReader)
+	if err != nil {
+		return err
+	}
+
+	var enum didplc.OpEnum
+	if err := json.Unmarshal(inBytes, &enum); err != nil {
+		return err
+	}
+	op := enum.AsOperation()
+
+	did, err := op.DID() // errors if op is not a signed genesis op
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(did)
+
+	return nil
+}
+
+func runPLCSign(cctx *cli.Context) error {
+	s := cctx.Args().First()
+	if s == "" {
+		return fmt.Errorf("need to provide PLC operation json path as input")
+	}
+
+	privStr := cctx.String("plc-signing-key")
+	if privStr == "" {
+		return fmt.Errorf("private key must be provided")
+	}
+
+	inputReader, err := getFileOrStdin(s)
+	if err != nil {
+		return err
+	}
+
+	inBytes, err := io.ReadAll(inputReader)
+	if err != nil {
+		return err
+	}
+
+	var enum didplc.OpEnum
+	if err := json.Unmarshal(inBytes, &enum); err != nil {
+		return err
+	}
+	op := enum.AsOperation()
+
+	// Note: we do not require that the op is currently unsigned.
+	// If it's already signed, we'll re-sign it.
+
+	privkey, err := crypto.ParsePrivateMultibase(privStr)
+	if err != nil {
+		return err
+	}
+
+	if err := op.Sign(privkey); err != nil {
+		return err
+	}
+
+	res, err := json.MarshalIndent(op, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(res))
+
+	return nil
+}
+
+func runPLCSubmit(cctx *cli.Context) error {
+	ctx := context.Background()
+	expectGenesis := cctx.Bool("genesis")
+	didString := cctx.String("did")
+
+	if !expectGenesis && didString == "" {
+		return fmt.Errorf("exactly one of either --genesis or --did must be specified")
+	}
+
+	if expectGenesis && didString != "" {
+		return fmt.Errorf("exactly one of either --genesis or --did must be specified")
+	}
+
+	s := cctx.Args().First()
+	if s == "" {
+		return fmt.Errorf("need to provide PLC operation json path as input")
+	}
+
+	inputReader, err := getFileOrStdin(s)
+	if err != nil {
+		return err
+	}
+
+	inBytes, err := io.ReadAll(inputReader)
+	if err != nil {
+		return err
+	}
+
+	var enum didplc.OpEnum
+	if err := json.Unmarshal(inBytes, &enum); err != nil {
+		return err
+	}
+	op := enum.AsOperation()
+
+	if op.IsGenesis() != expectGenesis {
+		if expectGenesis {
+			return fmt.Errorf("expected genesis operation, but a non-genesis operation was provided")
+		} else {
+			return fmt.Errorf("expected non-genesis operation, but a genesis operation was provided")
+		}
+	}
+
+	if op.IsGenesis() {
+		didString, err = op.DID()
+		if err != nil {
+			return err
+		}
+	}
+
+	if !op.IsSigned() {
+		return fmt.Errorf("operation must be signed")
+	}
+
+	c := didplc.Client{
+		DirectoryURL: cctx.String("plc-host"),
+		UserAgent:    *userAgent(),
+	}
+
+	if err = c.Submit(ctx, didString, op); err != nil {
+		return err
+	}
+
+	fmt.Println("success")
+
+	return nil
+}
+
+// fetch logs from /log/audit, select according to base_cid ("" means use latest), and
+// prepare it for updates:
+//   - convert from legacy op format if needed (and reject tombstone ops)
+//   - strip signature
+//   - set `prev` to appropriate value
+func fetchOpForUpdate(ctx context.Context, c didplc.Client, did string, base_cid string) (*didplc.RegularOp, error) {
+	auditlog, err := c.AuditLog(ctx, did)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = didplc.VerifyOpLog(auditlog); err != nil {
+		return nil, err
+	}
+
+	var baseLogEntry *didplc.LogEntry
+	if base_cid == "" {
+		// use most recent entry
+		baseLogEntry = &auditlog[len(auditlog)-1]
+	} else {
+		// scan for the specified entry
+		for _, entry := range auditlog {
+			if entry.CID == base_cid {
+				baseLogEntry = &entry
+				break
+			}
+		}
+		if baseLogEntry == nil {
+			return nil, fmt.Errorf("no operation found matching CID %s", base_cid)
+		}
+	}
+	var op didplc.RegularOp
+	switch baseOp := baseLogEntry.Operation.AsOperation().(type) {
+	case *didplc.RegularOp:
+		op = *baseOp
+		op.Sig = nil
+	case *didplc.LegacyOp:
+		op = baseOp.RegularOp() // also strips sig
+	case *didplc.TombstoneOp:
+		return nil, fmt.Errorf("cannot update from a tombstone op")
+	}
+	op.Prev = &baseLogEntry.CID
+	return &op, nil
+}
+
+func runPLCUpdate(cctx *cli.Context) error {
+	ctx := context.Background()
+	prevCID := cctx.String("prev")
+
+	didString := cctx.Args().First()
+	if didString == "" {
+		return fmt.Errorf("please specify a DID to update")
+	}
+
+	c := didplc.Client{
+		DirectoryURL: cctx.String("plc-host"),
+		UserAgent:    *userAgent(),
+	}
+	op, err := fetchOpForUpdate(ctx, c, didString, prevCID)
+	if err != nil {
+		return err
+	}
+
+	for _, rotationKey := range cctx.StringSlice("remove-rotation-key") {
+		if _, err := crypto.ParsePublicDIDKey(rotationKey); err != nil {
+			return err
+		}
+		removeSuccess := false
+		for idx, existingRotationKey := range op.RotationKeys {
+			if existingRotationKey == rotationKey {
+				op.RotationKeys = append(op.RotationKeys[:idx], op.RotationKeys[idx+1:]...)
+				removeSuccess = true
+			}
+		}
+		if !removeSuccess {
+			return fmt.Errorf("failed remove rotation key %s, not found in array", rotationKey)
+		}
+	}
+
+	for _, rotationKey := range cctx.StringSlice("add-rotation-key") {
+		if _, err := crypto.ParsePublicDIDKey(rotationKey); err != nil {
+			return err
+		}
+		// prepend (Note: if adding multiple rotation keys at once, they'll end up in reverse order)
+		op.RotationKeys = append([]string{rotationKey}, op.RotationKeys...)
+	}
+
+	handle := cctx.String("handle")
+	if handle != "" {
+		parsedHandle, err := syntax.ParseHandle(strings.TrimPrefix(handle, "at://"))
+		if err != nil {
+			return err
+		}
+
+		// strip any existing at:// akas
+		// (someone might have some non-atproto akas, we will leave them untouched,
+		// they can manually manage those or use some other tool if needed)
+		var akas []string
+		for _, aka := range op.AlsoKnownAs {
+			if !strings.HasPrefix(aka, "at://") {
+				akas = append(akas, aka)
+			}
+		}
+		op.AlsoKnownAs = append(akas, "at://"+string(parsedHandle))
+	}
+
+	atprotoKey := cctx.String("atproto-key")
+	if atprotoKey != "" {
+		if _, err := crypto.ParsePublicDIDKey(atprotoKey); err != nil {
+			return err
+		}
+		op.VerificationMethods["atproto"] = atprotoKey
+	}
+
+	pds := cctx.String("pds")
+	if pds != "" {
+		parsedUrl, err := url.Parse(pds)
+		if err != nil {
+			return err
+		}
+		if !parsedUrl.IsAbs() {
+			return fmt.Errorf("invalid PDS URL: must be absolute")
+		}
+		op.Services["atproto_pds"] = didplc.OpService{
+			Type:     "AtprotoPersonalDataServer",
+			Endpoint: pds,
+		}
+	}
+
+	res, err := json.MarshalIndent(op, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(res))
+
+	return nil
 }
