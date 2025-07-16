@@ -1,19 +1,40 @@
 package lex
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"slices"
 	"strings"
 )
 
+type Encodings []string
+
+func (t *Encodings) UnmarshalJSON(b []byte) error {
+	// Try to unmarshal as a string
+	var s string
+	if err := json.Unmarshal(b, &s); err == nil {
+		*t = []string{s}
+		return nil
+	}
+
+	// Try to unmarshal as an array of strings
+	var ss []string
+	if err := json.Unmarshal(b, &ss); err == nil {
+		*t = ss
+		return nil
+	}
+
+	return fmt.Errorf("Encodings field could not be parsed as string or array of strings: %s", string(b))
+}
+
 type OutputType struct {
-	Encoding string      `json:"encoding"`
+	Encoding Encodings   `json:"encoding"`
 	Schema   *TypeSchema `json:"schema"`
 }
 
 type InputType struct {
-	Encoding string      `json:"encoding"`
+	Encoding Encodings   `json:"encoding"`
 	Schema   *TypeSchema `json:"schema"`
 }
 
@@ -61,15 +82,21 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 
 	if s.Input != nil {
 		inpvar = "input"
-		inpenc = s.Input.Encoding
-		switch s.Input.Encoding {
-		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingMP4:
-			params = fmt.Sprintf("%s, input io.Reader", params)
-		case EncodingJSON:
-			params = fmt.Sprintf("%s, input *%s", params, inputname)
+		for _, encoding := range s.Input.Encoding {
+			if len(inpenc) > 0 {
+				inpenc = inpenc + " | " + encoding
+			} else {
+				inpenc = encoding
+			}
+			switch encoding {
+			case EncodingCBOR, EncodingCAR, EncodingANY, EncodingMP4:
+				params = fmt.Sprintf("%s, input io.Reader", params)
+			case EncodingJSON:
+				params = fmt.Sprintf("%s, input *%s", params, inputname)
 
-		default:
-			return fmt.Errorf("unsupported input encoding (RPC input): %q", s.Input.Encoding)
+			default:
+				return fmt.Errorf("unsupported input encoding (RPC input): %q", encoding)
+			}
 		}
 	}
 
@@ -90,18 +117,20 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 
 	out := "error"
 	if s.Output != nil {
-		switch s.Output.Encoding {
-		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingJSONL, EncodingMP4:
-			out = "([]byte, error)"
-		case EncodingJSON:
-			outname := fname + "_Output"
-			if s.Output.Schema.Type == "ref" {
-				_, outname = s.namesFromRef(s.Output.Schema.Ref)
-			}
+		for _, encoding := range s.Output.Encoding {
+			switch encoding {
+			case EncodingCBOR, EncodingCAR, EncodingANY, EncodingJSONL, EncodingMP4:
+				out = "([]byte, error)"
+			case EncodingJSON:
+				outname := fname + "_Output"
+				if s.Output.Schema.Type == "ref" {
+					_, outname = s.namesFromRef(s.Output.Schema.Ref)
+				}
 
-			out = fmt.Sprintf("(*%s, error)", outname)
-		default:
-			return fmt.Errorf("unrecognized encoding scheme (RPC output): %q", s.Output.Encoding)
+				out = fmt.Sprintf("(*%s, error)", outname)
+			default:
+				return fmt.Errorf("unrecognized encoding scheme (RPC output): %q", encoding)
+			}
 		}
 	}
 
@@ -123,23 +152,25 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 	errRet := "err"
 	outRet := "nil"
 	if s.Output != nil {
-		switch s.Output.Encoding {
-		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingJSONL, EncodingMP4:
-			pf("buf := new(bytes.Buffer)\n")
-			outvar = "buf"
-			errRet = "nil, err"
-			outRet = "buf.Bytes(), nil"
-		case EncodingJSON:
-			outname := fname + "_Output"
-			if s.Output.Schema.Type == "ref" {
-				_, outname = s.namesFromRef(s.Output.Schema.Ref)
+		for _, encoding := range s.Output.Encoding {
+			switch encoding {
+			case EncodingCBOR, EncodingCAR, EncodingANY, EncodingJSONL, EncodingMP4:
+				pf("buf := new(bytes.Buffer)\n")
+				outvar = "buf"
+				errRet = "nil, err"
+				outRet = "buf.Bytes(), nil"
+			case EncodingJSON:
+				outname := fname + "_Output"
+				if s.Output.Schema.Type == "ref" {
+					_, outname = s.namesFromRef(s.Output.Schema.Ref)
+				}
+				pf("\tvar out %s\n", outname)
+				outvar = "&out"
+				errRet = "nil, err"
+				outRet = "&out, nil"
+			default:
+				return fmt.Errorf("unrecognized output encoding (func signature): %q", encoding)
 			}
-			pf("\tvar out %s\n", outname)
-			outvar = "&out"
-			errRet = "nil, err"
-			outRet = "&out, nil"
-		default:
-			return fmt.Errorf("unrecognized output encoding (func signature): %q", s.Output.Encoding)
 		}
 	}
 
@@ -228,26 +259,30 @@ func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname str
 
 	returndef := "error"
 	if s.Output != nil {
-		switch s.Output.Encoding {
-		case "application/json":
-			outname := shortname + "_Output"
-			if s.Output.Schema.Type == "ref" {
-				outname, _ = s.namesFromRef(s.Output.Schema.Ref)
+		for _, encoding := range s.Output.Encoding {
+			switch encoding {
+			case "application/json":
+				outname := shortname + "_Output"
+				if s.Output.Schema.Type == "ref" {
+					outname, _ = s.namesFromRef(s.Output.Schema.Ref)
+				}
+				returndef = fmt.Sprintf("(*%s.%s, error)", impname, outname)
+			case "application/cbor", "application/vnd.ipld.car", "*/*":
+				returndef = "(io.Reader, error)"
+			default:
+				return fmt.Errorf("unrecognized output encoding (handler stub): %q", encoding)
 			}
-			returndef = fmt.Sprintf("(*%s.%s, error)", impname, outname)
-		case "application/cbor", "application/vnd.ipld.car", "*/*":
-			returndef = "(io.Reader, error)"
-		default:
-			return fmt.Errorf("unrecognized output encoding (handler stub): %q", s.Output.Encoding)
 		}
 	}
 
 	if s.Input != nil {
-		switch s.Input.Encoding {
-		case "application/json":
-			paramtypes = append(paramtypes, fmt.Sprintf("input *%s.%s_Input", impname, shortname))
-		case "application/cbor":
-			paramtypes = append(paramtypes, "r io.Reader")
+		for _, encoding := range s.Input.Encoding {
+			switch encoding {
+			case "application/json":
+				paramtypes = append(paramtypes, fmt.Sprintf("input *%s.%s_Input", impname, shortname))
+			case "application/cbor":
+				paramtypes = append(paramtypes, "r io.Reader")
+			}
 		}
 	}
 
@@ -388,31 +423,33 @@ if err != nil {
 	} else if s.Type == "procedure" {
 		if s.Input != nil {
 			intname := impname + "." + tname + "_Input"
-			switch s.Input.Encoding {
-			case EncodingJSON:
-				pf(`
+			for _, encoding := range s.Input.Encoding {
+				switch encoding {
+				case EncodingJSON:
+					pf(`
 var body %s
 if err := c.Bind(&body); err != nil {
 	return err
 }
 `, intname)
-				paramtypes = append(paramtypes, "body *"+intname)
-				params = append(params, "&body")
-			case EncodingCBOR:
-				pf("body := c.Request().Body\n")
-				paramtypes = append(paramtypes, "r io.Reader")
-				params = append(params, "body")
-			case EncodingANY:
-				pf("body := c.Request().Body\n")
-				pf("contentType := c.Request().Header.Get(\"Content-Type\")\n")
-				paramtypes = append(paramtypes, "r io.Reader", "contentType string")
-				params = append(params, "body", "contentType")
-			case EncodingMP4:
-				pf("body := c.Request().Body\n")
-				paramtypes = append(paramtypes, "r io.Reader")
-				params = append(params, "body")
-			default:
-				return fmt.Errorf("unrecognized input encoding: %q", s.Input.Encoding)
+					paramtypes = append(paramtypes, "body *"+intname)
+					params = append(params, "&body")
+				case EncodingCBOR:
+					pf("body := c.Request().Body\n")
+					paramtypes = append(paramtypes, "r io.Reader")
+					params = append(params, "body")
+				case EncodingANY:
+					pf("body := c.Request().Body\n")
+					pf("contentType := c.Request().Header.Get(\"Content-Type\")\n")
+					paramtypes = append(paramtypes, "r io.Reader", "contentType string")
+					params = append(params, "body", "contentType")
+				case EncodingMP4:
+					pf("body := c.Request().Body\n")
+					paramtypes = append(paramtypes, "r io.Reader")
+					params = append(params, "body")
+				default:
+					return fmt.Errorf("unrecognized input encoding: %q", encoding)
+				}
 			}
 		}
 	} else {
@@ -422,21 +459,23 @@ if err := c.Bind(&body); err != nil {
 	assign := "handleErr"
 	returndef := "error"
 	if s.Output != nil {
-		switch s.Output.Encoding {
-		case EncodingJSON:
-			assign = "out, handleErr"
-			outname := tname + "_Output"
-			if s.Output.Schema.Type == "ref" {
-				outname, _ = s.namesFromRef(s.Output.Schema.Ref)
+		for _, encoding := range s.Output.Encoding {
+			switch encoding {
+			case EncodingJSON:
+				assign = "out, handleErr"
+				outname := tname + "_Output"
+				if s.Output.Schema.Type == "ref" {
+					outname, _ = s.namesFromRef(s.Output.Schema.Ref)
+				}
+				pf("var out *%s.%s\n", impname, outname)
+				returndef = fmt.Sprintf("(*%s.%s, error)", impname, outname)
+			case EncodingCBOR, EncodingCAR, EncodingANY, EncodingJSONL, EncodingMP4:
+				assign = "out, handleErr"
+				pf("var out io.Reader\n")
+				returndef = "(io.Reader, error)"
+			default:
+				return fmt.Errorf("unrecognized output encoding (RPC output handler): %q", encoding)
 			}
-			pf("var out *%s.%s\n", impname, outname)
-			returndef = fmt.Sprintf("(*%s.%s, error)", impname, outname)
-		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingJSONL, EncodingMP4:
-			assign = "out, handleErr"
-			pf("var out io.Reader\n")
-			returndef = "(io.Reader, error)"
-		default:
-			return fmt.Errorf("unrecognized output encoding (RPC output handler): %q", s.Output.Encoding)
 		}
 	}
 	pf("var handleErr error\n")
@@ -445,21 +484,23 @@ if err := c.Bind(&body); err != nil {
 	pf("if handleErr != nil {\nreturn handleErr\n}\n")
 
 	if s.Output != nil {
-		switch s.Output.Encoding {
-		case EncodingJSON:
-			pf("return c.JSON(200, out)\n}\n\n")
-		case EncodingANY:
-			pf("return c.Stream(200, \"application/octet-stream\", out)\n}\n\n")
-		case EncodingCBOR:
-			pf("return c.Stream(200, \"application/octet-stream\", out)\n}\n\n")
-		case EncodingCAR:
-			pf("return c.Stream(200, \"application/vnd.ipld.car\", out)\n}\n\n")
-		case EncodingJSONL:
-			pf("return c.Stream(200, \"application/jsonl\", out)\n}\n\n")
-		case EncodingMP4:
-			pf("return c.Stream(200, \"video/mp4\", out)\n}\n\n")
-		default:
-			return fmt.Errorf("unrecognized output encoding (RPC output handler return): %q", s.Output.Encoding)
+		for _, encoding := range s.Output.Encoding {
+			switch encoding {
+			case EncodingJSON:
+				pf("return c.JSON(200, out)\n}\n\n")
+			case EncodingANY:
+				pf("return c.Stream(200, \"application/octet-stream\", out)\n}\n\n")
+			case EncodingCBOR:
+				pf("return c.Stream(200, \"application/octet-stream\", out)\n}\n\n")
+			case EncodingCAR:
+				pf("return c.Stream(200, \"application/vnd.ipld.car\", out)\n}\n\n")
+			case EncodingJSONL:
+				pf("return c.Stream(200, \"application/jsonl\", out)\n}\n\n")
+			case EncodingMP4:
+				pf("return c.Stream(200, \"video/mp4\", out)\n}\n\n")
+			default:
+				return fmt.Errorf("unrecognized output encoding (RPC output handler return): %q", encoding)
+			}
 		}
 	} else {
 		pf("return nil\n}\n\n")
