@@ -562,14 +562,14 @@ func runPLCSign(cctx *cli.Context) error {
 
 func runPLCSubmit(cctx *cli.Context) error {
 	ctx := context.Background()
-	expect_genesis := cctx.Bool("genesis")
-	did_string := cctx.String("did")
+	expectGenesis := cctx.Bool("genesis")
+	didString := cctx.String("did")
 
-	if !expect_genesis && did_string == "" {
+	if !expectGenesis && didString == "" {
 		return fmt.Errorf("exactly one of either --genesis or --did must be specified")
 	}
 
-	if expect_genesis && did_string != "" {
+	if expectGenesis && didString != "" {
 		return fmt.Errorf("exactly one of either --genesis or --did must be specified")
 	}
 
@@ -594,8 +594,8 @@ func runPLCSubmit(cctx *cli.Context) error {
 	}
 	op := enum.AsOperation()
 
-	if op.IsGenesis() != expect_genesis {
-		if expect_genesis {
+	if op.IsGenesis() != expectGenesis {
+		if expectGenesis {
 			return fmt.Errorf("expected genesis operation, but a non-genesis operation was provided")
 		} else {
 			return fmt.Errorf("expected non-genesis operation, but a genesis operation was provided")
@@ -603,7 +603,7 @@ func runPLCSubmit(cctx *cli.Context) error {
 	}
 
 	if op.IsGenesis() {
-		did_string, err = op.DID()
+		didString, err = op.DID()
 		if err != nil {
 			return err
 		}
@@ -618,7 +618,7 @@ func runPLCSubmit(cctx *cli.Context) error {
 		UserAgent:    GOAT_PLC_USER_AGENT,
 	}
 
-	if err = c.Submit(ctx, did_string, op); err != nil {
+	if err = c.Submit(ctx, didString, op); err != nil {
 		return err
 	}
 
