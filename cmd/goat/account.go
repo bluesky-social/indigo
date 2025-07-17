@@ -412,7 +412,7 @@ func runAccountServiceAuthLocal(cctx *cli.Context) error {
 	}
 	privkey, err := crypto.ParsePrivateMultibase(privStr)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed parsing private key: %w", err)
 	}
 
 	issString := cctx.String("iss")
@@ -443,7 +443,7 @@ func runAccountServiceAuthLocal(cctx *cli.Context) error {
 
 	token, err := auth.SignServiceAuth(iss, aud, duration, lxm, privkey)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed signing token: %w", err)
 	}
 
 	fmt.Println(token)
