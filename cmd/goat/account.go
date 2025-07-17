@@ -8,6 +8,8 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/auth"
+	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -89,7 +91,7 @@ var cmdAccount = &cli.Command{
 		},
 		&cli.Command{
 			Name:  "service-auth",
-			Usage: "create service auth token",
+			Usage: "ask the PDS to create a service auth token",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:    "endpoint",
@@ -109,6 +111,40 @@ var cmdAccount = &cli.Command{
 				},
 			},
 			Action: runAccountServiceAuth,
+		},
+		&cli.Command{
+			Name:  "service-auth-local",
+			Usage: "create service auth token via locally-held signing key",
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:     "atproto-signing-key",
+					Required: true,
+					Usage:    "private key used to sign the token (multibase syntax)",
+					EnvVars:  []string{"ATPROTO_SIGNING_KEY"},
+				},
+				&cli.StringFlag{
+					Name:     "iss",
+					Required: true,
+					Usage:    "the DID of the account issuing the token",
+				},
+				&cli.StringFlag{
+					Name:    "endpoint",
+					Aliases: []string{"lxm"},
+					Usage:   "restrict token to API endpoint (NSID, optional)",
+				},
+				&cli.StringFlag{
+					Name:     "audience",
+					Aliases:  []string{"aud"},
+					Required: true,
+					Usage:    "DID of service that will receive and validate token",
+				},
+				&cli.IntFlag{
+					Name:  "duration-sec",
+					Value: 60,
+					Usage: "validity time window of token (seconds)",
+				},
+			},
+			Action: runAccountServiceAuthLocal,
 		},
 		&cli.Command{
 			Name:  "create",
@@ -365,6 +401,52 @@ func runAccountServiceAuth(cctx *cli.Context) error {
 	}
 
 	fmt.Println(resp.Token)
+
+	return nil
+}
+
+func runAccountServiceAuthLocal(cctx *cli.Context) error {
+	privStr := cctx.String("atproto-signing-key")
+	if privStr == "" {
+		return fmt.Errorf("private key must be provided")
+	}
+	privkey, err := crypto.ParsePrivateMultibase(privStr)
+	if err != nil {
+		return err
+	}
+
+	issString := cctx.String("iss")
+	iss, err := syntax.ParseDID(issString)
+	if err != nil {
+		return fmt.Errorf("iss argument must be a valid DID: %w", err)
+	}
+
+	lxmString := cctx.String("endpoint")
+	var lxm *syntax.NSID = nil
+	if lxmString != "" {
+		lxmTmp, err := syntax.ParseNSID(lxmString)
+		if err != nil {
+			return fmt.Errorf("lxm argument must be a valid NSID: %w", err)
+		}
+		lxm = &lxmTmp
+	}
+
+	aud := cctx.String("audience")
+	// TODO: can aud DID have a fragment?
+	_, err = syntax.ParseDID(aud)
+	if err != nil {
+		return fmt.Errorf("aud argument must be a valid DID: %w", err)
+	}
+
+	durSec := cctx.Int("duration-sec")
+	duration := time.Duration(durSec * int(time.Second))
+
+	token, err := auth.SignServiceAuth(iss, aud, duration, lxm, privkey)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(token)
 
 	return nil
 }
