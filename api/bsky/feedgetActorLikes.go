@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedGetActorLikes_Output is the output of a app.bsky.feed.getActorLikes call.
@@ -17,15 +17,18 @@ type FeedGetActorLikes_Output struct {
 }
 
 // FeedGetActorLikes calls the XRPC method "app.bsky.feed.getActorLikes".
-func FeedGetActorLikes(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*FeedGetActorLikes_Output, error) {
+func FeedGetActorLikes(ctx context.Context, c util.LexClient, actor string, cursor string, limit int64) (*FeedGetActorLikes_Output, error) {
 	var out FeedGetActorLikes_Output
 
-	params := map[string]interface{}{
-		"actor":  actor,
-		"cursor": cursor,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	params["actor"] = actor
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getActorLikes", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.getActorLikes", params, nil, &out); err != nil {
 		return nil, err
 	}
 

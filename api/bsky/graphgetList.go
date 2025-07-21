@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphGetList_Output is the output of a app.bsky.graph.getList call.
@@ -20,15 +20,18 @@ type GraphGetList_Output struct {
 // GraphGetList calls the XRPC method "app.bsky.graph.getList".
 //
 // list: Reference (AT-URI) of the list record to hydrate.
-func GraphGetList(ctx context.Context, c *xrpc.Client, cursor string, limit int64, list string) (*GraphGetList_Output, error) {
+func GraphGetList(ctx context.Context, c util.LexClient, cursor string, limit int64, list string) (*GraphGetList_Output, error) {
 	var out GraphGetList_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
-		"list":   list,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.getList", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	params["list"] = list
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.graph.getList", params, nil, &out); err != nil {
 		return nil, err
 	}
 

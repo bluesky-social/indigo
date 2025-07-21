@@ -3,14 +3,17 @@ package main
 import (
 	"reflect"
 
-	"github.com/bluesky-social/indigo/api"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	chat "github.com/bluesky-social/indigo/api/chat"
 	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/label"
+	atrepo "github.com/bluesky-social/indigo/atproto/repo"
+	atmst "github.com/bluesky-social/indigo/atproto/repo/mst"
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/mst"
+	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util/labels"
 
@@ -35,7 +38,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := genCfg.WriteMapEncodersToFile("api/cbor_gen.go", "api", api.CreateOp{}); err != nil {
+	if err := genCfg.WriteMapEncodersToFile("plc/cbor_gen.go", "plc", plc.CreateOp{}); err != nil {
 		panic(err)
 	}
 
@@ -62,6 +65,7 @@ func main() {
 		bsky.FeedThreadgate{},
 		bsky.FeedThreadgate_ListRule{},
 		bsky.FeedThreadgate_MentionRule{},
+		bsky.FeedThreadgate_FollowerRule{},
 		bsky.FeedThreadgate_FollowingRule{},
 		bsky.GraphStarterpack_FeedItem{},
 		bsky.GraphStarterpack{},
@@ -70,6 +74,9 @@ func main() {
 		bsky.EmbedVideo{}, bsky.EmbedVideo_Caption{},
 		bsky.FeedPostgate{},
 		bsky.FeedPostgate_DisableRule{},
+		bsky.GraphVerification{},
+		bsky.ActorStatus{},
+		bsky.NotificationDeclaration{},
 		/*bsky.EmbedImages_View{},
 		bsky.EmbedRecord_View{}, bsky.EmbedRecordWithMedia_View{},
 		bsky.EmbedExternal_View{}, bsky.EmbedImages_ViewImage{},
@@ -88,15 +95,14 @@ func main() {
 	}
 
 	if err := genCfg.WriteMapEncodersToFile("api/atproto/cbor_gen.go", "atproto",
+		atproto.LexiconSchema{},
 		atproto.RepoStrongRef{},
 		atproto.SyncSubscribeRepos_Commit{},
-		atproto.SyncSubscribeRepos_Handle{},
+		atproto.SyncSubscribeRepos_Sync{},
 		atproto.SyncSubscribeRepos_Identity{},
 		atproto.SyncSubscribeRepos_Account{},
 		atproto.SyncSubscribeRepos_Info{},
-		atproto.SyncSubscribeRepos_Migrate{},
 		atproto.SyncSubscribeRepos_RepoOp{},
-		atproto.SyncSubscribeRepos_Tombstone{},
 		atproto.LabelDefs_SelfLabels{},
 		atproto.LabelDefs_SelfLabel{},
 		atproto.LabelDefs_Label{},
@@ -117,6 +123,18 @@ func main() {
 	}
 
 	if err := genCfg.WriteMapEncodersToFile("atproto/data/cbor_gen.go", "data", data.GenericRecord{}, data.LegacyBlobSchema{}, data.BlobSchema{}); err != nil {
+		panic(err)
+	}
+
+	if err := genCfg.WriteMapEncodersToFile("atproto/repo/cbor_gen.go", "repo", atrepo.Commit{}); err != nil {
+		panic(err)
+	}
+
+	if err := genCfg.WriteMapEncodersToFile("atproto/repo/mst/cbor_gen.go", "mst", atmst.NodeData{}, atmst.EntryData{}); err != nil {
+		panic(err)
+	}
+
+	if err := genCfg.WriteMapEncodersToFile("atproto/label/cbor_gen.go", "label", label.Label{}); err != nil {
 		panic(err)
 	}
 }

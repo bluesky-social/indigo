@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,8 +12,9 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/ipfs/go-cid"
@@ -59,6 +61,24 @@ var cmdRepo = &cli.Command{
 			Action:    runRepoInspect,
 		},
 		&cli.Command{
+			Name:      "mst",
+			Usage:     "show repo MST structure",
+			ArgsUsage: `<car-file>`,
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:    "full-cid",
+					Aliases: []string{"f"},
+					Usage:   "display full CIDs",
+				},
+				&cli.StringFlag{
+					Name:    "root",
+					Aliases: []string{"r"},
+					Usage:   "CID of root block",
+				},
+			},
+			Action: runRepoMST,
+		},
+		&cli.Command{
 			Name:      "unpack",
 			Usage:     "extract records from CAR file as directory of JSON files",
 			ArgsUsage: `<car-file>`,
@@ -87,11 +107,16 @@ func runRepoExport(cctx *cli.Context) error {
 
 	// create a new API client to connect to the account's PDS
 	xrpcc := xrpc.Client{
-		Host: ident.PDSEndpoint(),
+		Host:      ident.PDSEndpoint(),
+		UserAgent: userAgent(),
 	}
 	if xrpcc.Host == "" {
 		return fmt.Errorf("no PDS endpoint for identity")
 	}
+
+	// set longer timeout, for large CAR files
+	xrpcc.Client = util.RobustHTTPClient()
+	xrpcc.Client.Timeout = 600 * time.Second
 
 	carPath := cctx.String("output")
 	if carPath == "" {
@@ -99,16 +124,25 @@ func runRepoExport(cctx *cli.Context) error {
 		now := time.Now().Format("20060102150405")
 		carPath = fmt.Sprintf("%s.%s.car", username, now)
 	}
-	// NOTE: there is a race condition, but nice to give a friendly error earlier before downloading
-	if _, err := os.Stat(carPath); err == nil {
-		return fmt.Errorf("file already exists: %s", carPath)
+	output, err := getFileOrStdout(carPath)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("file already exists: %s", carPath)
+		}
+		return err
 	}
-	fmt.Printf("downloading from %s to: %s\n", xrpcc.Host, carPath)
+	defer output.Close()
+	if carPath != stdIOPath {
+		fmt.Printf("downloading from %s to: %s\n", xrpcc.Host, carPath)
+	}
 	repoBytes, err := comatproto.SyncGetRepo(ctx, &xrpcc, ident.DID.String(), "")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(carPath, repoBytes, 0666)
+	if _, err := output.Write(repoBytes); err != nil {
+		return err
+	}
+	return nil
 }
 
 func runRepoImport(cctx *cli.Context) error {
@@ -147,21 +181,21 @@ func runRepoList(cctx *cli.Context) error {
 	}
 	fi, err := os.Open(carPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open CAR file: %w", err)
 	}
 
 	// read repository tree in to memory
-	r, err := repo.ReadRepoFromCar(ctx, fi)
+	_, r, err := repo.LoadRepoFromCAR(ctx, fi)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse repo CAR file: %w", err)
 	}
 
-	err = r.ForEach(ctx, "", func(k string, v cid.Cid) error {
-		fmt.Printf("%s\t%s\n", k, v.String())
+	err = r.MST.Walk(func(k []byte, v cid.Cid) error {
+		fmt.Printf("%s\t%s\n", string(k), v.String())
 		return nil
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read records from repo CAR file: %w", err)
 	}
 	return nil
 }
@@ -178,20 +212,37 @@ func runRepoInspect(cctx *cli.Context) error {
 	}
 
 	// read repository tree in to memory
-	r, err := repo.ReadRepoFromCar(ctx, fi)
+	c, _, err := repo.LoadRepoFromCAR(ctx, fi)
 	if err != nil {
 		return err
 	}
 
-	sc := r.SignedCommit()
-	fmt.Printf("ATProto Repo Spec Version: %d\n", sc.Version)
-	fmt.Printf("DID: %s\n", sc.Did)
-	fmt.Printf("Data CID: %s\n", sc.Data)
-	fmt.Printf("Prev CID: %s\n", sc.Prev)
-	fmt.Printf("Revision: %s\n", sc.Rev)
+	fmt.Printf("ATProto Repo Spec Version: %d\n", c.Version)
+	fmt.Printf("DID: %s\n", c.DID)
+	fmt.Printf("Data CID: %s\n", c.Data)
+	fmt.Printf("Prev CID: %s\n", c.Prev)
+	fmt.Printf("Revision: %s\n", c.Rev)
 	// TODO: Signature?
 
 	return nil
+}
+
+func runRepoMST(cctx *cli.Context) error {
+	ctx := context.Background()
+	opts := repoMSTOptions{
+		carPath: cctx.Args().First(),
+		fullCID: cctx.Bool("full-cid"),
+		root:    cctx.String("root"),
+	}
+	// read from file or stdin
+	if opts.carPath == "" {
+		return fmt.Errorf("need to provide path to CAR file as argument")
+	}
+	inputCAR, err := getFileOrStdin(opts.carPath)
+	if err != nil {
+		return err
+	}
+	return prettyMST(ctx, inputCAR, opts)
 }
 
 func runRepoUnpack(cctx *cli.Context) error {
@@ -205,14 +256,13 @@ func runRepoUnpack(cctx *cli.Context) error {
 		return err
 	}
 
-	r, err := repo.ReadRepoFromCar(ctx, fi)
+	c, r, err := repo.LoadRepoFromCAR(ctx, fi)
 	if err != nil {
 		return err
 	}
 
 	// extract DID from repo commit
-	sc := r.SignedCommit()
-	did, err := syntax.ParseDID(sc.Did)
+	did, err := syntax.ParseDID(c.DID)
 	if err != nil {
 		return err
 	}
@@ -226,7 +276,7 @@ func runRepoUnpack(cctx *cli.Context) error {
 	// first the commit object as a meta file
 	commitPath := topDir + "/_commit.json"
 	os.MkdirAll(filepath.Dir(commitPath), os.ModePerm)
-	commitJSON, err := json.MarshalIndent(sc, "", "  ")
+	commitJSON, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -235,20 +285,24 @@ func runRepoUnpack(cctx *cli.Context) error {
 	}
 
 	// then all the actual records
-	err = r.ForEach(ctx, "", func(k string, v cid.Cid) error {
-		_, recBytes, err := r.GetRecordBytes(ctx, k)
+	err = r.MST.Walk(func(k []byte, v cid.Cid) error {
+		col, rkey, err := syntax.ParseRepoPath(string(k))
+		if err != nil {
+			return err
+		}
+		recBytes, _, err := r.GetRecordBytes(ctx, col, rkey)
 		if err != nil {
 			return err
 		}
 
-		rec, err := data.UnmarshalCBOR(*recBytes)
+		rec, err := data.UnmarshalCBOR(recBytes)
 		if err != nil {
 			return err
 		}
 
-		recPath := topDir + "/" + k
+		recPath := topDir + "/" + string(k)
 		fmt.Printf("%s.json\n", recPath)
-		os.MkdirAll(filepath.Dir(recPath), os.ModePerm)
+		err = os.MkdirAll(filepath.Dir(recPath), os.ModePerm)
 		if err != nil {
 			return err
 		}

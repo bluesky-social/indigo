@@ -8,11 +8,15 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
+
+	"github.com/carlmjohnson/versioninfo"
 )
 
-// API for doing account lookups by DID or handle, with bi-directional verification handled automatically. Almost all atproto services and clients should use an implementation of this interface instead of resolving handles or DIDs separately
+// Ergonomic interface for atproto identity lookup, by DID or handle.
 //
-// Handles which fail to resolve, or don't match DID alsoKnownAs, are an error. DIDs which resolve but the handle does not resolve back to the DID return an Identity where the Handle is the special `handle.invalid` value.
+// The "Lookup" methods resolve identities (handle and DID), and return results in a compact, opinionated struct (`Identity`). They do bi-directional handle/DID verification by default. Clients and services should use these methods by default, instead of resolving handles or DIDs separately.
+//
+// Looking up a handle which fails to resolve, or don't match DID alsoKnownAs, returns an error. When looking up a DID, if the handle does not resolve back to the DID, the lookup succeeds and returns an `Identity` where the Handle is the special `handle.invalid` value.
 //
 // Some example implementations of this interface could be:
 //   - basic direct resolution on every call
@@ -20,12 +24,12 @@ import (
 //   - API client, which just makes requests to PDS (or other remote service)
 //   - client for shared network cache (eg, Redis)
 type Directory interface {
-	LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error)
-	LookupDID(ctx context.Context, d syntax.DID) (*Identity, error)
-	Lookup(ctx context.Context, i syntax.AtIdentifier) (*Identity, error)
+	LookupHandle(ctx context.Context, handle syntax.Handle) (*Identity, error)
+	LookupDID(ctx context.Context, did syntax.DID) (*Identity, error)
+	Lookup(ctx context.Context, atid syntax.AtIdentifier) (*Identity, error)
 
 	// Flushes any cache of the indicated identifier. If directory is not using caching, can ignore this.
-	Purge(ctx context.Context, i syntax.AtIdentifier) error
+	Purge(ctx context.Context, atid syntax.AtIdentifier) error
 }
 
 // Indicates that handle resolution failed. A wrapped error may provide more context. This is only returned when looking up a handle, not when looking up a DID.
@@ -52,6 +56,9 @@ var ErrDIDResolutionFailed = errors.New("DID resolution failed")
 // Indicates that DID document did not include a public key with the specified ID
 var ErrKeyNotDeclared = errors.New("DID document did not declare a relevant public key")
 
+// Handle was invalid, in a situation where a valid handle is required.
+var ErrInvalidHandle = errors.New("invalid handle")
+
 var DefaultPLCURL = "https://plc.directory"
 
 // Returns a reasonable Directory implementation for applications
@@ -75,6 +82,7 @@ func DefaultDirectory() Directory {
 		TryAuthoritativeDNS: true,
 		// primary Bluesky PDS instance only supports HTTP resolution method
 		SkipDNSDomainSuffixes: []string{".bsky.social"},
+		UserAgent:             "indigo-identity/" + versioninfo.Short(),
 	}
 	cached := NewCacheDirectory(&base, 250_000, time.Hour*24, time.Minute*2, time.Minute*5)
 	return &cached

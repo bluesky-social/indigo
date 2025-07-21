@@ -10,7 +10,6 @@ import (
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
@@ -56,14 +55,13 @@ func testIndexer(t *testing.T) *testIx {
 	}
 
 	repoman := repomgr.NewRepoManager(cs, &util.FakeKeyManager{})
-	notifman := notifs.NewNotificationManager(maindb, repoman.GetRecord)
 	evtman := events.NewEventManager(events.NewMemPersister())
 
 	didr := testPLC(t)
 
 	rf := NewRepoFetcher(maindb, repoman, 10)
 
-	ix, err := NewIndexer(maindb, notifman, evtman, didr, rf, false, true, true)
+	ix, err := NewIndexer(maindb, evtman, didr, rf, false)
 	if err != nil {
 		t.Fatal(err)
 	}

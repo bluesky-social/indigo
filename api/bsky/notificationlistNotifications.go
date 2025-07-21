@@ -9,7 +9,6 @@ import (
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // NotificationListNotifications_Notification is a "notification" in the app.bsky.notification.listNotifications schema.
@@ -19,7 +18,7 @@ type NotificationListNotifications_Notification struct {
 	IndexedAt string                             `json:"indexedAt" cborgen:"indexedAt"`
 	IsRead    bool                               `json:"isRead" cborgen:"isRead"`
 	Labels    []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	// reason: Expected values are 'like', 'repost', 'follow', 'mention', 'reply', 'quote', and 'starterpack-joined'.
+	// reason: The reason why this notification was delivered - e.g. your post was liked, or you received a new follower.
 	Reason        string                   `json:"reason" cborgen:"reason"`
 	ReasonSubject *string                  `json:"reasonSubject,omitempty" cborgen:"reasonSubject,omitempty"`
 	Record        *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
@@ -35,16 +34,28 @@ type NotificationListNotifications_Output struct {
 }
 
 // NotificationListNotifications calls the XRPC method "app.bsky.notification.listNotifications".
-func NotificationListNotifications(ctx context.Context, c *xrpc.Client, cursor string, limit int64, priority bool, seenAt string) (*NotificationListNotifications_Output, error) {
+//
+// reasons: Notification reasons to include in response.
+func NotificationListNotifications(ctx context.Context, c util.LexClient, cursor string, limit int64, priority bool, reasons []string, seenAt string) (*NotificationListNotifications_Output, error) {
 	var out NotificationListNotifications_Output
 
-	params := map[string]interface{}{
-		"cursor":   cursor,
-		"limit":    limit,
-		"priority": priority,
-		"seenAt":   seenAt,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.notification.listNotifications", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if priority {
+		params["priority"] = priority
+	}
+	if len(reasons) != 0 {
+		params["reasons"] = reasons
+	}
+	if seenAt != "" {
+		params["seenAt"] = seenAt
+	}
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.notification.listNotifications", params, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedSearchPosts_Output is the output of a app.bsky.feed.searchPosts call.
@@ -31,24 +31,45 @@ type FeedSearchPosts_Output struct {
 // tag: Filter to posts with the given tag (hashtag), based on rich-text facet or tag field. Do not include the hash (#) prefix. Multiple tags can be specified, with 'AND' matching.
 // until: Filter results for posts before the indicated datetime (not inclusive). Expected to use 'sortAt' timestamp, which may not match 'createdAt'. Can be a datetime, or just an ISO date (YYY-MM-DD).
 // url: Filter to posts with links (facet links or embeds) pointing to this URL. Server may apply URL normalization or fuzzy matching.
-func FeedSearchPosts(ctx context.Context, c *xrpc.Client, author string, cursor string, domain string, lang string, limit int64, mentions string, q string, since string, sort string, tag []string, until string, url string) (*FeedSearchPosts_Output, error) {
+func FeedSearchPosts(ctx context.Context, c util.LexClient, author string, cursor string, domain string, lang string, limit int64, mentions string, q string, since string, sort string, tag []string, until string, url string) (*FeedSearchPosts_Output, error) {
 	var out FeedSearchPosts_Output
 
-	params := map[string]interface{}{
-		"author":   author,
-		"cursor":   cursor,
-		"domain":   domain,
-		"lang":     lang,
-		"limit":    limit,
-		"mentions": mentions,
-		"q":        q,
-		"since":    since,
-		"sort":     sort,
-		"tag":      tag,
-		"until":    until,
-		"url":      url,
+	params := map[string]interface{}{}
+	if author != "" {
+		params["author"] = author
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.searchPosts", params, nil, &out); err != nil {
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if domain != "" {
+		params["domain"] = domain
+	}
+	if lang != "" {
+		params["lang"] = lang
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if mentions != "" {
+		params["mentions"] = mentions
+	}
+	params["q"] = q
+	if since != "" {
+		params["since"] = since
+	}
+	if sort != "" {
+		params["sort"] = sort
+	}
+	if len(tag) != 0 {
+		params["tag"] = tag
+	}
+	if until != "" {
+		params["until"] = until
+	}
+	if url != "" {
+		params["url"] = url
+	}
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.searchPosts", params, nil, &out); err != nil {
 		return nil, err
 	}
 

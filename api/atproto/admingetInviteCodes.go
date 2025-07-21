@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // AdminGetInviteCodes_Output is the output of a com.atproto.admin.getInviteCodes call.
@@ -17,15 +17,20 @@ type AdminGetInviteCodes_Output struct {
 }
 
 // AdminGetInviteCodes calls the XRPC method "com.atproto.admin.getInviteCodes".
-func AdminGetInviteCodes(ctx context.Context, c *xrpc.Client, cursor string, limit int64, sort string) (*AdminGetInviteCodes_Output, error) {
+func AdminGetInviteCodes(ctx context.Context, c util.LexClient, cursor string, limit int64, sort string) (*AdminGetInviteCodes_Output, error) {
 	var out AdminGetInviteCodes_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
-		"sort":   sort,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.getInviteCodes", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if sort != "" {
+		params["sort"] = sort
+	}
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.admin.getInviteCodes", params, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -91,22 +91,6 @@ type OzoneEvent struct {
 	Event toolsozone.ModerationDefs_ModEventView_Event
 }
 
-// Originally intended for push notifications, but can also work for any inter-account notification.
-type NotificationContext struct {
-	AccountContext
-
-	Recipient    AccountMeta
-	Notification NotificationMeta
-}
-
-// Additional notification metadata, with fields aligning with the `app.bsky.notification.listNotifications` Lexicon schemas
-type NotificationMeta struct {
-	// Expected values are 'like', 'repost', 'follow', 'mention', 'reply', and 'quote'; arbitrary values may be added in the future.
-	Reason string
-	// The content (atproto record) which was the cause of this notification. Could be a post with a mention, or a like, follow, or repost record.
-	Subject syntax.ATURI
-}
-
 // Checks that op has expected fields, based on the action type
 func (op *RecordOp) Validate() error {
 	switch op.Action {
@@ -198,19 +182,6 @@ func NewRecordContext(ctx context.Context, eng *Engine, meta AccountMeta, op Rec
 	}
 }
 
-func NewNotificationContext(ctx context.Context, eng *Engine, sender, recipient AccountMeta, reason string, subject syntax.ATURI) NotificationContext {
-	ac := NewAccountContext(ctx, eng, sender)
-	ac.BaseContext.Logger = ac.BaseContext.Logger.With("recipient", recipient.Identity.DID, "reason", reason, "subject", subject.String())
-	return NotificationContext{
-		AccountContext: ac,
-		Recipient:      recipient,
-		Notification: NotificationMeta{
-			Reason:  reason,
-			Subject: subject,
-		},
-	}
-}
-
 // fetch relationship metadata between this account and another account
 func (c *AccountContext) GetAccountRelationship(other syntax.DID) AccountRelationship {
 	rel, err := c.engine.GetAccountRelationship(c.Ctx, c.Account.Identity.DID, other)
@@ -271,6 +242,10 @@ func (c *AccountContext) AddAccountLabel(val string) {
 	c.effects.AddAccountLabel(val)
 }
 
+func (c *AccountContext) RemoveAccountLabel(val string) {
+	c.effects.RemoveAccountLabel(val)
+}
+
 func (c *AccountContext) AddAccountTag(val string) {
 	c.effects.AddAccountTag(val)
 }
@@ -299,6 +274,10 @@ func (c *RecordContext) AddRecordLabel(val string) {
 	c.effects.AddRecordLabel(val)
 }
 
+func (c *RecordContext) RemoveRecordLabel(val string) {
+	c.effects.RemoveRecordLabel(val)
+}
+
 func (c *RecordContext) AddRecordTag(val string) {
 	c.effects.AddRecordTag(val)
 }
@@ -311,10 +290,14 @@ func (c *RecordContext) TakedownRecord() {
 	c.effects.TakedownRecord()
 }
 
-func (c *RecordContext) TakedownBlob(cid string) {
-	c.effects.TakedownBlob(cid)
+func (c *RecordContext) EscalateRecord() {
+	c.effects.EscalateRecord()
 }
 
-func (c *NotificationContext) Reject() {
-	c.effects.Reject()
+func (c *RecordContext) AcknowledgeRecord() {
+	c.effects.AcknowledgeRecord()
+}
+
+func (c *RecordContext) TakedownBlob(cid string) {
+	c.effects.TakedownBlob(cid)
 }

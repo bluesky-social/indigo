@@ -7,20 +7,22 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // NotificationRegisterPush_Input is the input argument to a app.bsky.notification.registerPush call.
 type NotificationRegisterPush_Input struct {
-	AppId      string `json:"appId" cborgen:"appId"`
-	Platform   string `json:"platform" cborgen:"platform"`
-	ServiceDid string `json:"serviceDid" cborgen:"serviceDid"`
-	Token      string `json:"token" cborgen:"token"`
+	// ageRestricted: Set to true when the actor is age restricted
+	AgeRestricted *bool  `json:"ageRestricted,omitempty" cborgen:"ageRestricted,omitempty"`
+	AppId         string `json:"appId" cborgen:"appId"`
+	Platform      string `json:"platform" cborgen:"platform"`
+	ServiceDid    string `json:"serviceDid" cborgen:"serviceDid"`
+	Token         string `json:"token" cborgen:"token"`
 }
 
 // NotificationRegisterPush calls the XRPC method "app.bsky.notification.registerPush".
-func NotificationRegisterPush(ctx context.Context, c *xrpc.Client, input *NotificationRegisterPush_Input) error {
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "app.bsky.notification.registerPush", nil, input, nil); err != nil {
+func NotificationRegisterPush(ctx context.Context, c util.LexClient, input *NotificationRegisterPush_Input) error {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "app.bsky.notification.registerPush", nil, input, nil); err != nil {
 		return err
 	}
 

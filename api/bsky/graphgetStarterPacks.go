@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphGetStarterPacks_Output is the output of a app.bsky.graph.getStarterPacks call.
@@ -16,13 +16,12 @@ type GraphGetStarterPacks_Output struct {
 }
 
 // GraphGetStarterPacks calls the XRPC method "app.bsky.graph.getStarterPacks".
-func GraphGetStarterPacks(ctx context.Context, c *xrpc.Client, uris []string) (*GraphGetStarterPacks_Output, error) {
+func GraphGetStarterPacks(ctx context.Context, c util.LexClient, uris []string) (*GraphGetStarterPacks_Output, error) {
 	var out GraphGetStarterPacks_Output
 
-	params := map[string]interface{}{
-		"uris": uris,
-	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.getStarterPacks", params, nil, &out); err != nil {
+	params := map[string]interface{}{}
+	params["uris"] = uris
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.graph.getStarterPacks", params, nil, &out); err != nil {
 		return nil, err
 	}
 

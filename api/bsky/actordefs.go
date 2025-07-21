@@ -155,19 +155,112 @@ type ActorDefs_PersonalDetailsPref struct {
 	BirthDate *string `json:"birthDate,omitempty" cborgen:"birthDate,omitempty"`
 }
 
+// ActorDefs_PostInteractionSettingsPref is a "postInteractionSettingsPref" in the app.bsky.actor.defs schema.
+//
+// Default post interaction settings for the account. These values should be applied as default values when creating new posts. These refs should mirror the threadgate and postgate records exactly.
+//
+// RECORDTYPE: ActorDefs_PostInteractionSettingsPref
+type ActorDefs_PostInteractionSettingsPref struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#postInteractionSettingsPref" cborgen:"$type,const=app.bsky.actor.defs#postInteractionSettingsPref"`
+	// postgateEmbeddingRules: Matches postgate record. List of rules defining who can embed this users posts. If value is an empty array or is undefined, no particular rules apply and anyone can embed.
+	PostgateEmbeddingRules []*ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem `json:"postgateEmbeddingRules,omitempty" cborgen:"postgateEmbeddingRules,omitempty"`
+	// threadgateAllowRules: Matches threadgate record. List of rules defining who can reply to this users posts. If value is an empty array, no one can reply. If value is undefined, anyone can reply.
+	ThreadgateAllowRules []*ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem `json:"threadgateAllowRules,omitempty" cborgen:"threadgateAllowRules,omitempty"`
+}
+
+type ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem struct {
+	FeedPostgate_DisableRule *FeedPostgate_DisableRule
+}
+
+func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) MarshalJSON() ([]byte, error) {
+	if t.FeedPostgate_DisableRule != nil {
+		t.FeedPostgate_DisableRule.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
+		return json.Marshal(t.FeedPostgate_DisableRule)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "app.bsky.feed.postgate#disableRule":
+		t.FeedPostgate_DisableRule = new(FeedPostgate_DisableRule)
+		return json.Unmarshal(b, t.FeedPostgate_DisableRule)
+
+	default:
+		return nil
+	}
+}
+
+type ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem struct {
+	FeedThreadgate_MentionRule   *FeedThreadgate_MentionRule
+	FeedThreadgate_FollowerRule  *FeedThreadgate_FollowerRule
+	FeedThreadgate_FollowingRule *FeedThreadgate_FollowingRule
+	FeedThreadgate_ListRule      *FeedThreadgate_ListRule
+}
+
+func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) MarshalJSON() ([]byte, error) {
+	if t.FeedThreadgate_MentionRule != nil {
+		t.FeedThreadgate_MentionRule.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
+		return json.Marshal(t.FeedThreadgate_MentionRule)
+	}
+	if t.FeedThreadgate_FollowerRule != nil {
+		t.FeedThreadgate_FollowerRule.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
+		return json.Marshal(t.FeedThreadgate_FollowerRule)
+	}
+	if t.FeedThreadgate_FollowingRule != nil {
+		t.FeedThreadgate_FollowingRule.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
+		return json.Marshal(t.FeedThreadgate_FollowingRule)
+	}
+	if t.FeedThreadgate_ListRule != nil {
+		t.FeedThreadgate_ListRule.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
+		return json.Marshal(t.FeedThreadgate_ListRule)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "app.bsky.feed.threadgate#mentionRule":
+		t.FeedThreadgate_MentionRule = new(FeedThreadgate_MentionRule)
+		return json.Unmarshal(b, t.FeedThreadgate_MentionRule)
+	case "app.bsky.feed.threadgate#followerRule":
+		t.FeedThreadgate_FollowerRule = new(FeedThreadgate_FollowerRule)
+		return json.Unmarshal(b, t.FeedThreadgate_FollowerRule)
+	case "app.bsky.feed.threadgate#followingRule":
+		t.FeedThreadgate_FollowingRule = new(FeedThreadgate_FollowingRule)
+		return json.Unmarshal(b, t.FeedThreadgate_FollowingRule)
+	case "app.bsky.feed.threadgate#listRule":
+		t.FeedThreadgate_ListRule = new(FeedThreadgate_ListRule)
+		return json.Unmarshal(b, t.FeedThreadgate_ListRule)
+
+	default:
+		return nil
+	}
+}
+
 type ActorDefs_Preferences_Elem struct {
-	ActorDefs_AdultContentPref    *ActorDefs_AdultContentPref
-	ActorDefs_ContentLabelPref    *ActorDefs_ContentLabelPref
-	ActorDefs_SavedFeedsPref      *ActorDefs_SavedFeedsPref
-	ActorDefs_SavedFeedsPrefV2    *ActorDefs_SavedFeedsPrefV2
-	ActorDefs_PersonalDetailsPref *ActorDefs_PersonalDetailsPref
-	ActorDefs_FeedViewPref        *ActorDefs_FeedViewPref
-	ActorDefs_ThreadViewPref      *ActorDefs_ThreadViewPref
-	ActorDefs_InterestsPref       *ActorDefs_InterestsPref
-	ActorDefs_MutedWordsPref      *ActorDefs_MutedWordsPref
-	ActorDefs_HiddenPostsPref     *ActorDefs_HiddenPostsPref
-	ActorDefs_BskyAppStatePref    *ActorDefs_BskyAppStatePref
-	ActorDefs_LabelersPref        *ActorDefs_LabelersPref
+	ActorDefs_AdultContentPref            *ActorDefs_AdultContentPref
+	ActorDefs_ContentLabelPref            *ActorDefs_ContentLabelPref
+	ActorDefs_SavedFeedsPref              *ActorDefs_SavedFeedsPref
+	ActorDefs_SavedFeedsPrefV2            *ActorDefs_SavedFeedsPrefV2
+	ActorDefs_PersonalDetailsPref         *ActorDefs_PersonalDetailsPref
+	ActorDefs_FeedViewPref                *ActorDefs_FeedViewPref
+	ActorDefs_ThreadViewPref              *ActorDefs_ThreadViewPref
+	ActorDefs_InterestsPref               *ActorDefs_InterestsPref
+	ActorDefs_MutedWordsPref              *ActorDefs_MutedWordsPref
+	ActorDefs_HiddenPostsPref             *ActorDefs_HiddenPostsPref
+	ActorDefs_BskyAppStatePref            *ActorDefs_BskyAppStatePref
+	ActorDefs_LabelersPref                *ActorDefs_LabelersPref
+	ActorDefs_PostInteractionSettingsPref *ActorDefs_PostInteractionSettingsPref
+	ActorDefs_VerificationPrefs           *ActorDefs_VerificationPrefs
 }
 
 func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
@@ -219,6 +312,14 @@ func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
 		t.ActorDefs_LabelersPref.LexiconTypeID = "app.bsky.actor.defs#labelersPref"
 		return json.Marshal(t.ActorDefs_LabelersPref)
 	}
+	if t.ActorDefs_PostInteractionSettingsPref != nil {
+		t.ActorDefs_PostInteractionSettingsPref.LexiconTypeID = "app.bsky.actor.defs#postInteractionSettingsPref"
+		return json.Marshal(t.ActorDefs_PostInteractionSettingsPref)
+	}
+	if t.ActorDefs_VerificationPrefs != nil {
+		t.ActorDefs_VerificationPrefs.LexiconTypeID = "app.bsky.actor.defs#verificationPrefs"
+		return json.Marshal(t.ActorDefs_VerificationPrefs)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
@@ -264,6 +365,12 @@ func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.actor.defs#labelersPref":
 		t.ActorDefs_LabelersPref = new(ActorDefs_LabelersPref)
 		return json.Unmarshal(b, t.ActorDefs_LabelersPref)
+	case "app.bsky.actor.defs#postInteractionSettingsPref":
+		t.ActorDefs_PostInteractionSettingsPref = new(ActorDefs_PostInteractionSettingsPref)
+		return json.Unmarshal(b, t.ActorDefs_PostInteractionSettingsPref)
+	case "app.bsky.actor.defs#verificationPrefs":
+		t.ActorDefs_VerificationPrefs = new(ActorDefs_VerificationPrefs)
+		return json.Unmarshal(b, t.ActorDefs_VerificationPrefs)
 
 	default:
 		return nil
@@ -272,11 +379,17 @@ func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
 
 // ActorDefs_ProfileAssociated is a "profileAssociated" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileAssociated struct {
-	Chat         *ActorDefs_ProfileAssociatedChat `json:"chat,omitempty" cborgen:"chat,omitempty"`
-	Feedgens     *int64                           `json:"feedgens,omitempty" cborgen:"feedgens,omitempty"`
-	Labeler      *bool                            `json:"labeler,omitempty" cborgen:"labeler,omitempty"`
-	Lists        *int64                           `json:"lists,omitempty" cborgen:"lists,omitempty"`
-	StarterPacks *int64                           `json:"starterPacks,omitempty" cborgen:"starterPacks,omitempty"`
+	ActivitySubscription *ActorDefs_ProfileAssociatedActivitySubscription `json:"activitySubscription,omitempty" cborgen:"activitySubscription,omitempty"`
+	Chat                 *ActorDefs_ProfileAssociatedChat                 `json:"chat,omitempty" cborgen:"chat,omitempty"`
+	Feedgens             *int64                                           `json:"feedgens,omitempty" cborgen:"feedgens,omitempty"`
+	Labeler              *bool                                            `json:"labeler,omitempty" cborgen:"labeler,omitempty"`
+	Lists                *int64                                           `json:"lists,omitempty" cborgen:"lists,omitempty"`
+	StarterPacks         *int64                                           `json:"starterPacks,omitempty" cborgen:"starterPacks,omitempty"`
+}
+
+// ActorDefs_ProfileAssociatedActivitySubscription is a "profileAssociatedActivitySubscription" in the app.bsky.actor.defs schema.
+type ActorDefs_ProfileAssociatedActivitySubscription struct {
+	AllowSubscriptions string `json:"allowSubscriptions" cborgen:"allowSubscriptions"`
 }
 
 // ActorDefs_ProfileAssociatedChat is a "profileAssociatedChat" in the app.bsky.actor.defs schema.
@@ -286,28 +399,32 @@ type ActorDefs_ProfileAssociatedChat struct {
 
 // ActorDefs_ProfileView is a "profileView" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileView struct {
-	Associated  *ActorDefs_ProfileAssociated       `json:"associated,omitempty" cborgen:"associated,omitempty"`
-	Avatar      *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	CreatedAt   *string                            `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
-	Description *string                            `json:"description,omitempty" cborgen:"description,omitempty"`
-	Did         string                             `json:"did" cborgen:"did"`
-	DisplayName *string                            `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
-	Handle      string                             `json:"handle" cborgen:"handle"`
-	IndexedAt   *string                            `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
-	Labels      []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	Viewer      *ActorDefs_ViewerState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	Associated   *ActorDefs_ProfileAssociated       `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Avatar       *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	CreatedAt    *string                            `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	Description  *string                            `json:"description,omitempty" cborgen:"description,omitempty"`
+	Did          string                             `json:"did" cborgen:"did"`
+	DisplayName  *string                            `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
+	Handle       string                             `json:"handle" cborgen:"handle"`
+	IndexedAt    *string                            `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
+	Labels       []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Status       *ActorDefs_StatusView              `json:"status,omitempty" cborgen:"status,omitempty"`
+	Verification *ActorDefs_VerificationState       `json:"verification,omitempty" cborgen:"verification,omitempty"`
+	Viewer       *ActorDefs_ViewerState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 // ActorDefs_ProfileViewBasic is a "profileViewBasic" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileViewBasic struct {
-	Associated  *ActorDefs_ProfileAssociated       `json:"associated,omitempty" cborgen:"associated,omitempty"`
-	Avatar      *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	CreatedAt   *string                            `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
-	Did         string                             `json:"did" cborgen:"did"`
-	DisplayName *string                            `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
-	Handle      string                             `json:"handle" cborgen:"handle"`
-	Labels      []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	Viewer      *ActorDefs_ViewerState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	Associated   *ActorDefs_ProfileAssociated       `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Avatar       *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	CreatedAt    *string                            `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	Did          string                             `json:"did" cborgen:"did"`
+	DisplayName  *string                            `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
+	Handle       string                             `json:"handle" cborgen:"handle"`
+	Labels       []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Status       *ActorDefs_StatusView              `json:"status,omitempty" cborgen:"status,omitempty"`
+	Verification *ActorDefs_VerificationState       `json:"verification,omitempty" cborgen:"verification,omitempty"`
+	Viewer       *ActorDefs_ViewerState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 // ActorDefs_ProfileViewDetailed is a "profileViewDetailed" in the app.bsky.actor.defs schema.
@@ -327,6 +444,8 @@ type ActorDefs_ProfileViewDetailed struct {
 	Labels               []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	PinnedPost           *comatprototypes.RepoStrongRef     `json:"pinnedPost,omitempty" cborgen:"pinnedPost,omitempty"`
 	PostsCount           *int64                             `json:"postsCount,omitempty" cborgen:"postsCount,omitempty"`
+	Status               *ActorDefs_StatusView              `json:"status,omitempty" cborgen:"status,omitempty"`
+	Verification         *ActorDefs_VerificationState       `json:"verification,omitempty" cborgen:"verification,omitempty"`
 	Viewer               *ActorDefs_ViewerState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
@@ -356,6 +475,47 @@ type ActorDefs_SavedFeedsPrefV2 struct {
 	Items         []*ActorDefs_SavedFeed `json:"items" cborgen:"items"`
 }
 
+// ActorDefs_StatusView is a "statusView" in the app.bsky.actor.defs schema.
+type ActorDefs_StatusView struct {
+	// embed: An optional embed associated with the status.
+	Embed *ActorDefs_StatusView_Embed `json:"embed,omitempty" cborgen:"embed,omitempty"`
+	// expiresAt: The date when this status will expire. The application might choose to no longer return the status after expiration.
+	ExpiresAt *string `json:"expiresAt,omitempty" cborgen:"expiresAt,omitempty"`
+	// isActive: True if the status is not expired, false if it is expired. Only present if expiration was set.
+	IsActive *bool                    `json:"isActive,omitempty" cborgen:"isActive,omitempty"`
+	Record   *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	// status: The status for the account.
+	Status string `json:"status" cborgen:"status"`
+}
+
+// An optional embed associated with the status.
+type ActorDefs_StatusView_Embed struct {
+	EmbedExternal_View *EmbedExternal_View
+}
+
+func (t *ActorDefs_StatusView_Embed) MarshalJSON() ([]byte, error) {
+	if t.EmbedExternal_View != nil {
+		t.EmbedExternal_View.LexiconTypeID = "app.bsky.embed.external#view"
+		return json.Marshal(t.EmbedExternal_View)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *ActorDefs_StatusView_Embed) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "app.bsky.embed.external#view":
+		t.EmbedExternal_View = new(EmbedExternal_View)
+		return json.Unmarshal(b, t.EmbedExternal_View)
+
+	default:
+		return nil
+	}
+}
+
 // ActorDefs_ThreadViewPref is a "threadViewPref" in the app.bsky.actor.defs schema.
 //
 // RECORDTYPE: ActorDefs_ThreadViewPref
@@ -367,15 +527,55 @@ type ActorDefs_ThreadViewPref struct {
 	Sort *string `json:"sort,omitempty" cborgen:"sort,omitempty"`
 }
 
+// ActorDefs_VerificationPrefs is a "verificationPrefs" in the app.bsky.actor.defs schema.
+//
+// Preferences for how verified accounts appear in the app.
+//
+// RECORDTYPE: ActorDefs_VerificationPrefs
+type ActorDefs_VerificationPrefs struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#verificationPrefs" cborgen:"$type,const=app.bsky.actor.defs#verificationPrefs"`
+	// hideBadges: Hide the blue check badges for verified accounts and trusted verifiers.
+	HideBadges *bool `json:"hideBadges,omitempty" cborgen:"hideBadges,omitempty"`
+}
+
+// ActorDefs_VerificationState is a "verificationState" in the app.bsky.actor.defs schema.
+//
+// Represents the verification information about the user this object is attached to.
+type ActorDefs_VerificationState struct {
+	// trustedVerifierStatus: The user's status as a trusted verifier.
+	TrustedVerifierStatus string `json:"trustedVerifierStatus" cborgen:"trustedVerifierStatus"`
+	// verifications: All verifications issued by trusted verifiers on behalf of this user. Verifications by untrusted verifiers are not included.
+	Verifications []*ActorDefs_VerificationView `json:"verifications" cborgen:"verifications"`
+	// verifiedStatus: The user's status as a verified account.
+	VerifiedStatus string `json:"verifiedStatus" cborgen:"verifiedStatus"`
+}
+
+// ActorDefs_VerificationView is a "verificationView" in the app.bsky.actor.defs schema.
+//
+// An individual verification for an associated subject.
+type ActorDefs_VerificationView struct {
+	// createdAt: Timestamp when the verification was created.
+	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
+	// isValid: True if the verification passes validation, otherwise false.
+	IsValid bool `json:"isValid" cborgen:"isValid"`
+	// issuer: The user who issued this verification.
+	Issuer string `json:"issuer" cborgen:"issuer"`
+	// uri: The AT-URI of the verification record.
+	Uri string `json:"uri" cborgen:"uri"`
+}
+
 // ActorDefs_ViewerState is a "viewerState" in the app.bsky.actor.defs schema.
 //
 // Metadata about the requesting account's relationship with the subject account. Only has meaningful content for authed requests.
 type ActorDefs_ViewerState struct {
-	BlockedBy      *bool                     `json:"blockedBy,omitempty" cborgen:"blockedBy,omitempty"`
-	Blocking       *string                   `json:"blocking,omitempty" cborgen:"blocking,omitempty"`
-	BlockingByList *GraphDefs_ListViewBasic  `json:"blockingByList,omitempty" cborgen:"blockingByList,omitempty"`
-	FollowedBy     *string                   `json:"followedBy,omitempty" cborgen:"followedBy,omitempty"`
-	Following      *string                   `json:"following,omitempty" cborgen:"following,omitempty"`
+	// activitySubscription: This property is present only in selected cases, as an optimization.
+	ActivitySubscription *NotificationDefs_ActivitySubscription `json:"activitySubscription,omitempty" cborgen:"activitySubscription,omitempty"`
+	BlockedBy            *bool                                  `json:"blockedBy,omitempty" cborgen:"blockedBy,omitempty"`
+	Blocking             *string                                `json:"blocking,omitempty" cborgen:"blocking,omitempty"`
+	BlockingByList       *GraphDefs_ListViewBasic               `json:"blockingByList,omitempty" cborgen:"blockingByList,omitempty"`
+	FollowedBy           *string                                `json:"followedBy,omitempty" cborgen:"followedBy,omitempty"`
+	Following            *string                                `json:"following,omitempty" cborgen:"following,omitempty"`
+	// knownFollowers: This property is present only in selected cases, as an optimization.
 	KnownFollowers *ActorDefs_KnownFollowers `json:"knownFollowers,omitempty" cborgen:"knownFollowers,omitempty"`
 	Muted          *bool                     `json:"muted,omitempty" cborgen:"muted,omitempty"`
 	MutedByList    *GraphDefs_ListViewBasic  `json:"mutedByList,omitempty" cborgen:"mutedByList,omitempty"`

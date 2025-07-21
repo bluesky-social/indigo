@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // NotificationGetUnreadCount_Output is the output of a app.bsky.notification.getUnreadCount call.
@@ -16,14 +16,17 @@ type NotificationGetUnreadCount_Output struct {
 }
 
 // NotificationGetUnreadCount calls the XRPC method "app.bsky.notification.getUnreadCount".
-func NotificationGetUnreadCount(ctx context.Context, c *xrpc.Client, priority bool, seenAt string) (*NotificationGetUnreadCount_Output, error) {
+func NotificationGetUnreadCount(ctx context.Context, c util.LexClient, priority bool, seenAt string) (*NotificationGetUnreadCount_Output, error) {
 	var out NotificationGetUnreadCount_Output
 
-	params := map[string]interface{}{
-		"priority": priority,
-		"seenAt":   seenAt,
+	params := map[string]interface{}{}
+	if priority {
+		params["priority"] = priority
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.notification.getUnreadCount", params, nil, &out); err != nil {
+	if seenAt != "" {
+		params["seenAt"] = seenAt
+	}
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.notification.getUnreadCount", params, nil, &out); err != nil {
 		return nil, err
 	}
 

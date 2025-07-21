@@ -363,7 +363,7 @@ func (s *Slurper) canSlurpHost(host string) bool {
 	return !s.newSubsDisabled
 }
 
-func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adminOverride bool) error {
+func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adminOverride bool, rateOverrides *PDSRates) error {
 	// TODO: for performance, lock on the hostname instead of global
 	s.lk.Lock()
 	defer s.lk.Unlock()
@@ -396,6 +396,13 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adm
 			DailyEventLimit:  s.DefaultPerDayLimit,
 			CrawlRateLimit:   float64(s.DefaultCrawlLimit),
 			RepoLimit:        s.DefaultRepoLimit,
+		}
+		if rateOverrides != nil {
+			npds.RateLimit = float64(rateOverrides.PerSecond)
+			npds.HourlyEventLimit = rateOverrides.PerHour
+			npds.DailyEventLimit = rateOverrides.PerDay
+			npds.CrawlRateLimit = float64(rateOverrides.CrawlRate)
+			npds.RepoLimit = rateOverrides.RepoLimit
 		}
 		if err := s.db.Create(&npds).Error; err != nil {
 			return err
@@ -562,40 +569,10 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 
 			return nil
 		},
-		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-			log.Info("got remote handle update event", "pdsHost", host.Host, "did", evt.Did, "handle", evt.Handle)
+		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
+			log.Info("sync event", "did", evt.Did, "pdsHost", host.Host, "seq", evt.Seq)
 			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
-				RepoHandle: evt,
-			}); err != nil {
-				log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
-			}
-			*lastCursor = evt.Seq
-
-			if err := s.updateCursor(sub, *lastCursor); err != nil {
-				return fmt.Errorf("updating cursor: %w", err)
-			}
-
-			return nil
-		},
-		RepoMigrate: func(evt *comatproto.SyncSubscribeRepos_Migrate) error {
-			log.Info("got remote repo migrate event", "pdsHost", host.Host, "did", evt.Did, "migrateTo", evt.MigrateTo)
-			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
-				RepoMigrate: evt,
-			}); err != nil {
-				log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
-			}
-			*lastCursor = evt.Seq
-
-			if err := s.updateCursor(sub, *lastCursor); err != nil {
-				return fmt.Errorf("updating cursor: %w", err)
-			}
-
-			return nil
-		},
-		RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
-			log.Info("got remote repo tombstone event", "pdsHost", host.Host, "did", evt.Did)
-			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
-				RepoTombstone: evt,
+				RepoSync: evt,
 			}); err != nil {
 				log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
 			}
@@ -745,6 +722,7 @@ func (s *Slurper) KillUpstreamConnection(host string, block bool) error {
 		return fmt.Errorf("killing connection %q: %w", host, ErrNoActiveConnection)
 	}
 	ac.cancel()
+	// cleanup in the run thread subscribeWithRedialer() will delete(s.active, host)
 
 	if block {
 		if err := s.db.Model(models.PDS{}).Where("id = ?", ac.pds.ID).UpdateColumn("blocked", true).Error; err != nil {

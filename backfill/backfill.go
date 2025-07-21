@@ -82,6 +82,8 @@ type Backfiller struct {
 	magicHeaderKey string
 	magicHeaderVal string
 
+	tryRelayRepoFetch bool
+
 	stop chan chan struct{}
 
 	Directory identity.Directory
@@ -306,6 +308,21 @@ type recordResult struct {
 	err        error
 }
 
+type FetchRepoError struct {
+	StatusCode int
+	Status     string
+}
+
+func (e *FetchRepoError) Error() string {
+	reason := "unknown error"
+	if e.StatusCode == http.StatusBadRequest {
+		reason = "repo not found"
+	} else {
+		reason = e.Status
+	}
+	return fmt.Sprintf("failed to get repo: %s (%d)", reason, e.StatusCode)
+}
+
 // Fetches a repo CAR file over HTTP from the indicated host. If successful, parses the CAR and returns repo.Repo
 func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (*repo.Repo, error) {
 	url := fmt.Sprintf("%s/xrpc/com.atproto.sync.getRepo?did=%s", host, did)
@@ -338,13 +355,10 @@ func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (*r
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		reason := "unknown error"
-		if resp.StatusCode == http.StatusBadRequest {
-			reason = "repo not found"
-		} else {
-			reason = resp.Status
+		return nil, &FetchRepoError{
+			StatusCode: resp.StatusCode,
+			Status:     resp.Status,
 		}
-		return nil, fmt.Errorf("failed to get repo: %s", reason)
 	}
 
 	instrumentedReader := instrumentedReader{
@@ -376,11 +390,17 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 	}
 	log.Info(fmt.Sprintf("processing backfill for %s", repoDID))
 
-	// first try with Relay endpoint
-	r, err := b.fetchRepo(ctx, repoDID, job.Rev(), b.RelayHost)
-	if err != nil {
-		slog.Warn("repo CAR fetch from relay failed", "did", repoDID, "since", job.Rev(), "relayHost", b.RelayHost, "err", err)
-		// fallback to direct PDS fetch
+	var r *repo.Repo
+	if b.tryRelayRepoFetch {
+		rr, err := b.fetchRepo(ctx, repoDID, job.Rev(), b.RelayHost)
+		if err != nil {
+			slog.Warn("repo CAR fetch from relay failed", "did", repoDID, "since", job.Rev(), "relayHost", b.RelayHost, "err", err)
+		} else {
+			r = rr
+		}
+	}
+
+	if r == nil {
 		ident, err := b.Directory.LookupDID(ctx, syntax.DID(repoDID))
 		if err != nil {
 			return "failed resolving DID to PDS repo", fmt.Errorf("resolving DID for PDS repo fetch: %w", err)
@@ -389,12 +409,16 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 		if pdsHost == "" {
 			return "DID document missing PDS endpoint", fmt.Errorf("no PDS endpoint for DID: %s", repoDID)
 		}
+
 		r, err = b.fetchRepo(ctx, repoDID, job.Rev(), pdsHost)
 		if err != nil {
 			slog.Warn("repo CAR fetch from PDS failed", "did", repoDID, "since", job.Rev(), "pdsHost", pdsHost, "err", err)
-			return "repo CAR fetch from PDS failed", err
+			rfe, ok := err.(*FetchRepoError)
+			if ok {
+				return fmt.Sprintf("failed to fetch repo CAR from PDS (http %d:%s)", rfe.StatusCode, rfe.Status), err
+			}
+			return "failed to fetch repo CAR from PDS", err
 		}
-		slog.Info("repo CAR fetch from PDS successful", "did", repoDID, "since", job.Rev(), "pdsHost", pdsHost, "err", err)
 	}
 
 	numRecords := 0

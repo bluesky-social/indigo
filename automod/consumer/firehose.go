@@ -80,14 +80,14 @@ func (fc *FirehoseConsumer) Run(ctx context.Context) error {
 		},
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
 			atomic.StoreInt64(&fc.lastSeq, evt.Seq)
-			if err := fc.Engine.ProcessIdentityEvent(ctx, *evt); err != nil {
+			if err := fc.Engine.ProcessIdentityEvent(context.Background(), *evt); err != nil {
 				fc.Logger.Error("processing repo identity failed", "did", evt.Did, "seq", evt.Seq, "err", err)
 			}
 			return nil
 		},
 		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
 			atomic.StoreInt64(&fc.lastSeq, evt.Seq)
-			if err := fc.Engine.ProcessAccountEvent(ctx, *evt); err != nil {
+			if err := fc.Engine.ProcessAccountEvent(context.Background(), *evt); err != nil {
 				fc.Logger.Error("processing repo account failed", "did", evt.Did, "seq", evt.Seq, "err", err)
 			}
 			return nil
@@ -144,9 +144,9 @@ func (fc *FirehoseConsumer) HandleRepoCommit(ctx context.Context, evt *comatprot
 
 	for _, op := range evt.Ops {
 		logger = logger.With("eventKind", op.Action, "path", op.Path)
-		collection, rkey, err := splitRepoPath(op.Path)
+		collection, rkey, err := syntax.ParseRepoPath(op.Path)
 		if err != nil {
-			logger.Error("invalid path in repo op")
+			logger.Error("invalid path in repo op", "err", err)
 			return nil
 		}
 
@@ -182,7 +182,7 @@ func (fc *FirehoseConsumer) HandleRepoCommit(ctx context.Context, evt *comatprot
 				CID:        &recCID,
 				RecordCBOR: *recCBOR,
 			}
-			err = fc.Engine.ProcessRecordOp(ctx, op)
+			err = fc.Engine.ProcessRecordOp(context.Background(), op)
 			if err != nil {
 				logger.Error("engine failed to process record", "err", err)
 				continue
@@ -196,7 +196,7 @@ func (fc *FirehoseConsumer) HandleRepoCommit(ctx context.Context, evt *comatprot
 				CID:        nil,
 				RecordCBOR: nil,
 			}
-			err = fc.Engine.ProcessRecordOp(ctx, op)
+			err = fc.Engine.ProcessRecordOp(context.Background(), op)
 			if err != nil {
 				logger.Error("engine failed to process record", "err", err)
 				continue

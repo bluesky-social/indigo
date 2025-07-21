@@ -15,7 +15,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
@@ -23,6 +22,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
+	"github.com/bluesky-social/indigo/handles"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
@@ -81,7 +81,7 @@ func run(args []string) {
 		},
 	}
 
-	_, err := cliutil.SetupSlog(cliutil.LogOptions{})
+	_, _, err := cliutil.SetupSlog(cliutil.LogOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "logging setup error: %s\n", err.Error())
 		os.Exit(1)
@@ -104,6 +104,7 @@ func run(args []string) {
 		readRepoStreamCmd,
 		parseRkey,
 		listLabelsCmd,
+		verifyUserCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -194,7 +195,7 @@ var readRepoStreamCmd = &cli.Command{
 		}()
 
 		didr := cliutil.GetDidResolver(cctx)
-		hr := &api.ProdHandleResolver{}
+		hr := &handles.ProdHandleResolver{}
 		resolveHandles := cctx.Bool("resolve-handles")
 
 		cache, _ := lru.New[string, *cachedHandle](10000)
@@ -206,7 +207,7 @@ var readRepoStreamCmd = &cli.Command{
 				}
 			}
 
-			h, _, err := api.ResolveDidToHandle(ctx, didr, hr, did)
+			h, _, err := handles.ResolveDidToHandle(ctx, didr, hr, did)
 			if err != nil {
 				return "", err
 			}
@@ -254,10 +255,6 @@ var readRepoStreamCmd = &cli.Command{
 					}
 					fmt.Println(string(b))
 				} else {
-					pstr := "<nil>"
-					if evt.Prev != nil && evt.Prev.Defined() {
-						pstr = evt.Prev.String()
-					}
 					var handle string
 					if resolveHandles {
 						h, err := resolveDid(ctx, evt.Repo)
@@ -267,7 +264,7 @@ var readRepoStreamCmd = &cli.Command{
 							handle = h
 						}
 					}
-					fmt.Printf("(%d) RepoAppend: %s %s (%s -> %s)\n", evt.Seq, evt.Repo, handle, pstr, evt.Commit.String())
+					fmt.Printf("(%d) RepoAppend: %s %s (%s)\n", evt.Seq, evt.Repo, handle, evt.Commit.String())
 
 					if unpack {
 						recs, err := unpackRecords(evt.Blocks, evt.Ops)
@@ -287,28 +284,15 @@ var readRepoStreamCmd = &cli.Command{
 
 				return nil
 			},
-			RepoMigrate: func(migrate *comatproto.SyncSubscribeRepos_Migrate) error {
+			RepoSync: func(sync *comatproto.SyncSubscribeRepos_Sync) error {
 				if jsonfmt {
-					b, err := json.Marshal(migrate)
+					b, err := json.Marshal(sync)
 					if err != nil {
 						return err
 					}
 					fmt.Println(string(b))
 				} else {
-					fmt.Printf("(%d) RepoMigrate: %s moving to: %s\n", migrate.Seq, migrate.Did, *migrate.MigrateTo)
-				}
-
-				return nil
-			},
-			RepoHandle: func(handle *comatproto.SyncSubscribeRepos_Handle) error {
-				if jsonfmt {
-					b, err := json.Marshal(handle)
-					if err != nil {
-						return err
-					}
-					fmt.Println(string(b))
-				} else {
-					fmt.Printf("(%d) RepoHandle: %s (changed to: %s)\n", handle.Seq, handle.Did, handle.Handle)
+					fmt.Printf("(%d) Sync: %s\n", sync.Seq, sync.Did)
 				}
 
 				return nil
@@ -326,20 +310,6 @@ var readRepoStreamCmd = &cli.Command{
 				}
 
 				return nil
-			},
-			RepoTombstone: func(tomb *comatproto.SyncSubscribeRepos_Tombstone) error {
-				if jsonfmt {
-					b, err := json.Marshal(tomb)
-					if err != nil {
-						return err
-					}
-					fmt.Println(string(b))
-				} else {
-					fmt.Printf("(%d) Tombstone: %s\n", tomb.Seq, tomb.Did)
-				}
-
-				return nil
-
 			},
 			// TODO: all the other event types
 			Error: func(errf *events.ErrorFrame) error {
@@ -815,6 +785,66 @@ var listLabelsCmd = &cli.Command{
 				break
 			}
 		}
+		return nil
+	},
+}
+
+var verifyUserCmd = &cli.Command{
+	Name:  "verify-user",
+	Usage: "create a feed generator record",
+	Flags: []cli.Flag{},
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.TODO()
+		arg := cctx.Args().First()
+
+		idf, err := syntax.ParseAtIdentifier(arg)
+		if err != nil {
+			return err
+		}
+
+		ident, err := identity.DefaultDirectory().Lookup(ctx, *idf)
+		if err != nil {
+			return err
+		}
+
+		profrec, err := atproto.RepoGetRecord(ctx, xrpcc, "", "app.bsky.actor.profile", ident.DID.String(), "self")
+		if err != nil {
+			return err
+		}
+
+		ap, ok := profrec.Value.Val.(*bsky.ActorProfile)
+		if !ok {
+			return fmt.Errorf("got wrong record type back")
+		}
+
+		var dn string
+		if ap.DisplayName != nil {
+			dn = *ap.DisplayName
+		}
+
+		rec := &lexutil.LexiconTypeDecoder{Val: &bsky.GraphVerification{
+			CreatedAt:   time.Now().Format(util.ISO8601),
+			DisplayName: dn,
+			Handle:      ident.Handle.String(),
+			Subject:     ident.DID.String(),
+		}}
+
+		resp, err := atproto.RepoCreateRecord(ctx, xrpcc, &atproto.RepoCreateRecord_Input{
+			Collection: "app.bsky.graph.verification",
+			Repo:       xrpcc.Auth.Did,
+			Record:     rec,
+		})
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(resp.Uri)
+
 		return nil
 	},
 }

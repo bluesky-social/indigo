@@ -17,12 +17,6 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-const (
-	recordEventTimeout       = 30 * time.Second
-	identityEventTimeout     = 10 * time.Second
-	notificationEventTimeout = 5 * time.Second
-)
-
 // runtime for executing rules, managing state, and recording moderation actions.
 //
 // NOTE: careful when initializing: several fields must not be nil or zero, even though they are pointer type.
@@ -60,6 +54,13 @@ type EngineConfig struct {
 	QuotaModTakedownDay int
 	// number of misc actions automod can do per day, for all subjects combined (circuit breaker)
 	QuotaModActionDay int
+
+	// timeout for record event processing (total, including all setup, rules, and teardown)
+	RecordEventTimeout time.Duration
+	// timeout for identity event and account event processing (total, including all setup, rules, and teardown)
+	IdentityEventTimeout time.Duration
+	// timeout for event processing (total, including all setup, rules, and teardown)
+	OzoneEventTimeout time.Duration
 }
 
 // Entrypoint for external code pushing #identity events in to the engine.
@@ -85,8 +86,11 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, evt comatproto.Sync
 			eventErrorCount.WithLabelValues("identity").Inc()
 		}
 	}()
-	ctx, cancel := context.WithTimeout(ctx, identityEventTimeout)
-	defer cancel()
+	var cancel context.CancelFunc
+	if eng.Config.IdentityEventTimeout != 0 {
+		ctx, cancel = context.WithTimeout(ctx, eng.Config.IdentityEventTimeout)
+		defer cancel()
+	}
 
 	// first purge any caches; we need to re-resolve from scratch on identity updates
 	if err := eng.PurgeAccountCaches(ctx, did); err != nil {
@@ -156,8 +160,11 @@ func (eng *Engine) ProcessAccountEvent(ctx context.Context, evt comatproto.SyncS
 			eventErrorCount.WithLabelValues("account").Inc()
 		}
 	}()
-	ctx, cancel := context.WithTimeout(ctx, identityEventTimeout)
-	defer cancel()
+	var cancel context.CancelFunc
+	if eng.Config.IdentityEventTimeout != 0 {
+		ctx, cancel = context.WithTimeout(ctx, eng.Config.IdentityEventTimeout)
+		defer cancel()
+	}
 
 	// first purge any caches; we need to re-resolve from scratch on account updates
 	if err := eng.PurgeAccountCaches(ctx, did); err != nil {
@@ -221,8 +228,11 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 			eng.Logger.Error("automod event execution exception", "err", r, "did", op.DID, "collection", op.Collection, "rkey", op.RecordKey)
 		}
 	}()
-	ctx, cancel := context.WithTimeout(ctx, recordEventTimeout)
-	defer cancel()
+	var cancel context.CancelFunc
+	if eng.Config.RecordEventTimeout != 0 {
+		ctx, cancel = context.WithTimeout(ctx, eng.Config.RecordEventTimeout)
+		defer cancel()
+	}
 
 	if err := op.Validate(); err != nil {
 		eventErrorCount.WithLabelValues("record").Inc()
@@ -286,64 +296,6 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 	return nil
 }
 
-// returns a boolean indicating "block the event"
-func (eng *Engine) ProcessNotificationEvent(ctx context.Context, senderDID, recipientDID syntax.DID, reason string, subject syntax.ATURI) (bool, error) {
-	eventProcessCount.WithLabelValues("notif").Inc()
-	start := time.Now()
-	defer func() {
-		duration := time.Since(start)
-		eventProcessDuration.WithLabelValues("notif").Observe(duration.Seconds())
-	}()
-
-	// similar to an HTTP server, we want to recover any panics from rule execution
-	defer func() {
-		if r := recover(); r != nil {
-			eng.Logger.Error("automod event execution exception", "err", r, "sender", senderDID, "recipient", recipientDID)
-		}
-	}()
-	ctx, cancel := context.WithTimeout(ctx, notificationEventTimeout)
-	defer cancel()
-
-	senderIdent, err := eng.Directory.LookupDID(ctx, senderDID)
-	if err != nil {
-		eventErrorCount.WithLabelValues("notif").Inc()
-		return false, fmt.Errorf("resolving identity: %w", err)
-	}
-	if senderIdent == nil {
-		eventErrorCount.WithLabelValues("notif").Inc()
-		return false, fmt.Errorf("identity not found for sender DID: %s", senderDID.String())
-	}
-
-	recipientIdent, err := eng.Directory.LookupDID(ctx, recipientDID)
-	if err != nil {
-		eventErrorCount.WithLabelValues("notif").Inc()
-		return false, fmt.Errorf("resolving identity: %w", err)
-	}
-	if recipientIdent == nil {
-		eventErrorCount.WithLabelValues("notif").Inc()
-		return false, fmt.Errorf("identity not found for sender DID: %s", recipientDID.String())
-	}
-
-	senderMeta, err := eng.GetAccountMeta(ctx, senderIdent)
-	if err != nil {
-		eventErrorCount.WithLabelValues("notif").Inc()
-		return false, fmt.Errorf("failed to fetch account metadata: %w", err)
-	}
-	recipientMeta, err := eng.GetAccountMeta(ctx, recipientIdent)
-	if err != nil {
-		eventErrorCount.WithLabelValues("notif").Inc()
-		return false, fmt.Errorf("failed to fetch account metadata: %w", err)
-	}
-
-	nc := NewNotificationContext(ctx, eng, *senderMeta, *recipientMeta, reason, subject)
-	if err := eng.Rules.CallNotificationRules(&nc); err != nil {
-		eventErrorCount.WithLabelValues("notif").Inc()
-		return false, fmt.Errorf("rule execution failed: %w", err)
-	}
-	eng.CanonicalLogLineNotification(&nc)
-	return nc.effects.RejectEvent, nil
-}
-
 // Purge metadata caches for a specific account.
 func (e *Engine) PurgeAccountCaches(ctx context.Context, did syntax.DID) error {
 	e.Logger.Debug("purging account caches", "did", did.String())
@@ -377,16 +329,5 @@ func (e *Engine) CanonicalLogLineRecord(c *RecordContext) {
 		"recordTags", c.effects.RecordTags,
 		"recordTakedown", c.effects.RecordTakedown,
 		"recordReports", len(c.effects.RecordReports),
-	)
-}
-
-func (e *Engine) CanonicalLogLineNotification(c *NotificationContext) {
-	c.Logger.Info("canonical-event-line",
-		"accountLabels", c.effects.AccountLabels,
-		"accountFlags", c.effects.AccountFlags,
-		"accountTags", c.effects.AccountTags,
-		"accountTakedown", c.effects.AccountTakedown,
-		"accountReports", len(c.effects.AccountReports),
-		"reject", c.effects.RejectEvent,
 	)
 }

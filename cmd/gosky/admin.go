@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/handles"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	cli "github.com/urfave/cli/v2"
 )
@@ -394,6 +394,7 @@ var listReportsCmd = &cli.Command{
 			xrpcc,
 			nil,   // addedLabels []string
 			nil,   // addedTags []string
+			"",    // ageAssuranceState
 			nil,   // collections []string
 			"",    // comment string
 			"",    // createdAfter string
@@ -403,6 +404,8 @@ var listReportsCmd = &cli.Command{
 			false, // hasComment bool
 			false, // includeAllUserRecords bool
 			100,   // limit int64
+			nil,   // modTool
+			nil,   // policies []string
 			nil,   // removedLabels []string
 			nil,   // removedTags []string
 			nil,   // reportTypes []string
@@ -441,7 +444,7 @@ var disableInvitesCmd = &cli.Command{
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		phr := &api.ProdHandleResolver{}
+		phr := &handles.ProdHandleResolver{}
 		handle := cctx.Args().First()
 		if !strings.HasPrefix(handle, "did:") {
 			resp, err := phr.ResolveHandleToDid(ctx, handle)
@@ -485,7 +488,7 @@ var enableInvitesCmd = &cli.Command{
 
 		handle := cctx.Args().First()
 		if !strings.HasPrefix(handle, "did:") {
-			phr := &api.ProdHandleResolver{}
+			phr := &handles.ProdHandleResolver{}
 			resp, err := phr.ResolveHandleToDid(ctx, handle)
 			if err != nil {
 				return err
@@ -529,7 +532,7 @@ var listInviteTreeCmd = &cli.Command{
 
 		ctx := context.Background()
 
-		phr := &api.ProdHandleResolver{}
+		phr := &handles.ProdHandleResolver{}
 
 		did := cctx.Args().First()
 		if !strings.HasPrefix(did, "did:") {
@@ -694,7 +697,7 @@ var queryModerationStatusesCmd = &cli.Command{
 
 		did := cctx.Args().First()
 		if !strings.HasPrefix(did, "did:") {
-			phr := &api.ProdHandleResolver{}
+			phr := &handles.ProdHandleResolver{}
 			resp, err := phr.ResolveHandleToDid(ctx, did)
 			if err != nil {
 				return err
@@ -708,6 +711,7 @@ var queryModerationStatusesCmd = &cli.Command{
 			xrpcc,
 			nil,   // addedLabels []string
 			nil,   // addedTags []string
+			"",    // ageAssuranceState
 			nil,   // collections []string
 			"",    // comment string
 			"",    // createdAfter string
@@ -717,6 +721,8 @@ var queryModerationStatusesCmd = &cli.Command{
 			false, // hasComment bool
 			false, // includeAllUserRecords bool
 			100,   // limit int64
+			nil,   // modTool
+			nil,   // policies []string
 			nil,   // removedLabels []string
 			nil,   // removedTags []string
 			nil,   // reportTypes []string
@@ -766,7 +772,7 @@ var createInviteCmd = &cli.Command{
 		count := cctx.Int("useCount")
 		num := cctx.Int("num")
 
-		phr := &api.ProdHandleResolver{}
+		phr := &handles.ProdHandleResolver{}
 		if bulkfi := cctx.String("bulk"); bulkfi != "" {
 			xrpcc.AdminToken = &adminKey
 			dids, err := readDids(bulkfi)

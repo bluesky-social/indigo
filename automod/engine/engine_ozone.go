@@ -46,6 +46,8 @@ func NewOzoneEventContext(ctx context.Context, eng *Engine, eventView *toolsozon
 		eventType = "divert"
 	} else if eventView.Event.ModerationDefs_ModEventTag != nil {
 		eventType = "tag"
+	} else if eventView.Event.ModerationDefs_ModEventPriorityScore != nil {
+		eventType = "priorityScore"
 	} else {
 		return nil, fmt.Errorf("unhandled ozone event type")
 	}
@@ -163,8 +165,11 @@ func (eng *Engine) ProcessOzoneEvent(ctx context.Context, eventView *toolsozone.
 			eng.Logger.Error("automod ozone event execution exception", "err", r, "eventID", eventView.Id, "createdAt", eventView.CreatedAt)
 		}
 	}()
-	ctx, cancel := context.WithTimeout(ctx, recordEventTimeout)
-	defer cancel()
+	var cancel context.CancelFunc
+	if eng.Config.OzoneEventTimeout != 0 {
+		ctx, cancel = context.WithTimeout(ctx, eng.Config.OzoneEventTimeout)
+		defer cancel()
+	}
 
 	ec, err := NewOzoneEventContext(ctx, eng, eventView)
 	if err != nil {

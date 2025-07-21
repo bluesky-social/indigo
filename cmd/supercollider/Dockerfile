@@ -1,5 +1,5 @@
 # Stage 1: Build the Go binary
-FROM golang:1.22-alpine3.18 AS builder
+FROM golang:1.24-alpine3.22 AS build-env
 
 # Create a directory for the application
 WORKDIR /app
@@ -23,7 +23,7 @@ FROM debian:stable-slim
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # Copy the binary from the first stage.
-COPY --from=builder /supercollider /supercollider
+COPY --from=build-env /supercollider /supercollider
 
 # Set the startup command to run the binary
 CMD ["/supercollider"]

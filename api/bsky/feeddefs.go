@@ -35,6 +35,8 @@ type FeedDefs_FeedViewPost struct {
 	Post        *FeedDefs_PostView            `json:"post" cborgen:"post"`
 	Reason      *FeedDefs_FeedViewPost_Reason `json:"reason,omitempty" cborgen:"reason,omitempty"`
 	Reply       *FeedDefs_ReplyRef            `json:"reply,omitempty" cborgen:"reply,omitempty"`
+	// reqId: Unique identifier per request that may be passed back alongside interactions.
+	ReqId *string `json:"reqId,omitempty" cborgen:"reqId,omitempty"`
 }
 
 type FeedDefs_FeedViewPost_Reason struct {
@@ -80,6 +82,7 @@ type FeedDefs_GeneratorView struct {
 	AcceptsInteractions *bool                              `json:"acceptsInteractions,omitempty" cborgen:"acceptsInteractions,omitempty"`
 	Avatar              *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	Cid                 string                             `json:"cid" cborgen:"cid"`
+	ContentMode         *string                            `json:"contentMode,omitempty" cborgen:"contentMode,omitempty"`
 	Creator             *ActorDefs_ProfileView             `json:"creator" cborgen:"creator"`
 	Description         *string                            `json:"description,omitempty" cborgen:"description,omitempty"`
 	DescriptionFacets   []*RichtextFacet                   `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
@@ -103,6 +106,8 @@ type FeedDefs_Interaction struct {
 	// feedContext: Context on a feed item that was originally supplied by the feed generator on getFeedSkeleton.
 	FeedContext *string `json:"feedContext,omitempty" cborgen:"feedContext,omitempty"`
 	Item        *string `json:"item,omitempty" cborgen:"item,omitempty"`
+	// reqId: Unique identifier per request that may be passed back alongside interactions.
+	ReqId *string `json:"reqId,omitempty" cborgen:"reqId,omitempty"`
 }
 
 // FeedDefs_NotFoundPost is a "notFoundPost" in the app.bsky.feed.defs schema.
@@ -206,7 +211,9 @@ type FeedDefs_ReasonPin struct {
 type FeedDefs_ReasonRepost struct {
 	LexiconTypeID string                      `json:"$type,const=app.bsky.feed.defs#reasonRepost" cborgen:"$type,const=app.bsky.feed.defs#reasonRepost"`
 	By            *ActorDefs_ProfileViewBasic `json:"by" cborgen:"by"`
+	Cid           *string                     `json:"cid,omitempty" cborgen:"cid,omitempty"`
 	IndexedAt     string                      `json:"indexedAt" cborgen:"indexedAt"`
+	Uri           *string                     `json:"uri,omitempty" cborgen:"uri,omitempty"`
 }
 
 // FeedDefs_ReplyRef is a "replyRef" in the app.bsky.feed.defs schema.
@@ -361,6 +368,13 @@ type FeedDefs_SkeletonReasonRepost struct {
 	Repost        string `json:"repost" cborgen:"repost"`
 }
 
+// FeedDefs_ThreadContext is a "threadContext" in the app.bsky.feed.defs schema.
+//
+// Metadata about this post within the context of the thread it is in.
+type FeedDefs_ThreadContext struct {
+	RootAuthorLike *string `json:"rootAuthorLike,omitempty" cborgen:"rootAuthorLike,omitempty"`
+}
+
 // FeedDefs_ThreadViewPost is a "threadViewPost" in the app.bsky.feed.defs schema.
 //
 // RECORDTYPE: FeedDefs_ThreadViewPost
@@ -369,6 +383,7 @@ type FeedDefs_ThreadViewPost struct {
 	Parent        *FeedDefs_ThreadViewPost_Parent         `json:"parent,omitempty" cborgen:"parent,omitempty"`
 	Post          *FeedDefs_PostView                      `json:"post" cborgen:"post"`
 	Replies       []*FeedDefs_ThreadViewPost_Replies_Elem `json:"replies,omitempty" cborgen:"replies,omitempty"`
+	ThreadContext *FeedDefs_ThreadContext                 `json:"threadContext,omitempty" cborgen:"threadContext,omitempty"`
 }
 
 type FeedDefs_ThreadViewPost_Parent struct {

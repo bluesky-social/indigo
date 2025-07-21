@@ -7,24 +7,29 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ActorGetSuggestions_Output is the output of a app.bsky.actor.getSuggestions call.
 type ActorGetSuggestions_Output struct {
 	Actors []*ActorDefs_ProfileView `json:"actors" cborgen:"actors"`
 	Cursor *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
+	// recId: Snowflake for this recommendation, use when submitting recommendation events.
+	RecId *int64 `json:"recId,omitempty" cborgen:"recId,omitempty"`
 }
 
 // ActorGetSuggestions calls the XRPC method "app.bsky.actor.getSuggestions".
-func ActorGetSuggestions(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*ActorGetSuggestions_Output, error) {
+func ActorGetSuggestions(ctx context.Context, c util.LexClient, cursor string, limit int64) (*ActorGetSuggestions_Output, error) {
 	var out ActorGetSuggestions_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.actor.getSuggestions", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.actor.getSuggestions", params, nil, &out); err != nil {
 		return nil, err
 	}
 

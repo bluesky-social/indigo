@@ -222,6 +222,8 @@ var debugStreamCmd = &cli.Command{
 						fmt.Printf("\nEvent at sequence %d had an invalid repo slice: %s\n", evt.Seq, err)
 						return nil
 					} else {
+						_ = r
+						/* "prev" is no longer included in #commit messages
 						prev, err := r.PrevCommit(ctx)
 						if err != nil {
 							return err
@@ -239,6 +241,7 @@ var debugStreamCmd = &cli.Command{
 						if !evt.Rebase && cs != es {
 							fmt.Printf("\nEvent at sequence %d has mismatch between slice prev and struct prev: %s != %s\n", evt.Seq, prev, evt.Prev)
 						}
+						*/
 					}
 				}
 
@@ -259,15 +262,7 @@ var debugStreamCmd = &cli.Command{
 
 				return nil
 			},
-			RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-				fmt.Printf("\rChecking seq: %d      ", evt.Seq)
-				if lastSeq > 0 && evt.Seq != lastSeq+1 {
-					fmt.Println("Gap in sequence numbers: ", lastSeq, evt.Seq)
-				}
-				lastSeq = evt.Seq
-				return nil
-			},
-			RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
+			RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
 				fmt.Printf("\rChecking seq: %d      ", evt.Seq)
 				if lastSeq > 0 && evt.Seq != lastSeq+1 {
 					fmt.Println("Gap in sequence numbers: ", lastSeq, evt.Seq)
@@ -345,10 +340,13 @@ var compareStreamsCmd = &cli.Command{
 
 			for i, ev := range slice {
 				if ev.Commit == event.Commit {
+					_ = pll
+					/* TODO: prev is no longer included in #commit messages; could use prevData or rev?
 					if pll(ev.Prev) != pll(event.Prev) {
 						// same commit different prev??
 						return nil, fmt.Errorf("matched event with same commit but different prev: (%d) %d - %d", n, ev.Seq, event.Seq)
 					}
+					*/
 				}
 
 				if i != 0 {
@@ -834,7 +832,7 @@ var debugCompareReposCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:  "host-2",
 			Usage: "method, hostname, and port of PDS instance",
-			Value: "https://bgs.bsky.social",
+			Value: "https://bsky.network",
 		},
 	},
 	ArgsUsage: `<did>`,
@@ -885,7 +883,7 @@ var debugCompareReposCmd = &cli.Command{
 
 			rep1, err = repo.ReadRepoFromCar(ctx, bytes.NewReader(repo1bytes))
 			if err != nil {
-				logger.Error("reading repo", "err", err)
+				logger.Error("reading repo", "err", err, "bytes", len(repo1bytes))
 				os.Exit(1)
 				return
 			}
@@ -904,7 +902,7 @@ var debugCompareReposCmd = &cli.Command{
 
 			rep2, err = repo.ReadRepoFromCar(ctx, bytes.NewReader(repo2bytes))
 			if err != nil {
-				logger.Error("reading repo", "err", err)
+				logger.Error("reading repo", "err", err, "bytes", len(repo2bytes))
 				os.Exit(1)
 				return
 			}

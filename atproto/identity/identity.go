@@ -20,16 +20,18 @@ type Identity struct {
 
 	// These fields represent a parsed subset of a DID document. They are all nullable. Note that the services and keys maps do not preserve order, so they don't exactly round-trip DID documents.
 	AlsoKnownAs []string
-	Services    map[string]Service
-	Keys        map[string]Key
+	Services    map[string]ServiceEndpoint
+	Keys        map[string]VerificationMethod
 }
 
-type Key struct {
+// Sub-field type for [Identity], representing a crytographic public key declared as a "verificationMethod" in the DID document.
+type VerificationMethod struct {
 	Type               string
 	PublicKeyMultibase string
 }
 
-type Service struct {
+// Sub-field type for [Identity], representing a service endpoint URL declared in the DID document.
+type ServiceEndpoint struct {
 	Type string
 	URL  string
 }
@@ -38,7 +40,7 @@ type Service struct {
 //
 // Always returns an invalid Handle field; calling code should only populate that field if it has been bi-directionally verified.
 func ParseIdentity(doc *DIDDocument) Identity {
-	keys := make(map[string]Key, len(doc.VerificationMethod))
+	keys := make(map[string]VerificationMethod, len(doc.VerificationMethod))
 	for _, vm := range doc.VerificationMethod {
 		parts := strings.SplitN(vm.ID, "#", 2)
 		if len(parts) < 2 {
@@ -53,12 +55,12 @@ func ParseIdentity(doc *DIDDocument) Identity {
 			continue
 		}
 		// TODO: verify that ID and type match for atproto-specific services?
-		keys[parts[1]] = Key{
+		keys[parts[1]] = VerificationMethod{
 			Type:               vm.Type,
 			PublicKeyMultibase: vm.PublicKeyMultibase,
 		}
 	}
-	svc := make(map[string]Service, len(doc.Service))
+	svc := make(map[string]ServiceEndpoint, len(doc.Service))
 	for _, s := range doc.Service {
 		parts := strings.SplitN(s.ID, "#", 2)
 		if len(parts) < 2 {
@@ -69,18 +71,48 @@ func ParseIdentity(doc *DIDDocument) Identity {
 			continue
 		}
 		// TODO: verify that ID and type match for atproto-specific services?
-		svc[parts[1]] = Service{
+		svc[parts[1]] = ServiceEndpoint{
 			Type: s.Type,
 			URL:  s.ServiceEndpoint,
 		}
 	}
 	return Identity{
 		DID:         doc.DID,
-		Handle:      syntax.Handle("invalid.handle"),
+		Handle:      syntax.HandleInvalid,
 		AlsoKnownAs: doc.AlsoKnownAs,
 		Services:    svc,
 		Keys:        keys,
 	}
+}
+
+// Helper to generate a DID document based on an identity. Note that there is flexibility around parsing, and this won't necessarily "round-trip" for every valid DID document.
+func (ident *Identity) DIDDocument() DIDDocument {
+	doc := DIDDocument{
+		DID:                ident.DID,
+		AlsoKnownAs:        ident.AlsoKnownAs,
+		VerificationMethod: make([]DocVerificationMethod, len(ident.Keys)),
+		Service:            make([]DocService, len(ident.Services)),
+	}
+	i := 0
+	for k, key := range ident.Keys {
+		doc.VerificationMethod[i] = DocVerificationMethod{
+			ID:                 fmt.Sprintf("%s#%s", ident.DID, k),
+			Type:               key.Type,
+			Controller:         ident.DID.String(),
+			PublicKeyMultibase: key.PublicKeyMultibase,
+		}
+		i += 1
+	}
+	i = 0
+	for k, svc := range ident.Services {
+		doc.Service[i] = DocService{
+			ID:              fmt.Sprintf("#%s", k),
+			Type:            svc.Type,
+			ServiceEndpoint: svc.URL,
+		}
+		i += 1
+	}
+	return doc
 }
 
 // Identifies and parses the atproto repo signing public key, specifically, out of any keys in this identity's DID document.
@@ -135,7 +167,7 @@ func (i *Identity) GetPublicKey(id string) (crypto.PublicKey, error) {
 //
 // The endpoint should be an HTTP URL with method, hostname, and optional port. It may or may not include path segments.
 //
-// Returns an empty string if the serivce isn't found, or if the URL fails to parse.
+// Returns an empty string if the service isn't found, or if the URL fails to parse.
 func (i *Identity) PDSEndpoint() string {
 	return i.GetServiceEndpoint("atproto_pds")
 }
@@ -144,7 +176,7 @@ func (i *Identity) PDSEndpoint() string {
 //
 // The endpoint should be an HTTP URL with method, hostname, and optional port. It may or may not include path segments.
 //
-// Returns an empty string if the serivce isn't found, or if the URL fails to parse.
+// Returns an empty string if the service isn't found, or if the URL fails to parse.
 func (i *Identity) GetServiceEndpoint(id string) string {
 	if i.Services == nil {
 		return ""
@@ -166,7 +198,11 @@ func (i *Identity) GetServiceEndpoint(id string) string {
 func (i *Identity) DeclaredHandle() (syntax.Handle, error) {
 	for _, u := range i.AlsoKnownAs {
 		if strings.HasPrefix(u, "at://") && len(u) > len("at://") {
-			return syntax.ParseHandle(u[5:])
+			hdl, err := syntax.ParseHandle(u[5:])
+			if err != nil {
+				continue
+			}
+			return hdl.Normalize(), nil
 		}
 	}
 	return "", ErrHandleNotDeclared

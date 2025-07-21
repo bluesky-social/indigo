@@ -8,6 +8,8 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/auth"
+	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -36,6 +38,11 @@ var cmdAccount = &cli.Command{
 					Required: true,
 					Usage:    "password (app password recommended)",
 					EnvVars:  []string{"ATP_AUTH_PASSWORD"},
+				},
+				&cli.StringFlag{
+					Name:    "auth-factor-token",
+					Usage:   "token required if password is used and 2fa is required",
+					EnvVars: []string{"ATP_AUTH_FACTOR_TOKEN"},
 				},
 				&cli.StringFlag{
 					Name:    "pds-host",
@@ -84,7 +91,7 @@ var cmdAccount = &cli.Command{
 		},
 		&cli.Command{
 			Name:  "service-auth",
-			Usage: "create service auth token",
+			Usage: "ask the PDS to create a service auth token",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:    "endpoint",
@@ -104,6 +111,40 @@ var cmdAccount = &cli.Command{
 				},
 			},
 			Action: runAccountServiceAuth,
+		},
+		&cli.Command{
+			Name:  "service-auth-offline",
+			Usage: "create service auth token via locally-held signing key",
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:     "atproto-signing-key",
+					Required: true,
+					Usage:    "private key used to sign the token (multibase syntax)",
+					EnvVars:  []string{"ATPROTO_SIGNING_KEY"},
+				},
+				&cli.StringFlag{
+					Name:     "iss",
+					Required: true,
+					Usage:    "the DID of the account issuing the token",
+				},
+				&cli.StringFlag{
+					Name:    "endpoint",
+					Aliases: []string{"lxm"},
+					Usage:   "restrict token to API endpoint (NSID, optional)",
+				},
+				&cli.StringFlag{
+					Name:     "audience",
+					Aliases:  []string{"aud"},
+					Required: true,
+					Usage:    "DID of service that will receive and validate token",
+				},
+				&cli.IntFlag{
+					Name:  "duration-sec",
+					Value: 60,
+					Usage: "validity time window of token (seconds)",
+				},
+			},
+			Action: runAccountServiceAuthOffline,
 		},
 		&cli.Command{
 			Name:  "create",
@@ -163,7 +204,7 @@ func runAccountLogin(cctx *cli.Context) error {
 		return err
 	}
 
-	_, err = refreshAuthSession(ctx, *username, cctx.String("app-password"), cctx.String("pds-host"))
+	_, err = refreshAuthSession(ctx, *username, cctx.String("app-password"), cctx.String("pds-host"), cctx.String("auth-factor-token"))
 	return err
 }
 
@@ -184,7 +225,8 @@ func runAccountLookup(cctx *cli.Context) error {
 
 	// create a new API client to connect to the account's PDS
 	xrpcc := xrpc.Client{
-		Host: ident.PDSEndpoint(),
+		Host:      ident.PDSEndpoint(),
+		UserAgent: userAgent(),
 	}
 	if xrpcc.Host == "" {
 		return fmt.Errorf("no PDS endpoint for identity")
@@ -363,6 +405,53 @@ func runAccountServiceAuth(cctx *cli.Context) error {
 	return nil
 }
 
+func runAccountServiceAuthOffline(cctx *cli.Context) error {
+	privStr := cctx.String("atproto-signing-key")
+	if privStr == "" {
+		return fmt.Errorf("private key must be provided")
+	}
+	privkey, err := crypto.ParsePrivateMultibase(privStr)
+	if err != nil {
+		return fmt.Errorf("failed parsing private key: %w", err)
+	}
+
+	issString := cctx.String("iss")
+	// TODO: support fragment identifiers
+	iss, err := syntax.ParseDID(issString)
+	if err != nil {
+		return fmt.Errorf("iss argument must be a valid DID: %w", err)
+	}
+
+	lxmString := cctx.String("endpoint")
+	var lxm *syntax.NSID = nil
+	if lxmString != "" {
+		lxmTmp, err := syntax.ParseNSID(lxmString)
+		if err != nil {
+			return fmt.Errorf("lxm argument must be a valid NSID: %w", err)
+		}
+		lxm = &lxmTmp
+	}
+
+	aud := cctx.String("audience")
+	// TODO: can aud DID have a fragment?
+	_, err = syntax.ParseDID(aud)
+	if err != nil {
+		return fmt.Errorf("aud argument must be a valid DID: %w", err)
+	}
+
+	durSec := cctx.Int("duration-sec")
+	duration := time.Duration(durSec * int(time.Second))
+
+	token, err := auth.SignServiceAuth(iss, aud, duration, lxm, privkey)
+	if err != nil {
+		return fmt.Errorf("failed signing token: %w", err)
+	}
+
+	fmt.Println(token)
+
+	return nil
+}
+
 func runAccountCreate(cctx *cli.Context) error {
 	ctx := context.Background()
 
@@ -408,7 +497,8 @@ func runAccountCreate(cctx *cli.Context) error {
 
 	// create a new API client to connect to the account's PDS
 	xrpcc := xrpc.Client{
-		Host: pdsHost,
+		Host:      pdsHost,
+		UserAgent: userAgent(),
 	}
 
 	raw = cctx.String("service-auth")

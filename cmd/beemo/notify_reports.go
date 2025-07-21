@@ -74,6 +74,7 @@ func pollNewReports(cctx *cli.Context) error {
 			xrpcc,
 			nil,   // addedLabels []string
 			nil,   // addedTags []string
+			"",    // ageAssuranceState
 			nil,   // collections []string
 			"",    // comment string
 			"",    // createdAfter string
@@ -83,6 +84,8 @@ func pollNewReports(cctx *cli.Context) error {
 			false, // hasComment bool
 			true,  // includeAllUserRecords bool
 			limit, // limit int64
+			nil,   // modTool
+			nil,   // policies []string
 			nil,   // removedLabels []string
 			nil,   // removedTags []string
 			nil,   // reportTypes []string

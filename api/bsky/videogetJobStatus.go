@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // VideoGetJobStatus_Output is the output of a app.bsky.video.getJobStatus call.
@@ -16,13 +16,12 @@ type VideoGetJobStatus_Output struct {
 }
 
 // VideoGetJobStatus calls the XRPC method "app.bsky.video.getJobStatus".
-func VideoGetJobStatus(ctx context.Context, c *xrpc.Client, jobId string) (*VideoGetJobStatus_Output, error) {
+func VideoGetJobStatus(ctx context.Context, c util.LexClient, jobId string) (*VideoGetJobStatus_Output, error) {
 	var out VideoGetJobStatus_Output
 
-	params := map[string]interface{}{
-		"jobId": jobId,
-	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.video.getJobStatus", params, nil, &out); err != nil {
+	params := map[string]interface{}{}
+	params["jobId"] = jobId
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.video.getJobStatus", params, nil, &out); err != nil {
 		return nil, err
 	}
 

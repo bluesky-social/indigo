@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphGetFollowers_Output is the output of a app.bsky.graph.getFollowers call.
@@ -18,15 +18,18 @@ type GraphGetFollowers_Output struct {
 }
 
 // GraphGetFollowers calls the XRPC method "app.bsky.graph.getFollowers".
-func GraphGetFollowers(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*GraphGetFollowers_Output, error) {
+func GraphGetFollowers(ctx context.Context, c util.LexClient, actor string, cursor string, limit int64) (*GraphGetFollowers_Output, error) {
 	var out GraphGetFollowers_Output
 
-	params := map[string]interface{}{
-		"actor":  actor,
-		"cursor": cursor,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	params["actor"] = actor
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.getFollowers", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.graph.getFollowers", params, nil, &out); err != nil {
 		return nil, err
 	}
 

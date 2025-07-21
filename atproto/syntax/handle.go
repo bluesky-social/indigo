@@ -59,7 +59,7 @@ func (h Handle) TLD() string {
 
 // Is this the special "handle.invalid" handle?
 func (h Handle) IsInvalidHandle() bool {
-	return h.Normalize() == "handle.invalid"
+	return h.Normalize() == HandleInvalid
 }
 
 func (h Handle) Normalize() Handle {

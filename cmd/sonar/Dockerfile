@@ -1,5 +1,5 @@
 # Stage 1: Build the Go binary
-FROM golang:1.22-alpine3.19 AS builder
+FROM golang:1.24-alpine3.22 AS build-env
 
 # Install SSL ca certificates.
 RUN apk update && apk add --no-cache ca-certificates && update-ca-certificates
@@ -21,10 +21,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /sonar ./cmd/sonar
 FROM scratch
 
 # Import the SSL certificates from the first stage.
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build-env /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # Copy the binary from the first stage.
-COPY --from=builder /sonar /sonar
+COPY --from=build-env /sonar /sonar
 
 # Set the startup command to run the binary
 CMD ["/sonar"]

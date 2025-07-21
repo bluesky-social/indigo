@@ -8,24 +8,21 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // SyncGetRecord calls the XRPC method "com.atproto.sync.getRecord".
 //
-// commit: DEPRECATED: referenced a repo commit by CID, and retrieved record as of that commit
 // did: The DID of the repo.
 // rkey: Record Key
-func SyncGetRecord(ctx context.Context, c *xrpc.Client, collection string, commit string, did string, rkey string) ([]byte, error) {
+func SyncGetRecord(ctx context.Context, c util.LexClient, collection string, did string, rkey string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
-	params := map[string]interface{}{
-		"collection": collection,
-		"commit":     commit,
-		"did":        did,
-		"rkey":       rkey,
-	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getRecord", params, nil, buf); err != nil {
+	params := map[string]interface{}{}
+	params["collection"] = collection
+	params["did"] = did
+	params["rkey"] = rkey
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.sync.getRecord", params, nil, buf); err != nil {
 		return nil, err
 	}
 

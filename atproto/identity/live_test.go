@@ -138,3 +138,17 @@ func TestFallbackDNS(t *testing.T) {
 	assert.Error(err)
 	assert.ErrorIs(err, ErrHandleResolutionFailed)
 }
+
+func TestResolveNSID(t *testing.T) {
+	t.Skip("TODO: skipping live network test")
+	assert := assert.New(t)
+	ctx := context.Background()
+
+	dir := BaseDirectory{}
+	// NOTE: this was a very short temporary NSID when rkey restriction was short
+	nsid := syntax.NSID("net.bnewbold.m")
+	did, err := dir.ResolveNSID(ctx, nsid)
+
+	assert.NoError(err)
+	assert.Equal(did, syntax.DID("did:plc:nhxcyu4ewwhl5pqil4dotqjo"))
+}

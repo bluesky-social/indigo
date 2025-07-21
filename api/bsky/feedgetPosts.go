@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedGetPosts_Output is the output of a app.bsky.feed.getPosts call.
@@ -18,13 +18,12 @@ type FeedGetPosts_Output struct {
 // FeedGetPosts calls the XRPC method "app.bsky.feed.getPosts".
 //
 // uris: List of post AT-URIs to return hydrated views for.
-func FeedGetPosts(ctx context.Context, c *xrpc.Client, uris []string) (*FeedGetPosts_Output, error) {
+func FeedGetPosts(ctx context.Context, c util.LexClient, uris []string) (*FeedGetPosts_Output, error) {
 	var out FeedGetPosts_Output
 
-	params := map[string]interface{}{
-		"uris": uris,
-	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getPosts", params, nil, &out); err != nil {
+	params := map[string]interface{}{}
+	params["uris"] = uris
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.getPosts", params, nil, &out); err != nil {
 		return nil, err
 	}
 

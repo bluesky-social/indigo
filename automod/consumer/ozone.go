@@ -60,6 +60,7 @@ func (oc *OzoneConsumer) Run(ctx context.Context) error {
 			oc.OzoneClient,
 			nil,            // addedLabels []string
 			nil,            // addedTags []string
+			"",             // ageAssuranceState
 			nil,            // collections []string
 			"",             // comment string
 			since.String(), // createdAfter string
@@ -69,6 +70,8 @@ func (oc *OzoneConsumer) Run(ctx context.Context) error {
 			false,          // hasComment bool
 			true,           // includeAllUserRecords bool
 			limit,          // limit int64
+			nil,            // modTool
+			nil,            // policies []string
 			nil,            // removedLabels []string
 			nil,            // removedTags []string
 			nil,            // reportTypes []string
@@ -117,7 +120,7 @@ func (oc *OzoneConsumer) HandleOzoneEvent(ctx context.Context, eventView *toolso
 
 	oc.Logger.Debug("received ozone event", "eventID", eventView.Id, "createdAt", eventView.CreatedAt)
 
-	if err := oc.Engine.ProcessOzoneEvent(ctx, eventView); err != nil {
+	if err := oc.Engine.ProcessOzoneEvent(context.Background(), eventView); err != nil {
 		oc.Logger.Error("engine failed to process ozone event", "err", err)
 	}
 	return nil

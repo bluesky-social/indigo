@@ -63,7 +63,7 @@ func FetchRecent(ctx context.Context, eng *automod.Engine, atid syntax.AtIdentif
 	}
 	pdsClient := xrpc.Client{Host: pdsURL}
 
-	resp, err := comatproto.RepoListRecords(ctx, &pdsClient, "app.bsky.feed.post", "", int64(limit), ident.DID.String(), false, "", "")
+	resp, err := comatproto.RepoListRecords(ctx, &pdsClient, "app.bsky.feed.post", "", int64(limit), ident.DID.String(), false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch record list: %v", err)
 	}

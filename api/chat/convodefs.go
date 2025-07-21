@@ -14,12 +14,14 @@ import (
 
 // ConvoDefs_ConvoView is a "convoView" in the chat.bsky.convo.defs schema.
 type ConvoDefs_ConvoView struct {
-	Id          string                           `json:"id" cborgen:"id"`
-	LastMessage *ConvoDefs_ConvoView_LastMessage `json:"lastMessage,omitempty" cborgen:"lastMessage,omitempty"`
-	Members     []*ActorDefs_ProfileViewBasic    `json:"members" cborgen:"members"`
-	Muted       bool                             `json:"muted" cborgen:"muted"`
-	Rev         string                           `json:"rev" cborgen:"rev"`
-	UnreadCount int64                            `json:"unreadCount" cborgen:"unreadCount"`
+	Id           string                            `json:"id" cborgen:"id"`
+	LastMessage  *ConvoDefs_ConvoView_LastMessage  `json:"lastMessage,omitempty" cborgen:"lastMessage,omitempty"`
+	LastReaction *ConvoDefs_ConvoView_LastReaction `json:"lastReaction,omitempty" cborgen:"lastReaction,omitempty"`
+	Members      []*ActorDefs_ProfileViewBasic     `json:"members" cborgen:"members"`
+	Muted        bool                              `json:"muted" cborgen:"muted"`
+	Rev          string                            `json:"rev" cborgen:"rev"`
+	Status       *string                           `json:"status,omitempty" cborgen:"status,omitempty"`
+	UnreadCount  int64                             `json:"unreadCount" cborgen:"unreadCount"`
 }
 
 type ConvoDefs_ConvoView_LastMessage struct {
@@ -57,6 +59,33 @@ func (t *ConvoDefs_ConvoView_LastMessage) UnmarshalJSON(b []byte) error {
 	}
 }
 
+type ConvoDefs_ConvoView_LastReaction struct {
+	ConvoDefs_MessageAndReactionView *ConvoDefs_MessageAndReactionView
+}
+
+func (t *ConvoDefs_ConvoView_LastReaction) MarshalJSON() ([]byte, error) {
+	if t.ConvoDefs_MessageAndReactionView != nil {
+		t.ConvoDefs_MessageAndReactionView.LexiconTypeID = "chat.bsky.convo.defs#messageAndReactionView"
+		return json.Marshal(t.ConvoDefs_MessageAndReactionView)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *ConvoDefs_ConvoView_LastReaction) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "chat.bsky.convo.defs#messageAndReactionView":
+		t.ConvoDefs_MessageAndReactionView = new(ConvoDefs_MessageAndReactionView)
+		return json.Unmarshal(b, t.ConvoDefs_MessageAndReactionView)
+
+	default:
+		return nil
+	}
+}
+
 // ConvoDefs_DeletedMessageView is a "deletedMessageView" in the chat.bsky.convo.defs schema.
 //
 // RECORDTYPE: ConvoDefs_DeletedMessageView
@@ -66,6 +95,61 @@ type ConvoDefs_DeletedMessageView struct {
 	Rev           string                       `json:"rev" cborgen:"rev"`
 	Sender        *ConvoDefs_MessageViewSender `json:"sender" cborgen:"sender"`
 	SentAt        string                       `json:"sentAt" cborgen:"sentAt"`
+}
+
+// ConvoDefs_LogAcceptConvo is a "logAcceptConvo" in the chat.bsky.convo.defs schema.
+//
+// RECORDTYPE: ConvoDefs_LogAcceptConvo
+type ConvoDefs_LogAcceptConvo struct {
+	LexiconTypeID string `json:"$type,const=chat.bsky.convo.defs#logAcceptConvo" cborgen:"$type,const=chat.bsky.convo.defs#logAcceptConvo"`
+	ConvoId       string `json:"convoId" cborgen:"convoId"`
+	Rev           string `json:"rev" cborgen:"rev"`
+}
+
+// ConvoDefs_LogAddReaction is a "logAddReaction" in the chat.bsky.convo.defs schema.
+//
+// RECORDTYPE: ConvoDefs_LogAddReaction
+type ConvoDefs_LogAddReaction struct {
+	LexiconTypeID string                            `json:"$type,const=chat.bsky.convo.defs#logAddReaction" cborgen:"$type,const=chat.bsky.convo.defs#logAddReaction"`
+	ConvoId       string                            `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_LogAddReaction_Message `json:"message" cborgen:"message"`
+	Reaction      *ConvoDefs_ReactionView           `json:"reaction" cborgen:"reaction"`
+	Rev           string                            `json:"rev" cborgen:"rev"`
+}
+
+type ConvoDefs_LogAddReaction_Message struct {
+	ConvoDefs_MessageView        *ConvoDefs_MessageView
+	ConvoDefs_DeletedMessageView *ConvoDefs_DeletedMessageView
+}
+
+func (t *ConvoDefs_LogAddReaction_Message) MarshalJSON() ([]byte, error) {
+	if t.ConvoDefs_MessageView != nil {
+		t.ConvoDefs_MessageView.LexiconTypeID = "chat.bsky.convo.defs#messageView"
+		return json.Marshal(t.ConvoDefs_MessageView)
+	}
+	if t.ConvoDefs_DeletedMessageView != nil {
+		t.ConvoDefs_DeletedMessageView.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		return json.Marshal(t.ConvoDefs_DeletedMessageView)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *ConvoDefs_LogAddReaction_Message) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "chat.bsky.convo.defs#messageView":
+		t.ConvoDefs_MessageView = new(ConvoDefs_MessageView)
+		return json.Unmarshal(b, t.ConvoDefs_MessageView)
+	case "chat.bsky.convo.defs#deletedMessageView":
+		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
+		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
+
+	default:
+		return nil
+	}
 }
 
 // ConvoDefs_LogBeginConvo is a "logBeginConvo" in the chat.bsky.convo.defs schema.
@@ -176,6 +260,124 @@ type ConvoDefs_LogLeaveConvo struct {
 	Rev           string `json:"rev" cborgen:"rev"`
 }
 
+// ConvoDefs_LogMuteConvo is a "logMuteConvo" in the chat.bsky.convo.defs schema.
+//
+// RECORDTYPE: ConvoDefs_LogMuteConvo
+type ConvoDefs_LogMuteConvo struct {
+	LexiconTypeID string `json:"$type,const=chat.bsky.convo.defs#logMuteConvo" cborgen:"$type,const=chat.bsky.convo.defs#logMuteConvo"`
+	ConvoId       string `json:"convoId" cborgen:"convoId"`
+	Rev           string `json:"rev" cborgen:"rev"`
+}
+
+// ConvoDefs_LogReadMessage is a "logReadMessage" in the chat.bsky.convo.defs schema.
+//
+// RECORDTYPE: ConvoDefs_LogReadMessage
+type ConvoDefs_LogReadMessage struct {
+	LexiconTypeID string                            `json:"$type,const=chat.bsky.convo.defs#logReadMessage" cborgen:"$type,const=chat.bsky.convo.defs#logReadMessage"`
+	ConvoId       string                            `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_LogReadMessage_Message `json:"message" cborgen:"message"`
+	Rev           string                            `json:"rev" cborgen:"rev"`
+}
+
+type ConvoDefs_LogReadMessage_Message struct {
+	ConvoDefs_MessageView        *ConvoDefs_MessageView
+	ConvoDefs_DeletedMessageView *ConvoDefs_DeletedMessageView
+}
+
+func (t *ConvoDefs_LogReadMessage_Message) MarshalJSON() ([]byte, error) {
+	if t.ConvoDefs_MessageView != nil {
+		t.ConvoDefs_MessageView.LexiconTypeID = "chat.bsky.convo.defs#messageView"
+		return json.Marshal(t.ConvoDefs_MessageView)
+	}
+	if t.ConvoDefs_DeletedMessageView != nil {
+		t.ConvoDefs_DeletedMessageView.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		return json.Marshal(t.ConvoDefs_DeletedMessageView)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *ConvoDefs_LogReadMessage_Message) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "chat.bsky.convo.defs#messageView":
+		t.ConvoDefs_MessageView = new(ConvoDefs_MessageView)
+		return json.Unmarshal(b, t.ConvoDefs_MessageView)
+	case "chat.bsky.convo.defs#deletedMessageView":
+		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
+		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
+
+	default:
+		return nil
+	}
+}
+
+// ConvoDefs_LogRemoveReaction is a "logRemoveReaction" in the chat.bsky.convo.defs schema.
+//
+// RECORDTYPE: ConvoDefs_LogRemoveReaction
+type ConvoDefs_LogRemoveReaction struct {
+	LexiconTypeID string                               `json:"$type,const=chat.bsky.convo.defs#logRemoveReaction" cborgen:"$type,const=chat.bsky.convo.defs#logRemoveReaction"`
+	ConvoId       string                               `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_LogRemoveReaction_Message `json:"message" cborgen:"message"`
+	Reaction      *ConvoDefs_ReactionView              `json:"reaction" cborgen:"reaction"`
+	Rev           string                               `json:"rev" cborgen:"rev"`
+}
+
+type ConvoDefs_LogRemoveReaction_Message struct {
+	ConvoDefs_MessageView        *ConvoDefs_MessageView
+	ConvoDefs_DeletedMessageView *ConvoDefs_DeletedMessageView
+}
+
+func (t *ConvoDefs_LogRemoveReaction_Message) MarshalJSON() ([]byte, error) {
+	if t.ConvoDefs_MessageView != nil {
+		t.ConvoDefs_MessageView.LexiconTypeID = "chat.bsky.convo.defs#messageView"
+		return json.Marshal(t.ConvoDefs_MessageView)
+	}
+	if t.ConvoDefs_DeletedMessageView != nil {
+		t.ConvoDefs_DeletedMessageView.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		return json.Marshal(t.ConvoDefs_DeletedMessageView)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *ConvoDefs_LogRemoveReaction_Message) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "chat.bsky.convo.defs#messageView":
+		t.ConvoDefs_MessageView = new(ConvoDefs_MessageView)
+		return json.Unmarshal(b, t.ConvoDefs_MessageView)
+	case "chat.bsky.convo.defs#deletedMessageView":
+		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
+		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
+
+	default:
+		return nil
+	}
+}
+
+// ConvoDefs_LogUnmuteConvo is a "logUnmuteConvo" in the chat.bsky.convo.defs schema.
+//
+// RECORDTYPE: ConvoDefs_LogUnmuteConvo
+type ConvoDefs_LogUnmuteConvo struct {
+	LexiconTypeID string `json:"$type,const=chat.bsky.convo.defs#logUnmuteConvo" cborgen:"$type,const=chat.bsky.convo.defs#logUnmuteConvo"`
+	ConvoId       string `json:"convoId" cborgen:"convoId"`
+	Rev           string `json:"rev" cborgen:"rev"`
+}
+
+// ConvoDefs_MessageAndReactionView is a "messageAndReactionView" in the chat.bsky.convo.defs schema.
+//
+// RECORDTYPE: ConvoDefs_MessageAndReactionView
+type ConvoDefs_MessageAndReactionView struct {
+	LexiconTypeID string                  `json:"$type,const=chat.bsky.convo.defs#messageAndReactionView" cborgen:"$type,const=chat.bsky.convo.defs#messageAndReactionView"`
+	Message       *ConvoDefs_MessageView  `json:"message" cborgen:"message"`
+	Reaction      *ConvoDefs_ReactionView `json:"reaction" cborgen:"reaction"`
+}
+
 // ConvoDefs_MessageInput is the input argument to a chat.bsky.convo.defs call.
 type ConvoDefs_MessageInput struct {
 	Embed *ConvoDefs_MessageInput_Embed `json:"embed,omitempty" cborgen:"embed,omitempty"`
@@ -230,10 +432,12 @@ type ConvoDefs_MessageView struct {
 	// facets: Annotations of text (mentions, URLs, hashtags, etc)
 	Facets []*appbskytypes.RichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
 	Id     string                        `json:"id" cborgen:"id"`
-	Rev    string                        `json:"rev" cborgen:"rev"`
-	Sender *ConvoDefs_MessageViewSender  `json:"sender" cborgen:"sender"`
-	SentAt string                        `json:"sentAt" cborgen:"sentAt"`
-	Text   string                        `json:"text" cborgen:"text"`
+	// reactions: Reactions to this message, in ascending order of creation time.
+	Reactions []*ConvoDefs_ReactionView    `json:"reactions,omitempty" cborgen:"reactions,omitempty"`
+	Rev       string                       `json:"rev" cborgen:"rev"`
+	Sender    *ConvoDefs_MessageViewSender `json:"sender" cborgen:"sender"`
+	SentAt    string                       `json:"sentAt" cborgen:"sentAt"`
+	Text      string                       `json:"text" cborgen:"text"`
 }
 
 // ConvoDefs_MessageViewSender is a "messageViewSender" in the chat.bsky.convo.defs schema.
@@ -266,4 +470,16 @@ func (t *ConvoDefs_MessageView_Embed) UnmarshalJSON(b []byte) error {
 	default:
 		return nil
 	}
+}
+
+// ConvoDefs_ReactionView is a "reactionView" in the chat.bsky.convo.defs schema.
+type ConvoDefs_ReactionView struct {
+	CreatedAt string                        `json:"createdAt" cborgen:"createdAt"`
+	Sender    *ConvoDefs_ReactionViewSender `json:"sender" cborgen:"sender"`
+	Value     string                        `json:"value" cborgen:"value"`
+}
+
+// ConvoDefs_ReactionViewSender is a "reactionViewSender" in the chat.bsky.convo.defs schema.
+type ConvoDefs_ReactionViewSender struct {
+	Did string `json:"did" cborgen:"did"`
 }

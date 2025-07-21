@@ -24,6 +24,7 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/yolopersist"
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/plc"
@@ -205,7 +206,7 @@ func Reload(cctx *cli.Context) error {
 	logger.Info(fmt.Sprintf("Generating %d total events and writing them to %s",
 		cctx.Int("total-events"), cctx.String("output-file")))
 
-	em := events.NewEventManager(events.NewYoloPersister())
+	em := events.NewEventManager(yolopersist.NewYoloPersister())
 
 	// Try to read the key from disk
 	keyBytes, err := os.ReadFile(cctx.String("key-file"))
@@ -337,18 +338,12 @@ func Reload(cctx *cli.Context) error {
 				case evt.RepoCommit != nil:
 					header.MsgType = "#commit"
 					obj = evt.RepoCommit
-				case evt.RepoHandle != nil:
-					header.MsgType = "#handle"
-					obj = evt.RepoHandle
+				case evt.RepoSync != nil:
+					header.MsgType = "#sync"
+					obj = evt.RepoSync
 				case evt.RepoInfo != nil:
 					header.MsgType = "#info"
 					obj = evt.RepoInfo
-				case evt.RepoMigrate != nil:
-					header.MsgType = "#migrate"
-					obj = evt.RepoMigrate
-				case evt.RepoTombstone != nil:
-					header.MsgType = "#tombstone"
-					obj = evt.RepoTombstone
 				default:
 					logger.Error("unrecognized event kind")
 					continue
@@ -599,7 +594,6 @@ func (s *Server) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
 	if err := s.Events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoCommit: &comatproto.SyncSubscribeRepos_Commit{
 			Repo:   s.Dids[evt.User-1],
-			Prev:   (*lexutil.LexLink)(evt.OldRoot),
 			Blocks: evt.RepoSlice,
 			Commit: lexutil.LexLink(evt.NewRoot),
 			Time:   time.Now().Format(util.ISO8601),

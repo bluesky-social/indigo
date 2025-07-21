@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	ipld "github.com/ipfs/go-ipld-format"
 	"io"
 	"log/slog"
 	"sync"
@@ -11,8 +12,6 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	blockformat "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	car "github.com/ipld/go-car"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
@@ -75,10 +74,13 @@ func (cs *NonArchivalCarstore) putLastShardCache(ls *commitRefInfo) {
 
 func (cs *NonArchivalCarstore) loadCommitRefInfo(ctx context.Context, user models.Uid) (*commitRefInfo, error) {
 	var out commitRefInfo
-	if err := cs.db.Find(&out, "uid = ?", user).Error; err != nil {
-		return nil, err
+	wat := cs.db.Find(&out, "uid = ?", user)
+	if wat.Error != nil {
+		return nil, wat.Error
 	}
-
+	if wat.RowsAffected == 0 {
+		return nil, nil
+	}
 	return &out, nil
 }
 
@@ -94,6 +96,9 @@ func (cs *NonArchivalCarstore) getCommitRefInfo(ctx context.Context, user models
 	lastShard, err := cs.loadCommitRefInfo(ctx, user)
 	if err != nil {
 		return nil, err
+	}
+	if lastShard == nil {
+		return nil, nil
 	}
 
 	cs.putLastShardCache(lastShard)
@@ -119,6 +124,8 @@ func (cs *NonArchivalCarstore) updateLastCommit(ctx context.Context, uid models.
 	return nil
 }
 
+var commitRefZero = commitRefInfo{}
+
 func (cs *NonArchivalCarstore) NewDeltaSession(ctx context.Context, user models.Uid, since *string) (*DeltaSession, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "NewSession")
 	defer span.End()
@@ -130,13 +137,15 @@ func (cs *NonArchivalCarstore) NewDeltaSession(ctx context.Context, user models.
 		return nil, err
 	}
 
-	if since != nil && *since != lastShard.Rev {
-		cs.log.Warn("revision mismatch: %s != %s: %s", *since, lastShard.Rev, ErrRepoBaseMismatch)
+	if lastShard == nil {
+		// ok, no previous user state to refer to
+		lastShard = &commitRefZero
+	} else if since != nil && *since != lastShard.Rev {
+		cs.log.Warn("revision mismatch", "commitSince", since, "lastRev", lastShard.Rev, "err", ErrRepoBaseMismatch)
 	}
 
 	return &DeltaSession{
-		fresh: blockstore.NewBlockstore(datastore.NewMapDatastore()),
-		blks:  make(map[cid.Cid]blockformat.Block),
+		blks: make(map[cid.Cid]blockformat.Block),
 		base: &userView{
 			user:     user,
 			cs:       cs,
@@ -213,7 +222,7 @@ func (cs *NonArchivalCarstore) GetUserRepoHead(ctx context.Context, user models.
 	if err != nil {
 		return cid.Undef, err
 	}
-	if lastShard.ID == 0 {
+	if lastShard == nil || lastShard.ID == 0 {
 		return cid.Undef, nil
 	}
 
@@ -225,7 +234,7 @@ func (cs *NonArchivalCarstore) GetUserRepoRev(ctx context.Context, user models.U
 	if err != nil {
 		return "", err
 	}
-	if lastShard.ID == 0 {
+	if lastShard == nil || lastShard.ID == 0 {
 		return "", nil
 	}
 
@@ -251,4 +260,20 @@ func (cs *NonArchivalCarstore) GetCompactionTargets(ctx context.Context, shardCo
 
 func (cs *NonArchivalCarstore) CompactUserShards(ctx context.Context, user models.Uid, skipBigShards bool) (*CompactionStats, error) {
 	return nil, fmt.Errorf("compaction not supported in non-archival")
+}
+
+func (cs *NonArchivalCarstore) HasUidCid(ctx context.Context, user models.Uid, k cid.Cid) (bool, error) {
+	return false, nil
+}
+
+func (cs *NonArchivalCarstore) LookupBlockRef(ctx context.Context, k cid.Cid) (path string, offset int64, user models.Uid, err error) {
+	return "", 0, 0, ipld.ErrNotFound{Cid: k}
+}
+
+func (cs *NonArchivalCarstore) writeNewShard(ctx context.Context, root cid.Cid, rev string, user models.Uid, seq int, blks map[cid.Cid]blockformat.Block, rmcids map[cid.Cid]bool) ([]byte, error) {
+	slice, err := blocksToCar(ctx, root, rev, blks)
+	if err != nil {
+		return nil, err
+	}
+	return slice, cs.updateLastCommit(ctx, user, rev, root)
 }

@@ -7,11 +7,13 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerCreateSession_Input is the input argument to a com.atproto.server.createSession call.
 type ServerCreateSession_Input struct {
+	// allowTakendown: When true, instead of throwing error for takendown accounts, a valid response with a narrow scoped token will be returned
+	AllowTakendown  *bool   `json:"allowTakendown,omitempty" cborgen:"allowTakendown,omitempty"`
 	AuthFactorToken *string `json:"authFactorToken,omitempty" cborgen:"authFactorToken,omitempty"`
 	// identifier: Handle or other identifier supported by the server for the authenticating user.
 	Identifier string `json:"identifier" cborgen:"identifier"`
@@ -34,9 +36,9 @@ type ServerCreateSession_Output struct {
 }
 
 // ServerCreateSession calls the XRPC method "com.atproto.server.createSession".
-func ServerCreateSession(ctx context.Context, c *xrpc.Client, input *ServerCreateSession_Input) (*ServerCreateSession_Output, error) {
+func ServerCreateSession(ctx context.Context, c util.LexClient, input *ServerCreateSession_Input) (*ServerCreateSession_Output, error) {
 	var out ServerCreateSession_Output
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.createSession", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.server.createSession", nil, input, &out); err != nil {
 		return nil, err
 	}
 

@@ -127,21 +127,17 @@ func evtOp(evt *events.XRPCStreamEvent) string {
 		return "ERROR"
 	case evt.RepoCommit != nil:
 		return "#commit"
-	case evt.RepoHandle != nil:
-		return "#handle"
+	case evt.RepoSync != nil:
+		return "#sync"
 	case evt.RepoInfo != nil:
 		return "#info"
-	case evt.RepoMigrate != nil:
-		return "#migrate"
-	case evt.RepoTombstone != nil:
-		return "#tombstone"
 	default:
 		return "unknown"
 	}
 }
 
 func sameCommit(a, b *comatproto.SyncSubscribeRepos_Commit) bool {
-	return a.Repo == b.Repo && cidStr(a.Prev) == cidStr(b.Prev)
+	return a.Repo == b.Repo && a.Rev == b.Rev
 }
 
 func findEvt(evt *events.XRPCStreamEvent, list []*events.XRPCStreamEvent) int {
@@ -157,10 +153,6 @@ func findEvt(evt *events.XRPCStreamEvent, list []*events.XRPCStreamEvent) int {
 			if sameCommit(evt.RepoCommit, oe.RepoCommit) {
 				return i
 			}
-		case evt.RepoHandle != nil:
-			panic("not handling handle updates yet")
-		case evt.RepoMigrate != nil:
-			panic("not handling repo migrates yet")
 		default:
 			panic("unhandled event type: " + evtop)
 		}

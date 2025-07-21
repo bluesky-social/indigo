@@ -1,13 +1,13 @@
 
 ## git repo contents
 
-Run with, eg, `go run ./cmd/bigsky`):
+Run with, eg, `go run ./cmd/rainbow`):
 
-- `cmd/bigsky`: Relay+indexer daemon
-- `cmd/palomar`: search indexer and query servcie (OpenSearch)
+- `cmd/bigsky`: relay daemon
+- `cmd/relay`: new (sync v1.1) relay daemon
+- `cmd/palomar`: search indexer and query service (OpenSearch)
 - `cmd/gosky`: client CLI for talking to a PDS
 - `cmd/lexgen`: codegen tool for lexicons (Lexicon JSON to Go package)
-- `cmd/laputa`: partial PDS daemon (not usable or under development)
 - `cmd/stress`: connects to local/default PDS and creates a ton of random posts
 - `cmd/beemo`: slack bot for moderation reporting (Bluesky Moderation Observer)
 - `cmd/fakermaker`: helper to generate fake accounts and content for testing
@@ -15,18 +15,25 @@ Run with, eg, `go run ./cmd/bigsky`):
 - `cmd/sonar`: event stream monitoring tool
 - `cmd/hepa`: auto-moderation rule engine service
 - `cmd/rainbow`: firehose fanout service
+- `cmd/bluepages`: identity directory service
 - `gen`: dev tool to run CBOR type codegen
 
 Packages:
 
 - `api`: mostly output of lexgen (codegen) for lexicons: structs, CBOR marshaling. some higher-level code, and a PLC client (may rename)
     - `api/atproto`: generated types for `com.atproto` lexicon
+    - `api/agnostic`: variants of `com.atproto` types which work better with unknown lexicon data
     - `api/bsky`: generated types for `app.bsky` lexicon
-- `atproto/crypto`: crytographic helpers (signing, key generation and serialization)
+    - `api/chat`: generated types for `chat.bsky` lexicon
+    - `api/ozone`: generated types for `tools.ozone` lexicon
+- `atproto/crypto`: cryptographic helpers (signing, key generation and serialization)
 - `atproto/syntax`: string types and parsers for identifiers, datetimes, etc
 - `atproto/identity`: DID and handle resolution
+- `atproto/data`: helpers for atproto data as JSON or CBOR with unknown schema
+- `atproto/lexicon`: lexicon validation of generic data
+- `atproto/repo`: repo and MST implementation
 - `automod`: moderation and anti-spam rules engine
-- `bgs`: relay server implementation for crawling, etc
+- `bgs`: relay server implementation for crawling, etc (for bigsky implementation)
 - `carstore`: library for storing repo data in CAR files on disk, plus a metadata SQL db
 - `events`: types, codegen CBOR helpers, and persistence for event feeds
 - `indexer`: aggregator, handling like counts etc in SQL database
@@ -109,7 +116,7 @@ Set the log level to be more verbose, using an env variable:
 Running against local typescript PDS in `dev-env` mode:
 
 	# as "alice" user
-	go run ./cmd/gosky/ --pds http://localhost:2583 createSession alice.test hunter2 > bsky.auth
+	go run ./cmd/gosky/ --pds-host http://localhost:2583 account create-session alice.test hunter2 > bsky.auth
 
 The `bsky.auth` file is the default place that `gosky` and other client commands will look for auth info.
 

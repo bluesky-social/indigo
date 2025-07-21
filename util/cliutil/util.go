@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/did"
+	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/xrpc"
 	slogGorm "github.com/orandin/slog-gorm"
 	"github.com/urfave/cli/v2"
@@ -28,7 +28,7 @@ import (
 
 func GetDidResolver(cctx *cli.Context) did.Resolver {
 	mr := did.NewMultiResolver()
-	mr.AddHandler("plc", &api.PLCServer{
+	mr.AddHandler("plc", &plc.PLCServer{
 		Host: cctx.String("plc"),
 	})
 	mr.AddHandler("web", &did.WebResolver{})
@@ -36,8 +36,8 @@ func GetDidResolver(cctx *cli.Context) did.Resolver {
 	return mr
 }
 
-func GetPLCClient(cctx *cli.Context) *api.PLCServer {
-	return &api.PLCServer{
+func GetPLCClient(cctx *cli.Context) *plc.PLCServer {
+	return &plc.PLCServer{
 		Host: cctx.String("plc"),
 	}
 }
@@ -53,54 +53,6 @@ func NewHttpClient() *http.Client {
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
-}
-
-type CliConfig struct {
-	filename string
-	PDS      string
-}
-
-func readGoskyConfig() (*CliConfig, error) {
-	// TODO: use os.UserConfigDir()/gosky, falling back to os.UserHomeDir()/.gosky for backwards compatibility.
-	d, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("cannot read Home directory")
-	}
-
-	f := filepath.Join(d, ".gosky")
-
-	b, err := os.ReadFile(f)
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-
-	var out CliConfig
-	if err := json.Unmarshal(b, &out); err != nil {
-		return nil, err
-	}
-
-	out.filename = f
-	return &out, nil
-}
-
-var Config *CliConfig
-
-func TryReadConfig() {
-	cfg, err := readGoskyConfig()
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		Config = cfg
-	}
-}
-
-func WriteConfig(cfg *CliConfig) error {
-	b, err := json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(cfg.filename, b, 0664)
 }
 
 func GetXrpcClient(cctx *cli.Context, authreq bool) (*xrpc.Client, error) {
@@ -283,7 +235,7 @@ func firstenv(env_var_names ...string) string {
 // The env vars were derived from ipfs logging library, and also respond to some GOLOG_ vars from that library,
 // but BSKYLOG_ variables are preferred because imported code still using the ipfs log library may misbehave
 // if some GOLOG values are set, especially GOLOG_FILE.
-func SetupSlog(options LogOptions) (*slog.Logger, error) {
+func SetupSlog(options LogOptions) (*slog.Logger, io.Writer, error) {
 	fmt.Fprintf(os.Stderr, "SetupSlog\n")
 	var hopts slog.HandlerOptions
 	hopts.Level = slog.LevelInfo
@@ -306,7 +258,7 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 		case "error":
 			hopts.Level = slog.LevelError
 		default:
-			return nil, fmt.Errorf("unknown log level: %#v", options.LogLevel)
+			return nil, nil, fmt.Errorf("unknown log level: %#v", options.LogLevel)
 		}
 	}
 	if options.LogFormat == "" {
@@ -319,7 +271,7 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 		if format == "json" || format == "text" {
 			// ok
 		} else {
-			return nil, fmt.Errorf("invalid log format: %#v", options.LogFormat)
+			return nil, nil, fmt.Errorf("invalid log format: %#v", options.LogFormat)
 		}
 		options.LogFormat = format
 	}
@@ -332,7 +284,7 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 		if rotateBytesStr != "" {
 			rotateBytes, err := strconv.ParseInt(rotateBytesStr, 10, 64)
 			if err != nil {
-				return nil, fmt.Errorf("invalid BSKYLOG_ROTATE_BYTES value: %w", err)
+				return nil, nil, fmt.Errorf("invalid BSKYLOG_ROTATE_BYTES value: %w", err)
 			}
 			options.LogRotateBytes = rotateBytes
 		}
@@ -343,7 +295,7 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 		if keepOldStr != "" {
 			keepOld, err := strconv.ParseInt(keepOldStr, 10, 64)
 			if err != nil {
-				return nil, fmt.Errorf("invalid BSKYLOG_ROTATE_KEEP value: %w", err)
+				return nil, nil, fmt.Errorf("invalid BSKYLOG_ROTATE_KEEP value: %w", err)
 			}
 			keepOldUnset = false
 			options.KeepOld = int(keepOld)
@@ -368,7 +320,7 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 		var err error
 		out, err = os.Create(options.LogPath)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", options.LogPath, err)
+			return nil, nil, fmt.Errorf("%s: %w", options.LogPath, err)
 		}
 		fmt.Fprintf(os.Stderr, "SetupSlog create %#v\n", options.LogPath)
 	}
@@ -379,7 +331,7 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 	case "json":
 		handler = slog.NewJSONHandler(out, &hopts)
 	default:
-		return nil, fmt.Errorf("unknown log format: %#v", options.LogFormat)
+		return nil, nil, fmt.Errorf("unknown log format: %#v", options.LogFormat)
 	}
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
@@ -389,7 +341,7 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 		fmt.Fprintf(os.Stdout, "%s\n", filepath.Join(templateDirPart, ent.Name()))
 	}
 	SetIpfsWriter(out, options.LogFormat, options.LogLevel)
-	return logger, nil
+	return logger, out, nil
 }
 
 type logRotateWriter struct {

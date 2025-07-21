@@ -1,4 +1,7 @@
 import {
+  ChevronDoubleLeftIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   MagnifyingGlassIcon,
   ShieldCheckIcon,
   ShieldExclamationIcon,
@@ -35,6 +38,8 @@ const Dash: FC<{}> = () => {
   const [fullPDSList, setFullPDSList] = useState<PDS[] | null>(null);
   const [sortField, setSortField] = useState<PDSKey>("ID");
   const [sortOrder, setSortOrder] = useState<string>("asc");
+  const [pageNum, setPageNum] = useState<number>(1);
+  const pageSize = 30;
 
   // Slurp Toggle Management
   const [slurpsEnabled, setSlurpsEnabled] = useState<boolean>(true);
@@ -63,8 +68,6 @@ const Dash: FC<{}> = () => {
   const [editingPerHourRateLimit, setEditingPerHourRateLimit] =
     useState<PDS | null>(null);
   const [editingPerDayRateLimit, setEditingPerDayRateLimit] =
-    useState<PDS | null>(null);
-  const [editingCrawlRateLimit, setEditingCrawlRateLimit] =
     useState<PDS | null>(null);
   const [editingRepoLimit, setEditingRepoLimit] =
     useState<PDS | null>(null);
@@ -389,7 +392,6 @@ const Dash: FC<{}> = () => {
           per_second: pds.PerSecondEventRate.Max,
           per_hour: pds.PerHourEventRate.Max,
           per_day: pds.PerDayEventRate.Max,
-          crawl_rate: pds.CrawlRate.Max,
           repo_limit: pds.RepoLimit,
         }),
       }
@@ -467,12 +469,12 @@ const Dash: FC<{}> = () => {
     refreshPDSList();
     getSlurpsEnabled();
     getNewPDSRateLimit();
-    // Refresh stats every 10 seconds
+    // Refresh stats every 60 seconds
     const interval = setInterval(() => {
       refreshPDSList();
       getSlurpsEnabled();
       getNewPDSRateLimit();
-    }, 10 * 1000);
+    }, 60 * 1000);
 
     return () => clearInterval(interval);
   }, [sortField, sortOrder]);
@@ -598,6 +600,7 @@ const Dash: FC<{}> = () => {
               type="search"
               onChange={(e) => {
                 setSearchTerm(e.target.value);
+                setPageNum(1);
               }}
               value={searchTerm || ""}
             />
@@ -851,14 +854,6 @@ const Dash: FC<{}> = () => {
                   className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
                 >
                   <a href="#" className="group inline-flex">
-                    Crawl Limit
-                  </a>
-                </th>
-                <th
-                  scope="col"
-                  className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
-                >
-                  <a href="#" className="group inline-flex">
                     Repo Limit
                   </a>
                 </th>
@@ -896,7 +891,10 @@ const Dash: FC<{}> = () => {
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {pdsList &&
-                pdsList.map((pds) => {
+                pdsList.map((pds, idx) => {
+                  if (idx < (pageNum - 1) * pageSize || idx >= pageNum * pageSize) {
+                    return null;
+                  }
                   return (
                     <tr key={pds.ID}>
                       <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 text-left">
@@ -1169,64 +1167,6 @@ const Dash: FC<{}> = () => {
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
                         <span
                           className={
-                            editingCrawlRateLimit?.ID === pds.ID
-                              ? "hidden"
-                              : ""
-                          }
-                        >
-                          {pds.CrawlRate.Max?.toLocaleString()}
-                          /sec
-                        </span>
-                        <input
-                          type="number"
-                          name={`crawl-rate-limit-${pds.ID}`}
-                          id={`crawl-rate-limit-${pds.ID}`}
-                          className={
-                            `inline-block w-24 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6` +
-                            (editingCrawlRateLimit?.ID === pds.ID
-                              ? ""
-                              : " hidden")
-                          }
-                          defaultValue={pds.CrawlRate.Max?.toLocaleString()}
-                        />
-                        <a
-                          href="#"
-                          onClick={() => setEditingCrawlRateLimit(pds)}
-                          className={editingCrawlRateLimit ? "hidden" : ""}
-                        >
-                          <PencilSquareIcon
-                            className="h-5 w-5 text-gray-500 ml-1 inline-block align-sub"
-                            aria-hidden="true"
-                          />
-                        </a>
-                        <a
-                          href="#"
-                          onClick={() => {
-                            const newRateLimit = document.getElementById(
-                              `crawl-rate-limit-${pds.ID}`
-                            ) as HTMLInputElement;
-                            if (newRateLimit) {
-                              pds.CrawlRate.Max = +newRateLimit.value;
-                              updateRateLimits(pds);
-                            }
-                            setEditingCrawlRateLimit(null);
-                          }}
-                          className={
-                            "rounded-md p-2  ml-1 hover:text-green-600 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50" +
-                            (editingCrawlRateLimit?.ID === pds.ID
-                              ? ""
-                              : " hidden")
-                          }
-                        >
-                          <CheckIcon
-                            className="h-5 w-5 text-green-500 inline-block align-sub"
-                            aria-hidden="true"
-                          />
-                        </a>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
-                        <span
-                          className={
                             editingRepoLimit?.ID === pds.ID
                               ? "hidden"
                               : ""
@@ -1290,6 +1230,100 @@ const Dash: FC<{}> = () => {
             </tbody>
           </table>
         </div>
+        {pdsList && pdsList.length > pageSize && (
+          <div className="mt-4 flex-1 flex justify-between sm:justify-end">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => {
+                  if (pageNum > 1) {
+                    setPageNum(pageNum - 1);
+                  }
+                }}
+                disabled={pageNum <= 1}
+                className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm cursor-pointer"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => {
+                  if (pageNum < Math.ceil(pdsList.length / pageSize)) {
+                    setPageNum(pageNum + 1);
+                  }
+                }}
+                disabled={pageNum >= Math.ceil(pdsList.length / pageSize)}
+                className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm cursor-pointer"
+              >
+                Next
+              </button>
+            </div>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing
+                  <span className="font-medium"> {1 + (pageNum - 1) * pageSize} </span>
+                  to
+                  <span className="font-medium"> {Math.min(pageNum * pageSize, pdsList.length)} </span>
+                  of
+                  <span className="font-medium"> {pdsList.length} </span>
+                  results
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={() => setPageNum(1)}
+                    disabled={pageNum <= 1}
+                    className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 cursor-pointer"
+                  >
+                    <span className="sr-only">First</span>
+                    <ChevronDoubleLeftIcon className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (pageNum > 1) {
+                        setPageNum(pageNum - 1);
+                      }
+                    }}
+                    disabled={pageNum <= 1}
+                    className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 cursor-pointer"
+                  >
+                    <span className="sr-only">Previous</span>
+                    <ChevronLeftIcon className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                  {Array.from({ length: Math.ceil(pdsList.length / pageSize) }, (_, i) => i + 1).map((page) => (
+                    // Skip buttons more than 5 pages away from the current page
+                    Math.abs(page - pageNum) > 5 ? null : (
+                      <button
+                        key={page}
+                        onClick={() => setPageNum(page)}
+                        className={classNames(
+                          page === pageNum
+                            ? "z-10 bg-indigo-50 border-indigo-500 text-indigo-600"
+                            : "bg-white border-gray-300 text-gray-500",
+                          "relative inline-flex items-center px-4 py-2 text-sm font-medium border cursor-pointer"
+                        )}
+                      >
+                        {page}
+                      </button>
+                    )
+                  ))}
+                  <button
+                    onClick={() => {
+                      if (pageNum < Math.ceil(pdsList.length / pageSize)) {
+                        setPageNum(pageNum + 1);
+                      }
+                    }}
+                    disabled={pageNum >= Math.ceil(pdsList.length / pageSize)}
+                    className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 cursor-pointer"
+                  >
+                    <span className="sr-only">Next</span>
+                    <ChevronRightIcon className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       {
         modalAction && (

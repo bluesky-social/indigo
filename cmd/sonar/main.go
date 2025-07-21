@@ -15,7 +15,6 @@ import (
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
-	"github.com/bluesky-social/indigo/sonar"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "go.uber.org/automaxprocs"
@@ -63,7 +62,7 @@ func main() {
 		},
 	}
 
-	app.Action = Sonar
+	app.Action = runSonar
 
 	err := app.Run(os.Args)
 	if err != nil {
@@ -71,7 +70,7 @@ func main() {
 	}
 }
 
-func Sonar(cctx *cli.Context) error {
+func runSonar(cctx *cli.Context) error {
 	ctx := cctx.Context
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -94,7 +93,7 @@ func Sonar(cctx *cli.Context) error {
 		log.Fatalf("failed to parse ws-url: %+v", err)
 	}
 
-	s, err := sonar.NewSonar(logger, cctx.String("cursor-file"), u.String())
+	s, err := NewSonar(logger, cctx.String("cursor-file"), u.String())
 	if err != nil {
 		log.Fatalf("failed to create sonar: %+v", err)
 	}

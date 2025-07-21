@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphGetBlocks_Output is the output of a app.bsky.graph.getBlocks call.
@@ -17,14 +17,17 @@ type GraphGetBlocks_Output struct {
 }
 
 // GraphGetBlocks calls the XRPC method "app.bsky.graph.getBlocks".
-func GraphGetBlocks(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*GraphGetBlocks_Output, error) {
+func GraphGetBlocks(ctx context.Context, c util.LexClient, cursor string, limit int64) (*GraphGetBlocks_Output, error) {
 	var out GraphGetBlocks_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.getBlocks", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.graph.getBlocks", params, nil, &out); err != nil {
 		return nil, err
 	}
 

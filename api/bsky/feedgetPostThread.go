@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // FeedGetPostThread_Output is the output of a app.bsky.feed.getPostThread call.
@@ -67,15 +66,18 @@ func (t *FeedGetPostThread_Output_Thread) UnmarshalJSON(b []byte) error {
 // depth: How many levels of reply depth should be included in response.
 // parentHeight: How many levels of parent (and grandparent, etc) post to include.
 // uri: Reference (AT-URI) to post record.
-func FeedGetPostThread(ctx context.Context, c *xrpc.Client, depth int64, parentHeight int64, uri string) (*FeedGetPostThread_Output, error) {
+func FeedGetPostThread(ctx context.Context, c util.LexClient, depth int64, parentHeight int64, uri string) (*FeedGetPostThread_Output, error) {
 	var out FeedGetPostThread_Output
 
-	params := map[string]interface{}{
-		"depth":        depth,
-		"parentHeight": parentHeight,
-		"uri":          uri,
+	params := map[string]interface{}{}
+	if depth != 0 {
+		params["depth"] = depth
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getPostThread", params, nil, &out); err != nil {
+	if parentHeight != 0 {
+		params["parentHeight"] = parentHeight
+	}
+	params["uri"] = uri
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.getPostThread", params, nil, &out); err != nil {
 		return nil, err
 	}
 

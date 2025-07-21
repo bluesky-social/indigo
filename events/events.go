@@ -152,28 +152,49 @@ const (
 
 type EventHeader struct {
 	Op      int64  `cborgen:"op"`
-	MsgType string `cborgen:"t"`
+	MsgType string `cborgen:"t,omitempty"`
 }
 
 var (
-	AccountStatusActive      = "active"
-	AccountStatusTakendown   = "takendown"
-	AccountStatusSuspended   = "suspended"
-	AccountStatusDeleted     = "deleted"
-	AccountStatusDeactivated = "deactivated"
+	// AccountStatusActive is not in the spec but used internally
+	// the alternative would be an additional SQL column for "active" or status="" to imply active
+	AccountStatusActive = "active"
+
+	AccountStatusDeactivated    = "deactivated"
+	AccountStatusDeleted        = "deleted"
+	AccountStatusDesynchronized = "desynchronized"
+	AccountStatusSuspended      = "suspended"
+	AccountStatusTakendown      = "takendown"
+	AccountStatusThrottled      = "throttled"
 )
 
+var AccountStatusList = []string{
+	AccountStatusActive,
+	AccountStatusDeactivated,
+	AccountStatusDeleted,
+	AccountStatusDesynchronized,
+	AccountStatusSuspended,
+	AccountStatusTakendown,
+	AccountStatusThrottled,
+}
+var AccountStatuses map[string]bool
+
+func init() {
+	AccountStatuses = make(map[string]bool, len(AccountStatusList))
+	for _, status := range AccountStatusList {
+		AccountStatuses[status] = true
+	}
+}
+
 type XRPCStreamEvent struct {
-	Error         *ErrorFrame
-	RepoCommit    *comatproto.SyncSubscribeRepos_Commit
-	RepoHandle    *comatproto.SyncSubscribeRepos_Handle
-	RepoIdentity  *comatproto.SyncSubscribeRepos_Identity
-	RepoInfo      *comatproto.SyncSubscribeRepos_Info
-	RepoMigrate   *comatproto.SyncSubscribeRepos_Migrate
-	RepoTombstone *comatproto.SyncSubscribeRepos_Tombstone
-	RepoAccount   *comatproto.SyncSubscribeRepos_Account
-	LabelLabels   *comatproto.LabelSubscribeLabels_Labels
-	LabelInfo     *comatproto.LabelSubscribeLabels_Info
+	Error        *ErrorFrame
+	RepoCommit   *comatproto.SyncSubscribeRepos_Commit
+	RepoSync     *comatproto.SyncSubscribeRepos_Sync
+	RepoIdentity *comatproto.SyncSubscribeRepos_Identity
+	RepoInfo     *comatproto.SyncSubscribeRepos_Info
+	RepoAccount  *comatproto.SyncSubscribeRepos_Account
+	LabelLabels  *comatproto.LabelSubscribeLabels_Labels
+	LabelInfo    *comatproto.LabelSubscribeLabels_Info
 
 	// some private fields for internal routing perf
 	PrivUid         models.Uid `json:"-" cborgen:"-"`
@@ -193,9 +214,9 @@ func (evt *XRPCStreamEvent) Serialize(wc io.Writer) error {
 	case evt.RepoCommit != nil:
 		header.MsgType = "#commit"
 		obj = evt.RepoCommit
-	case evt.RepoHandle != nil:
-		header.MsgType = "#handle"
-		obj = evt.RepoHandle
+	case evt.RepoSync != nil:
+		header.MsgType = "#sync"
+		obj = evt.RepoSync
 	case evt.RepoIdentity != nil:
 		header.MsgType = "#identity"
 		obj = evt.RepoIdentity
@@ -205,12 +226,6 @@ func (evt *XRPCStreamEvent) Serialize(wc io.Writer) error {
 	case evt.RepoInfo != nil:
 		header.MsgType = "#info"
 		obj = evt.RepoInfo
-	case evt.RepoMigrate != nil:
-		header.MsgType = "#migrate"
-		obj = evt.RepoMigrate
-	case evt.RepoTombstone != nil:
-		header.MsgType = "#tombstone"
-		obj = evt.RepoTombstone
 	default:
 		return fmt.Errorf("unrecognized event kind")
 	}
@@ -236,12 +251,12 @@ func (xevt *XRPCStreamEvent) Deserialize(r io.Reader) error {
 				return fmt.Errorf("reading repoCommit event: %w", err)
 			}
 			xevt.RepoCommit = &evt
-		case "#handle":
-			var evt comatproto.SyncSubscribeRepos_Handle
+		case "#sync":
+			var evt comatproto.SyncSubscribeRepos_Sync
 			if err := evt.UnmarshalCBOR(r); err != nil {
-				return err
+				return fmt.Errorf("reading repoSync event: %w", err)
 			}
-			xevt.RepoHandle = &evt
+			xevt.RepoSync = &evt
 		case "#identity":
 			var evt comatproto.SyncSubscribeRepos_Identity
 			if err := evt.UnmarshalCBOR(r); err != nil {
@@ -261,18 +276,6 @@ func (xevt *XRPCStreamEvent) Deserialize(r io.Reader) error {
 				return err
 			}
 			xevt.RepoInfo = &evt
-		case "#migrate":
-			var evt comatproto.SyncSubscribeRepos_Migrate
-			if err := evt.UnmarshalCBOR(r); err != nil {
-				return err
-			}
-			xevt.RepoMigrate = &evt
-		case "#tombstone":
-			var evt comatproto.SyncSubscribeRepos_Tombstone
-			if err := evt.UnmarshalCBOR(r); err != nil {
-				return err
-			}
-			xevt.RepoTombstone = &evt
 		case "#labels":
 			var evt comatproto.LabelSubscribeLabels_Labels
 			if err := evt.UnmarshalCBOR(r); err != nil {
@@ -379,12 +382,19 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 			}
 
 			// TODO: send an error frame or something?
+			// NOTE: not doing em.rmSubscriber(sub) here because it hasn't been added yet
 			close(out)
 			return
 		}
 
 		// now, start buffering events from the live stream
 		em.addSubscriber(sub)
+
+		// ensure that we clean up any return paths from here out, after having added the subscriber. Note that `out` is not `sub.output`, so needs to be closed separately.
+		defer func() {
+			close(out)
+			em.rmSubscriber(sub)
+		}()
 
 		first := <-sub.outgoing
 
@@ -404,10 +414,6 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 		}); err != nil {
 			if !errors.Is(err, ErrCaughtUp) {
 				em.log.Error("events playback", "err", err)
-
-				// TODO: send an error frame or something?
-				close(out)
-				em.rmSubscriber(sub)
 				return
 			}
 		}
@@ -417,7 +423,6 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 			select {
 			case out <- evt:
 			case <-done:
-				em.rmSubscriber(sub)
 				return
 			}
 		}
@@ -436,12 +441,8 @@ func (evt *XRPCStreamEvent) Sequence() int64 {
 		return -1
 	case evt.RepoCommit != nil:
 		return evt.RepoCommit.Seq
-	case evt.RepoHandle != nil:
-		return evt.RepoHandle.Seq
-	case evt.RepoMigrate != nil:
-		return evt.RepoMigrate.Seq
-	case evt.RepoTombstone != nil:
-		return evt.RepoTombstone.Seq
+	case evt.RepoSync != nil:
+		return evt.RepoSync.Seq
 	case evt.RepoIdentity != nil:
 		return evt.RepoIdentity.Seq
 	case evt.RepoAccount != nil:
@@ -452,6 +453,27 @@ func (evt *XRPCStreamEvent) Sequence() int64 {
 		return -1
 	default:
 		return -1
+	}
+}
+
+func (evt *XRPCStreamEvent) GetSequence() (int64, bool) {
+	switch {
+	case evt == nil:
+		return -1, false
+	case evt.RepoCommit != nil:
+		return evt.RepoCommit.Seq, true
+	case evt.RepoSync != nil:
+		return evt.RepoSync.Seq, true
+	case evt.RepoIdentity != nil:
+		return evt.RepoIdentity.Seq, true
+	case evt.RepoAccount != nil:
+		return evt.RepoAccount.Seq, true
+	case evt.RepoInfo != nil:
+		return -1, false
+	case evt.Error != nil:
+		return -1, false
+	default:
+		return -1, false
 	}
 }
 

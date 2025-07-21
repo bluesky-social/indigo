@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerUpdateEmail_Input is the input argument to a com.atproto.server.updateEmail call.
@@ -19,8 +19,8 @@ type ServerUpdateEmail_Input struct {
 }
 
 // ServerUpdateEmail calls the XRPC method "com.atproto.server.updateEmail".
-func ServerUpdateEmail(ctx context.Context, c *xrpc.Client, input *ServerUpdateEmail_Input) error {
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.updateEmail", nil, input, nil); err != nil {
+func ServerUpdateEmail(ctx context.Context, c util.LexClient, input *ServerUpdateEmail_Input) error {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.server.updateEmail", nil, input, nil); err != nil {
 		return err
 	}
 

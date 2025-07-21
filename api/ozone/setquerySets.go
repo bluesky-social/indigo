@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // SetQuerySets_Output is the output of a tools.ozone.set.querySets call.
@@ -19,17 +19,26 @@ type SetQuerySets_Output struct {
 // SetQuerySets calls the XRPC method "tools.ozone.set.querySets".
 //
 // sortDirection: Defaults to ascending order of name field.
-func SetQuerySets(ctx context.Context, c *xrpc.Client, cursor string, limit int64, namePrefix string, sortBy string, sortDirection string) (*SetQuerySets_Output, error) {
+func SetQuerySets(ctx context.Context, c util.LexClient, cursor string, limit int64, namePrefix string, sortBy string, sortDirection string) (*SetQuerySets_Output, error) {
 	var out SetQuerySets_Output
 
-	params := map[string]interface{}{
-		"cursor":        cursor,
-		"limit":         limit,
-		"namePrefix":    namePrefix,
-		"sortBy":        sortBy,
-		"sortDirection": sortDirection,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.set.querySets", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if namePrefix != "" {
+		params["namePrefix"] = namePrefix
+	}
+	if sortBy != "" {
+		params["sortBy"] = sortBy
+	}
+	if sortDirection != "" {
+		params["sortDirection"] = sortDirection
+	}
+	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.set.querySets", params, nil, &out); err != nil {
 		return nil, err
 	}
 

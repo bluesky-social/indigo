@@ -20,16 +20,13 @@ import (
 	"github.com/bluesky-social/indigo/indexer"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/notifs"
 	pdsdata "github.com/bluesky-social/indigo/pds/data"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
-	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	gojwt "github.com/golang-jwt/jwt"
 	"github.com/gorilla/websocket"
-	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -41,8 +38,6 @@ type Server struct {
 	db             *gorm.DB
 	cs             carstore.CarStore
 	repoman        *repomgr.RepoManager
-	feedgen        *FeedGenerator
-	notifman       notifs.NotificationManager
 	indexer        *indexer.Indexer
 	events         *events.EventManager
 	signingKey     *did.PrivKey
@@ -74,11 +69,10 @@ func NewServer(db *gorm.DB, cs carstore.CarStore, serkey *did.PrivKey, handleSuf
 	kmgr := indexer.NewKeyManager(didr, serkey)
 
 	repoman := repomgr.NewRepoManager(cs, kmgr)
-	notifman := notifs.NewNotificationManager(db, repoman.GetRecord)
 
 	rf := indexer.NewRepoFetcher(db, repoman, 10)
 
-	ix, err := indexer.NewIndexer(db, notifman, evtman, didr, rf, false, true, true)
+	ix, err := indexer.NewIndexer(db, evtman, didr, rf, false)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +81,6 @@ func NewServer(db *gorm.DB, cs carstore.CarStore, serkey *did.PrivKey, handleSuf
 		signingKey:     serkey,
 		db:             db,
 		cs:             cs,
-		notifman:       notifman,
 		indexer:        ix,
 		plc:            didr,
 		events:         evtman,
@@ -109,44 +102,11 @@ func NewServer(db *gorm.DB, cs carstore.CarStore, serkey *did.PrivKey, handleSuf
 	//ix.SendRemoteFollow = s.sendRemoteFollow
 	ix.CreateExternalUser = s.createExternalUser
 
-	feedgen, err := NewFeedGenerator(db, ix, s.readRecordFunc, s.log)
-	if err != nil {
-		return nil, err
-	}
-
-	s.feedgen = feedgen
-
 	return s, nil
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
 	return s.echo.Shutdown(ctx)
-}
-
-func (s *Server) handleFedEvent(ctx context.Context, host *Peering, env *events.XRPCStreamEvent) error {
-	fmt.Printf("[%s] got fed event from %q\n", s.serviceUrl, host.Host)
-	switch {
-	case env.RepoCommit != nil:
-		evt := env.RepoCommit
-		u, err := s.lookupUserByDid(ctx, evt.Repo)
-		if err != nil {
-			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				return fmt.Errorf("looking up event user: %w", err)
-			}
-
-			subj, err := s.createExternalUser(ctx, evt.Repo)
-			if err != nil {
-				return err
-			}
-
-			u = new(User)
-			u.ID = subj.Uid
-		}
-
-		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.Since, evt.Rev, evt.Blocks, evt.Ops)
-	default:
-		return fmt.Errorf("invalid fed event")
-	}
 }
 
 func (s *Server) createExternalUser(ctx context.Context, did string) (*models.ActorInfo, error) {
@@ -227,45 +187,6 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	}
 
 	return subj, nil
-}
-
-func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent) (*comatproto.SyncSubscribeRepos_Commit, error) {
-	did, err := s.indexer.DidForUser(ctx, evt.User)
-	if err != nil {
-		return nil, err
-	}
-
-	out := &comatproto.SyncSubscribeRepos_Commit{
-		Prev:   (*lexutil.LexLink)(evt.OldRoot),
-		Blocks: evt.RepoSlice,
-		Repo:   did,
-		Time:   time.Now().Format(bsutil.ISO8601),
-		//PrivUid: evt.User,
-	}
-
-	for _, op := range evt.Ops {
-		out.Ops = append(out.Ops, &comatproto.SyncSubscribeRepos_RepoOp{
-			Path:   op.Collection + "/" + op.Rkey,
-			Action: string(op.Kind),
-			Cid:    (*lexutil.LexLink)(op.RecCid),
-		})
-	}
-
-	return out, nil
-}
-
-func (s *Server) readRecordFunc(ctx context.Context, user models.Uid, c cid.Cid) (lexutil.CBOR, error) {
-	bs, err := s.cs.ReadOnlySession(user)
-	if err != nil {
-		return nil, err
-	}
-
-	blk, err := bs.Get(ctx, c)
-	if err != nil {
-		return nil, err
-	}
-
-	return lexutil.CborDecodeValue(blk.RawData())
 }
 
 func (s *Server) RunAPI(addr string) error {
@@ -677,9 +598,9 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		case evt.RepoCommit != nil:
 			header.MsgType = "#commit"
 			obj = evt.RepoCommit
-		case evt.RepoHandle != nil:
-			header.MsgType = "#handle"
-			obj = evt.RepoHandle
+		case evt.RepoSync != nil:
+			header.MsgType = "#sync"
+			obj = evt.RepoSync
 		case evt.RepoIdentity != nil:
 			header.MsgType = "#identity"
 			obj = evt.RepoIdentity
@@ -689,12 +610,6 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		case evt.RepoInfo != nil:
 			header.MsgType = "#info"
 			obj = evt.RepoInfo
-		case evt.RepoMigrate != nil:
-			header.MsgType = "#migrate"
-			obj = evt.RepoMigrate
-		case evt.RepoTombstone != nil:
-			header.MsgType = "#tombstone"
-			obj = evt.RepoTombstone
 		default:
 			return fmt.Errorf("unrecognized event kind")
 		}
@@ -739,17 +654,7 @@ func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) e
 		return fmt.Errorf("failed to update handle: %w", err)
 	}
 
-	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
-			Did:    u.Did,
-			Handle: handle,
-			Time:   time.Now().Format(util.ISO8601),
-		},
-	}); err != nil {
-		return fmt.Errorf("failed to push event: %s", err)
-	}
-
-	// Also push an Identity event
+	// Push an Identity event
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
 			Did:  u.Did,

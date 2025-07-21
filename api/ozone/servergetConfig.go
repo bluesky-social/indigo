@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerGetConfig_Output is the output of a tools.ozone.server.getConfig call.
@@ -16,7 +16,9 @@ type ServerGetConfig_Output struct {
 	BlobDivert *ServerGetConfig_ServiceConfig `json:"blobDivert,omitempty" cborgen:"blobDivert,omitempty"`
 	Chat       *ServerGetConfig_ServiceConfig `json:"chat,omitempty" cborgen:"chat,omitempty"`
 	Pds        *ServerGetConfig_ServiceConfig `json:"pds,omitempty" cborgen:"pds,omitempty"`
-	Viewer     *ServerGetConfig_ViewerConfig  `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	// verifierDid: The did of the verifier used for verification.
+	VerifierDid *string                       `json:"verifierDid,omitempty" cborgen:"verifierDid,omitempty"`
+	Viewer      *ServerGetConfig_ViewerConfig `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 // ServerGetConfig_ServiceConfig is a "serviceConfig" in the tools.ozone.server.getConfig schema.
@@ -30,9 +32,9 @@ type ServerGetConfig_ViewerConfig struct {
 }
 
 // ServerGetConfig calls the XRPC method "tools.ozone.server.getConfig".
-func ServerGetConfig(ctx context.Context, c *xrpc.Client) (*ServerGetConfig_Output, error) {
+func ServerGetConfig(ctx context.Context, c util.LexClient) (*ServerGetConfig_Output, error) {
 	var out ServerGetConfig_Output
-	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.server.getConfig", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.server.getConfig", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -13,6 +13,85 @@ import (
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
+// ModerationDefs_AccountEvent is a "accountEvent" in the tools.ozone.moderation.defs schema.
+//
+// Logs account status related events on a repo subject. Normally captured by automod from the firehose and emitted to ozone for historical tracking.
+//
+// RECORDTYPE: ModerationDefs_AccountEvent
+type ModerationDefs_AccountEvent struct {
+	LexiconTypeID string `json:"$type,const=tools.ozone.moderation.defs#accountEvent" cborgen:"$type,const=tools.ozone.moderation.defs#accountEvent"`
+	// active: Indicates that the account has a repository which can be fetched from the host that emitted this event.
+	Active    bool    `json:"active" cborgen:"active"`
+	Comment   *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	Status    *string `json:"status,omitempty" cborgen:"status,omitempty"`
+	Timestamp string  `json:"timestamp" cborgen:"timestamp"`
+}
+
+// ModerationDefs_AccountHosting is a "accountHosting" in the tools.ozone.moderation.defs schema.
+//
+// RECORDTYPE: ModerationDefs_AccountHosting
+type ModerationDefs_AccountHosting struct {
+	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#accountHosting" cborgen:"$type,const=tools.ozone.moderation.defs#accountHosting"`
+	CreatedAt     *string `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	DeactivatedAt *string `json:"deactivatedAt,omitempty" cborgen:"deactivatedAt,omitempty"`
+	DeletedAt     *string `json:"deletedAt,omitempty" cborgen:"deletedAt,omitempty"`
+	ReactivatedAt *string `json:"reactivatedAt,omitempty" cborgen:"reactivatedAt,omitempty"`
+	Status        string  `json:"status" cborgen:"status"`
+	UpdatedAt     *string `json:"updatedAt,omitempty" cborgen:"updatedAt,omitempty"`
+}
+
+// ModerationDefs_AccountStats is a "accountStats" in the tools.ozone.moderation.defs schema.
+//
+// Statistics about a particular account subject
+type ModerationDefs_AccountStats struct {
+	// appealCount: Total number of appeals against a moderation action on the account
+	AppealCount *int64 `json:"appealCount,omitempty" cborgen:"appealCount,omitempty"`
+	// escalateCount: Number of times the account was escalated
+	EscalateCount *int64 `json:"escalateCount,omitempty" cborgen:"escalateCount,omitempty"`
+	// reportCount: Total number of reports on the account
+	ReportCount *int64 `json:"reportCount,omitempty" cborgen:"reportCount,omitempty"`
+	// suspendCount: Number of times the account was suspended
+	SuspendCount *int64 `json:"suspendCount,omitempty" cborgen:"suspendCount,omitempty"`
+	// takedownCount: Number of times the account was taken down
+	TakedownCount *int64 `json:"takedownCount,omitempty" cborgen:"takedownCount,omitempty"`
+}
+
+// ModerationDefs_AgeAssuranceEvent is a "ageAssuranceEvent" in the tools.ozone.moderation.defs schema.
+//
+// Age assurance info coming directly from users. Only works on DID subjects.
+//
+// RECORDTYPE: ModerationDefs_AgeAssuranceEvent
+type ModerationDefs_AgeAssuranceEvent struct {
+	LexiconTypeID string `json:"$type,const=tools.ozone.moderation.defs#ageAssuranceEvent" cborgen:"$type,const=tools.ozone.moderation.defs#ageAssuranceEvent"`
+	// attemptId: The unique identifier for this instance of the age assurance flow, in UUID format.
+	AttemptId string `json:"attemptId" cborgen:"attemptId"`
+	// completeIp: The IP address used when completing the AA flow.
+	CompleteIp *string `json:"completeIp,omitempty" cborgen:"completeIp,omitempty"`
+	// completeUa: The user agent used when completing the AA flow.
+	CompleteUa *string `json:"completeUa,omitempty" cborgen:"completeUa,omitempty"`
+	// createdAt: The date and time of this write operation.
+	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
+	// initIp: The IP address used when initiating the AA flow.
+	InitIp *string `json:"initIp,omitempty" cborgen:"initIp,omitempty"`
+	// initUa: The user agent used when initiating the AA flow.
+	InitUa *string `json:"initUa,omitempty" cborgen:"initUa,omitempty"`
+	// status: The status of the age assurance process.
+	Status string `json:"status" cborgen:"status"`
+}
+
+// ModerationDefs_AgeAssuranceOverrideEvent is a "ageAssuranceOverrideEvent" in the tools.ozone.moderation.defs schema.
+//
+// Age assurance status override by moderators. Only works on DID subjects.
+//
+// RECORDTYPE: ModerationDefs_AgeAssuranceOverrideEvent
+type ModerationDefs_AgeAssuranceOverrideEvent struct {
+	LexiconTypeID string `json:"$type,const=tools.ozone.moderation.defs#ageAssuranceOverrideEvent" cborgen:"$type,const=tools.ozone.moderation.defs#ageAssuranceOverrideEvent"`
+	// comment: Comment describing the reason for the override.
+	Comment string `json:"comment" cborgen:"comment"`
+	// status: The status to be set for the user decided by a moderator, overriding whatever value the user had previously. Use reset to default to original state.
+	Status string `json:"status" cborgen:"status"`
+}
+
 // ModerationDefs_BlobView is a "blobView" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_BlobView struct {
 	Cid        string                           `json:"cid" cborgen:"cid"`
@@ -58,6 +137,20 @@ func (t *ModerationDefs_BlobView_Details) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// ModerationDefs_IdentityEvent is a "identityEvent" in the tools.ozone.moderation.defs schema.
+//
+// Logs identity related events on a repo subject. Normally captured by automod from the firehose and emitted to ozone for historical tracking.
+//
+// RECORDTYPE: ModerationDefs_IdentityEvent
+type ModerationDefs_IdentityEvent struct {
+	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#identityEvent" cborgen:"$type,const=tools.ozone.moderation.defs#identityEvent"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	Handle        *string `json:"handle,omitempty" cborgen:"handle,omitempty"`
+	PdsHost       *string `json:"pdsHost,omitempty" cborgen:"pdsHost,omitempty"`
+	Timestamp     string  `json:"timestamp" cborgen:"timestamp"`
+	Tombstone     *bool   `json:"tombstone,omitempty" cborgen:"tombstone,omitempty"`
+}
+
 // ModerationDefs_ImageDetails is a "imageDetails" in the tools.ozone.moderation.defs schema.
 //
 // RECORDTYPE: ModerationDefs_ImageDetails
@@ -71,18 +164,20 @@ type ModerationDefs_ImageDetails struct {
 //
 // RECORDTYPE: ModerationDefs_ModEventAcknowledge
 type ModerationDefs_ModEventAcknowledge struct {
-	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#modEventAcknowledge" cborgen:"$type,const=tools.ozone.moderation.defs#modEventAcknowledge"`
-	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	LexiconTypeID string `json:"$type,const=tools.ozone.moderation.defs#modEventAcknowledge" cborgen:"$type,const=tools.ozone.moderation.defs#modEventAcknowledge"`
+	// acknowledgeAccountSubjects: If true, all other reports on content authored by this account will be resolved (acknowledged).
+	AcknowledgeAccountSubjects *bool   `json:"acknowledgeAccountSubjects,omitempty" cborgen:"acknowledgeAccountSubjects,omitempty"`
+	Comment                    *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 }
 
 // ModerationDefs_ModEventComment is a "modEventComment" in the tools.ozone.moderation.defs schema.
 //
-// # Add a comment to a subject
+// Add a comment to a subject. An empty comment will clear any previously set sticky comment.
 //
 // RECORDTYPE: ModerationDefs_ModEventComment
 type ModerationDefs_ModEventComment struct {
-	LexiconTypeID string `json:"$type,const=tools.ozone.moderation.defs#modEventComment" cborgen:"$type,const=tools.ozone.moderation.defs#modEventComment"`
-	Comment       string `json:"comment" cborgen:"comment"`
+	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#modEventComment" cborgen:"$type,const=tools.ozone.moderation.defs#modEventComment"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	// sticky: Make the comment persistent on the subject
 	Sticky *bool `json:"sticky,omitempty" cborgen:"sticky,omitempty"`
 }
@@ -129,6 +224,8 @@ type ModerationDefs_ModEventLabel struct {
 	LexiconTypeID   string   `json:"$type,const=tools.ozone.moderation.defs#modEventLabel" cborgen:"$type,const=tools.ozone.moderation.defs#modEventLabel"`
 	Comment         *string  `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	CreateLabelVals []string `json:"createLabelVals" cborgen:"createLabelVals"`
+	// durationInHours: Indicates how long the label will remain on the subject. Only applies on labels that are being added.
+	DurationInHours *int64   `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 	NegateLabelVals []string `json:"negateLabelVals" cborgen:"negateLabelVals"`
 }
 
@@ -152,8 +249,19 @@ type ModerationDefs_ModEventMute struct {
 type ModerationDefs_ModEventMuteReporter struct {
 	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#modEventMuteReporter" cborgen:"$type,const=tools.ozone.moderation.defs#modEventMuteReporter"`
 	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
-	// durationInHours: Indicates how long the account should remain muted.
-	DurationInHours int64 `json:"durationInHours" cborgen:"durationInHours"`
+	// durationInHours: Indicates how long the account should remain muted. Falsy value here means a permanent mute.
+	DurationInHours *int64 `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
+}
+
+// ModerationDefs_ModEventPriorityScore is a "modEventPriorityScore" in the tools.ozone.moderation.defs schema.
+//
+// Set priority score of the subject. Higher score means higher priority.
+//
+// RECORDTYPE: ModerationDefs_ModEventPriorityScore
+type ModerationDefs_ModEventPriorityScore struct {
+	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#modEventPriorityScore" cborgen:"$type,const=tools.ozone.moderation.defs#modEventPriorityScore"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	Score         int64   `json:"score" cborgen:"score"`
 }
 
 // ModerationDefs_ModEventReport is a "modEventReport" in the tools.ozone.moderation.defs schema.
@@ -218,6 +326,8 @@ type ModerationDefs_ModEventTakedown struct {
 	Comment                    *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	// durationInHours: Indicates how long the takedown should be in effect before automatically expiring.
 	DurationInHours *int64 `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
+	// policies: Names/Keywords of the policies that drove the decision.
+	Policies []string `json:"policies,omitempty" cborgen:"policies,omitempty"`
 }
 
 // ModerationDefs_ModEventUnmute is a "modEventUnmute" in the tools.ozone.moderation.defs schema.
@@ -249,6 +359,7 @@ type ModerationDefs_ModEventView struct {
 	CreatorHandle   *string                              `json:"creatorHandle,omitempty" cborgen:"creatorHandle,omitempty"`
 	Event           *ModerationDefs_ModEventView_Event   `json:"event" cborgen:"event"`
 	Id              int64                                `json:"id" cborgen:"id"`
+	ModTool         *ModerationDefs_ModTool              `json:"modTool,omitempty" cborgen:"modTool,omitempty"`
 	Subject         *ModerationDefs_ModEventView_Subject `json:"subject" cborgen:"subject"`
 	SubjectBlobCids []string                             `json:"subjectBlobCids" cborgen:"subjectBlobCids"`
 	SubjectHandle   *string                              `json:"subjectHandle,omitempty" cborgen:"subjectHandle,omitempty"`
@@ -260,26 +371,33 @@ type ModerationDefs_ModEventViewDetail struct {
 	CreatedBy    string                                     `json:"createdBy" cborgen:"createdBy"`
 	Event        *ModerationDefs_ModEventViewDetail_Event   `json:"event" cborgen:"event"`
 	Id           int64                                      `json:"id" cborgen:"id"`
+	ModTool      *ModerationDefs_ModTool                    `json:"modTool,omitempty" cborgen:"modTool,omitempty"`
 	Subject      *ModerationDefs_ModEventViewDetail_Subject `json:"subject" cborgen:"subject"`
 	SubjectBlobs []*ModerationDefs_BlobView                 `json:"subjectBlobs" cborgen:"subjectBlobs"`
 }
 
 type ModerationDefs_ModEventViewDetail_Event struct {
-	ModerationDefs_ModEventTakedown        *ModerationDefs_ModEventTakedown
-	ModerationDefs_ModEventReverseTakedown *ModerationDefs_ModEventReverseTakedown
-	ModerationDefs_ModEventComment         *ModerationDefs_ModEventComment
-	ModerationDefs_ModEventReport          *ModerationDefs_ModEventReport
-	ModerationDefs_ModEventLabel           *ModerationDefs_ModEventLabel
-	ModerationDefs_ModEventAcknowledge     *ModerationDefs_ModEventAcknowledge
-	ModerationDefs_ModEventEscalate        *ModerationDefs_ModEventEscalate
-	ModerationDefs_ModEventMute            *ModerationDefs_ModEventMute
-	ModerationDefs_ModEventUnmute          *ModerationDefs_ModEventUnmute
-	ModerationDefs_ModEventMuteReporter    *ModerationDefs_ModEventMuteReporter
-	ModerationDefs_ModEventUnmuteReporter  *ModerationDefs_ModEventUnmuteReporter
-	ModerationDefs_ModEventEmail           *ModerationDefs_ModEventEmail
-	ModerationDefs_ModEventResolveAppeal   *ModerationDefs_ModEventResolveAppeal
-	ModerationDefs_ModEventDivert          *ModerationDefs_ModEventDivert
-	ModerationDefs_ModEventTag             *ModerationDefs_ModEventTag
+	ModerationDefs_ModEventTakedown          *ModerationDefs_ModEventTakedown
+	ModerationDefs_ModEventReverseTakedown   *ModerationDefs_ModEventReverseTakedown
+	ModerationDefs_ModEventComment           *ModerationDefs_ModEventComment
+	ModerationDefs_ModEventReport            *ModerationDefs_ModEventReport
+	ModerationDefs_ModEventLabel             *ModerationDefs_ModEventLabel
+	ModerationDefs_ModEventAcknowledge       *ModerationDefs_ModEventAcknowledge
+	ModerationDefs_ModEventEscalate          *ModerationDefs_ModEventEscalate
+	ModerationDefs_ModEventMute              *ModerationDefs_ModEventMute
+	ModerationDefs_ModEventUnmute            *ModerationDefs_ModEventUnmute
+	ModerationDefs_ModEventMuteReporter      *ModerationDefs_ModEventMuteReporter
+	ModerationDefs_ModEventUnmuteReporter    *ModerationDefs_ModEventUnmuteReporter
+	ModerationDefs_ModEventEmail             *ModerationDefs_ModEventEmail
+	ModerationDefs_ModEventResolveAppeal     *ModerationDefs_ModEventResolveAppeal
+	ModerationDefs_ModEventDivert            *ModerationDefs_ModEventDivert
+	ModerationDefs_ModEventTag               *ModerationDefs_ModEventTag
+	ModerationDefs_AccountEvent              *ModerationDefs_AccountEvent
+	ModerationDefs_IdentityEvent             *ModerationDefs_IdentityEvent
+	ModerationDefs_RecordEvent               *ModerationDefs_RecordEvent
+	ModerationDefs_ModEventPriorityScore     *ModerationDefs_ModEventPriorityScore
+	ModerationDefs_AgeAssuranceEvent         *ModerationDefs_AgeAssuranceEvent
+	ModerationDefs_AgeAssuranceOverrideEvent *ModerationDefs_AgeAssuranceOverrideEvent
 }
 
 func (t *ModerationDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) {
@@ -343,6 +461,30 @@ func (t *ModerationDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) 
 		t.ModerationDefs_ModEventTag.LexiconTypeID = "tools.ozone.moderation.defs#modEventTag"
 		return json.Marshal(t.ModerationDefs_ModEventTag)
 	}
+	if t.ModerationDefs_AccountEvent != nil {
+		t.ModerationDefs_AccountEvent.LexiconTypeID = "tools.ozone.moderation.defs#accountEvent"
+		return json.Marshal(t.ModerationDefs_AccountEvent)
+	}
+	if t.ModerationDefs_IdentityEvent != nil {
+		t.ModerationDefs_IdentityEvent.LexiconTypeID = "tools.ozone.moderation.defs#identityEvent"
+		return json.Marshal(t.ModerationDefs_IdentityEvent)
+	}
+	if t.ModerationDefs_RecordEvent != nil {
+		t.ModerationDefs_RecordEvent.LexiconTypeID = "tools.ozone.moderation.defs#recordEvent"
+		return json.Marshal(t.ModerationDefs_RecordEvent)
+	}
+	if t.ModerationDefs_ModEventPriorityScore != nil {
+		t.ModerationDefs_ModEventPriorityScore.LexiconTypeID = "tools.ozone.moderation.defs#modEventPriorityScore"
+		return json.Marshal(t.ModerationDefs_ModEventPriorityScore)
+	}
+	if t.ModerationDefs_AgeAssuranceEvent != nil {
+		t.ModerationDefs_AgeAssuranceEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceEvent"
+		return json.Marshal(t.ModerationDefs_AgeAssuranceEvent)
+	}
+	if t.ModerationDefs_AgeAssuranceOverrideEvent != nil {
+		t.ModerationDefs_AgeAssuranceOverrideEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
+		return json.Marshal(t.ModerationDefs_AgeAssuranceOverrideEvent)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error {
@@ -397,6 +539,24 @@ func (t *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error 
 	case "tools.ozone.moderation.defs#modEventTag":
 		t.ModerationDefs_ModEventTag = new(ModerationDefs_ModEventTag)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventTag)
+	case "tools.ozone.moderation.defs#accountEvent":
+		t.ModerationDefs_AccountEvent = new(ModerationDefs_AccountEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AccountEvent)
+	case "tools.ozone.moderation.defs#identityEvent":
+		t.ModerationDefs_IdentityEvent = new(ModerationDefs_IdentityEvent)
+		return json.Unmarshal(b, t.ModerationDefs_IdentityEvent)
+	case "tools.ozone.moderation.defs#recordEvent":
+		t.ModerationDefs_RecordEvent = new(ModerationDefs_RecordEvent)
+		return json.Unmarshal(b, t.ModerationDefs_RecordEvent)
+	case "tools.ozone.moderation.defs#modEventPriorityScore":
+		t.ModerationDefs_ModEventPriorityScore = new(ModerationDefs_ModEventPriorityScore)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventPriorityScore)
+	case "tools.ozone.moderation.defs#ageAssuranceEvent":
+		t.ModerationDefs_AgeAssuranceEvent = new(ModerationDefs_AgeAssuranceEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceEvent)
+	case "tools.ozone.moderation.defs#ageAssuranceOverrideEvent":
+		t.ModerationDefs_AgeAssuranceOverrideEvent = new(ModerationDefs_AgeAssuranceOverrideEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceOverrideEvent)
 
 	default:
 		return nil
@@ -455,21 +615,27 @@ func (t *ModerationDefs_ModEventViewDetail_Subject) UnmarshalJSON(b []byte) erro
 }
 
 type ModerationDefs_ModEventView_Event struct {
-	ModerationDefs_ModEventTakedown        *ModerationDefs_ModEventTakedown
-	ModerationDefs_ModEventReverseTakedown *ModerationDefs_ModEventReverseTakedown
-	ModerationDefs_ModEventComment         *ModerationDefs_ModEventComment
-	ModerationDefs_ModEventReport          *ModerationDefs_ModEventReport
-	ModerationDefs_ModEventLabel           *ModerationDefs_ModEventLabel
-	ModerationDefs_ModEventAcknowledge     *ModerationDefs_ModEventAcknowledge
-	ModerationDefs_ModEventEscalate        *ModerationDefs_ModEventEscalate
-	ModerationDefs_ModEventMute            *ModerationDefs_ModEventMute
-	ModerationDefs_ModEventUnmute          *ModerationDefs_ModEventUnmute
-	ModerationDefs_ModEventMuteReporter    *ModerationDefs_ModEventMuteReporter
-	ModerationDefs_ModEventUnmuteReporter  *ModerationDefs_ModEventUnmuteReporter
-	ModerationDefs_ModEventEmail           *ModerationDefs_ModEventEmail
-	ModerationDefs_ModEventResolveAppeal   *ModerationDefs_ModEventResolveAppeal
-	ModerationDefs_ModEventDivert          *ModerationDefs_ModEventDivert
-	ModerationDefs_ModEventTag             *ModerationDefs_ModEventTag
+	ModerationDefs_ModEventTakedown          *ModerationDefs_ModEventTakedown
+	ModerationDefs_ModEventReverseTakedown   *ModerationDefs_ModEventReverseTakedown
+	ModerationDefs_ModEventComment           *ModerationDefs_ModEventComment
+	ModerationDefs_ModEventReport            *ModerationDefs_ModEventReport
+	ModerationDefs_ModEventLabel             *ModerationDefs_ModEventLabel
+	ModerationDefs_ModEventAcknowledge       *ModerationDefs_ModEventAcknowledge
+	ModerationDefs_ModEventEscalate          *ModerationDefs_ModEventEscalate
+	ModerationDefs_ModEventMute              *ModerationDefs_ModEventMute
+	ModerationDefs_ModEventUnmute            *ModerationDefs_ModEventUnmute
+	ModerationDefs_ModEventMuteReporter      *ModerationDefs_ModEventMuteReporter
+	ModerationDefs_ModEventUnmuteReporter    *ModerationDefs_ModEventUnmuteReporter
+	ModerationDefs_ModEventEmail             *ModerationDefs_ModEventEmail
+	ModerationDefs_ModEventResolveAppeal     *ModerationDefs_ModEventResolveAppeal
+	ModerationDefs_ModEventDivert            *ModerationDefs_ModEventDivert
+	ModerationDefs_ModEventTag               *ModerationDefs_ModEventTag
+	ModerationDefs_AccountEvent              *ModerationDefs_AccountEvent
+	ModerationDefs_IdentityEvent             *ModerationDefs_IdentityEvent
+	ModerationDefs_RecordEvent               *ModerationDefs_RecordEvent
+	ModerationDefs_ModEventPriorityScore     *ModerationDefs_ModEventPriorityScore
+	ModerationDefs_AgeAssuranceEvent         *ModerationDefs_AgeAssuranceEvent
+	ModerationDefs_AgeAssuranceOverrideEvent *ModerationDefs_AgeAssuranceOverrideEvent
 }
 
 func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
@@ -533,6 +699,30 @@ func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
 		t.ModerationDefs_ModEventTag.LexiconTypeID = "tools.ozone.moderation.defs#modEventTag"
 		return json.Marshal(t.ModerationDefs_ModEventTag)
 	}
+	if t.ModerationDefs_AccountEvent != nil {
+		t.ModerationDefs_AccountEvent.LexiconTypeID = "tools.ozone.moderation.defs#accountEvent"
+		return json.Marshal(t.ModerationDefs_AccountEvent)
+	}
+	if t.ModerationDefs_IdentityEvent != nil {
+		t.ModerationDefs_IdentityEvent.LexiconTypeID = "tools.ozone.moderation.defs#identityEvent"
+		return json.Marshal(t.ModerationDefs_IdentityEvent)
+	}
+	if t.ModerationDefs_RecordEvent != nil {
+		t.ModerationDefs_RecordEvent.LexiconTypeID = "tools.ozone.moderation.defs#recordEvent"
+		return json.Marshal(t.ModerationDefs_RecordEvent)
+	}
+	if t.ModerationDefs_ModEventPriorityScore != nil {
+		t.ModerationDefs_ModEventPriorityScore.LexiconTypeID = "tools.ozone.moderation.defs#modEventPriorityScore"
+		return json.Marshal(t.ModerationDefs_ModEventPriorityScore)
+	}
+	if t.ModerationDefs_AgeAssuranceEvent != nil {
+		t.ModerationDefs_AgeAssuranceEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceEvent"
+		return json.Marshal(t.ModerationDefs_AgeAssuranceEvent)
+	}
+	if t.ModerationDefs_AgeAssuranceOverrideEvent != nil {
+		t.ModerationDefs_AgeAssuranceOverrideEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
+		return json.Marshal(t.ModerationDefs_AgeAssuranceOverrideEvent)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
@@ -587,6 +777,24 @@ func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#modEventTag":
 		t.ModerationDefs_ModEventTag = new(ModerationDefs_ModEventTag)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventTag)
+	case "tools.ozone.moderation.defs#accountEvent":
+		t.ModerationDefs_AccountEvent = new(ModerationDefs_AccountEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AccountEvent)
+	case "tools.ozone.moderation.defs#identityEvent":
+		t.ModerationDefs_IdentityEvent = new(ModerationDefs_IdentityEvent)
+		return json.Unmarshal(b, t.ModerationDefs_IdentityEvent)
+	case "tools.ozone.moderation.defs#recordEvent":
+		t.ModerationDefs_RecordEvent = new(ModerationDefs_RecordEvent)
+		return json.Unmarshal(b, t.ModerationDefs_RecordEvent)
+	case "tools.ozone.moderation.defs#modEventPriorityScore":
+		t.ModerationDefs_ModEventPriorityScore = new(ModerationDefs_ModEventPriorityScore)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventPriorityScore)
+	case "tools.ozone.moderation.defs#ageAssuranceEvent":
+		t.ModerationDefs_AgeAssuranceEvent = new(ModerationDefs_AgeAssuranceEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceEvent)
+	case "tools.ozone.moderation.defs#ageAssuranceOverrideEvent":
+		t.ModerationDefs_AgeAssuranceOverrideEvent = new(ModerationDefs_AgeAssuranceOverrideEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceOverrideEvent)
 
 	default:
 		return nil
@@ -636,6 +844,16 @@ func (t *ModerationDefs_ModEventView_Subject) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// ModerationDefs_ModTool is a "modTool" in the tools.ozone.moderation.defs schema.
+//
+// Moderation tool information for tracing the source of the action
+type ModerationDefs_ModTool struct {
+	// meta: Additional arbitrary metadata about the source
+	Meta *interface{} `json:"meta,omitempty" cborgen:"meta,omitempty"`
+	// name: Name/identifier of the source (e.g., 'automod', 'ozone/workspace')
+	Name string `json:"name" cborgen:"name"`
+}
+
 // ModerationDefs_Moderation is a "moderation" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_Moderation struct {
 	SubjectStatus *ModerationDefs_SubjectStatusView `json:"subjectStatus,omitempty" cborgen:"subjectStatus,omitempty"`
@@ -644,6 +862,30 @@ type ModerationDefs_Moderation struct {
 // ModerationDefs_ModerationDetail is a "moderationDetail" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_ModerationDetail struct {
 	SubjectStatus *ModerationDefs_SubjectStatusView `json:"subjectStatus,omitempty" cborgen:"subjectStatus,omitempty"`
+}
+
+// ModerationDefs_RecordEvent is a "recordEvent" in the tools.ozone.moderation.defs schema.
+//
+// Logs lifecycle event on a record subject. Normally captured by automod from the firehose and emitted to ozone for historical tracking.
+//
+// RECORDTYPE: ModerationDefs_RecordEvent
+type ModerationDefs_RecordEvent struct {
+	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#recordEvent" cborgen:"$type,const=tools.ozone.moderation.defs#recordEvent"`
+	Cid           *string `json:"cid,omitempty" cborgen:"cid,omitempty"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	Op            string  `json:"op" cborgen:"op"`
+	Timestamp     string  `json:"timestamp" cborgen:"timestamp"`
+}
+
+// ModerationDefs_RecordHosting is a "recordHosting" in the tools.ozone.moderation.defs schema.
+//
+// RECORDTYPE: ModerationDefs_RecordHosting
+type ModerationDefs_RecordHosting struct {
+	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#recordHosting" cborgen:"$type,const=tools.ozone.moderation.defs#recordHosting"`
+	CreatedAt     *string `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	DeletedAt     *string `json:"deletedAt,omitempty" cborgen:"deletedAt,omitempty"`
+	Status        string  `json:"status" cborgen:"status"`
+	UpdatedAt     *string `json:"updatedAt,omitempty" cborgen:"updatedAt,omitempty"`
 }
 
 // ModerationDefs_RecordView is a "recordView" in the tools.ozone.moderation.defs schema.
@@ -681,6 +923,28 @@ type ModerationDefs_RecordViewDetail struct {
 type ModerationDefs_RecordViewNotFound struct {
 	LexiconTypeID string `json:"$type,const=tools.ozone.moderation.defs#recordViewNotFound" cborgen:"$type,const=tools.ozone.moderation.defs#recordViewNotFound"`
 	Uri           string `json:"uri" cborgen:"uri"`
+}
+
+// ModerationDefs_RecordsStats is a "recordsStats" in the tools.ozone.moderation.defs schema.
+//
+// Statistics about a set of record subject items
+type ModerationDefs_RecordsStats struct {
+	// appealedCount: Number of items that were appealed at least once
+	AppealedCount *int64 `json:"appealedCount,omitempty" cborgen:"appealedCount,omitempty"`
+	// escalatedCount: Number of items that were escalated at least once
+	EscalatedCount *int64 `json:"escalatedCount,omitempty" cborgen:"escalatedCount,omitempty"`
+	// pendingCount: Number of item currently in "reviewOpen" or "reviewEscalated" state
+	PendingCount *int64 `json:"pendingCount,omitempty" cborgen:"pendingCount,omitempty"`
+	// processedCount: Number of item currently in "reviewNone" or "reviewClosed" state
+	ProcessedCount *int64 `json:"processedCount,omitempty" cborgen:"processedCount,omitempty"`
+	// reportedCount: Number of items that were reported at least once
+	ReportedCount *int64 `json:"reportedCount,omitempty" cborgen:"reportedCount,omitempty"`
+	// subjectCount: Total number of item in the set
+	SubjectCount *int64 `json:"subjectCount,omitempty" cborgen:"subjectCount,omitempty"`
+	// takendownCount: Number of item currently taken down
+	TakendownCount *int64 `json:"takendownCount,omitempty" cborgen:"takendownCount,omitempty"`
+	// totalReports: Cumulative sum of the number of reports on the items in the set
+	TotalReports *int64 `json:"totalReports,omitempty" cborgen:"totalReports,omitempty"`
 }
 
 // ModerationDefs_RepoView is a "repoView" in the tools.ozone.moderation.defs schema.
@@ -730,36 +994,104 @@ type ModerationDefs_RepoViewNotFound struct {
 	Did           string `json:"did" cborgen:"did"`
 }
 
+// ModerationDefs_ReporterStats is a "reporterStats" in the tools.ozone.moderation.defs schema.
+type ModerationDefs_ReporterStats struct {
+	// accountReportCount: The total number of reports made by the user on accounts.
+	AccountReportCount int64  `json:"accountReportCount" cborgen:"accountReportCount"`
+	Did                string `json:"did" cborgen:"did"`
+	// labeledAccountCount: The total number of accounts labeled as a result of the user's reports.
+	LabeledAccountCount int64 `json:"labeledAccountCount" cborgen:"labeledAccountCount"`
+	// labeledRecordCount: The total number of records labeled as a result of the user's reports.
+	LabeledRecordCount int64 `json:"labeledRecordCount" cborgen:"labeledRecordCount"`
+	// recordReportCount: The total number of reports made by the user on records.
+	RecordReportCount int64 `json:"recordReportCount" cborgen:"recordReportCount"`
+	// reportedAccountCount: The total number of accounts reported by the user.
+	ReportedAccountCount int64 `json:"reportedAccountCount" cborgen:"reportedAccountCount"`
+	// reportedRecordCount: The total number of records reported by the user.
+	ReportedRecordCount int64 `json:"reportedRecordCount" cborgen:"reportedRecordCount"`
+	// takendownAccountCount: The total number of accounts taken down as a result of the user's reports.
+	TakendownAccountCount int64 `json:"takendownAccountCount" cborgen:"takendownAccountCount"`
+	// takendownRecordCount: The total number of records taken down as a result of the user's reports.
+	TakendownRecordCount int64 `json:"takendownRecordCount" cborgen:"takendownRecordCount"`
+}
+
 // ModerationDefs_SubjectStatusView is a "subjectStatusView" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_SubjectStatusView struct {
+	// accountStats: Statistics related to the account subject
+	AccountStats *ModerationDefs_AccountStats `json:"accountStats,omitempty" cborgen:"accountStats,omitempty"`
+	// ageAssuranceState: Current age assurance state of the subject.
+	AgeAssuranceState *string `json:"ageAssuranceState,omitempty" cborgen:"ageAssuranceState,omitempty"`
+	// ageAssuranceUpdatedBy: Whether or not the last successful update to age assurance was made by the user or admin.
+	AgeAssuranceUpdatedBy *string `json:"ageAssuranceUpdatedBy,omitempty" cborgen:"ageAssuranceUpdatedBy,omitempty"`
 	// appealed: True indicates that the a previously taken moderator action was appealed against, by the author of the content. False indicates last appeal was resolved by moderators.
 	Appealed *bool `json:"appealed,omitempty" cborgen:"appealed,omitempty"`
 	// comment: Sticky comment on the subject.
 	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	// createdAt: Timestamp referencing the first moderation status impacting event was emitted on the subject
-	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
-	Id        int64  `json:"id" cborgen:"id"`
+	CreatedAt string                                    `json:"createdAt" cborgen:"createdAt"`
+	Hosting   *ModerationDefs_SubjectStatusView_Hosting `json:"hosting,omitempty" cborgen:"hosting,omitempty"`
+	Id        int64                                     `json:"id" cborgen:"id"`
 	// lastAppealedAt: Timestamp referencing when the author of the subject appealed a moderation action
-	LastAppealedAt     *string                                   `json:"lastAppealedAt,omitempty" cborgen:"lastAppealedAt,omitempty"`
-	LastReportedAt     *string                                   `json:"lastReportedAt,omitempty" cborgen:"lastReportedAt,omitempty"`
-	LastReviewedAt     *string                                   `json:"lastReviewedAt,omitempty" cborgen:"lastReviewedAt,omitempty"`
-	LastReviewedBy     *string                                   `json:"lastReviewedBy,omitempty" cborgen:"lastReviewedBy,omitempty"`
-	MuteReportingUntil *string                                   `json:"muteReportingUntil,omitempty" cborgen:"muteReportingUntil,omitempty"`
-	MuteUntil          *string                                   `json:"muteUntil,omitempty" cborgen:"muteUntil,omitempty"`
-	ReviewState        *string                                   `json:"reviewState" cborgen:"reviewState"`
-	Subject            *ModerationDefs_SubjectStatusView_Subject `json:"subject" cborgen:"subject"`
-	SubjectBlobCids    []string                                  `json:"subjectBlobCids,omitempty" cborgen:"subjectBlobCids,omitempty"`
-	SubjectRepoHandle  *string                                   `json:"subjectRepoHandle,omitempty" cborgen:"subjectRepoHandle,omitempty"`
-	SuspendUntil       *string                                   `json:"suspendUntil,omitempty" cborgen:"suspendUntil,omitempty"`
-	Tags               []string                                  `json:"tags,omitempty" cborgen:"tags,omitempty"`
-	Takendown          *bool                                     `json:"takendown,omitempty" cborgen:"takendown,omitempty"`
+	LastAppealedAt     *string `json:"lastAppealedAt,omitempty" cborgen:"lastAppealedAt,omitempty"`
+	LastReportedAt     *string `json:"lastReportedAt,omitempty" cborgen:"lastReportedAt,omitempty"`
+	LastReviewedAt     *string `json:"lastReviewedAt,omitempty" cborgen:"lastReviewedAt,omitempty"`
+	LastReviewedBy     *string `json:"lastReviewedBy,omitempty" cborgen:"lastReviewedBy,omitempty"`
+	MuteReportingUntil *string `json:"muteReportingUntil,omitempty" cborgen:"muteReportingUntil,omitempty"`
+	MuteUntil          *string `json:"muteUntil,omitempty" cborgen:"muteUntil,omitempty"`
+	// priorityScore: Numeric value representing the level of priority. Higher score means higher priority.
+	PriorityScore *int64 `json:"priorityScore,omitempty" cborgen:"priorityScore,omitempty"`
+	// recordsStats: Statistics related to the record subjects authored by the subject's account
+	RecordsStats      *ModerationDefs_RecordsStats              `json:"recordsStats,omitempty" cborgen:"recordsStats,omitempty"`
+	ReviewState       *string                                   `json:"reviewState" cborgen:"reviewState"`
+	Subject           *ModerationDefs_SubjectStatusView_Subject `json:"subject" cborgen:"subject"`
+	SubjectBlobCids   []string                                  `json:"subjectBlobCids,omitempty" cborgen:"subjectBlobCids,omitempty"`
+	SubjectRepoHandle *string                                   `json:"subjectRepoHandle,omitempty" cborgen:"subjectRepoHandle,omitempty"`
+	SuspendUntil      *string                                   `json:"suspendUntil,omitempty" cborgen:"suspendUntil,omitempty"`
+	Tags              []string                                  `json:"tags,omitempty" cborgen:"tags,omitempty"`
+	Takendown         *bool                                     `json:"takendown,omitempty" cborgen:"takendown,omitempty"`
 	// updatedAt: Timestamp referencing when the last update was made to the moderation status of the subject
 	UpdatedAt string `json:"updatedAt" cborgen:"updatedAt"`
 }
 
+type ModerationDefs_SubjectStatusView_Hosting struct {
+	ModerationDefs_AccountHosting *ModerationDefs_AccountHosting
+	ModerationDefs_RecordHosting  *ModerationDefs_RecordHosting
+}
+
+func (t *ModerationDefs_SubjectStatusView_Hosting) MarshalJSON() ([]byte, error) {
+	if t.ModerationDefs_AccountHosting != nil {
+		t.ModerationDefs_AccountHosting.LexiconTypeID = "tools.ozone.moderation.defs#accountHosting"
+		return json.Marshal(t.ModerationDefs_AccountHosting)
+	}
+	if t.ModerationDefs_RecordHosting != nil {
+		t.ModerationDefs_RecordHosting.LexiconTypeID = "tools.ozone.moderation.defs#recordHosting"
+		return json.Marshal(t.ModerationDefs_RecordHosting)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *ModerationDefs_SubjectStatusView_Hosting) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "tools.ozone.moderation.defs#accountHosting":
+		t.ModerationDefs_AccountHosting = new(ModerationDefs_AccountHosting)
+		return json.Unmarshal(b, t.ModerationDefs_AccountHosting)
+	case "tools.ozone.moderation.defs#recordHosting":
+		t.ModerationDefs_RecordHosting = new(ModerationDefs_RecordHosting)
+		return json.Unmarshal(b, t.ModerationDefs_RecordHosting)
+
+	default:
+		return nil
+	}
+}
+
 type ModerationDefs_SubjectStatusView_Subject struct {
-	AdminDefs_RepoRef *comatprototypes.AdminDefs_RepoRef
-	RepoStrongRef     *comatprototypes.RepoStrongRef
+	AdminDefs_RepoRef    *comatprototypes.AdminDefs_RepoRef
+	RepoStrongRef        *comatprototypes.RepoStrongRef
+	ConvoDefs_MessageRef *chatbskytypes.ConvoDefs_MessageRef
 }
 
 func (t *ModerationDefs_SubjectStatusView_Subject) MarshalJSON() ([]byte, error) {
@@ -770,6 +1102,10 @@ func (t *ModerationDefs_SubjectStatusView_Subject) MarshalJSON() ([]byte, error)
 	if t.RepoStrongRef != nil {
 		t.RepoStrongRef.LexiconTypeID = "com.atproto.repo.strongRef"
 		return json.Marshal(t.RepoStrongRef)
+	}
+	if t.ConvoDefs_MessageRef != nil {
+		t.ConvoDefs_MessageRef.LexiconTypeID = "chat.bsky.convo.defs#messageRef"
+		return json.Marshal(t.ConvoDefs_MessageRef)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -786,10 +1122,25 @@ func (t *ModerationDefs_SubjectStatusView_Subject) UnmarshalJSON(b []byte) error
 	case "com.atproto.repo.strongRef":
 		t.RepoStrongRef = new(comatprototypes.RepoStrongRef)
 		return json.Unmarshal(b, t.RepoStrongRef)
+	case "chat.bsky.convo.defs#messageRef":
+		t.ConvoDefs_MessageRef = new(chatbskytypes.ConvoDefs_MessageRef)
+		return json.Unmarshal(b, t.ConvoDefs_MessageRef)
 
 	default:
 		return nil
 	}
+}
+
+// ModerationDefs_SubjectView is a "subjectView" in the tools.ozone.moderation.defs schema.
+//
+// Detailed view of a subject. For record subjects, the author's repo and profile will be returned.
+type ModerationDefs_SubjectView struct {
+	Profile *util.LexiconTypeDecoder          `json:"profile,omitempty" cborgen:"profile,omitempty"`
+	Record  *ModerationDefs_RecordViewDetail  `json:"record,omitempty" cborgen:"record,omitempty"`
+	Repo    *ModerationDefs_RepoViewDetail    `json:"repo,omitempty" cborgen:"repo,omitempty"`
+	Status  *ModerationDefs_SubjectStatusView `json:"status,omitempty" cborgen:"status,omitempty"`
+	Subject string                            `json:"subject" cborgen:"subject"`
+	Type    *string                           `json:"type" cborgen:"type"`
 }
 
 // ModerationDefs_VideoDetails is a "videoDetails" in the tools.ozone.moderation.defs schema.

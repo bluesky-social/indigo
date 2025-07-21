@@ -11,32 +11,41 @@ import (
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // ModerationEmitEvent_Input is the input argument to a tools.ozone.moderation.emitEvent call.
 type ModerationEmitEvent_Input struct {
-	CreatedBy       string                             `json:"createdBy" cborgen:"createdBy"`
-	Event           *ModerationEmitEvent_Input_Event   `json:"event" cborgen:"event"`
+	CreatedBy string                           `json:"createdBy" cborgen:"createdBy"`
+	Event     *ModerationEmitEvent_Input_Event `json:"event" cborgen:"event"`
+	// externalId: An optional external ID for the event, used to deduplicate events from external systems. Fails when an event of same type with the same external ID exists for the same subject.
+	ExternalId      *string                            `json:"externalId,omitempty" cborgen:"externalId,omitempty"`
+	ModTool         *ModerationDefs_ModTool            `json:"modTool,omitempty" cborgen:"modTool,omitempty"`
 	Subject         *ModerationEmitEvent_Input_Subject `json:"subject" cborgen:"subject"`
 	SubjectBlobCids []string                           `json:"subjectBlobCids,omitempty" cborgen:"subjectBlobCids,omitempty"`
 }
 
 type ModerationEmitEvent_Input_Event struct {
-	ModerationDefs_ModEventTakedown        *ModerationDefs_ModEventTakedown
-	ModerationDefs_ModEventAcknowledge     *ModerationDefs_ModEventAcknowledge
-	ModerationDefs_ModEventEscalate        *ModerationDefs_ModEventEscalate
-	ModerationDefs_ModEventComment         *ModerationDefs_ModEventComment
-	ModerationDefs_ModEventLabel           *ModerationDefs_ModEventLabel
-	ModerationDefs_ModEventReport          *ModerationDefs_ModEventReport
-	ModerationDefs_ModEventMute            *ModerationDefs_ModEventMute
-	ModerationDefs_ModEventUnmute          *ModerationDefs_ModEventUnmute
-	ModerationDefs_ModEventMuteReporter    *ModerationDefs_ModEventMuteReporter
-	ModerationDefs_ModEventUnmuteReporter  *ModerationDefs_ModEventUnmuteReporter
-	ModerationDefs_ModEventReverseTakedown *ModerationDefs_ModEventReverseTakedown
-	ModerationDefs_ModEventResolveAppeal   *ModerationDefs_ModEventResolveAppeal
-	ModerationDefs_ModEventEmail           *ModerationDefs_ModEventEmail
-	ModerationDefs_ModEventTag             *ModerationDefs_ModEventTag
+	ModerationDefs_ModEventTakedown          *ModerationDefs_ModEventTakedown
+	ModerationDefs_ModEventAcknowledge       *ModerationDefs_ModEventAcknowledge
+	ModerationDefs_ModEventEscalate          *ModerationDefs_ModEventEscalate
+	ModerationDefs_ModEventComment           *ModerationDefs_ModEventComment
+	ModerationDefs_ModEventLabel             *ModerationDefs_ModEventLabel
+	ModerationDefs_ModEventReport            *ModerationDefs_ModEventReport
+	ModerationDefs_ModEventMute              *ModerationDefs_ModEventMute
+	ModerationDefs_ModEventUnmute            *ModerationDefs_ModEventUnmute
+	ModerationDefs_ModEventMuteReporter      *ModerationDefs_ModEventMuteReporter
+	ModerationDefs_ModEventUnmuteReporter    *ModerationDefs_ModEventUnmuteReporter
+	ModerationDefs_ModEventReverseTakedown   *ModerationDefs_ModEventReverseTakedown
+	ModerationDefs_ModEventResolveAppeal     *ModerationDefs_ModEventResolveAppeal
+	ModerationDefs_ModEventEmail             *ModerationDefs_ModEventEmail
+	ModerationDefs_ModEventDivert            *ModerationDefs_ModEventDivert
+	ModerationDefs_ModEventTag               *ModerationDefs_ModEventTag
+	ModerationDefs_AccountEvent              *ModerationDefs_AccountEvent
+	ModerationDefs_IdentityEvent             *ModerationDefs_IdentityEvent
+	ModerationDefs_RecordEvent               *ModerationDefs_RecordEvent
+	ModerationDefs_ModEventPriorityScore     *ModerationDefs_ModEventPriorityScore
+	ModerationDefs_AgeAssuranceEvent         *ModerationDefs_AgeAssuranceEvent
+	ModerationDefs_AgeAssuranceOverrideEvent *ModerationDefs_AgeAssuranceOverrideEvent
 }
 
 func (t *ModerationEmitEvent_Input_Event) MarshalJSON() ([]byte, error) {
@@ -92,9 +101,37 @@ func (t *ModerationEmitEvent_Input_Event) MarshalJSON() ([]byte, error) {
 		t.ModerationDefs_ModEventEmail.LexiconTypeID = "tools.ozone.moderation.defs#modEventEmail"
 		return json.Marshal(t.ModerationDefs_ModEventEmail)
 	}
+	if t.ModerationDefs_ModEventDivert != nil {
+		t.ModerationDefs_ModEventDivert.LexiconTypeID = "tools.ozone.moderation.defs#modEventDivert"
+		return json.Marshal(t.ModerationDefs_ModEventDivert)
+	}
 	if t.ModerationDefs_ModEventTag != nil {
 		t.ModerationDefs_ModEventTag.LexiconTypeID = "tools.ozone.moderation.defs#modEventTag"
 		return json.Marshal(t.ModerationDefs_ModEventTag)
+	}
+	if t.ModerationDefs_AccountEvent != nil {
+		t.ModerationDefs_AccountEvent.LexiconTypeID = "tools.ozone.moderation.defs#accountEvent"
+		return json.Marshal(t.ModerationDefs_AccountEvent)
+	}
+	if t.ModerationDefs_IdentityEvent != nil {
+		t.ModerationDefs_IdentityEvent.LexiconTypeID = "tools.ozone.moderation.defs#identityEvent"
+		return json.Marshal(t.ModerationDefs_IdentityEvent)
+	}
+	if t.ModerationDefs_RecordEvent != nil {
+		t.ModerationDefs_RecordEvent.LexiconTypeID = "tools.ozone.moderation.defs#recordEvent"
+		return json.Marshal(t.ModerationDefs_RecordEvent)
+	}
+	if t.ModerationDefs_ModEventPriorityScore != nil {
+		t.ModerationDefs_ModEventPriorityScore.LexiconTypeID = "tools.ozone.moderation.defs#modEventPriorityScore"
+		return json.Marshal(t.ModerationDefs_ModEventPriorityScore)
+	}
+	if t.ModerationDefs_AgeAssuranceEvent != nil {
+		t.ModerationDefs_AgeAssuranceEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceEvent"
+		return json.Marshal(t.ModerationDefs_AgeAssuranceEvent)
+	}
+	if t.ModerationDefs_AgeAssuranceOverrideEvent != nil {
+		t.ModerationDefs_AgeAssuranceOverrideEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
+		return json.Marshal(t.ModerationDefs_AgeAssuranceOverrideEvent)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -144,9 +181,30 @@ func (t *ModerationEmitEvent_Input_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#modEventEmail":
 		t.ModerationDefs_ModEventEmail = new(ModerationDefs_ModEventEmail)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventEmail)
+	case "tools.ozone.moderation.defs#modEventDivert":
+		t.ModerationDefs_ModEventDivert = new(ModerationDefs_ModEventDivert)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventDivert)
 	case "tools.ozone.moderation.defs#modEventTag":
 		t.ModerationDefs_ModEventTag = new(ModerationDefs_ModEventTag)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventTag)
+	case "tools.ozone.moderation.defs#accountEvent":
+		t.ModerationDefs_AccountEvent = new(ModerationDefs_AccountEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AccountEvent)
+	case "tools.ozone.moderation.defs#identityEvent":
+		t.ModerationDefs_IdentityEvent = new(ModerationDefs_IdentityEvent)
+		return json.Unmarshal(b, t.ModerationDefs_IdentityEvent)
+	case "tools.ozone.moderation.defs#recordEvent":
+		t.ModerationDefs_RecordEvent = new(ModerationDefs_RecordEvent)
+		return json.Unmarshal(b, t.ModerationDefs_RecordEvent)
+	case "tools.ozone.moderation.defs#modEventPriorityScore":
+		t.ModerationDefs_ModEventPriorityScore = new(ModerationDefs_ModEventPriorityScore)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventPriorityScore)
+	case "tools.ozone.moderation.defs#ageAssuranceEvent":
+		t.ModerationDefs_AgeAssuranceEvent = new(ModerationDefs_AgeAssuranceEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceEvent)
+	case "tools.ozone.moderation.defs#ageAssuranceOverrideEvent":
+		t.ModerationDefs_AgeAssuranceOverrideEvent = new(ModerationDefs_AgeAssuranceOverrideEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceOverrideEvent)
 
 	default:
 		return nil
@@ -189,9 +247,9 @@ func (t *ModerationEmitEvent_Input_Subject) UnmarshalJSON(b []byte) error {
 }
 
 // ModerationEmitEvent calls the XRPC method "tools.ozone.moderation.emitEvent".
-func ModerationEmitEvent(ctx context.Context, c *xrpc.Client, input *ModerationEmitEvent_Input) (*ModerationDefs_ModEventView, error) {
+func ModerationEmitEvent(ctx context.Context, c util.LexClient, input *ModerationEmitEvent_Input) (*ModerationDefs_ModEventView, error) {
 	var out ModerationDefs_ModEventView
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "tools.ozone.moderation.emitEvent", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.moderation.emitEvent", nil, input, &out); err != nil {
 		return nil, err
 	}
 

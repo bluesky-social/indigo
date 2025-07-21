@@ -15,8 +15,13 @@ var cmdResolve = &cli.Command{
 	Name:      "resolve",
 	Usage:     "lookup identity metadata",
 	ArgsUsage: `<at-identifier>`,
-	Flags:     []cli.Flag{},
-	Action:    runResolve,
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "did",
+			Usage: "just resolve to DID",
+		},
+	},
+	Action: runResolve,
 }
 
 func runResolve(cctx *cli.Context) error {
@@ -31,14 +36,18 @@ func runResolve(cctx *cli.Context) error {
 		return err
 	}
 	dir := identity.BaseDirectory{}
-	var doc *identity.DIDDocument
+	var raw json.RawMessage
 
 	if atid.IsDID() {
 		did, err := atid.AsDID()
 		if err != nil {
 			return err
 		}
-		doc, err = dir.ResolveDID(ctx, did)
+		if cctx.Bool("did") {
+			fmt.Println(did)
+			return nil
+		}
+		raw, err = dir.ResolveDIDRaw(ctx, did)
 		if err != nil {
 			return err
 		}
@@ -51,12 +60,20 @@ func runResolve(cctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		doc, err = dir.ResolveDID(ctx, did)
+		if cctx.Bool("did") {
+			fmt.Println(did)
+			return nil
+		}
+		raw, err = dir.ResolveDIDRaw(ctx, did)
 		if err != nil {
 			return err
 		}
 
-		ident := identity.ParseIdentity(doc)
+		var doc identity.DIDDocument
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			return err
+		}
+		ident := identity.ParseIdentity(&doc)
 		decl, err := ident.DeclaredHandle()
 		if err != nil {
 			return err
@@ -66,8 +83,7 @@ func runResolve(cctx *cli.Context) error {
 		}
 	}
 
-	// TODO: actually print DID doc instead of JSON version of identity
-	b, err := json.MarshalIndent(doc, "", "  ")
+	b, err := json.MarshalIndent(raw, "", "  ")
 	if err != nil {
 		return err
 	}

@@ -3,7 +3,7 @@
 #   podman build -f ./cmd/bigsky/Dockerfile -t bigsky .
 
 ### Compile stage
-FROM golang:1.22-alpine3.19 AS build-env
+FROM golang:1.24-alpine3.22 AS build-env
 RUN apk add --no-cache build-base make git
 
 ADD . /dockerbuild
@@ -12,7 +12,9 @@ WORKDIR /dockerbuild
 # timezone data for alpine builds
 ENV GOEXPERIMENT=loopvar
 RUN GIT_VERSION=$(git describe --tags --long --always) && \
-    go build -tags timetzdata -o /bigsky ./cmd/bigsky
+    echo "replace github.com/gocql/gocql => github.com/scylladb/gocql v1.14.4" >> go.mod && \
+    go mod tidy && \
+    go build -tags timetzdata,scylla -o /bigsky ./cmd/bigsky
 
 ### Build Frontend stage
 FROM node:18-alpine as web-builder
@@ -26,7 +28,7 @@ RUN yarn install --frozen-lockfile
 RUN yarn build
 
 ### Run stage
-FROM alpine:3.19
+FROM alpine:3.22
 
 RUN apk add --no-cache --update dumb-init ca-certificates runit
 ENTRYPOINT ["dumb-init", "--"]

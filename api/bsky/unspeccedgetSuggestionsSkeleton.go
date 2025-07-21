@@ -7,13 +7,15 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetSuggestionsSkeleton_Output is the output of a app.bsky.unspecced.getSuggestionsSkeleton call.
 type UnspeccedGetSuggestionsSkeleton_Output struct {
 	Actors []*UnspeccedDefs_SkeletonSearchActor `json:"actors" cborgen:"actors"`
 	Cursor *string                              `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
+	// recId: Snowflake for this recommendation, use when submitting recommendation events.
+	RecId *int64 `json:"recId,omitempty" cborgen:"recId,omitempty"`
 	// relativeToDid: DID of the account these suggestions are relative to. If this is returned undefined, suggestions are based on the viewer.
 	RelativeToDid *string `json:"relativeToDid,omitempty" cborgen:"relativeToDid,omitempty"`
 }
@@ -22,16 +24,23 @@ type UnspeccedGetSuggestionsSkeleton_Output struct {
 //
 // relativeToDid: DID of the account to get suggestions relative to. If not provided, suggestions will be based on the viewer.
 // viewer: DID of the account making the request (not included for public/unauthenticated queries). Used to boost followed accounts in ranking.
-func UnspeccedGetSuggestionsSkeleton(ctx context.Context, c *xrpc.Client, cursor string, limit int64, relativeToDid string, viewer string) (*UnspeccedGetSuggestionsSkeleton_Output, error) {
+func UnspeccedGetSuggestionsSkeleton(ctx context.Context, c util.LexClient, cursor string, limit int64, relativeToDid string, viewer string) (*UnspeccedGetSuggestionsSkeleton_Output, error) {
 	var out UnspeccedGetSuggestionsSkeleton_Output
 
-	params := map[string]interface{}{
-		"cursor":        cursor,
-		"limit":         limit,
-		"relativeToDid": relativeToDid,
-		"viewer":        viewer,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getSuggestionsSkeleton", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if relativeToDid != "" {
+		params["relativeToDid"] = relativeToDid
+	}
+	if viewer != "" {
+		params["viewer"] = viewer
+	}
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getSuggestionsSkeleton", params, nil, &out); err != nil {
 		return nil, err
 	}
 

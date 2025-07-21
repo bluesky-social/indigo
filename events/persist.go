@@ -10,6 +10,7 @@ import (
 
 // Note that this interface looks generic, but some persisters might only work with RepoAppend or LabelLabels
 type EventPersistence interface {
+	// Persist may mutate contents of *XRPCStreamEvent and what it points to
 	Persist(ctx context.Context, e *XRPCStreamEvent) error
 	Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error
 	TakeDownRepo(ctx context.Context, usr models.Uid) error
@@ -41,16 +42,12 @@ func (mp *MemPersister) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	switch {
 	case e.RepoCommit != nil:
 		e.RepoCommit.Seq = mp.seq
-	case e.RepoHandle != nil:
-		e.RepoHandle.Seq = mp.seq
+	case e.RepoSync != nil:
+		e.RepoSync.Seq = mp.seq
 	case e.RepoIdentity != nil:
 		e.RepoIdentity.Seq = mp.seq
 	case e.RepoAccount != nil:
 		e.RepoAccount.Seq = mp.seq
-	case e.RepoMigrate != nil:
-		e.RepoMigrate.Seq = mp.seq
-	case e.RepoTombstone != nil:
-		e.RepoTombstone.Seq = mp.seq
 	case e.LabelLabels != nil:
 		e.LabelLabels.Seq = mp.seq
 	default:

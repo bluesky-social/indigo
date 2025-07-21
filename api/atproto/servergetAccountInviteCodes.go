@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerGetAccountInviteCodes_Output is the output of a com.atproto.server.getAccountInviteCodes call.
@@ -18,14 +18,17 @@ type ServerGetAccountInviteCodes_Output struct {
 // ServerGetAccountInviteCodes calls the XRPC method "com.atproto.server.getAccountInviteCodes".
 //
 // createAvailable: Controls whether any new 'earned' but not 'created' invites should be created.
-func ServerGetAccountInviteCodes(ctx context.Context, c *xrpc.Client, createAvailable bool, includeUsed bool) (*ServerGetAccountInviteCodes_Output, error) {
+func ServerGetAccountInviteCodes(ctx context.Context, c util.LexClient, createAvailable bool, includeUsed bool) (*ServerGetAccountInviteCodes_Output, error) {
 	var out ServerGetAccountInviteCodes_Output
 
-	params := map[string]interface{}{
-		"createAvailable": createAvailable,
-		"includeUsed":     includeUsed,
+	params := map[string]interface{}{}
+	if createAvailable {
+		params["createAvailable"] = createAvailable
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.server.getAccountInviteCodes", params, nil, &out); err != nil {
+	if includeUsed {
+		params["includeUsed"] = includeUsed
+	}
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.server.getAccountInviteCodes", params, nil, &out); err != nil {
 		return nil, err
 	}
 

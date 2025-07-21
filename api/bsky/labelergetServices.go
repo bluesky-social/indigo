@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // LabelerGetServices_Output is the output of a app.bsky.labeler.getServices call.
@@ -54,14 +53,15 @@ func (t *LabelerGetServices_Output_Views_Elem) UnmarshalJSON(b []byte) error {
 }
 
 // LabelerGetServices calls the XRPC method "app.bsky.labeler.getServices".
-func LabelerGetServices(ctx context.Context, c *xrpc.Client, detailed bool, dids []string) (*LabelerGetServices_Output, error) {
+func LabelerGetServices(ctx context.Context, c util.LexClient, detailed bool, dids []string) (*LabelerGetServices_Output, error) {
 	var out LabelerGetServices_Output
 
-	params := map[string]interface{}{
-		"detailed": detailed,
-		"dids":     dids,
+	params := map[string]interface{}{}
+	if detailed {
+		params["detailed"] = detailed
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.labeler.getServices", params, nil, &out); err != nil {
+	params["dids"] = dids
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.labeler.getServices", params, nil, &out); err != nil {
 		return nil, err
 	}
 

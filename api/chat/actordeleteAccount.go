@@ -7,7 +7,7 @@ package chat
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ActorDeleteAccount_Output is the output of a chat.bsky.actor.deleteAccount call.
@@ -15,9 +15,9 @@ type ActorDeleteAccount_Output struct {
 }
 
 // ActorDeleteAccount calls the XRPC method "chat.bsky.actor.deleteAccount".
-func ActorDeleteAccount(ctx context.Context, c *xrpc.Client) (*ActorDeleteAccount_Output, error) {
+func ActorDeleteAccount(ctx context.Context, c util.LexClient) (*ActorDeleteAccount_Output, error) {
 	var out ActorDeleteAccount_Output
-	if err := c.Do(ctx, xrpc.Procedure, "", "chat.bsky.actor.deleteAccount", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "", "chat.bsky.actor.deleteAccount", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

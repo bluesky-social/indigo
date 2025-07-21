@@ -166,9 +166,11 @@ func TestParsePrivateMultibase(t *testing.T) {
 	assert.NoError(err)
 	_, ok := privP256FromMB.(*PrivateKeyP256)
 	assert.True(ok)
+	assert.Equal(privP256MB, privP256FromMB.Multibase())
 
 	privK256FromMB, err := ParsePrivateMultibase(privK256MB)
 	assert.NoError(err)
 	_, ok = privK256FromMB.(*PrivateKeyK256)
 	assert.True(ok)
+	assert.Equal(privK256MB, privK256FromMB.Multibase())
 }

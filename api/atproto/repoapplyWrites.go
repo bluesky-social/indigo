@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // RepoApplyWrites_Create is a "create" in the com.atproto.repo.applyWrites schema.
@@ -19,10 +18,11 @@ import (
 //
 // RECORDTYPE: RepoApplyWrites_Create
 type RepoApplyWrites_Create struct {
-	LexiconTypeID string                   `json:"$type,const=com.atproto.repo.applyWrites#create" cborgen:"$type,const=com.atproto.repo.applyWrites#create"`
-	Collection    string                   `json:"collection" cborgen:"collection"`
-	Rkey          *string                  `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
-	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
+	LexiconTypeID string `json:"$type,const=com.atproto.repo.applyWrites#create" cborgen:"$type,const=com.atproto.repo.applyWrites#create"`
+	Collection    string `json:"collection" cborgen:"collection"`
+	// rkey: NOTE: maxLength is redundant with record-key format. Keeping it temporarily to ensure backwards compatibility.
+	Rkey  *string                  `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
+	Value *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 // RepoApplyWrites_CreateResult is a "createResult" in the com.atproto.repo.applyWrites schema.
@@ -179,9 +179,9 @@ type RepoApplyWrites_UpdateResult struct {
 }
 
 // RepoApplyWrites calls the XRPC method "com.atproto.repo.applyWrites".
-func RepoApplyWrites(ctx context.Context, c *xrpc.Client, input *RepoApplyWrites_Input) (*RepoApplyWrites_Output, error) {
+func RepoApplyWrites(ctx context.Context, c util.LexClient, input *RepoApplyWrites_Input) (*RepoApplyWrites_Output, error) {
 	var out RepoApplyWrites_Output
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.applyWrites", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.repo.applyWrites", nil, input, &out); err != nil {
 		return nil, err
 	}
 

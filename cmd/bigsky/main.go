@@ -14,13 +14,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/api"
 	libbgs "github.com/bluesky-social/indigo/bgs"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/dbpersist"
+	"github.com/bluesky-social/indigo/events/diskpersist"
+	"github.com/bluesky-social/indigo/handles"
 	"github.com/bluesky-social/indigo/indexer"
-	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
@@ -98,11 +99,6 @@ func run(args []string) error {
 		&cli.BoolFlag{
 			Name:  "crawl-insecure-ws",
 			Usage: "when connecting to PDS instances, use ws:// instead of wss://",
-		},
-		&cli.BoolFlag{
-			Name:    "spidering",
-			Value:   false,
-			EnvVars: []string{"RELAY_SPIDERING", "BGS_SPIDERING"},
 		},
 		&cli.StringFlag{
 			Name:  "api-listen",
@@ -217,6 +213,17 @@ func run(args []string) error {
 			EnvVars: []string{"RELAY_NEXT_CRAWLER"},
 		},
 		&cli.BoolFlag{
+			Name:  "ex-sqlite-carstore",
+			Usage: "enable experimental sqlite carstore",
+			Value: false,
+		},
+		&cli.StringSliceFlag{
+			Name:    "scylla-carstore",
+			Usage:   "scylla server addresses for storage backend, comma separated",
+			Value:   &cli.StringSlice{},
+			EnvVars: []string{"RELAY_SCYLLA_NODES"},
+		},
+		&cli.BoolFlag{
 			Name:    "non-archival",
 			EnvVars: []string{"RELAY_NON_ARCHIVAL"},
 			Value:   false,
@@ -299,7 +306,7 @@ func runBigsky(cctx *cli.Context) error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
-	_, err := cliutil.SetupSlog(cliutil.LogOptions{})
+	_, _, err := cliutil.SetupSlog(cliutil.LogOptions{})
 	if err != nil {
 		return err
 	}
@@ -316,56 +323,72 @@ func runBigsky(cctx *cli.Context) error {
 		return err
 	}
 
-	slog.Info("setting up main database")
 	dburl := cctx.String("db-url")
+	slog.Info("setting up main database", "url", dburl)
 	db, err := cliutil.SetupDatabase(dburl, cctx.Int("max-metadb-connections"))
 	if err != nil {
 		return err
 	}
-
-	slog.Info("setting up carstore database")
-	csdburl := cctx.String("carstore-db-url")
-	csdb, err := cliutil.SetupDatabase(csdburl, cctx.Int("max-carstore-connections"))
-	if err != nil {
-		return err
-	}
-
 	if cctx.Bool("db-tracing") {
 		if err := db.Use(tracing.NewPlugin()); err != nil {
-			return err
-		}
-		if err := csdb.Use(tracing.NewPlugin()); err != nil {
-			return err
-		}
-	}
-
-	csdirs := []string{csdir}
-	if paramDirs := cctx.StringSlice("carstore-shard-dirs"); len(paramDirs) > 0 {
-		csdirs = paramDirs
-	}
-
-	for _, csd := range csdirs {
-		if err := os.MkdirAll(filepath.Dir(csd), os.ModePerm); err != nil {
 			return err
 		}
 	}
 
 	var cstore carstore.CarStore
-
-	if cctx.Bool("non-archival") {
+	scyllaAddrs := cctx.StringSlice("scylla-carstore")
+	sqliteStore := cctx.Bool("ex-sqlite-carstore")
+	if len(scyllaAddrs) != 0 {
+		slog.Info("starting scylla carstore", "addrs", scyllaAddrs)
+		cstore, err = carstore.NewScyllaStore(scyllaAddrs, "cs")
+	} else if sqliteStore {
+		slog.Info("starting sqlite carstore", "dir", csdir)
+		cstore, err = carstore.NewSqliteStore(csdir)
+	} else if cctx.Bool("non-archival") {
+		csdburl := cctx.String("carstore-db-url")
+		slog.Info("setting up non-archival carstore database", "url", csdburl)
+		csdb, err := cliutil.SetupDatabase(csdburl, cctx.Int("max-carstore-connections"))
+		if err != nil {
+			return err
+		}
+		if cctx.Bool("db-tracing") {
+			if err := csdb.Use(tracing.NewPlugin()); err != nil {
+				return err
+			}
+		}
 		cs, err := carstore.NewNonArchivalCarstore(csdb)
 		if err != nil {
 			return err
 		}
-
 		cstore = cs
 	} else {
-		cs, err := carstore.NewCarStore(csdb, csdirs)
+		// make standard FileCarStore
+		csdburl := cctx.String("carstore-db-url")
+		slog.Info("setting up carstore database", "url", csdburl)
+		csdb, err := cliutil.SetupDatabase(csdburl, cctx.Int("max-carstore-connections"))
 		if err != nil {
 			return err
 		}
+		if cctx.Bool("db-tracing") {
+			if err := csdb.Use(tracing.NewPlugin()); err != nil {
+				return err
+			}
+		}
+		csdirs := []string{csdir}
+		if paramDirs := cctx.StringSlice("carstore-shard-dirs"); len(paramDirs) > 0 {
+			csdirs = paramDirs
+		}
 
-		cstore = cs
+		for _, csd := range csdirs {
+			if err := os.MkdirAll(filepath.Dir(csd), os.ModePerm); err != nil {
+				return err
+			}
+		}
+		cstore, err = carstore.NewCarStore(csdb, csdirs)
+	}
+
+	if err != nil {
+		return err
 	}
 
 	// DID RESOLUTION
@@ -376,7 +399,7 @@ func runBigsky(cctx *cli.Context) error {
 	{
 		mr := did.NewMultiResolver()
 
-		didr := &api.PLCServer{Host: cctx.String("plc-host")}
+		didr := &plc.PLCServer{Host: cctx.String("plc-host")}
 		mr.AddHandler("plc", didr)
 
 		webr := did.WebResolver{}
@@ -405,15 +428,15 @@ func runBigsky(cctx *cli.Context) error {
 	if dpd := cctx.String("disk-persister-dir"); dpd != "" {
 		slog.Info("setting up disk persister")
 
-		pOpts := events.DefaultDiskPersistOptions()
+		pOpts := diskpersist.DefaultDiskPersistOptions()
 		pOpts.Retention = cctx.Duration("event-playback-ttl")
-		dp, err := events.NewDiskPersistence(dpd, "", db, pOpts)
+		dp, err := diskpersist.NewDiskPersistence(dpd, "", db, pOpts)
 		if err != nil {
 			return fmt.Errorf("setting up disk persister: %w", err)
 		}
 		persister = dp
 	} else {
-		dbp, err := events.NewDbPersistence(db, cstore, nil)
+		dbp, err := dbpersist.NewDbPersistence(db, cstore, nil)
 		if err != nil {
 			return fmt.Errorf("setting up db event persistence: %w", err)
 		}
@@ -422,11 +445,9 @@ func runBigsky(cctx *cli.Context) error {
 
 	evtman := events.NewEventManager(persister)
 
-	notifman := &notifs.NullNotifs{}
-
 	rf := indexer.NewRepoFetcher(db, repoman, cctx.Int("max-fetch-concurrency"))
 
-	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, rf, true, false, cctx.Bool("spidering"))
+	ix, err := indexer.NewIndexer(db, evtman, cachedidr, rf, true)
 	if err != nil {
 		return err
 	}
@@ -457,7 +478,7 @@ func runBigsky(cctx *cli.Context) error {
 		}
 	}, false)
 
-	prodHR, err := api.NewProdHandleResolver(100_000, cctx.String("resolve-address"), cctx.Bool("force-dns-udp"))
+	prodHR, err := handles.NewProdHandleResolver(100_000, cctx.String("resolve-address"), cctx.Bool("force-dns-udp"))
 	if err != nil {
 		return fmt.Errorf("failed to set up handle resolver: %w", err)
 	}
@@ -470,9 +491,9 @@ func runBigsky(cctx *cli.Context) error {
 		}
 	}
 
-	var hr api.HandleResolver = prodHR
+	var hr handles.HandleResolver = prodHR
 	if cctx.StringSlice("handle-resolver-hosts") != nil {
-		hr = &api.TestHandleResolver{
+		hr = &handles.TestHandleResolver{
 			TrialHosts: cctx.StringSlice("handle-resolver-hosts"),
 		}
 	}
