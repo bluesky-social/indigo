@@ -416,6 +416,7 @@ func runAccountServiceAuthOffline(cctx *cli.Context) error {
 	}
 
 	issString := cctx.String("iss")
+	// TODO: support fragment identifiers
 	iss, err := syntax.ParseDID(issString)
 	if err != nil {
 		return fmt.Errorf("iss argument must be a valid DID: %w", err)
