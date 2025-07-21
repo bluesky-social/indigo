@@ -113,7 +113,7 @@ var cmdAccount = &cli.Command{
 			Action: runAccountServiceAuth,
 		},
 		&cli.Command{
-			Name:  "service-auth-local",
+			Name:  "service-auth-offline",
 			Usage: "create service auth token via locally-held signing key",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
@@ -144,7 +144,7 @@ var cmdAccount = &cli.Command{
 					Usage: "validity time window of token (seconds)",
 				},
 			},
-			Action: runAccountServiceAuthLocal,
+			Action: runAccountServiceAuthOffline,
 		},
 		&cli.Command{
 			Name:  "create",
@@ -405,7 +405,7 @@ func runAccountServiceAuth(cctx *cli.Context) error {
 	return nil
 }
 
-func runAccountServiceAuthLocal(cctx *cli.Context) error {
+func runAccountServiceAuthOffline(cctx *cli.Context) error {
 	privStr := cctx.String("atproto-signing-key")
 	if privStr == "" {
 		return fmt.Errorf("private key must be provided")
