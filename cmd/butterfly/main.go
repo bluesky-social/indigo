@@ -1,16 +1,27 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
+
+	"github.com/bluesky-social/indigo/cmd/butterfly/remote"
+	"github.com/bluesky-social/indigo/cmd/butterfly/store"
 )
 
 func main() {
-	fmt.Println(WhereClause{})
-	fmt.Println(WhereClause{Repo: "pfrazee.com", Collection: "app.bsky.graph.follow", Attr: "subject"})
+	r := remote.CarfileRemote{Filepath: "/Users/paulfrazee/tmp/carfiles/pfrazee.car"}
+	s := store.StdoutStore{Mode: store.StdoutStoreModeStats}
 
-	docJson := `{"select": [{"where": {"repo": "pfrazee.com"},"tag": "user"}],"retain": {"user": {"*": "*"}}}`
-	var doc SelectorDoc
-	json.Unmarshal([]byte(docJson), &doc)
-	fmt.Println((doc))
+	if err := s.Setup(); err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer s.Close()
+
+	res, err := r.FetchRepo(remote.FetchRepoParams{Did: "did:plc:ragtjsm2j2vknwkz3zp4oxrd"})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	s.Receive(res)
 }

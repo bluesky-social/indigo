@@ -28,8 +28,28 @@ type WhereClause struct {
 
 type Retainer map[string]map[string]string
 
+// SelectorDoc
+
 func (self SelectorDoc) String() string {
 	return fmt.Sprintf("%s retain=%s", self.Selectors, self.Retainers)
+}
+
+// Selector
+
+func (self Selector) IsRepo() bool {
+	return self.Where.Repo != ""
+}
+
+func (self Selector) IsRepoRecord() bool {
+	return self.Where.Repo != "" && self.Where.Collection != "" && self.Where.Attr != ""
+}
+
+func (self Selector) IsService() bool {
+	return self.Where.Service != "" && self.Where.Method != "" && self.Where.Attr != ""
+}
+
+func (self Selector) IsValid() bool {
+	return self.IsRepo() || self.IsRepoRecord() || self.IsService()
 }
 
 func (self Selector) String() string {
@@ -38,6 +58,8 @@ func (self Selector) String() string {
 	}
 	return fmt.Sprintf("%s,tag=%s", self.Where, self.Tag)
 }
+
+// WhereClause
 
 func (self WhereClause) String() string {
 	if self.Repo != "" && self.Collection != "" && self.Attr != "" {
