@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // LabelQueryLabels_Output is the output of a com.atproto.label.queryLabels call.
@@ -20,16 +20,21 @@ type LabelQueryLabels_Output struct {
 //
 // sources: Optional list of label sources (DIDs) to filter on.
 // uriPatterns: List of AT URI patterns to match (boolean 'OR'). Each may be a prefix (ending with '*'; will match inclusive of the string leading to '*'), or a full URI.
-func LabelQueryLabels(ctx context.Context, c *xrpc.Client, cursor string, limit int64, sources []string, uriPatterns []string) (*LabelQueryLabels_Output, error) {
+func LabelQueryLabels(ctx context.Context, c util.LexClient, cursor string, limit int64, sources []string, uriPatterns []string) (*LabelQueryLabels_Output, error) {
 	var out LabelQueryLabels_Output
 
-	params := map[string]interface{}{
-		"cursor":      cursor,
-		"limit":       limit,
-		"sources":     sources,
-		"uriPatterns": uriPatterns,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.label.queryLabels", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if len(sources) != 0 {
+		params["sources"] = sources
+	}
+	params["uriPatterns"] = uriPatterns
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.label.queryLabels", params, nil, &out); err != nil {
 		return nil, err
 	}
 

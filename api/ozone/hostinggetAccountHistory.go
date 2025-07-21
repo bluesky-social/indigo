@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // HostingGetAccountHistory_AccountCreated is a "accountCreated" in the tools.ozone.hosting.getAccountHistory schema.
@@ -126,16 +125,21 @@ type HostingGetAccountHistory_PasswordUpdated struct {
 }
 
 // HostingGetAccountHistory calls the XRPC method "tools.ozone.hosting.getAccountHistory".
-func HostingGetAccountHistory(ctx context.Context, c *xrpc.Client, cursor string, did string, events []string, limit int64) (*HostingGetAccountHistory_Output, error) {
+func HostingGetAccountHistory(ctx context.Context, c util.LexClient, cursor string, did string, events []string, limit int64) (*HostingGetAccountHistory_Output, error) {
 	var out HostingGetAccountHistory_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"did":    did,
-		"events": events,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.hosting.getAccountHistory", params, nil, &out); err != nil {
+	params["did"] = did
+	if len(events) != 0 {
+		params["events"] = events
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.hosting.getAccountHistory", params, nil, &out); err != nil {
 		return nil, err
 	}
 

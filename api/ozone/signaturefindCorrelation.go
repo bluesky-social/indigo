@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // SignatureFindCorrelation_Output is the output of a tools.ozone.signature.findCorrelation call.
@@ -16,13 +16,12 @@ type SignatureFindCorrelation_Output struct {
 }
 
 // SignatureFindCorrelation calls the XRPC method "tools.ozone.signature.findCorrelation".
-func SignatureFindCorrelation(ctx context.Context, c *xrpc.Client, dids []string) (*SignatureFindCorrelation_Output, error) {
+func SignatureFindCorrelation(ctx context.Context, c util.LexClient, dids []string) (*SignatureFindCorrelation_Output, error) {
 	var out SignatureFindCorrelation_Output
 
-	params := map[string]interface{}{
-		"dids": dids,
-	}
-	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.signature.findCorrelation", params, nil, &out); err != nil {
+	params := map[string]interface{}{}
+	params["dids"] = dids
+	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.signature.findCorrelation", params, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedSearchActorsSkeleton_Output is the output of a app.bsky.unspecced.searchActorsSkeleton call.
@@ -24,17 +24,24 @@ type UnspeccedSearchActorsSkeleton_Output struct {
 // q: Search query string; syntax, phrase, boolean, and faceting is unspecified, but Lucene query syntax is recommended. For typeahead search, only simple term match is supported, not full syntax.
 // typeahead: If true, acts as fast/simple 'typeahead' query.
 // viewer: DID of the account making the request (not included for public/unauthenticated queries). Used to boost followed accounts in ranking.
-func UnspeccedSearchActorsSkeleton(ctx context.Context, c *xrpc.Client, cursor string, limit int64, q string, typeahead bool, viewer string) (*UnspeccedSearchActorsSkeleton_Output, error) {
+func UnspeccedSearchActorsSkeleton(ctx context.Context, c util.LexClient, cursor string, limit int64, q string, typeahead bool, viewer string) (*UnspeccedSearchActorsSkeleton_Output, error) {
 	var out UnspeccedSearchActorsSkeleton_Output
 
-	params := map[string]interface{}{
-		"cursor":    cursor,
-		"limit":     limit,
-		"q":         q,
-		"typeahead": typeahead,
-		"viewer":    viewer,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.searchActorsSkeleton", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	params["q"] = q
+	if typeahead {
+		params["typeahead"] = typeahead
+	}
+	if viewer != "" {
+		params["viewer"] = viewer
+	}
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.searchActorsSkeleton", params, nil, &out); err != nil {
 		return nil, err
 	}
 

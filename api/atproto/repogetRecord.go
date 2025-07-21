@@ -8,7 +8,6 @@ import (
 	"context"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // RepoGetRecord_Output is the output of a com.atproto.repo.getRecord call.
@@ -24,16 +23,17 @@ type RepoGetRecord_Output struct {
 // collection: The NSID of the record collection.
 // repo: The handle or DID of the repo.
 // rkey: The Record Key.
-func RepoGetRecord(ctx context.Context, c *xrpc.Client, cid string, collection string, repo string, rkey string) (*RepoGetRecord_Output, error) {
+func RepoGetRecord(ctx context.Context, c util.LexClient, cid string, collection string, repo string, rkey string) (*RepoGetRecord_Output, error) {
 	var out RepoGetRecord_Output
 
-	params := map[string]interface{}{
-		"cid":        cid,
-		"collection": collection,
-		"repo":       repo,
-		"rkey":       rkey,
+	params := map[string]interface{}{}
+	if cid != "" {
+		params["cid"] = cid
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.repo.getRecord", params, nil, &out); err != nil {
+	params["collection"] = collection
+	params["repo"] = repo
+	params["rkey"] = rkey
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.repo.getRecord", params, nil, &out); err != nil {
 		return nil, err
 	}
 

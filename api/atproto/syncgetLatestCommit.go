@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // SyncGetLatestCommit_Output is the output of a com.atproto.sync.getLatestCommit call.
@@ -19,13 +19,12 @@ type SyncGetLatestCommit_Output struct {
 // SyncGetLatestCommit calls the XRPC method "com.atproto.sync.getLatestCommit".
 //
 // did: The DID of the repo.
-func SyncGetLatestCommit(ctx context.Context, c *xrpc.Client, did string) (*SyncGetLatestCommit_Output, error) {
+func SyncGetLatestCommit(ctx context.Context, c util.LexClient, did string) (*SyncGetLatestCommit_Output, error) {
 	var out SyncGetLatestCommit_Output
 
-	params := map[string]interface{}{
-		"did": did,
-	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getLatestCommit", params, nil, &out); err != nil {
+	params := map[string]interface{}{}
+	params["did"] = did
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.sync.getLatestCommit", params, nil, &out); err != nil {
 		return nil, err
 	}
 

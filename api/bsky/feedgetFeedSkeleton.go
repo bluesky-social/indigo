@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedGetFeedSkeleton_Output is the output of a app.bsky.feed.getFeedSkeleton call.
@@ -21,15 +21,18 @@ type FeedGetFeedSkeleton_Output struct {
 // FeedGetFeedSkeleton calls the XRPC method "app.bsky.feed.getFeedSkeleton".
 //
 // feed: Reference to feed generator record describing the specific feed being requested.
-func FeedGetFeedSkeleton(ctx context.Context, c *xrpc.Client, cursor string, feed string, limit int64) (*FeedGetFeedSkeleton_Output, error) {
+func FeedGetFeedSkeleton(ctx context.Context, c util.LexClient, cursor string, feed string, limit int64) (*FeedGetFeedSkeleton_Output, error) {
 	var out FeedGetFeedSkeleton_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"feed":   feed,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getFeedSkeleton", params, nil, &out); err != nil {
+	params["feed"] = feed
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.getFeedSkeleton", params, nil, &out); err != nil {
 		return nil, err
 	}
 

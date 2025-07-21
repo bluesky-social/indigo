@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // TeamUpdateMember_Input is the input argument to a tools.ozone.team.updateMember call.
@@ -18,9 +18,9 @@ type TeamUpdateMember_Input struct {
 }
 
 // TeamUpdateMember calls the XRPC method "tools.ozone.team.updateMember".
-func TeamUpdateMember(ctx context.Context, c *xrpc.Client, input *TeamUpdateMember_Input) (*TeamDefs_Member, error) {
+func TeamUpdateMember(ctx context.Context, c util.LexClient, input *TeamUpdateMember_Input) (*TeamDefs_Member, error) {
 	var out TeamDefs_Member
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "tools.ozone.team.updateMember", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.team.updateMember", nil, input, &out); err != nil {
 		return nil, err
 	}
 

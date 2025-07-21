@@ -16,7 +16,7 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
-	sqlbs "github.com/ipfs/go-bs-sqlite3"
+	//sqlbs "github.com/ipfs/go-bs-sqlite3"
 	"github.com/ipfs/go-cid"
 	flatfs "github.com/ipfs/go-ds-flatfs"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -452,6 +452,7 @@ func BenchmarkRepoWritesFlatfs(b *testing.B) {
 	}
 }
 
+/* NOTE(bnewbold): this depends on github.com/ipfs/go-bs-sqlite3, which rewrote git history (?) breaking the dependency tree. We can roll forward, but that will require broad dependency updates. So for now just removing this benchmark/perf test.
 func BenchmarkRepoWritesSqlite(b *testing.B) {
 	ctx := context.TODO()
 
@@ -489,6 +490,7 @@ func BenchmarkRepoWritesSqlite(b *testing.B) {
 		head = nroot
 	}
 }
+*/
 
 func TestDuplicateBlockAcrossShards(ot *testing.T) {
 	ctx := context.TODO()

@@ -7,7 +7,7 @@ package chat
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ConvoListConvos_Output is the output of a chat.bsky.convo.listConvos call.
@@ -17,16 +17,23 @@ type ConvoListConvos_Output struct {
 }
 
 // ConvoListConvos calls the XRPC method "chat.bsky.convo.listConvos".
-func ConvoListConvos(ctx context.Context, c *xrpc.Client, cursor string, limit int64, readState string, status string) (*ConvoListConvos_Output, error) {
+func ConvoListConvos(ctx context.Context, c util.LexClient, cursor string, limit int64, readState string, status string) (*ConvoListConvos_Output, error) {
 	var out ConvoListConvos_Output
 
-	params := map[string]interface{}{
-		"cursor":    cursor,
-		"limit":     limit,
-		"readState": readState,
-		"status":    status,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "chat.bsky.convo.listConvos", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if readState != "" {
+		params["readState"] = readState
+	}
+	if status != "" {
+		params["status"] = status
+	}
+	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.convo.listConvos", params, nil, &out); err != nil {
 		return nil, err
 	}
 

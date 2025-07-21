@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphSearchStarterPacks_Output is the output of a app.bsky.graph.searchStarterPacks call.
@@ -19,15 +19,18 @@ type GraphSearchStarterPacks_Output struct {
 // GraphSearchStarterPacks calls the XRPC method "app.bsky.graph.searchStarterPacks".
 //
 // q: Search query string. Syntax, phrase, boolean, and faceting is unspecified, but Lucene query syntax is recommended.
-func GraphSearchStarterPacks(ctx context.Context, c *xrpc.Client, cursor string, limit int64, q string) (*GraphSearchStarterPacks_Output, error) {
+func GraphSearchStarterPacks(ctx context.Context, c util.LexClient, cursor string, limit int64, q string) (*GraphSearchStarterPacks_Output, error) {
 	var out GraphSearchStarterPacks_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
-		"q":      q,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.searchStarterPacks", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	params["q"] = q
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.graph.searchStarterPacks", params, nil, &out); err != nil {
 		return nil, err
 	}
 

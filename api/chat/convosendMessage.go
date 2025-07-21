@@ -7,7 +7,7 @@ package chat
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ConvoSendMessage_Input is the input argument to a chat.bsky.convo.sendMessage call.
@@ -17,9 +17,9 @@ type ConvoSendMessage_Input struct {
 }
 
 // ConvoSendMessage calls the XRPC method "chat.bsky.convo.sendMessage".
-func ConvoSendMessage(ctx context.Context, c *xrpc.Client, input *ConvoSendMessage_Input) (*ConvoDefs_MessageView, error) {
+func ConvoSendMessage(ctx context.Context, c util.LexClient, input *ConvoSendMessage_Input) (*ConvoDefs_MessageView, error) {
 	var out ConvoDefs_MessageView
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "chat.bsky.convo.sendMessage", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.sendMessage", nil, input, &out); err != nil {
 		return nil, err
 	}
 

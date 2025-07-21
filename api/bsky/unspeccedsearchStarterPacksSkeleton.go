@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedSearchStarterPacksSkeleton_Output is the output of a app.bsky.unspecced.searchStarterPacksSkeleton call.
@@ -23,16 +23,21 @@ type UnspeccedSearchStarterPacksSkeleton_Output struct {
 // cursor: Optional pagination mechanism; may not necessarily allow scrolling through entire result set.
 // q: Search query string; syntax, phrase, boolean, and faceting is unspecified, but Lucene query syntax is recommended.
 // viewer: DID of the account making the request (not included for public/unauthenticated queries).
-func UnspeccedSearchStarterPacksSkeleton(ctx context.Context, c *xrpc.Client, cursor string, limit int64, q string, viewer string) (*UnspeccedSearchStarterPacksSkeleton_Output, error) {
+func UnspeccedSearchStarterPacksSkeleton(ctx context.Context, c util.LexClient, cursor string, limit int64, q string, viewer string) (*UnspeccedSearchStarterPacksSkeleton_Output, error) {
 	var out UnspeccedSearchStarterPacksSkeleton_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
-		"q":      q,
-		"viewer": viewer,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.searchStarterPacksSkeleton", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	params["q"] = q
+	if viewer != "" {
+		params["viewer"] = viewer
+	}
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.searchStarterPacksSkeleton", params, nil, &out); err != nil {
 		return nil, err
 	}
 

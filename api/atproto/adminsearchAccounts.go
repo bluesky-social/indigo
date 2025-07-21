@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // AdminSearchAccounts_Output is the output of a com.atproto.admin.searchAccounts call.
@@ -17,15 +17,20 @@ type AdminSearchAccounts_Output struct {
 }
 
 // AdminSearchAccounts calls the XRPC method "com.atproto.admin.searchAccounts".
-func AdminSearchAccounts(ctx context.Context, c *xrpc.Client, cursor string, email string, limit int64) (*AdminSearchAccounts_Output, error) {
+func AdminSearchAccounts(ctx context.Context, c util.LexClient, cursor string, email string, limit int64) (*AdminSearchAccounts_Output, error) {
 	var out AdminSearchAccounts_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"email":  email,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.searchAccounts", params, nil, &out); err != nil {
+	if email != "" {
+		params["email"] = email
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.admin.searchAccounts", params, nil, &out); err != nil {
 		return nil, err
 	}
 

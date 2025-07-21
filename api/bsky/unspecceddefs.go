@@ -4,6 +4,38 @@ package bsky
 
 // schema: app.bsky.unspecced.defs
 
+// UnspeccedDefs_AgeAssuranceEvent is a "ageAssuranceEvent" in the app.bsky.unspecced.defs schema.
+//
+// Object used to store age assurance data in stash.
+type UnspeccedDefs_AgeAssuranceEvent struct {
+	// attemptId: The unique identifier for this instance of the age assurance flow, in UUID format.
+	AttemptId string `json:"attemptId" cborgen:"attemptId"`
+	// completeIp: The IP address used when completing the AA flow.
+	CompleteIp *string `json:"completeIp,omitempty" cborgen:"completeIp,omitempty"`
+	// completeUa: The user agent used when completing the AA flow.
+	CompleteUa *string `json:"completeUa,omitempty" cborgen:"completeUa,omitempty"`
+	// createdAt: The date and time of this write operation.
+	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
+	// email: The email used for AA.
+	Email *string `json:"email,omitempty" cborgen:"email,omitempty"`
+	// initIp: The IP address used when initiating the AA flow.
+	InitIp *string `json:"initIp,omitempty" cborgen:"initIp,omitempty"`
+	// initUa: The user agent used when initiating the AA flow.
+	InitUa *string `json:"initUa,omitempty" cborgen:"initUa,omitempty"`
+	// status: The status of the age assurance process.
+	Status string `json:"status" cborgen:"status"`
+}
+
+// UnspeccedDefs_AgeAssuranceState is a "ageAssuranceState" in the app.bsky.unspecced.defs schema.
+//
+// The computed state of the age assurance process, returned to the user in question on certain authenticated requests.
+type UnspeccedDefs_AgeAssuranceState struct {
+	// lastInitiatedAt: The timestamp when this state was last updated.
+	LastInitiatedAt *string `json:"lastInitiatedAt,omitempty" cborgen:"lastInitiatedAt,omitempty"`
+	// status: The status of the age assurance process.
+	Status string `json:"status" cborgen:"status"`
+}
+
 // UnspeccedDefs_SkeletonSearchActor is a "skeletonSearchActor" in the app.bsky.unspecced.defs schema.
 type UnspeccedDefs_SkeletonSearchActor struct {
 	Did string `json:"did" cborgen:"did"`
@@ -29,6 +61,46 @@ type UnspeccedDefs_SkeletonTrend struct {
 	StartedAt   string   `json:"startedAt" cborgen:"startedAt"`
 	Status      *string  `json:"status,omitempty" cborgen:"status,omitempty"`
 	Topic       string   `json:"topic" cborgen:"topic"`
+}
+
+// UnspeccedDefs_ThreadItemBlocked is a "threadItemBlocked" in the app.bsky.unspecced.defs schema.
+//
+// RECORDTYPE: UnspeccedDefs_ThreadItemBlocked
+type UnspeccedDefs_ThreadItemBlocked struct {
+	LexiconTypeID string                  `json:"$type,const=app.bsky.unspecced.defs#threadItemBlocked" cborgen:"$type,const=app.bsky.unspecced.defs#threadItemBlocked"`
+	Author        *FeedDefs_BlockedAuthor `json:"author" cborgen:"author"`
+}
+
+// UnspeccedDefs_ThreadItemNoUnauthenticated is a "threadItemNoUnauthenticated" in the app.bsky.unspecced.defs schema.
+//
+// RECORDTYPE: UnspeccedDefs_ThreadItemNoUnauthenticated
+type UnspeccedDefs_ThreadItemNoUnauthenticated struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.unspecced.defs#threadItemNoUnauthenticated" cborgen:"$type,const=app.bsky.unspecced.defs#threadItemNoUnauthenticated"`
+}
+
+// UnspeccedDefs_ThreadItemNotFound is a "threadItemNotFound" in the app.bsky.unspecced.defs schema.
+//
+// RECORDTYPE: UnspeccedDefs_ThreadItemNotFound
+type UnspeccedDefs_ThreadItemNotFound struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.unspecced.defs#threadItemNotFound" cborgen:"$type,const=app.bsky.unspecced.defs#threadItemNotFound"`
+}
+
+// UnspeccedDefs_ThreadItemPost is a "threadItemPost" in the app.bsky.unspecced.defs schema.
+//
+// RECORDTYPE: UnspeccedDefs_ThreadItemPost
+type UnspeccedDefs_ThreadItemPost struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.unspecced.defs#threadItemPost" cborgen:"$type,const=app.bsky.unspecced.defs#threadItemPost"`
+	// hiddenByThreadgate: The threadgate created by the author indicates this post as a reply to be hidden for everyone consuming the thread.
+	HiddenByThreadgate bool `json:"hiddenByThreadgate" cborgen:"hiddenByThreadgate"`
+	// moreParents: This post has more parents that were not present in the response. This is just a boolean, without the number of parents.
+	MoreParents bool `json:"moreParents" cborgen:"moreParents"`
+	// moreReplies: This post has more replies that were not present in the response. This is a numeric value, which is best-effort and might not be accurate.
+	MoreReplies int64 `json:"moreReplies" cborgen:"moreReplies"`
+	// mutedByViewer: This is by an account muted by the viewer requesting it.
+	MutedByViewer bool `json:"mutedByViewer" cborgen:"mutedByViewer"`
+	// opThread: This post is part of a contiguous thread by the OP from the thread root. Many different OP threads can happen in the same thread.
+	OpThread bool               `json:"opThread" cborgen:"opThread"`
+	Post     *FeedDefs_PostView `json:"post" cborgen:"post"`
 }
 
 // UnspeccedDefs_TrendView is a "trendView" in the app.bsky.unspecced.defs schema.

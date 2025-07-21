@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerGetServiceAuth_Output is the output of a com.atproto.server.getServiceAuth call.
@@ -20,15 +20,18 @@ type ServerGetServiceAuth_Output struct {
 // aud: The DID of the service that the token will be used to authenticate with
 // exp: The time in Unix Epoch seconds that the JWT expires. Defaults to 60 seconds in the future. The service may enforce certain time bounds on tokens depending on the requested scope.
 // lxm: Lexicon (XRPC) method to bind the requested token to
-func ServerGetServiceAuth(ctx context.Context, c *xrpc.Client, aud string, exp int64, lxm string) (*ServerGetServiceAuth_Output, error) {
+func ServerGetServiceAuth(ctx context.Context, c util.LexClient, aud string, exp int64, lxm string) (*ServerGetServiceAuth_Output, error) {
 	var out ServerGetServiceAuth_Output
 
-	params := map[string]interface{}{
-		"aud": aud,
-		"exp": exp,
-		"lxm": lxm,
+	params := map[string]interface{}{}
+	params["aud"] = aud
+	if exp != 0 {
+		params["exp"] = exp
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.server.getServiceAuth", params, nil, &out); err != nil {
+	if lxm != "" {
+		params["lxm"] = lxm
+	}
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.server.getServiceAuth", params, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphGetListMutes_Output is the output of a app.bsky.graph.getListMutes call.
@@ -17,14 +17,17 @@ type GraphGetListMutes_Output struct {
 }
 
 // GraphGetListMutes calls the XRPC method "app.bsky.graph.getListMutes".
-func GraphGetListMutes(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*GraphGetListMutes_Output, error) {
+func GraphGetListMutes(ctx context.Context, c util.LexClient, cursor string, limit int64) (*GraphGetListMutes_Output, error) {
 	var out GraphGetListMutes_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.graph.getListMutes", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.graph.getListMutes", params, nil, &out); err != nil {
 		return nil, err
 	}
 

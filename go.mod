@@ -1,8 +1,8 @@
 module github.com/bluesky-social/indigo
 
-go 1.23
+go 1.24
 
-toolchain go1.23.8
+toolchain go1.24.1
 
 require (
 	github.com/PuerkitoBio/purell v1.2.1
@@ -18,13 +18,13 @@ require (
 	github.com/go-redis/cache/v9 v9.0.0
 	github.com/gocql/gocql v1.7.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/gorilla/websocket v1.5.1
 	github.com/hashicorp/go-retryablehttp v0.7.5
 	github.com/hashicorp/golang-lru/arc/v2 v2.0.6
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/icrowley/fake v0.0.0-20221112152111-d7b7e2276db2
 	github.com/ipfs/go-block-format v0.2.0
-	github.com/ipfs/go-bs-sqlite3 v0.0.0-20221122195556-bfcee1be620d
 	github.com/ipfs/go-cid v0.4.1
 	github.com/ipfs/go-datastore v0.6.0
 	github.com/ipfs/go-ds-flatfs v0.5.1
@@ -88,6 +88,7 @@ require (
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/did-method-plc/go-didplc v0.0.0-20250716171643-635da8b4e038 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/go-redis/redis v6.15.9+incompatible // indirect
 	github.com/goccy/go-json v0.10.2 // indirect

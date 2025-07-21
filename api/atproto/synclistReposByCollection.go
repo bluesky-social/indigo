@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // SyncListReposByCollection_Output is the output of a com.atproto.sync.listReposByCollection call.
@@ -24,15 +24,18 @@ type SyncListReposByCollection_Repo struct {
 // SyncListReposByCollection calls the XRPC method "com.atproto.sync.listReposByCollection".
 //
 // limit: Maximum size of response set. Recommend setting a large maximum (1000+) when enumerating large DID lists.
-func SyncListReposByCollection(ctx context.Context, c *xrpc.Client, collection string, cursor string, limit int64) (*SyncListReposByCollection_Output, error) {
+func SyncListReposByCollection(ctx context.Context, c util.LexClient, collection string, cursor string, limit int64) (*SyncListReposByCollection_Output, error) {
 	var out SyncListReposByCollection_Output
 
-	params := map[string]interface{}{
-		"collection": collection,
-		"cursor":     cursor,
-		"limit":      limit,
+	params := map[string]interface{}{}
+	params["collection"] = collection
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.listReposByCollection", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.sync.listReposByCollection", params, nil, &out); err != nil {
 		return nil, err
 	}
 

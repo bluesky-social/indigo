@@ -8,7 +8,7 @@ import (
 	"context"
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // SignatureFindRelatedAccounts_Output is the output of a tools.ozone.signature.findRelatedAccounts call.
@@ -24,15 +24,18 @@ type SignatureFindRelatedAccounts_RelatedAccount struct {
 }
 
 // SignatureFindRelatedAccounts calls the XRPC method "tools.ozone.signature.findRelatedAccounts".
-func SignatureFindRelatedAccounts(ctx context.Context, c *xrpc.Client, cursor string, did string, limit int64) (*SignatureFindRelatedAccounts_Output, error) {
+func SignatureFindRelatedAccounts(ctx context.Context, c util.LexClient, cursor string, did string, limit int64) (*SignatureFindRelatedAccounts_Output, error) {
 	var out SignatureFindRelatedAccounts_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"did":    did,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.signature.findRelatedAccounts", params, nil, &out); err != nil {
+	params["did"] = did
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.signature.findRelatedAccounts", params, nil, &out); err != nil {
 		return nil, err
 	}
 

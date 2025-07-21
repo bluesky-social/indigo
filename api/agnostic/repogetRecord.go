@@ -29,10 +29,12 @@ func RepoGetRecord(ctx context.Context, c util.LexClient, cid string, collection
 	var out RepoGetRecord_Output
 
 	params := map[string]interface{}{
-		"cid":        cid,
 		"collection": collection,
 		"repo":       repo,
 		"rkey":       rkey,
+	}
+	if cid != "" {
+		params["cid"] = cid
 	}
 	if err := c.LexDo(ctx, util.Query, "", "com.atproto.repo.getRecord", params, nil, &out); err != nil {
 		return nil, err
