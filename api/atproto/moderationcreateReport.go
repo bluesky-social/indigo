@@ -10,11 +10,11 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // ModerationCreateReport_Input is the input argument to a com.atproto.moderation.createReport call.
 type ModerationCreateReport_Input struct {
+	ModTool *ModerationCreateReport_ModTool `json:"modTool,omitempty" cborgen:"modTool,omitempty"`
 	// reason: Additional context about the content and violation.
 	Reason *string `json:"reason,omitempty" cborgen:"reason,omitempty"`
 	// reasonType: Indicates the broad category of violation the report is for.
@@ -55,6 +55,16 @@ func (t *ModerationCreateReport_Input_Subject) UnmarshalJSON(b []byte) error {
 	default:
 		return nil
 	}
+}
+
+// ModerationCreateReport_ModTool is a "modTool" in the com.atproto.moderation.createReport schema.
+//
+// Moderation tool information for tracing the source of the action
+type ModerationCreateReport_ModTool struct {
+	// meta: Additional arbitrary metadata about the source
+	Meta *interface{} `json:"meta,omitempty" cborgen:"meta,omitempty"`
+	// name: Name/identifier of the source (e.g., 'bsky-app/android', 'bsky-web/chrome')
+	Name string `json:"name" cborgen:"name"`
 }
 
 // ModerationCreateReport_Output is the output of a com.atproto.moderation.createReport call.
@@ -103,9 +113,9 @@ func (t *ModerationCreateReport_Output_Subject) UnmarshalJSON(b []byte) error {
 }
 
 // ModerationCreateReport calls the XRPC method "com.atproto.moderation.createReport".
-func ModerationCreateReport(ctx context.Context, c *xrpc.Client, input *ModerationCreateReport_Input) (*ModerationCreateReport_Output, error) {
+func ModerationCreateReport(ctx context.Context, c util.LexClient, input *ModerationCreateReport_Input) (*ModerationCreateReport_Output, error) {
 	var out ModerationCreateReport_Output
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.moderation.createReport", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.moderation.createReport", nil, input, &out); err != nil {
 		return nil, err
 	}
 

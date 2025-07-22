@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // TempRequestPhoneVerification_Input is the input argument to a com.atproto.temp.requestPhoneVerification call.
@@ -16,8 +16,8 @@ type TempRequestPhoneVerification_Input struct {
 }
 
 // TempRequestPhoneVerification calls the XRPC method "com.atproto.temp.requestPhoneVerification".
-func TempRequestPhoneVerification(ctx context.Context, c *xrpc.Client, input *TempRequestPhoneVerification_Input) error {
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.temp.requestPhoneVerification", nil, input, nil); err != nil {
+func TempRequestPhoneVerification(ctx context.Context, c util.LexClient, input *TempRequestPhoneVerification_Input) error {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.temp.requestPhoneVerification", nil, input, nil); err != nil {
 		return err
 	}
 

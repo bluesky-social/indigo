@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedGetAuthorFeed_Output is the output of a app.bsky.feed.getAuthorFeed call.
@@ -19,17 +19,24 @@ type FeedGetAuthorFeed_Output struct {
 // FeedGetAuthorFeed calls the XRPC method "app.bsky.feed.getAuthorFeed".
 //
 // filter: Combinations of post/repost types to include in response.
-func FeedGetAuthorFeed(ctx context.Context, c *xrpc.Client, actor string, cursor string, filter string, includePins bool, limit int64) (*FeedGetAuthorFeed_Output, error) {
+func FeedGetAuthorFeed(ctx context.Context, c util.LexClient, actor string, cursor string, filter string, includePins bool, limit int64) (*FeedGetAuthorFeed_Output, error) {
 	var out FeedGetAuthorFeed_Output
 
-	params := map[string]interface{}{
-		"actor":       actor,
-		"cursor":      cursor,
-		"filter":      filter,
-		"includePins": includePins,
-		"limit":       limit,
+	params := map[string]interface{}{}
+	params["actor"] = actor
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getAuthorFeed", params, nil, &out); err != nil {
+	if filter != "" {
+		params["filter"] = filter
+	}
+	if includePins {
+		params["includePins"] = includePins
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.getAuthorFeed", params, nil, &out); err != nil {
 		return nil, err
 	}
 

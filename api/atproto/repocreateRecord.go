@@ -8,7 +8,6 @@ import (
 	"context"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // RepoCreateRecord_Input is the input argument to a com.atproto.repo.createRecord call.
@@ -36,9 +35,9 @@ type RepoCreateRecord_Output struct {
 }
 
 // RepoCreateRecord calls the XRPC method "com.atproto.repo.createRecord".
-func RepoCreateRecord(ctx context.Context, c *xrpc.Client, input *RepoCreateRecord_Input) (*RepoCreateRecord_Output, error) {
+func RepoCreateRecord(ctx context.Context, c util.LexClient, input *RepoCreateRecord_Input) (*RepoCreateRecord_Output, error) {
 	var out RepoCreateRecord_Output
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.repo.createRecord", nil, input, &out); err != nil {
 		return nil, err
 	}
 

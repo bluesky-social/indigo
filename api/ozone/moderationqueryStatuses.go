@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationQueryStatuses_Output is the output of a tools.ozone.moderation.queryStatuses call.
@@ -18,6 +18,7 @@ type ModerationQueryStatuses_Output struct {
 
 // ModerationQueryStatuses calls the XRPC method "tools.ozone.moderation.queryStatuses".
 //
+// ageAssuranceState: If specified, only subjects with the given age assurance state will be returned.
 // appealed: Get subjects in unresolved appealed status
 // collections: If specified, subjects belonging to the given collections will be returned. When subjectType is set to 'account', this will be ignored.
 // comment: Search subjects by keyword from comments
@@ -45,46 +46,116 @@ type ModerationQueryStatuses_Output struct {
 // subject: The subject to get the status for.
 // subjectType: If specified, subjects of the given type (account or record) will be returned. When this is set to 'account' the 'collections' parameter will be ignored. When includeAllUserRecords or subject is set, this will be ignored.
 // takendown: Get subjects that were taken down
-func ModerationQueryStatuses(ctx context.Context, c *xrpc.Client, appealed bool, collections []string, comment string, cursor string, excludeTags []string, hostingDeletedAfter string, hostingDeletedBefore string, hostingStatuses []string, hostingUpdatedAfter string, hostingUpdatedBefore string, ignoreSubjects []string, includeAllUserRecords bool, includeMuted bool, lastReviewedBy string, limit int64, minAccountSuspendCount int64, minPriorityScore int64, minReportedRecordsCount int64, minTakendownRecordsCount int64, onlyMuted bool, queueCount int64, queueIndex int64, queueSeed string, reportedAfter string, reportedBefore string, reviewState string, reviewedAfter string, reviewedBefore string, sortDirection string, sortField string, subject string, subjectType string, tags []string, takendown bool) (*ModerationQueryStatuses_Output, error) {
+func ModerationQueryStatuses(ctx context.Context, c util.LexClient, ageAssuranceState string, appealed bool, collections []string, comment string, cursor string, excludeTags []string, hostingDeletedAfter string, hostingDeletedBefore string, hostingStatuses []string, hostingUpdatedAfter string, hostingUpdatedBefore string, ignoreSubjects []string, includeAllUserRecords bool, includeMuted bool, lastReviewedBy string, limit int64, minAccountSuspendCount int64, minPriorityScore int64, minReportedRecordsCount int64, minTakendownRecordsCount int64, onlyMuted bool, queueCount int64, queueIndex int64, queueSeed string, reportedAfter string, reportedBefore string, reviewState string, reviewedAfter string, reviewedBefore string, sortDirection string, sortField string, subject string, subjectType string, tags []string, takendown bool) (*ModerationQueryStatuses_Output, error) {
 	var out ModerationQueryStatuses_Output
 
-	params := map[string]interface{}{
-		"appealed":                 appealed,
-		"collections":              collections,
-		"comment":                  comment,
-		"cursor":                   cursor,
-		"excludeTags":              excludeTags,
-		"hostingDeletedAfter":      hostingDeletedAfter,
-		"hostingDeletedBefore":     hostingDeletedBefore,
-		"hostingStatuses":          hostingStatuses,
-		"hostingUpdatedAfter":      hostingUpdatedAfter,
-		"hostingUpdatedBefore":     hostingUpdatedBefore,
-		"ignoreSubjects":           ignoreSubjects,
-		"includeAllUserRecords":    includeAllUserRecords,
-		"includeMuted":             includeMuted,
-		"lastReviewedBy":           lastReviewedBy,
-		"limit":                    limit,
-		"minAccountSuspendCount":   minAccountSuspendCount,
-		"minPriorityScore":         minPriorityScore,
-		"minReportedRecordsCount":  minReportedRecordsCount,
-		"minTakendownRecordsCount": minTakendownRecordsCount,
-		"onlyMuted":                onlyMuted,
-		"queueCount":               queueCount,
-		"queueIndex":               queueIndex,
-		"queueSeed":                queueSeed,
-		"reportedAfter":            reportedAfter,
-		"reportedBefore":           reportedBefore,
-		"reviewState":              reviewState,
-		"reviewedAfter":            reviewedAfter,
-		"reviewedBefore":           reviewedBefore,
-		"sortDirection":            sortDirection,
-		"sortField":                sortField,
-		"subject":                  subject,
-		"subjectType":              subjectType,
-		"tags":                     tags,
-		"takendown":                takendown,
+	params := map[string]interface{}{}
+	if ageAssuranceState != "" {
+		params["ageAssuranceState"] = ageAssuranceState
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.moderation.queryStatuses", params, nil, &out); err != nil {
+	if appealed {
+		params["appealed"] = appealed
+	}
+	if len(collections) != 0 {
+		params["collections"] = collections
+	}
+	if comment != "" {
+		params["comment"] = comment
+	}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if len(excludeTags) != 0 {
+		params["excludeTags"] = excludeTags
+	}
+	if hostingDeletedAfter != "" {
+		params["hostingDeletedAfter"] = hostingDeletedAfter
+	}
+	if hostingDeletedBefore != "" {
+		params["hostingDeletedBefore"] = hostingDeletedBefore
+	}
+	if len(hostingStatuses) != 0 {
+		params["hostingStatuses"] = hostingStatuses
+	}
+	if hostingUpdatedAfter != "" {
+		params["hostingUpdatedAfter"] = hostingUpdatedAfter
+	}
+	if hostingUpdatedBefore != "" {
+		params["hostingUpdatedBefore"] = hostingUpdatedBefore
+	}
+	if len(ignoreSubjects) != 0 {
+		params["ignoreSubjects"] = ignoreSubjects
+	}
+	if includeAllUserRecords {
+		params["includeAllUserRecords"] = includeAllUserRecords
+	}
+	if includeMuted {
+		params["includeMuted"] = includeMuted
+	}
+	if lastReviewedBy != "" {
+		params["lastReviewedBy"] = lastReviewedBy
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if minAccountSuspendCount != 0 {
+		params["minAccountSuspendCount"] = minAccountSuspendCount
+	}
+	if minPriorityScore != 0 {
+		params["minPriorityScore"] = minPriorityScore
+	}
+	if minReportedRecordsCount != 0 {
+		params["minReportedRecordsCount"] = minReportedRecordsCount
+	}
+	if minTakendownRecordsCount != 0 {
+		params["minTakendownRecordsCount"] = minTakendownRecordsCount
+	}
+	if onlyMuted {
+		params["onlyMuted"] = onlyMuted
+	}
+	if queueCount != 0 {
+		params["queueCount"] = queueCount
+	}
+	if queueIndex != 0 {
+		params["queueIndex"] = queueIndex
+	}
+	if queueSeed != "" {
+		params["queueSeed"] = queueSeed
+	}
+	if reportedAfter != "" {
+		params["reportedAfter"] = reportedAfter
+	}
+	if reportedBefore != "" {
+		params["reportedBefore"] = reportedBefore
+	}
+	if reviewState != "" {
+		params["reviewState"] = reviewState
+	}
+	if reviewedAfter != "" {
+		params["reviewedAfter"] = reviewedAfter
+	}
+	if reviewedBefore != "" {
+		params["reviewedBefore"] = reviewedBefore
+	}
+	if sortDirection != "" {
+		params["sortDirection"] = sortDirection
+	}
+	if sortField != "" {
+		params["sortField"] = sortField
+	}
+	if subject != "" {
+		params["subject"] = subject
+	}
+	if subjectType != "" {
+		params["subjectType"] = subjectType
+	}
+	if len(tags) != 0 {
+		params["tags"] = tags
+	}
+	if takendown {
+		params["takendown"] = takendown
+	}
+	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.moderation.queryStatuses", params, nil, &out); err != nil {
 		return nil, err
 	}
 

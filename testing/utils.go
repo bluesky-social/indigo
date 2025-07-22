@@ -57,7 +57,7 @@ type TestPDS struct {
 	shutdown func()
 }
 
-// HTTPHost returns a host:port string that the PDS server is running at
+// RawHost returns a host:port string that the PDS server is running at
 func (tp *TestPDS) RawHost() string {
 	return tp.listener.Addr().String()
 }
@@ -666,10 +666,10 @@ func (b *TestRelay) Events(t *testing.T, since int64) *EventStream {
 				es.Lk.Unlock()
 				return nil
 			},
-			RepoHandle: func(evt *atproto.SyncSubscribeRepos_Handle) error {
-				fmt.Println("received handle event: ", evt.Seq, evt.Did)
+			RepoSync: func(evt *atproto.SyncSubscribeRepos_Sync) error {
+				fmt.Println("received sync event: ", evt.Seq, evt.Did)
 				es.Lk.Lock()
-				es.Events = append(es.Events, &events.XRPCStreamEvent{RepoHandle: evt})
+				es.Events = append(es.Events, &events.XRPCStreamEvent{RepoSync: evt})
 				es.Lk.Unlock()
 				return nil
 			},

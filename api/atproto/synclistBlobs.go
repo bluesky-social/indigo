@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // SyncListBlobs_Output is the output of a com.atproto.sync.listBlobs call.
@@ -20,16 +20,21 @@ type SyncListBlobs_Output struct {
 //
 // did: The DID of the repo.
 // since: Optional revision of the repo to list blobs since.
-func SyncListBlobs(ctx context.Context, c *xrpc.Client, cursor string, did string, limit int64, since string) (*SyncListBlobs_Output, error) {
+func SyncListBlobs(ctx context.Context, c util.LexClient, cursor string, did string, limit int64, since string) (*SyncListBlobs_Output, error) {
 	var out SyncListBlobs_Output
 
-	params := map[string]interface{}{
-		"cursor": cursor,
-		"did":    did,
-		"limit":  limit,
-		"since":  since,
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.listBlobs", params, nil, &out); err != nil {
+	params["did"] = did
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if since != "" {
+		params["since"] = since
+	}
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.sync.listBlobs", params, nil, &out); err != nil {
 		return nil, err
 	}
 

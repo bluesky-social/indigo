@@ -3,6 +3,7 @@ package lex
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 )
 
@@ -54,7 +55,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 	pf := printerf(w)
 	fname := typename
 
-	params := "ctx context.Context, c *xrpc.Client"
+	params := "ctx context.Context, c util.LexClient"
 	inpvar := "nil"
 	inpenc := ""
 
@@ -145,30 +146,42 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 	queryparams := "nil"
 	if s.Parameters != nil {
 		queryparams = "params"
-		pf(`
-	params := map[string]interface{}{
-`)
+		pf("\n\tparams := map[string]interface{}{}\n")
 		if err := orderedMapIter(s.Parameters.Properties, func(name string, t *TypeSchema) error {
-			pf(`"%s": %s,
-`, name, name)
+			if slices.Contains(s.Parameters.Required, name) || slices.Contains(s.Parameters.Nullable, name) {
+				pf("params[\"%s\"] = %s\n", name, name)
+			} else {
+				// if parameter isn't required, only include conditionally
+				switch t.Type {
+				case "integer":
+					pf("if %s != 0 { params[\"%s\"] = %s }\n", name, name, name)
+				case "string":
+					pf("if %s != \"\" { params[\"%s\"] = %s }\n", name, name, name)
+				case "array":
+					pf("if len(%s) != 0 { params[\"%s\"] = %s }\n", name, name, name)
+				case "boolean":
+					pf("if %s { params[\"%s\"] = %s }\n", name, name, name)
+				default:
+					return fmt.Errorf("unhandled query param type: %s", t.Type)
+				}
+			}
 			return nil
 		}); err != nil {
 			return err
 		}
-		pf("}\n")
 	}
 
 	var reqtype string
 	switch s.Type {
 	case "procedure":
-		reqtype = "xrpc.Procedure"
+		reqtype = "util.Procedure"
 	case "query":
-		reqtype = "xrpc.Query"
+		reqtype = "util.Query"
 	default:
 		return fmt.Errorf("can only generate RPC for Query or Procedure (got %s)", s.Type)
 	}
 
-	pf("\tif err := c.Do(ctx, %s, %q, \"%s\", %s, %s, %s); err != nil {\n", reqtype, inpenc, s.id, queryparams, inpvar, outvar)
+	pf("\tif err := c.LexDo(ctx, %s, %q, \"%s\", %s, %s, %s); err != nil {\n", reqtype, inpenc, s.id, queryparams, inpvar, outvar)
 	pf("\t\treturn %s\n", errRet)
 	pf("\t}\n\n")
 	pf("\treturn %s\n", outRet)
@@ -539,13 +552,18 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 		return "string", nil
 	case "unknown":
 		// NOTE: sometimes a record, for which we want LexiconTypeDecoder, sometimes any object
-		if k == "didDoc" || k == "plcOp" {
+		if k == "didDoc" || k == "plcOp" || k == "meta" {
 			return "interface{}", nil
 		} else {
 			return "*util.LexiconTypeDecoder", nil
 		}
 	case "union":
-		return "*" + name + "_" + strings.Title(k), nil
+		if len(v.Refs) > 0 {
+			return "*" + name + "_" + strings.Title(k), nil
+		} else {
+			// an empty union is effectively an 'unknown', but with mandatory type indicator
+			return "*util.LexiconTypeDecoder", nil
+		}
 	case "blob":
 		return "*util.LexBlob", nil
 	case "array":

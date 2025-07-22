@@ -284,28 +284,15 @@ var readRepoStreamCmd = &cli.Command{
 
 				return nil
 			},
-			RepoMigrate: func(migrate *comatproto.SyncSubscribeRepos_Migrate) error {
+			RepoSync: func(sync *comatproto.SyncSubscribeRepos_Sync) error {
 				if jsonfmt {
-					b, err := json.Marshal(migrate)
+					b, err := json.Marshal(sync)
 					if err != nil {
 						return err
 					}
 					fmt.Println(string(b))
 				} else {
-					fmt.Printf("(%d) RepoMigrate: %s moving to: %s\n", migrate.Seq, migrate.Did, *migrate.MigrateTo)
-				}
-
-				return nil
-			},
-			RepoHandle: func(handle *comatproto.SyncSubscribeRepos_Handle) error {
-				if jsonfmt {
-					b, err := json.Marshal(handle)
-					if err != nil {
-						return err
-					}
-					fmt.Println(string(b))
-				} else {
-					fmt.Printf("(%d) RepoHandle: %s (changed to: %s)\n", handle.Seq, handle.Did, handle.Handle)
+					fmt.Printf("(%d) Sync: %s\n", sync.Seq, sync.Did)
 				}
 
 				return nil
@@ -323,20 +310,6 @@ var readRepoStreamCmd = &cli.Command{
 				}
 
 				return nil
-			},
-			RepoTombstone: func(tomb *comatproto.SyncSubscribeRepos_Tombstone) error {
-				if jsonfmt {
-					b, err := json.Marshal(tomb)
-					if err != nil {
-						return err
-					}
-					fmt.Println(string(b))
-				} else {
-					fmt.Printf("(%d) Tombstone: %s\n", tomb.Seq, tomb.Did)
-				}
-
-				return nil
-
 			},
 			// TODO: all the other event types
 			Error: func(errf *events.ErrorFrame) error {

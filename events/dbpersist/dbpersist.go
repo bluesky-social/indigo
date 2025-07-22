@@ -171,14 +171,12 @@ func (p *DbPersistence) flushBatchLocked(ctx context.Context) error {
 		switch {
 		case e.RepoCommit != nil:
 			e.RepoCommit.Seq = int64(item.Seq)
-		case e.RepoHandle != nil:
-			e.RepoHandle.Seq = int64(item.Seq)
+		case e.RepoSync != nil:
+			e.RepoSync.Seq = int64(item.Seq)
 		case e.RepoIdentity != nil:
 			e.RepoIdentity.Seq = int64(item.Seq)
 		case e.RepoAccount != nil:
 			e.RepoAccount.Seq = int64(item.Seq)
-		case e.RepoTombstone != nil:
-			e.RepoTombstone.Seq = int64(item.Seq)
 		default:
 			return fmt.Errorf("unknown event type")
 		}
@@ -218,8 +216,8 @@ func (p *DbPersistence) Persist(ctx context.Context, e *events.XRPCStreamEvent) 
 		if err != nil {
 			return err
 		}
-	case e.RepoHandle != nil:
-		rer, err = p.RecordFromHandleChange(ctx, e.RepoHandle)
+	case e.RepoSync != nil:
+		rer, err = p.RecordFromRepoSync(ctx, e.RepoSync)
 		if err != nil {
 			return err
 		}
@@ -233,11 +231,6 @@ func (p *DbPersistence) Persist(ctx context.Context, e *events.XRPCStreamEvent) 
 		if err != nil {
 			return err
 		}
-	case e.RepoTombstone != nil:
-		rer, err = p.RecordFromTombstone(ctx, e.RepoTombstone)
-		if err != nil {
-			return err
-		}
 	default:
 		return nil
 	}
@@ -247,25 +240,6 @@ func (p *DbPersistence) Persist(ctx context.Context, e *events.XRPCStreamEvent) 
 	}
 
 	return nil
-}
-
-func (p *DbPersistence) RecordFromHandleChange(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Handle) (*RepoEventRecord, error) {
-	t, err := time.Parse(util.ISO8601, evt.Time)
-	if err != nil {
-		return nil, err
-	}
-
-	uid, err := p.uidForDid(ctx, evt.Did)
-	if err != nil {
-		return nil, err
-	}
-
-	return &RepoEventRecord{
-		Repo:      uid,
-		Type:      "repo_handle",
-		Time:      t,
-		NewHandle: &evt.Handle,
-	}, nil
 }
 
 func (p *DbPersistence) RecordFromRepoIdentity(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Identity) (*RepoEventRecord, error) {
@@ -303,24 +277,6 @@ func (p *DbPersistence) RecordFromRepoAccount(ctx context.Context, evt *comatpro
 		Time:   t,
 		Active: evt.Active,
 		Status: evt.Status,
-	}, nil
-}
-
-func (p *DbPersistence) RecordFromTombstone(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Tombstone) (*RepoEventRecord, error) {
-	t, err := time.Parse(util.ISO8601, evt.Time)
-	if err != nil {
-		return nil, err
-	}
-
-	uid, err := p.uidForDid(ctx, evt.Did)
-	if err != nil {
-		return nil, err
-	}
-
-	return &RepoEventRecord{
-		Repo: uid,
-		Type: "repo_tombstone",
-		Time: t,
 	}, nil
 }
 
@@ -367,6 +323,28 @@ func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatprot
 		return nil, err
 	}
 	rer.Ops = opsb
+
+	return &rer, nil
+}
+
+func (p *DbPersistence) RecordFromRepoSync(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync) (*RepoEventRecord, error) {
+
+	uid, err := p.uidForDid(ctx, evt.Did)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := time.Parse(util.ISO8601, evt.Time)
+	if err != nil {
+		return nil, err
+	}
+
+	rer := RepoEventRecord{
+		Repo: uid,
+		Type: "repo_sync",
+		Time: t,
+		Rev:  evt.Rev,
+	}
 
 	return &rer, nil
 }
@@ -449,14 +427,12 @@ func (p *DbPersistence) hydrateBatch(ctx context.Context, batch []*RepoEventReco
 			switch {
 			case record.Commit != nil:
 				streamEvent, err = p.hydrateCommit(ctx, record)
-			case record.NewHandle != nil:
-				streamEvent, err = p.hydrateHandleChange(ctx, record)
+			case record.Type == "repo_sync":
+				streamEvent, err = p.hydrateSyncEvent(ctx, record)
 			case record.Type == "repo_identity":
 				streamEvent, err = p.hydrateIdentityEvent(ctx, record)
 			case record.Type == "repo_account":
 				streamEvent, err = p.hydrateAccountEvent(ctx, record)
-			case record.Type == "repo_tombstone":
-				streamEvent, err = p.hydrateTombstone(ctx, record)
 			default:
 				err = fmt.Errorf("unknown event type: %s", record.Type)
 			}
@@ -519,25 +495,6 @@ func (p *DbPersistence) didForUid(ctx context.Context, uid models.Uid) (string, 
 	return u.Did, nil
 }
 
-func (p *DbPersistence) hydrateHandleChange(ctx context.Context, rer *RepoEventRecord) (*events.XRPCStreamEvent, error) {
-	if rer.NewHandle == nil {
-		return nil, fmt.Errorf("NewHandle is nil")
-	}
-
-	did, err := p.didForUid(ctx, rer.Repo)
-	if err != nil {
-		return nil, err
-	}
-
-	return &events.XRPCStreamEvent{
-		RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
-			Did:    did,
-			Handle: *rer.NewHandle,
-			Time:   rer.Time.Format(util.ISO8601),
-		},
-	}, nil
-}
-
 func (p *DbPersistence) hydrateIdentityEvent(ctx context.Context, rer *RepoEventRecord) (*events.XRPCStreamEvent, error) {
 	did, err := p.didForUid(ctx, rer.Repo)
 	if err != nil {
@@ -564,20 +521,6 @@ func (p *DbPersistence) hydrateAccountEvent(ctx context.Context, rer *RepoEventR
 			Time:   rer.Time.Format(util.ISO8601),
 			Active: rer.Active,
 			Status: rer.Status,
-		},
-	}, nil
-}
-
-func (p *DbPersistence) hydrateTombstone(ctx context.Context, rer *RepoEventRecord) (*events.XRPCStreamEvent, error) {
-	did, err := p.didForUid(ctx, rer.Repo)
-	if err != nil {
-		return nil, err
-	}
-
-	return &events.XRPCStreamEvent{
-		RepoTombstone: &comatproto.SyncSubscribeRepos_Tombstone{
-			Did:  did,
-			Time: rer.Time.Format(util.ISO8601),
 		},
 	}, nil
 }
@@ -637,6 +580,29 @@ func (p *DbPersistence) hydrateCommit(ctx context.Context, rer *RepoEventRecord)
 	}
 
 	return &events.XRPCStreamEvent{RepoCommit: out}, nil
+}
+
+func (p *DbPersistence) hydrateSyncEvent(ctx context.Context, rer *RepoEventRecord) (*events.XRPCStreamEvent, error) {
+
+	did, err := p.didForUid(ctx, rer.Repo)
+	if err != nil {
+		return nil, err
+	}
+
+	evt := &comatproto.SyncSubscribeRepos_Sync{
+		Seq:  int64(rer.Seq),
+		Did:  did,
+		Time: rer.Time.Format(util.ISO8601),
+		Rev:  rer.Rev,
+	}
+
+	cs, err := p.readCarSlice(ctx, rer)
+	if err != nil {
+		return nil, fmt.Errorf("read car slice: %w", err)
+	}
+	evt.Blocks = cs
+
+	return &events.XRPCStreamEvent{RepoSync: evt}, nil
 }
 
 func (p *DbPersistence) readCarSlice(ctx context.Context, rer *RepoEventRecord) ([]byte, error) {

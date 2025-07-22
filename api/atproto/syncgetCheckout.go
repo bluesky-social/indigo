@@ -8,19 +8,18 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // SyncGetCheckout calls the XRPC method "com.atproto.sync.getCheckout".
 //
 // did: The DID of the repo.
-func SyncGetCheckout(ctx context.Context, c *xrpc.Client, did string) ([]byte, error) {
+func SyncGetCheckout(ctx context.Context, c util.LexClient, did string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
-	params := map[string]interface{}{
-		"did": did,
-	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getCheckout", params, nil, buf); err != nil {
+	params := map[string]interface{}{}
+	params["did"] = did
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.sync.getCheckout", params, nil, buf); err != nil {
 		return nil, err
 	}
 

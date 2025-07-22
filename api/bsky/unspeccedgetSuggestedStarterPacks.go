@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetSuggestedStarterPacks_Output is the output of a app.bsky.unspecced.getSuggestedStarterPacks call.
@@ -16,13 +16,14 @@ type UnspeccedGetSuggestedStarterPacks_Output struct {
 }
 
 // UnspeccedGetSuggestedStarterPacks calls the XRPC method "app.bsky.unspecced.getSuggestedStarterPacks".
-func UnspeccedGetSuggestedStarterPacks(ctx context.Context, c *xrpc.Client, limit int64) (*UnspeccedGetSuggestedStarterPacks_Output, error) {
+func UnspeccedGetSuggestedStarterPacks(ctx context.Context, c util.LexClient, limit int64) (*UnspeccedGetSuggestedStarterPacks_Output, error) {
 	var out UnspeccedGetSuggestedStarterPacks_Output
 
-	params := map[string]interface{}{
-		"limit": limit,
+	params := map[string]interface{}{}
+	if limit != 0 {
+		params["limit"] = limit
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getSuggestedStarterPacks", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getSuggestedStarterPacks", params, nil, &out); err != nil {
 		return nil, err
 	}
 

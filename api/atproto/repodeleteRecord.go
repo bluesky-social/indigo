@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // RepoDeleteRecord_Input is the input argument to a com.atproto.repo.deleteRecord call.
@@ -30,9 +30,9 @@ type RepoDeleteRecord_Output struct {
 }
 
 // RepoDeleteRecord calls the XRPC method "com.atproto.repo.deleteRecord".
-func RepoDeleteRecord(ctx context.Context, c *xrpc.Client, input *RepoDeleteRecord_Input) (*RepoDeleteRecord_Output, error) {
+func RepoDeleteRecord(ctx context.Context, c util.LexClient, input *RepoDeleteRecord_Input) (*RepoDeleteRecord_Output, error) {
 	var out RepoDeleteRecord_Output
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.repo.deleteRecord", nil, input, &out); err != nil {
 		return nil, err
 	}
 

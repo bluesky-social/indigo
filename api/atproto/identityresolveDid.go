@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // IdentityResolveDid_Output is the output of a com.atproto.identity.resolveDid call.
@@ -19,13 +19,12 @@ type IdentityResolveDid_Output struct {
 // IdentityResolveDid calls the XRPC method "com.atproto.identity.resolveDid".
 //
 // did: DID to resolve.
-func IdentityResolveDid(ctx context.Context, c *xrpc.Client, did string) (*IdentityResolveDid_Output, error) {
+func IdentityResolveDid(ctx context.Context, c util.LexClient, did string) (*IdentityResolveDid_Output, error) {
 	var out IdentityResolveDid_Output
 
-	params := map[string]interface{}{
-		"did": did,
-	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.identity.resolveDid", params, nil, &out); err != nil {
+	params := map[string]interface{}{}
+	params["did"] = did
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.identity.resolveDid", params, nil, &out); err != nil {
 		return nil, err
 	}
 

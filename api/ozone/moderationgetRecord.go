@@ -7,18 +7,19 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationGetRecord calls the XRPC method "tools.ozone.moderation.getRecord".
-func ModerationGetRecord(ctx context.Context, c *xrpc.Client, cid string, uri string) (*ModerationDefs_RecordViewDetail, error) {
+func ModerationGetRecord(ctx context.Context, c util.LexClient, cid string, uri string) (*ModerationDefs_RecordViewDetail, error) {
 	var out ModerationDefs_RecordViewDetail
 
-	params := map[string]interface{}{
-		"cid": cid,
-		"uri": uri,
+	params := map[string]interface{}{}
+	if cid != "" {
+		params["cid"] = cid
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.moderation.getRecord", params, nil, &out); err != nil {
+	params["uri"] = uri
+	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.moderation.getRecord", params, nil, &out); err != nil {
 		return nil, err
 	}
 

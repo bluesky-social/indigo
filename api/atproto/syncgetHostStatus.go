@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // SyncGetHostStatus_Output is the output of a com.atproto.sync.getHostStatus call.
@@ -23,13 +23,12 @@ type SyncGetHostStatus_Output struct {
 // SyncGetHostStatus calls the XRPC method "com.atproto.sync.getHostStatus".
 //
 // hostname: Hostname of the host (eg, PDS or relay) being queried.
-func SyncGetHostStatus(ctx context.Context, c *xrpc.Client, hostname string) (*SyncGetHostStatus_Output, error) {
+func SyncGetHostStatus(ctx context.Context, c util.LexClient, hostname string) (*SyncGetHostStatus_Output, error) {
 	var out SyncGetHostStatus_Output
 
-	params := map[string]interface{}{
-		"hostname": hostname,
-	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getHostStatus", params, nil, &out); err != nil {
+	params := map[string]interface{}{}
+	params["hostname"] = hostname
+	if err := c.LexDo(ctx, util.Query, "", "com.atproto.sync.getHostStatus", params, nil, &out); err != nil {
 		return nil, err
 	}
 

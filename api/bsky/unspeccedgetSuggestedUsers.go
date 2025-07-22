@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetSuggestedUsers_Output is the output of a app.bsky.unspecced.getSuggestedUsers call.
@@ -18,14 +18,17 @@ type UnspeccedGetSuggestedUsers_Output struct {
 // UnspeccedGetSuggestedUsers calls the XRPC method "app.bsky.unspecced.getSuggestedUsers".
 //
 // category: Category of users to get suggestions for.
-func UnspeccedGetSuggestedUsers(ctx context.Context, c *xrpc.Client, category string, limit int64) (*UnspeccedGetSuggestedUsers_Output, error) {
+func UnspeccedGetSuggestedUsers(ctx context.Context, c util.LexClient, category string, limit int64) (*UnspeccedGetSuggestedUsers_Output, error) {
 	var out UnspeccedGetSuggestedUsers_Output
 
-	params := map[string]interface{}{
-		"category": category,
-		"limit":    limit,
+	params := map[string]interface{}{}
+	if category != "" {
+		params["category"] = category
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getSuggestedUsers", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getSuggestedUsers", params, nil, &out); err != nil {
 		return nil, err
 	}
 
