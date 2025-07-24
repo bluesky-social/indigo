@@ -2,6 +2,8 @@ package parallel
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -41,6 +43,9 @@ type Scheduler struct {
 }
 
 func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *stream.XRPCStreamEvent) error) *Scheduler {
+	if maxC < 1 {
+		maxC = 1
+	}
 	p := &Scheduler{
 		maxConcurrency: maxC,
 		maxQueue:       maxQ,
@@ -128,6 +133,7 @@ func (p *Scheduler) AddWork(ctx context.Context, repo string, val *stream.XRPCSt
 }
 
 func (p *Scheduler) worker() {
+	defer p.workersActive.Dec()
 	for work := range p.feeder {
 		for work != nil {
 			if work.control == "stop" {
@@ -137,8 +143,12 @@ func (p *Scheduler) worker() {
 
 			p.itemsActive.Inc()
 			seq := work.val.Sequence()
-			if err := p.do(context.TODO(), work.val); err != nil {
-				p.log.Error("event handler failed", "ident", p.ident, "err", err)
+			if err := p.safeDo(context.TODO(), work.val); err != nil {
+				if errors.Is(err, ErrHandlerPanic) {
+					p.log.Error("event handler failed due to panic", "ident", p.ident, "seq", seq, "err", err)
+				} else {
+					p.log.Error("event handler failed", "ident", p.ident, "seq", seq, "err", err)
+				}
 			}
 			p.itemsProcessed.Inc()
 
@@ -180,4 +190,20 @@ func (p *Scheduler) worker() {
 
 func (p *Scheduler) LastSeq() int64 {
 	return p.lastSeq.Load()
+}
+
+var ErrHandlerPanic = errors.New("recovered handler panic")
+
+func (p *Scheduler) safeDo(ctx context.Context, evt *stream.XRPCStreamEvent) error {
+	var result error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				result = fmt.Errorf("%w: %v", ErrHandlerPanic, r)
+			}
+		}()
+		result = p.do(ctx, evt)
+	}()
+
+	return result
 }
