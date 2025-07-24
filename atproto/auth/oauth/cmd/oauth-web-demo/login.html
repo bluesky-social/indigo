@@ -1,0 +1,13 @@
+{{ define "content" }}
+<article>
+  <h3>Login with atproto</h3>
+  <form method="post">
+      <p>Provide your handle or DID to authorize an existing account with PDS.
+      <br>You can also supply a PDS/entryway URL (eg, <code>https://pds.example.com</code>).</p>
+    <fieldset role="group">
+      <input name="username" id="username" placeholder="handle.example.com" style="font-family: monospace,monospace;" required>
+      <input type="submit" value="Login">
+    </fieldset>
+  </form>
+</article>
+{{ end }}
