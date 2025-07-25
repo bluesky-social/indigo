@@ -16,14 +16,15 @@ func main() {
 	var (
 		carFile    = flag.String("car", "", "Path to CAR file to read")
 		did        = flag.String("did", "", "DID to fetch (required)")
-		outputMode = flag.String("output", "stats", "Output mode: stats, passthrough, or tarfiles")
+		outputMode = flag.String("output", "stats", "Output mode: stats, passthrough, tarfiles, or duckdb")
 		outputDir  = flag.String("output-dir", "./output", "Output directory for tarfiles mode")
+		dbPath     = flag.String("db", "./butterfly.db", "Path to DuckDB database file")
 		help       = flag.Bool("help", false, "Show help")
 	)
 	flag.Parse()
 
 	if *help || *carFile == "" || *did == "" {
-		fmt.Fprintf(os.Stderr, "Usage: butterfly -car <path> -did <did> [-output stats|passthrough|tarfiles] [-output-dir <dir>]\n")
+		fmt.Fprintf(os.Stderr, "Usage: butterfly -car <path> -did <did> [-output stats|passthrough|tarfiles|duckdb] [-output-dir <dir>] [-db <path>]\n")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
@@ -43,6 +44,8 @@ func main() {
 		s = &store.StdoutStore{Mode: store.StdoutStoreModeStats}
 	case "tarfiles":
 		s = store.NewTarfilesStore(*outputDir)
+	case "duckdb":
+		s = store.NewDuckdbStore(*dbPath)
 	default:
 		logger.Fatalf("unknown output mode: %s", *outputMode)
 	}
