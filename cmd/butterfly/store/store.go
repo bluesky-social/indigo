@@ -1,14 +1,31 @@
+// Package store defines interfaces for persisting AT Protocol data
 package store
 
-import "github.com/bluesky-social/indigo/cmd/butterfly/remote"
+import (
+	"context"
 
+	"github.com/bluesky-social/indigo/cmd/butterfly/remote"
+)
+
+// Store defines the interface for data persistence in the butterfly sync engine
 type Store interface {
-	// Initialize the store
-	Setup() error
+	// Setup initializes the store
+	Setup(ctx context.Context) error
 
-	// Teardown the store
+	// Close tears down the store and releases resources
 	Close() error
 
-	// Subscribe to a record emitter
-	Receive(s *remote.RemoteStream) error
+	// Receive processes events from a remote stream
+	// The implementation should handle context cancellation appropriately
+	Receive(ctx context.Context, stream *remote.RemoteStream) error
 }
+
+// StoreType identifies the type of store
+type StoreType string
+
+const (
+	StoreTypeStdout     StoreType = "stdout"
+	StoreTypeDuckDB     StoreType = "duckdb"
+	StoreTypeClickHouse StoreType = "clickhouse"
+	StoreTypeTarFiles   StoreType = "tarfiles"
+)

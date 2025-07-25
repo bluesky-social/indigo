@@ -11,6 +11,10 @@ import (
 )
 
 type TarfilesStore struct {
+	// The directory to store the .tar files
+	// Each repository is stored as a single .tar file
+	// The contents of the .tar file is a collection of json files
+	// The directory structure is based on the cllections
 	dirpath string
 }
 
