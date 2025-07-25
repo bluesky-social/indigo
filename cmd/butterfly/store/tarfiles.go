@@ -4,6 +4,7 @@ package store
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -17,11 +18,11 @@ import (
 	"github.com/bluesky-social/indigo/cmd/butterfly/remote"
 )
 
-// TarfilesStore implements Store by writing repository data to tar files
+// TarfilesStore implements Store by writing repository data to gzipped tar files
 type TarfilesStore struct {
-	// The directory to store the .tar files
-	// Each repository is stored as a single .tar file
-	// The contents of the .tar file is a collection of json files
+	// The directory to store the .tar.gz files
+	// Each repository is stored as a single .tar.gz file
+	// The contents of the .tar.gz file is a collection of json files
 	// The directory structure is based on the collections
 	Dirpath string
 
@@ -34,6 +35,7 @@ type TarfilesStore struct {
 // tarWriter manages writing to a single tar file
 type tarWriter struct {
 	file      *os.File
+	gzipWriter *gzip.Writer
 	writer    *tar.Writer
 	entries   map[string]bool // Track existing entries
 	tempFile  string
@@ -150,8 +152,8 @@ func (t *TarfilesStore) getTarWriter(did string) (*tarWriter, error) {
 
 	// Sanitize DID for filename
 	filename := strings.ReplaceAll(did, ":", "_")
-	finalPath := filepath.Join(t.Dirpath, filename+".tar")
-	tempPath := filepath.Join(t.tempDir, filename+".tar.tmp")
+	finalPath := filepath.Join(t.Dirpath, filename+".tar.gz")
+	tempPath := filepath.Join(t.tempDir, filename+".tar.gz.tmp")
 
 	// Check if tar file already exists and load entries
 	entries := make(map[string]bool)
@@ -167,13 +169,16 @@ func (t *TarfilesStore) getTarWriter(did string) (*tarWriter, error) {
 		return nil, fmt.Errorf("failed to create tar file: %w", err)
 	}
 
-	// Create tar writer first
-	newTarWriter := tar.NewWriter(file)
+	// Create gzip writer first
+	gzipWriter := gzip.NewWriter(file)
+	// Create tar writer on top of gzip writer
+	newTarWriter := tar.NewWriter(gzipWriter)
 
 	// If we had existing entries, copy them to the new tar
 	if len(entries) > 0 {
 		if err := t.copyExistingTarEntries(finalPath, newTarWriter, entries); err != nil {
 			newTarWriter.Close()
+			gzipWriter.Close()
 			file.Close()
 			os.Remove(tempPath)
 			return nil, fmt.Errorf("failed to copy existing tar: %w", err)
@@ -181,11 +186,12 @@ func (t *TarfilesStore) getTarWriter(did string) (*tarWriter, error) {
 	}
 
 	tw := &tarWriter{
-		file:      file,
-		writer:    newTarWriter,
-		entries:   entries,
-		tempFile:  tempPath,
-		finalFile: finalPath,
+		file:       file,
+		gzipWriter: gzipWriter,
+		writer:     newTarWriter,
+		entries:    entries,
+		tempFile:   tempPath,
+		finalFile:  finalPath,
 	}
 
 	t.writers[did] = tw
@@ -200,7 +206,13 @@ func (t *TarfilesStore) loadExistingEntries(path string, entries map[string]bool
 	}
 	defer file.Close()
 
-	reader := tar.NewReader(file)
+	gzipReader, err := gzip.NewReader(file)
+	if err != nil {
+		return err
+	}
+	defer gzipReader.Close()
+
+	reader := tar.NewReader(gzipReader)
 	for {
 		header, err := reader.Next()
 		if err == io.EOF {
@@ -222,7 +234,13 @@ func (t *TarfilesStore) copyExistingTarEntries(srcPath string, writer *tar.Write
 	}
 	defer src.Close()
 
-	reader := tar.NewReader(src)
+	gzipReader, err := gzip.NewReader(src)
+	if err != nil {
+		return err
+	}
+	defer gzipReader.Close()
+
+	reader := tar.NewReader(gzipReader)
 
 	for {
 		header, err := reader.Next()
@@ -271,6 +289,9 @@ func (t *TarfilesStore) finalizeTarWriter(tw *tarWriter) error {
 	if err := tw.writer.Close(); err != nil {
 		return fmt.Errorf("failed to close tar writer: %w", err)
 	}
+	if err := tw.gzipWriter.Close(); err != nil {
+		return fmt.Errorf("failed to close gzip writer: %w", err)
+	}
 	if err := tw.file.Close(); err != nil {
 		return fmt.Errorf("failed to close file: %w", err)
 	}
@@ -283,7 +304,7 @@ func (t *TarfilesStore) finalizeTarWriter(tw *tarWriter) error {
 	return nil
 }
 
-// ReadTarFile reads a tar file and returns its contents (for debugging/testing)
+// ReadTarFile reads a gzipped tar file and returns its contents (for debugging/testing)
 func ReadTarFile(path string) (map[string][]byte, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -291,8 +312,14 @@ func ReadTarFile(path string) (map[string][]byte, error) {
 	}
 	defer file.Close()
 
+	gzipReader, err := gzip.NewReader(file)
+	if err != nil {
+		return nil, err
+	}
+	defer gzipReader.Close()
+
 	contents := make(map[string][]byte)
-	reader := tar.NewReader(file)
+	reader := tar.NewReader(gzipReader)
 
 	for {
 		header, err := reader.Next()

@@ -122,7 +122,7 @@ func TestTarfilesStore_BasicOperations(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the tar file was created
-	expectedFile := filepath.Join(tmpDir, "did_plc_testuser123.tar")
+	expectedFile := filepath.Join(tmpDir, "did_plc_testuser123.tar.gz")
 	assert.FileExists(t, expectedFile)
 
 	// Read and verify the tar contents
@@ -196,7 +196,7 @@ func TestTarfilesStore_MultipleRepos(t *testing.T) {
 
 	// Verify tar files were created for each DID
 	for _, did := range testDIDs {
-		filename := strings.ReplaceAll(did, ":", "_") + ".tar"
+		filename := strings.ReplaceAll(did, ":", "_") + ".tar.gz"
 		expectedFile := filepath.Join(tmpDir, filename)
 		assert.FileExists(t, expectedFile)
 	}
@@ -310,7 +310,7 @@ func TestTarfilesStore_AppendToExisting(t *testing.T) {
 	}
 
 	// Verify both records exist in the tar file
-	expectedFile := filepath.Join(tmpDir, "did_plc_testuser.tar")
+	expectedFile := filepath.Join(tmpDir, "did_plc_testuser.tar.gz")
 	contents, err := ReadTarFile(expectedFile)
 	require.NoError(t, err)
 
@@ -388,7 +388,7 @@ func TestTarfilesStore_ErrorHandling(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify only valid events were processed
-	expectedFile := filepath.Join(tmpDir, "did_plc_testuser.tar")
+	expectedFile := filepath.Join(tmpDir, "did_plc_testuser.tar.gz")
 	contents, err := ReadTarFile(expectedFile)
 	require.NoError(t, err)
 
