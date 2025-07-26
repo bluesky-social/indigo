@@ -23,10 +23,10 @@ type StdoutStore struct {
 }
 
 type repoStats struct {
-	numRecords   int
-	numCommits   int
-	numErrors    int
-	collections  map[string]int
+	numRecords  int
+	numCommits  int
+	numErrors   int
+	collections map[string]int
 }
 
 // Setup initializes the store
@@ -45,8 +45,13 @@ func (s *StdoutStore) Close() error {
 	return nil
 }
 
-// Receive processes events from the stream
-func (s *StdoutStore) Receive(ctx context.Context, stream *remote.RemoteStream) error {
+// BackfillRepo resets a repo and re-ingests it from a remote stream
+func (s *StdoutStore) BackfillRepo(ctx context.Context, did string, stream *remote.RemoteStream) error {
+	return s.ActiveSync(ctx, stream)
+}
+
+// ActiveSync processes live update events from a remote stream
+func (s *StdoutStore) ActiveSync(ctx context.Context, stream *remote.RemoteStream) error {
 	for event := range stream.Ch {
 		select {
 		case <-ctx.Done():
@@ -94,7 +99,7 @@ func (s *StdoutStore) printStats() {
 		if stats.numErrors > 0 {
 			fmt.Printf("  Errors: %d\n", stats.numErrors)
 		}
-		
+
 		if len(stats.collections) > 0 {
 			fmt.Println("  Collections:")
 			for col, count := range stats.collections {

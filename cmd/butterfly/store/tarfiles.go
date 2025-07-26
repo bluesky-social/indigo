@@ -18,6 +18,8 @@ import (
 	"github.com/bluesky-social/indigo/cmd/butterfly/remote"
 )
 
+// NOTE: do not work on this this until the Store interface is fully mature
+
 // TarfilesStore implements Store by writing repository data to gzipped tar files
 type TarfilesStore struct {
 	// The directory to store the .tar.gz files
@@ -34,12 +36,12 @@ type TarfilesStore struct {
 
 // tarWriter manages writing to a single tar file
 type tarWriter struct {
-	file      *os.File
+	file       *os.File
 	gzipWriter *gzip.Writer
-	writer    *tar.Writer
-	entries   map[string]bool // Track existing entries
-	tempFile  string
-	finalFile string
+	writer     *tar.Writer
+	entries    map[string]bool // Track existing entries
+	tempFile   string
+	finalFile  string
 }
 
 // NewTarfilesStore creates a new TarfilesStore
@@ -89,8 +91,14 @@ func (t *TarfilesStore) Close() error {
 	return nil
 }
 
-// Receive processes events from the stream
-func (t *TarfilesStore) Receive(ctx context.Context, stream *remote.RemoteStream) error {
+// BackfillRepo resets a repo and re-ingests it from a remote stream
+func (t *TarfilesStore) BackfillRepo(ctx context.Context, did string, stream *remote.RemoteStream) error {
+	// TODO For now, it's fine to just reuse ActiveSync. A more optimized variant could be useful.
+	return t.ActiveSync(ctx, stream)
+}
+
+// ActiveSync processes live update events from a remote stream
+func (t *TarfilesStore) ActiveSync(ctx context.Context, stream *remote.RemoteStream) error {
 	for event := range stream.Ch {
 		select {
 		case <-ctx.Done():

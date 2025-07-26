@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/marcboeker/go-duckdb"
+	"github.com/marcboeker/go-duckdb"
 
 	"github.com/bluesky-social/indigo/cmd/butterfly/remote"
 )
@@ -147,8 +147,87 @@ func (d *DuckdbStore) Close() error {
 	return nil
 }
 
-// Receive processes events from the stream
-func (d *DuckdbStore) Receive(ctx context.Context, stream *remote.RemoteStream) error {
+// BackfillRepo resets a repo and re-ingests it from a remote stream
+// The implementation should handle context cancellation appropriately
+func (d *DuckdbStore) BackfillRepo(ctx context.Context, did string, stream *remote.RemoteStream) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	// First, delete all existing records for this DID
+	_, err := d.db.ExecContext(ctx, "DELETE FROM records WHERE did = ?", did)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing records for DID %s: %w", did, err)
+	}
+
+	// Get a connection from the existing database
+	conn, err := d.db.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get connection: %w", err)
+	}
+	defer conn.Close()
+
+	// Create appender for records table
+	var appender *duckdb.Appender
+	err = conn.Raw(func(driverConn interface{}) error {
+		duckdbConn, ok := driverConn.(*duckdb.Conn)
+		if !ok {
+			return fmt.Errorf("failed to cast to duckdb connection")
+		}
+		appender, err = duckdb.NewAppenderFromConn(duckdbConn, "", "records")
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create appender: %w", err)
+	}
+	defer appender.Close()
+
+	batchSize := 0
+	const maxBatchSize = 1000
+
+	for event := range stream.Ch {
+		select {
+		case <-ctx.Done():
+			// Flush any pending data before returning
+			if batchSize > 0 {
+				if flushErr := appender.Flush(); flushErr != nil {
+					return fmt.Errorf("failed to flush appender on context cancel: %w", flushErr)
+				}
+			}
+			return ctx.Err()
+		default:
+		}
+
+		// Only process commit events for the specified DID
+		if event.Kind != remote.EventKindCommit || event.Commit == nil || event.Did != did {
+			continue
+		}
+
+		if err := d.processCommitWithAppender(ctx, event.Did, event.Commit, appender); err != nil {
+			// Log error but continue processing
+			fmt.Fprintf(os.Stderr, "duckdb: error processing commit for %s during backfill: %v\n", event.Did, err)
+			continue
+		}
+
+		batchSize++
+		// Flush appender periodically for better performance
+		if batchSize >= maxBatchSize {
+			if err := appender.Flush(); err != nil {
+				return fmt.Errorf("failed to flush appender: %w", err)
+			}
+			batchSize = 0
+		}
+	}
+
+	// Close appender to flush any remaining data
+	if err := appender.Close(); err != nil {
+		return fmt.Errorf("failed to close appender: %w", err)
+	}
+
+	return nil
+}
+
+// ActiveSync processes live update events from a remote stream
+func (d *DuckdbStore) ActiveSync(ctx context.Context, stream *remote.RemoteStream) error {
 	// Start a transaction for better performance with batch operations
 	tx, err := d.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -233,6 +312,54 @@ func (d *DuckdbStore) processCommit(ctx context.Context, did string, commit *rem
 			now, did, commit.Collection, commit.Rkey)
 		if err != nil {
 			return fmt.Errorf("failed to delete record: %w", err)
+		}
+
+	default:
+		return fmt.Errorf("unknown operation: %s", commit.Operation)
+	}
+
+	return nil
+}
+
+// processCommitWithAppender handles a single commit event using the appender API
+func (d *DuckdbStore) processCommitWithAppender(ctx context.Context, did string, commit *remote.StreamEventCommit, appender *duckdb.Appender) error {
+	now := time.Now()
+
+	switch commit.Operation {
+	case remote.OpCreate, remote.OpUpdate:
+		// For updates in a backfill, we don't need to delete first since we already cleared all records
+		// Just append the new record
+		err := appender.AppendRow(
+			did,               // did
+			commit.Collection, // collection
+			commit.Rkey,       // rkey
+			commit.Cid,        // cid
+			commit.Rev,        // rev
+			commit.Record,     // record
+			false,             // deleted
+			now,               // created_at
+			now,               // updated_at
+		)
+		if err != nil {
+			return fmt.Errorf("failed to append record: %w", err)
+		}
+
+	case remote.OpDelete:
+		// For deletes during backfill, we append a deleted record
+		// (Note- this really shouldnt happen)
+		err := appender.AppendRow(
+			did,               // did
+			commit.Collection, // collection
+			commit.Rkey,       // rkey
+			"",                // cid (empty for deleted)
+			"",                // rev (empty for deleted)
+			nil,               // record (empty JSON for deleted)
+			true,              // deleted
+			now,               // created_at
+			now,               // updated_at
+		)
+		if err != nil {
+			return fmt.Errorf("failed to append deleted record: %w", err)
 		}
 
 	default:

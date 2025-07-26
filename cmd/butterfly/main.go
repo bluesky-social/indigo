@@ -71,7 +71,7 @@ func main() {
 	defer stream.Close()
 
 	// Process the stream
-	if err := s.Receive(ctx, stream); err != nil {
+	if err := s.BackfillRepo(ctx, *did, stream); err != nil {
 		logger.Fatalf("failed to process stream: %v", err)
 	}
 }

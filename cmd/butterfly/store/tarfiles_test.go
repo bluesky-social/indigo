@@ -114,7 +114,7 @@ func TestTarfilesStore_BasicOperations(t *testing.T) {
 	}()
 
 	// Process the stream
-	err = store.Receive(ctx, stream)
+	err = store.ActiveSync(ctx, stream)
 	require.NoError(t, err)
 
 	// Close the store to finalize tar files
@@ -187,7 +187,7 @@ func TestTarfilesStore_MultipleRepos(t *testing.T) {
 	}()
 
 	// Process the stream
-	err = store.Receive(ctx, stream)
+	err = store.ActiveSync(ctx, stream)
 	require.NoError(t, err)
 
 	// Close the store
@@ -241,7 +241,7 @@ func TestTarfilesStore_ContextCancellation(t *testing.T) {
 	}()
 
 	// Process should stop when context is cancelled
-	err = store.Receive(ctx, stream)
+	err = store.ActiveSync(ctx, stream)
 	assert.ErrorIs(t, err, context.Canceled)
 }
 
@@ -273,7 +273,7 @@ func TestTarfilesStore_AppendToExisting(t *testing.T) {
 		}
 		close(stream.Ch)
 
-		err = store.Receive(ctx, stream)
+		err = store.ActiveSync(ctx, stream)
 		require.NoError(t, err)
 		err = store.Close()
 		require.NoError(t, err)
@@ -303,7 +303,7 @@ func TestTarfilesStore_AppendToExisting(t *testing.T) {
 		}
 		close(stream.Ch)
 
-		err = store.Receive(ctx, stream)
+		err = store.ActiveSync(ctx, stream)
 		require.NoError(t, err)
 		err = store.Close()
 		require.NoError(t, err)
@@ -381,7 +381,7 @@ func TestTarfilesStore_ErrorHandling(t *testing.T) {
 	}()
 
 	// Should process without error, skipping invalid events
-	err = store.Receive(ctx, stream)
+	err = store.ActiveSync(ctx, stream)
 	require.NoError(t, err)
 
 	err = store.Close()

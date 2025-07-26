@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -121,7 +122,7 @@ func TestDuckdbStore_BasicOperations(t *testing.T) {
 	}()
 
 	// Process the stream
-	err = store.Receive(ctx, stream)
+	err = store.ActiveSync(ctx, stream)
 	require.NoError(t, err)
 
 	// Verify the post was updated
@@ -188,7 +189,7 @@ func TestDuckdbStore_ListRecords(t *testing.T) {
 	}()
 
 	// Process the stream
-	err = store.Receive(ctx, stream)
+	err = store.ActiveSync(ctx, stream)
 	require.NoError(t, err)
 
 	// List all posts
@@ -249,7 +250,7 @@ func TestDuckdbStore_MultipleRepos(t *testing.T) {
 	}()
 
 	// Process the stream
-	err = store.Receive(ctx, stream)
+	err = store.ActiveSync(ctx, stream)
 	require.NoError(t, err)
 
 	// Verify stats
@@ -307,7 +308,7 @@ func TestDuckdbStore_TransactionBatching(t *testing.T) {
 	}()
 
 	// Process should handle transaction batching automatically
-	err = store.Receive(ctx, stream)
+	err = store.ActiveSync(ctx, stream)
 	require.NoError(t, err)
 
 	// Verify all records were saved
@@ -357,7 +358,7 @@ func TestDuckdbStore_ContextCancellation(t *testing.T) {
 	}()
 
 	// Process should stop when context is cancelled
-	err = store.Receive(ctx, stream)
+	err = store.ActiveSync(ctx, stream)
 	assert.ErrorIs(t, err, context.Canceled)
 }
 
@@ -426,7 +427,7 @@ func TestDuckdbStore_ErrorHandling(t *testing.T) {
 	}()
 
 	// Should process without error, skipping invalid events
-	err = store.Receive(ctx, stream)
+	err = store.ActiveSync(ctx, stream)
 	require.NoError(t, err)
 
 	// Verify only valid events were processed
@@ -442,4 +443,337 @@ func TestDuckdbStore_ErrorHandling(t *testing.T) {
 	post2, err := store.GetRecord(ctx, "did:plc:testuser", "app.bsky.feed.post", "valid2")
 	require.NoError(t, err)
 	assert.NotNil(t, post2)
+}
+
+func TestDuckdbStore_BackfillRepo(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store := NewDuckdbStore(dbPath)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	testDID := "did:plc:backfilltest"
+
+	// First, create some initial records using ActiveSync
+	stream1 := &remote.RemoteStream{
+		Ch: make(chan remote.StreamEvent, 10),
+	}
+
+	go func() {
+		defer close(stream1.Ch)
+
+		// Create initial posts
+		for i := 0; i < 3; i++ {
+			stream1.Ch <- remote.StreamEvent{
+				Did:       testDID,
+				Timestamp: time.Now(),
+				Kind:      remote.EventKindCommit,
+				Commit: &remote.StreamEventCommit{
+					Rev:        "rev" + string(rune(i)),
+					Operation:  remote.OpCreate,
+					Collection: "app.bsky.feed.post",
+					Rkey:       "post" + string(rune(i+1)),
+					Record: map[string]any{
+						"text":      "Initial post " + string(rune(i)),
+						"createdAt": time.Now().Format(time.RFC3339),
+					},
+					Cid: "cid" + string(rune(i)),
+				},
+			}
+		}
+	}()
+
+	err = store.ActiveSync(ctx, stream1)
+	require.NoError(t, err)
+
+	// Verify initial records
+	stats, err := store.GetStats(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), stats["total_records"])
+
+	posts, err := store.ListRecords(ctx, testDID, "app.bsky.feed.post", 0)
+	require.NoError(t, err)
+	assert.Len(t, posts, 3)
+
+	// Now backfill with new data
+	stream2 := &remote.RemoteStream{
+		Ch: make(chan remote.StreamEvent, 10),
+	}
+
+	go func() {
+		defer close(stream2.Ch)
+
+		// Send different posts for backfill
+		for i := 0; i < 5; i++ {
+			stream2.Ch <- remote.StreamEvent{
+				Did:       testDID,
+				Timestamp: time.Now(),
+				Kind:      remote.EventKindCommit,
+				Commit: &remote.StreamEventCommit{
+					Rev:        "backfillrev" + string(rune(i)),
+					Operation:  remote.OpCreate,
+					Collection: "app.bsky.feed.post",
+					Rkey:       "backfillpost" + string(rune(i+1)),
+					Record: map[string]any{
+						"text":      "Backfilled post " + string(rune(i)),
+						"createdAt": time.Now().Format(time.RFC3339),
+					},
+					Cid: "backfillcid" + string(rune(i)),
+				},
+			}
+		}
+	}()
+
+	// Backfill should replace all existing records for this DID
+	err = store.BackfillRepo(ctx, testDID, stream2)
+	require.NoError(t, err)
+
+	// Verify old records are gone and new ones are present
+	stats, err = store.GetStats(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(5), stats["total_records"])
+
+	posts, err = store.ListRecords(ctx, testDID, "app.bsky.feed.post", 0)
+	require.NoError(t, err)
+	assert.Len(t, posts, 5)
+
+	// Verify old posts are gone
+	for i := 0; i < 3; i++ {
+		post, err := store.GetRecord(ctx, testDID, "app.bsky.feed.post", "post"+string(rune(i+1)))
+		require.NoError(t, err)
+		assert.Nil(t, post)
+	}
+
+	// Verify new posts exist
+	for i := 0; i < 5; i++ {
+		post, err := store.GetRecord(ctx, testDID, "app.bsky.feed.post", "backfillpost"+string(rune(i+1)))
+		fmt.Printf("%d %v\n", i, post)
+		require.NoError(t, err)
+		assert.NotNil(t, post)
+		assert.Contains(t, post["text"], "Backfilled post")
+	}
+}
+
+func TestDuckdbStore_BackfillRepo_MultipleCollections(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store := NewDuckdbStore(dbPath)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	testDID := "did:plc:multicollection"
+
+	// Create initial records across multiple collections
+	stream1 := &remote.RemoteStream{
+		Ch: make(chan remote.StreamEvent, 10),
+	}
+
+	go func() {
+		defer close(stream1.Ch)
+
+		stream1.Ch <- remote.StreamEvent{
+			Did:       testDID,
+			Timestamp: time.Now(),
+			Kind:      remote.EventKindCommit,
+			Commit: &remote.StreamEventCommit{
+				Operation:  remote.OpCreate,
+				Collection: "app.bsky.feed.post",
+				Rkey:       "oldpost",
+				Record:     map[string]any{"text": "Old post"},
+			},
+		}
+
+		stream1.Ch <- remote.StreamEvent{
+			Did:       testDID,
+			Timestamp: time.Now(),
+			Kind:      remote.EventKindCommit,
+			Commit: &remote.StreamEventCommit{
+				Operation:  remote.OpCreate,
+				Collection: "app.bsky.graph.follow",
+				Rkey:       "oldfollow",
+				Record:     map[string]any{"subject": "did:plc:olduser"},
+			},
+		}
+
+		stream1.Ch <- remote.StreamEvent{
+			Did:       testDID,
+			Timestamp: time.Now(),
+			Kind:      remote.EventKindCommit,
+			Commit: &remote.StreamEventCommit{
+				Operation:  remote.OpCreate,
+				Collection: "app.bsky.actor.profile",
+				Rkey:       "self",
+				Record:     map[string]any{"displayName": "Old Name"},
+			},
+		}
+	}()
+
+	err = store.ActiveSync(ctx, stream1)
+	require.NoError(t, err)
+
+	// Backfill with new data
+	stream2 := &remote.RemoteStream{
+		Ch: make(chan remote.StreamEvent, 10),
+	}
+
+	go func() {
+		defer close(stream2.Ch)
+
+		stream2.Ch <- remote.StreamEvent{
+			Did:       testDID,
+			Timestamp: time.Now(),
+			Kind:      remote.EventKindCommit,
+			Commit: &remote.StreamEventCommit{
+				Operation:  remote.OpCreate,
+				Collection: "app.bsky.feed.post",
+				Rkey:       "newpost1",
+				Record:     map[string]any{"text": "New post 1"},
+			},
+		}
+
+		stream2.Ch <- remote.StreamEvent{
+			Did:       testDID,
+			Timestamp: time.Now(),
+			Kind:      remote.EventKindCommit,
+			Commit: &remote.StreamEventCommit{
+				Operation:  remote.OpCreate,
+				Collection: "app.bsky.feed.post",
+				Rkey:       "newpost2",
+				Record:     map[string]any{"text": "New post 2"},
+			},
+		}
+
+		stream2.Ch <- remote.StreamEvent{
+			Did:       testDID,
+			Timestamp: time.Now(),
+			Kind:      remote.EventKindCommit,
+			Commit: &remote.StreamEventCommit{
+				Operation:  remote.OpCreate,
+				Collection: "app.bsky.actor.profile",
+				Rkey:       "self",
+				Record:     map[string]any{"displayName": "New Name"},
+			},
+		}
+	}()
+
+	err = store.BackfillRepo(ctx, testDID, stream2)
+	require.NoError(t, err)
+
+	// Verify backfill replaced ALL collections for this DID
+	posts, err := store.ListRecords(ctx, testDID, "app.bsky.feed.post", 0)
+	require.NoError(t, err)
+	assert.Len(t, posts, 2)
+
+	// Old follow should be gone
+	follow, err := store.GetRecord(ctx, testDID, "app.bsky.graph.follow", "oldfollow")
+	require.NoError(t, err)
+	assert.Nil(t, follow)
+
+	// Profile should be updated
+	profile, err := store.GetRecord(ctx, testDID, "app.bsky.actor.profile", "self")
+	require.NoError(t, err)
+	assert.NotNil(t, profile)
+	assert.Equal(t, "New Name", profile["displayName"])
+}
+
+func TestDuckdbStore_BackfillRepo_ContextCancellation(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store := NewDuckdbStore(dbPath)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	testDID := "did:plc:canceltest"
+
+	// Create a stream that sends many events
+	stream := &remote.RemoteStream{
+		Ch: make(chan remote.StreamEvent, 100),
+	}
+
+	go func() {
+		defer close(stream.Ch)
+		for i := 0; i < 100; i++ {
+			stream.Ch <- remote.StreamEvent{
+				Did:       testDID,
+				Timestamp: time.Now(),
+				Kind:      remote.EventKindCommit,
+				Commit: &remote.StreamEventCommit{
+					Operation:  remote.OpCreate,
+					Collection: "app.bsky.feed.post",
+					Rkey:       "post" + string(rune(i)),
+					Record:     map[string]any{"text": "Test post"},
+				},
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+
+	// Cancel context after a short time
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	// Backfill should stop when context is cancelled
+	err = store.BackfillRepo(ctx, testDID, stream)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestDuckdbStore_BackfillRepo_EmptyStream(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store := NewDuckdbStore(dbPath)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	testDID := "did:plc:emptytest"
+
+	// Create some initial records
+	stream1 := &remote.RemoteStream{
+		Ch: make(chan remote.StreamEvent, 2),
+	}
+
+	go func() {
+		defer close(stream1.Ch)
+		stream1.Ch <- remote.StreamEvent{
+			Did:       testDID,
+			Timestamp: time.Now(),
+			Kind:      remote.EventKindCommit,
+			Commit: &remote.StreamEventCommit{
+				Operation:  remote.OpCreate,
+				Collection: "app.bsky.feed.post",
+				Rkey:       "post1",
+				Record:     map[string]any{"text": "Post to be deleted"},
+			},
+		}
+	}()
+
+	err = store.ActiveSync(ctx, stream1)
+	require.NoError(t, err)
+
+	// Backfill with empty stream
+	stream2 := &remote.RemoteStream{
+		Ch: make(chan remote.StreamEvent),
+	}
+	close(stream2.Ch)
+
+	err = store.BackfillRepo(ctx, testDID, stream2)
+	require.NoError(t, err)
+
+	// Verify all records for this DID were deleted
+	posts, err := store.ListRecords(ctx, testDID, "app.bsky.feed.post", 0)
+	require.NoError(t, err)
+	assert.Len(t, posts, 0)
 }

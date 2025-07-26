@@ -15,9 +15,13 @@ type Store interface {
 	// Close tears down the store and releases resources
 	Close() error
 
-	// Receive processes events from a remote stream
+	// BackfillRepo resets a repo and re-ingests it from a remote stream
 	// The implementation should handle context cancellation appropriately
-	Receive(ctx context.Context, stream *remote.RemoteStream) error
+	BackfillRepo(ctx context.Context, did string, stream *remote.RemoteStream) error
+
+	// ActiveSync processes live update events from a remote stream
+	// The implementation should handle context cancellation appropriately
+	ActiveSync(ctx context.Context, stream *remote.RemoteStream) error
 }
 
 // StoreType identifies the type of store

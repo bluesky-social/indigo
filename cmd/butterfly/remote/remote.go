@@ -123,14 +123,15 @@ type StreamEventAccount struct {
 
 // StreamEventError represents an error event in the stream
 type StreamEventError struct {
-	Err       error
-	Fatal     bool   // Whether this error terminates the stream
+	Err        error
+	Fatal      bool           // Whether this error terminates the stream
 	RetryAfter *time.Duration // Suggested retry delay
 }
 
 // Common errors
 var (
 	ErrRemoteUnavailable = errors.New("remote service unavailable")
+	ErrNotSupported      = errors.New("operation not supported by this remote")
 	ErrNotImplemented    = errors.New("operation not implemented by this remote")
 	ErrInvalidDID        = errors.New("invalid DID format")
 	ErrRepoNotFound      = errors.New("repository not found")

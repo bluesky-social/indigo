@@ -2,6 +2,26 @@
 
 A sync engine for atproto with an optional baked-in database.
 
+## WIP notes
+
+- Until the Store interface has stabilized, let's only work on stdout and duckdb to keep things simple.
+
+## TODOs
+
+v1
+
+- Create first working implementations of all Remote interfaces so that we build familiarity with their semantics and idiosyncracies
+- Implement repo discovery interfaces on Remote
+- Implement bidi identity resolution and caching
+- Implement a work-scheduler which abstracts Remote, Identity, and Store to backfill & sync using Selectors
+- Implement Store querying interfaces; develop indexing strategies
+- Create v1 CLI and APIs
+
+future
+
+- A local data read/write model, perhaps modeled as virtual local users
+- Prometheus endpoints
+
 ## Example selectors
 
 My data:

@@ -136,7 +136,7 @@ func (c *CarfileRemote) FetchRepo(ctx context.Context, params FetchRepoParams) (
 
 // SubscribeRecords is not supported for CAR files
 func (c *CarfileRemote) SubscribeRecords(ctx context.Context, params SubscribeRecordsParams) (*RemoteStream, error) {
-	return nil, fmt.Errorf("subscribe records: %w", ErrNotImplemented)
+	return nil, fmt.Errorf("subscribe records: %w", ErrNotSupported)
 }
 
 // readCar reads and validates a CAR file
