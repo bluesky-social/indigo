@@ -3,20 +3,23 @@ Relay remote interface
 */
 package remote
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type RelayRemote struct {
-	service string
+	Service string
 }
 
-func (self RelayRemote) ListRepos(params ListReposParams) (*ListReposResult, error) {
+func (self RelayRemote) ListRepos(ctx context.Context, params ListReposParams) (*ListReposResult, error) {
 	return nil, fmt.Errorf("Not yet implemented")
 }
 
-func (self RelayRemote) FetchRepo(params FetchRepoParams) (*RemoteStream, error) {
+func (self RelayRemote) FetchRepo(ctx context.Context, params FetchRepoParams) (*RemoteStream, error) {
 	return nil, fmt.Errorf("Not yet implemented")
 }
 
-func (self RelayRemote) SubscribeRecords(params SubscribeRecordsParams) (*RemoteStream, error) {
+func (self RelayRemote) SubscribeRecords(ctx context.Context, params SubscribeRecordsParams) (*RemoteStream, error) {
 	return nil, fmt.Errorf("Not yet implemented")
 }
