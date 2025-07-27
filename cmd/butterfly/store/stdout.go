@@ -20,6 +20,9 @@ type StdoutStore struct {
 
 	// Stats tracking
 	stats map[string]*repoStats
+
+	// KV storage (namespace -> key -> value)
+	kvStore map[string]map[string]string
 }
 
 type repoStats struct {
@@ -34,12 +37,14 @@ func (s *StdoutStore) Setup(ctx context.Context) error {
 	if s.Mode == StdoutStoreModeStats {
 		s.stats = make(map[string]*repoStats)
 	}
+	// Initialize KV store
+	s.kvStore = make(map[string]map[string]string)
 	return nil
 }
 
 // Close outputs final statistics if in stats mode
 func (s *StdoutStore) Close() error {
-	if s.Mode == StdoutStoreModeStats && len(s.stats) > 0 {
+	if s.Mode == StdoutStoreModeStats {
 		s.printStats()
 	}
 	return nil
@@ -107,19 +112,102 @@ func (s *StdoutStore) printStats() {
 			}
 		}
 	}
+
+	// Print KV store statistics
+	if len(s.kvStore) > 0 {
+		fmt.Println("\n=== KV Store Statistics ===")
+		totalKeys := 0
+		for namespace, nsMap := range s.kvStore {
+			keyCount := len(nsMap)
+			totalKeys += keyCount
+			fmt.Printf("\nNamespace: %s\n", namespace)
+			fmt.Printf("  Keys: %d\n", keyCount)
+
+			// Show sample keys (up to 5)
+			if keyCount > 0 {
+				fmt.Println("  Sample keys:")
+				shown := 0
+				for key := range nsMap {
+					fmt.Printf("    - %s\n", key)
+					shown++
+					if shown >= 5 {
+						if keyCount > 5 {
+							fmt.Printf("    ... and %d more\n", keyCount-5)
+						}
+						break
+					}
+				}
+			}
+		}
+		fmt.Printf("\nTotal namespaces: %d\n", len(s.kvStore))
+		fmt.Printf("Total keys: %d\n", totalKeys)
+	}
 }
 
-// KvGet retrieves a value from general KV storage (not yet implemented)
+// KvGet retrieves a value from general KV storage
 func (s *StdoutStore) KvGet(namespace string, key string) (string, error) {
-	return "", fmt.Errorf("KvGet not yet implemented for stdout store")
+	if s.kvStore == nil {
+		return "", fmt.Errorf("KV store not initialized - call Setup() first")
+	}
+
+	nsMap, exists := s.kvStore[namespace]
+	if !exists {
+		return "", fmt.Errorf("key not found in namespace %q", namespace)
+	}
+
+	value, exists := nsMap[key]
+	if !exists {
+		return "", fmt.Errorf("key %q not found in namespace %q", key, namespace)
+	}
+
+	return value, nil
 }
 
-// KvPut stores a value in general KV storage (not yet implemented)
+// KvPut stores a value in general KV storage
 func (s *StdoutStore) KvPut(namespace string, key string, value string) error {
-	return fmt.Errorf("KvPut not yet implemented for stdout store")
+	if s.kvStore == nil {
+		return fmt.Errorf("KV store not initialized - call Setup() first")
+	}
+
+	// Create namespace map if it doesn't exist
+	if _, exists := s.kvStore[namespace]; !exists {
+		s.kvStore[namespace] = make(map[string]string)
+	}
+
+	// Store the value
+	s.kvStore[namespace][key] = value
+
+	// Log the operation in passthrough mode
+	if s.Mode == StdoutStoreModePassthrough {
+		fmt.Printf("KV PUT: namespace=%q key=%q value=%q\n", namespace, key, value)
+	}
+
+	return nil
 }
 
-// KvDel deletes a value from general KV storage (not yet implemented)
+// KvDel deletes a value from general KV storage
 func (s *StdoutStore) KvDel(namespace string, key string) error {
-	return fmt.Errorf("KvDel not yet implemented for stdout store")
+	if s.kvStore == nil {
+		return fmt.Errorf("KV store not initialized - call Setup() first")
+	}
+
+	nsMap, exists := s.kvStore[namespace]
+	if !exists {
+		// Key doesn't exist, but that's not an error for delete
+		return nil
+	}
+
+	delete(nsMap, key)
+
+	// Clean up empty namespace
+	if len(nsMap) == 0 {
+		delete(s.kvStore, namespace)
+	}
+
+	// Log the operation in passthrough mode
+	if s.Mode == StdoutStoreModePassthrough {
+		fmt.Printf("KV DEL: namespace=%q key=%q\n", namespace, key)
+	}
+
+	return nil
 }

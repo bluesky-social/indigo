@@ -314,7 +314,7 @@ func putHandle(store store.Store, handle syntax.Handle, entry *handleEntry) erro
 	// TODO - is this right?
 	entryJSON, err := json.Marshal(entry)
 	if err != nil {
-		return nil
+		return err
 	}
 	return store.KvPut(handleCache, string(handle), string(entryJSON))
 }
@@ -340,7 +340,7 @@ func putIdent(store store.Store, did syntax.DID, entry *identityEntry) error {
 	// TODO - is this right?
 	entryJSON, err := json.Marshal(entry)
 	if err != nil {
-		return nil
+		return err
 	}
 	return store.KvPut(identityCache, string(did), string(entryJSON))
 }

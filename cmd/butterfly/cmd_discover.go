@@ -112,7 +112,7 @@ func runDiscover(c *cli.Context) error {
 	case "duckdb":
 		s = store.NewDuckdbStore(dbPath)
 	default:
-		return fmt.Errorf("unknown output mode: %s", storeMode)
+		return fmt.Errorf("unknown storage mode: %s", storeMode)
 	}
 
 	// Initialize store
@@ -144,7 +144,7 @@ func runDiscover(c *cli.Context) error {
 	}
 
 	// Resolve all results
-	fmt.Printf("Found %d repositories\n\n", len(result.Dids))
+	fmt.Printf("Discovered %d repositories\n", len(result.Dids))
 	for _, did := range result.Dids {
 		_, err := resolver.ResolveDID(ctx, did)
 		if err != nil {

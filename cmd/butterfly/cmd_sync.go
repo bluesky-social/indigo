@@ -116,7 +116,7 @@ func runSync(c *cli.Context) error {
 	case "duckdb":
 		s = store.NewDuckdbStore(dbPath)
 	default:
-		return fmt.Errorf("unknown output mode: %s", storeMode)
+		return fmt.Errorf("unknown storage mode: %s", storeMode)
 	}
 
 	// Create context
