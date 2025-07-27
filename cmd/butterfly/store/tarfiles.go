@@ -347,3 +347,18 @@ func ReadTarFile(path string) (map[string][]byte, error) {
 
 	return contents, nil
 }
+
+// KvGet retrieves a value from general KV storage (not yet implemented)
+func (t *TarfilesStore) KvGet(namespace string, key string) (string, error) {
+	return "", fmt.Errorf("KvGet not yet implemented for tarfiles store")
+}
+
+// KvPut stores a value in general KV storage (not yet implemented)
+func (t *TarfilesStore) KvPut(namespace string, key string, value string) error {
+	return fmt.Errorf("KvPut not yet implemented for tarfiles store")
+}
+
+// KvDel deletes a value from general KV storage (not yet implemented)
+func (t *TarfilesStore) KvDel(namespace string, key string) error {
+	return fmt.Errorf("KvDel not yet implemented for tarfiles store")
+}

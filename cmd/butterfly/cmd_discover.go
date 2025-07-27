@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 
+	"github.com/bluesky-social/indigo/cmd/butterfly/identity"
 	"github.com/bluesky-social/indigo/cmd/butterfly/remote"
+	"github.com/bluesky-social/indigo/cmd/butterfly/store"
 	"github.com/urfave/cli/v2"
 )
 
@@ -46,21 +47,21 @@ by collection.`,
 			Value: 100,
 			Usage: "Maximum number of repositories to return",
 		},
-		// Output format
+		// Common flags
 		&cli.StringFlag{
-			Name:  "format",
-			Value: "text",
-			Usage: "Output format: text, json, or csv",
+			Name:  "store",
+			Value: "stdout",
+			Usage: "Storage mode: stdout, tarfiles, or duckdb",
 		},
-		// Identity resolution
-		&cli.BoolFlag{
-			Name:  "resolve",
-			Usage: "Resolve DIDs to handles using identity resolution",
+		&cli.StringFlag{
+			Name:  "storage-dir",
+			Value: "./output",
+			Usage: "Output directory for tarfiles mode",
 		},
-		&cli.BoolFlag{
-			Name:  "cache",
-			Usage: "Enable identity resolution caching",
-			Value: true,
+		&cli.StringFlag{
+			Name:  "db",
+			Value: "./butterfly.db",
+			Usage: "Path to DuckDB database file",
 		},
 	},
 	Action: runDiscover,
@@ -77,9 +78,9 @@ func runDiscover(c *cli.Context) error {
 	collection := c.String("collection")
 	cursor := c.String("cursor")
 	limit := c.Int("limit")
-	format := c.String("format")
-	resolve := c.Bool("resolve")
-	enableCache := c.Bool("cache")
+	storeMode := c.String("store")
+	storageDir := c.String("storage-dir")
+	dbPath := c.String("db")
 
 	// Create remote based on input mode
 	var r remote.Remote
@@ -101,6 +102,34 @@ func runDiscover(c *cli.Context) error {
 	// Create context
 	ctx := context.Background()
 
+	// Create store based on storage mode
+	var s store.Store
+	switch storeMode {
+	case "stdout":
+		s = &store.StdoutStore{Mode: store.StdoutStoreModeStats}
+	case "tarfiles":
+		s = store.NewTarfilesStore(storageDir)
+	case "duckdb":
+		s = store.NewDuckdbStore(dbPath)
+	default:
+		return fmt.Errorf("unknown output mode: %s", storeMode)
+	}
+
+	// Initialize store
+	if err := s.Setup(ctx); err != nil {
+		return fmt.Errorf("failed to setup store: %w", err)
+	}
+	defer func() {
+		if err := s.Close(); err != nil {
+			logger.Printf("failed to close store: %v", err)
+		}
+	}()
+
+	// Set up identity resolver
+	var resolver *identity.IdentityResolver = identity.NewIdentityResolver(identity.IdentityResolverConfig{
+		Store: s,
+	})
+
 	// Prepare ListRepos parameters
 	params := remote.ListReposParams{
 		Collection: collection,
@@ -114,119 +143,12 @@ func runDiscover(c *cli.Context) error {
 		return fmt.Errorf("failed to list repos: %w", err)
 	}
 
-	// Set up identity resolver if requested
-	var resolver *IdentityResolver
-	if resolve {
-		resolver = NewIdentityResolverWithConfig(IdentityResolverConfig{
-			EnableCache: enableCache,
-		})
-	}
-
-	// Format and output results
-	switch format {
-	case "text":
-		return outputDiscoverText(result, resolver, logger)
-	case "json":
-		return outputDiscoverJSON(result, resolver)
-	case "csv":
-		return outputDiscoverCSV(result, resolver)
-	default:
-		return fmt.Errorf("unknown output format: %s", format)
-	}
-}
-
-func outputDiscoverText(result *remote.ListReposResult, resolver *IdentityResolver, logger *log.Logger) error {
+	// Resolve all results
 	fmt.Printf("Found %d repositories\n\n", len(result.Dids))
-
-	for i, did := range result.Dids {
-		fmt.Printf("%d. %s", i+1, did)
-
-		// Resolve to handle if requested
-		if resolver != nil {
-			ctx := context.Background()
-			ident, err := resolver.ResolveDID(ctx, did)
-			if err != nil {
-				logger.Printf("Failed to resolve %s: %v", did, err)
-				fmt.Println()
-			} else {
-				fmt.Printf(" (%s)", ident.Handle)
-				if pds, err := resolver.GetPDSEndpoint(ident); err == nil {
-					fmt.Printf(" - PDS: %s", pds)
-				}
-				fmt.Println()
-			}
-		} else {
-			fmt.Println()
-		}
-	}
-
-	if result.Cursor != "" {
-		fmt.Printf("\nNext cursor: %s\n", result.Cursor)
-	}
-
-	return nil
-}
-
-func outputDiscoverJSON(result *remote.ListReposResult, resolver *IdentityResolver) error {
-	output := map[string]interface{}{
-		"count":  len(result.Dids),
-		"cursor": result.Cursor,
-	}
-
-	if resolver != nil {
-		// Resolve DIDs and include additional info
-		repos := make([]map[string]interface{}, 0, len(result.Dids))
-		ctx := context.Background()
-
-		for _, did := range result.Dids {
-			repo := map[string]interface{}{
-				"did": did,
-			}
-
-			if ident, err := resolver.ResolveDID(ctx, did); err == nil {
-				repo["handle"] = ident.Handle.String()
-				if pds, err := resolver.GetPDSEndpoint(ident); err == nil {
-					repo["pds"] = pds
-				}
-			}
-
-			repos = append(repos, repo)
-		}
-		output["repos"] = repos
-	} else {
-		output["dids"] = result.Dids
-	}
-
-	// Pretty print JSON
-	encoder := json.NewEncoder(os.Stdout)
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(output)
-}
-
-func outputDiscoverCSV(result *remote.ListReposResult, resolver *IdentityResolver) error {
-	// Print CSV header
-	if resolver != nil {
-		fmt.Println("did,handle,pds")
-	} else {
-		fmt.Println("did")
-	}
-
-	// Print rows
-	ctx := context.Background()
 	for _, did := range result.Dids {
-		if resolver != nil {
-			ident, err := resolver.ResolveDID(ctx, did)
-			if err != nil {
-				fmt.Printf("%s,,\n", did)
-			} else {
-				pds := ""
-				if endpoint, err := resolver.GetPDSEndpoint(ident); err == nil {
-					pds = endpoint
-				}
-				fmt.Printf("%s,%s,%s\n", did, ident.Handle, pds)
-			}
-		} else {
-			fmt.Println(did)
+		_, err := resolver.ResolveDID(ctx, did)
+		if err != nil {
+			fmt.Printf("Failed to resolve %s: %v", did, err)
 		}
 	}
 

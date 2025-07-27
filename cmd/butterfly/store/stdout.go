@@ -108,3 +108,18 @@ func (s *StdoutStore) printStats() {
 		}
 	}
 }
+
+// KvGet retrieves a value from general KV storage (not yet implemented)
+func (s *StdoutStore) KvGet(namespace string, key string) (string, error) {
+	return "", fmt.Errorf("KvGet not yet implemented for stdout store")
+}
+
+// KvPut stores a value in general KV storage (not yet implemented)
+func (s *StdoutStore) KvPut(namespace string, key string, value string) error {
+	return fmt.Errorf("KvPut not yet implemented for stdout store")
+}
+
+// KvDel deletes a value from general KV storage (not yet implemented)
+func (s *StdoutStore) KvDel(namespace string, key string) error {
+	return fmt.Errorf("KvDel not yet implemented for stdout store")
+}

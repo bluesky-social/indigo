@@ -46,12 +46,12 @@ for storing or processing the synced data.`,
 			Usage: "DID to fetch (required for carfile/pds modes)",
 		},
 		&cli.StringFlag{
-			Name:  "output",
-			Value: "stats",
-			Usage: "Output mode: stats, passthrough, tarfiles, or duckdb",
+			Name:  "store",
+			Value: "stdout",
+			Usage: "Storage mode: stdout, tarfiles, or duckdb",
 		},
 		&cli.StringFlag{
-			Name:  "output-dir",
+			Name:  "storage-dir",
 			Value: "./output",
 			Usage: "Output directory for tarfiles mode",
 		},
@@ -75,8 +75,8 @@ func runSync(c *cli.Context) error {
 	relayService := c.String("relay")
 	jetService := c.String("jetstream")
 	did := c.String("did")
-	outputMode := c.String("output")
-	outputDir := c.String("output-dir")
+	storeMode := c.String("store")
+	storageDir := c.String("storage-dir")
 	dbPath := c.String("db")
 
 	// Create remote based on input mode
@@ -106,19 +106,17 @@ func runSync(c *cli.Context) error {
 		return fmt.Errorf("unknown input mode: %s", inputMode)
 	}
 
-	// Create store based on output mode
+	// Create store based on storage mode
 	var s store.Store
-	switch outputMode {
-	case "passthrough":
-		s = &store.StdoutStore{Mode: store.StdoutStoreModePassthrough}
-	case "stats":
+	switch storeMode {
+	case "stdout":
 		s = &store.StdoutStore{Mode: store.StdoutStoreModeStats}
 	case "tarfiles":
-		s = store.NewTarfilesStore(outputDir)
+		s = store.NewTarfilesStore(storageDir)
 	case "duckdb":
 		s = store.NewDuckdbStore(dbPath)
 	default:
-		return fmt.Errorf("unknown output mode: %s", outputMode)
+		return fmt.Errorf("unknown output mode: %s", storeMode)
 	}
 
 	// Create context

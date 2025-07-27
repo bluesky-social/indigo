@@ -477,3 +477,18 @@ func (d *DuckdbStore) GetStats(ctx context.Context) (map[string]any, error) {
 
 	return stats, nil
 }
+
+// KvGet retrieves a value from general KV storage (not yet implemented)
+func (d *DuckdbStore) KvGet(namespace string, key string) (string, error) {
+	return "", fmt.Errorf("KvGet not yet implemented for duckdb store")
+}
+
+// KvPut stores a value in general KV storage (not yet implemented)
+func (d *DuckdbStore) KvPut(namespace string, key string, value string) error {
+	return fmt.Errorf("KvPut not yet implemented for duckdb store")
+}
+
+// KvDel deletes a value from general KV storage (not yet implemented)
+func (d *DuckdbStore) KvDel(namespace string, key string) error {
+	return fmt.Errorf("KvDel not yet implemented for duckdb store")
+}
