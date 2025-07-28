@@ -3,8 +3,11 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -395,4 +398,293 @@ func TestTarfilesStore_ErrorHandling(t *testing.T) {
 	assert.Len(t, contents, 2)
 	assert.Contains(t, contents, "app.bsky.feed.post/valid.json")
 	assert.Contains(t, contents, "app.bsky.feed.post/valid2.json")
+}
+
+func TestTarfilesStore_KvStore_BasicOperations(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewTarfilesStore(tmpDir)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	// Test Put and Get
+	err = store.KvPut("namespace1", "key1", "value1")
+	require.NoError(t, err)
+
+	value, err := store.KvGet("namespace1", "key1")
+	require.NoError(t, err)
+	assert.Equal(t, "value1", value)
+
+	// Test updating existing key
+	err = store.KvPut("namespace1", "key1", "updated_value1")
+	require.NoError(t, err)
+
+	value, err = store.KvGet("namespace1", "key1")
+	require.NoError(t, err)
+	assert.Equal(t, "updated_value1", value)
+
+	// Test different namespace
+	err = store.KvPut("namespace2", "key1", "value2")
+	require.NoError(t, err)
+
+	value, err = store.KvGet("namespace2", "key1")
+	require.NoError(t, err)
+	assert.Equal(t, "value2", value)
+
+	// Verify namespace isolation
+	value, err = store.KvGet("namespace1", "key1")
+	require.NoError(t, err)
+	assert.Equal(t, "updated_value1", value)
+
+	// Verify files exist on disk
+	file1 := filepath.Join(tmpDir, "namespace1", "key1.json")
+	assert.FileExists(t, file1)
+	file2 := filepath.Join(tmpDir, "namespace2", "key1.json")
+	assert.FileExists(t, file2)
+}
+
+func TestTarfilesStore_KvStore_GetNonExistent(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewTarfilesStore(tmpDir)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	// Test get non-existent key
+	_, err = store.KvGet("namespace1", "nonexistent")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+
+	// Test get from non-existent namespace
+	_, err = store.KvGet("nonexistent_namespace", "key1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestTarfilesStore_KvStore_Delete(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewTarfilesStore(tmpDir)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	// Put a value
+	err = store.KvPut("namespace1", "key1", "value1")
+	require.NoError(t, err)
+
+	// Verify it exists
+	value, err := store.KvGet("namespace1", "key1")
+	require.NoError(t, err)
+	assert.Equal(t, "value1", value)
+
+	// Verify file exists
+	filePath := filepath.Join(tmpDir, "namespace1", "key1.json")
+	assert.FileExists(t, filePath)
+
+	// Delete it
+	err = store.KvDel("namespace1", "key1")
+	require.NoError(t, err)
+
+	// Verify it's gone
+	_, err = store.KvGet("namespace1", "key1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+
+	// Verify file is gone
+	assert.NoFileExists(t, filePath)
+
+	// Delete non-existent key should not error
+	err = store.KvDel("namespace1", "nonexistent")
+	require.NoError(t, err)
+
+	// Delete from non-existent namespace should not error
+	err = store.KvDel("nonexistent_namespace", "key1")
+	require.NoError(t, err)
+}
+
+func TestTarfilesStore_KvStore_Sanitization(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewTarfilesStore(tmpDir)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	// Test with problematic characters that should be sanitized
+	testCases := []struct {
+		namespace string
+		key       string
+		value     string
+	}{
+		{"namespace/with/slashes", "key/with/slashes", "value1"},
+		{"namespace\\with\\backslashes", "key\\with\\backslashes", "value2"},
+		{"namespace:with:colons", "key:with:colons", "value3"},
+		{"namespace..with..dots", "key..with..dots", "value4"},
+		{".hidden_namespace", ".hidden_key", "value5"},
+		{"namespace*with?wildcards", "key*with?wildcards", "value6"},
+		{"namespace\nwith\nnewlines", "key\twith\ttabs", "value7"},
+		{"namespace with spaces", "key with spaces", "value8"},
+	}
+
+	for _, tc := range testCases {
+		err := store.KvPut(tc.namespace, tc.key, tc.value)
+		require.NoError(t, err, "Failed to put %s/%s", tc.namespace, tc.key)
+
+		value, err := store.KvGet(tc.namespace, tc.key)
+		require.NoError(t, err, "Failed to get %s/%s", tc.namespace, tc.key)
+		assert.Equal(t, tc.value, value)
+	}
+
+	// Verify sanitized filenames exist
+	entries, err := os.ReadDir(tmpDir)
+	require.NoError(t, err)
+
+	// Should have multiple namespace directories (sanitized)
+	assert.Greater(t, len(entries), 0)
+
+	// Check that no directory contains problematic characters
+	for _, entry := range entries {
+		name := entry.Name()
+		if name == ".tmp" {
+			continue // system file, skip
+		}
+		assert.NotContains(t, name, "/")
+		assert.NotContains(t, name, "\\")
+		assert.NotContains(t, name, "..")
+		assert.NotContains(t, name, ":")
+		assert.NotContains(t, name, "*")
+		assert.NotContains(t, name, "?")
+		assert.NotContains(t, name, "\n")
+		assert.NotContains(t, name, "\t")
+		assert.False(t, strings.HasPrefix(name, "."))
+	}
+}
+
+func TestTarfilesStore_KvStore_EmptyValues(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewTarfilesStore(tmpDir)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	// Test with empty string value
+	err = store.KvPut("namespace1", "emptykey", "")
+	require.NoError(t, err)
+
+	value, err := store.KvGet("namespace1", "emptykey")
+	require.NoError(t, err)
+	assert.Equal(t, "", value)
+
+	// Test empty namespace should error
+	err = store.KvPut("", "key1", "value1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "namespace cannot be empty")
+
+	// Test empty key should error
+	err = store.KvPut("namespace1", "", "value1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "key cannot be empty")
+}
+
+func TestTarfilesStore_KvStore_LargeValues(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewTarfilesStore(tmpDir)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	// Test with large value (1MB)
+	largeValue := strings.Repeat("a", 1024*1024)
+
+	err = store.KvPut("namespace1", "largekey", largeValue)
+	require.NoError(t, err)
+
+	value, err := store.KvGet("namespace1", "largekey")
+	require.NoError(t, err)
+	assert.Equal(t, largeValue, value)
+}
+
+func TestTarfilesStore_KvStore_Persistence(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create store and add data
+	store1 := NewTarfilesStore(tmpDir)
+	ctx := context.Background()
+	err := store1.Setup(ctx)
+	require.NoError(t, err)
+
+	err = store1.KvPut("namespace1", "key1", "value1")
+	require.NoError(t, err)
+	err = store1.KvPut("namespace2", "key2", "value2")
+	require.NoError(t, err)
+
+	store1.Close()
+
+	// Create new store instance with same directory
+	store2 := NewTarfilesStore(tmpDir)
+	err = store2.Setup(ctx)
+	require.NoError(t, err)
+	defer store2.Close()
+
+	// Verify data persisted
+	value, err := store2.KvGet("namespace1", "key1")
+	require.NoError(t, err)
+	assert.Equal(t, "value1", value)
+
+	value, err = store2.KvGet("namespace2", "key2")
+	require.NoError(t, err)
+	assert.Equal(t, "value2", value)
+}
+
+func TestTarfilesStore_KvStore_ConcurrentAccess(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewTarfilesStore(tmpDir)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	// Test concurrent writes to different keys
+	var wg sync.WaitGroup
+	numGoroutines := 10
+	numOperations := 50
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(goroutineID int) {
+			defer wg.Done()
+			for j := 0; j < numOperations; j++ {
+				key := fmt.Sprintf("key_%d_%d", goroutineID, j)
+				value := fmt.Sprintf("value_%d_%d", goroutineID, j)
+				err := store.KvPut("concurrent_namespace", key, value)
+				assert.NoError(t, err)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Verify all values were written correctly
+	for i := 0; i < numGoroutines; i++ {
+		for j := 0; j < numOperations; j++ {
+			key := fmt.Sprintf("key_%d_%d", i, j)
+			expectedValue := fmt.Sprintf("value_%d_%d", i, j)
+
+			value, err := store.KvGet("concurrent_namespace", key)
+			require.NoError(t, err)
+			assert.Equal(t, expectedValue, value)
+		}
+	}
 }

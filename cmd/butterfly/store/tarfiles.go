@@ -348,17 +348,128 @@ func ReadTarFile(path string) (map[string][]byte, error) {
 	return contents, nil
 }
 
-// KvGet retrieves a value from general KV storage (not yet implemented)
+// KvGet retrieves a value from general KV storage
 func (t *TarfilesStore) KvGet(namespace string, key string) (string, error) {
-	return "", fmt.Errorf("KvGet not yet implemented for tarfiles store")
+	// Sanitize namespace and key to prevent directory traversal
+	namespace, key, err := sanitizeNamespaceAndKey(namespace, key)
+	if err != nil {
+		return "", err
+	}
+
+	// Build the file path
+	filePath := filepath.Join(t.Dirpath, namespace, key+".json")
+
+	// Read the file
+	value, err := os.ReadFile(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("key %q not found in namespace %q", key, namespace)
+		}
+		return "", fmt.Errorf("failed to read key file: %w", err)
+	}
+
+	return string(value), nil
 }
 
-// KvPut stores a value in general KV storage (not yet implemented)
+// KvPut stores a value in general KV storage using atomic file operations
 func (t *TarfilesStore) KvPut(namespace string, key string, value string) error {
-	return fmt.Errorf("KvPut not yet implemented for tarfiles store")
+	// Sanitize namespace and key to prevent directory traversal
+	namespace, key, err := sanitizeNamespaceAndKey(namespace, key)
+	if err != nil {
+		return err
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	// Create the namespace directory if it doesn't exist
+	namespaceDir := filepath.Join(t.Dirpath, namespace)
+	if err := os.MkdirAll(namespaceDir, 0755); err != nil {
+		return fmt.Errorf("failed to create namespace directory: %w", err)
+	}
+
+	// Write to file
+	file := filepath.Join(namespaceDir, key+".json")
+	if err := os.WriteFile(file, []byte(value), 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
 }
 
-// KvDel deletes a value from general KV storage (not yet implemented)
+// KvDel deletes a value from general KV storage
 func (t *TarfilesStore) KvDel(namespace string, key string) error {
-	return fmt.Errorf("KvDel not yet implemented for tarfiles store")
+	// Sanitize namespace and key to prevent directory traversal
+	namespace, key, err := sanitizeNamespaceAndKey(namespace, key)
+	if err != nil {
+		return err
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	// Build the file path
+	filePath := filepath.Join(t.Dirpath, namespace, key+".json")
+
+	// Remove the file
+	err = os.Remove(filePath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to delete key file: %w", err)
+	}
+
+	return nil
+}
+
+// sanitizeNamespaceAndKey sanitizes namespace and key to make them safe for filesystem operations
+func sanitizeNamespaceAndKey(namespace, key string) (string, string, error) {
+	if namespace == "" {
+		return "", "", fmt.Errorf("namespace cannot be empty")
+	}
+	if key == "" {
+		return "", "", fmt.Errorf("key cannot be empty")
+	}
+
+	// Replace problematic characters with safe alternatives
+	replacer := strings.NewReplacer(
+		"..", "_", // Replace parent directory references
+		"/", "_", // Replace forward slashes
+		"\\", "_", // Replace backslashes
+		"\x00", "_", // Replace null characters
+		":", "_", // Replace colons (problematic on some filesystems)
+		"*", "_", // Replace wildcards
+		"?", "_", // Replace wildcards
+		"\"", "_", // Replace quotes
+		"<", "_", // Replace less than
+		">", "_", // Replace greater than
+		"|", "_", // Replace pipe
+		"\n", "_", // Replace newlines
+		"\r", "_", // Replace carriage returns
+		"\t", "_", // Replace tabs
+	)
+
+	// Sanitize namespace and key
+	namespace = replacer.Replace(namespace)
+	key = replacer.Replace(key)
+
+	// Ensure they don't start with a dot (hidden files)
+	if strings.HasPrefix(namespace, ".") {
+		namespace = "_" + namespace[1:]
+	}
+	if strings.HasPrefix(key, ".") {
+		key = "_" + key[1:]
+	}
+
+	// Trim any leading/trailing spaces
+	namespace = strings.TrimSpace(namespace)
+	key = strings.TrimSpace(key)
+
+	// Final check - make sure they're not empty after sanitization
+	if namespace == "" {
+		return "", "", fmt.Errorf("namespace became empty after sanitization")
+	}
+	if key == "" {
+		return "", "", fmt.Errorf("key became empty after sanitization")
+	}
+
+	return namespace, key, nil
 }
