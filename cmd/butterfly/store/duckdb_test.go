@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -776,4 +778,230 @@ func TestDuckdbStore_BackfillRepo_EmptyStream(t *testing.T) {
 	posts, err := store.ListRecords(ctx, testDID, "app.bsky.feed.post", 0)
 	require.NoError(t, err)
 	assert.Len(t, posts, 0)
+}
+
+func TestDuckdbStore_KvStore_BasicOperations(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store := NewDuckdbStore(dbPath)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	// Test Put and Get
+	err = store.KvPut("namespace1", "key1", "value1")
+	require.NoError(t, err)
+
+	value, err := store.KvGet("namespace1", "key1")
+	require.NoError(t, err)
+	assert.Equal(t, "value1", value)
+
+	// Test updating existing key
+	err = store.KvPut("namespace1", "key1", "updated_value1")
+	require.NoError(t, err)
+
+	value, err = store.KvGet("namespace1", "key1")
+	require.NoError(t, err)
+	assert.Equal(t, "updated_value1", value)
+
+	// Test different namespace
+	err = store.KvPut("namespace2", "key1", "value2")
+	require.NoError(t, err)
+
+	value, err = store.KvGet("namespace2", "key1")
+	require.NoError(t, err)
+	assert.Equal(t, "value2", value)
+
+	// Verify namespace isolation
+	value, err = store.KvGet("namespace1", "key1")
+	require.NoError(t, err)
+	assert.Equal(t, "updated_value1", value)
+}
+
+func TestDuckdbStore_KvStore_GetNonExistent(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store := NewDuckdbStore(dbPath)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	// Test get non-existent key
+	_, err = store.KvGet("namespace1", "nonexistent")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+
+	// Test get from non-existent namespace
+	_, err = store.KvGet("nonexistent_namespace", "key1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestDuckdbStore_KvStore_Delete(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store := NewDuckdbStore(dbPath)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	// Put a value
+	err = store.KvPut("namespace1", "key1", "value1")
+	require.NoError(t, err)
+
+	// Verify it exists
+	value, err := store.KvGet("namespace1", "key1")
+	require.NoError(t, err)
+	assert.Equal(t, "value1", value)
+
+	// Delete it
+	err = store.KvDel("namespace1", "key1")
+	require.NoError(t, err)
+
+	// Verify it's gone
+	_, err = store.KvGet("namespace1", "key1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+
+	// Delete non-existent key should not error
+	err = store.KvDel("namespace1", "nonexistent")
+	require.NoError(t, err)
+
+	// Delete from non-existent namespace should not error
+	err = store.KvDel("nonexistent_namespace", "key1")
+	require.NoError(t, err)
+}
+
+func TestDuckdbStore_KvStore_SpecialCharacters(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store := NewDuckdbStore(dbPath)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	// Test with special characters in namespace, key, and value
+	specialNamespace := "namespace:with:colons"
+	specialKey := "key/with/slashes"
+	specialValue := `{"json": "value", "with": "quotes 'and' \"escapes\"", "newline": "test\nvalue"}`
+
+	err = store.KvPut(specialNamespace, specialKey, specialValue)
+	require.NoError(t, err)
+
+	value, err := store.KvGet(specialNamespace, specialKey)
+	require.NoError(t, err)
+	assert.Equal(t, specialValue, value)
+
+	// Test with empty string value
+	err = store.KvPut("namespace1", "emptykey", "")
+	require.NoError(t, err)
+
+	value, err = store.KvGet("namespace1", "emptykey")
+	require.NoError(t, err)
+	assert.Equal(t, "", value)
+}
+
+func TestDuckdbStore_KvStore_LargeValues(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store := NewDuckdbStore(dbPath)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	// Test with large value (1MB)
+	largeValue := strings.Repeat("a", 1024*1024)
+	
+	err = store.KvPut("namespace1", "largekey", largeValue)
+	require.NoError(t, err)
+
+	value, err := store.KvGet("namespace1", "largekey")
+	require.NoError(t, err)
+	assert.Equal(t, largeValue, value)
+}
+
+func TestDuckdbStore_KvStore_Persistence(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	// Create store and add data
+	store1 := NewDuckdbStore(dbPath)
+	ctx := context.Background()
+	err := store1.Setup(ctx)
+	require.NoError(t, err)
+
+	err = store1.KvPut("namespace1", "key1", "value1")
+	require.NoError(t, err)
+	err = store1.KvPut("namespace2", "key2", "value2")
+	require.NoError(t, err)
+
+	store1.Close()
+
+	// Create new store instance with same DB path
+	store2 := NewDuckdbStore(dbPath)
+	err = store2.Setup(ctx)
+	require.NoError(t, err)
+	defer store2.Close()
+
+	// Verify data persisted
+	value, err := store2.KvGet("namespace1", "key1")
+	require.NoError(t, err)
+	assert.Equal(t, "value1", value)
+
+	value, err = store2.KvGet("namespace2", "key2")
+	require.NoError(t, err)
+	assert.Equal(t, "value2", value)
+}
+
+func TestDuckdbStore_KvStore_ConcurrentAccess(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store := NewDuckdbStore(dbPath)
+
+	ctx := context.Background()
+	err := store.Setup(ctx)
+	require.NoError(t, err)
+	defer store.Close()
+
+	// Test concurrent writes to different keys
+	var wg sync.WaitGroup
+	numGoroutines := 10
+	numOperations := 100
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(goroutineID int) {
+			defer wg.Done()
+			for j := 0; j < numOperations; j++ {
+				key := fmt.Sprintf("key_%d_%d", goroutineID, j)
+				value := fmt.Sprintf("value_%d_%d", goroutineID, j)
+				err := store.KvPut("concurrent_namespace", key, value)
+				assert.NoError(t, err)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Verify all values were written correctly
+	for i := 0; i < numGoroutines; i++ {
+		for j := 0; j < numOperations; j++ {
+			key := fmt.Sprintf("key_%d_%d", i, j)
+			expectedValue := fmt.Sprintf("value_%d_%d", i, j)
+			
+			value, err := store.KvGet("concurrent_namespace", key)
+			require.NoError(t, err)
+			assert.Equal(t, expectedValue, value)
+		}
+	}
 }
