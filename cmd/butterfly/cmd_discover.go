@@ -145,15 +145,14 @@ func runDiscover(c *cli.Context) error {
 
 	// Resolve all results
 	fmt.Printf("Discovered %d repositories\n", len(result.Dids))
+	fmt.Println("Resolving identities...")
 	for _, did := range result.Dids {
 		_, err := resolver.ResolveDID(ctx, did)
 		if err != nil {
 			fmt.Printf("Failed to resolve %s: %v", did, err)
 		}
 	}
-
-	v, err := resolver.ResolveDID(ctx, "did:plc:upo6iq6ekh66d4mbhmiy6se4")
-	fmt.Println(v)
+	fmt.Println("Done!")
 
 	return nil
 }

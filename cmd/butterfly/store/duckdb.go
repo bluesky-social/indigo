@@ -89,6 +89,26 @@ func (d *DuckdbStore) Setup(ctx context.Context) error {
 		}
 	}
 
+	// Create KV store table
+	createKVTableSQL := `
+	CREATE TABLE IF NOT EXISTS kvstore (
+		namespace VARCHAR NOT NULL,
+		key VARCHAR NOT NULL,
+		value TEXT NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (namespace, key)
+	)`
+
+	if _, err := d.db.ExecContext(ctx, createKVTableSQL); err != nil {
+		return fmt.Errorf("failed to create kvstore table: %w", err)
+	}
+
+	// Create compound index for KV store
+	if _, err := d.db.ExecContext(ctx, "CREATE INDEX IF NOT EXISTS idx_kvstore_namespace_key ON kvstore(namespace, key)"); err != nil {
+		return fmt.Errorf("failed to create kvstore index: %w", err)
+	}
+
 	// Prepare statements
 	d.insertStmt, err = d.db.PrepareContext(ctx, `
 		INSERT INTO records (did, collection, rkey, cid, rev, record, deleted, updated_at)
@@ -478,17 +498,60 @@ func (d *DuckdbStore) GetStats(ctx context.Context) (map[string]any, error) {
 	return stats, nil
 }
 
-// KvGet retrieves a value from general KV storage (not yet implemented)
+// KvGet retrieves a value from general KV storage
 func (d *DuckdbStore) KvGet(namespace string, key string) (string, error) {
-	return "", fmt.Errorf("KvGet not yet implemented for duckdb store")
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	var value string
+	err := d.db.QueryRow(
+		"SELECT value FROM kvstore WHERE namespace = ? AND key = ?",
+		namespace, key,
+	).Scan(&value)
+
+	if err == sql.ErrNoRows {
+		return "", fmt.Errorf("key %q not found in namespace %q", key, namespace)
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to query kvstore: %w", err)
+	}
+
+	return value, nil
 }
 
-// KvPut stores a value in general KV storage (not yet implemented)
+// KvPut stores a value in general KV storage
 func (d *DuckdbStore) KvPut(namespace string, key string, value string) error {
-	return fmt.Errorf("KvPut not yet implemented for duckdb store")
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	_, err := d.db.Exec(`
+		INSERT INTO kvstore (namespace, key, value, updated_at)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT (namespace, key) DO UPDATE SET
+			value = excluded.value,
+			updated_at = excluded.updated_at
+	`, namespace, key, value, time.Now())
+
+	if err != nil {
+		return fmt.Errorf("failed to insert/update kvstore: %w", err)
+	}
+
+	return nil
 }
 
-// KvDel deletes a value from general KV storage (not yet implemented)
+// KvDel deletes a value from general KV storage
 func (d *DuckdbStore) KvDel(namespace string, key string) error {
-	return fmt.Errorf("KvDel not yet implemented for duckdb store")
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	_, err := d.db.Exec(
+		"DELETE FROM kvstore WHERE namespace = ? AND key = ?",
+		namespace, key,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to delete from kvstore: %w", err)
+	}
+
+	return nil
 }

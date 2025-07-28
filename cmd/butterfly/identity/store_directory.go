@@ -101,8 +101,8 @@ func (d *StoreDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 		return "", fmt.Errorf("can not resolve handle: %w", identity.ErrInvalidHandle)
 	}
 	// start := time.Now() TODO
-	entry, err := getHandle(d.store, h)
-	if err == nil && !d.isHandleStale(entry) {
+	entry, _ := getHandle(d.store, h)
+	if entry != nil && !d.isHandleStale(entry) {
 		// TODO
 		// handleCacheHits.Inc()
 		// handleResolution.WithLabelValues("lru", "cached").Inc()
@@ -123,8 +123,8 @@ func (d *StoreDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 		select {
 		case <-val.(chan struct{}):
 			// The result should now be in the cache
-			entry, err := getHandle(d.store, h)
-			if err == nil && !d.isHandleStale(entry) {
+			entry, _ := getHandle(d.store, h)
+			if entry != nil && !d.isHandleStale(entry) {
 				return entry.DID, entry.Err
 			}
 			return "", fmt.Errorf("identity not found in cache after coalesce returned")
@@ -188,8 +188,8 @@ func (d *StoreDirectory) LookupDID(ctx context.Context, did syntax.DID) (*identi
 
 func (d *StoreDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax.DID) (*identity.Identity, bool, error) {
 	// start := time.Now() TODO
-	entry, err := getIdent(d.store, did)
-	if err == nil && !d.isIdentityStale(entry) {
+	entry, _ := getIdent(d.store, did)
+	if entry != nil && !d.isIdentityStale(entry) {
 		// TODO
 		// identityCacheHits.Inc()
 		// didResolution.WithLabelValues("lru", "cached").Inc()
@@ -210,8 +210,8 @@ func (d *StoreDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 		select {
 		case <-val.(chan struct{}):
 			// The result should now be in the cache
-			entry, err := getIdent(d.store, did)
-			if err == nil && !d.isIdentityStale(entry) {
+			entry, _ := getIdent(d.store, did)
+			if entry != nil && !d.isIdentityStale(entry) {
 				return entry.Identity, false, entry.Err
 			}
 			return nil, false, fmt.Errorf("identity not found in cache after coalesce returned")
@@ -299,17 +299,18 @@ func (d *StoreDirectory) Purge(ctx context.Context, atid syntax.AtIdentifier) er
 
 func getHandle(store store.Store, handle syntax.Handle) (*handleEntry, error) {
 	entryJSON, err := store.KvGet(handleCache, string(handle))
-	if entryJSON != "" {
-		var entry handleEntry
-		if err := json.Unmarshal([]byte(entryJSON), &entry); err != nil {
-			return nil, err
-		}
-		if err := validateHandleEntry(&entry); err != nil {
-			return nil, err
-		}
-		return &entry, nil
+	if entryJSON == "" {
+		return nil, err
 	}
-	return nil, err
+	var entry handleEntry
+	if err := json.Unmarshal([]byte(entryJSON), &entry); err != nil {
+		return nil, err
+	}
+	if err := validateHandleEntry(&entry); err != nil {
+		return nil, err
+	}
+	return &entry, nil
+
 }
 
 func putHandle(store store.Store, handle syntax.Handle, entry *handleEntry) error {
@@ -326,17 +327,17 @@ func delHandle(store store.Store, handle syntax.Handle) error {
 
 func getIdent(store store.Store, did syntax.DID) (*identityEntry, error) {
 	entryJSON, err := store.KvGet(identityCache, string(did))
-	if entryJSON != "" {
-		var entry identityEntry
-		if err := json.Unmarshal([]byte(entryJSON), &entry); err != nil {
-			return nil, err
-		}
-		if err := validateIdentityEntry(&entry); err != nil {
-			return nil, err
-		}
-		return &entry, nil
+	if entryJSON == "" {
+		return nil, err
 	}
-	return nil, err
+	var entry identityEntry
+	if err := json.Unmarshal([]byte(entryJSON), &entry); err != nil {
+		return nil, err
+	}
+	if err := validateIdentityEntry(&entry); err != nil {
+		return nil, err
+	}
+	return &entry, nil
 }
 
 func putIdent(store store.Store, did syntax.DID, entry *identityEntry) error {
