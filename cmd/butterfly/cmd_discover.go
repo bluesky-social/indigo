@@ -106,7 +106,7 @@ func runDiscover(c *cli.Context) error {
 	var s store.Store
 	switch storeMode {
 	case "stdout":
-		s = &store.StdoutStore{Mode: store.StdoutStoreModeStats}
+		s = &store.StdoutStore{Mode: store.StdoutStoreModePassthrough}
 	case "tarfiles":
 		s = store.NewTarfilesStore(storageDir)
 	case "duckdb":
@@ -151,6 +151,9 @@ func runDiscover(c *cli.Context) error {
 			fmt.Printf("Failed to resolve %s: %v", did, err)
 		}
 	}
+
+	v, err := resolver.ResolveDID(ctx, "did:plc:upo6iq6ekh66d4mbhmiy6se4")
+	fmt.Println(v)
 
 	return nil
 }

@@ -27,15 +27,15 @@ type StoreDirectory struct {
 }
 
 type handleEntry struct {
-	Updated time.Time
-	DID     syntax.DID
-	Err     error
+	Updated time.Time  `json:"updated"`
+	DID     syntax.DID `json:"did"`
+	Err     error      `json:"err"`
 }
 
 type identityEntry struct {
-	Updated  time.Time
-	Identity *identity.Identity
-	Err      error
+	Updated  time.Time          `json:"updated"`
+	Identity *identity.Identity `json:"identity"`
+	Err      error              `json:"err"`
 }
 
 // var _ identity.Directory = (*StoreDirectory)(nil) TODO is this needed?
@@ -300,9 +300,11 @@ func (d *StoreDirectory) Purge(ctx context.Context, atid syntax.AtIdentifier) er
 func getHandle(store store.Store, handle syntax.Handle) (*handleEntry, error) {
 	entryJSON, err := store.KvGet(handleCache, string(handle))
 	if entryJSON != "" {
-		// TODO - is this parse safe? do we need to be checking the output or anything?
 		var entry handleEntry
 		if err := json.Unmarshal([]byte(entryJSON), &entry); err != nil {
+			return nil, err
+		}
+		if err := validateHandleEntry(&entry); err != nil {
 			return nil, err
 		}
 		return &entry, nil
@@ -311,7 +313,6 @@ func getHandle(store store.Store, handle syntax.Handle) (*handleEntry, error) {
 }
 
 func putHandle(store store.Store, handle syntax.Handle, entry *handleEntry) error {
-	// TODO - is this right?
 	entryJSON, err := json.Marshal(entry)
 	if err != nil {
 		return err
@@ -326,9 +327,11 @@ func delHandle(store store.Store, handle syntax.Handle) error {
 func getIdent(store store.Store, did syntax.DID) (*identityEntry, error) {
 	entryJSON, err := store.KvGet(identityCache, string(did))
 	if entryJSON != "" {
-		// TODO - is this parse safe? do we need to be checking the output or anything?
 		var entry identityEntry
 		if err := json.Unmarshal([]byte(entryJSON), &entry); err != nil {
+			return nil, err
+		}
+		if err := validateIdentityEntry(&entry); err != nil {
 			return nil, err
 		}
 		return &entry, nil
@@ -337,7 +340,6 @@ func getIdent(store store.Store, did syntax.DID) (*identityEntry, error) {
 }
 
 func putIdent(store store.Store, did syntax.DID, entry *identityEntry) error {
-	// TODO - is this right?
 	entryJSON, err := json.Marshal(entry)
 	if err != nil {
 		return err
@@ -347,4 +349,24 @@ func putIdent(store store.Store, did syntax.DID, entry *identityEntry) error {
 
 func delIdent(store store.Store, did syntax.DID) error {
 	return store.KvDel(identityCache, string(did))
+}
+
+func validateHandleEntry(entry *handleEntry) error {
+	_, err := syntax.ParseDID(string(entry.DID))
+	if err != nil {
+		return fmt.Errorf("invalid handle entry: invalid did, %w", err)
+	}
+	return nil
+}
+
+func validateIdentityEntry(entry *identityEntry) error {
+	_, err := syntax.ParseDID(string(entry.Identity.DID))
+	if err != nil {
+		return fmt.Errorf("invalid identity entry: invalid did, %w", err)
+	}
+	_, err = syntax.ParseHandle(string(entry.Identity.Handle))
+	if err != nil {
+		return fmt.Errorf("invalid identity entry: invalid handle, %w", err)
+	}
+	return nil
 }
