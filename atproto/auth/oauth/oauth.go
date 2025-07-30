@@ -87,9 +87,18 @@ func (config *ClientConfig) IsConfidential() bool {
 	return config.PrivateKey != nil && config.KeyID != nil
 }
 
-func (config *ClientConfig) AddClientSecret(priv crypto.PrivateKey, keyID string) {
+func (config *ClientConfig) AddClientSecret(priv crypto.PrivateKey, keyID string) error {
+	switch priv.(type) {
+	case *crypto.PrivateKeyP256:
+		// pass
+	case *crypto.PrivateKeyK256:
+		return fmt.Errorf("only P-256 (ES256) private keys supported for atproto OAuth")
+	default:
+		return fmt.Errorf("unknown private key type: %T", priv)
+	}
 	config.PrivateKey = priv
 	config.KeyID = &keyID
+	return nil
 }
 
 // Returns a "JWKS" representation of public keys for the client. This can be returned as JSON, as part of client metadata.
@@ -142,7 +151,9 @@ func (config *ClientConfig) ClientMetadata() ClientMetadata {
 	}
 	if config.IsConfidential() {
 		m.TokenEndpointAuthMethod = strPtr("private_key_jwt")
-		m.TokenEndpointAuthSigningAlg = strPtr("ES256") // XXX
+		// NOTE: the key type is always ES256
+		m.TokenEndpointAuthSigningAlg = strPtr("ES256")
+
 		// TODO: need to include 'use' or 'key_ops' for JWKS in the client metadata doc?
 		//jwks := config.PublicJWKS()
 		//m.JWKS = &jwks
