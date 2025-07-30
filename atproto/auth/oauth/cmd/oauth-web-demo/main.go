@@ -82,7 +82,7 @@ func (s *Server) Homepage(w http.ResponseWriter, r *http.Request) {
 
 func runServer(cctx *cli.Context) error {
 
-	scope := "atproto transition:generic"
+	scopes := []string{"transition:generic"}
 	bind := ":8080"
 
 	// TODO: localhost dev mode if hostname is empty
@@ -91,13 +91,14 @@ func runServer(cctx *cli.Context) error {
 	if hostname == "" {
 		config = oauth.NewLocalhostConfig(
 			fmt.Sprintf("http://127.0.0.1%s/oauth/callback", bind),
-			scope,
+			scopes,
 		)
 		slog.Info("configuring localhost OAuth client", "CallbackURL", config.CallbackURL)
 	} else {
 		config = oauth.NewPublicConfig(
 			fmt.Sprintf("https://%s/oauth/client-metadata.json", hostname),
 			fmt.Sprintf("https://%s/oauth/callback", hostname),
+			scopes,
 		)
 	}
 
@@ -158,8 +159,7 @@ func strPtr(raw string) *string {
 func (s *Server) ClientMetadata(w http.ResponseWriter, r *http.Request) {
 	slog.Info("client metadata request", "url", r.URL, "host", r.Host)
 
-	scope := "atproto transition:generic"
-	meta := s.OAuth.Config.ClientMetadata(scope)
+	meta := s.OAuth.Config.ClientMetadata()
 	if s.OAuth.Config.IsConfidential() {
 		meta.JWKSUri = strPtr(fmt.Sprintf("https://%s/oauth/jwks.json", r.Host))
 	}
