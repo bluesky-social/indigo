@@ -283,7 +283,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 	pkceVerifier := fmt.Sprintf("%s%s%s", randomNonce(), randomNonce(), randomNonce())
 
 	// generate PKCE code challenge for use in PAR request
-	codeChallenge := S256CodeChallenge(pkceVerifier)
+	codeChallenge := s256CodeChallenge(pkceVerifier)
 
 	slog.Debug("preparing PAR", "client_id", app.Config.ClientID, "callback_url", app.Config.CallbackURL)
 	body := PushedAuthRequest{
