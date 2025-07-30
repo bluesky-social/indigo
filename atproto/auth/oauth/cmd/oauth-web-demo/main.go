@@ -256,7 +256,8 @@ func (s *Server) OAuthRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := oauthSess.RefreshTokens(ctx); err != nil {
+	_, err = oauthSess.RefreshTokens(ctx)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -266,7 +267,14 @@ func (s *Server) OAuthRefresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) OAuthLogout(w http.ResponseWriter, r *http.Request) {
-	// XXX: delete session from auth store
+
+	// delete session from auth store
+	did := s.currentSessionDID(r)
+	if did != nil {
+		if err := s.OAuth.Store.DeleteSession(r.Context(), *did); err != nil {
+			slog.Error("failed to delete session", "did", did, "err", err)
+		}
+	}
 
 	// wipe all secure cookie session data
 	sess, _ := s.CookieStore.Get(r, "oauth-demo")
@@ -276,6 +284,7 @@ func (s *Server) OAuthLogout(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	slog.Info("logged out")
 	http.Redirect(w, r, "/", http.StatusFound)
 }

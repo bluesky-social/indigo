@@ -162,9 +162,19 @@ func (app *ClientApp) ResumeSession(ctx context.Context, did syntax.DID) (*Clien
 		Config: app.Config,
 		Data:   sd,
 	}
-	// XXX: configure token refresh callback
 
-	// XXX: refactor this in to store layer?
+	// configure callback for updating session data
+	if app.Store != nil {
+		sess.PersistSessionCallback = func(ctx context.Context, data *ClientSessionData) {
+			slog.Debug("storing updated session data", "did", data.AccountDID)
+			err := app.Store.SaveSession(ctx, *data)
+			if err != nil {
+				slog.Error("failed to store updated session data", "did", data.AccountDID, "err", err)
+			}
+		}
+	}
+
+	// XXX: refactor this in to ClientAuthStore layer?
 	priv, err := crypto.ParsePrivateMultibase(sd.DpopPrivateKeyMultibase)
 	if err != nil {
 		return nil, err
