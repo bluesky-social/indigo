@@ -137,20 +137,18 @@ func runServer(cctx *cli.Context) error {
 	return nil
 }
 
-func (s *Server) loadOAuthSession(r *http.Request) (*oauth.ClientSession, error) {
-	ctx := r.Context()
-
+func (s *Server) currentSessionDID(r *http.Request) *syntax.DID {
 	sess, _ := s.CookieStore.Get(r, "oauth-demo")
 	accountDID, ok := sess.Values["account_did"].(string)
 	if !ok || accountDID == "" {
-		return nil, fmt.Errorf("not authenticated")
+		return nil
 	}
 	did, err := syntax.ParseDID(accountDID)
 	if err != nil {
-		return nil, err
+		return nil
 	}
 
-	return s.OAuth.ResumeSession(ctx, did)
+	return &did
 }
 
 func strPtr(raw string) *string {
@@ -245,9 +243,15 @@ func (s *Server) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 func (s *Server) OAuthRefresh(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	oauthSess, err := s.loadOAuthSession(r)
-	if err != nil {
+	did := s.currentSessionDID(r)
+	if did == nil {
 		// TODO: suppowed to set a WWW header; and could redirect?
+		http.Error(w, "not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	oauthSess, err := s.OAuth.ResumeSession(ctx, *did)
+	if err != nil {
 		http.Error(w, "not authenticated", http.StatusUnauthorized)
 		return
 	}
@@ -286,7 +290,14 @@ func (s *Server) Post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	oauthSess, err := s.loadOAuthSession(r)
+	did := s.currentSessionDID(r)
+	if did == nil {
+		// TODO: suppowed to set a WWW header; and could redirect?
+		http.Error(w, "not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	oauthSess, err := s.OAuth.ResumeSession(ctx, *did)
 	if err != nil {
 		http.Error(w, "not authenticated", http.StatusUnauthorized)
 		return
