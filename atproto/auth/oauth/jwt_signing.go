@@ -8,13 +8,11 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// TODO: this is just copied from indigo:atproto/auth/jwt_signing.go
-// Need to decide whether to make this a public interface or what... a bit worried about import loops. Maybe part of crypto package?
+// NOTE: this file is copied from indigo:atproto/auth/jwt_signing.go, with the K-256 (ES256) support removed
 
 var (
-	signingMethodES256K *signingMethodAtproto
-	signingMethodES256  *signingMethodAtproto
-	supportedAlgs       []string
+	signingMethodES256 *signingMethodAtproto
+	supportedAlgs      []string
 )
 
 // Implementation of jwt.SigningMethod for the `atproto/crypto` types.
@@ -31,15 +29,6 @@ func init() {
 	// tells JWT library to serialize 'aud' as regular string, not array of strings (when signing)
 	jwt.MarshalSingleStringAsArray = false
 
-	signingMethodES256K = &signingMethodAtproto{
-		alg:      "ES256K",
-		hash:     crypto.SHA256,
-		toOutSig: toES256K,
-		sigLen:   64,
-	}
-	jwt.RegisterSigningMethod(signingMethodES256K.Alg(), func() jwt.SigningMethod {
-		return signingMethodES256K
-	})
 	signingMethodES256 = &signingMethodAtproto{
 		alg:      "ES256",
 		hash:     crypto.SHA256,
@@ -49,7 +38,7 @@ func init() {
 	jwt.RegisterSigningMethod(signingMethodES256.Alg(), func() jwt.SigningMethod {
 		return signingMethodES256
 	})
-	supportedAlgs = []string{signingMethodES256K.Alg(), signingMethodES256.Alg()}
+	supportedAlgs = []string{signingMethodES256.Alg()}
 }
 
 func (sm *signingMethodAtproto) Verify(signingString string, sig []byte, key interface{}) error {
@@ -83,10 +72,6 @@ func (sm *signingMethodAtproto) Alg() string {
 	return sm.alg
 }
 
-func toES256K(sig []byte) []byte {
-	return sig[:64]
-}
-
 func toES256(sig []byte) []byte {
 	return sig[:64]
 }
@@ -96,7 +81,7 @@ func keySigningMethod(key atcrypto.PrivateKey) (jwt.SigningMethod, error) {
 	case *atcrypto.PrivateKeyP256:
 		return signingMethodES256, nil
 	case *atcrypto.PrivateKeyK256:
-		return signingMethodES256K, nil
+		return nil, fmt.Errorf("only P-256 (ES256) private keys supported for atproto OAuth")
 	}
 	return nil, fmt.Errorf("unknown key type: %T", key)
 }

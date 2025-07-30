@@ -33,7 +33,9 @@ config := oauth.NewPublicConfig(
 	    if err != nil {
 	        return err
 	    }
-	    config.AddClientSecret(priv, "example1")
+	    if err := config.AddClientSecret(priv, "example1"); err != nil {
+	        return err
+	    }
 	}
 
 oauthApp := oauth.NewClientApp(&config, oauth.NewMemStore())
