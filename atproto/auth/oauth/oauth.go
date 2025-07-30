@@ -33,6 +33,8 @@ type ClientApp struct {
 type ClientConfig struct {
 	ClientID    string
 	CallbackURL string
+	// set of scope strings; should not include "atproto"
+	Scopes []string
 
 	UserAgent string
 
@@ -58,26 +60,26 @@ func NewClientApp(config *ClientConfig, store ClientAuthStore) *ClientApp {
 	return app
 }
 
-func NewPublicConfig(clientID, callbackURL string) ClientConfig {
+func NewPublicConfig(clientID, callbackURL string, scopes []string) ClientConfig {
 	c := ClientConfig{
 		ClientID:    clientID,
 		CallbackURL: callbackURL,
 		UserAgent:   "indigo-sdk",
+		Scopes:      scopes,
 	}
 	return c
 }
 
-func NewLocalhostConfig(callbackURL, scope string) ClientConfig {
-	slog.Info("NewLocalhostConfig", "callbackURL", callbackURL)
+func NewLocalhostConfig(callbackURL string, scopes []string) ClientConfig {
 	params := make(url.Values)
 	params.Set("redirect_uri", callbackURL)
-	params.Set("scope", scope)
+	params.Set("scope", scopeStr(scopes))
 	c := ClientConfig{
 		ClientID:    fmt.Sprintf("http://localhost?%s", params.Encode()),
 		CallbackURL: callbackURL,
 		UserAgent:   "indigo-sdk",
+		Scopes:      scopes,
 	}
-	slog.Info("DONE NewLocalhostConfig", "callbackURL", c.CallbackURL)
 	return c
 }
 
@@ -116,18 +118,23 @@ func (config *ClientConfig) PublicJWKS() JWKS {
 	return jwks
 }
 
+// helper to turn a list of scope strings in to a single space-separated scope string
+func scopeStr(scopes []string) string {
+	if len(scopes) == 0 {
+		return "atproto"
+	}
+	return "atproto " + strings.Join(scopes, " ")
+}
+
 // Returns a ClientMetadata struct with the required fields populated based on this client configuration. Clients may want to populate additional metadata fields on top of this response.
 //
 // NOTE: confidential clients currently must provide JWKSUri after the fact
-func (config *ClientConfig) ClientMetadata(scope string) ClientMetadata {
-	if scope == "" {
-		scope = "atproto"
-	}
+func (config *ClientConfig) ClientMetadata() ClientMetadata {
 	m := ClientMetadata{
 		ClientID:                config.ClientID,
 		ApplicationType:         strPtr("web"),
 		GrantTypes:              []string{"authorization_code", "refresh_token"},
-		Scope:                   scope,
+		Scope:                   scopeStr(config.Scopes),
 		ResponseTypes:           []string{"code"},
 		RedirectURIs:            []string{config.CallbackURL},
 		DpopBoundAccessTokens:   true,
@@ -497,8 +504,7 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, username string) (strin
 		return "", fmt.Errorf("fetching auth server metadata: %w", err)
 	}
 
-	// XXX: scope from config
-	scope := "atproto transition:generic"
+	scope := scopeStr(app.Config.Scopes)
 	info, err := app.SendAuthRequest(ctx, authserverMeta, scope, username)
 	if err != nil {
 		return "", fmt.Errorf("auth request failed: %w", err)
