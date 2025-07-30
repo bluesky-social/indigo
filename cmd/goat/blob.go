@@ -9,6 +9,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/xrpc"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/urfave/cli/v2"
 )
@@ -105,22 +106,32 @@ func runBlobExport(cctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
+
+		group, gctx := errgroup.WithContext(ctx)
+
 		for _, cidStr := range resp.Cids {
-			blobPath := topDir + "/" + cidStr
-			if _, err := os.Stat(blobPath); err == nil {
-				fmt.Printf("%s\texists\n", blobPath)
-				continue
-			}
-			blobBytes, err := comatproto.SyncGetBlob(ctx, &xrpcc, cidStr, ident.DID.String())
-			if err != nil {
-				fmt.Printf("%s\tfailed %s\n", blobPath, err)
-				continue
-			}
-			if err := os.WriteFile(blobPath, blobBytes, 0666); err != nil {
-				return err
-			}
-			fmt.Printf("%s\tdownloaded\n", blobPath)
+			group.Go(func() error {
+				blobPath := topDir + "/" + cidStr
+				if _, err := os.Stat(blobPath); err == nil {
+					fmt.Printf("%s\texists\n", blobPath)
+					return nil
+				}
+				blobBytes, err := comatproto.SyncGetBlob(gctx, &xrpcc, cidStr, ident.DID.String())
+				if err != nil {
+					return fmt.Errorf("%s failed: %w\n", blobPath, err)
+				}
+				if err := os.WriteFile(blobPath, blobBytes, 0666); err != nil {
+					return err
+				}
+				fmt.Printf("%s\tdownloaded\n", blobPath)
+				return nil
+			})
 		}
+
+		if err := group.Wait(); err != nil {
+			return fmt.Errorf("blob download error, export may be incomplete: %w", err)
+		}
+
 		if resp.Cursor != nil && *resp.Cursor != "" {
 			cursor = *resp.Cursor
 		} else {
