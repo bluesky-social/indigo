@@ -20,7 +20,7 @@ import (
 	"github.com/google/go-querystring/query"
 )
 
-type RefreshCallback = func(ctx context.Context, data ClientSessionData)
+type PersistSessionCallback = func(ctx context.Context, data *ClientSessionData)
 
 // Persisted information about an OAuth session. Used to resume an active session.
 type ClientSessionData struct {
@@ -62,24 +62,30 @@ type ClientSession struct {
 	Data           *ClientSessionData
 	DpopPrivateKey crypto.PrivateKey
 
-	RefreshCallback RefreshCallback
+	PersistSessionCallback PersistSessionCallback
 
 	// Lock which protects concurrent access to session data (eg, access and refresh tokens)
 	lk sync.RWMutex
 }
 
-func (sess *ClientSession) RefreshTokens(ctx context.Context) error {
+// Requests new tokens from auth server, and returns the new access token on success.
+//
+// Internally takes a lock on session data around the entire refresh process, including retries. Persists data using PersistSessionCallback if configured.
+func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
+	sess.lk.Lock()
+	defer sess.lk.Unlock()
 
 	body := RefreshTokenRequest{
 		ClientID:     sess.Config.ClientID,
 		GrantType:    "authorization_code",
 		RefreshToken: sess.Data.RefreshToken,
 	}
+	tokenURL := sess.Data.AuthServerTokenEndpoint
 
 	if sess.Config.IsConfidential() {
 		clientAssertion, err := sess.Config.NewClientAssertion(sess.Data.AuthServerURL)
 		if err != nil {
-			return err
+			return "", err
 		}
 		body.ClientAssertionType = &CLIENT_ASSERTION_JWT_BEARER
 		body.ClientAssertion = &clientAssertion
@@ -87,76 +93,92 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) error {
 
 	vals, err := query.Values(body)
 	if err != nil {
-		return err
+		return "", err
 	}
 	bodyBytes := []byte(vals.Encode())
 
-	// XXX: persist this back to the data?
-	dpopServerNonce := sess.Data.DpopAuthServerNonce
-	tokenURL := sess.Data.AuthServerTokenEndpoint
-
 	var resp *http.Response
 	for range 2 {
-		dpopJWT, err := NewAuthDPoP("POST", tokenURL, dpopServerNonce, sess.DpopPrivateKey)
+		dpopJWT, err := NewAuthDPoP("POST", sess.Data.AuthServerTokenEndpoint, sess.Data.DpopAuthServerNonce, sess.DpopPrivateKey)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, bytes.NewBuffer(bodyBytes))
 		if err != nil {
-			return err
+			return "", err
 		}
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Set("DPoP", dpopJWT)
 
 		resp, err = sess.Client.Do(req)
 		if err != nil {
-			return err
+			return "", err
 		}
 
-		// check if a nonce was provided
-		dpopServerNonce = resp.Header.Get("DPoP-Nonce")
-		if resp.StatusCode == 400 && dpopServerNonce != "" {
-			// TODO: also check that body is JSON with an 'error' string field value of 'use_dpop_nonce'
+		// always check if a new DPoP nonce was provided, and proactively update session data (even if there was not an explicit error)
+		dpopNonceHdr := resp.Header.Get("DPoP-Nonce")
+		if dpopNonceHdr != "" && dpopNonceHdr != sess.Data.DpopAuthServerNonce {
+			sess.Data.DpopAuthServerNonce = dpopNonceHdr
+		}
+
+		// check for an error condition caused by an out of date DPoP nonce
+		// note that the HTTP status code would be 400 Bad Request on token endpoint, not 401 Unauthorized like it would be on Resource Server requests
+		if resp.StatusCode == http.StatusBadRequest && dpopNonceHdr != "" {
+
+			// parse the error body to confirm the error type
 			var errResp map[string]any
 			if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-				slog.Warn("initial token request failed", "authServer", tokenURL, "err", err, "statusCode", resp.StatusCode)
-			} else {
-				slog.Warn("initial token request failed", "authServer", tokenURL, "resp", errResp, "statusCode", resp.StatusCode)
+				slog.Warn("token refresh failed, and could not parse response body", "authServer", tokenURL, "err", err, "statusCode", resp.StatusCode)
+				resp.Body.Close()
+				return "", fmt.Errorf("token refresh failed: HTTP %d", resp.StatusCode)
+			} else if errResp["error"] != "use_dpop_nonce" {
+				slog.Warn("token refresh failed", "authServer", tokenURL, "body", errResp, "statusCode", resp.StatusCode)
+				return "", fmt.Errorf("token refresh failed: %s", errResp["error"])
 			}
 
-			// loop around try again
+			// already updated nonce value above; loop around and try again
+			// NOTE: having already parsed the body means that the error handling below could fail if we call out of 'for' loop
 			resp.Body.Close()
 			continue
 		}
+
 		// otherwise process result
 		break
 	}
 
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]any
 		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			slog.Warn("initial token request failed", "authServer", tokenURL, "err", err, "statusCode", resp.StatusCode)
-		} else {
-			slog.Warn("initial token request failed", "authServer", tokenURL, "resp", errResp, "statusCode", resp.StatusCode)
+			slog.Warn("token refresh failed", "authServer", tokenURL, "err", err, "statusCode", resp.StatusCode)
+			return "", fmt.Errorf("token refresh failed: HTTP %d", resp.StatusCode)
 		}
-		return fmt.Errorf("initial token request failed: HTTP %d", resp.StatusCode)
+		slog.Warn("token refresh failed", "authServer", tokenURL, "body", errResp, "statusCode", resp.StatusCode)
+		return "", fmt.Errorf("token refresh failed: %s", errResp["error"])
 	}
 
 	var tokenResp TokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return fmt.Errorf("token response failed to decode: %w", err)
+		return "", fmt.Errorf("token response failed to decode: %w", err)
 	}
-	// XXX: more validation of response?
+	// TODO: more validation of token refresh response?
 
 	sess.Data.AccessToken = tokenResp.AccessToken
 	sess.Data.RefreshToken = tokenResp.RefreshToken
 
-	return nil
+	// persist updated data (tokens and possibly nonce)
+	if sess.PersistSessionCallback != nil {
+		sess.PersistSessionCallback(ctx, sess.Data)
+	}
+
+	return sess.Data.AccessToken, nil
 }
 
-func (sess *ClientSession) NewAccessDPoP(method, reqURL string) (string, error) {
+// Constructs and signs a DPoP JWT to include in request header to Host (aka Resource Server, aka PDS). These tokens are different from those used with Auth Server token endpoints (even if the PDS is filling both roles)
+func (sess *ClientSession) NewHostDPoP(method, reqURL string) (string, error) {
+	sess.lk.RLock()
+	defer sess.lk.RUnlock()
 
 	ath := S256CodeChallenge(sess.Data.AccessToken)
 	claims := dpopClaims{
@@ -205,18 +227,37 @@ func dpopURL(u *url.URL) string {
 	return u2.String()
 }
 
+// Parses a WWW-Authenticate response header to see if DPoP nonce update is indicated
+func isNonceUpdateHeader(hdr string) bool {
+	// Example from RFC9449:
+	// WWW-Authenticate: DPoP error="use_dpop_nonce", error_description="Resource server requires nonce in DPoP proof"
+	return strings.Contains(hdr, "error=\"use_dpop_nonce\"")
+}
+
+// Parses a WWW-Authenticate response header to see if access token has expired (needs refresh)
+func isExpiredAccessTokenHeader(hdr string) bool {
+	// Example from OAuth 2.1 draft:
+	// WWW-Authenticate: Bearer error="invalid_token" error_description="The access token expired"
+	// TODO: should this also look for "expired"?
+	return strings.Contains(hdr, "error=\"invalid_token\"")
+}
+
+// Sends API request to OAuth Resource Server (PDS), using access token and DPoP.
+//
+// Automatically handles DPoP nonce updates and token refresh as needed, based on the response status code and `WWW-Authenticate` header.
 func (sess *ClientSession) DoWithAuth(c *http.Client, req *http.Request, endpoint syntax.NSID) (*http.Response, error) {
 
 	durl := dpopURL(req.URL)
 
+	//accessToken, dpopNonce := sess.GetHostData()
 	// XXX: fetch with mutex lock
 	accessToken := sess.Data.AccessToken
-	originalNonce := sess.Data.DpopHostNonce
-	dpopNonce := originalNonce
+	dpopNonce := sess.Data.DpopHostNonce
 
+	// this method may need to retry twice, once for DPoP nonce update and once for token refresh
 	var resp *http.Response
 	for range 3 {
-		dpopJWT, err := sess.NewAccessDPoP(req.Method, durl)
+		dpopJWT, err := sess.NewHostDPoP(req.Method, durl)
 		if err != nil {
 			return nil, err
 		}
@@ -228,60 +269,60 @@ func (sess *ClientSession) DoWithAuth(c *http.Client, req *http.Request, endpoin
 			return nil, err
 		}
 
-		// on success, or most errors, just return HTTP response
-		if resp.StatusCode != http.StatusBadRequest || !strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
+		// on Success, or many types of error, just return HTTP response
+		// "Unauthorized" is HTTP status code 401
+		if resp.StatusCode != http.StatusUnauthorized || resp.Header.Get("WWW-Authenticate") == "" {
 			return resp, nil
 		}
 
-		// parse the error response body (JSON) and check the error name
-		defer resp.Body.Close()
-		var eb client.ErrorBody
-		if err := json.NewDecoder(resp.Body).Decode(&eb); err != nil {
-			return nil, &client.APIError{StatusCode: resp.StatusCode}
-		}
+		authHdr := resp.Header.Get("WWW-Authenticate")
+		dpopNonceHdr := resp.Header.Get("DPoP-Nonce")
 
-		// if DPoP nonce was stale, simply retry
-		if eb.Name == "use_dpop_nonce" && resp.Header.Get("DPoP-Nonce") != "" {
-			dpopNonce = resp.Header.Get("DPoP-Nonce")
-			if dpopNonce != originalNonce {
-				// XXX: persist new nonce value via callback
+		// if DPoP nonce changed, update and retry request
+		if isNonceUpdateHeader(authHdr) && dpopNonceHdr != "" {
+			// TODO: validate or normalize dpopNonceHdr in some way? eg minimum length
+			if dpopNonceHdr == dpopNonce {
+				return nil, fmt.Errorf("OAuth PDS DPoP nonce failure, but no new nonce supplied")
 			}
-
+			// XXX: persist new nonce value via callback
+			sess.Data.DpopHostNonce = dpopNonceHdr
+			dpopNonce = dpopNonceHdr
+			// retry request
 			retry := req.Clone(req.Context())
 			if req.GetBody != nil {
 				retry.Body, err = req.GetBody()
 				if err != nil {
-					return nil, fmt.Errorf("API request retry GetBody failed: %w", err)
+					return nil, fmt.Errorf("GetBody failed when retrying API request: %w", err)
 				}
 			}
 			req = retry
 			continue
 		}
 
-		// if this is anything other than an expired token, bail out now
-		if eb.Name != "ExpiredToken" {
-			return nil, eb.APIError(resp.StatusCode)
-		}
-
-		if err := sess.RefreshTokens(req.Context()); err != nil {
-			return nil, err
-		}
-
-		// XXX: fetch with mutex lock
-		accessToken = sess.Data.AccessToken
-
-		retry := req.Clone(req.Context())
-		if req.GetBody != nil {
-			retry.Body, err = req.GetBody()
+		// if access token expired, refresh and retry
+		if isExpiredAccessTokenHeader(authHdr) {
+			accessToken, err = sess.RefreshTokens(req.Context())
 			if err != nil {
-				return nil, fmt.Errorf("API request retry GetBody failed: %w", err)
+				return nil, fmt.Errorf("failed to refresh OAuth tokens: %w", err)
 			}
+
+			retry := req.Clone(req.Context())
+			if req.GetBody != nil {
+				retry.Body, err = req.GetBody()
+				if err != nil {
+					return nil, fmt.Errorf("GetBody failed when retrying API request: %w", err)
+				}
+			}
+			req = retry
+			continue
 		}
-		req = retry
-		continue
+
+		// otherwise, this was some other type of auth failure; just return the full response
+		// NOTE: in theory we could return an APIError here instead
+		return resp, nil
 	}
 
-	return nil, fmt.Errorf("OAuth client ran out of retries")
+	return nil, fmt.Errorf("OAuth client ran out of request retries")
 }
 
 func (sess *ClientSession) APIClient() *client.APIClient {
