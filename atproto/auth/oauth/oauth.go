@@ -185,7 +185,7 @@ func (app *ClientApp) ResumeSession(ctx context.Context, did syntax.DID) (*Clien
 		}
 	}
 
-	// XXX: refactor this in to ClientAuthStore layer?
+	// TODO: refactor this in to ClientAuthStore layer?
 	priv, err := crypto.ParsePrivateMultibase(sd.DpopPrivateKeyMultibase)
 	if err != nil {
 		return nil, err
@@ -277,8 +277,6 @@ func NewAuthDPoP(httpMethod, url, dpopNonce string, privKey crypto.PrivateKey) (
 
 // Sends PAR request to auth server
 func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, scope, loginHint string) (*AuthRequestData, error) {
-	// TODO: pass as argument?
-	httpClient := http.DefaultClient
 
 	parURL := authMeta.PushedAuthorizationRequestEndpoint
 	state := randomNonce()
@@ -287,7 +285,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 	// generate PKCE code challenge for use in PAR request
 	codeChallenge := S256CodeChallenge(pkceVerifier)
 
-	slog.Info("preparing PAR", "client_id", app.Config.ClientID, "callback_url", app.Config.CallbackURL)
+	slog.Debug("preparing PAR", "client_id", app.Config.ClientID, "callback_url", app.Config.CallbackURL)
 	body := PushedAuthRequest{
 		ClientID:            app.Config.ClientID,
 		State:               state,
@@ -317,6 +315,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 	}
 	bodyBytes := []byte(vals.Encode())
 
+	// when starting a new session, we don't know the DPoP nonce yet
 	dpopServerNonce := ""
 
 	// create new key for the session
@@ -325,7 +324,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		return nil, err
 	}
 
-	slog.Info("sending auth request", "scope", scope, "state", state, "redirectURI", app.Config.CallbackURL)
+	slog.Debug("sending auth request", "scope", scope, "state", state, "redirectURI", app.Config.CallbackURL)
 
 	var resp *http.Response
 	for range 2 {
@@ -341,32 +340,41 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Set("DPoP", dpopJWT)
 
-		resp, err = httpClient.Do(req)
+		resp, err = app.Client.Do(req)
 		if err != nil {
 			return nil, err
 		}
 
-		// check if a nonce was provided
+		// update DPoP Nonce
 		dpopServerNonce = resp.Header.Get("DPoP-Nonce")
-		if resp.StatusCode == 400 && dpopServerNonce != "" {
-			// TODO: also check that body is JSON with an 'error' string field value of 'use_dpop_nonce'
+
+		// check for an error condition caused by an out of date DPoP nonce
+		// note that the HTTP status code would be 400 Bad Request on token endpoint, not 401 Unauthorized like it would be on Resource Server requests
+		if resp.StatusCode == http.StatusBadRequest && dpopServerNonce != "" {
+
+			// parse the error body to confirm the error type
 			var errResp map[string]any
 			if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-				slog.Warn("PAR request failed", "authServer", parURL, "err", err, "statusCode", resp.StatusCode)
-			} else {
-				slog.Warn("PAR request failed", "authServer", parURL, "resp", errResp, "statusCode", resp.StatusCode)
+				slog.Warn("PAR request failed, and could not parse response body", "authServer", parURL, "err", err, "statusCode", resp.StatusCode)
+				resp.Body.Close()
+				return nil, fmt.Errorf("token refresh failed: HTTP %d", resp.StatusCode)
+			} else if errResp["error"] != "use_dpop_nonce" {
+				slog.Warn("PAR request failed", "authServer", parURL, "body", errResp, "statusCode", resp.StatusCode)
+				return nil, fmt.Errorf("PAR request failed: %s", errResp["error"])
 			}
 
-			// loop around try again
+			// already updated nonce value above; loop around and try again
+			// NOTE: having already parsed the body means that the error handling below could fail if we call out of 'for' loop
 			resp.Body.Close()
 			continue
 		}
+
 		// otherwise process result
 		break
 	}
 
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 && resp.StatusCode != 201 {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		var errResp map[string]any
 		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
 			slog.Warn("PAR request failed", "authServer", parURL, "err", err, "statusCode", resp.StatusCode)
@@ -452,26 +460,38 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 		}
 
 		// check if a nonce was provided
-		dpopServerNonce = resp.Header.Get("DPoP-Nonce")
-		if resp.StatusCode == 400 && dpopServerNonce != "" {
-			// TODO: also check that body is JSON with an 'error' string field value of 'use_dpop_nonce'
+		dpopNonceHdr := resp.Header.Get("DPoP-Nonce")
+		if dpopNonceHdr != "" && dpopNonceHdr != dpopServerNonce {
+			dpopServerNonce = dpopNonceHdr
+		}
+
+		// check for an error condition caused by an out of date DPoP nonce
+		// note that the HTTP status code would be 400 Bad Request on token endpoint, not 401 Unauthorized like it would be on Resource Server requests
+		if resp.StatusCode == http.StatusBadRequest && dpopNonceHdr != "" {
+
+			// parse the error body to confirm the error type
 			var errResp map[string]any
 			if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-				slog.Warn("initial token request failed", "authServer", authServerMeta.TokenEndpoint, "err", err, "statusCode", resp.StatusCode)
-			} else {
-				slog.Warn("initial token request failed", "authServer", authServerMeta.TokenEndpoint, "resp", errResp, "statusCode", resp.StatusCode)
+				slog.Warn("initial token request failed, and could not parse response body", "authServer", authServerMeta.TokenEndpoint, "err", err, "statusCode", resp.StatusCode)
+				resp.Body.Close()
+				return nil, fmt.Errorf("initial token request failed: HTTP %d", resp.StatusCode)
+			} else if errResp["error"] != "use_dpop_nonce" {
+				slog.Warn("initial token request failed", "authServer", authServerMeta.TokenEndpoint, "body", errResp, "statusCode", resp.StatusCode)
+				return nil, fmt.Errorf("initial token request failed: %s", errResp["error"])
 			}
 
-			// loop around try again
+			// already updated nonce value above; loop around and try again
+			// NOTE: having already parsed the body means that the error handling below could fail if we call out of 'for' loop
 			resp.Body.Close()
 			continue
 		}
+
 		// otherwise process result
 		break
 	}
 
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]any
 		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
 			slog.Warn("initial token request failed", "authServer", authServerMeta.TokenEndpoint, "err", err, "statusCode", resp.StatusCode)
@@ -513,7 +533,7 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, username string) (strin
 
 		// TODO: logger on ClientApp?
 		logger := slog.Default().With("did", ident.DID, "handle", ident.Handle, "host", host)
-		logger.Info("resolving to auth server metadata")
+		logger.Debug("resolving to auth server metadata")
 		authserverURL, err = app.Resolver.ResolveAuthServerURL(ctx, host)
 		if err != nil {
 			return "", fmt.Errorf("resolving auth server: %w", err)
