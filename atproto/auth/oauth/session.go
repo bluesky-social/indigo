@@ -70,7 +70,7 @@ type ClientSession struct {
 
 // Requests new tokens from auth server, and returns the new access token on success.
 //
-// Internally takes a lock on session data around the entire refresh process, including retries. Persists data using PersistSessionCallback if configured.
+// Internally takes a lock on session data around the entire refresh process, including retries. Persists data using [ClientSession.PersistSessionCallback] if configured.
 func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 	sess.lk.Lock()
 	defer sess.lk.Unlock()
@@ -170,6 +170,8 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 	// persist updated data (tokens and possibly nonce)
 	if sess.PersistSessionCallback != nil {
 		sess.PersistSessionCallback(ctx, sess.Data)
+	} else {
+		slog.Warn("not saving updated session data", "did", sess.Data.AccountDID)
 	}
 
 	return sess.Data.AccessToken, nil
@@ -242,6 +244,26 @@ func isExpiredAccessTokenHeader(hdr string) bool {
 	return strings.Contains(hdr, "error=\"invalid_token\"")
 }
 
+func (sess *ClientSession) GetHostAccessData() (accessToken string, dpopHostNonce string) {
+	sess.lk.RLock()
+	defer sess.lk.RUnlock()
+
+	return sess.Data.AccessToken, sess.Data.DpopHostNonce
+}
+
+func (sess *ClientSession) UpdateHostDPoPNonce(ctx context.Context, nonce string) {
+	sess.lk.Lock()
+	defer sess.lk.Unlock()
+
+	sess.Data.DpopHostNonce = nonce
+
+	if sess.PersistSessionCallback != nil {
+		sess.PersistSessionCallback(ctx, sess.Data)
+	} else {
+		slog.Warn("not saving updated host DPoP nonce", "did", sess.Data.AccountDID)
+	}
+}
+
 // Sends API request to OAuth Resource Server (PDS), using access token and DPoP.
 //
 // Automatically handles DPoP nonce updates and token refresh as needed, based on the response status code and `WWW-Authenticate` header.
@@ -249,10 +271,7 @@ func (sess *ClientSession) DoWithAuth(c *http.Client, req *http.Request, endpoin
 
 	durl := dpopURL(req.URL)
 
-	//accessToken, dpopNonce := sess.GetHostData()
-	// XXX: fetch with mutex lock
-	accessToken := sess.Data.AccessToken
-	dpopNonce := sess.Data.DpopHostNonce
+	accessToken, dpopNonce := sess.GetHostAccessData()
 
 	// this method may need to retry twice, once for DPoP nonce update and once for token refresh
 	var resp *http.Response
@@ -284,9 +303,11 @@ func (sess *ClientSession) DoWithAuth(c *http.Client, req *http.Request, endpoin
 			if dpopNonceHdr == dpopNonce {
 				return nil, fmt.Errorf("OAuth PDS DPoP nonce failure, but no new nonce supplied")
 			}
-			// XXX: persist new nonce value via callback
-			sess.Data.DpopHostNonce = dpopNonceHdr
+
+			// persist new nonce value via callback
+			sess.UpdateHostDPoPNonce(req.Context(), dpopNonceHdr)
 			dpopNonce = dpopNonceHdr
+
 			// retry request
 			retry := req.Clone(req.Context())
 			if req.GetBody != nil {
