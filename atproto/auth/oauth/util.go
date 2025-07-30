@@ -6,8 +6,9 @@ import (
 	"math/rand"
 )
 
-// TODO: longer
+// this generates pseudo-unique nonces to prevent token (JWT) replay. these do not need to be cryptographically resilient
 func randomNonce() string {
+	// TODO: make this longer?
 	buf := make([]byte, 16)
 	rand.Read(buf)
 	return base64.RawURLEncoding.EncodeToString(buf)

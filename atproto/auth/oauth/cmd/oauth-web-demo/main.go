@@ -85,7 +85,6 @@ func runServer(cctx *cli.Context) error {
 	scopes := []string{"transition:generic"}
 	bind := ":8080"
 
-	// TODO: localhost dev mode if hostname is empty
 	var config oauth.ClientConfig
 	hostname := cctx.String("hostname")
 	if hostname == "" {
@@ -247,7 +246,7 @@ func (s *Server) OAuthRefresh(w http.ResponseWriter, r *http.Request) {
 
 	did := s.currentSessionDID(r)
 	if did == nil {
-		// TODO: suppowed to set a WWW header; and could redirect?
+		// TODO: supposed to set a WWW header; and could redirect?
 		http.Error(w, "not authenticated", http.StatusUnauthorized)
 		return
 	}
@@ -303,7 +302,7 @@ func (s *Server) Post(w http.ResponseWriter, r *http.Request) {
 
 	did := s.currentSessionDID(r)
 	if did == nil {
-		// TODO: suppowed to set a WWW header; and could redirect?
+		// TODO: supposed to set a WWW header; and could redirect?
 		http.Error(w, "not authenticated", http.StatusUnauthorized)
 		return
 	}
