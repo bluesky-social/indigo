@@ -102,10 +102,9 @@ Finally, sessions can be resumed and used to make authenticated API calls to the
 did := syntax.DID("did:plc:abc123")
 
 sess, err := oauthApp.ResumeSession(ctx, did)
-
-	if err != nil {
-	    return err
-	}
+if err != nil {
+	return err
+}
 
 c := sess.APIClient()
 
