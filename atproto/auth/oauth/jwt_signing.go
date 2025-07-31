@@ -55,7 +55,7 @@ func (sm *signingMethodAtproto) Verify(signingString string, sig []byte, key int
 		return jwt.ErrTokenSignatureInvalid
 	}
 
-	// NOTE: important to use using "lenient" variant here
+	// NOTE: important to use using "lenient" variant here. atproto cryptography is strict about details like low-S elliptic curve signatures, but OAuth cryptography is not, and we want to be interoperable with general purpose OAuth implementations
 	return pub.HashAndVerifyLenient([]byte(signingString), sig)
 }
 
