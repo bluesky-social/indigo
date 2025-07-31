@@ -509,22 +509,22 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 	return &tokenResp, nil
 }
 
-func (app *ClientApp) StartAuthFlow(ctx context.Context, username string) (string, error) {
+func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (string, error) {
 
 	var authserverURL string
 	var accountDID syntax.DID
 
-	if strings.HasPrefix(username, "https://") {
-		authserverURL = username
-		username = ""
+	if strings.HasPrefix(identifier, "https://") {
+		authserverURL = identifier
+		identifier = ""
 	} else {
-		atid, err := syntax.ParseAtIdentifier(username)
+		atid, err := syntax.ParseAtIdentifier(identifier)
 		if err != nil {
-			return "", fmt.Errorf("not a valid account identifier (%s): %w", username, err)
+			return "", fmt.Errorf("not a valid account identifier (%s): %w", identifier, err)
 		}
 		ident, err := app.Dir.Lookup(ctx, *atid)
 		if err != nil {
-			return "", fmt.Errorf("failed to resolve username (%s): %w", username, err)
+			return "", fmt.Errorf("failed to resolve username (%s): %w", identifier, err)
 		}
 		host := ident.PDSEndpoint()
 		if host == "" {
@@ -546,7 +546,7 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, username string) (strin
 	}
 
 	scope := scopeStr(app.Config.Scopes)
-	info, err := app.SendAuthRequest(ctx, authserverMeta, scope, username)
+	info, err := app.SendAuthRequest(ctx, authserverMeta, scope, identifier)
 	if err != nil {
 		return "", fmt.Errorf("auth request failed: %w", err)
 	}

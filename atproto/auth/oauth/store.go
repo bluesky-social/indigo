@@ -8,6 +8,8 @@ import (
 
 // Interface for persisting session data and auth request data, required as part of an OAuth client app.
 //
+// Note that this interface assumes that there is only a single session per account (by DID).
+//
 // Implementations should allow for concurrent access.
 type ClientAuthStore interface {
 	GetSession(ctx context.Context, did syntax.DID) (*ClientSessionData, error)
