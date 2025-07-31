@@ -165,10 +165,10 @@ type AuthServerMetadata struct {
 	// must include authorization_code and refresh_token (refresh tokens must be supported)
 	GrantTypesSupported []string `json:"grant_types_supported"`
 
-	/// must include S256
+	// must include S256
 	CodeChallengeMethodsSupported []string `json:"code_challenge_methods_supported"`
 
-	// must include both none (public client s) and private_key_jwt (confidential clients)
+	// must include both none (public clients) and private_key_jwt (confidential clients)
 	TokenEndpointAuthMethodsSupoorted []string `json:"token_endpoint_auth_methods_supported"`
 
 	// must not include `none`. Must include ES256 for now.
@@ -183,7 +183,7 @@ type AuthServerMetadata struct {
 	// must be true
 	RequirePushedAuthorizationRequests bool `json:"require_pushed_authorization_requests"`
 
-	// correspnds be the PAR endpoint URL
+	// corresponds to the PAR endpoint URL
 	PushedAuthorizationRequestEndpoint string `json:"pushed_authorization_request_endpoint"`
 
 	// currently must include ES256
