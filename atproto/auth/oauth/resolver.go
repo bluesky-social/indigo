@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -66,13 +65,8 @@ func (r *Resolver) ResolveAuthServerURL(ctx context.Context, hostURL string) (st
 		return "", fmt.Errorf("HTTP error fetching protected resource document: %d", resp.StatusCode)
 	}
 
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
 	var body ProtectedResourceMetadata
-	if err := json.Unmarshal(respBytes, &body); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return "", fmt.Errorf("invalid protected resource document: %w", err)
 	}
 	if len(body.AuthorizationServers) < 1 {

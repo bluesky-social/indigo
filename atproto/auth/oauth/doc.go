@@ -51,7 +51,7 @@ The client metadata document needs to be served at the URL indicated by the `cli
 		}
 	}
 
-The login auth flow starts with a user identifier, which could be an atproto handle, DID, or an auth server URL (eg, a PDS). The high-level [StartAuthFlow()] method will resolve the identifier, send an auth request (PAR) to the server, persist request metadata in the [OAuthStore], and return a redirect URL for the user to visit:
+The login auth flow starts with a user identifier, which could be an atproto handle, DID, or an auth server URL (eg, a PDS). The high-level [StartAuthFlow()] method will resolve the identifier, send an auth request (PAR) to the server, persist request metadata in the [OAuthStore], and return a redirect URL for the user to visit (usually the PDS):
 
 	http.HandleFunc("GET /oauth/login", HandleLogin)
 

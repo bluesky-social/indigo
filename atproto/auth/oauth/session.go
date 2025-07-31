@@ -134,6 +134,7 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 				return "", fmt.Errorf("token refresh failed: HTTP %d", resp.StatusCode)
 			} else if errResp["error"] != "use_dpop_nonce" {
 				slog.Warn("token refresh failed", "authServer", tokenURL, "body", errResp, "statusCode", resp.StatusCode)
+				resp.Body.Close()
 				return "", fmt.Errorf("token refresh failed: %s", errResp["error"])
 			}
 
