@@ -82,7 +82,7 @@ func (s *Server) Homepage(w http.ResponseWriter, r *http.Request) {
 
 func runServer(cctx *cli.Context) error {
 
-	scopes := []string{"transition:generic"}
+	scopes := []string{"atproto", "transition:generic"}
 	bind := ":8080"
 
 	var config oauth.ClientConfig
