@@ -123,40 +123,25 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 		}
 
 		// check for an error condition caused by an out of date DPoP nonce
-		// note that the HTTP status code would be 400 Bad Request on token endpoint, not 401 Unauthorized like it would be on Resource Server requests
+		// note that the HTTP status code is 400 Bad Request on the Auth Server token endpoint, not 401 Unauthorized like it would be on Resource Server requests
 		if resp.StatusCode == http.StatusBadRequest && dpopNonceHdr != "" {
-
-			// parse the error body to confirm the error type
-			var errResp map[string]any
-			if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-				slog.Warn("token refresh failed, and could not parse response body", "authServer", tokenURL, "err", err, "statusCode", resp.StatusCode)
-				resp.Body.Close()
-				return "", fmt.Errorf("token refresh failed: HTTP %d", resp.StatusCode)
-			} else if errResp["error"] != "use_dpop_nonce" {
-				slog.Warn("token refresh failed", "authServer", tokenURL, "body", errResp, "statusCode", resp.StatusCode)
-				resp.Body.Close()
-				return "", fmt.Errorf("token refresh failed: %s", errResp["error"])
+			// parseAuthErrorReason() always closes resp.Body
+			reason := parseAuthErrorReason(resp, "token-refresh")
+			if reason == "use_dpop_nonce" {
+				// already updated nonce value above; loop around and try again
+				continue
 			}
-
-			// already updated nonce value above; loop around and try again
-			// NOTE: having already parsed the body means that the error handling below could fail if we call out of 'for' loop
-			resp.Body.Close()
-			continue
+			return "", fmt.Errorf("token refresh failed (HTTP %d): %s", resp.StatusCode, reason)
 		}
 
-		// otherwise process result
+		// otherwise process response (success or other error type)
 		break
 	}
 
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		var errResp map[string]any
-		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			slog.Warn("token refresh failed", "authServer", tokenURL, "err", err, "statusCode", resp.StatusCode)
-			return "", fmt.Errorf("token refresh failed: HTTP %d", resp.StatusCode)
-		}
-		slog.Warn("token refresh failed", "authServer", tokenURL, "body", errResp, "statusCode", resp.StatusCode)
-		return "", fmt.Errorf("token refresh failed: %s", errResp["error"])
+		reason := parseAuthErrorReason(resp, "token-refresh")
+		return "", fmt.Errorf("token refresh failed (HTTP %d): %s", resp.StatusCode, reason)
 	}
 
 	var tokenResp TokenResponse

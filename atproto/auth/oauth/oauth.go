@@ -33,7 +33,7 @@ type ClientApp struct {
 type ClientConfig struct {
 	ClientID    string
 	CallbackURL string
-	// set of scope strings; should not include "atproto"
+	// set of scope strings; must include "atproto"
 	Scopes []string
 
 	UserAgent string
@@ -55,11 +55,27 @@ func NewClientApp(config *ClientConfig, store ClientAuthStore) *ClientApp {
 	}
 	if config.UserAgent != "" {
 		app.Resolver.UserAgent = config.UserAgent
-		// TODO: some way to wire UserAgent through to identity directory
+
+		// unpack DefaultDirectory nested type and insert UserAgent (and log failure in case default types change)
+		dirAgent := false
+		cdir, ok := app.Dir.(*identity.CacheDirectory)
+		if ok {
+			bdir, ok := cdir.Inner.(*identity.BaseDirectory)
+			if ok {
+				dirAgent = true
+				bdir.UserAgent = config.UserAgent
+			}
+		}
+		if !dirAgent {
+			slog.Info("OAuth ClientApp identity directory User-Agent not configured")
+		}
 	}
 	return app
 }
 
+// Creates a basic [ClientConfig] for use as a public (non-confidential) client. To upgrade to a confidential client, use this method and then [ClientConfig.AddClientSecret()].
+//
+// The "scopes" array must include "atproto".
 func NewPublicConfig(clientID, callbackURL string, scopes []string) ClientConfig {
 	c := ClientConfig{
 		ClientID:    clientID,
@@ -70,6 +86,9 @@ func NewPublicConfig(clientID, callbackURL string, scopes []string) ClientConfig
 	return c
 }
 
+// Creats a basic [ClientConfig] for use with localhost developmnet. Such a client is always public (non-confidential).
+//
+// The "scopes" array must include "atproto".
 func NewLocalhostConfig(callbackURL string, scopes []string) ClientConfig {
 	params := make(url.Values)
 	params.Set("redirect_uri", callbackURL)
@@ -129,10 +148,7 @@ func (config *ClientConfig) PublicJWKS() JWKS {
 
 // helper to turn a list of scope strings in to a single space-separated scope string
 func scopeStr(scopes []string) string {
-	if len(scopes) == 0 {
-		return "atproto"
-	}
-	return "atproto " + strings.Join(scopes, " ")
+	return strings.Join(scopes, " ")
 }
 
 // Returns a ClientMetadata struct with the required fields populated based on this client configuration. Clients may want to populate additional metadata fields on top of this response.
@@ -275,6 +291,18 @@ func NewAuthDPoP(httpMethod, url, dpopNonce string, privKey crypto.PrivateKey) (
 	return token.SignedString(privKey)
 }
 
+// attempts to read an HTTP response body as JSON, and determine an error reason. always closes the response body
+func parseAuthErrorReason(resp *http.Response, reqType string) string {
+	defer resp.Body.Close()
+	var errResp map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+		slog.Warn("auth server request failed", "request", reqType, "statusCode", resp.StatusCode, "err", err)
+		return "unknown"
+	}
+	slog.Warn("auth server request failed", "request", reqType, "statusCode", resp.StatusCode, "body", errResp)
+	return fmt.Sprintf("%s", errResp["error"])
+}
+
 // Sends PAR request to auth server
 func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, scope, loginHint string) (*AuthRequestData, error) {
 
@@ -351,22 +379,13 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		// check for an error condition caused by an out of date DPoP nonce
 		// note that the HTTP status code would be 400 Bad Request on token endpoint, not 401 Unauthorized like it would be on Resource Server requests
 		if resp.StatusCode == http.StatusBadRequest && dpopServerNonce != "" {
-
-			// parse the error body to confirm the error type
-			var errResp map[string]any
-			if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-				slog.Warn("PAR request failed, and could not parse response body", "authServer", parURL, "err", err, "statusCode", resp.StatusCode)
-				resp.Body.Close()
-				return nil, fmt.Errorf("token refresh failed: HTTP %d", resp.StatusCode)
-			} else if errResp["error"] != "use_dpop_nonce" {
-				slog.Warn("PAR request failed", "authServer", parURL, "body", errResp, "statusCode", resp.StatusCode)
-				return nil, fmt.Errorf("PAR request failed: %s", errResp["error"])
+			// parseAuthErrorReason() always closes resp.Body
+			reason := parseAuthErrorReason(resp, "PAR")
+			if reason == "use_dpop_nonce" {
+				// already updated nonce value above; loop around and try again
+				continue
 			}
-
-			// already updated nonce value above; loop around and try again
-			// NOTE: having already parsed the body means that the error handling below could fail if we call out of 'for' loop
-			resp.Body.Close()
-			continue
+			return nil, fmt.Errorf("PAR request failed (HTTP %d): %s", resp.StatusCode, reason)
 		}
 
 		// otherwise process result
@@ -375,13 +394,8 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		var errResp map[string]any
-		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			slog.Warn("PAR request failed", "authServer", parURL, "err", err, "statusCode", resp.StatusCode)
-		} else {
-			slog.Warn("PAR request failed", "authServer", parURL, "resp", errResp, "statusCode", resp.StatusCode)
-		}
-		return nil, fmt.Errorf("auth request (PAR) failed: HTTP %d", resp.StatusCode)
+		reason := parseAuthErrorReason(resp, "PAR")
+		return nil, fmt.Errorf("PAR request failed (HTTP %d): %s", resp.StatusCode, reason)
 	}
 
 	var parResp PushedAuthResponse
@@ -468,22 +482,13 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 		// check for an error condition caused by an out of date DPoP nonce
 		// note that the HTTP status code would be 400 Bad Request on token endpoint, not 401 Unauthorized like it would be on Resource Server requests
 		if resp.StatusCode == http.StatusBadRequest && dpopNonceHdr != "" {
-
-			// parse the error body to confirm the error type
-			var errResp map[string]any
-			if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-				slog.Warn("initial token request failed, and could not parse response body", "authServer", authServerMeta.TokenEndpoint, "err", err, "statusCode", resp.StatusCode)
-				resp.Body.Close()
-				return nil, fmt.Errorf("initial token request failed: HTTP %d", resp.StatusCode)
-			} else if errResp["error"] != "use_dpop_nonce" {
-				slog.Warn("initial token request failed", "authServer", authServerMeta.TokenEndpoint, "body", errResp, "statusCode", resp.StatusCode)
-				return nil, fmt.Errorf("initial token request failed: %s", errResp["error"])
+			// parseAuthErrorReason() always closes resp.Body
+			reason := parseAuthErrorReason(resp, "initial-token")
+			if reason == "use_dpop_nonce" {
+				// already updated nonce value above; loop around and try again
+				continue
 			}
-
-			// already updated nonce value above; loop around and try again
-			// NOTE: having already parsed the body means that the error handling below could fail if we call out of 'for' loop
-			resp.Body.Close()
-			continue
+			return nil, fmt.Errorf("initial token request failed (HTTP %d): %s", resp.StatusCode, reason)
 		}
 
 		// otherwise process result
@@ -492,13 +497,8 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		var errResp map[string]any
-		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			slog.Warn("initial token request failed", "authServer", authServerMeta.TokenEndpoint, "err", err, "statusCode", resp.StatusCode)
-		} else {
-			slog.Warn("initial token request failed", "authServer", authServerMeta.TokenEndpoint, "resp", errResp, "statusCode", resp.StatusCode)
-		}
-		return nil, fmt.Errorf("initial token request failed: HTTP %d", resp.StatusCode)
+		reason := parseAuthErrorReason(resp, "initial-token")
+		return nil, fmt.Errorf("initial token request failed (HTTP %d): %s", resp.StatusCode, reason)
 	}
 
 	var tokenResp TokenResponse
@@ -562,7 +562,7 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (str
 	params.Set("client_id", app.Config.ClientID)
 	params.Set("request_uri", info.RequestURI)
 
-	// TODO: check that 'authorization_endpoint' is "safe" (?)
+	// NOTE: AuthorizationEndpoint was already checked to be a clean URL
 	redirectURL := fmt.Sprintf("%s?%s", authserverMeta.AuthorizationEndpoint, params.Encode())
 	return redirectURL, nil
 }
