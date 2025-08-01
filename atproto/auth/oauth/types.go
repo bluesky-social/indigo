@@ -218,6 +218,15 @@ func (m *AuthServerMetadata) Validate(serverURL string) error {
 		return fmt.Errorf("%w: issuer must match request URL", ErrInvalidAuthServerMetadata)
 	}
 
+	// check that authorization endpoint is a valid HTTPS URL with no fragment or query params (we will be appending query params latter)
+	aeurl, err := url.Parse(m.AuthorizationEndpoint)
+	if err != nil {
+		return fmt.Errorf("%w: invalid auth endpoint URL (%s): %w", ErrInvalidAuthServerMetadata, m.AuthorizationEndpoint, err)
+	}
+	if aeurl.Scheme != "https" || u.Fragment != "" || u.RawQuery != "" {
+		return fmt.Errorf("%w: invalid auth endpoint URL: %s", ErrInvalidAuthServerMetadata, m.AuthorizationEndpoint)
+	}
+
 	if !slices.Contains(m.ResponseTypesSupported, "code") {
 		return fmt.Errorf("%w: response_types_supported must include 'code'", ErrInvalidAuthServerMetadata)
 	}
