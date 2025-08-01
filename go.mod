@@ -13,6 +13,7 @@ require (
 	github.com/brianvoe/gofakeit/v6 v6.25.0
 	github.com/carlmjohnson/versioninfo v0.22.5
 	github.com/cockroachdb/pebble v1.1.2
+	github.com/did-method-plc/go-didplc v0.0.0-20250716171643-635da8b4e038
 	github.com/dustinkirkland/golang-petname v0.0.0-20231002161417-6a283f1aaaf2
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/go-redis/cache/v9 v9.0.0
@@ -41,6 +42,7 @@ require (
 	github.com/labstack/echo/v4 v4.11.3
 	github.com/lestrrat-go/jwx/v2 v2.0.12
 	github.com/lib/pq v1.10.9
+	github.com/manifoldco/promptui v0.9.0
 	github.com/minio/sha256-simd v1.0.1
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multihash v0.2.3
@@ -82,13 +84,13 @@ require (
 
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
+	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
 	github.com/cockroachdb/errors v1.11.3 // indirect
 	github.com/cockroachdb/fifo v0.0.0-20240606204812-0bbfbd93a7ce // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/did-method-plc/go-didplc v0.0.0-20250716171643-635da8b4e038 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/go-redis/redis v6.15.9+incompatible // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
