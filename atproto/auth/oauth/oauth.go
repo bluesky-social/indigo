@@ -562,7 +562,8 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (str
 	params.Set("client_id", app.Config.ClientID)
 	params.Set("request_uri", info.RequestURI)
 
-	// NOTE: AuthorizationEndpoint was already checked to be a clean URL
+	// AuthorizationEndpoint was already checked to be a clean URL
+	// TODO: could do additional SSRF checks on the redirect domain here
 	redirectURL := fmt.Sprintf("%s?%s", authserverMeta.AuthorizationEndpoint, params.Encode())
 	return redirectURL, nil
 }
