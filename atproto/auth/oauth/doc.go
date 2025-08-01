@@ -20,7 +20,7 @@ Create a single [ClientApp] instance during service setup that will be used (con
 	config := oauth.NewPublicConfig(
 		"https://app.example.com/client-metadata.json",
 		"https://app.example.com/oauth/callback",
-		[]string{"transition:generic"},
+		[]string{"atproto", "transition:generic"},
 	)
 
 	// clients are "public" by default, but if they have secure access to a secret attestation key can be "confidential"
