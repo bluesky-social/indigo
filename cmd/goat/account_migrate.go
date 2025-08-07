@@ -39,13 +39,10 @@ var cmdAccountMigrate = &cli.Command{
 			EnvVars:  []string{"NEW_ACCOUNT_PASSWORD"},
 		},
 		&cli.StringFlag{
-			Name:    "plc-token",
-			Usage:   "token from old PDS authorizing token signature",
-			EnvVars: []string{"PLC_SIGN_TOKEN"},
-		},
-		&cli.BoolFlag{
-			Name:  "automatic-plc-token",
-			Usage: "automatically request an plc token, and pauses for the user to enter the plc token",
+			Name:     "plc-token",
+			Required: true,
+			Usage:    "token from old PDS authorizing token signature",
+			EnvVars:  []string{"PLC_SIGN_TOKEN"},
 		},
 		&cli.StringFlag{
 			Name:  "invite-code",
@@ -62,12 +59,6 @@ var cmdAccountMigrate = &cli.Command{
 func runAccountMigrate(cctx *cli.Context) error {
 	// NOTE: this could check rev / commit before and after and ensure last-minute content additions get lost
 	ctx := context.Background()
-
-	plcToken := cctx.String("plc-token")
-	automaticPlcToken := cctx.Bool("automatic-plc-token")
-	if plcToken == "" && !automaticPlcToken {
-		return fmt.Errorf("either --plc-token or --automatic-plc-token must be set")
-	}
 
 	oldClient, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -87,6 +78,7 @@ func runAccountMigrate(cctx *cli.Context) error {
 		return err
 	}
 	newPassword := cctx.String("new-password")
+	plcToken := cctx.String("plc-token")
 	inviteCode := cctx.String("invite-code")
 	newEmail := cctx.String("new-email")
 
@@ -223,24 +215,6 @@ func runAccountMigrate(cctx *cli.Context) error {
 	// NOTE: to work with did:web or non-PDS-managed did:plc, need to do manual migraiton process
 	slog.Info("updating identity to new host")
 
-	if automaticPlcToken {
-		err := comatproto.IdentityRequestPlcOperationSignature(ctx, oldClient)
-		if err != nil {
-			return fmt.Errorf("failed requesting PLC operation signature: %w", err)
-		}
-		prompt := promptui.Prompt{
-			Label: "Please enter the PLC token that was sent to you by email",
-		}
-		result, err := prompt.Run()
-		if err != nil {
-			return err
-		}
-		if result == "" {
-			return fmt.Errorf("you did not enter a token")
-		}
-		plcToken = result
-	}
-
 	credsResp, err := agnostic.IdentityGetRecommendedDidCredentials(ctx, &newClient)
 	if err != nil {
 		return fmt.Errorf("failed fetching new credentials: %w", err)
@@ -260,7 +234,37 @@ func runAccountMigrate(cctx *cli.Context) error {
 
 	signedPlcOpResp, err := agnostic.IdentitySignPlcOperation(ctx, oldClient, &unsignedOp)
 	if err != nil {
-		return fmt.Errorf("failed requesting PLC operation signature: %w", err)
+		slog.Warn("failed signing PLC operation", "err", err)
+		confirmPrompt := promptui.Prompt{
+			Label:     "There was an error signing the PLC operation. Do you want to request a new token",
+			IsConfirm: true,
+		}
+
+		_, err = confirmPrompt.Run()
+		if err != nil {
+			return fmt.Errorf("the PLC operation has been cancelled")
+		}
+
+		// request a new PLC token from the users old PDS
+		err = comatproto.IdentityRequestPlcOperationSignature(ctx, oldClient)
+		if err != nil {
+			return fmt.Errorf("failed requesting PLC operation signature: %w", err)
+		}
+		plcTokenPrompt := promptui.Prompt{
+			Label: "Please enter the PLC token that was sent to you by email",
+		}
+		promptResponse, promptErr := plcTokenPrompt.Run()
+		if promptErr != nil {
+			return fmt.Errorf("there was an error with the response: %w", err)
+		}
+		if promptResponse == "" {
+			return fmt.Errorf("you did not enter a token")
+		}
+		unsignedOp.Token = &promptResponse
+		signedPlcOpResp, err = agnostic.IdentitySignPlcOperation(ctx, oldClient, &unsignedOp)
+		if err != nil {
+			return fmt.Errorf("failed signing PLC operation: %w", err)
+		}
 	}
 
 	err = agnostic.IdentitySubmitPlcOperation(ctx, &newClient, &agnostic.IdentitySubmitPlcOperation_Input{
