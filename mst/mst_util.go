@@ -197,7 +197,7 @@ func cidForEntries(ctx context.Context, entries []nodeEntry, cst cbor.IpldStore)
 }
 
 // keyHasAllValidChars reports whether s matches
-// the regexp /^[a-zA-Z0-9_:.-]+$/ without using regexp,
+// the regexp /^[a-zA-Z0-9_:.~-]+$/ without using regexp,
 // which is slower.
 func keyHasAllValidChars(s string) bool {
 	if len(s) == 0 {
@@ -211,7 +211,7 @@ func keyHasAllValidChars(s string) bool {
 			continue
 		}
 		switch b {
-		case '_', ':', '.', '-':
+		case '_', ':', '.', '~', '-':
 			continue
 		default:
 			return false
