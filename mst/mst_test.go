@@ -532,7 +532,7 @@ func FuzzKeyHasAllValidChars(f *testing.F) {
 	for i := 0; i < 256; i++ {
 		f.Add([]byte{byte(i)})
 	}
-	rx := regexp.MustCompile("^[a-zA-Z0-9_:.-]+$")
+	rx := regexp.MustCompile("^[a-zA-Z0-9_:.~-]+$")
 	f.Fuzz(func(t *testing.T, in []byte) {
 		s := string(in)
 		if a, b := rx.MatchString(s), keyHasAllValidChars(s); a != b {
