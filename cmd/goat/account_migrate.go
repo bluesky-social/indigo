@@ -5,16 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
-	"strings"
-	"time"
-
 	"github.com/bluesky-social/indigo/api/agnostic"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
-
+	"github.com/manifoldco/promptui"
 	"github.com/urfave/cli/v2"
+	"log/slog"
+	"strings"
+	"time"
 )
 
 var cmdAccountMigrate = &cli.Command{
@@ -235,7 +234,37 @@ func runAccountMigrate(cctx *cli.Context) error {
 
 	signedPlcOpResp, err := agnostic.IdentitySignPlcOperation(ctx, oldClient, &unsignedOp)
 	if err != nil {
-		return fmt.Errorf("failed requesting PLC operation signature: %w", err)
+		slog.Warn("failed signing PLC operation", "err", err)
+		confirmPrompt := promptui.Prompt{
+			Label:     "There was an error signing the PLC operation. Do you want to request a new token",
+			IsConfirm: true,
+		}
+
+		_, err = confirmPrompt.Run()
+		if err != nil {
+			return fmt.Errorf("the PLC operation has been cancelled")
+		}
+
+		// request a new PLC token from the users old PDS
+		err = comatproto.IdentityRequestPlcOperationSignature(ctx, oldClient)
+		if err != nil {
+			return fmt.Errorf("failed requesting PLC operation signature: %w", err)
+		}
+		plcTokenPrompt := promptui.Prompt{
+			Label: "Please enter the PLC token that was sent to you by email",
+		}
+		promptResponse, promptErr := plcTokenPrompt.Run()
+		if promptErr != nil {
+			return fmt.Errorf("there was an error with the response: %w", err)
+		}
+		if promptResponse == "" {
+			return fmt.Errorf("you did not enter a token")
+		}
+		unsignedOp.Token = &promptResponse
+		signedPlcOpResp, err = agnostic.IdentitySignPlcOperation(ctx, oldClient, &unsignedOp)
+		if err != nil {
+			return fmt.Errorf("failed signing PLC operation: %w", err)
+		}
 	}
 
 	err = agnostic.IdentitySubmitPlcOperation(ctx, &newClient, &agnostic.IdentitySubmitPlcOperation_Input{
