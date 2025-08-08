@@ -211,7 +211,7 @@ func keyHasAllValidChars(s string) bool {
 			continue
 		}
 		switch b {
-		case '_', ':', '.', '-':
+		case '_', ':', '.', '-', '~':
 			continue
 		default:
 			return false
