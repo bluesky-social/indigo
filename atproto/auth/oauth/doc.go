@@ -9,7 +9,7 @@ Feature set includes:
 - PAR client submission
 - both public and confidential clients, with support for signed client attestations in the later case
 
-Most OAuth client applications will use the high-level [ClientApp] and supporting interfaces to manage session logins, persistance, and token refreshes. Lower-level components are designed to be used in isolation if needed.
+Most OAuth client applications will use the high-level [ClientApp] and supporting interfaces to manage session logins, persistence, and token refreshes. Lower-level components are designed to be used in isolation if needed.
 
 This package does not contain supporting code for atproto permissions or permission sets. It treats scopes as simple strings.
 
@@ -38,7 +38,7 @@ Create a single [ClientApp] instance during service setup that will be used (con
 
 For a real service, you would want to use a database or other peristant storage instead of [MemStore]. Otherwise all user sessions are dropped every time the process restarts.
 
-The client metadata document needs to be served at the URL indicated by the `client_id`. This can be done statically, or dynamically generated and served from the configuation:
+The client metadata document needs to be served at the URL indicated by the `client_id`. This can be done statically, or dynamically generated and served from the configuration:
 
 	http.HandleFunc("GET /client-metadata.json", HandleClientMetadata)
 
@@ -68,7 +68,7 @@ The login auth flow starts with a user identifier, which could be an atproto han
 		http.Redirect(w, r, redirectURL, http.StatusFound)
 	}
 
-The service then waits for a callback request on the configured endpoint. The [ProcessCallback()] method will load the earlier request metadata from the [OAuthStore], send an initial token request to the auth server, and validate that the session is consistent with the identifier from the begining of the login flow.
+The service then waits for a callback request on the configured endpoint. The [ProcessCallback()] method will load the earlier request metadata from the [OAuthStore], send an initial token request to the auth server, and validate that the session is consistent with the identifier from the beginning of the login flow.
 
 	http.HandleFunc("GET /oauth/callback", HandleOAuthCallback)
 

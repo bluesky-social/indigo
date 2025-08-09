@@ -8,7 +8,7 @@ import (
 
 // Interface for persisting session data and auth request data, required as part of an OAuth client app.
 //
-// This interface supports multiple sessions for a single account (DID). This is helpful for traditional web app backends where a single user might log in and have concurrent sessions from mutiple browsers/devices. For situations where multiple sessions are not required, implementations of this interface could ignore the `sessionID` parameters, though this could result in clobbering of active sessions.
+// This interface supports multiple sessions for a single account (DID). This is helpful for traditional web app backends where a single user might log in and have concurrent sessions from multiple browsers/devices. For situations where multiple sessions are not required, implementations of this interface could ignore the `sessionID` parameters, though this could result in clobbering of active sessions.
 //
 // For authorization-only (authn-only) applications, the `SaveSession()` method could be a no-op.
 //

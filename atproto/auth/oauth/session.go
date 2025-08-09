@@ -24,7 +24,7 @@ type PersistSessionCallback = func(ctx context.Context, data *ClientSessionData)
 
 // Persisted information about an OAuth session. Used to resume an active session.
 type ClientSessionData struct {
-	// Account DID for this session. Assuming only one active session per account, this can be used as "primary key" for storing and retrieving this infromation.
+	// Account DID for this session. Assuming only one active session per account, this can be used as "primary key" for storing and retrieving this information.
 	AccountDID syntax.DID `json:"account_did"`
 
 	// Identifier to distinguish this particular session for the account. Server backends generally support multiple sessions for the same account. This package will re-use the random 'state' token from the auth flow as the session ID.
