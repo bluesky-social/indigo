@@ -86,7 +86,7 @@ The service then waits for a callback request on the configured endpoint. The [P
 		http.Redirect(w, r, "/app", http.StatusFound)
 	}
 
-Finally, sessions can be resumed and used to make authenticated API calls to the user's host:
+Sessions can be resumed and used to make authenticated API calls to the user's host:
 
 	// web services might use a secure session cookie to determine user's DID for a request
 	did := syntax.DID("did:plc:abc123")
@@ -114,6 +114,10 @@ Finally, sessions can be resumed and used to make authenticated API calls to the
 
 The [ClientSession] will handle nonce updates and token refreshes, and persist the results in the [OAuthStore].
 
-TODO: logout
+To log out a user, delete their session from the [OAuthStore]:
+
+	if err := oauthApp.Store.DeleteSession(r.Context(), did); err != nil {
+		return err
+	}
 */
 package oauth
