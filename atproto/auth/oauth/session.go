@@ -171,7 +171,7 @@ func (sess *ClientSession) NewHostDPoP(method, reqURL string) (string, error) {
 	sess.lk.RLock()
 	defer sess.lk.RUnlock()
 
-	ath := s256CodeChallenge(sess.Data.AccessToken)
+	ath := S256CodeChallenge(sess.Data.AccessToken)
 	claims := dpopClaims{
 		HTTPMethod:      method,
 		TargetURI:       reqURL,
