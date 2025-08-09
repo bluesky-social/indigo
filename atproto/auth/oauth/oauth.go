@@ -73,7 +73,7 @@ func NewClientApp(config *ClientConfig, store ClientAuthStore) *ClientApp {
 	return app
 }
 
-// Creates a basic [ClientConfig] for use as a public (non-confidential) client. To upgrade to a confidential client, use this method and then [ClientConfig.AddClientSecret()].
+// Creates a basic [ClientConfig] for use as a public (non-confidential) client. To upgrade to a confidential client, use this method and then [ClientConfig.SetClientSecret()].
 //
 // The "scopes" array must include "atproto".
 func NewPublicConfig(clientID, callbackURL string, scopes []string) ClientConfig {
@@ -106,7 +106,7 @@ func (config *ClientConfig) IsConfidential() bool {
 	return config.PrivateKey != nil && config.KeyID != nil
 }
 
-func (config *ClientConfig) AddClientSecret(priv crypto.PrivateKey, keyID string) error {
+func (config *ClientConfig) SetClientSecret(priv crypto.PrivateKey, keyID string) error {
 	switch priv.(type) {
 	case *crypto.PrivateKeyP256:
 		// pass

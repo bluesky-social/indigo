@@ -107,7 +107,7 @@ func runServer(cctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		if err := config.AddClientSecret(priv, cctx.String("client-secret-key-id")); err != nil {
+		if err := config.SetClientSecret(priv, cctx.String("client-secret-key-id")); err != nil {
 			return err
 		}
 		slog.Info("configuring confidential OAuth client")
