@@ -29,7 +29,7 @@ Create a single [ClientApp] instance during service setup that will be used (con
 		if err != nil {
 			return err
 		}
-		if err := config.AddClientSecret(priv, "example1"); err != nil {
+		if err := config.SetClientSecret(priv, "example1"); err != nil {
 			return err
 		}
 	}
