@@ -27,11 +27,15 @@ func NewMemStore() *MemStore {
 	}
 }
 
-func (m *MemStore) GetSession(ctx context.Context, did syntax.DID) (*ClientSessionData, error) {
+func memKey(did syntax.DID, sessionID string) string {
+	return fmt.Sprintf("%s/%s", did, sessionID)
+}
+
+func (m *MemStore) GetSession(ctx context.Context, did syntax.DID, sessionID string) (*ClientSessionData, error) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
-	sess, ok := m.sessions[did.String()]
+	sess, ok := m.sessions[memKey(did, sessionID)]
 	if !ok {
 		return nil, fmt.Errorf("session not found: %s", did)
 	}
@@ -42,15 +46,15 @@ func (m *MemStore) SaveSession(ctx context.Context, sess ClientSessionData) erro
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
-	m.sessions[sess.AccountDID.String()] = sess
+	m.sessions[memKey(sess.AccountDID, sess.SessionID)] = sess
 	return nil
 }
 
-func (m *MemStore) DeleteSession(ctx context.Context, did syntax.DID) error {
+func (m *MemStore) DeleteSession(ctx context.Context, did syntax.DID, sessionID string) error {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
-	delete(m.sessions, did.String())
+	delete(m.sessions, memKey(did, sessionID))
 	return nil
 }
 

@@ -80,8 +80,9 @@ The service then waits for a callback request on the configured endpoint. The [P
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 
-		// web services might record the DID in a secure session cookie
+		// web services might record the DID and session ID in a secure session cookie
 		_ = sessData.AccountDID
+		_ = sessData.SessionID
 
 		http.Redirect(w, r, "/app", http.StatusFound)
 	}
@@ -90,8 +91,9 @@ Sessions can be resumed and used to make authenticated API calls to the user's h
 
 	// web services might use a secure session cookie to determine user's DID for a request
 	did := syntax.DID("did:plc:abc123")
+	sessionID := "xyz"
 
-	sess, err := oauthApp.ResumeSession(ctx, did)
+	sess, err := oauthApp.ResumeSession(ctx, did, sessionID)
 	if err != nil {
 		return err
 	}
@@ -116,7 +118,7 @@ The [ClientSession] will handle nonce updates and token refreshes, and persist t
 
 To log out a user, delete their session from the [OAuthStore]:
 
-	if err := oauthApp.Store.DeleteSession(r.Context(), did); err != nil {
+	if err := oauthApp.Store.DeleteSession(r.Context(), did, sessionID); err != nil {
 		return err
 	}
 */

@@ -177,9 +177,9 @@ func (config *ClientConfig) ClientMetadata() ClientMetadata {
 	return m
 }
 
-func (app *ClientApp) ResumeSession(ctx context.Context, did syntax.DID) (*ClientSession, error) {
+func (app *ClientApp) ResumeSession(ctx context.Context, did syntax.DID, sessionID string) (*ClientSession, error) {
 
-	sd, err := app.Store.GetSession(ctx, did)
+	sd, err := app.Store.GetSession(ctx, did, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -193,10 +193,10 @@ func (app *ClientApp) ResumeSession(ctx context.Context, did syntax.DID) (*Clien
 	// configure callback for updating session data
 	if app.Store != nil {
 		sess.PersistSessionCallback = func(ctx context.Context, data *ClientSessionData) {
-			slog.Debug("storing updated session data", "did", data.AccountDID)
+			slog.Debug("storing updated session data", "did", data.AccountDID, "session_id", data.SessionID)
 			err := app.Store.SaveSession(ctx, *data)
 			if err != nil {
-				slog.Error("failed to store updated session data", "did", data.AccountDID, "err", err)
+				slog.Error("failed to store updated session data", "did", data.AccountDID, "session_id", data.SessionID, "err", err)
 			}
 		}
 	}
@@ -633,6 +633,7 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 
 	sessData := ClientSessionData{
 		AccountDID:              accountDID,
+		SessionID:               info.State,
 		HostURL:                 hostURL,
 		AuthServerURL:           info.AuthServerURL,
 		AccessToken:             tokenResp.AccessToken,
