@@ -163,10 +163,10 @@ func (config *ClientConfig) ClientMetadata() ClientMetadata {
 		ResponseTypes:           []string{"code"},
 		RedirectURIs:            []string{config.CallbackURL},
 		DpopBoundAccessTokens:   true,
-		TokenEndpointAuthMethod: strPtr("none"),
+		TokenEndpointAuthMethod: "none",
 	}
 	if config.IsConfidential() {
-		m.TokenEndpointAuthMethod = strPtr("private_key_jwt")
+		m.TokenEndpointAuthMethod = "private_key_jwt"
 		// NOTE: the key type is always ES256
 		m.TokenEndpointAuthSigningAlg = strPtr("ES256")
 
