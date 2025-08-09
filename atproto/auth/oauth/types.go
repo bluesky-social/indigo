@@ -48,9 +48,9 @@ type ClientMetadata struct {
 	// At least one redirect URI is required.
 	RedirectURIs []string `json:"redirect_uris"`
 
-	// confidential clients must set this to `private_key_jwt`; public must be `none`
-	// TODO: should this be string not *string?
-	TokenEndpointAuthMethod *string `json:"token_endpoint_auth_method,omitempty"`
+	// Confidential clients must set this to `private_key_jwt`; public must be `none`.
+	// In some sense this field is "optional" (including in atproto OAuth specs), but it is effectively required, because the default value is invalid for atproto OAuth.
+	TokenEndpointAuthMethod string `json:"token_endpoint_auth_method"`
 
 	// `none` is never allowed here. The current recommended and most-supported algorithm is ES256, but this may evolve over time.
 	TokenEndpointAuthSigningAlg *string `json:"token_endpoint_auth_signing_alg,omitempty"`
@@ -82,7 +82,7 @@ type ClientMetadata struct {
 
 // returns 'true' if client metadata indicates that this is a confidential client
 func (m *ClientMetadata) IsConfidential() bool {
-	if (m.JWKSUri != nil || (m.JWKS != nil && len(m.JWKS.Keys) > 0)) && (m.TokenEndpointAuthMethod != nil && *m.TokenEndpointAuthMethod == "private_key_jwt") {
+	if (m.JWKSUri != nil || (m.JWKS != nil && len(m.JWKS.Keys) > 0)) && m.TokenEndpointAuthMethod == "private_key_jwt" {
 		return true
 	}
 
