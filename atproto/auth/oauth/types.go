@@ -124,10 +124,13 @@ func (m *ClientMetadata) Validate(clientID string) error {
 				return fmt.Errorf("%w: invalid web redirect_uris: %w", ErrInvalidClientMetadata, err)
 			}
 			if u.Scheme != "https" && u.Hostname() != "127.0.0.1" {
-				fmt.Printf("bad redirect_uris: %s\n", ru)
 				return fmt.Errorf("%w: web redirect_uris must have 'https' scheme", ErrInvalidClientMetadata)
 			}
 		}
+	}
+
+	if !(m.TokenEndpointAuthMethod == "none" || m.TokenEndpointAuthMethod == "private_key_jwt") {
+		return fmt.Errorf("%w: unsupported token_endpoint_auth_method", ErrInvalidClientMetadata)
 	}
 
 	if m.TokenEndpointAuthSigningAlg != nil && *m.TokenEndpointAuthSigningAlg == "none" {
