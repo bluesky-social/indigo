@@ -139,18 +139,22 @@ func runServer(cctx *cli.Context) error {
 	return nil
 }
 
-func (s *Server) currentSessionDID(r *http.Request) *syntax.DID {
+func (s *Server) currentSessionDID(r *http.Request) (*syntax.DID, string) {
 	sess, _ := s.CookieStore.Get(r, "oauth-demo")
 	accountDID, ok := sess.Values["account_did"].(string)
 	if !ok || accountDID == "" {
-		return nil
+		return nil, ""
 	}
 	did, err := syntax.ParseDID(accountDID)
 	if err != nil {
-		return nil
+		return nil, ""
+	}
+	sessionID, ok := sess.Values["session_id"].(string)
+	if !ok || sessionID == "" {
+		return nil, ""
 	}
 
-	return &did
+	return &did, sessionID
 }
 
 func strPtr(raw string) *string {
@@ -232,6 +236,7 @@ func (s *Server) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	// create signed cookie session, indicating account DID
 	sess, _ := s.CookieStore.Get(r, "oauth-demo")
 	sess.Values["account_did"] = sessData.AccountDID.String()
+	sess.Values["session_id"] = sessData.SessionID
 	if err := sess.Save(r, w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -244,14 +249,14 @@ func (s *Server) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 func (s *Server) OAuthRefresh(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	did := s.currentSessionDID(r)
+	did, sessionID := s.currentSessionDID(r)
 	if did == nil {
 		// TODO: supposed to set a WWW header; and could redirect?
 		http.Error(w, "not authenticated", http.StatusUnauthorized)
 		return
 	}
 
-	oauthSess, err := s.OAuth.ResumeSession(ctx, *did)
+	oauthSess, err := s.OAuth.ResumeSession(ctx, *did, sessionID)
 	if err != nil {
 		http.Error(w, "not authenticated", http.StatusUnauthorized)
 		return
@@ -270,9 +275,9 @@ func (s *Server) OAuthRefresh(w http.ResponseWriter, r *http.Request) {
 func (s *Server) OAuthLogout(w http.ResponseWriter, r *http.Request) {
 
 	// delete session from auth store
-	did := s.currentSessionDID(r)
+	did, sessionID := s.currentSessionDID(r)
 	if did != nil {
-		if err := s.OAuth.Store.DeleteSession(r.Context(), *did); err != nil {
+		if err := s.OAuth.Store.DeleteSession(r.Context(), *did, sessionID); err != nil {
 			slog.Error("failed to delete session", "did", did, "err", err)
 		}
 	}
@@ -300,14 +305,14 @@ func (s *Server) Post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	did := s.currentSessionDID(r)
+	did, sessionID := s.currentSessionDID(r)
 	if did == nil {
 		// TODO: supposed to set a WWW header; and could redirect?
 		http.Error(w, "not authenticated", http.StatusUnauthorized)
 		return
 	}
 
-	oauthSess, err := s.OAuth.ResumeSession(ctx, *did)
+	oauthSess, err := s.OAuth.ResumeSession(ctx, *did, sessionID)
 	if err != nil {
 		http.Error(w, "not authenticated", http.StatusUnauthorized)
 		return

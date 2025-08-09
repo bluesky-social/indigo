@@ -27,6 +27,9 @@ type ClientSessionData struct {
 	// Account DID for this session. Assuming only one active session per account, this can be used as "primary key" for storing and retrieving this infromation.
 	AccountDID syntax.DID `json:"account_did"`
 
+	// Identifier to distinguish this particular session for the account. Server backends generally support multiple sessions for the same account. This package will re-use the random 'state' token from the auth flow as the session ID.
+	SessionID string `json:"session_id"`
+
 	// Base URL of the "resource server" (eg, PDS). Should include scheme, hostname, port; no path or auth info.
 	HostURL string `json:"host_url"`
 
@@ -157,7 +160,7 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 	if sess.PersistSessionCallback != nil {
 		sess.PersistSessionCallback(ctx, sess.Data)
 	} else {
-		slog.Warn("not saving updated session data", "did", sess.Data.AccountDID)
+		slog.Warn("not saving updated session data", "did", sess.Data.AccountDID, "session_id", sess.Data.SessionID)
 	}
 
 	return sess.Data.AccessToken, nil
@@ -246,7 +249,7 @@ func (sess *ClientSession) UpdateHostDPoPNonce(ctx context.Context, nonce string
 	if sess.PersistSessionCallback != nil {
 		sess.PersistSessionCallback(ctx, sess.Data)
 	} else {
-		slog.Warn("not saving updated host DPoP nonce", "did", sess.Data.AccountDID)
+		slog.Warn("not saving updated host DPoP nonce", "did", sess.Data.AccountDID, "session_id", sess.Data.SessionID)
 	}
 }
 
