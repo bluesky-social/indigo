@@ -13,7 +13,8 @@ func randomNonce() string {
 	return base64.RawURLEncoding.EncodeToString(buf)
 }
 
-func s256CodeChallenge(raw string) string {
+// Computes an SHA-256 base64url-encoded challenge string, as used for PKCE.
+func S256CodeChallenge(raw string) string {
 	b := sha256.Sum256([]byte(raw))
 	return base64.RawURLEncoding.EncodeToString(b[:])
 }
