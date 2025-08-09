@@ -121,5 +121,19 @@ To log out a user, delete their session from the [OAuthStore]:
 	if err := oauthApp.Store.DeleteSession(r.Context(), did, sessionID); err != nil {
 		return err
 	}
+
+## Authorization-only Situations
+
+Some applications might only use atproto OAuth for authorization (authn). For example, "Login with Atmospehre", where the application does not need to access additional account metadata (such as account email), or access any restricted account resources (eg, write to atproto repository).
+
+In this scenario, the client app still needs to do an initial token request, to confirm the account identifier. But the returned session tokens will never be used, and do not need to be persisted.
+
+In these scenarios, applications could use an implementation of [OAuthStore] which does not actually persist the session data when [OAuthStore.SaveSession] is called. Or, the application could immediately call [OAuthStore.DeleteSession] after [ClientApp.ProcessCallback] returns.
+
+## Multiple Sessions Per Account
+
+In the traditional web app backend scenario, a single account (DID) might have multiple active sessions. For example, a user might log in from a browser on their laptop and on a mobile device at the same time. The user must go through the entire flow on each device (or browser) to authenticate the user. To prevent a new session from "clobbering" existing sessions (including tokens), this package supports multiple concurrent sessions per account, distinguished by a session ID. The random `state` token from the auth flow is re-used by default.
+
+In other scenarious, multiple sessions are not needed or desirable. For example, an integration backend, or tool with very short session lifetimes. In these scenarios, implementations of the [OAuthStore] interface could ignore the session ID. Or the [ClientApp] could be configured with an ephemeral [OAuthStore] (to support auth flows), and managed the session data returned by [ClientApp.ProcessCallback] using separate session storage logic.
 */
 package oauth
