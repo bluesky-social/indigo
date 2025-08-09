@@ -6,9 +6,9 @@ import (
 	"encoding/base64"
 )
 
-// this generates pseudo-unique nonces to prevent token (JWT) replay. these do not need to be cryptographically resilient
-func randomNonce() string {
-	buf := make([]byte, 16)
+// This is used both for PKCE challenges, and for pseudo-unique nonces to prevent token (JWT) replay.
+func secureRandomBase64(sizeBytes uint) string {
+	buf := make([]byte, sizeBytes)
 	rand.Read(buf)
 	return base64.RawURLEncoding.EncodeToString(buf)
 }

@@ -237,7 +237,7 @@ func (cfg *ClientConfig) NewClientAssertion(authURL string) (string, error) {
 			Issuer:   cfg.ClientID,
 			Subject:  cfg.ClientID,
 			Audience: []string{authURL},
-			ID:       randomNonce(),
+			ID:       secureRandomBase64(16),
 			IssuedAt: jwt.NewNumericDate(time.Now()),
 		},
 	}
@@ -261,7 +261,7 @@ func NewAuthDPoP(httpMethod, url, dpopNonce string, privKey crypto.PrivateKey) (
 		HTTPMethod: httpMethod,
 		TargetURI:  url,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        randomNonce(),
+			ID:        secureRandomBase64(16),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(JWT_EXPIRATION_DURATION)),
 		},
@@ -307,8 +307,8 @@ func parseAuthErrorReason(resp *http.Response, reqType string) string {
 func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, scope, loginHint string) (*AuthRequestData, error) {
 
 	parURL := authMeta.PushedAuthorizationRequestEndpoint
-	state := randomNonce()
-	pkceVerifier := fmt.Sprintf("%s%s%s", randomNonce(), randomNonce(), randomNonce())
+	state := secureRandomBase64(16)
+	pkceVerifier := secureRandomBase64(48)
 
 	// generate PKCE code challenge for use in PAR request
 	codeChallenge := S256CodeChallenge(pkceVerifier)

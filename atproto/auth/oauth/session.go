@@ -178,7 +178,7 @@ func (sess *ClientSession) NewHostDPoP(method, reqURL string) (string, error) {
 		AccessTokenHash: &ath,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    sess.Data.AuthServerURL,
-			ID:        randomNonce(),
+			ID:        secureRandomBase64(16),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(JWT_EXPIRATION_DURATION)),
 		},
