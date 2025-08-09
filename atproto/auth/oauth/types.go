@@ -388,7 +388,7 @@ type RefreshTokenRequest struct {
 	ClientAssertion *string `url:"client_assertion"`
 }
 
-// Expected respose from Auth Server token endpoint, both for initial token request and for refresh requests.
+// Expected response from Auth Server token endpoint, both for initial token request and for refresh requests.
 type TokenResponse struct {
 	Subject string `json:"sub"`
 

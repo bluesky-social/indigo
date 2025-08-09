@@ -86,7 +86,7 @@ func NewPublicConfig(clientID, callbackURL string, scopes []string) ClientConfig
 	return c
 }
 
-// Creats a basic [ClientConfig] for use with localhost developmnet. Such a client is always public (non-confidential).
+// Creates a basic [ClientConfig] for use with localhost developmnet. Such a client is always public (non-confidential).
 //
 // The "scopes" array must include "atproto".
 func NewLocalhostConfig(callbackURL string, scopes []string) ClientConfig {
