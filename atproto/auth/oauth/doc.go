@@ -44,6 +44,9 @@ The client metadata document needs to be served at the URL indicated by the `cli
 
 	func HandleClientMetadata(w http.ResponseWriter, r *http.Request) {
 		doc := oauthApp.Config.ClientMetadata()
+
+		// if this is is a confidential client, need to set doc.JWKSURI, and implement a handler
+
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(doc); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

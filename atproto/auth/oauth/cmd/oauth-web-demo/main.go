@@ -166,7 +166,7 @@ func (s *Server) ClientMetadata(w http.ResponseWriter, r *http.Request) {
 
 	meta := s.OAuth.Config.ClientMetadata()
 	if s.OAuth.Config.IsConfidential() {
-		meta.JWKSUri = strPtr(fmt.Sprintf("https://%s/oauth/jwks.json", r.Host))
+		meta.JWKSURI = strPtr(fmt.Sprintf("https://%s/oauth/jwks.json", r.Host))
 	}
 	meta.ClientName = strPtr("indigo atp-oauth-demo")
 	meta.ClientURI = strPtr(fmt.Sprintf("https://%s", r.Host))
