@@ -87,6 +87,9 @@ The service then waits for a callback request on the configured endpoint. The [P
 		_ = sessData.AccountDID
 		_ = sessData.SessionID
 
+		// the returned scopes might not include all of those requested
+		_ = sessData.Scopes
+
 		http.Redirect(w, r, "/app", http.StatusFound)
 	}
 

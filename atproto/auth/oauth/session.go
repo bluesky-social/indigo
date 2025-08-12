@@ -39,6 +39,9 @@ type ClientSessionData struct {
 	// Full token endpoint
 	AuthServerTokenEndpoint string `json:"authserver_token_endpoint"`
 
+	// The set of scopes approved for this session (returned in the initial token request)
+	Scopes []string `json:"scopes"`
+
 	// Token which can be used directly against host ("resource server", eg PDS)
 	AccessToken string `json:"access_token"`
 
