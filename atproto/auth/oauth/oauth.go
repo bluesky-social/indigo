@@ -635,14 +635,10 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 		}
 	}
 
-	// TODO: could be flexible instead of considering this a hard failure?
-	if tokenResp.Scope != info.Scope {
-		return nil, fmt.Errorf("token scope didn't match original request")
-	}
-
 	sessData := ClientSessionData{
 		AccountDID:              accountDID,
 		SessionID:               info.State,
+		Scopes:                  strings.Split(tokenResp.Scope, " "),
 		HostURL:                 hostURL,
 		AuthServerURL:           info.AuthServerURL,
 		AccessToken:             tokenResp.AccessToken,
