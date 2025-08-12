@@ -11,7 +11,7 @@
 - automates token refresh; for confidential clients requires ref to client secret
 - triggers callback when session data are updated (nonce, tokens)
 
-`oauth.OAuthStore`
+`oauth.ClientAuthStore`
 - interface for persistent storage systems for auth request and session metadata, including secrets and DPoP private keys
 
 `oauth.Resolver`

@@ -79,7 +79,7 @@ type ClientSession struct {
 
 // Requests new tokens from auth server, and returns the new access token on success.
 //
-// Internally takes a lock on session data around the entire refresh process, including retries. Persists data using [ClientSession.PersistSessionCallback] if configured.
+// Internally takes a lock on session data around the entire refresh process, including retries. Persists data using [PersistSessionCallback] if configured.
 func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 	sess.lk.Lock()
 	defer sess.lk.Unlock()

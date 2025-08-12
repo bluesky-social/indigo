@@ -78,7 +78,7 @@ func NewClientApp(config *ClientConfig, store ClientAuthStore) *ClientApp {
 	return app
 }
 
-// Creates a basic [ClientConfig] for use as a public (non-confidential) client. To upgrade to a confidential client, use this method and then [ClientConfig.SetClientSecret()].
+// Creates a basic [ClientConfig] for use as a public (non-confidential) client. To upgrade to a confidential client, use this method and then [ClientConfig.SetClientSecret].
 //
 // The "scopes" array must include "atproto".
 func NewPublicConfig(clientID, callbackURL string, scopes []string) ClientConfig {
@@ -425,7 +425,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 	return &parInfo, nil
 }
 
-// Lower-level helper. This is usually invoked as part of [ProcessCallback].
+// Lower-level helper. This is usually invoked as part of [ClientApp.ProcessCallback].
 func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode string, info AuthRequestData) (*TokenResponse, error) {
 
 	body := InitialTokenRequest{
