@@ -336,6 +336,9 @@ type AuthRequestData struct {
 	// unique token in URI format, which will be used by the client in the auth flow redirect
 	RequestURI string `json:"request_uri"`
 
+	// Full token endpoint URL
+	AuthServerTokenEndpoint string `json:"authserver_token_endpoint"`
+
 	// The secret token/nonce which a code challenge was generated from
 	PKCEVerifier string `json:"pkce_verifier"`
 

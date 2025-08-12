@@ -427,12 +427,6 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 // Lower-level helper. This is usually invoked as part of [ProcessCallback].
 func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode string, info AuthRequestData) (*TokenResponse, error) {
 
-	// TODO: don't re-fetch? caching?
-	authServerMeta, err := app.Resolver.ResolveAuthServerMetadata(ctx, info.AuthServerURL)
-	if err != nil {
-		return nil, err
-	}
-
 	body := InitialTokenRequest{
 		ClientID:     app.Config.ClientID,
 		RedirectURI:  app.Config.CallbackURL,
@@ -465,12 +459,12 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 
 	var resp *http.Response
 	for range 2 {
-		dpopJWT, err := NewAuthDPoP("POST", authServerMeta.TokenEndpoint, dpopServerNonce, dpopPrivKey)
+		dpopJWT, err := NewAuthDPoP("POST", info.AuthServerTokenEndpoint, dpopServerNonce, dpopPrivKey)
 		if err != nil {
 			return nil, err
 		}
 
-		req, err := http.NewRequestWithContext(ctx, "POST", authServerMeta.TokenEndpoint, bytes.NewBuffer(bodyBytes))
+		req, err := http.NewRequestWithContext(ctx, "POST", info.AuthServerTokenEndpoint, bytes.NewBuffer(bodyBytes))
 		if err != nil {
 			return nil, err
 		}
