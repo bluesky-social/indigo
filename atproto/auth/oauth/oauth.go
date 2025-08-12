@@ -159,7 +159,7 @@ func scopeStr(scopes []string) string {
 
 // Returns a [ClientMetadata] struct with the required fields populated based on this client configuration. Clients may want to populate additional metadata fields on top of this response.
 //
-// NOTE: confidential clients currently must provide JWKSUri after the fact
+// NOTE: confidential clients currently must provide JWKSURI after the fact
 func (config *ClientConfig) ClientMetadata() ClientMetadata {
 	m := ClientMetadata{
 		ClientID:                config.ClientID,
