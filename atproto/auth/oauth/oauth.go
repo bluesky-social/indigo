@@ -417,6 +417,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		Scope:                   scope,
 		PKCEVerifier:            pkceVerifier,
 		RequestURI:              parResp.RequestURI,
+		AuthServerTokenEndpoint: authMeta.TokenEndpoint,
 		DPoPAuthServerNonce:     dpopServerNonce,
 		DPoPPrivateKeyMultibase: dpopPrivKey.Multibase(),
 	}
