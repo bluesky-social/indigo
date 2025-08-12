@@ -162,7 +162,7 @@ func (config *ClientConfig) ClientMetadata() ClientMetadata {
 		Scope:                   scopeStr(config.Scopes),
 		ResponseTypes:           []string{"code"},
 		RedirectURIs:            []string{config.CallbackURL},
-		DpopBoundAccessTokens:   true,
+		DPoPBoundAccessTokens:   true,
 		TokenEndpointAuthMethod: "none",
 	}
 	if config.IsConfidential() {
@@ -202,11 +202,11 @@ func (app *ClientApp) ResumeSession(ctx context.Context, did syntax.DID, session
 	}
 
 	// TODO: refactor this in to ClientAuthStore layer?
-	priv, err := crypto.ParsePrivateMultibase(sd.DpopPrivateKeyMultibase)
+	priv, err := crypto.ParsePrivateMultibase(sd.DPoPPrivateKeyMultibase)
 	if err != nil {
 		return nil, err
 	}
-	sess.DpopPrivateKey = priv
+	sess.DPoPPrivateKey = priv
 	return &sess, nil
 }
 
@@ -409,8 +409,8 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		Scope:                   scope,
 		PKCEVerifier:            pkceVerifier,
 		RequestURI:              parResp.RequestURI,
-		DpopAuthServerNonce:     dpopServerNonce,
-		DpopPrivateKeyMultibase: dpopPrivKey.Multibase(),
+		DPoPAuthServerNonce:     dpopServerNonce,
+		DPoPPrivateKeyMultibase: dpopPrivKey.Multibase(),
 	}
 
 	return &parInfo, nil
@@ -441,7 +441,7 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 		body.ClientAssertion = &clientAssertion
 	}
 
-	dpopPrivKey, err := crypto.ParsePrivateMultibase(info.DpopPrivateKeyMultibase)
+	dpopPrivKey, err := crypto.ParsePrivateMultibase(info.DPoPPrivateKeyMultibase)
 	if err != nil {
 		return nil, err
 	}
@@ -452,7 +452,7 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 	}
 	bodyBytes := []byte(vals.Encode())
 
-	dpopServerNonce := info.DpopAuthServerNonce
+	dpopServerNonce := info.DPoPAuthServerNonce
 
 	var resp *http.Response
 	for range 2 {
@@ -638,9 +638,9 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 		AuthServerURL:           info.AuthServerURL,
 		AccessToken:             tokenResp.AccessToken,
 		RefreshToken:            tokenResp.RefreshToken,
-		DpopAuthServerNonce:     info.DpopAuthServerNonce,
-		DpopHostNonce:           info.DpopAuthServerNonce, // bootstrap host nonce from authserver
-		DpopPrivateKeyMultibase: info.DpopPrivateKeyMultibase,
+		DPoPAuthServerNonce:     info.DPoPAuthServerNonce,
+		DPoPHostNonce:           info.DPoPAuthServerNonce, // bootstrap host nonce from authserver
+		DPoPPrivateKeyMultibase: info.DPoPPrivateKeyMultibase,
 	}
 	if err := app.Store.SaveSession(ctx, sessData); err != nil {
 		return nil, err
