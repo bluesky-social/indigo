@@ -19,7 +19,7 @@ import (
 	"github.com/google/go-querystring/query"
 )
 
-var JWT_EXPIRATION_DURATION = 30 * time.Second
+var jwtExpirationDuration = 30 * time.Second
 
 // Service-level client. Used to establish and refrsh OAuth sessions, but is not itself account or session specific, and can not be used directly to make API calls on behalf of a user.
 type ClientApp struct {
@@ -30,12 +30,16 @@ type ClientApp struct {
 	Store    ClientAuthStore
 }
 
+// App-level client configuration data.
+//
+// Not to be confused with the [ClientMetadata] struct type, which represents a full client metadata JSON document.
 type ClientConfig struct {
-	ClientID    string
+	// Full client identifier, which should be an HTTP URL
+	ClientID string
+	// Fully qualified callback URL
 	CallbackURL string
-	// set of scope strings; must include "atproto"
-	Scopes []string
-
+	// Set of OAuth scope strings, which will be both declared in client metadata document and requested for every session. Must include "atproto".
+	Scopes    []string
 	UserAgent string
 
 	// For confidential clients, the private client assertion key. Note that while an interface is used here, only P-256 is allowed by the current specification.
@@ -45,6 +49,7 @@ type ClientConfig struct {
 	KeyID *string
 }
 
+// Constructs a [ClientApp] based on configuration.
 func NewClientApp(config *ClientConfig, store ClientAuthStore) *ClientApp {
 	app := &ClientApp{
 		Client:   http.DefaultClient,
@@ -102,6 +107,7 @@ func NewLocalhostConfig(callbackURL string, scopes []string) ClientConfig {
 	return c
 }
 
+// Whether this is a "confidential" OAuth client (with configured client attestation key), versus "public" client.
 func (config *ClientConfig) IsConfidential() bool {
 	return config.PrivateKey != nil && config.KeyID != nil
 }
@@ -151,7 +157,7 @@ func scopeStr(scopes []string) string {
 	return strings.Join(scopes, " ")
 }
 
-// Returns a ClientMetadata struct with the required fields populated based on this client configuration. Clients may want to populate additional metadata fields on top of this response.
+// Returns a [ClientMetadata] struct with the required fields populated based on this client configuration. Clients may want to populate additional metadata fields on top of this response.
 //
 // NOTE: confidential clients currently must provide JWKSUri after the fact
 func (config *ClientConfig) ClientMetadata() ClientMetadata {
@@ -177,6 +183,7 @@ func (config *ClientConfig) ClientMetadata() ClientMetadata {
 	return m
 }
 
+// High-level helper for fetching session data from store, based on account DID and session identifier.
 func (app *ClientApp) ResumeSession(ctx context.Context, did syntax.DID, sessionID string) (*ClientSession, error) {
 
 	sd, err := app.Store.GetSession(ctx, did, sessionID)
@@ -228,6 +235,7 @@ type dpopClaims struct {
 	Nonce           *string `json:"nonce,omitempty"`
 }
 
+// Low-level helper to generate and sign an OAuth confidential client assertion token (JWT).
 func (cfg *ClientConfig) NewClientAssertion(authURL string) (string, error) {
 	if !cfg.IsConfidential() {
 		return "", fmt.Errorf("non-confidential client")
@@ -263,7 +271,7 @@ func NewAuthDPoP(httpMethod, url, dpopNonce string, privKey crypto.PrivateKey) (
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        secureRandomBase64(16),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(JWT_EXPIRATION_DURATION)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(jwtExpirationDuration)),
 		},
 	}
 	if dpopNonce != "" {
@@ -303,7 +311,7 @@ func parseAuthErrorReason(resp *http.Response, reqType string) string {
 	return fmt.Sprintf("%s", errResp["error"])
 }
 
-// Sends PAR request to auth server
+// Low-level helper to send PAR request to auth server, which involves starting PKCE and DPoP.
 func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, scope, loginHint string) (*AuthRequestData, error) {
 
 	parURL := authMeta.PushedAuthorizationRequestEndpoint
@@ -330,7 +338,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		if err != nil {
 			return nil, err
 		}
-		body.ClientAssertionType = CLIENT_ASSERTION_JWT_BEARER
+		body.ClientAssertionType = ClientAssertionJWTBearer
 		body.ClientAssertion = assertionJWT
 	}
 
@@ -416,6 +424,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 	return &parInfo, nil
 }
 
+// Lower-level helper. This is usually invoked as part of [ProcessCallback].
 func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode string, info AuthRequestData) (*TokenResponse, error) {
 
 	// TODO: don't re-fetch? caching?
@@ -437,7 +446,7 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 		if err != nil {
 			return nil, err
 		}
-		body.ClientAssertionType = &CLIENT_ASSERTION_JWT_BEARER
+		body.ClientAssertionType = &ClientAssertionJWTBearer
 		body.ClientAssertion = &clientAssertion
 	}
 
@@ -509,6 +518,11 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 	return &tokenResp, nil
 }
 
+// High-level helper for starting a new session. Resolves identifier to resource server and auth server metadata, sends PAR request, persists request info to store, and returns a redirect URL.
+//
+// The `identifier` argument can be an atproto account identifier (handle or DID), or can be a URL to the account's auth server.
+//
+// The returned sting will be a web URL that the user should be redirected to (in browser) to approve the auth flow.
 func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (string, error) {
 
 	var authserverURL string
@@ -568,6 +582,7 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (str
 	return redirectURL, nil
 }
 
+// High-level helper for completing auth flow: verifies callback query parameters against persisted auth request info, makes initial token request to the auth server, validates account identifier, and persists session data.
 func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*ClientSessionData, error) {
 
 	state := params.Get("state")

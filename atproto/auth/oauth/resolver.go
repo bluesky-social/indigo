@@ -13,7 +13,7 @@ import (
 
 // Helper for resolving OAuth documents from the public web: client metadata, auth server metadata, etc.
 //
-// NOTE: will probably want to add flexible caching to this interface, and that may mean turning it in to an interface.
+// NOTE: configurable caching will likely be added in the future, but is not implemented yet. This struct may become an interface to support more flexible caching and resolution policies.
 type Resolver struct {
 	Client    *http.Client
 	UserAgent string
@@ -83,9 +83,7 @@ func (r *Resolver) ResolveAuthServerURL(ctx context.Context, hostURL string) (st
 	return authURL, nil
 }
 
-// Resolves an Auth Server URL to server metadata.
-//
-// Validates the auth server metadata before returning.
+// Resolves an Auth Server URL to server metadata. Validates metadata before returning.
 func (r *Resolver) ResolveAuthServerMetadata(ctx context.Context, serverURL string) (*AuthServerMetadata, error) {
 	u, err := url.Parse(serverURL)
 	if err != nil {
@@ -129,6 +127,7 @@ func (r *Resolver) ResolveAuthServerMetadata(ctx context.Context, serverURL stri
 	return &body, nil
 }
 
+// Fetches and validates OAuth client metadata document based on identifier in URL format.
 func (r *Resolver) ResolveClientMetadata(ctx context.Context, clientID string) (*ClientMetadata, error) {
 	u, err := url.Parse(clientID)
 	if err != nil {
