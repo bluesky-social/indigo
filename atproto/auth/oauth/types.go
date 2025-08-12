@@ -11,7 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-var CLIENT_ASSERTION_JWT_BEARER = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+var ClientAssertionJWTBearer string = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 
 var (
 	ErrInvalidAuthServerMetadata = errors.New("invalid auth server metadata")
@@ -62,7 +62,7 @@ type ClientMetadata struct {
 	JWKS *JWKS `json:"jwks,omitempty"`
 
 	// URL pointing to a JWKS JSON object. See `jwks` above for details.
-	JWKSUri *string `json:"jwks_uri,omitempty"`
+	JWKSURI *string `json:"jwks_uri,omitempty"`
 
 	// human-readable name of the client
 	ClientName *string `json:"client_name,omitempty"`
@@ -82,7 +82,7 @@ type ClientMetadata struct {
 
 // returns 'true' if client metadata indicates that this is a confidential client
 func (m *ClientMetadata) IsConfidential() bool {
-	if (m.JWKSUri != nil || (m.JWKS != nil && len(m.JWKS.Keys) > 0)) && m.TokenEndpointAuthMethod == "private_key_jwt" {
+	if (m.JWKSURI != nil || (m.JWKS != nil && len(m.JWKS.Keys) > 0)) && m.TokenEndpointAuthMethod == "private_key_jwt" {
 		return true
 	}
 
@@ -142,7 +142,7 @@ func (m *ClientMetadata) Validate(clientID string) error {
 		return fmt.Errorf("%w: dpop_bound_access_tokens must be true (DPoP is required)", ErrInvalidClientMetadata)
 	}
 
-	if m.JWKSUri != nil && *m.JWKSUri == "" {
+	if m.JWKSURI != nil && *m.JWKSURI == "" {
 		return fmt.Errorf("%w: jwks_uri must be valid URL (when provided)", ErrInvalidClientMetadata)
 	}
 

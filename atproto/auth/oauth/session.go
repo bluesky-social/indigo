@@ -57,6 +57,9 @@ type ClientSessionData struct {
 	// TODO: also persist access token creation time / expiration time? In context that token might not be an easily parsed JWT
 }
 
+// Implementation of [client.AuthMethod] for an OAuth session. Handles DPoP request token signing and nonce rotation, and token refresh requests. Optionally uses a callback to persist updated session data.
+//
+// A single ClientSession instance can be called concurrently: updates to session data (the 'Data' field) are protected with a RW mutex lock. Note that concurrent calls to distinct ClientSession instances for the same session could result in clobbered session data.
 type ClientSession struct {
 	// HTTP client used for token refresh requests
 	Client *http.Client
@@ -90,7 +93,7 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		body.ClientAssertionType = &CLIENT_ASSERTION_JWT_BEARER
+		body.ClientAssertionType = &ClientAssertionJWTBearer
 		body.ClientAssertion = &clientAssertion
 	}
 
@@ -180,7 +183,7 @@ func (sess *ClientSession) NewHostDPoP(method, reqURL string) (string, error) {
 			Issuer:    sess.Data.AuthServerURL,
 			ID:        secureRandomBase64(16),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(JWT_EXPIRATION_DURATION)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(jwtExpirationDuration)),
 		},
 	}
 	if sess.Data.DPoPHostNonce != "" {
@@ -335,6 +338,7 @@ func (sess *ClientSession) DoWithAuth(c *http.Client, req *http.Request, endpoin
 	return nil, fmt.Errorf("OAuth client ran out of request retries")
 }
 
+// Creates a new [client.APIClient] which wraps this session for auth.
 func (sess *ClientSession) APIClient() *client.APIClient {
 	c := client.APIClient{
 		Client:     sess.Client,
