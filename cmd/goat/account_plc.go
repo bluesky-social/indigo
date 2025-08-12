@@ -11,6 +11,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/did-method-plc/go-didplc"
 
 	"github.com/urfave/cli/v2"
 )
@@ -186,14 +187,30 @@ func runAccountPlcSubmit(cctx *cli.Context) error {
 		return err
 	}
 
-	var op json.RawMessage
-	if err = json.Unmarshal(fileBytes, &op); err != nil {
+	var opEnum didplc.OpEnum
+	if err = json.Unmarshal(fileBytes, &opEnum); err != nil {
 		return fmt.Errorf("failed decoding PLC op JSON: %w", err)
 	}
+	op := opEnum.AsOperation()
 
+	if op.IsGenesis() {
+		return fmt.Errorf("can't submit a genesis operation via PDS (HINT: Make sure the prev field is set, or try `goat plc submit --genesis`)")
+	}
+
+	if !op.IsSigned() {
+		return fmt.Errorf("operation must be signed (HINT: try `goat account plc sign`)")
+	}
+
+	// convert it back to JSON for submission
+	opEncoded, err := json.Marshal(op)
+	if err != nil {
+		return err
+	}
+	rawMsg := json.RawMessage(opEncoded)
 	err = agnostic.IdentitySubmitPlcOperation(ctx, xrpcc, &agnostic.IdentitySubmitPlcOperation_Input{
-		Operation: &op,
+		Operation: &rawMsg,
 	})
+
 	if err != nil {
 		return fmt.Errorf("failed submitting PLC op via PDS: %w", err)
 	}
