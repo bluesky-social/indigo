@@ -639,9 +639,10 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 	sessData := ClientSessionData{
 		AccountDID:              accountDID,
 		SessionID:               info.State,
-		Scopes:                  strings.Split(tokenResp.Scope, " "),
 		HostURL:                 hostURL,
 		AuthServerURL:           info.AuthServerURL,
+		AuthServerTokenEndpoint: info.AuthServerTokenEndpoint,
+		Scopes:                  strings.Split(tokenResp.Scope, " "),
 		AccessToken:             tokenResp.AccessToken,
 		RefreshToken:            tokenResp.RefreshToken,
 		DPoPAuthServerNonce:     info.DPoPAuthServerNonce,
