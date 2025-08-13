@@ -86,7 +86,7 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 
 	body := RefreshTokenRequest{
 		ClientID:     sess.Config.ClientID,
-		GrantType:    "authorization_code",
+		GrantType:    "refresh_token",
 		RefreshToken: sess.Data.RefreshToken,
 	}
 	tokenURL := sess.Data.AuthServerTokenEndpoint
