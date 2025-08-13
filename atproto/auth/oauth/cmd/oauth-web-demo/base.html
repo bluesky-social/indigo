@@ -12,15 +12,13 @@
 <header>
   <hgroup>
     <h1>atproto OAuth demo (indigo)</h1>
-    {{ if false }}
-    <p>Hello <span style="font-family: monospace;">@{{ "handle" }}</span>!</p>
-    {{ end }}
   </hgroup>
   <nav>
     <ul>
-    {{ if false }}
+    {{ if . }}
+      <li><span style="font-family: monospace; font-weight: bold;">{{ . }}</span>
       <li><a href="/bsky/post">Create Post</a>
-      <li><a href="/oauth/refresh">Refresh Token</a>
+      <li><a href="/oauth/refresh">Refresh Tokens</a>
       <li><a href="/oauth/logout">Logout</a>
     {{ else }}
       <li><a href="/oauth/login">Login</a>

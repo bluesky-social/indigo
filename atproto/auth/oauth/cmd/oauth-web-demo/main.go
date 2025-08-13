@@ -76,10 +76,6 @@ var tmplLogin = template.Must(template.Must(template.New("login.html").Parse(tmp
 var tmplPostText string
 var tmplPost = template.Must(template.Must(template.New("post.html").Parse(tmplBaseText)).Parse(tmplPostText))
 
-func (s *Server) Homepage(w http.ResponseWriter, r *http.Request) {
-	tmplHome.Execute(w, nil)
-}
-
 func runServer(cctx *cli.Context) error {
 
 	scopes := []string{"atproto", "transition:generic"}
@@ -194,6 +190,24 @@ func (s *Server) JWKS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) Homepage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// attempts to load Session to display links
+	did, sessionID := s.currentSessionDID(r)
+	if did == nil {
+		tmplHome.Execute(w, nil)
+		return
+	}
+
+	_, err := s.OAuth.ResumeSession(ctx, *did, sessionID)
+	if err != nil {
+		tmplHome.Execute(w, nil)
+		return
+	}
+	tmplHome.Execute(w, did)
+}
+
 func (s *Server) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -300,15 +314,15 @@ func (s *Server) Post(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("in post handler")
 
-	if r.Method != "POST" {
-		tmplPost.Execute(w, nil)
-		return
-	}
-
 	did, sessionID := s.currentSessionDID(r)
 	if did == nil {
 		// TODO: supposed to set a WWW header; and could redirect?
 		http.Error(w, "not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	if r.Method != "POST" {
+		tmplPost.Execute(w, did)
 		return
 	}
 
