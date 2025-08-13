@@ -1,0 +1,36 @@
+
+<!doctype html>                                                                                                                                                                                                     
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="origin-when-cross-origin">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.classless.purple.min.css">
+  <title>atproto OAuth demo (indigo)</title>
+</head>
+<body>
+<header>
+  <hgroup>
+    <h1>atproto OAuth demo (indigo)</h1>
+  </hgroup>
+  <nav>
+    <ul>
+    {{ if . }}
+      <li><span style="font-family: monospace; font-weight: bold;">{{ . }}</span>
+      <li><a href="/bsky/post">Create Post</a>
+      <li><a href="/oauth/refresh">Refresh Tokens</a>
+      <li><a href="/oauth/logout">Logout</a>
+    {{ else }}
+      <li><a href="/oauth/login">Login</a>
+    {{ end }}
+      <li><a href="https://github.com/bluesky-social/indigo/tree/main/atproto/auth/oauth">Code</a>
+    </ul>
+  </nav>
+</header>
+<main>
+  <section class="content">
+    {{ template "content" . }}
+  </section>
+</main>
+</body>
+</html>
