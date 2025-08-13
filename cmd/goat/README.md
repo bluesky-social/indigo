@@ -1,6 +1,9 @@
 `goat`: Go AT protocol CLI tool
 ===============================
 
+**NOTE: this project is moving to a dedicated git repo at [bluesky-social/goat](https://github.com/bluesky-social/goat). This copy of the code is deprecated and will eventually be removed, though a notice will remain.**
+
+
 This is a re-implementation of [adenosine-cli](https://gitlab.com/bnewbold/adenosine/-/tree/main/adenosine-cli?ref_type=heads) in golang.
 
 
