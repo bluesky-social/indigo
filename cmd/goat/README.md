@@ -1,6 +1,9 @@
 `goat`: Go AT protocol CLI tool
 ===============================
 
+**NOTE: this project is moving to a dedicated git repo at [bluesky-social/goat](https://github.com/bluesky-social/goat). This copy of the code is deprecated and will eventually be removed, though a notice will remain.**
+
+
 This is a re-implementation of [adenosine-cli](https://gitlab.com/bnewbold/adenosine/-/tree/main/adenosine-cli?ref_type=heads) in golang.
 
 
@@ -9,14 +12,14 @@ This is a re-implementation of [adenosine-cli](https://gitlab.com/bnewbold/adeno
 If you have the Go toolchain installed and configured correctly, you can directly build and install the tool for your local account:
 
 ```bash
-go install github.com/bluesky-social/indigo/cmd/goat@latest
+go install github.com/bluesky-social/goat@latest
 ```
 
 A more manual way to install is:
 
 ```bash
-git clone https://github.com/bluesky-social/indigo
-go build ./cmd/goat
+git clone https://github.com/bluesky-social/goat
+go build .
 sudo cp goat /usr/local/bin
 ```
 
