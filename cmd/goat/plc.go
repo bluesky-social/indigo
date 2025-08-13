@@ -517,7 +517,7 @@ func runPLCSign(cctx *cli.Context) error {
 
 	privStr := cctx.String("plc-signing-key")
 	if privStr == "" {
-		return fmt.Errorf("private key must be provided")
+		return fmt.Errorf("private key must be provided (HINT: use `goat account plc` if your PDS holds the keys)")
 	}
 
 	inputReader, err := getFileOrStdin(s)
@@ -587,7 +587,7 @@ func runPLCSubmit(cctx *cli.Context) error {
 
 	var enum didplc.OpEnum
 	if err := json.Unmarshal(inBytes, &enum); err != nil {
-		return err
+		return fmt.Errorf("failed decoding PLC op JSON: %w", err)
 	}
 	op := enum.AsOperation()
 
