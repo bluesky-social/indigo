@@ -15,7 +15,7 @@ Some Bluesky software is developed in Typescript, and lives in the [bluesky-soci
 
 **Developer Tools:**
 
-**goat** ([README](./cmd/goat/README.md)): CLI for interacting with network: CAR files, firehose, APIs, etc
+- **goat** ([README](https://github.com/bluesky-social/goat): CLI for interacting with network: CAR files, firehose, APIs, etc
 
 **Go Packages:**
 
