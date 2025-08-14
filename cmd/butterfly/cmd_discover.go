@@ -51,7 +51,7 @@ by collection.`,
 		&cli.StringFlag{
 			Name:  "store",
 			Value: "stdout",
-			Usage: "Storage mode: stdout, tarfiles, or duckdb",
+			Usage: "Storage mode: stdout, tarfiles, duckdb, or pebble",
 		},
 		&cli.StringFlag{
 			Name:  "storage-dir",
@@ -61,7 +61,7 @@ by collection.`,
 		&cli.StringFlag{
 			Name:  "db",
 			Value: "./butterfly.db",
-			Usage: "Path to DuckDB database file",
+			Usage: "Path to database file (DuckDB or Pebble)",
 		},
 	},
 	Action: runDiscover,
@@ -111,6 +111,8 @@ func runDiscover(c *cli.Context) error {
 		s = store.NewTarfilesStore(storageDir)
 	case "duckdb":
 		s = store.NewDuckdbStore(dbPath)
+	case "pebble":
+		s = store.NewPebbleStore(dbPath)
 	default:
 		return fmt.Errorf("unknown storage mode: %s", storeMode)
 	}

@@ -41,4 +41,5 @@ const (
 	StoreTypeDuckDB     StoreType = "duckdb"
 	StoreTypeClickHouse StoreType = "clickhouse"
 	StoreTypeTarFiles   StoreType = "tarfiles"
+	StoreTypePebble     StoreType = "pebble"
 )
