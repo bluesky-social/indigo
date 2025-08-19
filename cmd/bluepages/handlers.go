@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -14,11 +16,19 @@ import (
 
 // GET /xrpc/com.atproto.identity.resolveHandle
 func (srv *Server) ResolveHandle(c echo.Context) error {
-	ctx := c.Request().Context()
+	ctx, cancel := context.WithTimeout(context.Background(), srv.requestTimeout)
+	defer cancel()
 
-	hdl, err := syntax.ParseHandle(c.QueryParam("handle"))
+	raw := c.QueryParam("handle")
+	if raw == "" {
+		return c.JSON(http.StatusBadRequest, GenericError{
+			Error:   "BadRequest",
+			Message: "query parameter missing or empty: handle",
+		})
+	}
+	hdl, err := syntax.ParseHandle(raw)
 	if err != nil {
-		return c.JSON(400, GenericError{
+		return c.JSON(http.StatusBadRequest, GenericError{
 			Error:   "InvalidHandleSyntax",
 			Message: err.Error(),
 		})
@@ -26,28 +36,41 @@ func (srv *Server) ResolveHandle(c echo.Context) error {
 
 	did, err := srv.dir.ResolveHandle(ctx, hdl)
 	if err != nil && errors.Is(err, identity.ErrHandleNotFound) {
-		return c.JSON(404, GenericError{
+		return c.JSON(http.StatusNotFound, GenericError{
 			Error:   "HandleNotFound",
 			Message: err.Error(),
 		})
+	} else if err != nil && errors.Is(err, identity.ErrHandleResolutionFailed) {
+		return c.JSON(http.StatusBadGateway, GenericError{
+			Error:   "HandleResolutionFailed",
+			Message: err.Error(),
+		})
 	} else if err != nil {
-		return c.JSON(500, GenericError{
-			Error:   "InternalError",
+		return c.JSON(http.StatusInternalServerError, GenericError{
+			Error:   "InternalServerError",
 			Message: err.Error(),
 		})
 	}
-	return c.JSON(200, comatproto.IdentityResolveHandle_Output{
+	return c.JSON(http.StatusOK, comatproto.IdentityResolveHandle_Output{
 		Did: did.String(),
 	})
 }
 
 // GET /xrpc/com.atproto.identity.resolveDid
 func (srv *Server) ResolveDid(c echo.Context) error {
-	ctx := c.Request().Context()
+	ctx, cancel := context.WithTimeout(context.Background(), srv.requestTimeout)
+	defer cancel()
 
-	did, err := syntax.ParseDID(c.QueryParam("did"))
+	raw := c.QueryParam("did")
+	if raw == "" {
+		return c.JSON(http.StatusBadRequest, GenericError{
+			Error:   "BadRequest",
+			Message: "query parameter missing or empty: did",
+		})
+	}
+	did, err := syntax.ParseDID(raw)
 	if err != nil {
-		return c.JSON(400, GenericError{
+		return c.JSON(http.StatusBadRequest, GenericError{
 			Error:   "InvalidDidSyntax",
 			Message: err.Error(),
 		})
@@ -55,57 +78,73 @@ func (srv *Server) ResolveDid(c echo.Context) error {
 
 	rawDoc, err := srv.dir.ResolveDIDRaw(ctx, did)
 	if err != nil && errors.Is(err, identity.ErrDIDNotFound) {
-		return c.JSON(404, GenericError{
+		return c.JSON(http.StatusNotFound, GenericError{
 			Error:   "DidNotFound",
 			Message: err.Error(),
 		})
+	} else if err != nil && errors.Is(err, identity.ErrDIDResolutionFailed) {
+		return c.JSON(http.StatusBadGateway, GenericError{
+			Error:   "DidResolutionFailed",
+			Message: err.Error(),
+		})
 	} else if err != nil {
-		return c.JSON(500, GenericError{
-			Error:   "InternalError",
+		return c.JSON(http.StatusInternalServerError, GenericError{
+			Error:   "InternalServerError",
 			Message: err.Error(),
 		})
 	}
-	return c.JSON(200, comatproto.IdentityResolveDid_Output{
+	return c.JSON(http.StatusOK, comatproto.IdentityResolveDid_Output{
 		DidDoc: rawDoc,
 	})
 }
 
 // helper for resolveIdentity
 func (srv *Server) resolveIdentityFromHandle(c echo.Context, handle syntax.Handle) error {
-	ctx := c.Request().Context()
+	ctx, cancel := context.WithTimeout(context.Background(), srv.requestTimeout)
+	defer cancel()
 
 	handle = handle.Normalize()
 
 	did, err := srv.dir.ResolveHandle(ctx, handle)
 	if err != nil && errors.Is(err, identity.ErrHandleNotFound) {
-		return c.JSON(404, GenericError{
+		return c.JSON(http.StatusNotFound, GenericError{
 			Error:   "HandleNotFound",
 			Message: err.Error(),
 		})
-	} else if err != nil {
-		srv.logger.Warn("failed handle resolution", "err", err, "handle", handle)
-		return c.JSON(502, GenericError{
+	} else if err != nil && errors.Is(err, identity.ErrHandleResolutionFailed) {
+		return c.JSON(http.StatusBadGateway, GenericError{
 			Error:   "HandleResolutionFailed",
+			Message: err.Error(),
+		})
+	} else if err != nil {
+		srv.logger.Warn("handle resolution error", "err", err, "handle", handle)
+		return c.JSON(http.StatusInternalServerError, GenericError{
+			Error:   "InternalServerError",
 			Message: err.Error(),
 		})
 	}
 
 	rawDoc, err := srv.dir.ResolveDIDRaw(ctx, did)
 	if err != nil && errors.Is(err, identity.ErrDIDNotFound) {
-		return c.JSON(404, GenericError{
+		return c.JSON(http.StatusNotFound, GenericError{
 			Error:   "DidNotFound",
 			Message: err.Error(),
 		})
+	} else if err != nil && errors.Is(err, identity.ErrDIDResolutionFailed) {
+		return c.JSON(http.StatusBadGateway, GenericError{
+			Error:   "DidResolutionFailed",
+			Message: err.Error(),
+		})
 	} else if err != nil {
-		return c.JSON(502, GenericError{
-			Error:   "DIDResolutionFailed",
+		return c.JSON(http.StatusInternalServerError, GenericError{
+			Error:   "InternalServerError",
 			Message: err.Error(),
 		})
 	}
 
 	var doc identity.DIDDocument
 	if err := json.Unmarshal(rawDoc, &doc); err != nil {
-		return c.JSON(400, GenericError{
+		return c.JSON(http.StatusBadRequest, GenericError{
 			Error:   "InvalidDidDocument",
 			Message: err.Error(),
 		})
@@ -115,13 +154,13 @@ func (srv *Server) resolveIdentityFromHandle(c echo.Context, handle syntax.Handl
 	// NOTE: 'handle' was resolved above, and 'DeclaredHandle()' returns a normalized handle
 	declHandle, err := ident.DeclaredHandle()
 	if err != nil || declHandle != handle {
-		return c.JSON(400, GenericError{
+		return c.JSON(http.StatusBadRequest, GenericError{
 			Error:   "HandleMismatch",
 			Message: err.Error(),
 		})
 	}
 
-	return c.JSON(200, comatproto.IdentityDefs_IdentityInfo{
+	return c.JSON(http.StatusOK, comatproto.IdentityDefs_IdentityInfo{
 		Did:    ident.DID.String(),
 		Handle: handle.String(),
 		DidDoc: rawDoc,
@@ -130,24 +169,30 @@ func (srv *Server) resolveIdentityFromHandle(c echo.Context, handle syntax.Handl
 
 // helper for resolveIdentity
 func (srv *Server) resolveIdentityFromDID(c echo.Context, did syntax.DID) error {
-	ctx := c.Request().Context()
+	ctx, cancel := context.WithTimeout(context.Background(), srv.requestTimeout)
+	defer cancel()
 
 	rawDoc, err := srv.dir.ResolveDIDRaw(ctx, did)
 	if err != nil && errors.Is(err, identity.ErrDIDNotFound) {
-		return c.JSON(404, GenericError{
+		return c.JSON(http.StatusNotFound, GenericError{
 			Error:   "DidNotFound",
 			Message: err.Error(),
 		})
+	} else if err != nil && errors.Is(err, identity.ErrDIDResolutionFailed) {
+		return c.JSON(http.StatusBadGateway, GenericError{
+			Error:   "DidResolutionFailed",
+			Message: err.Error(),
+		})
 	} else if err != nil {
-		return c.JSON(502, GenericError{
-			Error:   "DIDResolutionFailed",
+		return c.JSON(http.StatusBadGateway, GenericError{
+			Error:   "DidResolutionFailed",
 			Message: err.Error(),
 		})
 	}
 
 	var doc identity.DIDDocument
 	if err := json.Unmarshal(rawDoc, &doc); err != nil {
-		return c.JSON(400, GenericError{
+		return c.JSON(http.StatusBadRequest, GenericError{
 			Error:   "InvalidDidDocument",
 			Message: err.Error(),
 		})
@@ -165,7 +210,7 @@ func (srv *Server) resolveIdentityFromDID(c echo.Context, did syntax.DID) error 
 		handle = syntax.HandleInvalid
 	}
 
-	return c.JSON(200, comatproto.IdentityDefs_IdentityInfo{
+	return c.JSON(http.StatusOK, comatproto.IdentityDefs_IdentityInfo{
 		Did:    ident.DID.String(),
 		Handle: handle.String(),
 		DidDoc: rawDoc,
@@ -175,9 +220,16 @@ func (srv *Server) resolveIdentityFromDID(c echo.Context, did syntax.DID) error 
 // GET /xrpc/com.atproto.identity.resolveIdentity
 func (srv *Server) ResolveIdentity(c echo.Context) error {
 	// we partially re-implement the "Lookup()" logic here, but returning the full DID document, not `identity.Identity`
-	atid, err := syntax.ParseAtIdentifier(c.QueryParam("identifier"))
+	raw := c.QueryParam("identifier")
+	if raw == "" {
+		return c.JSON(http.StatusBadRequest, GenericError{
+			Error:   "BadRequest",
+			Message: "query parameter missing or empty: identifier",
+		})
+	}
+	atid, err := syntax.ParseAtIdentifier(raw)
 	if err != nil {
-		return c.JSON(400, GenericError{
+		return c.JSON(http.StatusBadRequest, GenericError{
 			Error:   "InvalidIdentifierSyntax",
 			Message: err.Error(),
 		})
@@ -196,19 +248,20 @@ func (srv *Server) ResolveIdentity(c echo.Context) error {
 
 // POST /xrpc/com.atproto.identity.refreshIdentity
 func (srv *Server) RefreshIdentity(c echo.Context) error {
-	ctx := c.Request().Context()
+	ctx, cancel := context.WithTimeout(context.Background(), srv.requestTimeout)
+	defer cancel()
 
 	var body comatproto.IdentityRefreshIdentity_Input
 	if err := c.Bind(&body); err != nil {
-		return c.JSON(400, GenericError{
-			Error:   "InvalidRequestBody",
+		return c.JSON(http.StatusBadRequest, GenericError{
+			Error:   "BadRequest",
 			Message: err.Error(),
 		})
 	}
 
 	atid, err := syntax.ParseAtIdentifier(body.Identifier)
 	if err != nil {
-		return c.JSON(400, GenericError{
+		return c.JSON(http.StatusBadRequest, GenericError{
 			Error:   "InvalidIdentifierSyntax",
 			Message: err.Error(),
 		})
@@ -217,14 +270,20 @@ func (srv *Server) RefreshIdentity(c echo.Context) error {
 	did, err := atid.AsDID()
 	if nil == err {
 		if err := srv.dir.PurgeDID(ctx, did); err != nil {
-			return err
+			return c.JSON(http.StatusInternalServerError, GenericError{
+				Error:   "InternalServerError",
+				Message: err.Error(),
+			})
 		}
 		return srv.resolveIdentityFromDID(c, did)
 	}
 	handle, err := atid.AsHandle()
 	if nil == err {
 		if err := srv.dir.PurgeHandle(ctx, handle); err != nil {
-			return err
+			return c.JSON(http.StatusInternalServerError, GenericError{
+				Error:   "InternalServerError",
+				Message: err.Error(),
+			})
 		}
 		return srv.resolveIdentityFromHandle(c, handle)
 	}
@@ -239,11 +298,11 @@ type GenericStatus struct {
 }
 
 func (s *Server) HandleHealthCheck(c echo.Context) error {
-	return c.JSON(200, GenericStatus{Status: "ok", Daemon: "bluepages"})
+	return c.JSON(http.StatusOK, GenericStatus{Status: "ok", Daemon: "bluepages"})
 }
 
 func (srv *Server) WebHome(c echo.Context) error {
-	return c.String(200, `
+	return c.String(http.StatusOK, `
 eeeee  e     e   e eeee eeeee eeeee eeeee eeee eeeee 
 8   8  8     8   8 8    8   8 8   8 8   8 8    8   " 
 8eee8e 8e    8e  8 8eee 8eee8 8eee8 8e    8eee 8eeee 
