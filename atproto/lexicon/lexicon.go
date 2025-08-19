@@ -94,6 +94,10 @@ func validateRequestConfig(cat Catalog, inputData any, parameters url.Values, re
 		if err := validateData(cat, ps.Input.Schema.Inner, inputData, flags); err != nil {
 			return err
 		}
+	} else if ss, ok := def.Def.(SchemaSubscription); ok {
+		if err := validateParameters(cat, ss.Parameters, parameters, flags); err != nil {
+			return err
+		}
 	} else {
 		return fmt.Errorf("schema is not of query or procedure type: %s", ref)
 	}
