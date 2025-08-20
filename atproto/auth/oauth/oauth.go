@@ -535,6 +535,7 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (str
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve username (%s): %w", identifier, err)
 		}
+		accountDID = ident.DID
 		host := ident.PDSEndpoint()
 		if host == "" {
 			return "", fmt.Errorf("identity does not link to an atproto host (PDS)")
