@@ -125,6 +125,7 @@ type FeedDefs_NotFoundPost struct {
 type FeedDefs_PostView struct {
 	LexiconTypeID string                             `json:"$type,const=app.bsky.feed.defs#postView" cborgen:"$type,const=app.bsky.feed.defs#postView"`
 	Author        *ActorDefs_ProfileViewBasic        `json:"author" cborgen:"author"`
+	BookmarkCount *int64                             `json:"bookmarkCount,omitempty" cborgen:"bookmarkCount,omitempty"`
 	Cid           string                             `json:"cid" cborgen:"cid"`
 	Embed         *FeedDefs_PostView_Embed           `json:"embed,omitempty" cborgen:"embed,omitempty"`
 	IndexedAt     string                             `json:"indexedAt" cborgen:"indexedAt"`
@@ -484,6 +485,7 @@ type FeedDefs_ThreadgateView struct {
 //
 // Metadata about the requesting account's relationship with the subject content. Only has meaningful content for authed requests.
 type FeedDefs_ViewerState struct {
+	Bookmarked        *bool   `json:"bookmarked,omitempty" cborgen:"bookmarked,omitempty"`
 	EmbeddingDisabled *bool   `json:"embeddingDisabled,omitempty" cborgen:"embeddingDisabled,omitempty"`
 	Like              *string `json:"like,omitempty" cborgen:"like,omitempty"`
 	Pinned            *bool   `json:"pinned,omitempty" cborgen:"pinned,omitempty"`
