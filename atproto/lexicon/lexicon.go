@@ -91,7 +91,7 @@ func validateRequestConfig(cat Catalog, inputData any, parameters url.Values, re
 		if err := validateParameters(cat, qs.Parameters, parameters, flags); err != nil {
 			return err
 		}
-		if ps.Input != nil {
+		if ps.Input != nil && ps.Input.Schema != nil {
 			if err := validateData(cat, ps.Input.Schema.Inner, inputData, flags); err != nil {
 				return err
 			}
