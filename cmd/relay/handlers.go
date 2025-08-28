@@ -197,8 +197,11 @@ func (s *Service) handleComAtprotoSyncGetRepoStatus(c echo.Context, did syntax.D
 	if err != nil && !errors.Is(err, relay.ErrAccountRepoNotFound) {
 		return nil, err
 	}
+	// ^^ only returns for non-ErrAccountRepoNotFound: repo can be nil after this!
 
-	out.Rev = &repo.Rev
+	if repo != nil {
+		out.Rev = &repo.Rev
+	}
 
 	return out, nil
 }
