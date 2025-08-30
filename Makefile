@@ -48,6 +48,12 @@ test-interop: ## Run tests, including local interop (requires services running)
 test-search: ## Run tests, including local search indexing (requires services running)
 	go clean -testcache && go test -tags=localsearch ./...
 
+.PHONY: update
+update: ## Update all dependencies
+	go get -u -t ./...
+	go mod tidy
+	go mod verify
+
 .PHONY: coverage-html
 coverage-html: ## Generate test coverage report and open in browser
 	go test ./... -coverpkg=./... -coverprofile=test-coverage.out
