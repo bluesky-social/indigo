@@ -330,8 +330,8 @@ type AuthRequestData struct {
 	// If the flow started with an account identifier (DID or handle), it should be persisted, to verify against the initial token response.
 	AccountDID *syntax.DID `json:"account_did,omitempty"`
 
-	// OAuth scope string (space-separated list)
-	Scope string `json:"scope"`
+	// OAuth scope strings
+	Scopes []string `json:"scopes"`
 
 	// unique token in URI format, which will be used by the client in the auth flow redirect
 	RequestURI string `json:"request_uri"`

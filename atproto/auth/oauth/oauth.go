@@ -312,7 +312,7 @@ func parseAuthErrorReason(resp *http.Response, reqType string) string {
 }
 
 // Low-level helper to send PAR request to auth server, which involves starting PKCE and DPoP.
-func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, scope, loginHint string) (*AuthRequestData, error) {
+func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, scopes []string, loginHint string) (*AuthRequestData, error) {
 
 	parURL := authMeta.PushedAuthorizationRequestEndpoint
 	state := secureRandomBase64(16)
@@ -326,7 +326,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		ClientID:            app.Config.ClientID,
 		State:               state,
 		RedirectURI:         app.Config.CallbackURL,
-		Scope:               scope,
+		Scope:               scopeStr(scopes),
 		ResponseType:        "code",
 		CodeChallenge:       codeChallenge,
 		CodeChallengeMethod: "S256",
@@ -360,7 +360,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		return nil, err
 	}
 
-	slog.Debug("sending auth request", "scope", scope, "state", state, "redirectURI", app.Config.CallbackURL)
+	slog.Debug("sending auth request", "scopes", scopes, "state", state, "redirectURI", app.Config.CallbackURL)
 
 	var resp *http.Response
 	for range 2 {
@@ -414,7 +414,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 	parInfo := AuthRequestData{
 		State:                   state,
 		AuthServerURL:           authMeta.Issuer,
-		Scope:                   scope,
+		Scopes:                  scopes,
 		PKCEVerifier:            pkceVerifier,
 		RequestURI:              parResp.RequestURI,
 		AuthServerTokenEndpoint: authMeta.TokenEndpoint,
@@ -554,8 +554,7 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (str
 		return "", fmt.Errorf("fetching auth server metadata: %w", err)
 	}
 
-	scope := scopeStr(app.Config.Scopes)
-	info, err := app.SendAuthRequest(ctx, authserverMeta, scope, identifier)
+	info, err := app.SendAuthRequest(ctx, authserverMeta, app.Config.Scopes, identifier)
 	if err != nil {
 		return "", fmt.Errorf("auth request failed: %w", err)
 	}
