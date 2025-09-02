@@ -1,0 +1,58 @@
+{
+  "lexicon": 1,
+  "id": "example.lexicon.permissionset",
+  "description": "exercizes many lexicon features for the permission-set type",
+  "defs": {
+    "main": {
+      "type": "permission-set",
+      "permissions": [
+        {
+          "type": "permission",
+          "resource": "blob",
+          "accept": [
+            "image/*"
+          ]
+        },
+        {
+          "type": "permission",
+          "resource": "repo",
+          "collection": [
+            "com.example.calendar.event",
+            "com.example.calendar.rsvp"
+          ],
+          "action": [
+            "delete",
+            "create"
+          ]
+        },
+        {
+          "type": "permission",
+          "resource": "repo",
+          "collection": [
+            "com.example.calendar.event",
+            "app.bsky.feed.post"
+          ],
+          "action": [
+            "create",
+            "update",
+            "delete"
+          ]
+        },
+        {
+        	"type": "permission",
+        	"resource": "rpc",
+        	"aud": "did:web:example.com#foo",
+        	"lxm": ["com.example.calendar.listEvents"]
+        },
+        {
+          "type": "permission",
+          "resource": "rpc",
+          "inheritAud": true,
+          "lxm": [
+            "com.example.calendar.listEvents"
+          ]
+        }
+      ]
+    }
+  }
+}
