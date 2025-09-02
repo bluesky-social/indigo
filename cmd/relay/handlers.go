@@ -151,16 +151,26 @@ func (s *Service) handleComAtprotoSyncListRepos(c echo.Context, cursor int64, li
 	// TODO: would be much more efficient to do a join and have Relay.ListAccounts return these repos with the account info
 	for i, acc := range accounts {
 		repo, err := s.relay.GetAccountRepo(ctx, acc.UID)
-		if err != nil {
+		if err != nil && !errors.Is(err, relay.ErrAccountRepoNotFound) {
 			s.logger.Error("failed to get repo root", "err", err, "did", acc.DID)
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get repo root for (%s): %v", acc.DID, err.Error()))
+		}
+		// note: repo can be nil beyond this point!
+
+		// TODO: empty strings here may not be spec-compliant
+		// need to determine correct handling when there is no account_repo entry
+		// see https://github.com/bluesky-social/indigo/issues/1143
+		var cid, rev string
+		if repo != nil {
+			cid = repo.CommitCID
+			rev = repo.Rev
 		}
 
 		active := acc.IsActive()
 		resp.Repos[i] = &comatproto.SyncListRepos_Repo{
 			Did:    acc.DID,
-			Head:   repo.CommitCID,
-			Rev:    repo.Rev,
+			Head:   cid,
+			Rev:    rev,
 			Active: &active,
 			Status: acc.StatusField(),
 		}
@@ -197,8 +207,11 @@ func (s *Service) handleComAtprotoSyncGetRepoStatus(c echo.Context, did syntax.D
 	if err != nil && !errors.Is(err, relay.ErrAccountRepoNotFound) {
 		return nil, err
 	}
+	// ^^ only returns for non-ErrAccountRepoNotFound: repo can be nil after this!
 
-	out.Rev = &repo.Rev
+	if repo != nil {
+		out.Rev = &repo.Rev
+	}
 
 	return out, nil
 }
