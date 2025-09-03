@@ -65,7 +65,7 @@ func (c *BaseCatalog) AddSchemaFile(sf SchemaFile) error {
 		}
 		// "A file can have at most one definition with one of the "primary" types. Primary types should always have the name main. It is possible for main to describe a non-primary type."
 		switch s := def.Inner.(type) {
-		case SchemaRecord, SchemaQuery, SchemaProcedure, SchemaSubscription:
+		case SchemaRecord, SchemaQuery, SchemaProcedure, SchemaSubscription, SchemaPermissionSet:
 			if frag != "main" {
 				return fmt.Errorf("record, query, procedure, and subscription types must be 'main', not: %s", frag)
 			}
