@@ -88,7 +88,7 @@ func validateRequestConfig(cat Catalog, inputData any, parameters url.Values, re
 			return err
 		}
 	} else if ps, ok := def.Def.(SchemaProcedure); ok {
-		if err := validateParameters(cat, qs.Parameters, parameters, flags); err != nil {
+		if err := validateParameters(cat, ps.Parameters, parameters, flags); err != nil {
 			return err
 		}
 		if ps.Input != nil && ps.Input.Schema != nil {
@@ -206,7 +206,7 @@ func convertParameterValue(def SchemaDef, values []string) (any, error) {
 	}
 }
 
-func validateParameters(cat Catalog, s SchemaParams, parameters url.Values, flags ValidateFlags) error {
+func validateParameters(cat Catalog, s *SchemaParams, parameters url.Values, flags ValidateFlags) error {
 	for _, k := range s.Required {
 		if _, ok := parameters[k]; !ok {
 			return fmt.Errorf("required parameter missing: %s", k)

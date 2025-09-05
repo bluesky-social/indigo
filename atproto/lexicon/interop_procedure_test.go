@@ -21,10 +21,12 @@ type ProcedureFixture struct {
 func TestInteropProcedureValid(t *testing.T) {
 	assert := assert.New(t)
 
-	cat := NewBaseCatalog()
-	if err := cat.LoadDirectory("testdata/catalog"); err != nil {
+	bc := NewBaseCatalog()
+	if err := bc.LoadDirectory("testdata/catalog"); err != nil {
 		t.Fatal(err)
 	}
+	cat := NewResolvingCatalog()
+	cat.Base = bc
 
 	f, err := os.Open("testdata/procedure-data-valid.json")
 	if err != nil {
