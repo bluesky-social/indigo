@@ -1,18 +1,12 @@
 {
   "lexicon": 1,
   "id": "example.lexicon.procedure",
-  "revision": 1,
-  "description": "exercizes many lexicon features for the procedure type",
+  "description": "demonstrates lexicon features for the procedure type",
   "defs": {
     "main": {
       "type": "procedure",
-      "description": "a procedure type",
       "parameters": {
         "type": "params",
-        "description": "a params type",
-        "required": [
-          "string"
-        ],
         "properties": {
           "boolean": {
             "type": "boolean",
@@ -25,66 +19,60 @@
           "string": {
             "type": "string",
             "description": "field of type string"
-          },
-          "handle": {
-            "type": "string",
-            "format": "handle",
-            "description": "field of type string, format handle"
-          },
-          "unknown": {
-            "type": "unknown",
-            "description": "field of type unknown"
-          },
-          "array": {
-            "type": "array",
-            "description": "field of type array",
-            "items": {
-              "type": "integer"
-            }
           }
         }
       },
       "input": {
-        "description": "input body type",
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required":["a"],
+          "required": [
+            "preferences"
+          ],
           "properties": {
-            "a": {
-              "type": "integer"
-            },
-            "b": {
-              "type": "integer"
+            "preferences": {
+              "type": "ref",
+              "ref": "app.bsky.actor.defs#preferences"
             }
           }
         }
       },
       "output": {
-        "description": "output body type",
         "encoding": "application/json",
         "schema": {
           "type": "object",
+          "required": [],
           "properties": {
-            "a": {
-              "type": "integer"
+            "blob": {
+              "type": "blob",
+              "description": "field of type blob"
             },
-            "b": {
-              "type": "integer"
+            "unknown": {
+              "type": "unknown",
+              "description": "field of type unknown"
+            },
+            "array": {
+              "type": "array",
+              "description": "field of type array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "object": {
+              "type": "object",
+              "description": "field of type null",
+              "properties": {
+                "a": {
+                  "type": "integer"
+                },
+                "b": {
+                  "type": "integer"
+                }
+              }
             }
           }
         }
-      },
-      "errors": [
-        {
-          "name": "DemoError",
-          "description": "demo error value"
-        },
-        {
-          "name": "AnotherDemoError",
-          "description": "another demo error value"
-        }
-      ]
+      }
     }
   }
 }
