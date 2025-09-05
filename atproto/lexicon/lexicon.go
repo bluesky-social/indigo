@@ -207,21 +207,23 @@ func convertParameterValue(def SchemaDef, values []string) (any, error) {
 }
 
 func validateParameters(cat Catalog, s *SchemaParams, parameters url.Values, flags ValidateFlags) error {
-	for _, k := range s.Required {
-		if _, ok := parameters[k]; !ok {
-			return fmt.Errorf("required parameter missing: %s", k)
-		}
-	}
-	for k, def := range s.Properties {
-		if v, ok := parameters[k]; ok {
-
-			cv, err := convertParameterValue(def, v)
-			if err != nil {
-				return fmt.Errorf("parameter is invalid (%s) : %s", k, err)
+	if s != nil {
+		for _, k := range s.Required {
+			if _, ok := parameters[k]; !ok {
+				return fmt.Errorf("required parameter missing: %s", k)
 			}
-			err = validateData(cat, def.Inner, cv, flags)
-			if err != nil {
-				return fmt.Errorf("parameter is invalid (%s) : %s", k, err)
+		}
+		for k, def := range s.Properties {
+			if v, ok := parameters[k]; ok {
+
+				cv, err := convertParameterValue(def, v)
+				if err != nil {
+					return fmt.Errorf("parameter is invalid (%s) : %s", k, err)
+				}
+				err = validateData(cat, def.Inner, cv, flags)
+				if err != nil {
+					return fmt.Errorf("parameter is invalid (%s) : %s", k, err)
+				}
 			}
 		}
 	}
