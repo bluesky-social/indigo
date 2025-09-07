@@ -247,7 +247,7 @@ func (cfg *ClientConfig) NewClientAssertion(authURL string) (string, error) {
 			Audience:  []string{authURL},
 			ID:        secureRandomBase64(16),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 5)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 1)),
 		},
 	}
 
