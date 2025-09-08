@@ -21,26 +21,6 @@ import (
 
 var jwtExpirationDuration = 30 * time.Second
 
-// Returned by [ClientApp.ProcessCallback] if the AS signals an error in the redirect URL parameters, per rfc6749 section 4.1.2.1
-//
-// NOTE: This is untrusted data and should not be e.g. rendered to HTML without appropriate escaping
-type CallbackError struct {
-	code        string
-	description string
-	uri         *syntax.URI
-}
-
-func (e *CallbackError) Error() string {
-	res := "callbackError: " + e.code
-	if e.description != "" {
-		res += ": " + e.description
-	}
-	if e.uri != nil {
-		res += " (" + e.uri.String() + ")"
-	}
-	return res
-}
-
 // Service-level client. Used to establish and refrsh OAuth sessions, but is not itself account or session specific, and can not be used directly to make API calls on behalf of a user.
 type ClientApp struct {
 	Client   *http.Client
@@ -622,7 +602,7 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 		if err == nil {
 			errorUri = &parsedUri
 		}
-		return nil, &CallbackError{
+		return nil, &ErrCallback{
 			code:        errorCode,
 			description: params.Get("error_description"),
 			uri:         errorUri,
