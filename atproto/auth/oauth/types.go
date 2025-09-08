@@ -407,3 +407,23 @@ type TokenResponse struct {
 	// Refresh token, for doing additional token requests to the auth server.
 	RefreshToken string `json:"refresh_token"`
 }
+
+// Returned by [ClientApp.ProcessCallback] if the AS signals an error in the redirect URL parameters, per rfc6749 section 4.1.2.1
+//
+// NOTE: This is untrusted data and should not be e.g. rendered to HTML without appropriate escaping
+type ErrCallback struct {
+	code        string
+	description string
+	uri         *syntax.URI
+}
+
+func (e *ErrCallback) Error() string {
+	res := "callbackError: " + e.code
+	if e.description != "" {
+		res += ": " + e.description
+	}
+	if e.uri != nil {
+		res += " (" + e.uri.String() + ")"
+	}
+	return res
+}
