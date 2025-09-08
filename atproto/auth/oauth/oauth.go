@@ -600,6 +600,21 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (str
 // High-level helper for completing auth flow: verifies callback query parameters against persisted auth request info, makes initial token request to the auth server, validates account identifier, and persists session data.
 func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*ClientSessionData, error) {
 
+	state := params.Get("state")
+	if state == "" {
+		return nil, fmt.Errorf("missing state query param")
+	}
+
+	info, err := app.Store.GetAuthRequestInfo(ctx, state)
+	if err != nil {
+		return nil, fmt.Errorf("loading auth request info: %w", err)
+	}
+	if info.State != state {
+		return nil, fmt.Errorf("callback state doesn't match request info")
+	}
+
+	// NOTE: A corresponding `state` is expected even under error conditions,
+	// hence we check error *after* checking state.
 	errorCode := params.Get("error")
 	if errorCode != "" {
 		var errorUri *syntax.URI
@@ -614,20 +629,14 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 		}
 	}
 
-	state := params.Get("state")
 	authserverURL := params.Get("iss")
 	authCode := params.Get("code")
-	if state == "" || authserverURL == "" || authCode == "" {
+	if authserverURL == "" || authCode == "" {
 		return nil, fmt.Errorf("missing required query param")
 	}
 
-	info, err := app.Store.GetAuthRequestInfo(ctx, state)
-	if err != nil {
-		return nil, fmt.Errorf("loading auth request info: %w", err)
-	}
-
-	if info.State != state || info.AuthServerURL != authserverURL {
-		return nil, fmt.Errorf("callback params don't match request info")
+	if info.AuthServerURL != authserverURL {
+		return nil, fmt.Errorf("callback iss doesn't match request info")
 	}
 
 	tokenResp, err := app.SendInitialTokenRequest(ctx, authCode, *info)
