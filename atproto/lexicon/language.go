@@ -83,18 +83,22 @@ func (s *SchemaDef) SetBase(base string) {
 		}
 		s.Inner = v
 	case SchemaQuery:
-		for i, val := range v.Parameters.Properties {
-			val.SetBase(base)
-			v.Parameters.Properties[i] = val
+		if v.Parameters != nil {
+			for i, val := range v.Parameters.Properties {
+				val.SetBase(base)
+				v.Parameters.Properties[i] = val
+			}
 		}
 		if v.Output != nil && v.Output.Schema != nil {
 			v.Output.Schema.SetBase(base)
 		}
 		s.Inner = v
 	case SchemaProcedure:
-		for i, val := range v.Parameters.Properties {
-			val.SetBase(base)
-			v.Parameters.Properties[i] = val
+		if v.Parameters != nil {
+			for i, val := range v.Parameters.Properties {
+				val.SetBase(base)
+				v.Parameters.Properties[i] = val
+			}
 		}
 		if v.Input != nil && v.Input.Schema != nil {
 			v.Input.Schema.SetBase(base)
@@ -104,9 +108,11 @@ func (s *SchemaDef) SetBase(base string) {
 		}
 		s.Inner = v
 	case SchemaSubscription:
-		for i, val := range v.Parameters.Properties {
-			val.SetBase(base)
-			v.Parameters.Properties[i] = val
+		if v.Parameters != nil {
+			for i, val := range v.Parameters.Properties {
+				val.SetBase(base)
+				v.Parameters.Properties[i] = val
+			}
 		}
 		if v.Message != nil {
 			v.Message.Schema.SetBase(base)
@@ -326,8 +332,8 @@ func (s *SchemaRecord) CheckSchema() error {
 type SchemaQuery struct {
 	Type        string        `json:"type"` // "query"
 	Description *string       `json:"description,omitempty"`
-	Parameters  SchemaParams  `json:"parameters"`
-	Output      *SchemaBody   `json:"output"`
+	Parameters  *SchemaParams `json:"parameters"`       // optional
+	Output      *SchemaBody   `json:"output"`           // optional
 	Errors      []SchemaError `json:"errors,omitempty"` // optional
 }
 
@@ -337,18 +343,23 @@ func (s *SchemaQuery) CheckSchema() error {
 			return err
 		}
 	}
+	if s.Parameters != nil {
+		if err := s.Parameters.CheckSchema(); err != nil {
+			return err
+		}
+	}
 	for _, e := range s.Errors {
 		if err := e.CheckSchema(); err != nil {
 			return err
 		}
 	}
-	return s.Parameters.CheckSchema()
+	return nil
 }
 
 type SchemaProcedure struct {
 	Type        string        `json:"type"` // "procedure"
 	Description *string       `json:"description,omitempty"`
-	Parameters  SchemaParams  `json:"parameters"`
+	Parameters  *SchemaParams `json:"parameters"`       // optional
 	Output      *SchemaBody   `json:"output"`           // optional
 	Errors      []SchemaError `json:"errors,omitempty"` // optional
 	Input       *SchemaBody   `json:"input"`            // optional
@@ -365,18 +376,23 @@ func (s *SchemaProcedure) CheckSchema() error {
 			return err
 		}
 	}
+	if s.Parameters != nil {
+		if err := s.Parameters.CheckSchema(); err != nil {
+			return err
+		}
+	}
 	for _, e := range s.Errors {
 		if err := e.CheckSchema(); err != nil {
 			return err
 		}
 	}
-	return s.Parameters.CheckSchema()
+	return nil
 }
 
 type SchemaSubscription struct {
 	Type        string         `json:"type"` // "subscription"
 	Description *string        `json:"description,omitempty"`
-	Parameters  SchemaParams   `json:"parameters"`
+	Parameters  *SchemaParams  `json:"parameters"`        // optional
 	Message     *SchemaMessage `json:"message,omitempty"` // TODO(specs): is this really optional?
 }
 
@@ -386,7 +402,12 @@ func (s *SchemaSubscription) CheckSchema() error {
 			return err
 		}
 	}
-	return s.Parameters.CheckSchema()
+	if s.Parameters != nil {
+		if err := s.Parameters.CheckSchema(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type SchemaPermissionSet struct {

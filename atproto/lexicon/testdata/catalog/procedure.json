@@ -1,0 +1,78 @@
+{
+  "lexicon": 1,
+  "id": "example.lexicon.procedure",
+  "description": "demonstrates lexicon features for the procedure type",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "boolean": {
+            "type": "boolean",
+            "description": "field of type boolean"
+          },
+          "integer": {
+            "type": "integer",
+            "description": "field of type integer"
+          },
+          "string": {
+            "type": "string",
+            "description": "field of type string"
+          }
+        }
+      },
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "preferences"
+          ],
+          "properties": {
+            "preferences": {
+              "type": "ref",
+              "ref": "app.bsky.actor.defs#preferences"
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [],
+          "properties": {
+            "blob": {
+              "type": "blob",
+              "description": "field of type blob"
+            },
+            "unknown": {
+              "type": "unknown",
+              "description": "field of type unknown"
+            },
+            "array": {
+              "type": "array",
+              "description": "field of type array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "object": {
+              "type": "object",
+              "description": "field of type null",
+              "properties": {
+                "a": {
+                  "type": "integer"
+                },
+                "b": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
