@@ -1,0 +1,47 @@
+{
+  "lexicon": 1,
+  "id": "example.lexicon.subscription",
+  "description": "demonstrates lexicon features for the subscription type",
+  "defs": {
+    "main": {
+      "type": "subscription",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "cursor": {
+            "type": "integer",
+            "description": "start at the given sequence number"
+          }
+        }
+      },
+      "message": {
+        "schema": {
+          "type": "union",
+          "refs": ["#yo", "#info"]
+        }
+      },
+      "errors": [{ "name": "FutureCursor" }]
+    },
+    "yo": {
+      "type": "object",
+      "required": ["seq", "yo"],
+      "properties": {
+        "seq": { "type": "integer" },
+        "yo": { "type": "boolean" }
+      }
+    },
+    "info": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "knownValues": ["OutdatedCursor"]
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
