@@ -579,6 +579,11 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (str
 
 // High-level helper for completing auth flow: verifies callback query parameters against persisted auth request info, makes initial token request to the auth server, validates account identifier, and persists session data.
 func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*ClientSessionData, error) {
+	// There are two callback response formats, for error and non-error conditions, each expecting different
+	// parameters.
+	//
+	// Error responses expect: state, error (and optionally: error_description, error_uri)
+	// Non-error responses expect: state, iss, code
 
 	state := params.Get("state")
 	if state == "" {
@@ -589,6 +594,7 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 	if err != nil {
 		return nil, fmt.Errorf("loading auth request info: %w", err)
 	}
+	// This check should never fail, but it guards against a faulty ClientAuthStore implementation
 	if info.State != state {
 		return nil, fmt.Errorf("callback state doesn't match request info")
 	}
@@ -602,13 +608,14 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 		if err == nil {
 			errorUri = &parsedUri
 		}
-		return nil, &ErrCallback{
-			code:        errorCode,
-			description: params.Get("error_description"),
-			uri:         errorUri,
+		return nil, &AuthRequestCallbackError{
+			ErrorCode:        errorCode,
+			ErrorDescription: params.Get("error_description"),
+			ErrorURI:         errorUri,
 		}
 	}
 
+	// If we reached here, there was no `error` and we can process the rest of the parameters
 	authserverURL := params.Get("iss")
 	authCode := params.Get("code")
 	if authserverURL == "" || authCode == "" {
