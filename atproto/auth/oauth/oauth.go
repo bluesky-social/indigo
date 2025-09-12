@@ -412,14 +412,15 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 	}
 
 	parInfo := AuthRequestData{
-		State:                   state,
-		AuthServerURL:           authMeta.Issuer,
-		Scopes:                  scopes,
-		PKCEVerifier:            pkceVerifier,
-		RequestURI:              parResp.RequestURI,
-		AuthServerTokenEndpoint: authMeta.TokenEndpoint,
-		DPoPAuthServerNonce:     dpopServerNonce,
-		DPoPPrivateKeyMultibase: dpopPrivKey.Multibase(),
+		State:                        state,
+		AuthServerURL:                authMeta.Issuer,
+		Scopes:                       scopes,
+		PKCEVerifier:                 pkceVerifier,
+		RequestURI:                   parResp.RequestURI,
+		AuthServerTokenEndpoint:      authMeta.TokenEndpoint,
+		AuthServerRevocationEndpoint: authMeta.RevocationEndpoint,
+		DPoPAuthServerNonce:          dpopServerNonce,
+		DPoPPrivateKeyMultibase:      dpopPrivKey.Multibase(),
 	}
 
 	return &parInfo, nil
@@ -637,17 +638,18 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 	}
 
 	sessData := ClientSessionData{
-		AccountDID:              accountDID,
-		SessionID:               info.State,
-		HostURL:                 hostURL,
-		AuthServerURL:           info.AuthServerURL,
-		AuthServerTokenEndpoint: info.AuthServerTokenEndpoint,
-		Scopes:                  strings.Split(tokenResp.Scope, " "),
-		AccessToken:             tokenResp.AccessToken,
-		RefreshToken:            tokenResp.RefreshToken,
-		DPoPAuthServerNonce:     info.DPoPAuthServerNonce,
-		DPoPHostNonce:           info.DPoPAuthServerNonce, // bootstrap host nonce from authserver
-		DPoPPrivateKeyMultibase: info.DPoPPrivateKeyMultibase,
+		AccountDID:                   accountDID,
+		SessionID:                    info.State,
+		HostURL:                      hostURL,
+		AuthServerURL:                info.AuthServerURL,
+		AuthServerTokenEndpoint:      info.AuthServerTokenEndpoint,
+		AuthServerRevocationEndpoint: info.AuthServerRevocationEndpoint,
+		Scopes:                       strings.Split(tokenResp.Scope, " "),
+		AccessToken:                  tokenResp.AccessToken,
+		RefreshToken:                 tokenResp.RefreshToken,
+		DPoPAuthServerNonce:          info.DPoPAuthServerNonce,
+		DPoPHostNonce:                info.DPoPAuthServerNonce, // bootstrap host nonce from authserver
+		DPoPPrivateKeyMultibase:      info.DPoPPrivateKeyMultibase,
 	}
 	if err := app.Store.SaveSession(ctx, sessData); err != nil {
 		return nil, err
@@ -657,4 +659,27 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 		slog.Warn("failed to delete auth request info", "state", state, "did", accountDID, "authserver", info.AuthServerURL, "err", err)
 	}
 	return &sessData, nil
+}
+
+// High-level helper to delete a session, including revoking access/refresh tokens if supported by the AS
+func (app *ClientApp) Logout(ctx context.Context, did syntax.DID, sessionID string) error {
+	sess, err := app.ResumeSession(ctx, did, sessionID)
+	// TODO: Should this be idempotent? i.e. logging out of a session that does not exist does nothing and succeeds?
+	if err != nil {
+		return err
+	}
+
+	// Tell the AS to revoke the tokens
+	err = sess.RevokeSession(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Delete from our own session store
+	err = app.Store.DeleteSession(ctx, did, sessionID)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
