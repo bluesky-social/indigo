@@ -39,6 +39,9 @@ type ClientSessionData struct {
 	// Full token endpoint
 	AuthServerTokenEndpoint string `json:"authserver_token_endpoint"`
 
+	// Full revocation endpoint, if it exists
+	AuthServerRevocationEndpoint string `json:"authserver_revocation_endpoint,omitempty"`
+
 	// The set of scopes approved for this session (returned in the initial token request)
 	Scopes []string `json:"scopes"`
 
@@ -75,6 +78,69 @@ type ClientSession struct {
 
 	// Lock which protects concurrent access to session data (eg, access and refresh tokens)
 	lk sync.RWMutex
+}
+
+// Helper method to handle DPoP retries and client assertions (if the client is confidential)
+// body object will be url-encoded (can be InitialTokenRequest, RefreshTokenRequest, RevocationRequest)
+// expects sess.lk to be held by caller
+// on success, caller is responsible for closing the response body
+func (sess *ClientSession) postToAuthServer(ctx context.Context, url string, body interface{}) (*http.Response, error) {
+	vals, err := query.Values(body)
+	if err != nil {
+		return nil, err
+	}
+	if sess.Config.IsConfidential() {
+		clientAssertion, err := sess.Config.NewClientAssertion(sess.Data.AuthServerURL)
+		if err != nil {
+			return nil, err
+		}
+		vals.Set("client_assertion_type", ClientAssertionJWTBearer)
+		vals.Set("client_assertion", clientAssertion)
+	}
+	bodyBytes := []byte(vals.Encode())
+
+	var resp *http.Response
+	for range 2 {
+		dpopJWT, err := NewAuthDPoP("POST", url, sess.Data.DPoPAuthServerNonce, sess.DPoPPrivateKey)
+		if err != nil {
+			return nil, err
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(bodyBytes))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("DPoP", dpopJWT)
+
+		resp, err = sess.Client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		// always check if a new DPoP nonce was provided, and proactively update session data (even if there was not an explicit error)
+		dpopNonceHdr := resp.Header.Get("DPoP-Nonce")
+		if dpopNonceHdr != "" && dpopNonceHdr != sess.Data.DPoPAuthServerNonce {
+			sess.Data.DPoPAuthServerNonce = dpopNonceHdr
+		}
+
+		// check for an error condition caused by an out of date DPoP nonce
+		// note that the HTTP status code is 400 Bad Request on the Auth Server token endpoint, not 401 Unauthorized like it would be on Resource Server requests
+		if resp.StatusCode == http.StatusBadRequest && dpopNonceHdr != "" {
+			// parseAuthErrorReason() always closes resp.Body
+			reason := parseAuthErrorReason(resp, "token-refresh")
+			if reason == "use_dpop_nonce" {
+				// already updated nonce value above; loop around and try again
+				continue
+			}
+			return nil, fmt.Errorf("request failed (HTTP %d): %s", resp.StatusCode, reason)
+		}
+
+		// otherwise process response (success or other error type)
+		break
+	}
+
+	return resp, nil
 }
 
 // Requests new tokens from auth server, and returns the new access token on success.
@@ -170,6 +236,49 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 	}
 
 	return sess.Data.AccessToken, nil
+}
+
+// TODO: writeme
+func (sess *ClientSession) RevokeSession(ctx context.Context) error {
+	if sess.Data.AuthServerRevocationEndpoint == "" {
+		slog.Info("AS does not advertise token revocation support, skipping")
+		return nil
+	}
+
+	sess.lk.Lock()
+	defer sess.lk.Unlock()
+
+	resp, err := sess.postToAuthServer(ctx, sess.Data.AuthServerRevocationEndpoint, RevocationRequest{
+		ClientID:      sess.Config.ClientID,
+		Token:         sess.Data.AccessToken,
+		TokenTypeHint: "access_token",
+	})
+	if err != nil {
+		slog.Warn("failed revoking access token", "err", err)
+	}
+	if resp != nil {
+		if resp.StatusCode != http.StatusOK {
+			slog.Warn("bad HTTP status while revoking access token", "status_code", resp.StatusCode)
+		}
+		resp.Body.Close()
+	}
+
+	resp, err = sess.postToAuthServer(ctx, sess.Data.AuthServerRevocationEndpoint, RevocationRequest{
+		ClientID:      sess.Config.ClientID,
+		Token:         sess.Data.RefreshToken,
+		TokenTypeHint: "refresh_token",
+	})
+	if err != nil {
+		slog.Warn("failed revoking refresh token", "err", err)
+	}
+	if resp != nil {
+		if resp.StatusCode != 200 {
+			slog.Warn("bad HTTP status while revoking refresh token", "status_code", resp.StatusCode)
+		}
+		resp.Body.Close()
+	}
+
+	return nil
 }
 
 // Constructs and signs a DPoP JWT to include in request header to Host (aka Resource Server, aka PDS). These tokens are different from those used with Auth Server token endpoints (even if the PDS is filling both roles)
