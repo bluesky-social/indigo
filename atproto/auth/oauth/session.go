@@ -186,11 +186,12 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 	return sess.Data.AccessToken, nil
 }
 
-// TODO: writeme
-func (sess *ClientSession) RevokeSession(ctx context.Context) error {
+// If supported by the AS, use the revocation endpoint to revoke both the access token and the refresh token.
+// This method always succeeds - any errors during revocation are logged but not returned.
+func (sess *ClientSession) RevokeSession(ctx context.Context) {
 	if sess.Data.AuthServerRevocationEndpoint == "" {
 		slog.Info("AS does not advertise token revocation support, skipping")
-		return nil
+		return
 	}
 
 	sess.lk.Lock()
@@ -203,8 +204,7 @@ func (sess *ClientSession) RevokeSession(ctx context.Context) error {
 	})
 	if err != nil {
 		slog.Warn("failed revoking access token", "err", err)
-	}
-	if resp != nil {
+	} else {
 		if resp.StatusCode != http.StatusOK {
 			slog.Warn("bad HTTP status while revoking access token", "status_code", resp.StatusCode)
 		}
@@ -218,15 +218,12 @@ func (sess *ClientSession) RevokeSession(ctx context.Context) error {
 	})
 	if err != nil {
 		slog.Warn("failed revoking refresh token", "err", err)
-	}
-	if resp != nil {
+	} else {
 		if resp.StatusCode != 200 {
 			slog.Warn("bad HTTP status while revoking refresh token", "status_code", resp.StatusCode)
 		}
 		resp.Body.Close()
 	}
-
-	return nil
 }
 
 // Constructs and signs a DPoP JWT to include in request header to Host (aka Resource Server, aka PDS). These tokens are different from those used with Auth Server token endpoints (even if the PDS is filling both roles)

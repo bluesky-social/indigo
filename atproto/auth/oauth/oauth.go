@@ -664,16 +664,12 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 // High-level helper to delete a session, including revoking access/refresh tokens if supported by the AS
 func (app *ClientApp) Logout(ctx context.Context, did syntax.DID, sessionID string) error {
 	sess, err := app.ResumeSession(ctx, did, sessionID)
-	// TODO: Should this be idempotent? i.e. logging out of a session that does not exist does nothing and succeeds?
 	if err != nil {
 		return err
 	}
 
 	// Tell the AS to revoke the tokens
-	err = sess.RevokeSession(ctx)
-	if err != nil {
-		return err
-	}
+	sess.RevokeSession(ctx)
 
 	// Delete from our own session store
 	err = app.Store.DeleteSession(ctx, did, sessionID)
