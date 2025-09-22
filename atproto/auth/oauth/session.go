@@ -81,9 +81,9 @@ type ClientSession struct {
 }
 
 // Helper method to handle DPoP retries and client assertions (if the client is confidential)
-// body object will be url-encoded (can be InitialTokenRequest, RefreshTokenRequest, RevocationRequest)
+// body object will be url-encoded (expected to be either RefreshTokenRequest or RevocationRequest)
 // expects sess.lk to be held by caller
-// on success, caller is responsible for closing the response body
+// if a non-nil *http.Response is returned, the caller is responsible for closing the response body
 func (sess *ClientSession) postToAuthServer(ctx context.Context, url string, body interface{}) (*http.Response, error) {
 	vals, err := query.Values(body)
 	if err != nil {
@@ -155,62 +155,10 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 		GrantType:    "refresh_token",
 		RefreshToken: sess.Data.RefreshToken,
 	}
-	tokenURL := sess.Data.AuthServerTokenEndpoint
 
-	if sess.Config.IsConfidential() {
-		clientAssertion, err := sess.Config.NewClientAssertion(sess.Data.AuthServerURL)
-		if err != nil {
-			return "", err
-		}
-		body.ClientAssertionType = &ClientAssertionJWTBearer
-		body.ClientAssertion = &clientAssertion
-	}
-
-	vals, err := query.Values(body)
+	resp, err := sess.postToAuthServer(ctx, sess.Data.AuthServerTokenEndpoint, body)
 	if err != nil {
-		return "", err
-	}
-	bodyBytes := []byte(vals.Encode())
-
-	var resp *http.Response
-	for range 2 {
-		dpopJWT, err := NewAuthDPoP("POST", sess.Data.AuthServerTokenEndpoint, sess.Data.DPoPAuthServerNonce, sess.DPoPPrivateKey)
-		if err != nil {
-			return "", err
-		}
-
-		req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, bytes.NewBuffer(bodyBytes))
-		if err != nil {
-			return "", err
-		}
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("DPoP", dpopJWT)
-
-		resp, err = sess.Client.Do(req)
-		if err != nil {
-			return "", err
-		}
-
-		// always check if a new DPoP nonce was provided, and proactively update session data (even if there was not an explicit error)
-		dpopNonceHdr := resp.Header.Get("DPoP-Nonce")
-		if dpopNonceHdr != "" && dpopNonceHdr != sess.Data.DPoPAuthServerNonce {
-			sess.Data.DPoPAuthServerNonce = dpopNonceHdr
-		}
-
-		// check for an error condition caused by an out of date DPoP nonce
-		// note that the HTTP status code is 400 Bad Request on the Auth Server token endpoint, not 401 Unauthorized like it would be on Resource Server requests
-		if resp.StatusCode == http.StatusBadRequest && dpopNonceHdr != "" {
-			// parseAuthErrorReason() always closes resp.Body
-			reason := parseAuthErrorReason(resp, "token-refresh")
-			if reason == "use_dpop_nonce" {
-				// already updated nonce value above; loop around and try again
-				continue
-			}
-			return "", fmt.Errorf("token refresh failed (HTTP %d): %s", resp.StatusCode, reason)
-		}
-
-		// otherwise process response (success or other error type)
-		break
+		return "", fmt.Errorf("token refresh failed: %w", err)
 	}
 
 	defer resp.Body.Close()
