@@ -188,7 +188,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	cOpts := DefaultCompactorOptions()
 	cOpts.NumWorkers = config.NumCompactionWorkers
 	compactor := NewCompactor(cOpts)
-	compactor.requeueInterval = config.CompactInterval
+	compactor.RequeueInterval = config.CompactInterval
 	compactor.Start(bgs)
 	bgs.compactor = compactor
 

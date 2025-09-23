@@ -6,11 +6,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"go.opentelemetry.io/otel/attribute"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/bluesky-social/indigo/models"
 	blockformat "github.com/ipfs/go-block-format"
@@ -238,7 +239,7 @@ func (sqs *SQLiteStore) GetUserRepoRev(ctx context.Context, user models.Uid) (st
 	return lastShard.Rev, nil
 }
 
-func (sqs *SQLiteStore) ImportSlice(ctx context.Context, uid models.Uid, since *string, carslice []byte) (cid.Cid, *DeltaSession, error) {
+func (sqs *SQLiteStore) ImportSlice(ctx context.Context, uid models.Uid, since *string, carslice []byte) (cid.Cid, BlockStorage, error) {
 	// TODO: same as FileCarStore, re-unify
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ImportSlice")
 	defer span.End()
@@ -279,7 +280,7 @@ func (sqs *SQLiteStore) ImportSlice(ctx context.Context, uid models.Uid, since *
 
 var zeroShard CarShard
 
-func (sqs *SQLiteStore) NewDeltaSession(ctx context.Context, user models.Uid, since *string) (*DeltaSession, error) {
+func (sqs *SQLiteStore) NewDeltaSession(ctx context.Context, user models.Uid, since *string) (BlockStorage, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "NewSession")
 	defer span.End()
 
@@ -312,7 +313,7 @@ func (sqs *SQLiteStore) NewDeltaSession(ctx context.Context, user models.Uid, si
 	}, nil
 }
 
-func (sqs *SQLiteStore) ReadOnlySession(user models.Uid) (*DeltaSession, error) {
+func (sqs *SQLiteStore) ReadOnlySession(user models.Uid) (BlockStorage, error) {
 	return &DeltaSession{
 		base: &sqliteUserView{
 			uid: user,

@@ -1,4 +1,4 @@
-package carstore
+package repostore
 
 import (
 	"bufio"
@@ -10,9 +10,10 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"sync/atomic"
 	"time"
 
+	carstore "github.com/bluesky-social/indigo/carstore"
+	carstore1 "github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -32,13 +33,9 @@ import (
 )
 
 var blockGetTotalCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "carstore_block_get_total",
+	Name: "carstore2_block_get_total",
 	Help: "carstore get queries",
 }, []string{"usrskip", "cache"})
-
-var blockGetTotalCounterUsrskip = blockGetTotalCounter.WithLabelValues("true", "miss")
-var blockGetTotalCounterCached = blockGetTotalCounter.WithLabelValues("false", "hit")
-var blockGetTotalCounterNormal = blockGetTotalCounter.WithLabelValues("false", "miss")
 
 const MaxSliceLength = 2 << 20
 
@@ -46,32 +43,18 @@ const BigShardThreshold = 2 << 20
 
 type CarStore interface {
 	// TODO: not really part of general interface
-	CompactUserShards(ctx context.Context, user models.Uid, skipBigShards bool) (*CompactionStats, error)
+	CompactUserShards(ctx context.Context, user models.Uid, skipBigShards bool) (*carstore1.CompactionStats, error)
 	// TODO: not really part of general interface
-	GetCompactionTargets(ctx context.Context, shardCount int) ([]CompactionTarget, error)
+	GetCompactionTargets(ctx context.Context, shardCount int) ([]carstore1.CompactionTarget, error)
 
 	GetUserRepoHead(ctx context.Context, user models.Uid) (cid.Cid, error)
 	GetUserRepoRev(ctx context.Context, user models.Uid) (string, error)
-	ImportSlice(ctx context.Context, uid models.Uid, since *string, carslice []byte) (cid.Cid, BlockStorage, error)
-	NewDeltaSession(ctx context.Context, user models.Uid, since *string) (BlockStorage, error)
-	ReadOnlySession(user models.Uid) (BlockStorage, error)
+	ImportSlice(ctx context.Context, uid models.Uid, since *string, carslice []byte) (cid.Cid, carstore1.BlockStorage, error)
+	NewDeltaSession(ctx context.Context, user models.Uid, since *string) (carstore1.BlockStorage, error)
+	ReadOnlySession(user models.Uid) (carstore1.BlockStorage, error)
 	ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, w io.Writer) error
-	Stat(ctx context.Context, usr models.Uid) ([]UserStat, error)
+	Stat(ctx context.Context, usr models.Uid) ([]carstore1.UserStat, error)
 	WipeUserData(ctx context.Context, user models.Uid) error
-}
-
-type BlockStorage interface {
-	BaseCid() cid.Cid
-	Put(ctx context.Context, b blockformat.Block) error
-	PutMany(ctx context.Context, bs []blockformat.Block) error
-	AllKeysChan(ctx context.Context) (<-chan cid.Cid, error)
-	DeleteBlock(ctx context.Context, c cid.Cid) error
-	Get(ctx context.Context, c cid.Cid) (blockformat.Block, error)
-	Has(ctx context.Context, c cid.Cid) (bool, error)
-	HashOnRead(hor bool)
-	GetSize(ctx context.Context, c cid.Cid) (int, error)
-	CloseWithRoot(ctx context.Context, root cid.Cid, rev string) ([]byte, error)
-	CalcDiff(ctx context.Context, skipcids map[cid.Cid]bool) error
 }
 
 type FileCarStore struct {
@@ -115,16 +98,8 @@ func NewCarStore(meta *gorm.DB, roots []string) (CarStore, error) {
 	return out, nil
 }
 
-// userView needs these things to get into the underlying block store
-// implemented by CarStoreGormMeta
-type userViewSource interface {
-	HasUidCid(ctx context.Context, user models.Uid, k cid.Cid) (bool, error)
-	LookupBlockRef(ctx context.Context, k cid.Cid) (path string, offset int64, user models.Uid, err error)
-}
-
 // wrapper into a block store that keeps track of which user we are working on behalf of
 type userView struct {
-	cs   userViewSource
 	user models.Uid
 
 	cache    map[cid.Cid]blockformat.Block
@@ -142,49 +117,21 @@ func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
 	if have {
 		return have, nil
 	}
-	return uv.cs.HasUidCid(ctx, uv.user, k)
+	return false, nil
 }
 
-var CacheHits int64
-var CacheMiss int64
-
 func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, error) {
-
 	if !k.Defined() {
 		return nil, fmt.Errorf("attempted to 'get' undefined cid")
 	}
 	if uv.cache != nil {
 		blk, ok := uv.cache[k]
 		if ok {
-			blockGetTotalCounterCached.Add(1)
-			atomic.AddInt64(&CacheHits, 1)
-
 			return blk, nil
 		}
 	}
-	atomic.AddInt64(&CacheMiss, 1)
 
-	path, offset, user, err := uv.cs.LookupBlockRef(ctx, k)
-	if err != nil {
-		return nil, err
-	}
-	if path == "" {
-		return nil, ipld.ErrNotFound{Cid: k}
-	}
-
-	prefetch := uv.prefetch
-	if user != uv.user {
-		blockGetTotalCounterUsrskip.Add(1)
-		prefetch = false
-	} else {
-		blockGetTotalCounterNormal.Add(1)
-	}
-
-	if prefetch {
-		return uv.prefetchRead(ctx, k, path, offset)
-	} else {
-		return uv.singleRead(ctx, k, path, offset)
-	}
+	return nil, fmt.Errorf("cant do arbitrary reads from this")
 }
 
 const prefetchThreshold = 512 << 10
@@ -234,6 +181,33 @@ func (uv *userView) prefetchRead(ctx context.Context, k cid.Cid, path string, of
 	}
 
 	return outblk, nil
+}
+
+func (uv *userView) preloadBlocksFromFile(ctx context.Context, path string) error {
+	fi, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer fi.Close()
+
+	cr, err := car.NewCarReader(fi)
+	if err != nil {
+		return err
+	}
+
+	for {
+		blk, err := cr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		uv.cache[blk.Cid()] = blk
+	}
+
+	return nil
 }
 
 func (uv *userView) singleRead(ctx context.Context, k cid.Cid, path string, offset int64) (blockformat.Block, error) {
@@ -330,10 +304,8 @@ func (cs *FileCarStore) getLastShard(ctx context.Context, user models.Uid) (*Car
 	return cs.lastShardCache.get(ctx, user)
 }
 
-var ErrRepoBaseMismatch = fmt.Errorf("attempted a delta session on top of the wrong previous head")
-
-func (cs *FileCarStore) NewDeltaSession(ctx context.Context, user models.Uid, since *string) (BlockStorage, error) {
-	ctx, span := otel.Tracer("carstore").Start(ctx, "NewSession")
+func (cs *FileCarStore) NewDeltaSession(ctx context.Context, user models.Uid, since *string) (carstore1.BlockStorage, error) {
+	ctx, span := otel.Tracer("carstore2").Start(ctx, "NewSession")
 	defer span.End()
 
 	// TODO: ensure that we don't write updates on top of the wrong head
@@ -344,17 +316,23 @@ func (cs *FileCarStore) NewDeltaSession(ctx context.Context, user models.Uid, si
 	}
 
 	if since != nil && *since != lastShard.Rev {
-		return nil, fmt.Errorf("revision mismatch: %s != %s: %w", *since, lastShard.Rev, ErrRepoBaseMismatch)
+		return nil, fmt.Errorf("revision mismatch: %s != %s: %w", *since, lastShard.Rev, carstore1.ErrRepoBaseMismatch)
+	}
+	uv := &userView{
+		user:     user,
+		prefetch: true,
+		cache:    make(map[cid.Cid]blockformat.Block),
+	}
+
+	if lastShard.ID != 0 {
+		if err := uv.preloadBlocksFromFile(ctx, lastShard.Path); err != nil {
+			return nil, fmt.Errorf("block prefetch failed: %w", err)
+		}
 	}
 
 	return &DeltaSession{
-		blks: make(map[cid.Cid]blockformat.Block),
-		base: &userView{
-			user:     user,
-			cs:       cs.meta,
-			prefetch: true,
-			cache:    make(map[cid.Cid]blockformat.Block),
-		},
+		blks:    make(map[cid.Cid]blockformat.Block),
+		base:    uv,
 		user:    user,
 		baseCid: lastShard.Root.CID,
 		cs:      cs,
@@ -363,11 +341,10 @@ func (cs *FileCarStore) NewDeltaSession(ctx context.Context, user models.Uid, si
 	}, nil
 }
 
-func (cs *FileCarStore) ReadOnlySession(user models.Uid) (BlockStorage, error) {
+func (cs *FileCarStore) ReadOnlySession(user models.Uid) (carstore1.BlockStorage, error) {
 	return &DeltaSession{
 		base: &userView{
 			user:     user,
-			cs:       cs.meta,
 			prefetch: false,
 			cache:    make(map[cid.Cid]blockformat.Block),
 		},
@@ -608,7 +585,7 @@ func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {
 		return 0, err
 	}
 
-	hnw, err := LdWrite(w, hb)
+	hnw, err := carstore.LdWrite(w, hb)
 	if err != nil {
 		return 0, err
 	}
@@ -630,7 +607,7 @@ func blocksToCar(ctx context.Context, root cid.Cid, rev string, blks map[cid.Cid
 	}
 
 	for k, blk := range blks {
-		_, err := LdWrite(buf, k.Bytes(), blk.RawData())
+		_, err := carstore.LdWrite(buf, k.Bytes(), blk.RawData())
 		if err != nil {
 			return nil, fmt.Errorf("failed to write block: %w", err)
 		}
@@ -655,7 +632,7 @@ func (cs *FileCarStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 	//brefs := make([]*blockRef, 0, len(ds.blks))
 	brefs := make([]map[string]interface{}, 0, len(blks))
 	for k, blk := range blks {
-		nw, err := LdWrite(buf, k.Bytes(), blk.RawData())
+		nw, err := carstore.LdWrite(buf, k.Bytes(), blk.RawData())
 		if err != nil {
 			return nil, fmt.Errorf("failed to write block: %w", err)
 		}
@@ -782,7 +759,7 @@ func BlockDiff(ctx context.Context, bs blockstore.Blockstore, oldroot cid.Cid, n
 	return dropset, nil
 }
 
-func (cs *FileCarStore) ImportSlice(ctx context.Context, uid models.Uid, since *string, carslice []byte) (cid.Cid, BlockStorage, error) {
+func (cs *FileCarStore) ImportSlice(ctx context.Context, uid models.Uid, since *string, carslice []byte) (cid.Cid, carstore1.BlockStorage, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ImportSlice")
 	defer span.End()
 
@@ -854,21 +831,15 @@ func (cs *FileCarStore) GetUserRepoRev(ctx context.Context, user models.Uid) (st
 	return lastShard.Rev, nil
 }
 
-type UserStat struct {
-	Seq     int
-	Root    string
-	Created time.Time
-}
-
-func (cs *FileCarStore) Stat(ctx context.Context, usr models.Uid) ([]UserStat, error) {
+func (cs *FileCarStore) Stat(ctx context.Context, usr models.Uid) ([]carstore1.UserStat, error) {
 	shards, err := cs.meta.GetUserShards(ctx, usr)
 	if err != nil {
 		return nil, err
 	}
 
-	var out []UserStat
+	var out []carstore1.UserStat
 	for _, s := range shards {
-		out = append(out, UserStat{
+		out = append(out, carstore1.UserStat{
 			Seq:     s.Seq,
 			Root:    s.Root.CID.String(),
 			Created: s.CreatedAt,
@@ -1038,28 +1009,11 @@ type CompactionTarget struct {
 	NumShards int
 }
 
-func (cs *FileCarStore) GetCompactionTargets(ctx context.Context, shardCount int) ([]CompactionTarget, error) {
+func (cs *FileCarStore) GetCompactionTargets(ctx context.Context, shardCount int) ([]carstore1.CompactionTarget, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "GetCompactionTargets")
 	defer span.End()
 
 	return cs.meta.GetCompactionTargets(ctx, shardCount)
-}
-
-// getBlockRefsForShards is a prep function for CompactUserShards
-func (cs *FileCarStore) getBlockRefsForShards(ctx context.Context, shardIds []uint) ([]blockRef, error) {
-	ctx, span := otel.Tracer("carstore").Start(ctx, "getBlockRefsForShards")
-	defer span.End()
-
-	span.SetAttributes(attribute.Int("shards", len(shardIds)))
-
-	out, err := cs.meta.GetBlockRefsForShards(ctx, shardIds)
-	if err != nil {
-		return nil, err
-	}
-
-	span.SetAttributes(attribute.Int("refs", len(out)))
-
-	return out, nil
 }
 
 func shardSize(sh *CarShard) (int64, error) {
@@ -1075,16 +1029,7 @@ func shardSize(sh *CarShard) (int64, error) {
 	return st.Size(), nil
 }
 
-type CompactionStats struct {
-	TotalRefs     int `json:"totalRefs"`
-	StartShards   int `json:"startShards"`
-	NewShards     int `json:"newShards"`
-	SkippedShards int `json:"skippedShards"`
-	ShardsDeleted int `json:"shardsDeleted"`
-	DupeCount     int `json:"dupeCount"`
-}
-
-func (cs *FileCarStore) CompactUserShards(ctx context.Context, user models.Uid, skipBigShards bool) (*CompactionStats, error) {
+func (cs *FileCarStore) CompactUserShards(ctx context.Context, user models.Uid, skipBigShards bool) (*carstore1.CompactionStats, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "CompactUserShards")
 	defer span.End()
 
@@ -1095,207 +1040,8 @@ func (cs *FileCarStore) CompactUserShards(ctx context.Context, user models.Uid, 
 		return nil, err
 	}
 
-	if skipBigShards {
-		// Since we generally expect shards to start bigger and get smaller,
-		// and because we want to avoid compacting non-adjacent shards
-		// together, and because we want to avoid running a stat on every
-		// single shard (can be expensive for repos that haven't been compacted
-		// in a while) we only skip a prefix of shard files that are over the
-		// threshold. this may end up not skipping some shards that are over
-		// the threshold if a below-threshold shard occurs before them, but
-		// since this is a heuristic and imperfect optimization, that is
-		// acceptable.
-		var skip int
-		for i, sh := range shards {
-			size, err := shardSize(&sh)
-			if err != nil {
-				return nil, fmt.Errorf("could not check size of shard file: %w", err)
-			}
-
-			if size > BigShardThreshold {
-				skip = i + 1
-			} else {
-				break
-			}
-		}
-		shards = shards[skip:]
-	}
-
-	span.SetAttributes(attribute.Int("shards", len(shards)))
-
-	var shardIds []uint
-	for _, s := range shards {
-		shardIds = append(shardIds, s.ID)
-	}
-
-	shardsById := make(map[uint]CarShard)
-	for _, s := range shards {
-		shardsById[s.ID] = s
-	}
-
-	brefs, err := cs.getBlockRefsForShards(ctx, shardIds)
-	if err != nil {
-		return nil, fmt.Errorf("getting block refs failed: %w", err)
-	}
-
-	span.SetAttributes(attribute.Int("blockRefs", len(brefs)))
-
-	staleRefs, err := cs.meta.GetUserStaleRefs(ctx, user)
-	if err != nil {
-		return nil, err
-	}
-
-	span.SetAttributes(attribute.Int("staleRefs", len(staleRefs)))
-
-	stale := make(map[cid.Cid]bool)
-	for _, br := range staleRefs {
-		cids, err := br.getCids()
-		if err != nil {
-			return nil, fmt.Errorf("failed to unpack cids from staleRefs record (%d): %w", br.ID, err)
-		}
-		for _, c := range cids {
-			stale[c] = true
-		}
-	}
-
-	// if we have a staleRef that references multiple blockRefs, we consider that block a 'dirty duplicate'
-	var dupes []cid.Cid
-	var hasDirtyDupes bool
-	seenBlocks := make(map[cid.Cid]bool)
-	for _, br := range brefs {
-		if seenBlocks[br.Cid.CID] {
-			dupes = append(dupes, br.Cid.CID)
-			hasDirtyDupes = true
-			delete(stale, br.Cid.CID)
-		} else {
-			seenBlocks[br.Cid.CID] = true
-		}
-	}
-
-	for _, dupe := range dupes {
-		delete(stale, dupe) // remove dupes from stale list, see comment below
-	}
-
-	if hasDirtyDupes {
-		// if we have no duplicates, then the keep set is simply all the 'clean' blockRefs
-		// in the case we have duplicate dirty references we have to compute
-		// the keep set by walking the entire repo to check if anything is
-		// still referencing the dirty block in question
-
-		// we could also just add the duplicates to the keep set for now and
-		// focus on compacting everything else. it leaves *some* dirty blocks
-		// still around but we're doing that anyways since compaction isn't a
-		// perfect process
-
-		cs.log.Debug("repo has dirty dupes", "count", len(dupes), "uid", user, "staleRefs", len(staleRefs), "blockRefs", len(brefs))
-
-		//return nil, fmt.Errorf("WIP: not currently handling this case")
-	}
-
-	keep := make(map[cid.Cid]bool)
-	for _, br := range brefs {
-		if !stale[br.Cid.CID] {
-			keep[br.Cid.CID] = true
-		}
-	}
-
-	for _, dupe := range dupes {
-		keep[dupe] = true
-	}
-
-	results := aggrRefs(brefs, shardsById, stale)
-	var sum int
-	for _, r := range results {
-		sum += r.Total
-	}
-
-	lowBound := 20
-	N := 10
-	// we want to *aim* for N shards per user
-	// the last several should be left small to allow easy loading from disk
-	// for updates (since recent blocks are most likely needed for edits)
-	// the beginning of the list should be some sort of exponential fall-off
-	// with the area under the curve targeted by the total number of blocks we
-	// have
-	var threshs []int
-	tot := len(brefs)
-	for i := 0; i < N; i++ {
-		v := tot / 2
-		if v < lowBound {
-			v = lowBound
-		}
-		tot = tot / 2
-		threshs = append(threshs, v)
-	}
-
-	thresholdForPosition := func(i int) int {
-		if i >= len(threshs) {
-			return lowBound
-		}
-		return threshs[i]
-	}
-
-	cur := new(compBucket)
-	cur.expSize = thresholdForPosition(0)
-	var compactionQueue []*compBucket
-	for i, r := range results {
-		cur.addShardStat(r)
-
-		if cur.cleanBlocks > cur.expSize || i > len(results)-3 {
-			compactionQueue = append(compactionQueue, cur)
-			cur = &compBucket{
-				expSize: thresholdForPosition(len(compactionQueue)),
-			}
-		}
-	}
-	if !cur.isEmpty() {
-		compactionQueue = append(compactionQueue, cur)
-	}
-
-	stats := &CompactionStats{
-		StartShards: len(shards),
-		TotalRefs:   len(brefs),
-	}
-
-	removedShards := make(map[uint]bool)
-	for _, b := range compactionQueue {
-		if !b.shouldCompact() {
-			stats.SkippedShards += len(b.shards)
-			continue
-		}
-
-		if err := cs.compactBucket(ctx, user, b, shardsById, keep); err != nil {
-			return nil, fmt.Errorf("compact bucket: %w", err)
-		}
-
-		stats.NewShards++
-
-		todelete := make([]CarShard, 0, len(b.shards))
-		for _, s := range b.shards {
-			removedShards[s.ID] = true
-			sh, ok := shardsById[s.ID]
-			if !ok {
-				return nil, fmt.Errorf("missing shard to delete")
-			}
-
-			todelete = append(todelete, sh)
-		}
-
-		stats.ShardsDeleted += len(todelete)
-		if err := cs.deleteShards(ctx, todelete); err != nil {
-			return nil, fmt.Errorf("deleting shards: %w", err)
-		}
-	}
-
-	// now we need to delete the staleRefs we successfully cleaned up
-	// we can safely delete a staleRef if all the shards that have blockRefs with matching stale refs were processed
-	if err := cs.deleteStaleRefs(ctx, user, brefs, staleRefs, removedShards); err != nil {
-		return nil, fmt.Errorf("delete stale refs: %w", err)
-	}
-
-	stats.DupeCount = len(dupes)
-
-	return stats, nil
+	_ = shards
+	return nil, fmt.Errorf("TODO: have to redo all of compaction")
 }
 
 func (cs *FileCarStore) deleteStaleRefs(ctx context.Context, uid models.Uid, brefs []blockRef, staleRefs []staleRef, removedShards map[uint]bool) error {
@@ -1365,7 +1111,7 @@ func (cs *FileCarStore) compactBucket(ctx context.Context, user models.Uid, b *c
 			}
 
 			if keep[blk.Cid()] {
-				nw, err := LdWrite(fi, blk.Cid().Bytes(), blk.RawData())
+				nw, err := carstore.LdWrite(fi, blk.Cid().Bytes(), blk.RawData())
 				if err != nil {
 					return fmt.Errorf("failed to write block: %w", err)
 				}

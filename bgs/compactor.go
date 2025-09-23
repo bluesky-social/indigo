@@ -145,7 +145,7 @@ type Compactor struct {
 	q                 *uniQueue
 	stateLk           sync.RWMutex
 	exit              chan struct{}
-	requeueInterval   time.Duration
+	RequeueInterval   time.Duration
 	requeueLimit      int
 	requeueShardCount int
 	requeueFast       bool
@@ -182,7 +182,7 @@ func NewCompactor(opts *CompactorOptions) *Compactor {
 			members: make(map[models.Uid]struct{}),
 		},
 		exit:              make(chan struct{}),
-		requeueInterval:   opts.RequeueInterval,
+		RequeueInterval:   opts.RequeueInterval,
 		requeueLimit:      opts.RequeueLimit,
 		requeueFast:       opts.RequeueFast,
 		requeueShardCount: opts.RequeueShardCount,
@@ -208,16 +208,16 @@ func (c *Compactor) Start(bgs *BGS) {
 		}
 		go c.doWork(bgs, strategy)
 	}
-	if c.requeueInterval > 0 {
+	if c.RequeueInterval > 0 {
 		go func() {
 			log.Info("starting compactor requeue routine",
-				"interval", c.requeueInterval,
+				"interval", c.RequeueInterval,
 				"limit", c.requeueLimit,
 				"shardCount", c.requeueShardCount,
 				"fast", c.requeueFast,
 			)
 
-			t := time.NewTicker(c.requeueInterval)
+			t := time.NewTicker(c.RequeueInterval)
 			for {
 				select {
 				case <-c.exit:

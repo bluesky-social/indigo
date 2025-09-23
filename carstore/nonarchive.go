@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	ipld "github.com/ipfs/go-ipld-format"
 	"io"
 	"log/slog"
 	"sync"
+
+	ipld "github.com/ipfs/go-ipld-format"
 
 	"github.com/bluesky-social/indigo/models"
 	blockformat "github.com/ipfs/go-block-format"
@@ -126,7 +127,7 @@ func (cs *NonArchivalCarstore) updateLastCommit(ctx context.Context, uid models.
 
 var commitRefZero = commitRefInfo{}
 
-func (cs *NonArchivalCarstore) NewDeltaSession(ctx context.Context, user models.Uid, since *string) (*DeltaSession, error) {
+func (cs *NonArchivalCarstore) NewDeltaSession(ctx context.Context, user models.Uid, since *string) (BlockStorage, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "NewSession")
 	defer span.End()
 
@@ -160,7 +161,7 @@ func (cs *NonArchivalCarstore) NewDeltaSession(ctx context.Context, user models.
 	}, nil
 }
 
-func (cs *NonArchivalCarstore) ReadOnlySession(user models.Uid) (*DeltaSession, error) {
+func (cs *NonArchivalCarstore) ReadOnlySession(user models.Uid) (BlockStorage, error) {
 	return &DeltaSession{
 		base: &userView{
 			user:     user,
@@ -179,7 +180,7 @@ func (cs *NonArchivalCarstore) ReadUserCar(ctx context.Context, user models.Uid,
 	return fmt.Errorf("not supported in non-archival mode")
 }
 
-func (cs *NonArchivalCarstore) ImportSlice(ctx context.Context, uid models.Uid, since *string, carslice []byte) (cid.Cid, *DeltaSession, error) {
+func (cs *NonArchivalCarstore) ImportSlice(ctx context.Context, uid models.Uid, since *string, carslice []byte) (cid.Cid, BlockStorage, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ImportSlice")
 	defer span.End()
 
