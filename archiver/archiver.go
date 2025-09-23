@@ -2,7 +2,6 @@ package archiver
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,12 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/bgs"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/handles"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util/svcutil"
@@ -41,8 +38,6 @@ type Archiver struct {
 	db      *gorm.DB
 	slurper *bgs.Slurper
 	didr    did.Resolver
-
-	hr handles.HandleResolver
 
 	// TODO: work on doing away with this flag in favor of more pluggable
 	// pieces that abstract the need for explicit ssl checks
@@ -101,7 +96,7 @@ func DefaultArchiverConfig() *ArchiverConfig {
 	}
 }
 
-func NewArchiver(db *gorm.DB, ix *Indexer, repoman *repomgr.RepoManager, didr did.Resolver, rf *RepoFetcher, hr handles.HandleResolver, config *ArchiverConfig) (*Archiver, error) {
+func NewArchiver(db *gorm.DB, ix *Indexer, repoman *repomgr.RepoManager, didr did.Resolver, rf *RepoFetcher, config *ArchiverConfig) (*Archiver, error) {
 	if config == nil {
 		config = DefaultArchiverConfig()
 	}
@@ -116,7 +111,6 @@ func NewArchiver(db *gorm.DB, ix *Indexer, repoman *repomgr.RepoManager, didr di
 		Index: ix,
 		db:    db,
 
-		hr:      hr,
 		repoman: repoman,
 		didr:    didr,
 		ssl:     config.SSL,
@@ -165,16 +159,9 @@ func NewArchiver(db *gorm.DB, ix *Indexer, repoman *repomgr.RepoManager, didr di
 
 type User struct {
 	gorm.Model
-	ID          models.Uid     `gorm:"primarykey;index:idx_user_id_active,where:taken_down = false AND tombstoned = false"`
-	Handle      sql.NullString `gorm:"index"`
-	DisplayName string
-	Did         string `gorm:"uniqueindex"`
-	Following   int64
-	Followers   int64
-	Posts       int64
-	Type        string
-	PDS         uint
-	ValidHandle bool `gorm:"default:true"`
+	ID  models.Uid `gorm:"primarykey;index:idx_user_id_active,where:taken_down = false AND tombstoned = false"`
+	Did string     `gorm:"uniqueindex"`
+	PDS uint
 
 	// TakenDown is set to true if the user in question has been taken down.
 	// A user in this state will have all future events related to it dropped
@@ -257,33 +244,10 @@ func (s *Archiver) handleUserUpdate(ctx context.Context, did string) (*User, err
 		return nil, err
 	}
 
-	/*
-		// TODO: ignore this because we're just gonna get the stream from the relay anyways
-			ban, err := s.domainIsBanned(ctx, durl.Host)
-			if err != nil {
-				return nil, fmt.Errorf("failed to check pds ban status: %w", err)
-			}
-
-			if ban {
-				return nil, fmt.Errorf("cannot create user on pds with banned domain")
-			}
-	*/
-
 	c := &xrpc.Client{Host: durl.String()}
 	s.Index.ApplyPDSClientSettings(c)
 
 	if peering.ID == 0 {
-		// TODO: the case of handling a new user on a new PDS probably requires more thought
-		cfg, err := atproto.ServerDescribeServer(ctx, c)
-		if err != nil {
-			// TODO: failing this shouldn't halt our indexing
-			return nil, fmt.Errorf("failed to check unrecognized pds: %w", err)
-		}
-
-		// since handles can be anything, checking against this list doesn't matter...
-		_ = cfg
-
-		// TODO: could check other things, a valid response is good enough for now
 		peering.Host = durl.Host
 		peering.SSL = (durl.Scheme == "https")
 		peering.CrawlRateLimit = float64(s.slurper.DefaultCrawlLimit)
@@ -338,34 +302,14 @@ func (s *Archiver) handleUserUpdate(ctx context.Context, did string) (*User, err
 		return nil, fmt.Errorf("user has no 'known as' field in their DID document")
 	}
 
-	hurl, err := url.Parse(doc.AlsoKnownAs[0])
-	if err != nil {
-		return nil, err
-	}
-
-	s.log.Debug("creating external user", "did", did, "handle", hurl.Host, "pds", peering.ID)
-
-	handle := hurl.Host
-
-	validHandle := true
-
-	resdid, err := s.hr.ResolveHandleToDid(ctx, handle)
-	if err != nil {
-		s.log.Error("failed to resolve users claimed handle on pds", "handle", handle, "err", err)
-		validHandle = false
-	}
-
-	if resdid != did {
-		s.log.Error("claimed handle did not match servers response", "resdid", resdid, "did", did)
-		validHandle = false
-	}
+	s.log.Debug("creating external user", "did", did, "pds", peering.ID)
 
 	s.extUserLk.Lock()
 	defer s.extUserLk.Unlock()
 
 	exu, err := s.Index.LookupUserByDid(ctx, did)
 	if err == nil {
-		s.log.Debug("lost the race to create a new user", "did", did, "handle", handle, "existing_hand", exu.Handle)
+		s.log.Debug("lost the race to create a new user", "did", did)
 		if exu.PDS != peering.ID {
 			// User is now on a different PDS, update
 			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("pds", peering.ID).Error; err != nil {
@@ -375,14 +319,6 @@ func (s *Archiver) handleUserUpdate(ctx context.Context, did string) (*User, err
 			exu.PDS = peering.ID
 		}
 
-		if exu.Handle.String != handle {
-			// Users handle has changed, update
-			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("handle", handle).Error; err != nil {
-				return nil, fmt.Errorf("failed to update users handle: %w", err)
-			}
-
-			exu.Handle = sql.NullString{String: handle, Valid: true}
-		}
 		return exu, nil
 	}
 
@@ -390,41 +326,13 @@ func (s *Archiver) handleUserUpdate(ctx context.Context, did string) (*User, err
 		return nil, err
 	}
 
-	// TODO: request this users info from their server to fill out our data...
 	u := User{
-		Did:         did,
-		PDS:         peering.ID,
-		ValidHandle: validHandle,
-	}
-	if validHandle {
-		u.Handle = sql.NullString{String: handle, Valid: true}
+		Did: did,
+		PDS: peering.ID,
 	}
 
 	if err := s.db.Create(&u).Error; err != nil {
-		// If the new user's handle conflicts with an existing user,
-		// since we just validated the handle for this user, we'll assume
-		// the existing user no longer has control of the handle
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			// Get the UID of the existing user
-			var existingUser User
-			if err := s.db.Find(&existingUser, "handle = ?", handle).Error; err != nil {
-				return nil, fmt.Errorf("failed to find existing user: %w", err)
-			}
-
-			// Set the existing user's handle to NULL and set the valid_handle flag to false
-			if err := s.db.Model(User{}).Where("id = ?", existingUser.ID).Update("handle", nil).Update("valid_handle", false).Error; err != nil {
-				return nil, fmt.Errorf("failed to update outdated user's handle: %w", err)
-			}
-
-			// Create the new user
-			if err := s.db.Create(&u).Error; err != nil {
-				return nil, fmt.Errorf("failed to create user after handle conflict: %w", err)
-			}
-
-			s.userCache.Remove(did)
-		} else {
-			return nil, fmt.Errorf("failed to create other pds user: %w", err)
-		}
+		return nil, fmt.Errorf("failed to create other pds user: %w", err)
 	}
 
 	successfullyCreated = true

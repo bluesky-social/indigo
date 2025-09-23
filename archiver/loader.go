@@ -5,15 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"go.opentelemetry.io/otel"
@@ -26,12 +21,10 @@ const MaxOpsSliceLength = 200
 type Indexer struct {
 	db *gorm.DB
 
-	addEvent AddEventFunc
-	didr     did.Resolver
+	didr did.Resolver
 
 	Crawler *CrawlDispatcher
 
-	SendRemoteFollow       func(context.Context, string, uint) error
 	CreateExternalUser     func(context.Context, string) (*User, error)
 	ApplyPDSClientSettings func(*xrpc.Client)
 
@@ -40,14 +33,10 @@ type Indexer struct {
 
 type AddEventFunc func(ctx context.Context, ev *events.XRPCStreamEvent) error
 
-func NewIndexer(db *gorm.DB, addEvent AddEventFunc, didr did.Resolver, fetcher *RepoFetcher, crawl bool) (*Indexer, error) {
+func NewIndexer(db *gorm.DB, didr did.Resolver, fetcher *RepoFetcher, crawl bool) (*Indexer, error) {
 	ix := &Indexer{
-		db:       db,
-		addEvent: addEvent,
-		didr:     didr,
-		SendRemoteFollow: func(context.Context, string, uint) error {
-			return nil
-		},
+		db:                     db,
+		didr:                   didr,
 		ApplyPDSClientSettings: func(*xrpc.Client) {},
 		log:                    slog.Default().With("system", "indexer"),
 	}
@@ -69,55 +58,6 @@ func (ix *Indexer) Shutdown() {
 	if ix.Crawler != nil {
 		ix.Crawler.Shutdown()
 	}
-}
-
-func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) error {
-	ctx, span := otel.Tracer("indexer").Start(ctx, "HandleRepoEvent")
-	defer span.End()
-
-	ix.log.Debug("Handling Repo Event!", "uid", evt.User)
-
-	outops := make([]*comatproto.SyncSubscribeRepos_RepoOp, 0, len(evt.Ops))
-	for _, op := range evt.Ops {
-		link := (*lexutil.LexLink)(op.RecCid)
-		outops = append(outops, &comatproto.SyncSubscribeRepos_RepoOp{
-			Path:   op.Collection + "/" + op.Rkey,
-			Action: string(op.Kind),
-			Cid:    link,
-		})
-	}
-
-	did, err := ix.DidForUser(ctx, evt.User)
-	if err != nil {
-		return err
-	}
-
-	toobig := false
-	slice := evt.RepoSlice
-	if len(slice) > MaxEventSliceLength || len(outops) > MaxOpsSliceLength {
-		slice = []byte{}
-		outops = nil
-		toobig = true
-	}
-
-	ix.log.Debug("Sending event", "did", did)
-	if err := ix.addEvent(ctx, &events.XRPCStreamEvent{
-		RepoCommit: &comatproto.SyncSubscribeRepos_Commit{
-			Repo:   did,
-			Blocks: slice,
-			Rev:    evt.Rev,
-			Since:  evt.Since,
-			Commit: lexutil.LexLink(evt.NewRoot),
-			Time:   time.Now().Format(util.ISO8601),
-			Ops:    outops,
-			TooBig: toobig,
-		},
-		PrivUid: evt.User,
-	}); err != nil {
-		return fmt.Errorf("failed to push event: %s", err)
-	}
-
-	return nil
 }
 
 func (ix *Indexer) GetUserOrMissing(ctx context.Context, did string) (*User, error) {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	_ "net/http/pprof"
 	"net/url"
 	"os"
@@ -15,13 +14,11 @@ import (
 	"time"
 
 	archiver "github.com/bluesky-social/indigo/archiver"
-	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/did"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/handles"
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/repostore"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -41,11 +38,6 @@ import (
 )
 
 var log = slog.Default().With("system", "archiver")
-
-func init() {
-	// control log level using, eg, GOLOG_LOG_LEVEL=debug
-	//logging.SetAllLoggers(logging.LevelDebug)
-}
 
 func main() {
 	if err := run(os.Args); err != nil {
@@ -185,7 +177,7 @@ func run(args []string) error {
 	}
 
 	app.Action = runBigsky
-	return app.Run(os.Args)
+	return app.Run(args)
 }
 
 func setupOTEL(cctx *cli.Context) error {
@@ -296,7 +288,7 @@ func runBigsky(cctx *cli.Context) error {
 		}
 	}
 
-	cstore, err := carstore.NewCarStore(db, csdirs)
+	cstore, err := repostore.NewCarStore(db, csdirs)
 	if err != nil {
 		return err
 	}
@@ -335,11 +327,7 @@ func runBigsky(cctx *cli.Context) error {
 
 	rf := archiver.NewRepoFetcher(db, repoman, cctx.Int("max-fetch-concurrency"))
 
-	nullfunc := func(ctx context.Context, evt *events.XRPCStreamEvent) error {
-		return nil
-	}
-
-	ix, err := archiver.NewIndexer(db, nullfunc, cachedidr, rf, true)
+	ix, err := archiver.NewIndexer(db, cachedidr, rf, true)
 	if err != nil {
 		return err
 	}
@@ -364,32 +352,6 @@ func runBigsky(cctx *cli.Context) error {
 	}
 	rf.ApplyPDSClientSettings = ix.ApplyPDSClientSettings
 
-	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
-		if err := ix.HandleRepoEvent(ctx, evt); err != nil {
-			slog.Error("failed to handle repo event", "err", err)
-		}
-	}, false)
-
-	prodHR, err := handles.NewProdHandleResolver(100_000, cctx.String("resolve-address"), cctx.Bool("force-dns-udp"))
-	if err != nil {
-		return fmt.Errorf("failed to set up handle resolver: %w", err)
-	}
-	if rlskip != "" {
-		prodHR.ReqMod = func(req *http.Request, host string) error {
-			if strings.HasSuffix(host, ".bsky.social") {
-				req.Header.Set("x-ratelimit-bypass", rlskip)
-			}
-			return nil
-		}
-	}
-
-	var hr handles.HandleResolver = prodHR
-	if cctx.StringSlice("handle-resolver-hosts") != nil {
-		hr = &handles.TestHandleResolver{
-			TrialHosts: cctx.StringSlice("handle-resolver-hosts"),
-		}
-	}
-
 	slog.Info("constructing archiver")
 	archiverConfig := archiver.DefaultArchiverConfig()
 	archiverConfig.SSL = !cctx.Bool("crawl-insecure-ws")
@@ -412,7 +374,7 @@ func runBigsky(cctx *cli.Context) error {
 		archiverConfig.NextCrawlers = nextCrawlerUrls
 	}
 
-	arc, err := archiver.NewArchiver(db, ix, repoman, cachedidr, rf, hr, archiverConfig)
+	arc, err := archiver.NewArchiver(db, ix, repoman, cachedidr, rf, archiverConfig)
 	if err != nil {
 		return err
 	}
