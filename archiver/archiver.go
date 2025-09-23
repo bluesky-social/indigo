@@ -19,7 +19,6 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util/svcutil"
-	"github.com/bluesky-social/indigo/xrpc"
 	lru "github.com/hashicorp/golang-lru/v2"
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/labstack/echo/v4"
@@ -34,10 +33,11 @@ import (
 var tracer = otel.Tracer("archiver")
 
 type Archiver struct {
-	Index   *Indexer
 	db      *gorm.DB
 	slurper *bgs.Slurper
 	didr    did.Resolver
+
+	crawler *CrawlDispatcher
 
 	// TODO: work on doing away with this flag in favor of more pluggable
 	// pieces that abstract the need for explicit ssl checks
@@ -60,15 +60,10 @@ type Archiver struct {
 	pdsResyncsLk sync.RWMutex
 	pdsResyncs   map[uint]*bgs.PDSResync
 
-	// Management of Compaction
-	compactor *bgs.Compactor
-
 	// User cache
 	userCache *lru.Cache[string, *User]
 
-	// nextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
-	nextCrawlers []*url.URL
-	httpClient   http.Client
+	httpClient http.Client
 
 	log *slog.Logger
 }
@@ -96,7 +91,7 @@ func DefaultArchiverConfig() *ArchiverConfig {
 	}
 }
 
-func NewArchiver(db *gorm.DB, ix *Indexer, repoman *repomgr.RepoManager, didr did.Resolver, rf *RepoFetcher, config *ArchiverConfig) (*Archiver, error) {
+func NewArchiver(db *gorm.DB, repoman *repomgr.RepoManager, didr did.Resolver, rf *RepoFetcher, config *ArchiverConfig) (*Archiver, error) {
 	if config == nil {
 		config = DefaultArchiverConfig()
 	}
@@ -107,9 +102,18 @@ func NewArchiver(db *gorm.DB, ix *Indexer, repoman *repomgr.RepoManager, didr di
 
 	uc, _ := lru.New[string, *User](1_000_000)
 
+	log := slog.Default().With("system", "archiver")
+
+	c, err := NewCrawlDispatcher(rf, rf.MaxConcurrency, log)
+	if err != nil {
+		return nil, err
+	}
+
+	c.Run()
+
 	arc := &Archiver{
-		Index: ix,
-		db:    db,
+		crawler: c,
+		db:      db,
 
 		repoman: repoman,
 		didr:    didr,
@@ -122,10 +126,9 @@ func NewArchiver(db *gorm.DB, ix *Indexer, repoman *repomgr.RepoManager, didr di
 
 		userCache: uc,
 
-		log: slog.Default().With("system", "archiver"),
+		log: log,
 	}
 
-	ix.CreateExternalUser = arc.handleUserUpdate
 	slOpts := bgs.DefaultSlurperOptions()
 	slOpts.SSL = config.SSL
 	slOpts.DefaultRepoLimit = config.DefaultRepoLimit
@@ -142,15 +145,6 @@ func NewArchiver(db *gorm.DB, ix *Indexer, repoman *repomgr.RepoManager, didr di
 		return nil, err
 	}
 
-	cOpts := bgs.DefaultCompactorOptions()
-	cOpts.NumWorkers = config.NumCompactionWorkers
-	compactor := bgs.NewCompactor(cOpts)
-	compactor.RequeueInterval = config.CompactInterval
-	// TODO: compactor shenanigans
-	//compactor.Start(arc)
-	arc.compactor = compactor
-
-	arc.nextCrawlers = config.NextCrawlers
 	arc.httpClient.Timeout = time.Second * 5
 
 	return arc, nil
@@ -163,40 +157,10 @@ type User struct {
 	Did string     `gorm:"uniqueindex"`
 	PDS uint
 
-	// TakenDown is set to true if the user in question has been taken down.
-	// A user in this state will have all future events related to it dropped
-	// and no data about this user will be served.
-	TakenDown  bool
-	Tombstoned bool
-
 	// UpstreamStatus is the state of the user as reported by the upstream PDS
 	UpstreamStatus string `gorm:"index"`
 
 	lk sync.Mutex
-}
-
-func (u *User) SetTakenDown(v bool) {
-	u.lk.Lock()
-	defer u.lk.Unlock()
-	u.TakenDown = v
-}
-
-func (u *User) GetTakenDown() bool {
-	u.lk.Lock()
-	defer u.lk.Unlock()
-	return u.TakenDown
-}
-
-func (u *User) SetTombstoned(v bool) {
-	u.lk.Lock()
-	defer u.lk.Unlock()
-	u.Tombstoned = v
-}
-
-func (u *User) GetTombstoned() bool {
-	u.lk.Lock()
-	defer u.lk.Unlock()
-	return u.Tombstoned
 }
 
 func (u *User) SetUpstreamStatus(v string) {
@@ -220,11 +184,11 @@ func (s *Archiver) handleUserUpdate(ctx context.Context, did string) (*User, err
 	s.log.Debug("create external user", "did", did)
 	doc, err := s.didr.GetDocument(ctx, did)
 	if err != nil {
-		return nil, fmt.Errorf("could not locate DID document for followed user (%s): %w", did, err)
+		return nil, fmt.Errorf("could not locate DID document for user (%s): %w", did, err)
 	}
 
 	if len(doc.Service) == 0 {
-		return nil, fmt.Errorf("external followed user %s had no services in did document", did)
+		return nil, fmt.Errorf("user %s had no services in did document", did)
 	}
 
 	svc := doc.Service[0]
@@ -243,9 +207,6 @@ func (s *Archiver) handleUserUpdate(ctx context.Context, did string) (*User, err
 		s.log.Error("failed to find pds", "host", durl.Host)
 		return nil, err
 	}
-
-	c := &xrpc.Client{Host: durl.String()}
-	s.Index.ApplyPDSClientSettings(c)
 
 	if peering.ID == 0 {
 		peering.Host = durl.Host
@@ -307,7 +268,7 @@ func (s *Archiver) handleUserUpdate(ctx context.Context, did string) (*User, err
 	s.extUserLk.Lock()
 	defer s.extUserLk.Unlock()
 
-	exu, err := s.Index.LookupUserByDid(ctx, did)
+	exu, err := s.LookupUserByDid(ctx, did)
 	if err == nil {
 		s.log.Debug("lost the race to create a new user", "did", did)
 		if exu.PDS != peering.ID {
@@ -361,40 +322,22 @@ func (s *Archiver) handleFedEvent(ctx context.Context, host *models.PDS, env *ev
 		u, err := s.handleUserUpdate(ctx, evt.Repo)
 		userLookupDuration.Observe(time.Since(st).Seconds())
 		if err != nil {
-			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				repoCommitsResultCounter.WithLabelValues(host.Host, "nou").Inc()
-				return fmt.Errorf("looking up event user: %w", err)
-			}
-
-			newUsersDiscovered.Inc()
-			start := time.Now()
-			subj, err := s.handleUserUpdate(ctx, evt.Repo)
-			newUserDiscoveryDuration.Observe(time.Since(start).Seconds())
-			if err != nil {
-				repoCommitsResultCounter.WithLabelValues(host.Host, "uerr").Inc()
-				return fmt.Errorf("fed event create external user: %w", err)
-			}
-
-			u = subj
+			return fmt.Errorf("looking up event user: %w", err)
 		}
 
 		ustatus := u.GetUpstreamStatus()
 		span.SetAttributes(attribute.String("upstream_status", ustatus))
 
-		if u.GetTakenDown() || ustatus == events.AccountStatusTakendown {
-			span.SetAttributes(attribute.Bool("taken_down_by_relay_admin", u.GetTakenDown()))
+		switch ustatus {
+		case events.AccountStatusTakendown:
 			s.log.Debug("dropping commit event from taken down user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 			repoCommitsResultCounter.WithLabelValues(host.Host, "tdu").Inc()
 			return nil
-		}
-
-		if ustatus == events.AccountStatusSuspended {
+		case events.AccountStatusSuspended:
 			s.log.Debug("dropping commit event from suspended user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 			repoCommitsResultCounter.WithLabelValues(host.Host, "susu").Inc()
 			return nil
-		}
-
-		if ustatus == events.AccountStatusDeactivated {
+		case events.AccountStatusDeactivated:
 			s.log.Debug("dropping commit event from deactivated user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 			repoCommitsResultCounter.WithLabelValues(host.Host, "du").Inc()
 			return nil
@@ -405,7 +348,7 @@ func (s *Archiver) handleFedEvent(ctx context.Context, host *models.PDS, env *ev
 			return fmt.Errorf("rebase was true in event seq:%d,host:%s", evt.Seq, host.Host)
 		}
 
-		if host.ID != u.PDS && u.PDS != 0 {
+		if host.ID != u.PDS && u.PDS != 0 && !host.Trusted {
 			s.log.Warn("received event for repo from different pds than expected", "repo", evt.Repo, "expPds", u.PDS, "gotPds", host.Host)
 			// Flush any cached DID documents for this user
 			s.didr.FlushCacheFor(env.RepoCommit.Repo)
@@ -422,29 +365,9 @@ func (s *Archiver) handleFedEvent(ctx context.Context, host *models.PDS, env *ev
 			}
 		}
 
-		if u.GetTombstoned() {
-			span.SetAttributes(attribute.Bool("tombstoned", true))
-			// we've checked the authority of the users PDS, so reinstate the account
-			if err := s.db.Model(&User{}).Where("id = ?", u.ID).UpdateColumn("tombstoned", false).Error; err != nil {
-				repoCommitsResultCounter.WithLabelValues(host.Host, "tomb").Inc()
-				return fmt.Errorf("failed to un-tombstone a user: %w", err)
-			}
-			u.SetTombstoned(false)
-
-			ai, err := s.Index.LookupUser(ctx, u.ID)
-			if err != nil {
-				repoCommitsResultCounter.WithLabelValues(host.Host, "nou2").Inc()
-				return fmt.Errorf("failed to look up user (tombstone recover): %w", err)
-			}
-
-			// Now a simple re-crawl should suffice to bring the user back online
-			repoCommitsResultCounter.WithLabelValues(host.Host, "catchupt").Inc()
-			return s.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
-		}
-
 		// skip the fast path for rebases or if the user is already in the slow path
-		if s.Index.Crawler.RepoInSlowPath(ctx, u.ID) {
-			ai, err := s.Index.LookupUser(ctx, u.ID)
+		if s.crawler.RepoInSlowPath(ctx, u.ID) {
+			ai, err := s.LookupUser(ctx, u.ID)
 			if err != nil {
 				repoCommitsResultCounter.WithLabelValues(host.Host, "nou3").Inc()
 				return fmt.Errorf("failed to look up user (slow path): %w", err)
@@ -459,13 +382,13 @@ func (s *Archiver) handleFedEvent(ctx context.Context, host *models.PDS, env *ev
 			// whether or not we even need this 'slow path' logic, as it makes
 			// accounting for which events have been processed much harder
 			repoCommitsResultCounter.WithLabelValues(host.Host, "catchup").Inc()
-			return s.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
+			return s.crawler.AddToCatchupQueue(ctx, host, ai, evt)
 		}
 
 		if err := s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.Since, evt.Rev, evt.Blocks, evt.Ops); err != nil {
 
 			if errors.Is(err, carstore.ErrRepoBaseMismatch) || ipld.IsNotFound(err) {
-				ai, lerr := s.Index.LookupUser(ctx, u.ID)
+				ai, lerr := s.LookupUser(ctx, u.ID)
 				if lerr != nil {
 					log.Warn("failed handling event, no user", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "commit", evt.Commit.String())
 					repoCommitsResultCounter.WithLabelValues(host.Host, "nou4").Inc()
@@ -476,7 +399,7 @@ func (s *Archiver) handleFedEvent(ctx context.Context, host *models.PDS, env *ev
 
 				log.Info("failed handling event, catchup", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "commit", evt.Commit.String())
 				repoCommitsResultCounter.WithLabelValues(host.Host, "catchup2").Inc()
-				return s.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
+				return s.crawler.AddToCatchupQueue(ctx, host, ai, evt)
 			}
 
 			log.Warn("failed handling event", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "commit", evt.Commit.String())
@@ -487,7 +410,7 @@ func (s *Archiver) handleFedEvent(ctx context.Context, host *models.PDS, env *ev
 		repoCommitsResultCounter.WithLabelValues(host.Host, "ok").Inc()
 		return nil
 	case env.RepoIdentity != nil:
-		s.log.Info("bgs got identity event", "did", env.RepoIdentity.Did)
+		s.log.Info("archiver got identity event", "did", env.RepoIdentity.Did)
 		// Flush any cached DID documents for this user
 		s.didr.FlushCacheFor(env.RepoIdentity.Did)
 
@@ -509,7 +432,7 @@ func (s *Archiver) handleFedEvent(ctx context.Context, host *models.PDS, env *ev
 			span.SetAttributes(attribute.String("repo_status", *env.RepoAccount.Status))
 		}
 
-		s.log.Info("bgs got account event", "did", env.RepoAccount.Did)
+		s.log.Info("archiver got account event", "did", env.RepoAccount.Did)
 		// Flush any cached DID documents for this user
 		s.didr.FlushCacheFor(env.RepoAccount.Did)
 
@@ -823,7 +746,9 @@ func (s *Archiver) StartWithListener(listen net.Listener) error {
 func (s *Archiver) Shutdown() []error {
 	errs := s.slurper.Shutdown()
 
-	s.compactor.Shutdown()
+	if s.crawler != nil {
+		s.crawler.Shutdown()
+	}
 
 	return errs
 }

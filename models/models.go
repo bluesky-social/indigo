@@ -111,6 +111,8 @@ type PDS struct {
 	Registered bool
 	Blocked    bool
 
+	Trusted bool
+
 	RateLimit      float64
 	CrawlRateLimit float64
 

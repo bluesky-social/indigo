@@ -199,7 +199,8 @@ func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
 	c.maplk.Lock()
 	defer c.maplk.Unlock()
 
-	// If the actor crawl is enqueued, we can append to the catchup queue which gets emptied during the crawl
+	// If the actor crawl is enqueued, we can ignore this event as it will
+	// be included in the repo when we fetch it
 	job, ok := c.todo[catchup.user.ID]
 	if ok {
 		catchupEventsEnqueued.WithLabelValues("todo").Inc()
@@ -221,21 +222,19 @@ func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
 		act:     catchup.user,
 		catchup: []*catchupJob{catchup},
 	}
+
 	c.todo[catchup.user.ID] = cw
 	return cw
 }
 
 func (c *CrawlDispatcher) fetchWorker() {
-	for {
-		select {
-		case job := <-c.repoSync:
-			if err := c.repoFetcher.FetchAndIndexRepo(context.TODO(), job); err != nil {
-				c.log.Error("failed to perform repo crawl", "did", job.act.Did, "err", err)
-			}
-
-			// TODO: do we still just do this if it errors?
-			c.complete <- job.act.ID
+	for job := range c.repoSync {
+		if err := c.repoFetcher.FetchAndIndexRepo(context.TODO(), job); err != nil {
+			c.log.Error("failed to perform repo crawl", "did", job.act.Did, "err", err)
 		}
+
+		// TODO: do we still just do this if it errors?
+		c.complete <- job.act.ID
 	}
 }
 

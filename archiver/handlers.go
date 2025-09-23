@@ -36,24 +36,13 @@ func (s *Archiver) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
-	if u.GetTombstoned() {
-		return fmt.Errorf("account was deleted")
-	}
-
-	if u.GetTakenDown() {
-		return fmt.Errorf("account was taken down by the Relay")
-	}
-
 	ustatus := u.GetUpstreamStatus()
-	if ustatus == events.AccountStatusTakendown {
+	switch ustatus {
+	case events.AccountStatusTakendown:
 		return fmt.Errorf("account was taken down by its PDS")
-	}
-
-	if ustatus == events.AccountStatusDeactivated {
+	case events.AccountStatusDeactivated:
 		return fmt.Errorf("account is temporarily deactivated")
-	}
-
-	if ustatus == events.AccountStatusSuspended {
+	case events.AccountStatusSuspended:
 		return fmt.Errorf("account is suspended by its PDS")
 	}
 
@@ -74,12 +63,12 @@ func (s *Archiver) HandleHealthCheck(c echo.Context) error {
 	if err := s.db.Exec("SELECT 1").Error; err != nil {
 		s.log.Error("healthcheck can't connect to database", "err", err)
 		return c.JSON(500, HealthStatus{Status: "error", Message: "can't connect to database"})
-	} else {
-		return c.JSON(200, HealthStatus{Status: "ok"})
 	}
+
+	return c.JSON(200, HealthStatus{Status: "ok"})
 }
 
-var homeMessage string = `
+var homeMessage = `
 [ insert fancy archiver art here ]
 `
 

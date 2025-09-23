@@ -327,14 +327,8 @@ func runBigsky(cctx *cli.Context) error {
 
 	rf := archiver.NewRepoFetcher(db, repoman, cctx.Int("max-fetch-concurrency"))
 
-	ix, err := archiver.NewIndexer(db, cachedidr, rf, true)
-	if err != nil {
-		return err
-	}
-	defer ix.Shutdown()
-
 	rlskip := cctx.String("bsky-social-rate-limit-skip")
-	ix.ApplyPDSClientSettings = func(c *xrpc.Client) {
+	rf.ApplyPDSClientSettings = func(c *xrpc.Client) {
 		if c.Client == nil {
 			c.Client = util.RobustHTTPClient()
 		}
@@ -350,7 +344,6 @@ func runBigsky(cctx *cli.Context) error {
 			c.Client.Timeout = time.Minute * 1
 		}
 	}
-	rf.ApplyPDSClientSettings = ix.ApplyPDSClientSettings
 
 	slog.Info("constructing archiver")
 	archiverConfig := archiver.DefaultArchiverConfig()
@@ -374,7 +367,7 @@ func runBigsky(cctx *cli.Context) error {
 		archiverConfig.NextCrawlers = nextCrawlerUrls
 	}
 
-	arc, err := archiver.NewArchiver(db, ix, repoman, cachedidr, rf, archiverConfig)
+	arc, err := archiver.NewArchiver(db, repoman, cachedidr, rf, archiverConfig)
 	if err != nil {
 		return err
 	}
