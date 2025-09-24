@@ -242,11 +242,12 @@ func (cfg *ClientConfig) NewClientAssertion(authURL string) (string, error) {
 	}
 	claims := clientAssertionClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:   cfg.ClientID,
-			Subject:  cfg.ClientID,
-			Audience: []string{authURL},
-			ID:       secureRandomBase64(16),
-			IssuedAt: jwt.NewNumericDate(time.Now()),
+			Issuer:    cfg.ClientID,
+			Subject:   cfg.ClientID,
+			Audience:  []string{authURL},
+			ID:        secureRandomBase64(16),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(jwtExpirationDuration)),
 		},
 	}
 
@@ -579,21 +580,51 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (str
 
 // High-level helper for completing auth flow: verifies callback query parameters against persisted auth request info, makes initial token request to the auth server, validates account identifier, and persists session data.
 func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*ClientSessionData, error) {
+	// There are two callback response formats, for error and non-error conditions, each expecting different
+	// parameters.
+	//
+	// Error responses expect: state, error (and optionally: error_description, error_uri)
+	// Non-error responses expect: state, iss, code
 
 	state := params.Get("state")
-	authserverURL := params.Get("iss")
-	authCode := params.Get("code")
-	if state == "" || authserverURL == "" || authCode == "" {
-		return nil, fmt.Errorf("missing required query param")
+	if state == "" {
+		return nil, fmt.Errorf("missing state query param")
 	}
 
 	info, err := app.Store.GetAuthRequestInfo(ctx, state)
 	if err != nil {
 		return nil, fmt.Errorf("loading auth request info: %w", err)
 	}
+	// This check should never fail, but it guards against a faulty ClientAuthStore implementation
+	if info.State != state {
+		return nil, fmt.Errorf("callback state doesn't match request info")
+	}
 
-	if info.State != state || info.AuthServerURL != authserverURL {
-		return nil, fmt.Errorf("callback params don't match request info")
+	// NOTE: A corresponding `state` is expected even under error conditions,
+	// hence we check error *after* checking state.
+	errorCode := params.Get("error")
+	if errorCode != "" {
+		var errorUri *syntax.URI
+		parsedUri, err := syntax.ParseURI(params.Get("error_uri"))
+		if err == nil {
+			errorUri = &parsedUri
+		}
+		return nil, &AuthRequestCallbackError{
+			ErrorCode:        errorCode,
+			ErrorDescription: params.Get("error_description"),
+			ErrorURI:         errorUri,
+		}
+	}
+
+	// If we reached here, there was no `error` and we can process the rest of the parameters
+	authserverURL := params.Get("iss")
+	authCode := params.Get("code")
+	if authserverURL == "" || authCode == "" {
+		return nil, fmt.Errorf("missing required query param")
+	}
+
+	if info.AuthServerURL != authserverURL {
+		return nil, fmt.Errorf("callback iss doesn't match request info")
 	}
 
 	tokenResp, err := app.SendInitialTokenRequest(ctx, authCode, *info)
