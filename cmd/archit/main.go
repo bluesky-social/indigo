@@ -379,6 +379,11 @@ func runBigsky(cctx *cli.Context) error {
 		arcErr <- err
 	}()
 
+	time.Sleep(time.Second)
+	if err := arc.Slurper.SubscribeToPds(context.TODO(), "morel.us-east.host.bsky.network", true, true, nil); err != nil {
+		return fmt.Errorf("failed to subscribe to pds: %w", err)
+	}
+
 	slog.Info("startup complete")
 	select {
 	case <-signals:

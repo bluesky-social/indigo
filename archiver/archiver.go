@@ -34,7 +34,7 @@ var tracer = otel.Tracer("archiver")
 
 type Archiver struct {
 	db      *gorm.DB
-	slurper *bgs.Slurper
+	Slurper *bgs.Slurper
 	didr    did.Resolver
 
 	crawler *CrawlDispatcher
@@ -129,14 +129,15 @@ func NewArchiver(db *gorm.DB, repoman *repomgr.RepoManager, didr did.Resolver, r
 	slOpts.DefaultRepoLimit = config.DefaultRepoLimit
 	slOpts.ConcurrencyPerPDS = config.ConcurrencyPerPDS
 	slOpts.MaxQueuePerPDS = config.MaxQueuePerPDS
+	slOpts.DefaultRepoLimit = 500_000
 	s, err := bgs.NewSlurper(db, arc.handleFedEvent, slOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	arc.slurper = s
+	arc.Slurper = s
 
-	if err := arc.slurper.RestartAll(); err != nil {
+	if err := arc.Slurper.RestartAll(); err != nil {
 		return nil, err
 	}
 
@@ -205,11 +206,11 @@ func (s *Archiver) handleUserUpdate(ctx context.Context, did string) (*User, err
 	if peering.ID == 0 {
 		peering.Host = durl.Host
 		peering.SSL = (durl.Scheme == "https")
-		peering.CrawlRateLimit = float64(s.slurper.DefaultCrawlLimit)
-		peering.RateLimit = float64(s.slurper.DefaultPerSecondLimit)
-		peering.HourlyEventLimit = s.slurper.DefaultPerHourLimit
-		peering.DailyEventLimit = s.slurper.DefaultPerDayLimit
-		peering.RepoLimit = s.slurper.DefaultRepoLimit
+		peering.CrawlRateLimit = float64(s.Slurper.DefaultCrawlLimit)
+		peering.RateLimit = float64(s.Slurper.DefaultPerSecondLimit)
+		peering.HourlyEventLimit = s.Slurper.DefaultPerHourLimit
+		peering.DailyEventLimit = s.Slurper.DefaultPerDayLimit
+		peering.RepoLimit = s.Slurper.DefaultRepoLimit
 
 		if s.ssl && !peering.SSL {
 			return nil, fmt.Errorf("did references non-ssl PDS, this is disallowed in prod: %q %q", did, svc.ServiceEndpoint)
@@ -722,7 +723,7 @@ func (s *Archiver) StartWithListener(listen net.Listener) error {
 }
 
 func (s *Archiver) Shutdown() []error {
-	errs := s.slurper.Shutdown()
+	errs := s.Slurper.Shutdown()
 
 	if s.crawler != nil {
 		s.crawler.Shutdown()
