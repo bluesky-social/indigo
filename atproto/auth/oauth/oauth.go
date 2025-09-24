@@ -242,11 +242,12 @@ func (cfg *ClientConfig) NewClientAssertion(authURL string) (string, error) {
 	}
 	claims := clientAssertionClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:   cfg.ClientID,
-			Subject:  cfg.ClientID,
-			Audience: []string{authURL},
-			ID:       secureRandomBase64(16),
-			IssuedAt: jwt.NewNumericDate(time.Now()),
+			Issuer:    cfg.ClientID,
+			Subject:   cfg.ClientID,
+			Audience:  []string{authURL},
+			ID:        secureRandomBase64(16),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(jwtExpirationDuration)),
 		},
 	}
 
