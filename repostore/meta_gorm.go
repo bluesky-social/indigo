@@ -12,7 +12,6 @@ import (
 	carstore "github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/ipfs/go-cid"
-	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
 
@@ -217,46 +216,4 @@ func packCids(cids []cid.Cid) []byte {
 	}
 
 	return buf.Bytes()
-}
-
-func createBlockRefs(ctx context.Context, tx *gorm.DB, brefs []map[string]any) error {
-	ctx, span := otel.Tracer("carstore").Start(ctx, "createBlockRefs")
-	defer span.End()
-
-	if err := createInBatches(ctx, tx, brefs, 2000); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Function to create in batches
-func createInBatches(ctx context.Context, tx *gorm.DB, brefs []map[string]any, batchSize int) error {
-	for i := 0; i < len(brefs); i += batchSize {
-		batch := brefs[i:]
-		if len(batch) > batchSize {
-			batch = batch[:batchSize]
-		}
-
-		query, values := generateInsertQuery(batch)
-
-		if err := tx.WithContext(ctx).Exec(query, values...).Error; err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func generateInsertQuery(brefs []map[string]any) (string, []any) {
-	placeholders := strings.Repeat("(?, ?, ?),", len(brefs))
-	placeholders = placeholders[:len(placeholders)-1] // trim trailing comma
-
-	query := "INSERT INTO block_refs (\"cid\", \"offset\", \"shard\") VALUES " + placeholders
-
-	values := make([]any, 0, 3*len(brefs))
-	for _, entry := range brefs {
-		values = append(values, entry["cid"], entry["offset"], entry["shard"])
-	}
-
-	return query, values
 }

@@ -43,8 +43,6 @@ type Archiver struct {
 	// pieces that abstract the need for explicit ssl checks
 	ssl bool
 
-	crawlOnly bool
-
 	// TODO: at some point we will want to lock specific DIDs, this lock as is
 	// is overly broad, but i dont expect it to be a bottleneck for now
 	extUserLk sync.Mutex
@@ -75,9 +73,6 @@ type ArchiverConfig struct {
 	ConcurrencyPerPDS    int64
 	MaxQueuePerPDS       int64
 	NumCompactionWorkers int
-
-	// NextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
-	NextCrawlers []*url.URL
 }
 
 func DefaultArchiverConfig() *ArchiverConfig {
@@ -153,7 +148,7 @@ func NewArchiver(db *gorm.DB, repoman *repomgr.RepoManager, didr did.Resolver, r
 
 type User struct {
 	gorm.Model
-	ID  models.Uid `gorm:"primarykey;index:idx_user_id_active,where:taken_down = false AND tombstoned = false"`
+	ID  models.Uid `gorm:"primarykey"`
 	Did string     `gorm:"uniqueindex"`
 	PDS uint
 
@@ -201,7 +196,6 @@ func (s *Archiver) handleUserUpdate(ctx context.Context, did string) (*User, err
 		durl.Scheme = "http"
 	}
 
-	// TODO: the PDS's DID should also be in the service, we could use that to look up?
 	var peering models.PDS
 	if err := s.db.Find(&peering, "host = ?", durl.Host).Error; err != nil {
 		s.log.Error("failed to find pds", "host", durl.Host)
@@ -268,7 +262,7 @@ func (s *Archiver) handleUserUpdate(ctx context.Context, did string) (*User, err
 	s.extUserLk.Lock()
 	defer s.extUserLk.Unlock()
 
-	exu, err := s.LookupUserByDid(ctx, did)
+	exu, err := s.lookupUserByDid(ctx, did)
 	if err == nil {
 		s.log.Debug("lost the race to create a new user", "did", did)
 		if exu.PDS != peering.ID {
@@ -561,22 +555,6 @@ func (s *Archiver) lookupUserByDid(ctx context.Context, did string) (*User, erro
 	}
 
 	s.userCache.Add(did, &u)
-
-	return &u, nil
-}
-
-func (s *Archiver) lookupUserByUID(ctx context.Context, uid models.Uid) (*User, error) {
-	ctx, span := tracer.Start(ctx, "lookupUserByUID")
-	defer span.End()
-
-	var u User
-	if err := s.db.Find(&u, "id = ?", uid).Error; err != nil {
-		return nil, err
-	}
-
-	if u.ID == 0 {
-		return nil, gorm.ErrRecordNotFound
-	}
 
 	return &u, nil
 }

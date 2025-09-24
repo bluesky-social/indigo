@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	_ "net/http/pprof"
-	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -288,7 +287,7 @@ func runBigsky(cctx *cli.Context) error {
 		}
 	}
 
-	cstore, err := repostore.NewCarStore(db, csdirs)
+	cstore, err := repostore.NewRepoStore(db, csdirs)
 	if err != nil {
 		return err
 	}
@@ -353,19 +352,6 @@ func runBigsky(cctx *cli.Context) error {
 	archiverConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
 	archiverConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
 	archiverConfig.NumCompactionWorkers = cctx.Int("num-compaction-workers")
-	nextCrawlers := cctx.StringSlice("next-crawler")
-	if len(nextCrawlers) != 0 {
-		nextCrawlerUrls := make([]*url.URL, len(nextCrawlers))
-		for i, tu := range nextCrawlers {
-			var err error
-			nextCrawlerUrls[i], err = url.Parse(tu)
-			if err != nil {
-				return fmt.Errorf("failed to parse next-crawler url: %w", err)
-			}
-			slog.Info("configuring relay for requestCrawl", "host", nextCrawlerUrls[i])
-		}
-		archiverConfig.NextCrawlers = nextCrawlerUrls
-	}
 
 	arc, err := archiver.NewArchiver(db, repoman, cachedidr, rf, archiverConfig)
 	if err != nil {

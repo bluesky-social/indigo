@@ -15,7 +15,7 @@ func (s *Archiver) GetUserOrMissing(ctx context.Context, did string) (*User, err
 	ctx, span := otel.Tracer("indexer").Start(ctx, "getUserOrMissing")
 	defer span.End()
 
-	ai, err := s.LookupUserByDid(ctx, did)
+	ai, err := s.lookupUserByDid(ctx, did)
 	if err == nil {
 		return ai, nil
 	}
@@ -68,19 +68,6 @@ func (s *Archiver) LookupUser(ctx context.Context, id models.Uid) (*User, error)
 	var ai User
 	if err := s.db.First(&ai, "id = ?", id).Error; err != nil {
 		return nil, err
-	}
-
-	return &ai, nil
-}
-
-func (s *Archiver) LookupUserByDid(ctx context.Context, did string) (*User, error) {
-	var ai User
-	if err := s.db.Find(&ai, "did = ?", did).Error; err != nil {
-		return nil, err
-	}
-
-	if ai.ID == 0 {
-		return nil, gorm.ErrRecordNotFound
 	}
 
 	return &ai, nil
