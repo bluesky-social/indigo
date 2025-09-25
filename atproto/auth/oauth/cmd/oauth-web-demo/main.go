@@ -79,7 +79,8 @@ var tmplPost = template.Must(template.Must(template.New("post.html").Parse(tmplB
 
 func runServer(cctx *cli.Context) error {
 
-	scopes := []string{"atproto", "account:email"}
+	// the 'account:email' scope is requested only as a demo of users not granting a permission during auth flow
+	scopes := []string{"atproto", "repo:app.bsky.feed.post?action=create", "account:email"}
 	bind := ":8080"
 
 	var config oauth.ClientConfig
