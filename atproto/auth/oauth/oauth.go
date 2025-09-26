@@ -668,8 +668,15 @@ func (app *ClientApp) Logout(ctx context.Context, did syntax.DID, sessionID stri
 		return err
 	}
 
-	// Tell the AS to revoke the tokens
-	sess.RevokeSession(ctx)
+	// Tell the AS to revoke the tokens, if supported
+	if sess.Data.AuthServerRevocationEndpoint == "" {
+		slog.Info("AS does not support token revocation, skipping RevokeSession")
+	} else {
+		err = sess.RevokeSession(ctx)
+		if err != nil {
+			slog.Warn("error during session revocation", "err", err)
+		}
+	}
 
 	// Delete from our own session store
 	err = app.Store.DeleteSession(ctx, did, sessionID)

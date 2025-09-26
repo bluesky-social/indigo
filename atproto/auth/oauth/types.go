@@ -415,6 +415,8 @@ type TokenResponse struct {
 }
 
 // The fields which are included in a token revocation request. These HTTP POST bodies are form-encoded, so use URL encoding syntax, not JSON.
+//
+// Per https://datatracker.ietf.org/doc/html/rfc7009#section-2.1
 type RevocationRequest struct {
 	// Client ID, aka client metadata URL
 	ClientID string `url:"client_id"`
