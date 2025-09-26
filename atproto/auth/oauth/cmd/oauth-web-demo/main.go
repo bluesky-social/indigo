@@ -294,10 +294,10 @@ func (s *Server) OAuthRefresh(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) OAuthLogout(w http.ResponseWriter, r *http.Request) {
 
-	// delete session from auth store
+	// revoke tokens and delete session from auth store
 	did, sessionID := s.currentSessionDID(r)
 	if did != nil {
-		if err := s.OAuth.Store.DeleteSession(r.Context(), *did, sessionID); err != nil {
+		if err := s.OAuth.Logout(r.Context(), *did, sessionID); err != nil {
 			slog.Error("failed to delete session", "did", did, "err", err)
 		}
 	}

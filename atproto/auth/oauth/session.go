@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -38,6 +39,9 @@ type ClientSessionData struct {
 
 	// Full token endpoint
 	AuthServerTokenEndpoint string `json:"authserver_token_endpoint"`
+
+	// Full revocation endpoint, if it exists
+	AuthServerRevocationEndpoint string `json:"authserver_revocation_endpoint,omitempty"`
 
 	// The set of scopes approved for this session (returned in the initial token request)
 	Scopes []string `json:"scopes"`
@@ -77,52 +81,42 @@ type ClientSession struct {
 	lk sync.RWMutex
 }
 
-// Requests new tokens from auth server, and returns the new access token on success.
-//
-// Internally takes a lock on session data around the entire refresh process, including retries. Persists data using [PersistSessionCallback] if configured.
-func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
-	sess.lk.Lock()
-	defer sess.lk.Unlock()
-
-	body := RefreshTokenRequest{
-		ClientID:     sess.Config.ClientID,
-		GrantType:    "refresh_token",
-		RefreshToken: sess.Data.RefreshToken,
+// Helper method to handle DPoP retries and client assertions (if the client is confidential)
+// body object will be url-encoded (expected to be either RefreshTokenRequest or RevocationRequest)
+// expects sess.lk to be held by caller
+// if a non-nil *http.Response is returned, the caller is responsible for closing the response body
+func (sess *ClientSession) postToAuthServer(ctx context.Context, url string, body interface{}) (*http.Response, error) {
+	vals, err := query.Values(body)
+	if err != nil {
+		return nil, err
 	}
-	tokenURL := sess.Data.AuthServerTokenEndpoint
-
 	if sess.Config.IsConfidential() {
 		clientAssertion, err := sess.Config.NewClientAssertion(sess.Data.AuthServerURL)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		body.ClientAssertionType = &ClientAssertionJWTBearer
-		body.ClientAssertion = &clientAssertion
-	}
-
-	vals, err := query.Values(body)
-	if err != nil {
-		return "", err
+		vals.Set("client_assertion_type", ClientAssertionJWTBearer)
+		vals.Set("client_assertion", clientAssertion)
 	}
 	bodyBytes := []byte(vals.Encode())
 
 	var resp *http.Response
 	for range 2 {
-		dpopJWT, err := NewAuthDPoP("POST", sess.Data.AuthServerTokenEndpoint, sess.Data.DPoPAuthServerNonce, sess.DPoPPrivateKey)
+		dpopJWT, err := NewAuthDPoP("POST", url, sess.Data.DPoPAuthServerNonce, sess.DPoPPrivateKey)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
-		req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, bytes.NewBuffer(bodyBytes))
+		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(bodyBytes))
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Set("DPoP", dpopJWT)
 
 		resp, err = sess.Client.Do(req)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		// always check if a new DPoP nonce was provided, and proactively update session data (even if there was not an explicit error)
@@ -140,11 +134,32 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 				// already updated nonce value above; loop around and try again
 				continue
 			}
-			return "", fmt.Errorf("token refresh failed (HTTP %d): %s", resp.StatusCode, reason)
+			return nil, fmt.Errorf("auth server request failed (HTTP %d): %s", resp.StatusCode, reason)
 		}
 
 		// otherwise process response (success or other error type)
 		break
+	}
+
+	return resp, nil
+}
+
+// Requests new tokens from auth server, and returns the new access token on success.
+//
+// Internally takes a lock on session data around the entire refresh process, including retries. Persists data using [PersistSessionCallback] if configured.
+func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
+	sess.lk.Lock()
+	defer sess.lk.Unlock()
+
+	body := RefreshTokenRequest{
+		ClientID:     sess.Config.ClientID,
+		GrantType:    "refresh_token",
+		RefreshToken: sess.Data.RefreshToken,
+	}
+
+	resp, err := sess.postToAuthServer(ctx, sess.Data.AuthServerTokenEndpoint, body)
+	if err != nil {
+		return "", fmt.Errorf("token refresh failed: %w", err)
 	}
 
 	defer resp.Body.Close()
@@ -170,6 +185,47 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 	}
 
 	return sess.Data.AccessToken, nil
+}
+
+// If supported by the AS, use the revocation endpoint to revoke both the access token and the refresh token.
+// This method always succeeds - any errors during revocation are logged but not returned.
+func (sess *ClientSession) RevokeSession(ctx context.Context) error {
+	sess.lk.Lock()
+	defer sess.lk.Unlock()
+
+	if sess.Data.AuthServerRevocationEndpoint == "" {
+		return fmt.Errorf("AS does not support token revocation")
+	}
+
+	resp, err1 := sess.postToAuthServer(ctx, sess.Data.AuthServerRevocationEndpoint, RevocationRequest{
+		ClientID:      sess.Config.ClientID,
+		Token:         sess.Data.AccessToken,
+		TokenTypeHint: "access_token",
+	})
+	if err1 != nil {
+		err1 = fmt.Errorf("failed revoking access token: %w", err1)
+	} else {
+		if resp.StatusCode != http.StatusOK {
+			err1 = fmt.Errorf("bad HTTP status while revoking access token (%d)", resp.StatusCode)
+		}
+		resp.Body.Close()
+	}
+
+	resp, err2 := sess.postToAuthServer(ctx, sess.Data.AuthServerRevocationEndpoint, RevocationRequest{
+		ClientID:      sess.Config.ClientID,
+		Token:         sess.Data.RefreshToken,
+		TokenTypeHint: "refresh_token",
+	})
+	if err2 != nil {
+		err2 = fmt.Errorf("failed revoking refresh token: %w", err1)
+	} else {
+		if resp.StatusCode != 200 {
+			err2 = fmt.Errorf("bad HTTP status while revoking refresh token (%d)", resp.StatusCode)
+		}
+		resp.Body.Close()
+	}
+
+	return errors.Join(err1, err2) // returns nil if both errors are nil
 }
 
 // Constructs and signs a DPoP JWT to include in request header to Host (aka Resource Server, aka PDS). These tokens are different from those used with Auth Server token endpoints (even if the PDS is filling both roles)
