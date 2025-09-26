@@ -433,3 +433,23 @@ type RevocationRequest struct {
 	// For confidential clients, the signed client assertion JWT
 	ClientAssertion *string `url:"client_assertion"`
 }
+
+// Returned by [ClientApp.ProcessCallback] if the AS signals an error in the redirect URL parameters, per rfc6749 section 4.1.2.1
+//
+// NOTE: This is untrusted data and should not be e.g. rendered to HTML without appropriate escaping
+type AuthRequestCallbackError struct {
+	ErrorCode        string
+	ErrorDescription string
+	ErrorURI         *syntax.URI
+}
+
+func (e *AuthRequestCallbackError) Error() string {
+	res := "OAuth request callback error: " + e.ErrorCode
+	if e.ErrorDescription != "" {
+		res += ": " + e.ErrorDescription
+	}
+	if e.ErrorURI != nil {
+		res += " (" + e.ErrorURI.String() + ")"
+	}
+	return res
+}

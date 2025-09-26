@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"slices"
 
 	_ "github.com/joho/godotenv/autoload"
 
@@ -78,7 +79,8 @@ var tmplPost = template.Must(template.Must(template.New("post.html").Parse(tmplB
 
 func runServer(cctx *cli.Context) error {
 
-	scopes := []string{"atproto", "transition:generic"}
+	// the 'account:email' scope is requested only as a demo of users not granting a permission during auth flow
+	scopes := []string{"atproto", "repo:app.bsky.feed.post?action=create", "account:email"}
 	bind := ":8080"
 
 	var config oauth.ClientConfig
@@ -245,6 +247,10 @@ func (s *Server) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, fmt.Errorf("processing OAuth callback: %w", err).Error(), http.StatusBadRequest)
 		return
+	}
+
+	if !slices.Equal(sessData.Scopes, s.OAuth.Config.Scopes) {
+		slog.Warn("session auth scopes did not match those requested", "requested", s.OAuth.Config.Scopes, "granted", sessData.Scopes)
 	}
 
 	// create signed cookie session, indicating account DID
