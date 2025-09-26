@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -133,7 +134,7 @@ func (sess *ClientSession) postToAuthServer(ctx context.Context, url string, bod
 				// already updated nonce value above; loop around and try again
 				continue
 			}
-			return nil, fmt.Errorf("request failed (HTTP %d): %s", resp.StatusCode, reason)
+			return nil, fmt.Errorf("auth server request failed (HTTP %d): %s", resp.StatusCode, reason)
 		}
 
 		// otherwise process response (success or other error type)
@@ -188,42 +189,43 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 
 // If supported by the AS, use the revocation endpoint to revoke both the access token and the refresh token.
 // This method always succeeds - any errors during revocation are logged but not returned.
-func (sess *ClientSession) RevokeSession(ctx context.Context) {
-	if sess.Data.AuthServerRevocationEndpoint == "" {
-		slog.Info("AS does not advertise token revocation support, skipping")
-		return
-	}
-
+func (sess *ClientSession) RevokeSession(ctx context.Context) error {
 	sess.lk.Lock()
 	defer sess.lk.Unlock()
 
-	resp, err := sess.postToAuthServer(ctx, sess.Data.AuthServerRevocationEndpoint, RevocationRequest{
+	if sess.Data.AuthServerRevocationEndpoint == "" {
+		return fmt.Errorf("AS does not support token revocation")
+	}
+
+	resp, err1 := sess.postToAuthServer(ctx, sess.Data.AuthServerRevocationEndpoint, RevocationRequest{
 		ClientID:      sess.Config.ClientID,
 		Token:         sess.Data.AccessToken,
 		TokenTypeHint: "access_token",
 	})
-	if err != nil {
-		slog.Warn("failed revoking access token", "err", err)
+	if err1 != nil {
+		err1 = fmt.Errorf("failed revoking access token: %w", err1)
 	} else {
 		if resp.StatusCode != http.StatusOK {
-			slog.Warn("bad HTTP status while revoking access token", "status_code", resp.StatusCode)
+			err1 = fmt.Errorf("bad HTTP status while revoking access token (%d)", resp.StatusCode)
 		}
 		resp.Body.Close()
 	}
 
-	resp, err = sess.postToAuthServer(ctx, sess.Data.AuthServerRevocationEndpoint, RevocationRequest{
+	resp, err2 := sess.postToAuthServer(ctx, sess.Data.AuthServerRevocationEndpoint, RevocationRequest{
 		ClientID:      sess.Config.ClientID,
 		Token:         sess.Data.RefreshToken,
 		TokenTypeHint: "refresh_token",
 	})
-	if err != nil {
-		slog.Warn("failed revoking refresh token", "err", err)
+	if err2 != nil {
+		err2 = fmt.Errorf("failed revoking refresh token: %w", err1)
 	} else {
 		if resp.StatusCode != 200 {
-			slog.Warn("bad HTTP status while revoking refresh token", "status_code", resp.StatusCode)
+			err2 = fmt.Errorf("bad HTTP status while revoking refresh token (%d)", resp.StatusCode)
 		}
 		resp.Body.Close()
 	}
+
+	return errors.Join(err1, err2) // returns nil if both errors are nil
 }
 
 // Constructs and signs a DPoP JWT to include in request header to Host (aka Resource Server, aka PDS). These tokens are different from those used with Auth Server token endpoints (even if the PDS is filling both roles)
