@@ -122,9 +122,9 @@ Sessions can be resumed and used to make authenticated API calls to the user's h
 
 The [ClientSession] will handle nonce updates and token refreshes, and persist the results in the [ClientAuthStore].
 
-To log out a user, delete their session from the [ClientAuthStore]:
+To log out a user, use the [ClientApp.Logout] helper method, which revokes their tokens (if supported by the AS) and deletes their session from the [ClientAuthStore]:
 
-	if err := oauthApp.Store.DeleteSession(r.Context(), did, sessionID); err != nil {
+	if err := oauthApp.Logout(r.Context(), did, sessionID); err != nil {
 		return err
 	}
 
