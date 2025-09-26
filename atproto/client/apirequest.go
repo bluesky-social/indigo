@@ -34,7 +34,7 @@ type APIRequest struct {
 	// Optional query parameters (field may be nil). These will be encoded as provided.
 	QueryParams url.Values
 
-	// Optional HTTP headers (field bay be nil). Only the first value will be included for each header key ("Set" behavior).
+	// Optional HTTP headers (field may be nil). Only the first value will be included for each header key ("Set" behavior).
 	Headers http.Header
 }
 
