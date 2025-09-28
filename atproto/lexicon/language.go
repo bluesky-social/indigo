@@ -12,14 +12,6 @@ import (
 	"github.com/rivo/uniseg"
 )
 
-// Serialization helper type for top-level Lexicon schema JSON objects (files)
-type SchemaFile struct {
-	Lexicon     int                  `json:"lexicon"` // must be 1
-	ID          string               `json:"id"`
-	Description *string              `json:"description,omitempty"`
-	Defs        map[string]SchemaDef `json:"defs"`
-}
-
 // enum type to represent any of the schema fields
 type SchemaDef struct {
 	Inner any
