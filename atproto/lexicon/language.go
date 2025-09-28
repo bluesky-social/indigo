@@ -66,62 +66,62 @@ func (s *SchemaDef) CheckSchema() error {
 }
 
 // Helper to recurse down the definition tree and set full references on any sub-schemas which need to embed that metadata
-func (s *SchemaDef) SetBase(base string) {
+func (s *SchemaDef) setBase(base string) {
 	switch v := s.Inner.(type) {
 	case SchemaRecord:
 		for i, val := range v.Record.Properties {
-			val.SetBase(base)
+			val.setBase(base)
 			v.Record.Properties[i] = val
 		}
 		s.Inner = v
 	case SchemaQuery:
 		if v.Parameters != nil {
 			for i, val := range v.Parameters.Properties {
-				val.SetBase(base)
+				val.setBase(base)
 				v.Parameters.Properties[i] = val
 			}
 		}
 		if v.Output != nil && v.Output.Schema != nil {
-			v.Output.Schema.SetBase(base)
+			v.Output.Schema.setBase(base)
 		}
 		s.Inner = v
 	case SchemaProcedure:
 		if v.Parameters != nil {
 			for i, val := range v.Parameters.Properties {
-				val.SetBase(base)
+				val.setBase(base)
 				v.Parameters.Properties[i] = val
 			}
 		}
 		if v.Input != nil && v.Input.Schema != nil {
-			v.Input.Schema.SetBase(base)
+			v.Input.Schema.setBase(base)
 		}
 		if v.Output != nil && v.Output.Schema != nil {
-			v.Output.Schema.SetBase(base)
+			v.Output.Schema.setBase(base)
 		}
 		s.Inner = v
 	case SchemaSubscription:
 		if v.Parameters != nil {
 			for i, val := range v.Parameters.Properties {
-				val.SetBase(base)
+				val.setBase(base)
 				v.Parameters.Properties[i] = val
 			}
 		}
 		if v.Message != nil {
-			v.Message.Schema.SetBase(base)
+			v.Message.Schema.setBase(base)
 		}
 		s.Inner = v
 	case SchemaArray:
-		v.Items.SetBase(base)
+		v.Items.setBase(base)
 		s.Inner = v
 	case SchemaObject:
 		for i, val := range v.Properties {
-			val.SetBase(base)
+			val.setBase(base)
 			v.Properties[i] = val
 		}
 		s.Inner = v
 	case SchemaParams:
 		for i, val := range v.Properties {
-			val.SetBase(base)
+			val.setBase(base)
 			v.Properties[i] = val
 		}
 		s.Inner = v

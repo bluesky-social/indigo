@@ -36,7 +36,7 @@ func (sf *SchemaFile) FinishParse() error {
 			s.FullName = name
 			def.Inner = s
 		}
-		def.SetBase(base)
+		def.setBase(base)
 		sf.Defs[frag] = def
 	}
 	return nil
