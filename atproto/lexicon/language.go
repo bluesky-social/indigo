@@ -970,12 +970,12 @@ func (s *SchemaParams) CheckSchema() error {
 type SchemaToken struct {
 	Type        string  `json:"type"` // "token"
 	Description *string `json:"description,omitempty"`
-	// the fully-qualified identifier of this token
-	fullName string
+	// the fully-qualified identifier of this token. this is not included in the schema file; it must be added when parsing
+	FullName string `json:"-"`
 }
 
 func (s *SchemaToken) CheckSchema() error {
-	if s.fullName == "" {
+	if s.FullName == "" {
 		return fmt.Errorf("expected fully-qualified token name")
 	}
 	return nil
@@ -986,10 +986,10 @@ func (s *SchemaToken) Validate(d any) error {
 	if !ok {
 		return fmt.Errorf("expected a string for token, got: %s", reflect.TypeOf(d))
 	}
-	if s.fullName == "" {
+	if s.FullName == "" {
 		return fmt.Errorf("token name was not populated at parse time")
 	}
-	if str != s.fullName {
+	if str != s.FullName {
 		return fmt.Errorf("token name did not match expected: %s", str)
 	}
 	return nil
