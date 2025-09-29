@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/identity/apidir"
 	"github.com/bluesky-social/indigo/atproto/identity/redisdir"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/capture"
@@ -52,6 +53,11 @@ func run(args []string) error {
 			Usage:   "method, hostname, and port of PLC registry",
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
+		},
+		&cli.StringFlag{
+			Name:    "identity-directory-host",
+			Usage:   "method, hostname, and port of identity resolution service (optional)",
+			EnvVars: []string{"IDENTITY_DIRECTORY_HOST"},
 		},
 		&cli.StringFlag{
 			Name:    "atp-bsky-host",
@@ -136,7 +142,7 @@ func run(args []string) error {
 		},
 		&cli.IntFlag{
 			Name:    "firehose-parallelism",
-			Usage:   "force a fixed number of parallel firehose workers. default (or 0) for auto-scaling; 200 works for a large instance",
+			Usage:   "force a fixed number of parallel firehose workers. 200 works for a large instance",
 			EnvVars: []string{"HEPA_FIREHOSE_PARALLELISM"},
 		},
 		&cli.StringFlag{
@@ -203,7 +209,7 @@ func run(args []string) error {
 	return app.Run(args)
 }
 
-func configDirectory(cctx *cli.Context) (identity.Directory, error) {
+func configDirectory(cctx *cli.Context, logger *slog.Logger) (identity.Directory, error) {
 	baseDir := identity.BaseDirectory{
 		PLCURL: cctx.String("atp-plc-host"),
 		HTTPClient: http.Client{
@@ -214,7 +220,13 @@ func configDirectory(cctx *cli.Context) (identity.Directory, error) {
 		SkipDNSDomainSuffixes: []string{".bsky.social", ".staging.bsky.dev"},
 	}
 	var dir identity.Directory
-	if cctx.String("redis-url") != "" {
+	if cctx.String("identity-directory-host") != "" {
+		adir := apidir.NewAPIDirectory(cctx.String("identity-directory-host"))
+		adir.Fallback = &baseDir
+		adir.Logger = logger
+		cdir := identity.NewCacheDirectory(&adir, 1_500_000, time.Hour*1, time.Minute*2, time.Minute*5)
+		dir = &cdir
+	} else if cctx.String("redis-url") != "" {
 		rdir, err := redisdir.NewRedisDirectory(&baseDir, cctx.String("redis-url"), time.Hour*24, time.Minute*2, time.Minute*5, 10_000)
 		if err != nil {
 			return nil, err
@@ -270,7 +282,7 @@ var runCmd = &cli.Command{
 		logger := configLogger(cctx, os.Stdout)
 		configOTEL("hepa")
 
-		dir, err := configDirectory(cctx)
+		dir, err := configDirectory(cctx, logger)
 		if err != nil {
 			return fmt.Errorf("failed to configure identity directory: %v", err)
 		}
@@ -371,7 +383,7 @@ func configEphemeralServer(cctx *cli.Context) (*Server, error) {
 	// NOTE: using stderr not stdout because some commands print to stdout
 	logger := configLogger(cctx, os.Stderr)
 
-	dir, err := configDirectory(cctx)
+	dir, err := configDirectory(cctx, logger)
 	if err != nil {
 		return nil, err
 	}

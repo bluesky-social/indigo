@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -104,22 +105,31 @@ func (d *RedisResolver) refreshHandle(ctx context.Context, h syntax.Handle) hand
 	did, err := d.Inner.ResolveHandle(ctx, h)
 	duration := time.Since(start)
 
+	segment := "default"
+	if strings.HasSuffix(segment, ".bsky.social") {
+		segment = "bskysocial"
+	}
+
 	if err != nil {
-		d.Logger.Info("handle resolution failed", "handle", h, "duration", duration, "err", err)
+		d.Logger.Info("handle resolution failed", "handle", h, "duration", duration.String(), "err", err)
 		handleResolution.WithLabelValues("bluepages", "error").Inc()
 		handleResolutionDuration.WithLabelValues("bluepages", "error").Observe(time.Since(start).Seconds())
+		handleExternalResolutionDuration.WithLabelValues(segment, "error").Observe(time.Since(start).Seconds())
 	} else {
 		handleResolution.WithLabelValues("bluepages", "success").Inc()
 		handleResolutionDuration.WithLabelValues("bluepages", "success").Observe(time.Since(start).Seconds())
+		handleExternalResolutionDuration.WithLabelValues(segment, "success").Observe(time.Since(start).Seconds())
 	}
 	if duration.Seconds() > 5.0 {
-		d.Logger.Info("slow handle resolution", "handle", h, "duration", duration)
+		d.Logger.Info("slow handle resolution", "handle", h, "duration", duration.String())
 	}
 
 	he := handleEntry{
 		Updated: time.Now(),
-		DID:     &did,
 		Err:     err,
+	}
+	if did != "" {
+		he.DID = &did
 	}
 	err = d.handleCache.Set(&cache.Item{
 		Ctx:   ctx,
@@ -134,20 +144,23 @@ func (d *RedisResolver) refreshHandle(ctx context.Context, h syntax.Handle) hand
 }
 
 func (d *RedisResolver) refreshDID(ctx context.Context, did syntax.DID) didEntry {
+	method := did.Method()
 	start := time.Now()
 	rawDoc, err := d.Inner.ResolveDIDRaw(ctx, did)
 	duration := time.Since(start)
 
 	if err != nil {
-		d.Logger.Info("DID resolution failed", "did", did, "duration", duration, "err", err)
+		d.Logger.Info("DID resolution failed", "did", did, "duration", duration.String(), "err", err)
 		didResolution.WithLabelValues("bluepages", "error").Inc()
 		didResolutionDuration.WithLabelValues("bluepages", "error").Observe(time.Since(start).Seconds())
+		didExternalResolutionDuration.WithLabelValues(method, "error").Observe(time.Since(start).Seconds())
 	} else {
 		didResolution.WithLabelValues("bluepages", "success").Inc()
 		didResolutionDuration.WithLabelValues("bluepages", "success").Observe(time.Since(start).Seconds())
+		didExternalResolutionDuration.WithLabelValues(method, "success").Observe(time.Since(start).Seconds())
 	}
 	if duration.Seconds() > 5.0 {
-		d.Logger.Info("slow DID resolution", "did", did, "duration", duration)
+		d.Logger.Info("slow DID resolution", "did", did, "duration", duration.String(), "method", method)
 	}
 
 	// persist the DID lookup error, instead of processing it immediately
