@@ -1,8 +1,7 @@
 {
   "lexicon": 1,
   "id": "example.lexicon.minimal.query",
-  "revision": 1,
-  "description": "exercizes many lexicon features for the query type",
+  "description": "exercises many lexicon features for the query type",
   "defs": {
     "main": {
       "type": "query",
