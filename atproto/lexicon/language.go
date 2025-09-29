@@ -404,11 +404,26 @@ func (s *SchemaSubscription) CheckSchema() error {
 
 type SchemaPermissionSet struct {
 	Type        string             `json:"type"` // "permission-set"
-	Description *string            `json:"description,omitempty"`
+	Title       *string            `json:"title,omitempty"`
+	TitleLangs  map[string]string  `json:"title:langs,omitempty"`
+	Detail      *string            `json:"detail,omitempty"`
+	DetailLangs map[string]string  `json:"detail:langs,omitempty"`
 	Permissions []SchemaPermission `json:"permissions"`
 }
 
 func (s *SchemaPermissionSet) CheckSchema() error {
+	for lang, _ := range s.TitleLangs {
+		_, err := syntax.ParseLanguage(lang)
+		if err != nil {
+			return err
+		}
+	}
+	for lang, _ := range s.DetailLangs {
+		_, err := syntax.ParseLanguage(lang)
+		if err != nil {
+			return err
+		}
+	}
 	for _, p := range s.Permissions {
 		if err := p.CheckSchema(); err != nil {
 			return err
@@ -484,7 +499,7 @@ func (s *SchemaPermission) CheckSchema() error {
 		if (s.InheritAud == true && s.Audience != "") || (s.InheritAud == false && s.Audience == "") {
 			return fmt.Errorf("rpc permission must have eith 'aud' or 'inheritAud' defined")
 		}
-		if s.Audience != "" {
+		if s.Audience != "" && s.Audience != "*" {
 			// TODO: helper for service refs
 			parts := strings.SplitN(s.Audience, "#", 3)
 			if len(parts) != 2 || parts[1] == "" {
