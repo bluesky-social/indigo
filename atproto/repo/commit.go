@@ -13,12 +13,12 @@ import (
 
 // atproto repo commit object as a struct type. Can be used for direct CBOR or JSON serialization.
 type Commit struct {
-	DID     string   `json:"did" cborgen:"did"`
-	Version int64    `json:"version" cborgen:"version"` // currently: 3
-	Prev    *cid.Cid `json:"prev" cborgen:"prev"`       // NOTE: omitempty would break signature verification for repo v3
-	Data    cid.Cid  `json:"data" cborgen:"data"`
-	Sig     []byte   `json:"sig,omitempty" cborgen:"sig,omitempty"`
-	Rev     string   `json:"rev,omitempty" cborgen:"rev,omitempty"`
+	DID     string   `json:"did" cbor:"did" cborgen:"did"`
+	Version int64    `json:"version" cbor:"version" cborgen:"version"` // currently: 3
+	Prev    *cid.Cid `json:"prev" cbor:"prev" cborgen:"prev"`          // NOTE: omitempty would break signature verification for repo v3
+	Data    cid.Cid  `json:"data" cbor:"data" cborgen:"data"`
+	Sig     []byte   `json:"sig,omitempty" cbor:"sig,omitempty" cborgen:"sig,omitempty"`
+	Rev     string   `json:"rev,omitempty" cbor:"rev,omitempty" cborgen:"rev,omitempty"`
 }
 
 // does basic checks that field values and syntax are correct

@@ -8,7 +8,7 @@ import (
 )
 
 type typeExtractor struct {
-	Type string `json:"$type" cborgen:"$type"`
+	Type string `json:"$type" cbor:"$type" cborgen:"$type"`
 }
 
 func TypeExtract(b []byte) (string, error) {
@@ -21,7 +21,7 @@ func TypeExtract(b []byte) (string, error) {
 }
 
 type CborChecker struct {
-	Type string `json:"$type" cborgen:"$type"`
+	Type string `json:"$type" cbor:"$type" cborgen:"$type"`
 }
 
 func CborTypeExtract(b []byte) (string, error) {

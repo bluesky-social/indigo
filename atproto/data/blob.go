@@ -22,15 +22,15 @@ type Blob struct {
 }
 
 type LegacyBlobSchema struct {
-	Cid      string `json:"cid" cborgen:"cid"`
-	MimeType string `json:"mimeType" cborgen:"mimeType"`
+	Cid      string `json:"cid" cbor:"cid" cborgen:"cid"`
+	MimeType string `json:"mimeType" cbor:"mimeType" cborgen:"mimeType"`
 }
 
 type BlobSchema struct {
-	LexiconTypeID string  `json:"$type" cborgen:"$type,const=blob"`
-	Ref           CIDLink `json:"ref" cborgen:"ref"`
-	MimeType      string  `json:"mimeType" cborgen:"mimeType"`
-	Size          int64   `json:"size" cborgen:"size"`
+	LexiconTypeID string  `json:"$type" cbor:"$type" cborgen:"$type,const=blob"`
+	Ref           CIDLink `json:"ref" cbor:"ref" cborgen:"ref"`
+	MimeType      string  `json:"mimeType" cbor:"mimeType" cborgen:"mimeType"`
+	Size          int64   `json:"size" cbor:"size" cborgen:"size"`
 }
 
 func (b Blob) MarshalJSON() ([]byte, error) {
