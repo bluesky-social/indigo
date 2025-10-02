@@ -10,9 +10,13 @@ import (
 //
 // This interface supports multiple sessions for a single account (DID). This is helpful for traditional web app backends where a single user might log in and have concurrent sessions from multiple browsers/devices. For situations where multiple sessions are not required, implementations of this interface could ignore the `sessionID` parameters, though this could result in clobbering of active sessions.
 //
-// For authorization-only (authn-only) applications, the `SaveSession()` method could be a no-op.
+// For authentication-only (authn-only) applications, the `SaveSession()` method could be a no-op.
 //
 // Implementations should generally allow for concurrent access.
+//
+// `SaveSession()` should be treated as an "upsert" operation (updating a previously saved session with matching did and sessionID, if present). `SaveAuthRequestInfo()` however is create-only.
+//
+// Implementations are responsible for garbage-collecting expired sessions and auth requests.
 type ClientAuthStore interface {
 	GetSession(ctx context.Context, did syntax.DID, sessionID string) (*ClientSessionData, error)
 	SaveSession(ctx context.Context, sess ClientSessionData) error
