@@ -198,6 +198,12 @@ func run(args []string) error {
 			EnvVars: []string{"RELAY_EVENT_PLAYBACK_TTL"},
 			Value:   72 * time.Hour,
 		},
+		&cli.Int64Flag{
+			Name:    "newpds-perday-limit",
+			EnvVars: []string{"RELAY_NEWPDS_PERDAY_LIMIT"},
+			Value:   10,
+			Usage:   "initial value for NewPDSPerDayLimit",
+		},
 		&cli.IntFlag{
 			Name:    "num-compaction-workers",
 			EnvVars: []string{"RELAY_NUM_COMPACTION_WORKERS"},
@@ -522,6 +528,7 @@ func runBigsky(cctx *cli.Context) error {
 	bgsConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
 	bgsConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
 	bgsConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
+	bgsConfig.InitialNewPDSPerDayLimit = cctx.Int64("newpds-perday-limit")
 	bgsConfig.NumCompactionWorkers = cctx.Int("num-compaction-workers")
 	nextCrawlers := cctx.StringSlice("next-crawler")
 	if len(nextCrawlers) != 0 {

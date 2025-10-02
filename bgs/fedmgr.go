@@ -48,6 +48,7 @@ type Slurper struct {
 	MaxQueuePerPDS    int64
 
 	NewPDSPerDayLimiter *slidingwindow.Limiter
+	initialNewPDSPerDayLimit   int64
 
 	newSubsDisabled bool
 	trustedDomains  []string
@@ -73,6 +74,7 @@ type SlurperOptions struct {
 	DefaultRepoLimit      int64
 	ConcurrencyPerPDS     int64
 	MaxQueuePerPDS        int64
+	DefaultNewPDSPerDayLimit int64
 }
 
 func DefaultSlurperOptions() *SlurperOptions {
@@ -85,6 +87,7 @@ func DefaultSlurperOptions() *SlurperOptions {
 		DefaultRepoLimit:      100,
 		ConcurrencyPerPDS:     100,
 		MaxQueuePerPDS:        1_000,
+		DefaultNewPDSPerDayLimit: 10,
 	}
 }
 
@@ -115,6 +118,7 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, opts *SlurperOptions) (*Slurper, 
 		ssl:                   opts.SSL,
 		shutdownChan:          make(chan bool),
 		shutdownResult:        make(chan []error),
+		initialNewPDSPerDayLimit:     opts.DefaultNewPDSPerDayLimit,
 	}
 	if err := s.loadConfig(); err != nil {
 		return nil, err
@@ -227,13 +231,15 @@ func (s *Slurper) loadConfig() error {
 	}
 
 	if sc.ID == 0 {
-		if err := s.db.Create(&SlurpConfig{}).Error; err != nil {
+		sc.NewPDSPerDayLimit = s.initialNewPDSPerDayLimit
+		if err := s.db.Create(&SlurpConfig{ NewPDSPerDayLimit: s.initialNewPDSPerDayLimit, }).Error; err != nil {
 			return err
 		}
 	}
 
 	s.newSubsDisabled = sc.NewSubsDisabled
 	s.trustedDomains = sc.TrustedDomains
+	s.initialNewPDSPerDayLimit = sc.NewPDSPerDayLimit
 
 	s.NewPDSPerDayLimiter, _ = slidingwindow.NewLimiter(time.Hour*24, sc.NewPDSPerDayLimit, windowFunc)
 
