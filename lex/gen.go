@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	EncodingCBOR  = "application/cbor"
-	EncodingJSON  = "application/json"
+	EncodingCBOR = "application/cbor"
+	EncodingJSON = "application/json"
+	//EncodingJSONRegex = "^application/[\w+]*json\b" // MK: this regex is `application/*json`, not `application/*+json`
 	EncodingJSONL = "application/jsonl"
 	EncodingCAR   = "application/vnd.ipld.car"
 	EncodingMP4   = "video/mp4"
