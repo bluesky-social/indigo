@@ -9,7 +9,8 @@ import (
 //
 // Note that the [FinishParse] method should always be called after unmarshalling a SchemaFile from JSON.
 type SchemaFile struct {
-	Lexicon     int                  `json:"lexicon"` // must be 1
+	Type        string               `json:"$type,omitempty"` // com.atproto.lexicon.schema (if a record)
+	Lexicon     int                  `json:"lexicon"`         // must be 1
 	ID          string               `json:"id"`
 	Description *string              `json:"description,omitempty"`
 	Defs        map[string]SchemaDef `json:"defs"`
