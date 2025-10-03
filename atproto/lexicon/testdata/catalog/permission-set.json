@@ -1,16 +1,25 @@
 {
   "lexicon": 1,
   "id": "example.lexicon.permissionset",
-  "description": "exercizes many lexicon features for the permission-set type",
+  "description": "exercises many lexicon features for the permission-set type",
   "defs": {
     "main": {
       "type": "permission-set",
+      "title": "Example for Moderation",
+      "title:lang": {
+        "fr": "Example for Modération"
+      },
+      "detail": "Create moderation reports",
+      "detail:lang": {
+        "fr-FR": "Créer des rapports de modération"
+      },
       "permissions": [
         {
           "type": "permission",
           "resource": "blob",
           "accept": [
-            "image/*"
+            "image/*",
+            "video/*"
           ]
         },
         {
@@ -39,15 +48,43 @@
           ]
         },
         {
-        	"type": "permission",
-        	"resource": "rpc",
-        	"aud": "did:web:example.com#foo",
-        	"lxm": ["com.example.calendar.listEvents"]
+          "type": "permission",
+          "resource": "repo",
+          "collection": [
+            "com.example.calendar.eventV2"
+          ],
+          "action": [
+            "create"
+          ]
+        },
+        {
+          "type": "permission",
+          "resource": "rpc",
+          "aud": "did:web:example.com#foo",
+          "lxm": [
+            "com.example.calendar.listEvents"
+          ]
+        },
+        {
+          "type": "permission",
+          "resource": "rpc",
+          "aud": "did:web:example.com#bar",
+          "lxm": [
+            "*"
+          ]
         },
         {
           "type": "permission",
           "resource": "rpc",
           "inheritAud": true,
+          "lxm": [
+            "com.example.calendar.listEvents"
+          ]
+        },
+        {
+          "type": "permission",
+          "resource": "rpc",
+          "aud": "*",
           "lxm": [
             "com.example.calendar.listEvents"
           ]
