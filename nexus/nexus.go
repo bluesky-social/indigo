@@ -21,9 +21,12 @@ type Nexus struct {
 }
 
 type Op struct {
-	DID        string `json:"did"`
-	Collection string `json:"collection"`
-	Rkey       string `json:"rkey"`
+	Did        string                 `json:"did"`
+	Collection string                 `json:"collection"`
+	Rkey       string                 `json:"rkey"`
+	Action     string                 `json:"action"`
+	Record     map[string]interface{} `json:"record,omitempty"`
+	Cid        string                 `json:"cid,omitempty"`
 }
 
 type NexusConfig struct {
@@ -38,7 +41,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	}
 
 	// Auto-migrate the schema
-	if err := db.AutoMigrate(&models.BufferedEvt{}, &models.FilterCollection{}, &models.FilterDid{}); err != nil {
+	if err := db.AutoMigrate(&models.BufferedEvt{}, &models.FilterDid{}); err != nil {
 		return nil, err
 	}
 
