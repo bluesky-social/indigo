@@ -6,9 +6,11 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/repo"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
 	"github.com/gorilla/websocket"
@@ -74,15 +76,39 @@ func (nexus *Nexus) handleCommitEvent(ctx context.Context, evt *comatproto.SyncS
 	if _, exists := nexus.filterDids[evt.Repo]; !exists {
 		return nil
 	}
+	r, err := repo.VerifyCommitMessage(ctx, evt)
+	if err != nil {
+		nexus.logger.Info("failed to invert commit MST", "err", err)
+		return err
+	}
 	for _, op := range evt.Ops {
-		parts := strings.Split(op.Path, "/")
-		collection := parts[0]
-		rkey := parts[1]
-		err := nexus.outbox.Send(&Op{
-			DID:        evt.Repo,
-			Collection: collection,
-			Rkey:       rkey,
-		})
+		coll, rkey, err := syntax.ParseRepoPath(op.Path)
+		if err != nil {
+			return err
+		}
+
+		outOp := &Op{
+			Did:        evt.Repo,
+			Collection: coll.String(),
+			Rkey:       rkey.String(),
+			Action:     op.Action,
+		}
+
+		// For creates and updates, get the record
+		if op.Action == "create" || op.Action == "update" {
+			recBytes, recCid, err := r.GetRecordBytes(ctx, coll, rkey)
+			if err != nil {
+				return err
+			}
+			rec, err := data.UnmarshalCBOR(recBytes)
+			if err != nil {
+				return err
+			}
+			outOp.Record = rec
+			outOp.Cid = recCid.String()
+		}
+
+		err = nexus.outbox.Send(outOp)
 		if err != nil {
 			return err
 		}
