@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -18,10 +17,8 @@ type Nexus struct {
 	echo   *echo.Echo
 	logger *slog.Logger
 
-	filterDids map[string]bool // DID -> exists (for quick filtering)
-	mu         sync.RWMutex
-
-	Dir identity.Directory
+	filter *StringSet
+	Dir    identity.Directory
 
 	outbox        *Outbox
 	backfillQueue *BackfillQueue
@@ -65,9 +62,8 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		echo:   e,
 		logger: slog.Default().With("system", "nexus"),
 
-		filterDids: make(map[string]bool),
-
-		Dir: &cdir,
+		filter: NewStringSet(),
+		Dir:    &cdir,
 
 		outbox:        NewOutbox(db),
 		backfillQueue: NewBackfillQueue(),
@@ -75,7 +71,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 
 	// run 50 backfill workers
 	for i := 0; i < 50; i++ {
-		go n.runBackfillWorker(i)
+		go n.runBackfillWorker(context.Background(), i)
 	}
 
 	err = n.LoadFilters()
@@ -119,26 +115,28 @@ func (n *Nexus) LoadFilters() error {
 		return err
 	}
 
+	dids := make([]string, 0, len(filterDids))
 	for _, f := range filterDids {
-		n.filterDids[f.Did] = true
+		dids = append(dids, f.Did)
 
 		if f.State == models.RepoStatePending || f.State == models.RepoStateBackfilling {
 			n.queueBackfill(f.Did)
 		}
 	}
 
+	n.filter.AddBatch(dids)
 	return nil
 }
 
-func (n *Nexus) runBackfillWorker(workerID int) {
+func (n *Nexus) runBackfillWorker(ctx context.Context, workerID int) {
 	logger := n.logger.With("worker", workerID)
 
 	for {
 		did := n.backfillQueue.Dequeue()
 		logger.Info("processing backfill", "did", did)
-		err := n.backfillDid(context.Background(), did)
+		err := n.backfillDid(ctx, did)
 		if err != nil {
-			logger.Error("error backfilling did", "error", err, "did", did)
+			logger.Error("backfill failed", "did", did, "error", err)
 		}
 	}
 }
