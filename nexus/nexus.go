@@ -43,7 +43,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&models.BufferedEvt{}, &models.FilterDid{}, &models.RepoRecord{}); err != nil {
+	if err := db.AutoMigrate(&models.BufferedEvt{}, &models.FilterDid{}, &models.RepoRecord{}, &models.BackfillBuffer{}); err != nil {
 		return nil, err
 	}
 
@@ -144,6 +144,14 @@ func (n *Nexus) runBackfillWorker(ctx context.Context, workerID int) {
 func (n *Nexus) queueBackfill(did string) {
 	depth := n.backfillQueue.Enqueue(did)
 	n.logger.Info("queued backfill", "did", did, "queue_depth", depth)
+}
+
+func (n *Nexus) GetRepoState(did string) (models.RepoState, error) {
+	var filterDid models.FilterDid
+	if err := n.db.First(&filterDid, "did = ?", did).Error; err != nil {
+		return "", err
+	}
+	return filterDid.State, nil
 }
 
 func (n *Nexus) UpdateRepoState(did string, state models.RepoState, rev string, errorMsg string) error {

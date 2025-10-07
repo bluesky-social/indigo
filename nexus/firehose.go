@@ -67,6 +67,18 @@ func (n *Nexus) handleCommitEvent(ctx context.Context, evt *comatproto.SyncSubsc
 		return nil
 	}
 
+	state, err := n.GetRepoState(evt.Repo)
+	if err != nil {
+		n.logger.Error("failed to get repo state", "did", evt.Repo, "error", err)
+		return nil
+	}
+
+	if state == models.RepoStatePending {
+		return nil
+	} else if state == models.RepoStateBackfilling {
+		return n.bufferCommitEvent(evt)
+	}
+
 	r, err := repo.VerifyCommitMessage(ctx, evt)
 	if err != nil {
 		n.logger.Info("failed to verify commit", "did", evt.Repo, "error", err)
@@ -140,5 +152,21 @@ func (n *Nexus) handleCommitEvent(ctx context.Context, evt *comatproto.SyncSubsc
 		n.logger.Error("failed to update rev", "did", evt.Repo, "error", err)
 	}
 
+	return nil
+}
+
+func (n *Nexus) bufferCommitEvent(evt *comatproto.SyncSubscribeRepos_Commit) error {
+	for _, op := range evt.Ops {
+		bufferedEvt := models.BufferedEvt{
+			Did:        evt.Repo,
+			Collection: op.Path[:len(op.Path)-len(op.Path[len(op.Path)-1:])], // extract collection from path
+			Rkey:       op.Path[len(op.Path)-1:],                             // extract rkey from path
+			Action:     op.Action,
+			Cid:        op.Cid.String(),
+		}
+		if err := n.db.Create(&bufferedEvt).Error; err != nil {
+			n.logger.Error("failed to buffer event", "did", evt.Repo, "path", op.Path, "error", err)
+		}
+	}
 	return nil
 }

@@ -32,6 +32,11 @@ func (n *Nexus) backfillDid(ctx context.Context, did string) error {
 	if err := n.UpdateRepoState(did, models.RepoStateActive, rev, ""); err != nil {
 		return fmt.Errorf("failed to update state to active %w", err)
 	}
+
+	if err := n.processBufferedEvents(ctx, did); err != nil {
+		n.logger.Error("failed to process buffered events", "did", did, "error", err)
+	}
+
 	return nil
 }
 
@@ -156,4 +161,49 @@ func (n *Nexus) backfillRepo(ctx context.Context, did string) (string, error) {
 
 	n.logger.Info("backfill repo complete", "did", did, "records", numRecords, "rev", rev)
 	return rev, nil
+}
+
+func (n *Nexus) processBufferedEvents(ctx context.Context, did string) error {
+	var bufferedEvts []models.BackfillBuffer
+	if err := n.db.Where("did = ?", did).Order("id ASC").Find(&bufferedEvts).Error; err != nil {
+		return fmt.Errorf("failed to load buffered events: %w", err)
+	}
+
+	if len(bufferedEvts) == 0 {
+		return nil
+	}
+
+	n.logger.Info("processing buffered backfill events", "did", did, "count", len(bufferedEvts))
+
+	for _, evt := range bufferedEvts {
+		op := &Op{
+			Did:        evt.Did,
+			Collection: evt.Collection,
+			Rkey:       evt.Rkey,
+			Action:     evt.Action,
+			Cid:        evt.Cid,
+		}
+
+		if err := n.outbox.Send(op); err != nil {
+			return fmt.Errorf("failed to send buffered event: %w", err)
+		}
+
+		repoRecord := models.RepoRecord{
+			Did:        evt.Did,
+			Collection: evt.Collection,
+			Rkey:       evt.Rkey,
+			Cid:        evt.Cid,
+			Rev:        evt.Rev,
+		}
+		if err := n.db.Save(&repoRecord).Error; err != nil {
+			n.logger.Error("failed to save repo record from buffered event", "did", evt.Did, "error", err)
+		}
+	}
+
+	if err := n.db.Where("did = ?", did).Delete(&models.BackfillBuffer{}).Error; err != nil {
+		n.logger.Error("failed to delete buffered backfill events", "did", did, "error", err)
+	}
+
+	n.logger.Info("processed buffered backfill events", "did", did, "count", len(bufferedEvts))
+	return nil
 }
