@@ -18,9 +18,8 @@ type Nexus struct {
 	echo   *echo.Echo
 	logger *slog.Logger
 
-	filterDids     map[string]bool           // DID -> exists (for quick filtering)
-	backfillBuffer map[string][]*Op          // DID -> buffered ops during backfill
-	mu             sync.RWMutex
+	filterDids map[string]bool // DID -> exists (for quick filtering)
+	mu         sync.RWMutex
 
 	// for signature verification
 	Dir identity.Directory
@@ -42,22 +41,18 @@ type NexusConfig struct {
 }
 
 func NewNexus(config NexusConfig) (*Nexus, error) {
-	// Open SQLite DB with GORM
 	db, err := gorm.Open(sqlite.Open(config.DBPath), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
 
-	// Auto-migrate the schema
-	if err := db.AutoMigrate(&models.BufferedEvt{}, &models.FilterDid{}); err != nil {
+	if err := db.AutoMigrate(&models.BufferedEvt{}, &models.FilterDid{}, &models.RepoRecord{}); err != nil {
 		return nil, err
 	}
 
-	// Create Echo instance
 	e := echo.New()
 	e.HideBanner = true
 
-	// main thing is skipping handle verification
 	bdir := identity.BaseDirectory{
 		SkipHandleVerification: true,
 		TryAuthoritativeDNS:    false,
@@ -70,8 +65,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		echo:   e,
 		logger: slog.Default().With("system", "nexus"),
 
-		filterDids:     make(map[string]bool),
-		backfillBuffer: make(map[string][]*Op),
+		filterDids: make(map[string]bool),
 
 		Dir: &cdir,
 
@@ -83,7 +77,6 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		return nil, err
 	}
 
-	// Register routes
 	n.registerRoutes()
 
 	return n, nil
@@ -123,7 +116,6 @@ func (n *Nexus) LoadFilters() error {
 	for _, f := range filterDids {
 		n.filterDids[f.Did] = true
 
-		// Resume backfill for any repos in pending or backfilling state
 		if f.State == models.RepoStatePending || f.State == models.RepoStateBackfilling {
 			go n.backfillDid(context.Background(), f.Did)
 		}

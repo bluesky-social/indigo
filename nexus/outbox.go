@@ -23,10 +23,7 @@ func NewOutbox(db *gorm.DB) *Outbox {
 	}
 }
 
-// Subscribe drains buffered events from DB, then streams live events from channel
-// The send function is called for each event (e.g., ws.WriteJSON)
 func (o *Outbox) Subscribe(ctx context.Context, send func(*Op) error) error {
-	// 1. Load and drain buffered events from DB first
 	var bufferedEvts []models.BufferedEvt
 	if err := o.db.Order("id ASC").Find(&bufferedEvts).Error; err != nil {
 		o.logger.Error("failed to load buffered events", "error", err)
@@ -59,7 +56,6 @@ func (o *Outbox) Subscribe(ctx context.Context, send func(*Op) error) error {
 			}
 		}
 
-		// Delete drained events
 		if err := o.db.Delete(&bufferedEvts).Error; err != nil {
 			o.logger.Error("failed to delete buffered events", "error", err)
 		} else {
@@ -67,7 +63,6 @@ func (o *Outbox) Subscribe(ctx context.Context, send func(*Op) error) error {
 		}
 	}
 
-	// 2. Stream live events from channel
 	o.logger.Info("starting live event stream")
 	for {
 		select {
@@ -82,13 +77,11 @@ func (o *Outbox) Subscribe(ctx context.Context, send func(*Op) error) error {
 	}
 }
 
-// Send attempts to deliver event via channel, falls back to DB if channel is full or blocked
 func (o *Outbox) Send(op *Op) error {
 	select {
 	case o.outCh <- op:
 		return nil
 	default:
-		// Channel full or no readers, persist to DB
 		return o.bufferToDB(op)
 	}
 }

@@ -77,13 +77,6 @@ func (nexus *Nexus) handleCommitEvent(ctx context.Context, evt *comatproto.SyncS
 		return nil
 	}
 
-	// Check repo state from database
-	state, err := nexus.GetRepoState(evt.Repo)
-	if err != nil {
-		nexus.logger.Error("failed to get repo state", "did", evt.Repo, "error", err)
-		return nil // Don't fail on state lookup errors
-	}
-
 	r, err := repo.VerifyCommitMessage(ctx, evt)
 	if err != nil {
 		nexus.logger.Info("failed to verify commit", "did", evt.Repo, "err", err)
@@ -96,47 +89,65 @@ func (nexus *Nexus) handleCommitEvent(ctx context.Context, evt *comatproto.SyncS
 			return err
 		}
 
+		collStr := coll.String()
+		rkeyStr := rkey.String()
+
+		if op.Action == "delete" {
+			outOp := &Op{
+				Did:        evt.Repo,
+				Collection: collStr,
+				Rkey:       rkeyStr,
+				Action:     "delete",
+			}
+
+			if err := nexus.outbox.Send(outOp); err != nil {
+				return err
+			}
+
+			if err := nexus.db.Where("did = ? AND collection = ? AND rkey = ?", evt.Repo, collStr, rkeyStr).Delete(&models.RepoRecord{}).Error; err != nil {
+				nexus.logger.Error("failed to delete repo record", "error", err, "did", evt.Repo, "path", op.Path)
+			}
+			continue
+		}
+
+		recBytes, recCid, err := r.GetRecordBytes(ctx, coll, rkey)
+		if err != nil {
+			return err
+		}
+		cidStr := recCid.String()
+
+		rec, err := data.UnmarshalCBOR(recBytes)
+		if err != nil {
+			return err
+		}
+
 		outOp := &Op{
 			Did:        evt.Repo,
-			Collection: coll.String(),
-			Rkey:       rkey.String(),
+			Collection: collStr,
+			Rkey:       rkeyStr,
 			Action:     op.Action,
+			Record:     rec,
+			Cid:        cidStr,
 		}
 
-		// For creates and updates, get the record
-		if op.Action == "create" || op.Action == "update" {
-			recBytes, recCid, err := r.GetRecordBytes(ctx, coll, rkey)
-			if err != nil {
-				return err
-			}
-			rec, err := data.UnmarshalCBOR(recBytes)
-			if err != nil {
-				return err
-			}
-			outOp.Record = rec
-			outOp.Cid = recCid.String()
+		if err := nexus.outbox.Send(outOp); err != nil {
+			return err
 		}
 
-		// If backfill is in progress, buffer to memory
-		if state == models.RepoStatePending || state == models.RepoStateBackfilling {
-			nexus.logger.Debug("buffering event to memory during backfill", "did", evt.Repo, "state", state)
-			nexus.mu.Lock()
-			nexus.backfillBuffer[evt.Repo] = append(nexus.backfillBuffer[evt.Repo], outOp)
-			nexus.mu.Unlock()
-		} else {
-			// Normal flow - send through outbox
-			err = nexus.outbox.Send(outOp)
-			if err != nil {
-				return err
-			}
+		repoRecord := models.RepoRecord{
+			Did:        evt.Repo,
+			Collection: collStr,
+			Rkey:       rkeyStr,
+			Cid:        cidStr,
+			Rev:        evt.Rev,
+		}
+		if err := nexus.db.Save(&repoRecord).Error; err != nil {
+			nexus.logger.Error("failed to save repo record", "error", err, "did", evt.Repo, "path", op.Path)
 		}
 	}
 
-	// Update rev if repo is active
-	if state == models.RepoStateActive {
-		if err := nexus.UpdateRepoState(evt.Repo, models.RepoStateActive, evt.Rev, ""); err != nil {
-			nexus.logger.Error("failed to update rev", "did", evt.Repo, "error", err)
-		}
+	if err := nexus.UpdateRepoState(evt.Repo, models.RepoStateActive, evt.Rev, ""); err != nil {
+		nexus.logger.Error("failed to update rev", "did", evt.Repo, "error", err)
 	}
 
 	return nil
