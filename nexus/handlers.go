@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/bluesky-social/indigo/nexus/models"
@@ -51,49 +50,32 @@ func (n *Nexus) handleAddDids(c echo.Context) error {
 		return err
 	}
 
-	tx := n.db.Begin()
-	defer tx.Rollback()
-
-	var newDids []string
-
-	for _, did := range payload.DIDs {
-		var existing models.FilterDid
-		err := tx.First(&existing, "did = ?", did).Error
-
-		if err == nil {
-			n.logger.Info("did already tracked", "did", did, "state", existing.State)
-			continue
-		}
-
-		filterDid := &models.FilterDid{
+	filterDids := make([]models.FilterDid, len(payload.DIDs))
+	for i, did := range payload.DIDs {
+		filterDids[i] = models.FilterDid{
 			Did:   did,
 			State: models.RepoStatePending,
 		}
-		if err := tx.Create(filterDid).Error; err != nil {
-			n.logger.Error("failed to insert did", "error", err, "did", did)
-			return echo.NewHTTPError(http.StatusInternalServerError)
-		}
-
-		n.mu.Lock()
-		n.filterDids[did] = true
-		n.mu.Unlock()
-
-		newDids = append(newDids, did)
 	}
 
-	if err := tx.Commit().Error; err != nil {
-		n.logger.Error("failed to commit transaction", "error", err)
+	if err := n.db.Save(&filterDids).Error; err != nil {
+		n.logger.Error("failed to upsert dids", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	for _, did := range newDids {
-		go n.backfillDid(context.Background(), did)
+	n.mu.Lock()
+	for _, did := range payload.DIDs {
+		n.filterDids[did] = true
+	}
+	n.mu.Unlock()
+
+	for _, did := range payload.DIDs {
+		n.queueBackfill(did)
 	}
 
-	n.logger.Info("added dids and started backfills", "new", len(newDids), "total", len(payload.DIDs))
+	n.logger.Info("added dids and queued backfills", "count", len(payload.DIDs))
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"added": len(newDids),
-		"total": len(payload.DIDs),
+		"count": len(payload.DIDs),
 	})
 }

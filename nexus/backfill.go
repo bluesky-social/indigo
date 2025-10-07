@@ -16,29 +16,23 @@ import (
 	"github.com/ipfs/go-cid"
 )
 
-func (n *Nexus) backfillDid(ctx context.Context, did string) {
+func (n *Nexus) backfillDid(ctx context.Context, did string) error {
 	if err := n.UpdateRepoState(did, models.RepoStateBackfilling, "", ""); err != nil {
-		n.logger.Error("failed to update state to backfilling", "error", err, "did", did)
-		return
+		return fmt.Errorf("failed to update state to backfilling: %w", err)
 	}
 
 	n.logger.Info("starting backfill", "did", did)
 
 	rev, err := n.backfillRepo(ctx, did)
 	if err != nil {
-		n.logger.Error("backfill failed", "error", err, "did", did)
-		if updateErr := n.UpdateRepoState(did, models.RepoStateError, "", err.Error()); updateErr != nil {
-			n.logger.Error("failed to update state to error", "error", updateErr, "did", did)
-		}
-		return
+		n.UpdateRepoState(did, models.RepoStateError, "", err.Error())
+		return err
 	}
 
 	if err := n.UpdateRepoState(did, models.RepoStateActive, rev, ""); err != nil {
-		n.logger.Error("failed to update state to active", "error", err, "did", did)
-		return
+		return fmt.Errorf("failed to update state to active %w", err)
 	}
-
-	n.logger.Info("backfill complete", "did", did, "rev", rev)
+	return nil
 }
 
 func (n *Nexus) backfillRepo(ctx context.Context, did string) (string, error) {

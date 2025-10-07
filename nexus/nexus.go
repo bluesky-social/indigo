@@ -21,10 +21,10 @@ type Nexus struct {
 	filterDids map[string]bool // DID -> exists (for quick filtering)
 	mu         sync.RWMutex
 
-	// for signature verification
 	Dir identity.Directory
 
-	outbox *Outbox
+	outbox        *Outbox
+	backfillQueue *BackfillQueue
 }
 
 type Op struct {
@@ -69,7 +69,13 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 
 		Dir: &cdir,
 
-		outbox: NewOutbox(db),
+		outbox:        NewOutbox(db),
+		backfillQueue: NewBackfillQueue(),
+	}
+
+	// run 50 backfill workers
+	for i := 0; i < 50; i++ {
+		go n.runBackfillWorker(i)
 	}
 
 	err = n.LoadFilters()
@@ -117,19 +123,29 @@ func (n *Nexus) LoadFilters() error {
 		n.filterDids[f.Did] = true
 
 		if f.State == models.RepoStatePending || f.State == models.RepoStateBackfilling {
-			go n.backfillDid(context.Background(), f.Did)
+			n.queueBackfill(f.Did)
 		}
 	}
 
 	return nil
 }
 
-func (n *Nexus) GetRepoState(did string) (models.RepoState, error) {
-	var filterDid models.FilterDid
-	if err := n.db.First(&filterDid, "did = ?", did).Error; err != nil {
-		return "", err
+func (n *Nexus) runBackfillWorker(workerID int) {
+	logger := n.logger.With("worker", workerID)
+
+	for {
+		did := n.backfillQueue.Dequeue()
+		logger.Info("processing backfill", "did", did)
+		err := n.backfillDid(context.Background(), did)
+		if err != nil {
+			logger.Error("error backfilling did", "error", err, "did", did)
+		}
 	}
-	return filterDid.State, nil
+}
+
+func (n *Nexus) queueBackfill(did string) {
+	depth := n.backfillQueue.Enqueue(did)
+	n.logger.Info("queued backfill", "did", did, "queue_depth", depth)
 }
 
 func (n *Nexus) UpdateRepoState(did string, state models.RepoState, rev string, errorMsg string) error {
