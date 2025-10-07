@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"log/slog"
+	"sync"
+	"time"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/nexus/models"
 	"github.com/labstack/echo/v4"
 	"gorm.io/driver/sqlite"
@@ -15,7 +18,12 @@ type Nexus struct {
 	echo   *echo.Echo
 	logger *slog.Logger
 
-	filterDids map[string]bool
+	filterDids     map[string]bool           // DID -> exists (for quick filtering)
+	backfillBuffer map[string][]*Op          // DID -> buffered ops during backfill
+	mu             sync.RWMutex
+
+	// for signature verification
+	Dir identity.Directory
 
 	outbox *Outbox
 }
@@ -49,12 +57,23 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	e := echo.New()
 	e.HideBanner = true
 
+	// main thing is skipping handle verification
+	bdir := identity.BaseDirectory{
+		SkipHandleVerification: true,
+		TryAuthoritativeDNS:    false,
+		SkipDNSDomainSuffixes:  []string{".bsky.social"},
+	}
+	cdir := identity.NewCacheDirectory(&bdir, 1_000_000, time.Hour*24, time.Minute*2, time.Minute*5)
+
 	n := &Nexus{
 		db:     db,
 		echo:   e,
 		logger: slog.Default().With("system", "nexus"),
 
-		filterDids: make(map[string]bool),
+		filterDids:     make(map[string]bool),
+		backfillBuffer: make(map[string][]*Op),
+
+		Dir: &cdir,
 
 		outbox: NewOutbox(db),
 	}
@@ -103,7 +122,30 @@ func (n *Nexus) LoadFilters() error {
 
 	for _, f := range filterDids {
 		n.filterDids[f.Did] = true
+
+		// Resume backfill for any repos in pending or backfilling state
+		if f.State == models.RepoStatePending || f.State == models.RepoStateBackfilling {
+			go n.backfillDid(context.Background(), f.Did)
+		}
 	}
 
 	return nil
+}
+
+func (n *Nexus) GetRepoState(did string) (models.RepoState, error) {
+	var filterDid models.FilterDid
+	if err := n.db.First(&filterDid, "did = ?", did).Error; err != nil {
+		return "", err
+	}
+	return filterDid.State, nil
+}
+
+func (n *Nexus) UpdateRepoState(did string, state models.RepoState, rev string, errorMsg string) error {
+	return n.db.Model(&models.FilterDid{}).
+		Where("did = ?", did).
+		Updates(map[string]interface{}{
+			"state":     state,
+			"rev":       rev,
+			"error_msg": errorMsg,
+		}).Error
 }

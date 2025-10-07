@@ -1,13 +1,12 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"net/http"
 
 	"github.com/bluesky-social/indigo/nexus/models"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
-	"gorm.io/gorm/clause"
 )
 
 var upgrader = websocket.Upgrader{
@@ -29,13 +28,6 @@ func (n *Nexus) handleHealthcheck(c echo.Context) error {
 }
 
 func (n *Nexus) handleListen(c echo.Context) error {
-	// Check if already connected
-	if err := n.outbox.Connect(); err != nil {
-		n.logger.Error("connection refused", "error", err)
-		return echo.NewHTTPError(http.StatusConflict, "websocket already connected")
-	}
-	defer n.outbox.Disconnect()
-
 	// Upgrade to WebSocket
 	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
@@ -45,57 +37,10 @@ func (n *Nexus) handleListen(c echo.Context) error {
 
 	n.logger.Info("websocket connected")
 
-	// Send buffered events first
-	var bufferedEvts []models.BufferedEvt
-	if err := n.db.Order("id ASC").Find(&bufferedEvts).Error; err != nil {
-		n.logger.Error("failed to load buffered events", "error", err)
-		return err
-	}
-
-	if len(bufferedEvts) > 0 {
-		n.logger.Info("draining buffered events", "count", len(bufferedEvts))
-		for _, evt := range bufferedEvts {
-			op := &Op{
-				Did:        evt.Did,
-				Collection: evt.Collection,
-				Rkey:       evt.Rkey,
-				Action:     evt.Action,
-				Cid:        evt.Cid,
-			}
-
-			if evt.Record != "" {
-				var record map[string]interface{}
-				if err := json.Unmarshal([]byte(evt.Record), &record); err != nil {
-					n.logger.Error("failed to unmarshal record", "error", err, "id", evt.ID)
-					continue
-				}
-				op.Record = record
-			}
-
-			if err := ws.WriteJSON(op); err != nil {
-				n.logger.Info("websocket write error", "error", err)
-				return nil
-			}
-		}
-
-		// Delete buffered events
-		if err := n.db.Delete(&bufferedEvts).Error; err != nil {
-			n.logger.Error("failed to delete buffered events", "error", err)
-		} else {
-			n.logger.Info("cleared buffered events", "count", len(bufferedEvts))
-		}
-	}
-
-	// Mark that we're done draining and ready for live events
-	n.outbox.StartLive()
-	n.logger.Info("starting live event stream")
-	for op := range n.outbox.outCh {
-		if err := ws.WriteJSON(op); err != nil {
-			n.logger.Info("websocket write error", "error", err)
-			return nil
-		}
-	}
-	return nil
+	// Subscribe to outbox - it handles draining DB and streaming live events
+	return n.outbox.Subscribe(c.Request().Context(), func(op *Op) error {
+		return ws.WriteJSON(op)
+	})
 }
 
 type DidPayload struct {
@@ -108,20 +53,55 @@ func (n *Nexus) handleAddDids(c echo.Context) error {
 		return err
 	}
 
-	rows := make([]models.FilterDid, 0, len(payload.DIDs))
+	// Start transaction
+	tx := n.db.Begin()
+	defer tx.Rollback()
+
+	var newDids []string
+
 	for _, did := range payload.DIDs {
-		rows = append(rows, models.FilterDid{Did: did})
+		// Check if already exists
+		var existing models.FilterDid
+		err := tx.First(&existing, "did = ?", did).Error
+
+		if err == nil {
+			// Already exists, skip
+			n.logger.Info("did already tracked", "did", did, "state", existing.State)
+			continue
+		}
+
+		// Add to filter list with pending state
+		filterDid := &models.FilterDid{
+			Did:   did,
+			State: models.RepoStatePending,
+		}
+		if err := tx.Create(filterDid).Error; err != nil {
+			n.logger.Error("failed to insert did", "error", err, "did", did)
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		// Add to in-memory filter
+		n.mu.Lock()
+		n.filterDids[did] = true
+		n.mu.Unlock()
+
+		newDids = append(newDids, did)
 	}
 
-	err := n.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&rows).Error
-	if err != nil {
-		n.logger.Error("failed to insert dids", "error", err)
+	if err := tx.Commit().Error; err != nil {
+		n.logger.Error("failed to commit transaction", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	for _, did := range payload.DIDs {
-		n.filterDids[did] = true
+	// Kick off backfill for each new DID
+	for _, did := range newDids {
+		go n.backfillDid(context.Background(), did)
 	}
 
-	return c.NoContent(http.StatusOK)
+	n.logger.Info("added dids and started backfills", "new", len(newDids), "total", len(payload.DIDs))
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"added":  len(newDids),
+		"total":  len(payload.DIDs),
+	})
 }

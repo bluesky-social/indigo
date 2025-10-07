@@ -13,6 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
+	"github.com/bluesky-social/indigo/nexus/models"
 	"github.com/gorilla/websocket"
 )
 
@@ -31,13 +32,8 @@ func (nexus *Nexus) SubscribeFirehose(ctx context.Context) error {
 		u.Scheme = "wss"
 	}
 	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
-	// if cmd.IsSet("cursor") {
-	// 	u.RawQuery = fmt.Sprintf("cursor=%d", cmd.Int("cursor"))
-	// }
 	urlString := u.String()
-	con, _, err := dialer.Dial(urlString, http.Header{
-		// "User-Agent": []string{*userAgent()},
-	})
+	con, _, err := dialer.Dial(urlString, http.Header{})
 	if err != nil {
 		return fmt.Errorf("subscribing to firehose failed (dialing): %w", err)
 	}
@@ -73,14 +69,27 @@ func (nexus *Nexus) SubscribeFirehose(ctx context.Context) error {
 }
 
 func (nexus *Nexus) handleCommitEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
-	if _, exists := nexus.filterDids[evt.Repo]; !exists {
+	nexus.mu.RLock()
+	exists := nexus.filterDids[evt.Repo]
+	nexus.mu.RUnlock()
+
+	if !exists {
 		return nil
 	}
+
+	// Check repo state from database
+	state, err := nexus.GetRepoState(evt.Repo)
+	if err != nil {
+		nexus.logger.Error("failed to get repo state", "did", evt.Repo, "error", err)
+		return nil // Don't fail on state lookup errors
+	}
+
 	r, err := repo.VerifyCommitMessage(ctx, evt)
 	if err != nil {
-		nexus.logger.Info("failed to invert commit MST", "err", err)
+		nexus.logger.Info("failed to verify commit", "did", evt.Repo, "err", err)
 		return err
 	}
+
 	for _, op := range evt.Ops {
 		coll, rkey, err := syntax.ParseRepoPath(op.Path)
 		if err != nil {
@@ -108,10 +117,27 @@ func (nexus *Nexus) handleCommitEvent(ctx context.Context, evt *comatproto.SyncS
 			outOp.Cid = recCid.String()
 		}
 
-		err = nexus.outbox.Send(outOp)
-		if err != nil {
-			return err
+		// If backfill is in progress, buffer to memory
+		if state == models.RepoStatePending || state == models.RepoStateBackfilling {
+			nexus.logger.Debug("buffering event to memory during backfill", "did", evt.Repo, "state", state)
+			nexus.mu.Lock()
+			nexus.backfillBuffer[evt.Repo] = append(nexus.backfillBuffer[evt.Repo], outOp)
+			nexus.mu.Unlock()
+		} else {
+			// Normal flow - send through outbox
+			err = nexus.outbox.Send(outOp)
+			if err != nil {
+				return err
+			}
 		}
 	}
+
+	// Update rev if repo is active
+	if state == models.RepoStateActive {
+		if err := nexus.UpdateRepoState(evt.Repo, models.RepoStateActive, evt.Rev, ""); err != nil {
+			nexus.logger.Error("failed to update rev", "did", evt.Repo, "error", err)
+		}
+	}
+
 	return nil
 }
