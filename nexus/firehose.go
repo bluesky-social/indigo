@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/url"
 
@@ -17,7 +16,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func (nexus *Nexus) SubscribeFirehose(ctx context.Context) error {
+func (n *Nexus) SubscribeFirehose(ctx context.Context) error {
 	relayHost := "https://bsky.network"
 
 	dialer := websocket.DefaultDialer
@@ -40,7 +39,7 @@ func (nexus *Nexus) SubscribeFirehose(ctx context.Context) error {
 
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
-			return nexus.handleCommitEvent(ctx, evt)
+			return n.handleCommitEvent(ctx, evt)
 		},
 		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
 			return nil
@@ -59,27 +58,18 @@ func (nexus *Nexus) SubscribeFirehose(ctx context.Context) error {
 		relayHost,
 		rsc.EventHandler,
 	)
-	slog.Info("starting firehose consumer", "relayHost", relayHost)
-	err = events.HandleRepoStream(ctx, con, scheduler, nil)
-
-	if err != nil {
-		return err
-	}
+	n.logger.Info("starting firehose consumer", "relayHost", relayHost)
 	return events.HandleRepoStream(ctx, con, scheduler, nil)
 }
 
-func (nexus *Nexus) handleCommitEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
-	nexus.mu.RLock()
-	exists := nexus.filterDids[evt.Repo]
-	nexus.mu.RUnlock()
-
-	if !exists {
+func (n *Nexus) handleCommitEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
+	if !n.filter.Contains(evt.Repo) {
 		return nil
 	}
 
 	r, err := repo.VerifyCommitMessage(ctx, evt)
 	if err != nil {
-		nexus.logger.Info("failed to verify commit", "did", evt.Repo, "err", err)
+		n.logger.Info("failed to verify commit", "did", evt.Repo, "error", err)
 		return err
 	}
 
@@ -100,12 +90,12 @@ func (nexus *Nexus) handleCommitEvent(ctx context.Context, evt *comatproto.SyncS
 				Action:     "delete",
 			}
 
-			if err := nexus.outbox.Send(outOp); err != nil {
+			if err := n.outbox.Send(outOp); err != nil {
 				return err
 			}
 
-			if err := nexus.db.Where("did = ? AND collection = ? AND rkey = ?", evt.Repo, collStr, rkeyStr).Delete(&models.RepoRecord{}).Error; err != nil {
-				nexus.logger.Error("failed to delete repo record", "error", err, "did", evt.Repo, "path", op.Path)
+			if err := n.db.Where("did = ? AND collection = ? AND rkey = ?", evt.Repo, collStr, rkeyStr).Delete(&models.RepoRecord{}).Error; err != nil {
+				n.logger.Error("failed to delete repo record", "did", evt.Repo, "path", op.Path, "error", err)
 			}
 			continue
 		}
@@ -130,7 +120,7 @@ func (nexus *Nexus) handleCommitEvent(ctx context.Context, evt *comatproto.SyncS
 			Cid:        cidStr,
 		}
 
-		if err := nexus.outbox.Send(outOp); err != nil {
+		if err := n.outbox.Send(outOp); err != nil {
 			return err
 		}
 
@@ -141,13 +131,13 @@ func (nexus *Nexus) handleCommitEvent(ctx context.Context, evt *comatproto.SyncS
 			Cid:        cidStr,
 			Rev:        evt.Rev,
 		}
-		if err := nexus.db.Save(&repoRecord).Error; err != nil {
-			nexus.logger.Error("failed to save repo record", "error", err, "did", evt.Repo, "path", op.Path)
+		if err := n.db.Save(&repoRecord).Error; err != nil {
+			n.logger.Error("failed to save repo record", "did", evt.Repo, "path", op.Path, "error", err)
 		}
 	}
 
-	if err := nexus.UpdateRepoState(evt.Repo, models.RepoStateActive, evt.Rev, ""); err != nil {
-		nexus.logger.Error("failed to update rev", "did", evt.Repo, "error", err)
+	if err := n.UpdateRepoState(evt.Repo, models.RepoStateActive, evt.Rev, ""); err != nil {
+		n.logger.Error("failed to update rev", "did", evt.Repo, "error", err)
 	}
 
 	return nil

@@ -21,7 +21,7 @@ func (n *Nexus) registerRoutes() {
 }
 
 func (n *Nexus) handleHealthcheck(c echo.Context) error {
-	return c.JSON(200, map[string]string{
+	return c.JSON(http.StatusOK, map[string]string{
 		"status": "ok",
 	})
 }
@@ -63,11 +63,7 @@ func (n *Nexus) handleAddDids(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	n.mu.Lock()
-	for _, did := range payload.DIDs {
-		n.filterDids[did] = true
-	}
-	n.mu.Unlock()
+	n.filter.AddBatch(payload.DIDs)
 
 	for _, did := range payload.DIDs {
 		n.queueBackfill(did)
