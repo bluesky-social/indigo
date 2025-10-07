@@ -30,6 +30,18 @@ type BufferedEvt struct {
 	Record     string `gorm:"type:text"`
 }
 
+type BackfillBuffer struct {
+	ID         uint      `gorm:"primaryKey"`
+	Did        string    `gorm:"not null;index"`
+	Collection string    `gorm:"not null"`
+	Rkey       string    `gorm:"not null"`
+	Action     string    `gorm:"not null"`
+	Cid        string    `gorm:"type:text"`
+	Record     string    `gorm:"type:text"`
+	Rev        string    `gorm:"not null"`
+	CreatedAt  time.Time `gorm:"not null"`
+}
+
 type RepoRecord struct {
 	Did        string `gorm:"primaryKey"`
 	Collection string `gorm:"primaryKey"`
