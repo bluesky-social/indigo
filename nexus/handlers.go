@@ -28,7 +28,6 @@ func (n *Nexus) handleHealthcheck(c echo.Context) error {
 }
 
 func (n *Nexus) handleListen(c echo.Context) error {
-	// Upgrade to WebSocket
 	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
 		return err
@@ -37,7 +36,6 @@ func (n *Nexus) handleListen(c echo.Context) error {
 
 	n.logger.Info("websocket connected")
 
-	// Subscribe to outbox - it handles draining DB and streaming live events
 	return n.outbox.Subscribe(c.Request().Context(), func(op *Op) error {
 		return ws.WriteJSON(op)
 	})
@@ -53,24 +51,20 @@ func (n *Nexus) handleAddDids(c echo.Context) error {
 		return err
 	}
 
-	// Start transaction
 	tx := n.db.Begin()
 	defer tx.Rollback()
 
 	var newDids []string
 
 	for _, did := range payload.DIDs {
-		// Check if already exists
 		var existing models.FilterDid
 		err := tx.First(&existing, "did = ?", did).Error
 
 		if err == nil {
-			// Already exists, skip
 			n.logger.Info("did already tracked", "did", did, "state", existing.State)
 			continue
 		}
 
-		// Add to filter list with pending state
 		filterDid := &models.FilterDid{
 			Did:   did,
 			State: models.RepoStatePending,
@@ -80,7 +74,6 @@ func (n *Nexus) handleAddDids(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 
-		// Add to in-memory filter
 		n.mu.Lock()
 		n.filterDids[did] = true
 		n.mu.Unlock()
@@ -93,7 +86,6 @@ func (n *Nexus) handleAddDids(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	// Kick off backfill for each new DID
 	for _, did := range newDids {
 		go n.backfillDid(context.Background(), did)
 	}
@@ -101,7 +93,7 @@ func (n *Nexus) handleAddDids(c echo.Context) error {
 	n.logger.Info("added dids and started backfills", "new", len(newDids), "total", len(payload.DIDs))
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"added":  len(newDids),
-		"total":  len(payload.DIDs),
+		"added": len(newDids),
+		"total": len(payload.DIDs),
 	})
 }

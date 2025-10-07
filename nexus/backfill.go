@@ -17,7 +17,6 @@ import (
 )
 
 func (n *Nexus) backfillDid(ctx context.Context, did string) {
-	// Mark as backfilling
 	if err := n.UpdateRepoState(did, models.RepoStateBackfilling, "", ""); err != nil {
 		n.logger.Error("failed to update state to backfilling", "error", err, "did", did)
 		return
@@ -25,61 +24,21 @@ func (n *Nexus) backfillDid(ctx context.Context, did string) {
 
 	n.logger.Info("starting backfill", "did", did)
 
-	// Perform backfill
 	rev, err := n.backfillRepo(ctx, did)
 	if err != nil {
 		n.logger.Error("backfill failed", "error", err, "did", did)
-		// Mark as error state
 		if updateErr := n.UpdateRepoState(did, models.RepoStateError, "", err.Error()); updateErr != nil {
 			n.logger.Error("failed to update state to error", "error", updateErr, "did", did)
 		}
-		// Clean up buffered events
-		n.mu.Lock()
-		delete(n.backfillBuffer, did)
-		n.mu.Unlock()
 		return
 	}
 
-	// Drain buffered events that came in during backfill
-	if err := n.drainBackfillBuffer(ctx, did); err != nil {
-		n.logger.Error("failed to drain backfill buffer", "error", err, "did", did)
-		if updateErr := n.UpdateRepoState(did, models.RepoStateError, rev, err.Error()); updateErr != nil {
-			n.logger.Error("failed to update state to error", "error", updateErr, "did", did)
-		}
-		return
-	}
-
-	// Mark as active
 	if err := n.UpdateRepoState(did, models.RepoStateActive, rev, ""); err != nil {
 		n.logger.Error("failed to update state to active", "error", err, "did", did)
 		return
 	}
 
 	n.logger.Info("backfill complete", "did", did, "rev", rev)
-}
-
-func (n *Nexus) drainBackfillBuffer(ctx context.Context, did string) error {
-	// Get buffered events from memory
-	n.mu.Lock()
-	bufferedOps := n.backfillBuffer[did]
-	delete(n.backfillBuffer, did)
-	n.mu.Unlock()
-
-	if len(bufferedOps) == 0 {
-		return nil
-	}
-
-	n.logger.Info("draining backfill buffer from memory", "did", did, "count", len(bufferedOps))
-
-	// Send each buffered event
-	for _, op := range bufferedOps {
-		if err := n.outbox.Send(op); err != nil {
-			return err
-		}
-	}
-
-	n.logger.Info("drained backfill buffer", "did", did, "count", len(bufferedOps))
-	return nil
 }
 
 func (n *Nexus) backfillRepo(ctx context.Context, did string) (string, error) {
@@ -89,17 +48,17 @@ func (n *Nexus) backfillRepo(ctx context.Context, did string) (string, error) {
 		return "", fmt.Errorf("failed to resolve DID: %w", err)
 	}
 
-	pdsHost := ident.PDSEndpoint()
-	if pdsHost == "" {
+	pdsURL := ident.PDSEndpoint()
+	if pdsURL == "" {
 		return "", fmt.Errorf("no PDS endpoint for DID: %s", did)
 	}
 
-	n.logger.Info("fetching repo from PDS", "did", did, "pds", pdsHost)
+	n.logger.Info("fetching repo from PDS", "did", did, "pds", pdsURL)
 
 	// Create XRPC client
 	client := &xrpc.Client{
 		Client: &http.Client{},
-		Host:   pdsHost,
+		Host:   pdsURL,
 	}
 
 	// Call com.atproto.sync.getRepo
@@ -119,45 +78,78 @@ func (n *Nexus) backfillRepo(ctx context.Context, did string) (string, error) {
 	rev := r.SignedCommit().Rev
 	n.logger.Info("iterating repo records", "did", did, "rev", rev)
 
+	// Pre-load existing CID mappings for this DID into memory
+	var existingRecords []models.RepoRecord
+	if err := n.db.Find(&existingRecords, "did = ?", did).Error; err != nil {
+		return "", fmt.Errorf("failed to load existing records: %w", err)
+	}
+
+	// Build map: "collection/rkey" -> CID
+	existingCids := make(map[string]string, len(existingRecords))
+	for _, rec := range existingRecords {
+		key := rec.Collection + "/" + rec.Rkey
+		existingCids[key] = rec.Cid
+	}
+	n.logger.Info("pre-loaded existing records", "did", did, "count", len(existingCids))
+
 	numRecords := 0
 
-	// Iterate through all records
-	err = r.ForEach(ctx, "", func(recordPath string, nodeCid cid.Cid) error {
-		// Get the record bytes
-		blk, err := r.Blockstore().Get(ctx, nodeCid)
+	err = r.ForEach(ctx, "", func(recPath string, recCid cid.Cid) error {
+		collection, rkey, err := syntax.ParseRepoPath(recPath)
 		if err != nil {
-			n.logger.Error("failed to get block", "path", recordPath, "error", err)
-			return nil // Skip this record
-		}
-
-		raw := blk.RawData()
-
-		// Unmarshal to get the actual record
-		rec, err := data.UnmarshalCBOR(raw)
-		if err != nil {
-			n.logger.Error("failed to unmarshal record", "path", recordPath, "error", err)
+			n.logger.Error("invalid record path", "path", recPath, "error", err)
 			return nil
 		}
 
-		// Parse the path to get collection and rkey
-		collection, rkey, err := syntax.ParseRepoPath(recordPath)
+		collStr := collection.String()
+		rkeyStr := rkey.String()
+		cidStr := recCid.String()
+
+		existingCid, exists := existingCids[recPath]
+		action := "create"
+		if exists {
+			if existingCid == cidStr {
+				return nil
+			} else {
+				action = "update"
+			}
+		}
+
+		blk, err := r.Blockstore().Get(ctx, recCid)
 		if err != nil {
-			n.logger.Error("invalid record path", "path", recordPath, "error", err)
+			n.logger.Error("failed to get block", "path", recPath, "error", err)
 			return nil
 		}
 
-		// Send as create event
+		rec, err := data.UnmarshalCBOR(blk.RawData())
+		if err != nil {
+			n.logger.Error("failed to unmarshal record", "path", recPath, "error", err)
+			return nil
+		}
+
 		op := &Op{
 			Did:        did,
-			Collection: collection.String(),
-			Rkey:       rkey.String(),
-			Action:     "create",
+			Collection: collStr,
+			Rkey:       rkeyStr,
+			Action:     action,
 			Record:     rec,
-			Cid:        nodeCid.String(),
+			Cid:        recCid.String(),
 		}
 
 		if err := n.outbox.Send(op); err != nil {
 			return fmt.Errorf("failed to send op: %w", err)
+		}
+
+		// Update RepoRecord table with new CID
+		repoRecord := models.RepoRecord{
+			Did:        did,
+			Collection: collStr,
+			Rkey:       rkeyStr,
+			Cid:        cidStr,
+			Rev:        rev,
+		}
+		if err := n.db.Save(&repoRecord).Error; err != nil {
+			n.logger.Error("failed to save repo record", "error", err, "did", did, "path", recPath)
 		}
 
 		numRecords++
