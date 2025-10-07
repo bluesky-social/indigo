@@ -1,85 +1,94 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
-	"sync"
+	"log/slog"
 
 	"github.com/bluesky-social/indigo/nexus/models"
 	"gorm.io/gorm"
 )
 
-var ErrAlreadyConnected = errors.New("websocket already connected")
-
 type Outbox struct {
-	db          *gorm.DB
-	outCh       chan *Op
-	mu          sync.RWMutex
-	connected   bool
-	drainingBuf bool
+	db     *gorm.DB
+	outCh  chan *Op
+	logger *slog.Logger
 }
 
 func NewOutbox(db *gorm.DB) *Outbox {
 	return &Outbox{
-		db:          db,
-		outCh:       make(chan *Op, 100),
-		connected:   false,
-		drainingBuf: false,
+		db:     db,
+		outCh:  make(chan *Op, 100),
+		logger: slog.Default().With("system", "outbox"),
 	}
 }
 
-func (o *Outbox) Connect() error {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	if o.connected {
-		return ErrAlreadyConnected
+// Subscribe drains buffered events from DB, then streams live events from channel
+// The send function is called for each event (e.g., ws.WriteJSON)
+func (o *Outbox) Subscribe(ctx context.Context, send func(*Op) error) error {
+	// 1. Load and drain buffered events from DB first
+	var bufferedEvts []models.BufferedEvt
+	if err := o.db.Order("id ASC").Find(&bufferedEvts).Error; err != nil {
+		o.logger.Error("failed to load buffered events", "error", err)
+		return err
 	}
 
-	o.connected = true
-	o.drainingBuf = true
-	return nil
-}
+	if len(bufferedEvts) > 0 {
+		o.logger.Info("draining buffered events", "count", len(bufferedEvts))
+		for _, evt := range bufferedEvts {
+			op := &Op{
+				Did:        evt.Did,
+				Collection: evt.Collection,
+				Rkey:       evt.Rkey,
+				Action:     evt.Action,
+				Cid:        evt.Cid,
+			}
 
-func (o *Outbox) StartLive() {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	o.drainingBuf = false
-}
+			if evt.Record != "" {
+				var record map[string]interface{}
+				if err := json.Unmarshal([]byte(evt.Record), &record); err != nil {
+					o.logger.Error("failed to unmarshal record", "error", err, "id", evt.ID)
+					continue
+				}
+				op.Record = record
+			}
 
-func (o *Outbox) Disconnect() {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	o.connected = false
-	o.drainingBuf = false
-}
-
-func (o *Outbox) IsConnected() bool {
-	o.mu.RLock()
-	defer o.mu.RUnlock()
-	return o.connected
-}
-
-func (o *Outbox) Send(op *Op) error {
-	o.mu.RLock()
-	connected := o.connected
-	drainingBuf := o.drainingBuf
-	o.mu.RUnlock()
-
-	// If connected but still draining buffered events, buffer to DB
-	if drainingBuf {
-		return o.bufferToDB(op)
-	}
-
-	if connected {
-		select {
-		case o.outCh <- op:
-			return nil
-		default:
-			// Channel full, buffer to DB
-			return o.bufferToDB(op)
+			if err := send(op); err != nil {
+				o.logger.Info("send error during drain", "error", err)
+				return err
+			}
 		}
-	} else {
+
+		// Delete drained events
+		if err := o.db.Delete(&bufferedEvts).Error; err != nil {
+			o.logger.Error("failed to delete buffered events", "error", err)
+		} else {
+			o.logger.Info("cleared buffered events", "count", len(bufferedEvts))
+		}
+	}
+
+	// 2. Stream live events from channel
+	o.logger.Info("starting live event stream")
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case op := <-o.outCh:
+			if err := send(op); err != nil {
+				o.logger.Info("send error during live stream", "error", err)
+				return err
+			}
+		}
+	}
+}
+
+// Send attempts to deliver event via channel, falls back to DB if channel is full or blocked
+func (o *Outbox) Send(op *Op) error {
+	select {
+	case o.outCh <- op:
+		return nil
+	default:
+		// Channel full or no readers, persist to DB
 		return o.bufferToDB(op)
 	}
 }
