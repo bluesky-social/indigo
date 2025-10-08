@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync/atomic"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
@@ -16,11 +17,16 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const persistCursorEvery = 100
+
 func (n *Nexus) SubscribeFirehose(ctx context.Context) error {
-	relayHost := "https://bsky.network"
+	cur, err := n.ReadLastCursor(ctx)
+	if err != nil {
+		return err
+	}
 
 	dialer := websocket.DefaultDialer
-	u, err := url.Parse(relayHost)
+	u, err := url.Parse(n.RelayHost)
 	if err != nil {
 		return fmt.Errorf("invalid relayHost URI: %w", err)
 	}
@@ -31,34 +37,58 @@ func (n *Nexus) SubscribeFirehose(ctx context.Context) error {
 		u.Scheme = "wss"
 	}
 	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
+	if cur != 0 {
+		u.RawQuery = fmt.Sprintf("cursor=%d", cur)
+	}
 	urlString := u.String()
+	n.logger.Info("subscribing to firehose", "relayHost", n.RelayHost, "cursor", cur)
 	con, _, err := dialer.Dial(urlString, http.Header{})
 	if err != nil {
 		return fmt.Errorf("subscribing to firehose failed (dialing): %w", err)
 	}
 
+	var lastSeq atomic.Uint64
+	var eventCount atomic.Uint64
+
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+			lastSeq.Swap(uint64(evt.Seq))
+			if eventCount.Add(1)%persistCursorEvery == 0 {
+				if err := n.PersistCursor(ctx, evt.Seq); err != nil {
+					n.logger.Error("failed to persist cursor", "seq", evt.Seq, "error", err)
+				}
+			}
 			return n.handleCommitEvent(ctx, evt)
 		},
 		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
 			return nil
 		},
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
+			lastSeq.Swap(uint64(evt.Seq))
+			if eventCount.Add(1)%persistCursorEvery == 0 {
+				if err := n.PersistCursor(ctx, evt.Seq); err != nil {
+					n.logger.Error("failed to persist cursor", "seq", evt.Seq, "error", err)
+				}
+			}
 			return nil
 		},
 		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
+			lastSeq.Swap(uint64(evt.Seq))
+			if eventCount.Add(1)%persistCursorEvery == 0 {
+				if err := n.PersistCursor(ctx, evt.Seq); err != nil {
+					n.logger.Error("failed to persist cursor", "seq", evt.Seq, "error", err)
+				}
+			}
 			return nil
 		},
 	}
 
 	scheduler := parallel.NewScheduler(
-		1,
+		10,
 		100,
-		relayHost,
+		n.RelayHost,
 		rsc.EventHandler,
 	)
-	n.logger.Info("starting firehose consumer", "relayHost", relayHost)
 	return events.HandleRepoStream(ctx, con, scheduler, nil)
 }
 
