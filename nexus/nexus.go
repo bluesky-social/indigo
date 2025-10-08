@@ -23,7 +23,7 @@ type Nexus struct {
 	outbox        *Outbox
 	backfillQueue *BackfillQueue
 
-	RelayHost string
+	FirehoseConsumer *FirehoseConsumer
 }
 
 type Op struct {
@@ -36,8 +36,10 @@ type Op struct {
 }
 
 type NexusConfig struct {
-	DBPath    string
-	RelayHost string
+	DBPath                   string
+	RelayHost                string
+	FirehoseParallelism      int
+	FirehosePersistCursorEvery int
 }
 
 func NewNexus(config NexusConfig) (*Nexus, error) {
@@ -70,8 +72,26 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 
 		outbox:        NewOutbox(db),
 		backfillQueue: NewBackfillQueue(),
+	}
 
-		RelayHost: config.RelayHost,
+	parallelism := config.FirehoseParallelism
+	if parallelism == 0 {
+		parallelism = 10
+	}
+
+	persistCursorEvery := config.FirehosePersistCursorEvery
+	if persistCursorEvery == 0 {
+		persistCursorEvery = 100
+	}
+
+	n.FirehoseConsumer = &FirehoseConsumer{
+		RelayHost:          config.RelayHost,
+		Filter:             n.filter,
+		Logger:             n.logger.With("component", "firehose"),
+		DB:                 db,
+		Parallelism:        parallelism,
+		PersistCursorEvery: persistCursorEvery,
+		OnCommit:           n.handleCommitEvent,
 	}
 
 	// run 50 backfill workers
@@ -169,27 +189,3 @@ func (n *Nexus) UpdateRepoState(did string, state models.RepoState, rev string, 
 		}).Error
 }
 
-func (n *Nexus) ReadLastCursor(ctx context.Context) (int64, error) {
-	var cursor models.Cursor
-	if err := n.db.Where("host = ?", n.RelayHost).First(&cursor).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			n.logger.Info("no pre-existing cursor in database", "relayHost", n.RelayHost)
-			return 0, nil
-		}
-		return 0, err
-	}
-	return cursor.Cursor, nil
-}
-
-func (n *Nexus) PersistCursor(ctx context.Context, seq int64) error {
-	if seq <= 0 {
-		return nil
-	}
-
-	cursor := models.Cursor{
-		Host:   n.RelayHost,
-		Cursor: seq,
-	}
-
-	return n.db.Save(&cursor).Error
-}
