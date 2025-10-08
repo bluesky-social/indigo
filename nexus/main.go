@@ -20,7 +20,7 @@ func main() {
 
 	fhCtx, fhCancel := context.WithCancel(context.Background())
 	go func() {
-		err := nexus.SubscribeFirehose(fhCtx)
+		err := nexus.FirehoseConsumer.Run(fhCtx)
 		if err != nil {
 			log.Printf("Firehose error: %v", err)
 		}

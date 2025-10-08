@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"sync/atomic"
@@ -15,18 +16,28 @@ import (
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
 	"github.com/bluesky-social/indigo/nexus/models"
 	"github.com/gorilla/websocket"
+	"gorm.io/gorm"
 )
 
-const persistCursorEvery = 100
+type FirehoseConsumer struct {
+	RelayHost          string
+	Filter             *StringSet
+	Logger             *slog.Logger
+	DB                 *gorm.DB
+	Parallelism        int
+	PersistCursorEvery int
 
-func (n *Nexus) SubscribeFirehose(ctx context.Context) error {
-	cur, err := n.ReadLastCursor(ctx)
+	OnCommit func(context.Context, *comatproto.SyncSubscribeRepos_Commit) error
+}
+
+func (fc *FirehoseConsumer) Run(ctx context.Context) error {
+	cur, err := fc.readLastCursor(ctx)
 	if err != nil {
 		return err
 	}
 
 	dialer := websocket.DefaultDialer
-	u, err := url.Parse(n.RelayHost)
+	u, err := url.Parse(fc.RelayHost)
 	if err != nil {
 		return fmt.Errorf("invalid relayHost URI: %w", err)
 	}
@@ -41,62 +52,65 @@ func (n *Nexus) SubscribeFirehose(ctx context.Context) error {
 		u.RawQuery = fmt.Sprintf("cursor=%d", cur)
 	}
 	urlString := u.String()
-	n.logger.Info("subscribing to firehose", "relayHost", n.RelayHost, "cursor", cur)
+	fc.Logger.Info("subscribing to firehose", "relayHost", fc.RelayHost, "cursor", cur)
 	con, _, err := dialer.Dial(urlString, http.Header{})
 	if err != nil {
 		return fmt.Errorf("subscribing to firehose failed (dialing): %w", err)
 	}
 
-	var lastSeq atomic.Uint64
 	var eventCount atomic.Uint64
 
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
-			lastSeq.Swap(uint64(evt.Seq))
-			if eventCount.Add(1)%persistCursorEvery == 0 {
-				if err := n.PersistCursor(ctx, evt.Seq); err != nil {
-					n.logger.Error("failed to persist cursor", "seq", evt.Seq, "error", err)
+			if eventCount.Add(1)%uint64(fc.PersistCursorEvery) == 0 {
+				if err := fc.persistCursor(ctx, evt.Seq); err != nil {
+					fc.Logger.Error("failed to persist cursor", "seq", evt.Seq, "error", err)
 				}
 			}
-			return n.handleCommitEvent(ctx, evt)
-		},
-		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
-			return nil
-		},
-		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
-			lastSeq.Swap(uint64(evt.Seq))
-			if eventCount.Add(1)%persistCursorEvery == 0 {
-				if err := n.PersistCursor(ctx, evt.Seq); err != nil {
-					n.logger.Error("failed to persist cursor", "seq", evt.Seq, "error", err)
-				}
+
+			if !fc.Filter.Contains(evt.Repo) {
+				return nil
 			}
-			return nil
-		},
-		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
-			lastSeq.Swap(uint64(evt.Seq))
-			if eventCount.Add(1)%persistCursorEvery == 0 {
-				if err := n.PersistCursor(ctx, evt.Seq); err != nil {
-					n.logger.Error("failed to persist cursor", "seq", evt.Seq, "error", err)
-				}
-			}
-			return nil
+
+			return fc.OnCommit(ctx, evt)
 		},
 	}
 
 	scheduler := parallel.NewScheduler(
-		10,
+		fc.Parallelism,
 		100,
-		n.RelayHost,
+		fc.RelayHost,
 		rsc.EventHandler,
 	)
 	return events.HandleRepoStream(ctx, con, scheduler, nil)
 }
 
-func (n *Nexus) handleCommitEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
-	if !n.filter.Contains(evt.Repo) {
+func (fc *FirehoseConsumer) readLastCursor(ctx context.Context) (int64, error) {
+	var cursor models.Cursor
+	if err := fc.DB.Where("host = ?", fc.RelayHost).First(&cursor).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			fc.Logger.Info("no pre-existing cursor in database", "relayHost", fc.RelayHost)
+			return 0, nil
+		}
+		return 0, err
+	}
+	return cursor.Cursor, nil
+}
+
+func (fc *FirehoseConsumer) persistCursor(ctx context.Context, seq int64) error {
+	if seq <= 0 {
 		return nil
 	}
 
+	cursor := models.Cursor{
+		Host:   fc.RelayHost,
+		Cursor: seq,
+	}
+
+	return fc.DB.Save(&cursor).Error
+}
+
+func (n *Nexus) handleCommitEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
 	state, err := n.GetRepoState(evt.Repo)
 	if err != nil {
 		n.logger.Error("failed to get repo state", "did", evt.Repo, "error", err)
