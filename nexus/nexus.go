@@ -48,7 +48,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&models.BufferedEvt{}, &models.FilterDid{}, &models.RepoRecord{}, &models.BackfillBuffer{}, &models.Cursor{}); err != nil {
+	if err := db.AutoMigrate(&models.BufferedEvt{}, &models.Did{}, &models.RepoRecord{}, &models.BackfillBuffer{}, &models.Cursor{}); err != nil {
 		return nil, err
 	}
 
@@ -135,21 +135,21 @@ func (n *Nexus) Shutdown(ctx context.Context) error {
 }
 
 func (n *Nexus) LoadFilters() error {
-	var filterDids []models.FilterDid
-	if err := n.db.Find(&filterDids).Error; err != nil {
+	var dids []models.Did
+	if err := n.db.Find(&dids).Error; err != nil {
 		return err
 	}
 
-	dids := make([]string, 0, len(filterDids))
-	for _, f := range filterDids {
-		dids = append(dids, f.Did)
+	didStrings := make([]string, 0, len(dids))
+	for _, d := range dids {
+		didStrings = append(didStrings, d.Did)
 
-		if f.State == models.RepoStatePending || f.State == models.RepoStateBackfilling {
-			n.queueBackfill(f.Did)
+		if d.State == models.RepoStatePending || d.State == models.RepoStateBackfilling {
+			n.queueBackfill(d.Did)
 		}
 	}
 
-	n.filter.AddBatch(dids)
+	n.filter.AddBatch(didStrings)
 	return nil
 }
 
@@ -172,15 +172,15 @@ func (n *Nexus) queueBackfill(did string) {
 }
 
 func (n *Nexus) GetRepoState(did string) (models.RepoState, error) {
-	var filterDid models.FilterDid
-	if err := n.db.First(&filterDid, "did = ?", did).Error; err != nil {
+	var d models.Did
+	if err := n.db.First(&d, "did = ?", did).Error; err != nil {
 		return "", err
 	}
-	return filterDid.State, nil
+	return d.State, nil
 }
 
 func (n *Nexus) UpdateRepoState(did string, state models.RepoState, rev string, errorMsg string) error {
-	return n.db.Model(&models.FilterDid{}).
+	return n.db.Model(&models.Did{}).
 		Where("did = ?", did).
 		Updates(map[string]interface{}{
 			"state":     state,

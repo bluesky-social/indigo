@@ -11,7 +11,7 @@ const (
 	RepoStateError       RepoState = "error"
 )
 
-type FilterDid struct {
+type Did struct {
 	Did       string    `gorm:"primaryKey"`
 	State     RepoState `gorm:"not null;default:'pending'"`
 	Rev       string    `gorm:"type:text"`
