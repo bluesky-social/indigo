@@ -2,7 +2,6 @@ package bsky
 
 import (
 	"github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
 )
 
 func (fp *FeedPost) GetEmbedRecord() (*atproto.RepoStrongRef, bool) {
@@ -21,7 +20,7 @@ func (fp *FeedPost) GetEmbedRecordWithMediaRecord() (*atproto.RepoStrongRef, boo
 	return nil, false
 }
 
-func (fp *FeedPost) GetEmbedRecordWithMediaMedia() (*bsky.EmbedRecordWithMedia_Media, bool) {
+func (fp *FeedPost) GetEmbedRecordWithMediaMedia() (*EmbedRecordWithMedia_Media, bool) {
 	if fp.Embed != nil && fp.Embed.EmbedRecordWithMedia != nil && fp.Embed.EmbedRecordWithMedia.Media != nil {
 		return fp.Embed.EmbedRecordWithMedia.Media, true
 	}
