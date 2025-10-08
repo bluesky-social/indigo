@@ -62,17 +62,19 @@ func (fc *FirehoseConsumer) Run(ctx context.Context) error {
 
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+			if fc.Filter.Contains(evt.Repo) {
+				err := fc.OnCommit(ctx, evt)
+				if err != nil {
+					return err
+				}
+			}
+
 			if eventCount.Add(1)%uint64(fc.PersistCursorEvery) == 0 {
 				if err := fc.persistCursor(ctx, evt.Seq); err != nil {
 					fc.Logger.Error("failed to persist cursor", "seq", evt.Seq, "error", err)
 				}
 			}
-
-			if !fc.Filter.Contains(evt.Repo) {
-				return nil
-			}
-
-			return fc.OnCommit(ctx, evt)
+			return nil
 		},
 	}
 

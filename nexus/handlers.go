@@ -50,15 +50,15 @@ func (n *Nexus) handleAddDids(c echo.Context) error {
 		return err
 	}
 
-	filterDids := make([]models.FilterDid, len(payload.DIDs))
+	dids := make([]models.Did, len(payload.DIDs))
 	for i, did := range payload.DIDs {
-		filterDids[i] = models.FilterDid{
+		dids[i] = models.Did{
 			Did:   did,
 			State: models.RepoStatePending,
 		}
 	}
 
-	if err := n.db.Save(&filterDids).Error; err != nil {
+	if err := n.db.Save(&dids).Error; err != nil {
 		n.logger.Error("failed to upsert dids", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
