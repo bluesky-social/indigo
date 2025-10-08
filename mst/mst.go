@@ -936,10 +936,15 @@ func (mst *MerkleSearchTree) findGtOrEqualLeafIndex(ctx context.Context, key str
 // WalkLeavesFrom walks the leaves of the tree, calling the cb callback on each
 // key that's greater than or equal to the provided from key.
 // If cb returns an error, the walk is aborted and the error is returned.
+// NB: this method caches the tree structure in memory to make subsequent tree
+// operations significantly faster
 func (mst *MerkleSearchTree) WalkLeavesFrom(ctx context.Context, from string, cb func(key string, val cid.Cid) error) error {
 	return mst.walkLeavesFrom(ctx, from, false, cb)
 }
 
+// WalkLeavesFromNocache works the same as WalkLeavesFrom but does not cache
+// internal tree structure, intended for "once through" passes of MSTs,
+// especially in streaming contexts
 func (mst *MerkleSearchTree) WalkLeavesFromNocache(ctx context.Context, from string, cb func(key string, val cid.Cid) error) error {
 	return mst.walkLeavesFrom(ctx, from, true, cb)
 }
