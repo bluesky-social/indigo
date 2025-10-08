@@ -50,3 +50,8 @@ type RepoRecord struct {
 	Rev        string `gorm:"not null"`
 	UpdatedAt  time.Time
 }
+
+type Cursor struct {
+	Host   string `gorm:"primaryKey"`
+	Cursor int64  `gorm:"not null"`
+}

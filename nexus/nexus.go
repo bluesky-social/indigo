@@ -22,6 +22,8 @@ type Nexus struct {
 
 	outbox        *Outbox
 	backfillQueue *BackfillQueue
+
+	RelayHost string
 }
 
 type Op struct {
@@ -34,7 +36,8 @@ type Op struct {
 }
 
 type NexusConfig struct {
-	DBPath string
+	DBPath    string
+	RelayHost string
 }
 
 func NewNexus(config NexusConfig) (*Nexus, error) {
@@ -43,7 +46,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&models.BufferedEvt{}, &models.FilterDid{}, &models.RepoRecord{}, &models.BackfillBuffer{}); err != nil {
+	if err := db.AutoMigrate(&models.BufferedEvt{}, &models.FilterDid{}, &models.RepoRecord{}, &models.BackfillBuffer{}, &models.Cursor{}); err != nil {
 		return nil, err
 	}
 
@@ -67,6 +70,8 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 
 		outbox:        NewOutbox(db),
 		backfillQueue: NewBackfillQueue(),
+
+		RelayHost: config.RelayHost,
 	}
 
 	// run 50 backfill workers
@@ -162,4 +167,29 @@ func (n *Nexus) UpdateRepoState(did string, state models.RepoState, rev string, 
 			"rev":       rev,
 			"error_msg": errorMsg,
 		}).Error
+}
+
+func (n *Nexus) ReadLastCursor(ctx context.Context) (int64, error) {
+	var cursor models.Cursor
+	if err := n.db.Where("host = ?", n.RelayHost).First(&cursor).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			n.logger.Info("no pre-existing cursor in database", "relayHost", n.RelayHost)
+			return 0, nil
+		}
+		return 0, err
+	}
+	return cursor.Cursor, nil
+}
+
+func (n *Nexus) PersistCursor(ctx context.Context, seq int64) error {
+	if seq <= 0 {
+		return nil
+	}
+
+	cursor := models.Cursor{
+		Host:   n.RelayHost,
+		Cursor: seq,
+	}
+
+	return n.db.Save(&cursor).Error
 }
