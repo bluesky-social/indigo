@@ -159,7 +159,7 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.Sig (data.Bytes) (slice)
+	// t.Sig (atdata.Bytes) (slice)
 	if t.Sig != nil {
 
 		if len("sig") > 1000000 {
@@ -408,7 +408,7 @@ func (t *Label) UnmarshalCBOR(r io.Reader) (err error) {
 					t.Negated = &val
 				}
 			}
-			// t.Sig (data.Bytes) (slice)
+			// t.Sig (atdata.Bytes) (slice)
 		case "sig":
 
 			maj, extra, err = cr.ReadHeader()
