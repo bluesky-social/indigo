@@ -187,9 +187,8 @@ func (ep *EventProcessor) drainBackfillBuffer(ctx context.Context, did string) e
 	ep.Logger.Info("processing buffered backfill events", "did", did, "count", len(bufferedEvts))
 
 	for _, evt := range bufferedEvts {
-		var commit *Commit
-		err := json.Unmarshal([]byte(evt.Data), commit)
-		if err != nil {
+		var commit Commit
+		if err := json.Unmarshal([]byte(evt.Data), &commit); err != nil {
 			return fmt.Errorf("failed to unmarshal buffered event: %w", err)
 		}
 
@@ -200,7 +199,7 @@ func (ep *EventProcessor) drainBackfillBuffer(ctx context.Context, did string) e
 			}
 		}
 
-		if err := ep.updateRepoState(commit); err != nil {
+		if err := ep.updateRepoState(&commit); err != nil {
 			ep.Logger.Error("failed to update repo state", "did", commit.Did, "rev", commit.Rev, "error", err)
 			return err
 		}

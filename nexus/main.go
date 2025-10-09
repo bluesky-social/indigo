@@ -26,7 +26,6 @@ func main() {
 		}
 	}()
 
-	// Start server in goroutine
 	go func() {
 		if err := nexus.Start(context.Background(), ":8080"); err != nil {
 			log.Printf("Server error: %v", err)
