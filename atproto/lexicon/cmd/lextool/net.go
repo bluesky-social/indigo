@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/lexicon"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -64,7 +64,7 @@ func runValidateRecord(cctx *cli.Context) error {
 		return err
 	}
 
-	body, err := data.UnmarshalJSON(respBytes)
+	body, err := atdata.UnmarshalJSON(respBytes)
 	if err != nil {
 		return err
 	}
