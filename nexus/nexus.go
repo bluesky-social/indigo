@@ -43,7 +43,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&models.Repo{}, &models.RepoRecord{}, &models.OutboxBuffer{}, &models.BackfillBuffer{}, &models.Cursor{}); err != nil {
+	if err := db.AutoMigrate(&models.Repo{}, &models.RepoRecord{}, &models.OutboxBuffer{}, &models.ResyncBuffer{}, &models.Cursor{}); err != nil {
 		return nil, err
 	}
 
@@ -104,13 +104,13 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		Callbacks:   rsc,
 	}
 
-	// crash recovery: reset any backfilling repos to pending on service startup
-	if err := n.resetBackfillingToPending(); err != nil {
+	// crash recovery: reset any partially repos
+	if err := n.resetPartiallyResynced(); err != nil {
 		return nil, err
 	}
 
-	for i := 0; i < 50; i++ {
-		go n.runBackfillWorker(context.Background(), i)
+	for i := 0; i < 20; i++ {
+		go n.runResyncWorker(context.Background(), i)
 	}
 
 	go n.EventProcessor.RunCursorSaver(context.Background(), cursorSaveInterval)
