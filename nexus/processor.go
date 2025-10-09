@@ -9,7 +9,7 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -119,7 +119,7 @@ func (ep *EventProcessor) validateCommit(ctx context.Context, evt *comatproto.Sy
 				continue
 			}
 
-			record, err := data.UnmarshalCBOR(recBytes)
+			record, err := atdata.UnmarshalCBOR(recBytes)
 			if err != nil {
 				ep.Logger.Error("failed to unmarshal record", "did", evt.Repo, "path", op.Path, "error", err)
 				continue

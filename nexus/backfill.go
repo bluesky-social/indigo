@@ -8,7 +8,7 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/nexus/models"
@@ -162,7 +162,7 @@ func (n *Nexus) doBackfill(ctx context.Context, did string) error {
 			return nil
 		}
 
-		rec, err := data.UnmarshalCBOR(blk.RawData())
+		rec, err := atdata.UnmarshalCBOR(blk.RawData())
 		if err != nil {
 			n.logger.Error("failed to unmarshal record", "path", recPath, "error", err)
 			return nil
