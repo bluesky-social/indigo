@@ -4,15 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/nexus/models"
-	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	"gorm.io/gorm"
@@ -43,14 +42,14 @@ func (n *Nexus) runBackfillWorker(ctx context.Context, workerID int) {
 }
 
 func (n *Nexus) claimBackfillJob(ctx context.Context) (string, bool, error) {
-	var did models.Did
+	var did models.Repo
 	err := n.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("state = ?", models.RepoStatePending).
 			First(&did).Error; err != nil {
 			return err
 		}
 
-		return tx.Model(&models.Did{}).
+		return tx.Model(&models.Repo{}).
 			Where("did = ?", did.Did).
 			Update("state", models.RepoStateBackfilling).Error
 	})
@@ -68,26 +67,17 @@ func (n *Nexus) claimBackfillJob(ctx context.Context) (string, bool, error) {
 func (n *Nexus) backfillDid(ctx context.Context, did string) error {
 	n.logger.Info("starting backfill", "did", did)
 
-	rev, err := n.doBackfill(ctx, did)
+	err := n.doBackfill(ctx, did)
 	if err != nil {
-		n.db.Model(&models.Did{}).
+		n.db.Model(&models.Repo{}).
 			Where("did = ?", did).
 			Updates(map[string]interface{}{
 				"state":     models.RepoStateError,
 				"rev":       "",
+				"prev_data": "",
 				"error_msg": err.Error(),
 			})
 		return err
-	}
-
-	if err := n.db.Model(&models.Did{}).
-		Where("did = ?", did).
-		Updates(map[string]interface{}{
-			"state":     models.RepoStateActive,
-			"rev":       rev,
-			"error_msg": "",
-		}).Error; err != nil {
-		return fmt.Errorf("failed to update state to active %w", err)
 	}
 
 	if err := n.EventProcessor.drainBackfillBuffer(ctx, did); err != nil {
@@ -97,15 +87,15 @@ func (n *Nexus) backfillDid(ctx context.Context, did string) error {
 	return nil
 }
 
-func (n *Nexus) doBackfill(ctx context.Context, did string) (string, error) {
+func (n *Nexus) doBackfill(ctx context.Context, did string) error {
 	ident, err := n.Dir.LookupDID(ctx, syntax.DID(did))
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve DID: %w", err)
+		return fmt.Errorf("failed to resolve DID: %w", err)
 	}
 
 	pdsURL := ident.PDSEndpoint()
 	if pdsURL == "" {
-		return "", fmt.Errorf("no PDS endpoint for DID: %s", did)
+		return fmt.Errorf("no PDS endpoint for DID: %s", did)
 	}
 
 	n.logger.Info("fetching repo from PDS", "did", did, "pds", pdsURL)
@@ -117,22 +107,22 @@ func (n *Nexus) doBackfill(ctx context.Context, did string) (string, error) {
 
 	repoBytes, err := comatproto.SyncGetRepo(ctx, client, did, "")
 	if err != nil {
-		return "", fmt.Errorf("failed to get repo: %w", err)
+		return fmt.Errorf("failed to get repo: %w", err)
 	}
 
 	n.logger.Info("parsing repo CAR", "did", did, "size", len(repoBytes))
 
-	r, err := repo.ReadRepoFromCar(ctx, io.NopCloser(bytes.NewReader(repoBytes)))
+	commit, r, err := repo.LoadRepoFromCAR(ctx, bytes.NewReader(repoBytes))
 	if err != nil {
-		return "", fmt.Errorf("failed to read repo from CAR: %w", err)
+		return fmt.Errorf("failed to read repo from CAR: %w", err)
 	}
 
-	rev := r.SignedCommit().Rev
+	rev := commit.Rev
 	n.logger.Info("iterating repo records", "did", did, "rev", rev)
 
 	var existingRecords []models.RepoRecord
 	if err := n.db.Find(&existingRecords, "did = ?", did).Error; err != nil {
-		return "", fmt.Errorf("failed to load existing records: %w", err)
+		return fmt.Errorf("failed to load existing records: %w", err)
 	}
 
 	existingCids := make(map[string]string, len(existingRecords))
@@ -144,7 +134,8 @@ func (n *Nexus) doBackfill(ctx context.Context, did string) (string, error) {
 
 	numRecords := 0
 
-	err = r.ForEach(ctx, "", func(recPath string, recCid cid.Cid) error {
+	err = r.MST.Walk(func(recPathBytes []byte, recCid cid.Cid) error {
+		recPath := string(recPathBytes)
 		collection, rkey, err := syntax.ParseRepoPath(recPath)
 		if err != nil {
 			n.logger.Error("invalid record path", "path", recPath, "error", err)
@@ -165,7 +156,7 @@ func (n *Nexus) doBackfill(ctx context.Context, did string) (string, error) {
 			action = "update"
 		}
 
-		blk, err := r.Blockstore().Get(ctx, recCid)
+		blk, err := r.RecordStore.Get(ctx, recCid)
 		if err != nil {
 			n.logger.Error("failed to get block", "path", recPath, "error", err)
 			return nil
@@ -205,15 +196,26 @@ func (n *Nexus) doBackfill(ctx context.Context, did string) (string, error) {
 	})
 
 	if err != nil {
-		return "", fmt.Errorf("failed to iterate repo: %w", err)
+		return fmt.Errorf("failed to iterate repo: %w", err)
+	}
+
+	if err := n.db.Model(&models.Repo{}).
+		Where("did = ?", did).
+		Updates(map[string]interface{}{
+			"state":     models.RepoStateActive,
+			"rev":       rev,
+			"prev_data": commit.Data.String(),
+			"error_msg": "",
+		}).Error; err != nil {
+		return fmt.Errorf("failed to update repo state to active %w", err)
 	}
 
 	n.logger.Info("backfill repo complete", "did", did, "records", numRecords, "rev", rev)
-	return rev, nil
+	return nil
 }
 
 func (n *Nexus) resetBackfillingToPending() error {
-	return n.db.Model(&models.Did{}).
+	return n.db.Model(&models.Repo{}).
 		Where("state = ?", models.RepoStateBackfilling).
 		Update("state", models.RepoStatePending).Error
 }

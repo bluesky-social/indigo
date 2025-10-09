@@ -12,7 +12,7 @@ import (
 func main() {
 	nexus, err := NewNexus(NexusConfig{
 		DBPath:    "./nexus.db",
-		RelayHost: "https://bsky.network",
+		RelayHost: "wss://relay1.us-east.bsky.network",
 	})
 	if err != nil {
 		log.Fatal(err)
