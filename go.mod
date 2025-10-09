@@ -7,7 +7,6 @@ toolchain go1.24.1
 require (
 	github.com/PuerkitoBio/purell v1.2.1
 	github.com/RussellLuo/slidingwindow v0.0.0-20200528002341-535bb99d338b
-	github.com/adrg/xdg v0.5.0
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
 	github.com/brianvoe/gofakeit/v6 v6.25.0
@@ -59,7 +58,6 @@ require (
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/whyrusleeping/cbor-gen v0.2.1-0.20241030202151-b7a6831be65e
 	github.com/whyrusleeping/go-did v0.0.0-20230824162731-404d1707d5d6
-	github.com/xlab/treeprint v1.2.0
 	gitlab.com/yawning/secp256k1-voi v0.0.0-20230925100816-f2616030848b
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1
 	go.opentelemetry.io/otel v1.21.0
@@ -90,7 +88,6 @@ require (
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/did-method-plc/go-didplc v0.0.0-20250716171643-635da8b4e038 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/go-redis/redis v6.15.9+incompatible // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
