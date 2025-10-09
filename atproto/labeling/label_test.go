@@ -1,4 +1,4 @@
-package label
+package labeling
 
 import (
 	"encoding/json"
