@@ -3,7 +3,7 @@ package auth
 import (
 	"crypto"
 
-	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -13,7 +13,7 @@ var (
 	supportedAlgs       []string
 )
 
-// Implementation of jwt.SigningMethod for the `atproto/crypto` types.
+// Implementation of jwt.SigningMethod for the `atproto/atcrypto` types.
 type signingMethodAtproto struct {
 	alg      string
 	hash     crypto.Hash

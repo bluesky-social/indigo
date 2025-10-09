@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/mr-tron/base58"
@@ -119,8 +119,8 @@ func (ident *Identity) DIDDocument() DIDDocument {
 //
 // Returns [ErrKeyNotFound] if there is no such key.
 //
-// Note that [crypto.PublicKey] is an interface, not a concrete type.
-func (i *Identity) PublicKey() (crypto.PublicKey, error) {
+// Note that [atcrypto.PublicKey] is an interface, not a concrete type.
+func (i *Identity) PublicKey() (atcrypto.PublicKey, error) {
 	return i.GetPublicKey("atproto")
 }
 
@@ -128,8 +128,8 @@ func (i *Identity) PublicKey() (crypto.PublicKey, error) {
 //
 // Returns [ErrKeyNotFound] if there is no such key.
 //
-// Note that [crypto.PublicKey] is an interface, not a concrete type.
-func (i *Identity) GetPublicKey(id string) (crypto.PublicKey, error) {
+// Note that [atcrypto.PublicKey] is an interface, not a concrete type.
+func (i *Identity) GetPublicKey(id string) (atcrypto.PublicKey, error) {
 	if i.Keys == nil {
 		return nil, ErrKeyNotDeclared
 	}
@@ -139,7 +139,7 @@ func (i *Identity) GetPublicKey(id string) (crypto.PublicKey, error) {
 	}
 	switch k.Type {
 	case "Multikey":
-		return crypto.ParsePublicMultibase(k.PublicKeyMultibase)
+		return atcrypto.ParsePublicMultibase(k.PublicKeyMultibase)
 	case "EcdsaSecp256r1VerificationKey2019":
 		if len(k.PublicKeyMultibase) < 2 || k.PublicKeyMultibase[0] != 'z' {
 			return nil, fmt.Errorf("identity key not a multibase base58btc string")
@@ -148,7 +148,7 @@ func (i *Identity) GetPublicKey(id string) (crypto.PublicKey, error) {
 		if err != nil {
 			return nil, fmt.Errorf("identity key multibase parsing: %w", err)
 		}
-		return crypto.ParsePublicUncompressedBytesP256(keyBytes)
+		return atcrypto.ParsePublicUncompressedBytesP256(keyBytes)
 	case "EcdsaSecp256k1VerificationKey2019":
 		if len(k.PublicKeyMultibase) < 2 || k.PublicKeyMultibase[0] != 'z' {
 			return nil, fmt.Errorf("identity key not a multibase base58btc string")
@@ -157,7 +157,7 @@ func (i *Identity) GetPublicKey(id string) (crypto.PublicKey, error) {
 		if err != nil {
 			return nil, fmt.Errorf("identity key multibase parsing: %w", err)
 		}
-		return crypto.ParsePublicUncompressedBytesK256(keyBytes)
+		return atcrypto.ParsePublicUncompressedBytesK256(keyBytes)
 	default:
 		return nil, fmt.Errorf("unsupported atproto public key type: %s", k.Type)
 	}

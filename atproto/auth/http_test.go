@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
@@ -78,7 +78,7 @@ func TestServiceAuthMiddleware(t *testing.T) {
 	aud := "did:example:aud#svc"
 	lxm := syntax.NSID("com.example.api")
 
-	priv, err := crypto.GeneratePrivateKeyP256()
+	priv, err := atcrypto.GeneratePrivateKeyP256()
 	require.NoError(err)
 	pub, err := priv.PublicKey()
 	require.NoError(err)

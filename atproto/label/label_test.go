@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -14,7 +14,7 @@ func TestVerifyLabel(t *testing.T) {
 	assert := assert.New(t)
 
 	pubkeyStr := "zQ3shcnfWLQN1bY4d2patsEAYFzy4xp1zdckEvHsV7S4ocTnC"
-	pubkey, err := crypto.ParsePublicMultibase(pubkeyStr)
+	pubkey, err := atcrypto.ParsePublicMultibase(pubkeyStr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestSignLabel(t *testing.T) {
 		SourceDID: "did:plc:ewvi7nxzyoun6zhxrhs64oiz",
 	}
 
-	priv, err := crypto.GeneratePrivateKeyK256()
+	priv, err := atcrypto.GeneratePrivateKeyK256()
 	if err != nil {
 		t.Fatal(err)
 	}
