@@ -8,7 +8,7 @@ import (
 	"os"
 
 	comatproto "github.com/bluesky-social/indigo/api/agnostic"
-	"github.com/bluesky-social/indigo/atproto/client"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
@@ -120,7 +120,7 @@ func main() {
 	app.RunAndExitOnError()
 }
 
-func getFeed(ctx context.Context, c *client.APIClient) error {
+func getFeed(ctx context.Context, c *atclient.APIClient) error {
 	params := map[string]any{
 		"actor":       "atproto.com",
 		"limit":       2,
@@ -141,7 +141,7 @@ func getFeed(ctx context.Context, c *client.APIClient) error {
 	return nil
 }
 
-func listRecords(ctx context.Context, c *client.APIClient) error {
+func listRecords(ctx context.Context, c *atclient.APIClient) error {
 
 	list, err := comatproto.RepoListRecords(ctx, c, "app.bsky.actor.profile", "", 10, "did:plc:ewvi7nxzyoun6zhxrhs64oiz", false)
 	if err != nil {
@@ -159,7 +159,7 @@ func listRecords(ctx context.Context, c *client.APIClient) error {
 func runGetFeedPublic(cctx *cli.Context) error {
 	ctx := cctx.Context
 
-	c := client.APIClient{
+	c := atclient.APIClient{
 		Host: cctx.String("host"),
 	}
 
@@ -169,7 +169,7 @@ func runGetFeedPublic(cctx *cli.Context) error {
 func runListRecordsPublic(cctx *cli.Context) error {
 	ctx := cctx.Context
 
-	c := client.APIClient{
+	c := atclient.APIClient{
 		Host: cctx.String("host"),
 	}
 
@@ -186,7 +186,7 @@ func runLoginAuth(cctx *cli.Context) error {
 
 	dir := identity.DefaultDirectory()
 
-	c, err := client.LoginWithPassword(ctx, dir, *atid, cctx.String("password"), "", nil)
+	c, err := atclient.LoginWithPassword(ctx, dir, *atid, cctx.String("password"), "", nil)
 	if err != nil {
 		return err
 	}
@@ -215,7 +215,7 @@ func runGetFeedAuth(cctx *cli.Context) error {
 
 	dir := identity.DefaultDirectory()
 
-	c, err := client.LoginWithPassword(ctx, dir, *atid, cctx.String("password"), "", nil)
+	c, err := atclient.LoginWithPassword(ctx, dir, *atid, cctx.String("password"), "", nil)
 	if err != nil {
 		return err
 	}
@@ -227,7 +227,7 @@ func runGetFeedAuth(cctx *cli.Context) error {
 func runLookupAdmin(cctx *cli.Context) error {
 	ctx := cctx.Context
 
-	c := client.NewAdminClient(cctx.String("host"), cctx.String("admin-password"))
+	c := atclient.NewAdminClient(cctx.String("host"), cctx.String("admin-password"))
 
 	var d json.RawMessage
 	params := map[string]any{

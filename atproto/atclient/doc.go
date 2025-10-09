@@ -18,4 +18,4 @@ In theory, the [http.RoundTripper] interface could have been used instead of [Au
 
 This package tries to use minimal dependencies beyond the Go standard library, to make it easy to reference as a dependency. It does require the [github.com/bluesky-social/indigo/atproto/syntax] and [github.com/bluesky-social/indigo/atproto/identity] sibling packages. In particular, this package does not include any auth methods requiring JWTs, to avoid adding any specific JWT implementation as a dependency.
 */
-package client
+package atclient
