@@ -11,7 +11,7 @@ const (
 
 type Did struct {
 	Did      string    `gorm:"primaryKey"`
-	State    RepoState `gorm:"not null;default:'pending'"`
+	State    RepoState `gorm:"not null;default:'pending';index"`
 	Rev      string    `gorm:"type:text"`
 	ErrorMsg string    `gorm:"type:text"`
 }

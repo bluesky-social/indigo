@@ -63,13 +63,7 @@ func (n *Nexus) handleAddDids(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	n.filter.AddBatch(payload.DIDs)
-
-	for _, did := range payload.DIDs {
-		n.queueBackfill(did)
-	}
-
-	n.logger.Info("added dids and queued backfills", "count", len(payload.DIDs))
+	n.logger.Info("added dids", "count", len(payload.DIDs))
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"count": len(payload.DIDs),

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
@@ -14,7 +15,55 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
+	"gorm.io/gorm"
 )
+
+func (n *Nexus) runBackfillWorker(ctx context.Context, workerID int) {
+	logger := n.logger.With("worker", workerID)
+
+	for {
+		did, found, err := n.claimBackfillJob(ctx)
+		if err != nil {
+			logger.Error("failed to claim backfill job", "error", err)
+			time.Sleep(3 * time.Second)
+			continue
+		}
+
+		if !found {
+			time.Sleep(3 * time.Second)
+			continue
+		}
+
+		logger.Info("processing backfill", "did", did)
+		err = n.backfillDid(ctx, did)
+		if err != nil {
+			logger.Error("backfill failed", "did", did, "error", err)
+		}
+	}
+}
+
+func (n *Nexus) claimBackfillJob(ctx context.Context) (string, bool, error) {
+	var did models.Did
+	err := n.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("state = ?", models.RepoStatePending).
+			First(&did).Error; err != nil {
+			return err
+		}
+
+		return tx.Model(&models.Did{}).
+			Where("did = ?", did.Did).
+			Update("state", models.RepoStateBackfilling).Error
+	})
+
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+
+	return did.Did, true, nil
+}
 
 func (n *Nexus) backfillDid(ctx context.Context, did string) error {
 	if err := n.db.Model(&models.Did{}).
@@ -177,4 +226,10 @@ func (n *Nexus) doBackfill(ctx context.Context, did string) (string, error) {
 
 	n.logger.Info("backfill repo complete", "did", did, "records", numRecords, "rev", rev)
 	return rev, nil
+}
+
+func (n *Nexus) resetBackfillingToPending() error {
+	return n.db.Model(&models.Did{}).
+		Where("state = ?", models.RepoStateBackfilling).
+		Update("state", models.RepoStatePending).Error
 }

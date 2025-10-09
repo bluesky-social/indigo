@@ -20,11 +20,9 @@ type Nexus struct {
 	echo   *echo.Echo
 	logger *slog.Logger
 
-	filter *StringSet
-	Dir    identity.Directory
+	Dir identity.Directory
 
-	outbox        *Outbox
-	backfillQueue *BackfillQueue
+	outbox *Outbox
 
 	FirehoseConsumer *FirehoseConsumer
 	EventProcessor   *EventProcessor
@@ -38,7 +36,7 @@ type NexusConfig struct {
 }
 
 func NewNexus(config NexusConfig) (*Nexus, error) {
-	db, err := gorm.Open(sqlite.Open(config.DBPath), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(config.DBPath+"?_journal_mode=WAL"), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
@@ -64,11 +62,9 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		echo:   e,
 		logger: slog.Default().With("system", "nexus"),
 
-		filter: NewStringSet(),
-		Dir:    &cdir,
+		Dir: &cdir,
 
-		outbox:        NewOutbox(db),
-		backfillQueue: NewBackfillQueue(),
+		outbox: NewOutbox(db),
 	}
 
 	parallelism := config.FirehoseParallelism
@@ -81,17 +77,17 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		cursorSaveInterval = 5 * time.Second
 	}
 
-	cursor, err := n.readLastCursor(context.Background(), config.RelayHost)
-	if err != nil {
-		return nil, err
-	}
-
 	n.EventProcessor = &EventProcessor{
 		Logger:    n.logger.With("component", "processor"),
 		DB:        db,
 		Dir:       n.Dir,
 		RelayHost: config.RelayHost,
 		Outbox:    n.outbox,
+	}
+
+	cursor, err := n.EventProcessor.ReadLastCursor(context.Background(), config.RelayHost)
+	if err != nil {
+		return nil, err
 	}
 
 	rsc := &events.RepoStreamCallbacks{
@@ -108,17 +104,16 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		Callbacks:   rsc,
 	}
 
+	// crash recovery: reset any backfilling repos to pending on service startup
+	if err := n.resetBackfillingToPending(); err != nil {
+		return nil, err
+	}
+
 	for i := 0; i < 50; i++ {
 		go n.runBackfillWorker(context.Background(), i)
 	}
 
-	// Start cursor saver goroutine
 	go n.EventProcessor.RunCursorSaver(context.Background(), cursorSaveInterval)
-
-	err = n.LoadFilters()
-	if err != nil {
-		return nil, err
-	}
 
 	n.registerRoutes()
 
@@ -148,53 +143,4 @@ func (n *Nexus) Shutdown(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func (n *Nexus) LoadFilters() error {
-	var dids []models.Did
-	if err := n.db.Find(&dids).Error; err != nil {
-		return err
-	}
-
-	didStrings := make([]string, 0, len(dids))
-	for _, d := range dids {
-		didStrings = append(didStrings, d.Did)
-
-		if d.State == models.RepoStatePending || d.State == models.RepoStateBackfilling {
-			n.queueBackfill(d.Did)
-		}
-	}
-
-	n.filter.AddBatch(didStrings)
-	return nil
-}
-
-func (n *Nexus) runBackfillWorker(ctx context.Context, workerID int) {
-	logger := n.logger.With("worker", workerID)
-
-	for {
-		did := n.backfillQueue.Dequeue()
-		logger.Info("processing backfill", "did", did)
-		err := n.backfillDid(ctx, did)
-		if err != nil {
-			logger.Error("backfill failed", "did", did, "error", err)
-		}
-	}
-}
-
-func (n *Nexus) queueBackfill(did string) {
-	depth := n.backfillQueue.Enqueue(did)
-	n.logger.Info("queued backfill", "did", did, "queue_depth", depth)
-}
-
-func (n *Nexus) readLastCursor(ctx context.Context, relayHost string) (int64, error) {
-	var cursor models.Cursor
-	if err := n.db.Where("host = ?", relayHost).First(&cursor).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			n.logger.Info("no pre-existing cursor in database", "relayHost", relayHost)
-			return 0, nil
-		}
-		return 0, err
-	}
-	return cursor.Cursor, nil
 }

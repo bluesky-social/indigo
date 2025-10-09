@@ -254,3 +254,15 @@ func (ep *EventProcessor) RunCursorSaver(ctx context.Context, interval time.Dura
 		}
 	}
 }
+
+func (ep *EventProcessor) ReadLastCursor(ctx context.Context, relayHost string) (int64, error) {
+	var cursor models.Cursor
+	if err := ep.DB.Where("host = ?", relayHost).First(&cursor).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			ep.Logger.Info("no pre-existing cursor in database", "relayHost", relayHost)
+			return 0, nil
+		}
+		return 0, err
+	}
+	return cursor.Cursor, nil
+}
