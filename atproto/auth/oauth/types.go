@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
@@ -19,7 +19,7 @@ var (
 )
 
 type JWKS struct {
-	Keys []crypto.JWK `json:"keys"`
+	Keys []atcrypto.JWK `json:"keys"`
 }
 
 // Expected response type from looking up OAuth Protected Resource information on a server (eg, a PDS instance)
@@ -197,6 +197,9 @@ type AuthServerMetadata struct {
 
 	// must be true
 	ClientIDMetadataDocumentSupported bool `json:"client_id_metadata_document_supported"`
+
+	// optional, used to explicitly revoke access/refresh tokens on logout, if present
+	RevocationEndpoint string `json:"revocation_endpoint,omitempty"`
 }
 
 func (m *AuthServerMetadata) Validate(serverURL string) error {
@@ -339,6 +342,9 @@ type AuthRequestData struct {
 	// Full token endpoint URL
 	AuthServerTokenEndpoint string `json:"authserver_token_endpoint"`
 
+	// Full revocation endpoint, if it exists
+	AuthServerRevocationEndpoint string `json:"authserver_revocation_endpoint,omitempty"`
+
 	// The secret token/nonce which a code challenge was generated from
 	PKCEVerifier string `json:"pkce_verifier"`
 
@@ -406,6 +412,26 @@ type TokenResponse struct {
 
 	// Refresh token, for doing additional token requests to the auth server.
 	RefreshToken string `json:"refresh_token"`
+}
+
+// The fields which are included in a token revocation request. These HTTP POST bodies are form-encoded, so use URL encoding syntax, not JSON.
+//
+// Per https://datatracker.ietf.org/doc/html/rfc7009#section-2.1
+type RevocationRequest struct {
+	// Client ID, aka client metadata URL
+	ClientID string `url:"client_id"`
+
+	// The token to revoke
+	Token string `url:"token"`
+
+	// Either "access_token" or "refresh_token"
+	TokenTypeHint string `url:"token_type_hint"`
+
+	// For confidential clients, must be "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+	ClientAssertionType *string `url:"client_assertion_type"`
+
+	// For confidential clients, the signed client assertion JWT
+	ClientAssertion *string `url:"client_assertion"`
 }
 
 // Returned by [ClientApp.ProcessCallback] if the AS signals an error in the redirect URL parameters, per rfc6749 section 4.1.2.1

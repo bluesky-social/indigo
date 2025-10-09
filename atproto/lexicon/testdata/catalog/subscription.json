@@ -5,6 +5,7 @@
   "defs": {
     "main": {
       "type": "subscription",
+      "description": "an example event stream",
       "parameters": {
         "type": "params",
         "properties": {

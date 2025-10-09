@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 
 	"github.com/carlmjohnson/versioninfo"
@@ -22,13 +22,13 @@ func (c *RecordContext) Blobs() ([]lexutil.LexBlob, error) {
 		return []lexutil.LexBlob{}, nil
 	}
 
-	rec, err := data.UnmarshalCBOR(c.RecordOp.RecordCBOR)
+	rec, err := atdata.UnmarshalCBOR(c.RecordOp.RecordCBOR)
 	if err != nil {
 		return nil, fmt.Errorf("parsing generic record CBOR: %v", err)
 	}
-	blobs := data.ExtractBlobs(rec)
+	blobs := atdata.ExtractBlobs(rec)
 
-	// convert from data.Blob to lexutil.LexBlob; plan is to merge these types eventually
+	// convert from atdata.Blob to lexutil.LexBlob; plan is to merge these types eventually
 	var out []lexutil.LexBlob
 	for _, b := range blobs {
 		lb := lexutil.LexBlob{
