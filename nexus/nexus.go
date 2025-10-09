@@ -43,7 +43,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&models.Did{}, &models.RepoRecord{}, &models.OutboxBuffer{}, &models.BackfillBuffer{}, &models.Cursor{}); err != nil {
+	if err := db.AutoMigrate(&models.Repo{}, &models.RepoRecord{}, &models.OutboxBuffer{}, &models.BackfillBuffer{}, &models.Cursor{}); err != nil {
 		return nil, err
 	}
 

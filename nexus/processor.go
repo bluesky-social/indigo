@@ -31,7 +31,7 @@ type EventProcessor struct {
 func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
 	defer ep.trackLastSeq(evt.Seq)
 
-	var d models.Did
+	var d models.Repo
 	if err := ep.DB.First(&d, "did = ?", evt.Repo).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
 			ep.Logger.Error("failed to get repo state", "did", evt.Repo, "error", err)
@@ -48,7 +48,14 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 		return nil
 	}
 
-	commit, err := ep.validateCommit(ctx, evt, &d)
+	if evt.PrevData == nil {
+		ep.Logger.Debug("legacy commit event, skipping prev data check", "did", evt.Repo, "rev", evt.Rev)
+	} else if evt.PrevData.String() != d.PrevData {
+		// @TODO DESYNCED
+		ep.Logger.Warn("repo state desynced", "did", evt.Repo, "rev", evt.Rev)
+	}
+
+	commit, err := ep.validateCommit(ctx, evt)
 	if err != nil {
 		ep.Logger.Error("failed to parse operations", "did", evt.Repo, "error", err)
 		return err
@@ -76,7 +83,7 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 	return nil
 }
 
-func (ep *EventProcessor) validateCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit, did *models.Did) (*Commit, error) {
+func (ep *EventProcessor) validateCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) (*Commit, error) {
 	if err := repo.VerifyCommitSignature(ctx, ep.Dir, evt); err != nil {
 		return nil, err
 	}
@@ -123,9 +130,16 @@ func (ep *EventProcessor) validateCommit(ctx context.Context, evt *comatproto.Sy
 		parsedOps = append(parsedOps, parsed)
 	}
 
+	repoCommit, err := r.Commit()
+	if err != nil {
+		return nil, err
+	}
+
 	commit := &Commit{
-		Did: evt.Repo,
-		Ops: parsedOps,
+		Did:     evt.Repo,
+		Rev:     repoCommit.Rev,
+		DataCid: repoCommit.Data.String(),
+		Ops:     parsedOps,
 	}
 
 	return commit, nil
@@ -133,10 +147,11 @@ func (ep *EventProcessor) validateCommit(ctx context.Context, evt *comatproto.Sy
 
 func (ep *EventProcessor) updateRepoState(commit *Commit) error {
 	return ep.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.Did{}).
+		if err := tx.Model(&models.Repo{}).
 			Where("did = ?", commit.Did).
 			Updates(map[string]interface{}{
-				"rev": commit.Rev,
+				"rev":       commit.Rev,
+				"prev_data": commit.DataCid,
 			}).Error; err != nil {
 			return err
 		}

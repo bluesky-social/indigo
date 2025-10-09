@@ -1,9 +1,10 @@
 package main
 
 type Commit struct {
-	Did string     `json:"did"`
-	Rev string     `json:"rev"`
-	Ops []CommitOp `json:"ops"`
+	Did     string     `json:"did"`
+	Rev     string     `json:"rev"`
+	DataCid string     `json:"data_cid"`
+	Ops     []CommitOp `json:"ops"`
 }
 
 type CommitOp struct {

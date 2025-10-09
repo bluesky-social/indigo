@@ -50,9 +50,9 @@ func (n *Nexus) handleAddDids(c echo.Context) error {
 		return err
 	}
 
-	dids := make([]models.Did, len(payload.DIDs))
+	dids := make([]models.Repo, len(payload.DIDs))
 	for i, did := range payload.DIDs {
-		dids[i] = models.Did{
+		dids[i] = models.Repo{
 			Did:   did,
 			State: models.RepoStatePending,
 		}
