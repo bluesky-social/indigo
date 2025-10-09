@@ -66,16 +66,6 @@ func (n *Nexus) claimBackfillJob(ctx context.Context) (string, bool, error) {
 }
 
 func (n *Nexus) backfillDid(ctx context.Context, did string) error {
-	if err := n.db.Model(&models.Did{}).
-		Where("did = ?", did).
-		Updates(map[string]interface{}{
-			"state":     models.RepoStateBackfilling,
-			"rev":       "",
-			"error_msg": "",
-		}).Error; err != nil {
-		return fmt.Errorf("failed to update state to backfilling: %w", err)
-	}
-
 	n.logger.Info("starting backfill", "did", did)
 
 	rev, err := n.doBackfill(ctx, did)
@@ -108,7 +98,6 @@ func (n *Nexus) backfillDid(ctx context.Context, did string) error {
 }
 
 func (n *Nexus) doBackfill(ctx context.Context, did string) (string, error) {
-	// Resolve DID to PDS
 	ident, err := n.Dir.LookupDID(ctx, syntax.DID(did))
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve DID: %w", err)
@@ -121,13 +110,11 @@ func (n *Nexus) doBackfill(ctx context.Context, did string) (string, error) {
 
 	n.logger.Info("fetching repo from PDS", "did", did, "pds", pdsURL)
 
-	// Create XRPC client
 	client := &xrpc.Client{
 		Client: &http.Client{},
 		Host:   pdsURL,
 	}
 
-	// Call com.atproto.sync.getRepo
 	repoBytes, err := comatproto.SyncGetRepo(ctx, client, did, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to get repo: %w", err)
@@ -135,7 +122,6 @@ func (n *Nexus) doBackfill(ctx context.Context, did string) (string, error) {
 
 	n.logger.Info("parsing repo CAR", "did", did, "size", len(repoBytes))
 
-	// Parse the repo from CAR
 	r, err := repo.ReadRepoFromCar(ctx, io.NopCloser(bytes.NewReader(repoBytes)))
 	if err != nil {
 		return "", fmt.Errorf("failed to read repo from CAR: %w", err)
@@ -144,13 +130,11 @@ func (n *Nexus) doBackfill(ctx context.Context, did string) (string, error) {
 	rev := r.SignedCommit().Rev
 	n.logger.Info("iterating repo records", "did", did, "rev", rev)
 
-	// Pre-load existing CID mappings for this DID into memory
 	var existingRecords []models.RepoRecord
 	if err := n.db.Find(&existingRecords, "did = ?", did).Error; err != nil {
 		return "", fmt.Errorf("failed to load existing records: %w", err)
 	}
 
-	// Build map: "collection/rkey" -> CID
 	existingCids := make(map[string]string, len(existingRecords))
 	for _, rec := range existingRecords {
 		key := rec.Collection + "/" + rec.Rkey
@@ -172,13 +156,13 @@ func (n *Nexus) doBackfill(ctx context.Context, did string) (string, error) {
 		cidStr := recCid.String()
 
 		existingCid, exists := existingCids[recPath]
+		if exists && existingCid == cidStr {
+			return nil
+		}
+
 		action := "create"
 		if exists {
-			if existingCid == cidStr {
-				return nil
-			} else {
-				action = "update"
-			}
+			action = "update"
 		}
 
 		blk, err := r.Blockstore().Get(ctx, recCid)
