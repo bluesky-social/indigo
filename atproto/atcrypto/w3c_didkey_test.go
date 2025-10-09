@@ -1,4 +1,4 @@
-package crypto
+package atcrypto
 
 import (
 	"encoding/hex"

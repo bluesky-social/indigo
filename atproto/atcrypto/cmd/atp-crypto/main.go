@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 
 	"github.com/urfave/cli/v2"
 )
@@ -40,13 +40,13 @@ func main() {
 
 func runGenerate(cctx *cli.Context) error {
 	if cctx.Bool("k256") {
-		priv, err := crypto.GeneratePrivateKeyK256()
+		priv, err := atcrypto.GeneratePrivateKeyK256()
 		if err != nil {
 			return err
 		}
 		fmt.Println(priv.Multibase())
 	} else {
-		priv, err := crypto.GeneratePrivateKeyP256()
+		priv, err := atcrypto.GeneratePrivateKeyP256()
 		if err != nil {
 			return err
 		}
