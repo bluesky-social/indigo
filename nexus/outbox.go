@@ -23,8 +23,8 @@ func NewOutbox(db *gorm.DB) *Outbox {
 	}
 }
 
-func (o *Outbox) Subscribe(ctx context.Context, send func(*Op) error) error {
-	var bufferedEvts []models.BufferedEvt
+func (o *Outbox) Subscribe(ctx context.Context, send func(op *Op) error) error {
+	var bufferedEvts []models.OutboxBuffer
 	if err := o.db.Order("id ASC").Find(&bufferedEvts).Error; err != nil {
 		o.logger.Error("failed to load buffered events", "error", err)
 		return err
@@ -33,24 +33,14 @@ func (o *Outbox) Subscribe(ctx context.Context, send func(*Op) error) error {
 	if len(bufferedEvts) > 0 {
 		o.logger.Info("draining buffered events", "count", len(bufferedEvts))
 		for _, evt := range bufferedEvts {
-			op := &Op{
-				Did:        evt.Did,
-				Collection: evt.Collection,
-				Rkey:       evt.Rkey,
-				Action:     evt.Action,
-				Cid:        evt.Cid,
+			// Unmarshal buffered JSON back to Commit
+			var op Op
+			if err := json.Unmarshal([]byte(evt.Data), &op); err != nil {
+				o.logger.Error("failed to unmarshal buffered op", "error", err, "id", evt.ID)
+				continue
 			}
 
-			if evt.Record != "" {
-				var record map[string]interface{}
-				if err := json.Unmarshal([]byte(evt.Record), &record); err != nil {
-					o.logger.Error("failed to unmarshal record", "error", err, "id", evt.ID)
-					continue
-				}
-				op.Record = record
-			}
-
-			if err := send(op); err != nil {
+			if err := send(&op); err != nil {
 				o.logger.Info("send error during drain", "error", err)
 				return err
 			}
@@ -87,23 +77,12 @@ func (o *Outbox) Send(op *Op) error {
 }
 
 func (o *Outbox) bufferToDB(op *Op) error {
-	var recordJSON string
-	if op.Record != nil {
-		bytes, err := json.Marshal(op.Record)
-		if err != nil {
-			return err
-		}
-		recordJSON = string(bytes)
+	jsonData, err := json.Marshal(op)
+	if err != nil {
+		return err
 	}
 
-	err := o.db.Create(&models.BufferedEvt{
-		Did:        op.Did,
-		Collection: op.Collection,
-		Rkey:       op.Rkey,
-		Action:     op.Action,
-		Cid:        op.Cid,
-		Record:     recordJSON,
+	return o.db.Create(&models.OutboxBuffer{
+		Data: string(jsonData),
 	}).Error
-
-	return err
 }
