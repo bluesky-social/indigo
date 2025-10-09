@@ -264,7 +264,7 @@ func (t *BlobSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Ref (data.CIDLink) (struct)
+	// t.Ref (atdata.CIDLink) (struct)
 	if len("ref") > 1000000 {
 		return xerrors.Errorf("Value in field \"ref\" was too long")
 	}
@@ -387,7 +387,7 @@ func (t *BlobSchema) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch string(nameBuf[:nameLen]) {
-		// t.Ref (data.CIDLink) (struct)
+		// t.Ref (atdata.CIDLink) (struct)
 		case "ref":
 
 			{
