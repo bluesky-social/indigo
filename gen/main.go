@@ -6,8 +6,8 @@ import (
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	chat "github.com/bluesky-social/indigo/api/chat"
-	"github.com/bluesky-social/indigo/atproto/data"
-	"github.com/bluesky-social/indigo/atproto/label"
+	"github.com/bluesky-social/indigo/atproto/atdata"
+	"github.com/bluesky-social/indigo/atproto/labeling"
 	atrepo "github.com/bluesky-social/indigo/atproto/repo"
 	atmst "github.com/bluesky-social/indigo/atproto/repo/mst"
 	"github.com/bluesky-social/indigo/events"
@@ -122,7 +122,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := genCfg.WriteMapEncodersToFile("atproto/data/cbor_gen.go", "data", data.GenericRecord{}, data.LegacyBlobSchema{}, data.BlobSchema{}); err != nil {
+	if err := genCfg.WriteMapEncodersToFile("atproto/atdata/cbor_gen.go", "atdata", atdata.GenericRecord{}, atdata.LegacyBlobSchema{}, atdata.BlobSchema{}); err != nil {
 		panic(err)
 	}
 
@@ -134,7 +134,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := genCfg.WriteMapEncodersToFile("atproto/label/cbor_gen.go", "label", label.Label{}); err != nil {
+	if err := genCfg.WriteMapEncodersToFile("atproto/labeling/cbor_gen.go", "labeling", labeling.Label{}); err != nil {
 		panic(err)
 	}
 }

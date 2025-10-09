@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/client"
-	"github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/atclient"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -64,7 +64,7 @@ type ClientSessionData struct {
 	// TODO: also persist access token creation time / expiration time? In context that token might not be an easily parsed JWT
 }
 
-// Implementation of [client.AuthMethod] for an OAuth session. Handles DPoP request token signing and nonce rotation, and token refresh requests. Optionally uses a callback to persist updated session data.
+// Implementation of [atclient.AuthMethod] for an OAuth session. Handles DPoP request token signing and nonce rotation, and token refresh requests. Optionally uses a callback to persist updated session data.
 //
 // A single ClientSession instance can be called concurrently: updates to session data (the 'Data' field) are protected with a RW mutex lock. Note that concurrent calls to distinct ClientSession instances for the same session could result in clobbered session data.
 type ClientSession struct {
@@ -73,7 +73,7 @@ type ClientSession struct {
 
 	Config         *ClientConfig
 	Data           *ClientSessionData
-	DPoPPrivateKey crypto.PrivateKey
+	DPoPPrivateKey atcrypto.PrivateKey
 
 	PersistSessionCallback PersistSessionCallback
 
@@ -397,9 +397,9 @@ func (sess *ClientSession) DoWithAuth(c *http.Client, req *http.Request, endpoin
 	return nil, fmt.Errorf("OAuth client ran out of request retries")
 }
 
-// Creates a new [client.APIClient] which wraps this session for auth.
-func (sess *ClientSession) APIClient() *client.APIClient {
-	c := client.APIClient{
+// Creates a new [atclient.APIClient] which wraps this session for auth.
+func (sess *ClientSession) APIClient() *atclient.APIClient {
+	c := atclient.APIClient{
 		Client:     sess.Client,
 		Host:       sess.Data.HostURL,
 		Auth:       sess,

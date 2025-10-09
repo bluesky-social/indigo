@@ -3,7 +3,7 @@ package lexicon
 import (
 	"fmt"
 
-	atdata "github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 )
 
 func ExampleValidateRecord() {
@@ -14,7 +14,7 @@ func ExampleValidateRecord() {
 		panic("failed to load lexicons")
 	}
 
-	// Parse record JSON data using atproto/data helper
+	// Parse record JSON data using atdata helper
 	recordJSON := `{
 		"$type": "example.lexicon.record",
 		"integer": 123,

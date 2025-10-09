@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -44,7 +44,7 @@ func TestInteropRecordValid(t *testing.T) {
 
 	for _, fixture := range fixtures {
 		fmt.Println(fixture.Name)
-		d, err := data.UnmarshalJSON(fixture.Data)
+		d, err := atdata.UnmarshalJSON(fixture.Data)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -79,7 +79,7 @@ func TestInteropRecordInvalid(t *testing.T) {
 
 	for _, fixture := range fixtures {
 		fmt.Println(fixture.Name)
-		d, err := data.UnmarshalJSON(fixture.Data)
+		d, err := atdata.UnmarshalJSON(fixture.Data)
 		if err != nil {
 			t.Fatal(err)
 		}
