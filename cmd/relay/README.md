@@ -66,7 +66,7 @@ Request crawl of an individual PDS instance like:
 
     http post :2470/admin/pds/requestCrawl -a admin:dummy hostname=pds.example.com
 
-The `goat` command line tool (also part of the indigo git repository) includes helpers for administering, inspecting, and debugging relays:
+The `goat` command line tool includes helpers for administering, inspecting, and debugging relays:
 
     RELAY_HOST=http://localhost:2470 goat firehose --verify-mst
     RELAY_HOST=http://localhost:2470 goat relay admin host list

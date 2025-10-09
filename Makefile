@@ -16,7 +16,6 @@ help: ## Print info about all commands
 
 .PHONY: build
 build: ## Build all executables
-	go build ./cmd/goat
 	go build ./cmd/gosky
 	go build ./cmd/bigsky
 	go build ./cmd/relay
