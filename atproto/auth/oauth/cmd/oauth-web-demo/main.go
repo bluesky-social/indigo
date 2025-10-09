@@ -12,8 +12,8 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/auth/oauth"
-	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
@@ -101,7 +101,7 @@ func runServer(cctx *cli.Context) error {
 
 	// If a client secret key is provided (as a multibase string), turn this in to a confidential client
 	if cctx.String("client-secret-key") != "" && hostname != "" {
-		priv, err := crypto.ParsePrivateMultibase(cctx.String("client-secret-key"))
+		priv, err := atcrypto.ParsePrivateMultibase(cctx.String("client-secret-key"))
 		if err != nil {
 			return err
 		}
@@ -294,10 +294,10 @@ func (s *Server) OAuthRefresh(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) OAuthLogout(w http.ResponseWriter, r *http.Request) {
 
-	// delete session from auth store
+	// revoke tokens and delete session from auth store
 	did, sessionID := s.currentSessionDID(r)
 	if did != nil {
-		if err := s.OAuth.Store.DeleteSession(r.Context(), *did, sessionID); err != nil {
+		if err := s.OAuth.Logout(r.Context(), *did, sessionID); err != nil {
 			slog.Error("failed to delete session", "did", did, "err", err)
 		}
 	}

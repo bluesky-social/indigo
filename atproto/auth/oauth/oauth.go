@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
@@ -43,7 +43,7 @@ type ClientConfig struct {
 	UserAgent string
 
 	// For confidential clients, the private client assertion key. Note that while an interface is used here, only P-256 is allowed by the current specification.
-	PrivateKey crypto.PrivateKey
+	PrivateKey atcrypto.PrivateKey
 
 	// ID for current client assertion key (should be provided if PrivateKey is)
 	KeyID *string
@@ -112,11 +112,11 @@ func (config *ClientConfig) IsConfidential() bool {
 	return config.PrivateKey != nil && config.KeyID != nil
 }
 
-func (config *ClientConfig) SetClientSecret(priv crypto.PrivateKey, keyID string) error {
+func (config *ClientConfig) SetClientSecret(priv atcrypto.PrivateKey, keyID string) error {
 	switch priv.(type) {
-	case *crypto.PrivateKeyP256:
+	case *atcrypto.PrivateKeyP256:
 		// pass
-	case *crypto.PrivateKeyK256:
+	case *atcrypto.PrivateKeyK256:
 		return fmt.Errorf("only P-256 (ES256) private keys supported for atproto OAuth")
 	default:
 		return fmt.Errorf("unknown private key type: %T", priv)
@@ -131,7 +131,7 @@ func (config *ClientConfig) SetClientSecret(priv crypto.PrivateKey, keyID string
 // If the client does not have any keys (eg, public client), returns an empty set.
 func (config *ClientConfig) PublicJWKS() JWKS {
 
-	jwks := JWKS{Keys: []crypto.JWK{}}
+	jwks := JWKS{Keys: []atcrypto.JWK{}}
 
 	// public client with no keys
 	if config.PrivateKey == nil || config.KeyID == nil {
@@ -148,7 +148,7 @@ func (config *ClientConfig) PublicJWKS() JWKS {
 	}
 	jwk.KeyID = config.KeyID
 
-	jwks.Keys = []crypto.JWK{*jwk}
+	jwks.Keys = []atcrypto.JWK{*jwk}
 	return jwks
 }
 
@@ -209,7 +209,7 @@ func (app *ClientApp) ResumeSession(ctx context.Context, did syntax.DID, session
 	}
 
 	// TODO: refactor this in to ClientAuthStore layer?
-	priv, err := crypto.ParsePrivateMultibase(sd.DPoPPrivateKeyMultibase)
+	priv, err := atcrypto.ParsePrivateMultibase(sd.DPoPPrivateKeyMultibase)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +264,7 @@ func (cfg *ClientConfig) NewClientAssertion(authURL string) (string, error) {
 // Creates a DPoP token (JWT) for use with an OAuth Auth Server (not to be used with Resource Server). The returned JWT is not bound to an Access Token (no 'ath'), and does not indicate an issuer ('iss').
 //
 // This is used during initial auth request (PAR), initial token request, and subsequent refresh token requests. Note that a full [ClientSession] is not available in several of these circumstances, so this is a stand-alone function.
-func NewAuthDPoP(httpMethod, url, dpopNonce string, privKey crypto.PrivateKey) (string, error) {
+func NewAuthDPoP(httpMethod, url, dpopNonce string, privKey atcrypto.PrivateKey) (string, error) {
 
 	claims := dpopClaims{
 		HTTPMethod: httpMethod,
@@ -356,7 +356,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 	dpopServerNonce := ""
 
 	// create new key for the session
-	dpopPrivKey, err := crypto.GeneratePrivateKeyP256()
+	dpopPrivKey, err := atcrypto.GeneratePrivateKeyP256()
 	if err != nil {
 		return nil, err
 	}
@@ -413,14 +413,15 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 	}
 
 	parInfo := AuthRequestData{
-		State:                   state,
-		AuthServerURL:           authMeta.Issuer,
-		Scopes:                  scopes,
-		PKCEVerifier:            pkceVerifier,
-		RequestURI:              parResp.RequestURI,
-		AuthServerTokenEndpoint: authMeta.TokenEndpoint,
-		DPoPAuthServerNonce:     dpopServerNonce,
-		DPoPPrivateKeyMultibase: dpopPrivKey.Multibase(),
+		State:                        state,
+		AuthServerURL:                authMeta.Issuer,
+		Scopes:                       scopes,
+		PKCEVerifier:                 pkceVerifier,
+		RequestURI:                   parResp.RequestURI,
+		AuthServerTokenEndpoint:      authMeta.TokenEndpoint,
+		AuthServerRevocationEndpoint: authMeta.RevocationEndpoint,
+		DPoPAuthServerNonce:          dpopServerNonce,
+		DPoPPrivateKeyMultibase:      dpopPrivKey.Multibase(),
 	}
 
 	return &parInfo, nil
@@ -446,7 +447,7 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 		body.ClientAssertion = &clientAssertion
 	}
 
-	dpopPrivKey, err := crypto.ParsePrivateMultibase(info.DPoPPrivateKeyMultibase)
+	dpopPrivKey, err := atcrypto.ParsePrivateMultibase(info.DPoPPrivateKeyMultibase)
 	if err != nil {
 		return nil, err
 	}
@@ -668,17 +669,18 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 	}
 
 	sessData := ClientSessionData{
-		AccountDID:              accountDID,
-		SessionID:               info.State,
-		HostURL:                 hostURL,
-		AuthServerURL:           info.AuthServerURL,
-		AuthServerTokenEndpoint: info.AuthServerTokenEndpoint,
-		Scopes:                  strings.Split(tokenResp.Scope, " "),
-		AccessToken:             tokenResp.AccessToken,
-		RefreshToken:            tokenResp.RefreshToken,
-		DPoPAuthServerNonce:     info.DPoPAuthServerNonce,
-		DPoPHostNonce:           info.DPoPAuthServerNonce, // bootstrap host nonce from authserver
-		DPoPPrivateKeyMultibase: info.DPoPPrivateKeyMultibase,
+		AccountDID:                   accountDID,
+		SessionID:                    info.State,
+		HostURL:                      hostURL,
+		AuthServerURL:                info.AuthServerURL,
+		AuthServerTokenEndpoint:      info.AuthServerTokenEndpoint,
+		AuthServerRevocationEndpoint: info.AuthServerRevocationEndpoint,
+		Scopes:                       strings.Split(tokenResp.Scope, " "),
+		AccessToken:                  tokenResp.AccessToken,
+		RefreshToken:                 tokenResp.RefreshToken,
+		DPoPAuthServerNonce:          info.DPoPAuthServerNonce,
+		DPoPHostNonce:                info.DPoPAuthServerNonce, // bootstrap host nonce from authserver
+		DPoPPrivateKeyMultibase:      info.DPoPPrivateKeyMultibase,
 	}
 	if err := app.Store.SaveSession(ctx, sessData); err != nil {
 		return nil, err
@@ -688,4 +690,30 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 		slog.Warn("failed to delete auth request info", "state", state, "did", accountDID, "authserver", info.AuthServerURL, "err", err)
 	}
 	return &sessData, nil
+}
+
+// High-level helper to delete a session, including revoking access/refresh tokens if supported by the AS
+func (app *ClientApp) Logout(ctx context.Context, did syntax.DID, sessionID string) error {
+	sess, err := app.ResumeSession(ctx, did, sessionID)
+	if err != nil {
+		return err
+	}
+
+	// Tell the AS to revoke the tokens, if supported
+	if sess.Data.AuthServerRevocationEndpoint == "" {
+		slog.Info("AS does not support token revocation, skipping RevokeSession")
+	} else {
+		err = sess.RevokeSession(ctx)
+		if err != nil {
+			slog.Warn("error during session revocation", "err", err)
+		}
+	}
+
+	// Delete from our own session store
+	err = app.Store.DeleteSession(ctx, did, sessionID)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -74,6 +74,11 @@ func (m *MemStore) SaveAuthRequestInfo(ctx context.Context, info AuthRequestData
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
+	if _, ok := m.requests[info.State]; ok {
+		// Should be unreachable, barring implementation bugs elsewhere
+		return fmt.Errorf("auth request already saved for state %s", info.State)
+	}
+
 	m.requests[info.State] = info
 	return nil
 }

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
@@ -19,7 +19,7 @@ func testTime() time.Time {
 	return time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 }
 
-func validateMinimal(token string, iss, aud string, pub crypto.PublicKey) error {
+func validateMinimal(token string, iss, aud string, pub atcrypto.PublicKey) error {
 
 	p := jwt.NewParser(
 		jwt.WithValidMethods(supportedAlgs),
@@ -71,7 +71,7 @@ func TestSignatureMethods(t *testing.T) {
 
 	for _, fix := range jwtTestFixtures {
 
-		pubk, err := crypto.ParsePublicDIDKey(fix.pubkey)
+		pubk, err := atcrypto.ParsePublicDIDKey(fix.pubkey)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -80,7 +80,7 @@ func TestSignatureMethods(t *testing.T) {
 	}
 }
 
-func testSigningValidation(t *testing.T, priv crypto.PrivateKey) {
+func testSigningValidation(t *testing.T, priv atcrypto.PrivateKey) {
 	assert := assert.New(t)
 	ctx := context.Background()
 
@@ -88,7 +88,7 @@ func testSigningValidation(t *testing.T, priv crypto.PrivateKey) {
 	aud := "did:example:aud#svc"
 	lxm := syntax.NSID("com.example.api")
 
-	priv, err := crypto.GeneratePrivateKeyP256()
+	priv, err := atcrypto.GeneratePrivateKeyP256()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func testSigningValidation(t *testing.T, priv crypto.PrivateKey) {
 }
 
 func TestP256SigningValidation(t *testing.T) {
-	priv, err := crypto.GeneratePrivateKeyP256()
+	priv, err := atcrypto.GeneratePrivateKeyP256()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func TestP256SigningValidation(t *testing.T) {
 }
 
 func TestK256SigningValidation(t *testing.T) {
-	priv, err := crypto.GeneratePrivateKeyK256()
+	priv, err := atcrypto.GeneratePrivateKeyK256()
 	if err != nil {
 		t.Fatal(err)
 	}

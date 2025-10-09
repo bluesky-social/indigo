@@ -9,7 +9,7 @@ import (
 	"github.com/bluesky-social/indigo/api/agnostic"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	_ "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -231,7 +231,7 @@ func (srv *Server) WebRepoRecord(c echo.Context) error {
 		return fmt.Errorf("empty record in response")
 	}
 
-	record, err := data.UnmarshalJSON(*resp.Value)
+	record, err := atdata.UnmarshalJSON(*resp.Value)
 	if err != nil {
 		return fmt.Errorf("fetched record was invalid data: %w", err)
 	}

@@ -1,10 +1,10 @@
 {
   "lexicon": 1,
   "id": "example.lexicon.procedure",
-  "description": "demonstrates lexicon features for the procedure type",
   "defs": {
     "main": {
       "type": "procedure",
+      "description": "demonstrates lexicon features for the procedure type",
       "parameters": {
         "type": "params",
         "properties": {

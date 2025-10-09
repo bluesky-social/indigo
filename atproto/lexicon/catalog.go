@@ -50,33 +50,16 @@ func (c *BaseCatalog) Resolve(ref string) (*Schema, error) {
 
 // Inserts a schema loaded from a JSON file in to the catalog.
 func (c *BaseCatalog) AddSchemaFile(sf SchemaFile) error {
-	if sf.Lexicon != 1 {
-		return fmt.Errorf("unsupported lexicon language version: %d", sf.Lexicon)
+
+	if err := sf.CheckSchema(); err != nil {
+		return err
 	}
+
 	base := sf.ID
 	for frag, def := range sf.Defs {
-		if len(frag) == 0 || strings.Contains(frag, "#") || strings.Contains(frag, ".") {
-			// TODO: more validation here?
-			return fmt.Errorf("schema name invalid: %s", frag)
-		}
 		name := base + "#" + frag
 		if _, ok := c.schemas[name]; ok {
 			return fmt.Errorf("catalog already contained a schema with name: %s", name)
-		}
-		// "A file can have at most one definition with one of the "primary" types. Primary types should always have the name main. It is possible for main to describe a non-primary type."
-		switch s := def.Inner.(type) {
-		case SchemaRecord, SchemaQuery, SchemaProcedure, SchemaSubscription, SchemaPermissionSet:
-			if frag != "main" {
-				return fmt.Errorf("record, query, procedure, and subscription types must be 'main', not: %s", frag)
-			}
-		case SchemaToken:
-			// add fully-qualified name to token
-			s.fullName = name
-			def.Inner = s
-		}
-		def.SetBase(base)
-		if err := def.CheckSchema(); err != nil {
-			return err
 		}
 		s := Schema{
 			ID:  name,
@@ -91,6 +74,9 @@ func (c *BaseCatalog) AddSchemaFile(sf SchemaFile) error {
 func (c *BaseCatalog) addSchemaFromBytes(b []byte) error {
 	var sf SchemaFile
 	if err := json.Unmarshal(b, &sf); err != nil {
+		return err
+	}
+	if err := sf.FinishParse(); err != nil {
 		return err
 	}
 	if err := c.AddSchemaFile(sf); err != nil {
