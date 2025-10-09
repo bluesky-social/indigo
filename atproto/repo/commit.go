@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
-	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/ipfs/go-cid"
@@ -45,11 +45,11 @@ func (c *Commit) AsData() map[string]any {
 	d := map[string]any{
 		"did":     c.DID,
 		"version": c.Version,
-		"prev":    (*data.CIDLink)(c.Prev),
-		"data":    data.CIDLink(c.Data),
+		"prev":    (*atdata.CIDLink)(c.Prev),
+		"data":    atdata.CIDLink(c.Data),
 	}
 	if c.Sig != nil {
-		d["sig"] = data.Bytes(c.Sig)
+		d["sig"] = atdata.Bytes(c.Sig)
 	}
 	if c.Rev != "" {
 		d["rev"] = c.Rev
