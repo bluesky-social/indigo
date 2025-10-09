@@ -1,4 +1,4 @@
-package data
+package atdata
 
 const (
 	// maximum size of any CBOR data, in any context, in atproto
