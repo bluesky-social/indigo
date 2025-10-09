@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"sync/atomic"
+	"sync"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
@@ -16,66 +17,19 @@ import (
 	"gorm.io/gorm"
 )
 
-type Commit struct {
-	Did string     `json:"did"`
-	Rev string     `json:"rev"`
-	Ops []CommitOp `json:"ops"`
-}
-
-type CommitOp struct {
-	Collection string                 `json:"collection"`
-	Rkey       string                 `json:"rkey"`
-	Action     string                 `json:"action"`
-	Record     map[string]interface{} `json:"record,omitempty"`
-	Cid        string                 `json:"cid,omitempty"`
-}
-
-func (c *Commit) ToOps() []*Op {
-	var ops []*Op
-	for _, op := range c.Ops {
-		ops = append(ops, &Op{
-			Did:        c.Did,
-			Rev:        c.Rev,
-			Collection: op.Collection,
-			Rkey:       op.Rkey,
-			Action:     op.Action,
-			Record:     op.Record,
-			Cid:        op.Cid,
-		})
-	}
-	return ops
-}
-
-type Op struct {
-	Did        string                 `json:"did"`
-	Rev        string                 `json:"rev"`
-	Collection string                 `json:"collection"`
-	Rkey       string                 `json:"rkey"`
-	Action     string                 `json:"action"`
-	Record     map[string]interface{} `json:"record,omitempty"`
-	Cid        string                 `json:"cid,omitempty"`
-}
-
 type EventProcessor struct {
-	Logger             *slog.Logger
-	DB                 *gorm.DB
-	Dir                identity.Directory
-	PersistCursorEvery int
-	RelayHost          string
-	Outbox             *Outbox
+	Logger    *slog.Logger
+	DB        *gorm.DB
+	Dir       identity.Directory
+	RelayHost string
+	Outbox    *Outbox
 
-	eventCount uint64
+	lastSeq int64
+	seqMu   sync.Mutex
 }
 
 func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
-	// @TODO this should happen at end of processing
-	// Persist cursor periodically
-	count := atomic.AddUint64(&ep.eventCount, 1)
-	if count%uint64(ep.PersistCursorEvery) == 0 {
-		if err := ep.persistCursor(ep.RelayHost, evt.Seq); err != nil {
-			ep.Logger.Error("failed to persist cursor", "seq", evt.Seq, "error", err)
-		}
-	}
+	defer ep.trackLastSeq(evt.Seq)
 
 	var d models.Did
 	if err := ep.DB.First(&d, "did = ?", evt.Repo).Error; err != nil {
@@ -261,15 +215,42 @@ func (ep *EventProcessor) drainBackfillBuffer(ctx context.Context, did string) e
 	return nil
 }
 
-func (ep *EventProcessor) persistCursor(relayHost string, seq int64) error {
-	if seq <= 0 {
+func (ep *EventProcessor) trackLastSeq(seq int64) {
+	ep.seqMu.Lock()
+	ep.lastSeq = seq
+	ep.seqMu.Unlock()
+}
+
+func (ep *EventProcessor) saveCursor(ctx context.Context) error {
+	ep.seqMu.Lock()
+	seq := ep.lastSeq
+	ep.seqMu.Unlock()
+
+	if seq == 0 {
 		return nil
 	}
 
-	cursor := models.Cursor{
-		Host:   relayHost,
+	return ep.DB.Save(&models.Cursor{
+		Host:   ep.RelayHost,
 		Cursor: seq,
-	}
+	}).Error
+}
 
-	return ep.DB.Save(&cursor).Error
+func (ep *EventProcessor) RunCursorSaver(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			if err := ep.saveCursor(ctx); err != nil {
+				ep.Logger.Error("failed to save cursor on shutdown", "error", err)
+			}
+			return
+		case <-ticker.C:
+			if err := ep.saveCursor(ctx); err != nil {
+				ep.Logger.Error("failed to save cursor", "error", err)
+			}
+		}
+	}
 }

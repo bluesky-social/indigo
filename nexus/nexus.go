@@ -34,7 +34,7 @@ type NexusConfig struct {
 	DBPath                     string
 	RelayHost                  string
 	FirehoseParallelism        int
-	FirehosePersistCursorEvery int
+	FirehoseCursorSaveInterval time.Duration
 }
 
 func NewNexus(config NexusConfig) (*Nexus, error) {
@@ -76,9 +76,9 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		parallelism = 10
 	}
 
-	persistCursorEvery := config.FirehosePersistCursorEvery
-	if persistCursorEvery == 0 {
-		persistCursorEvery = 100
+	cursorSaveInterval := config.FirehoseCursorSaveInterval
+	if cursorSaveInterval == 0 {
+		cursorSaveInterval = 5 * time.Second
 	}
 
 	cursor, err := n.readLastCursor(context.Background(), config.RelayHost)
@@ -87,12 +87,11 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	}
 
 	n.EventProcessor = &EventProcessor{
-		Logger:             n.logger.With("component", "processor"),
-		DB:                 db,
-		Dir:                n.Dir,
-		PersistCursorEvery: persistCursorEvery,
-		RelayHost:          config.RelayHost,
-		Outbox:             n.outbox,
+		Logger:    n.logger.With("component", "processor"),
+		DB:        db,
+		Dir:       n.Dir,
+		RelayHost: config.RelayHost,
+		Outbox:    n.outbox,
 	}
 
 	rsc := &events.RepoStreamCallbacks{
@@ -112,6 +111,9 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	for i := 0; i < 50; i++ {
 		go n.runBackfillWorker(context.Background(), i)
 	}
+
+	// Start cursor saver goroutine
+	go n.EventProcessor.RunCursorSaver(context.Background(), cursorSaveInterval)
 
 	err = n.LoadFilters()
 	if err != nil {
