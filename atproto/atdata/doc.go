@@ -1,5 +1,5 @@
 /*
-Package data supports schema-less serializaiton and deserialization of atproto data
+Package atdata supports schema-less serializaiton and deserialization of atproto data
 
 Some restrictions from the data model include:
 - string sizes
@@ -15,4 +15,4 @@ Can parse generic atproto records (or other objects) in JSON or CBOR format in t
 
 Has a helper for serializing generic data (map[string]interface{}) to CBOR, which handles converting JSON-style object types (like $link and $bytes) as needed. There is no "MarshalJSON" method; simply use the standard library's `encoding/json`.
 */
-package data
+package atdata
