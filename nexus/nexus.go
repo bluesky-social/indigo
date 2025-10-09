@@ -26,19 +26,10 @@ type Nexus struct {
 	FirehoseConsumer *FirehoseConsumer
 }
 
-type Op struct {
-	Did        string                 `json:"did"`
-	Collection string                 `json:"collection"`
-	Rkey       string                 `json:"rkey"`
-	Action     string                 `json:"action"`
-	Record     map[string]interface{} `json:"record,omitempty"`
-	Cid        string                 `json:"cid,omitempty"`
-}
-
 type NexusConfig struct {
-	DBPath                   string
-	RelayHost                string
-	FirehoseParallelism      int
+	DBPath                     string
+	RelayHost                  string
+	FirehoseParallelism        int
 	FirehosePersistCursorEvery int
 }
 
@@ -91,7 +82,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		DB:                 db,
 		Parallelism:        parallelism,
 		PersistCursorEvery: persistCursorEvery,
-		OnCommit:           n.handleCommitEvent,
+		OnEvent:            n.handleEvent,
 	}
 
 	// run 50 backfill workers
@@ -189,3 +180,6 @@ func (n *Nexus) UpdateRepoState(did string, state models.RepoState, rev string, 
 		}).Error
 }
 
+func (n *Nexus) handleEvent(ctx context.Context, op *Op) error {
+	return n.outbox.Send(op)
+}
