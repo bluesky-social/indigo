@@ -1,7 +1,5 @@
 package models
 
-import "time"
-
 type RepoState string
 
 const (
@@ -12,34 +10,21 @@ const (
 )
 
 type Did struct {
-	Did       string    `gorm:"primaryKey"`
-	State     RepoState `gorm:"not null;default:'pending'"`
-	Rev       string    `gorm:"type:text"`
-	ErrorMsg  string    `gorm:"type:text"`
-	CreatedAt time.Time `gorm:"not null"`
-	UpdatedAt time.Time `gorm:"not null"`
+	Did      string    `gorm:"primaryKey"`
+	State    RepoState `gorm:"not null;default:'pending'"`
+	Rev      string    `gorm:"type:text"`
+	ErrorMsg string    `gorm:"type:text"`
 }
 
-type BufferedEvt struct {
-	ID         uint   `gorm:"primaryKey"`
-	Did        string `gorm:"not null;index"`
-	Collection string `gorm:"not null"`
-	Rkey       string `gorm:"not null"`
-	Action     string `gorm:"not null"`
-	Cid        string `gorm:"type:text"`
-	Record     string `gorm:"type:text"`
+type OutboxBuffer struct {
+	ID   uint   `gorm:"primaryKey"`
+	Data string `gorm:"type:text;not null"` // JSON-encoded operations
 }
 
 type BackfillBuffer struct {
-	ID         uint      `gorm:"primaryKey"`
-	Did        string    `gorm:"not null;index"`
-	Collection string    `gorm:"not null"`
-	Rkey       string    `gorm:"not null"`
-	Action     string    `gorm:"not null"`
-	Cid        string    `gorm:"type:text"`
-	Record     string    `gorm:"type:text"`
-	Rev        string    `gorm:"not null"`
-	CreatedAt  time.Time `gorm:"not null"`
+	ID   uint   `gorm:"primaryKey"`
+	Did  string `gorm:"not null;index"`
+	Data string `gorm:"type:text;not null"` // JSON-encoded Commit
 }
 
 type RepoRecord struct {
@@ -47,8 +32,6 @@ type RepoRecord struct {
 	Collection string `gorm:"primaryKey"`
 	Rkey       string `gorm:"primaryKey"`
 	Cid        string `gorm:"not null"`
-	Rev        string `gorm:"not null"`
-	UpdatedAt  time.Time
 }
 
 type Cursor struct {

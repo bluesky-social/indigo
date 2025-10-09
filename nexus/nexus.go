@@ -5,11 +5,14 @@ import (
 	"log/slog"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/nexus/models"
 	"github.com/labstack/echo/v4"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type Nexus struct {
@@ -24,6 +27,7 @@ type Nexus struct {
 	backfillQueue *BackfillQueue
 
 	FirehoseConsumer *FirehoseConsumer
+	EventProcessor   *EventProcessor
 }
 
 type NexusConfig struct {
@@ -34,12 +38,14 @@ type NexusConfig struct {
 }
 
 func NewNexus(config NexusConfig) (*Nexus, error) {
-	db, err := gorm.Open(sqlite.Open(config.DBPath), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(config.DBPath), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&models.BufferedEvt{}, &models.Did{}, &models.RepoRecord{}, &models.BackfillBuffer{}, &models.Cursor{}); err != nil {
+	if err := db.AutoMigrate(&models.Did{}, &models.RepoRecord{}, &models.OutboxBuffer{}, &models.BackfillBuffer{}, &models.Cursor{}); err != nil {
 		return nil, err
 	}
 
@@ -75,17 +81,34 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		persistCursorEvery = 100
 	}
 
-	n.FirehoseConsumer = &FirehoseConsumer{
-		RelayHost:          config.RelayHost,
-		Filter:             n.filter,
-		Logger:             n.logger.With("component", "firehose"),
-		DB:                 db,
-		Parallelism:        parallelism,
-		PersistCursorEvery: persistCursorEvery,
-		OnEvent:            n.handleEvent,
+	cursor, err := n.readLastCursor(context.Background(), config.RelayHost)
+	if err != nil {
+		return nil, err
 	}
 
-	// run 50 backfill workers
+	n.EventProcessor = &EventProcessor{
+		Logger:             n.logger.With("component", "processor"),
+		DB:                 db,
+		Dir:                n.Dir,
+		PersistCursorEvery: persistCursorEvery,
+		RelayHost:          config.RelayHost,
+		Outbox:             n.outbox,
+	}
+
+	rsc := &events.RepoStreamCallbacks{
+		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+			return n.EventProcessor.ProcessCommit(context.Background(), evt)
+		},
+	}
+
+	n.FirehoseConsumer = &FirehoseConsumer{
+		RelayHost:   config.RelayHost,
+		Cursor:      cursor,
+		Logger:      n.logger.With("component", "firehose"),
+		Parallelism: parallelism,
+		Callbacks:   rsc,
+	}
+
 	for i := 0; i < 50; i++ {
 		go n.runBackfillWorker(context.Background(), i)
 	}
@@ -162,24 +185,14 @@ func (n *Nexus) queueBackfill(did string) {
 	n.logger.Info("queued backfill", "did", did, "queue_depth", depth)
 }
 
-func (n *Nexus) GetRepoState(did string) (models.RepoState, error) {
-	var d models.Did
-	if err := n.db.First(&d, "did = ?", did).Error; err != nil {
-		return "", err
+func (n *Nexus) readLastCursor(ctx context.Context, relayHost string) (int64, error) {
+	var cursor models.Cursor
+	if err := n.db.Where("host = ?", relayHost).First(&cursor).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			n.logger.Info("no pre-existing cursor in database", "relayHost", relayHost)
+			return 0, nil
+		}
+		return 0, err
 	}
-	return d.State, nil
-}
-
-func (n *Nexus) UpdateRepoState(did string, state models.RepoState, rev string, errorMsg string) error {
-	return n.db.Model(&models.Did{}).
-		Where("did = ?", did).
-		Updates(map[string]interface{}{
-			"state":     state,
-			"rev":       rev,
-			"error_msg": errorMsg,
-		}).Error
-}
-
-func (n *Nexus) handleEvent(ctx context.Context, op *Op) error {
-	return n.outbox.Send(op)
+	return cursor.Cursor, nil
 }
