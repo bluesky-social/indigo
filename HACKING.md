@@ -29,7 +29,7 @@ Packages:
 - `atproto/atcrypto`: cryptographic helpers (signing, key generation and serialization)
 - `atproto/syntax`: string types and parsers for identifiers, datetimes, etc
 - `atproto/identity`: DID and handle resolution
-- `atproto/data`: helpers for atproto data as JSON or CBOR with unknown schema
+- `atproto/atdata`: helpers for atproto data as JSON or CBOR with unknown schema
 - `atproto/lexicon`: lexicon validation of generic data
 - `atproto/repo`: repo and MST implementation
 - `automod`: moderation and anti-spam rules engine
