@@ -28,6 +28,44 @@ type EventProcessor struct {
 	seqMu   sync.Mutex
 }
 
+func (ep *EventProcessor) ProcessSync(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync) error {
+	defer ep.trackLastSeq(evt.Seq)
+
+	var curr models.Repo
+	if err := ep.DB.First(&curr, "did = ?", evt.Did).Error; err != nil {
+		if err != gorm.ErrRecordNotFound {
+			ep.Logger.Error("failed to get repo state", "did", evt.Did, "error", err)
+		}
+		return nil
+	}
+
+	commit, err := repo.VerifySyncMessage(ctx, ep.Dir, evt)
+	if err != nil {
+		return fmt.Errorf("failed to verify sync message: %w", err)
+	}
+
+	if curr.State != models.RepoStateActive {
+		return nil
+	}
+
+	if curr.Rev != "" && commit.Rev <= curr.Rev {
+		ep.Logger.Debug("skipping replayed event", "did", commit.DID, "eventRev", commit.Rev, "currentRev", curr.Rev)
+		return nil
+	}
+
+	if curr.PrevData == commit.Data.String() {
+		ep.Logger.Debug("skipping noop sync event", "did", commit.DID, "rev", commit.Rev)
+		return nil
+	}
+
+	if err := ep.UpdateRepoState(commit.DID, models.RepoStateDesynced); err != nil {
+		ep.Logger.Error("failed to update repo state to desynced", "did", commit.DID, "error", err)
+		return err
+	}
+
+	return nil
+}
+
 func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
 	defer ep.trackLastSeq(evt.Seq)
 

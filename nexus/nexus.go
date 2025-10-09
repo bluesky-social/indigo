@@ -94,6 +94,17 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 			return n.EventProcessor.ProcessCommit(context.Background(), evt)
 		},
+		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
+			return n.EventProcessor.ProcessSync(context.Background(), evt)
+		},
+		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
+			// @TODO
+			return nil
+		},
+		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
+			// @TODO
+			return nil
+		},
 	}
 
 	n.FirehoseConsumer = &FirehoseConsumer{
