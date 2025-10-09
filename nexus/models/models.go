@@ -3,10 +3,11 @@ package models
 type RepoState string
 
 const (
-	RepoStatePending     RepoState = "pending"
-	RepoStateBackfilling RepoState = "backfilling"
-	RepoStateActive      RepoState = "active"
-	RepoStateError       RepoState = "error"
+	RepoStatePending   RepoState = "pending"
+	RepoStateResyncing RepoState = "resyncing"
+	RepoStateActive    RepoState = "active"
+	RepoStateDesynced  RepoState = "desynced"
+	RepoStateError     RepoState = "error"
 )
 
 type Repo struct {
@@ -22,7 +23,7 @@ type OutboxBuffer struct {
 	Data string `gorm:"type:text;not null"` // JSON-encoded operations
 }
 
-type BackfillBuffer struct {
+type ResyncBuffer struct {
 	ID   uint   `gorm:"primaryKey"`
 	Did  string `gorm:"not null;index"`
 	Data string `gorm:"type:text;not null"` // JSON-encoded Commit

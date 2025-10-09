@@ -39,7 +39,7 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 		return nil
 	}
 
-	if d.State == models.RepoStatePending {
+	if d.State != models.RepoStateActive && d.State != models.RepoStateResyncing {
 		return nil
 	}
 
@@ -51,8 +51,13 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 	if evt.PrevData == nil {
 		ep.Logger.Debug("legacy commit event, skipping prev data check", "did", evt.Repo, "rev", evt.Rev)
 	} else if evt.PrevData.String() != d.PrevData {
-		// @TODO DESYNCED
 		ep.Logger.Warn("repo state desynced", "did", evt.Repo, "rev", evt.Rev)
+		// gets picked up by resync workers
+		if err := ep.UpdateRepoState(evt.Repo, models.RepoStateDesynced); err != nil {
+			ep.Logger.Error("failed to update repo state to desynced", "did", evt.Repo, "error", err)
+			return err
+		}
+		return nil
 	}
 
 	commit, err := ep.validateCommit(ctx, evt)
@@ -61,8 +66,8 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 		return err
 	}
 
-	if d.State == models.RepoStateBackfilling {
-		if err := ep.addToBackfillBuffer(commit); err != nil {
+	if d.State == models.RepoStateResyncing {
+		if err := ep.addToResyncBuffer(commit); err != nil {
 			ep.Logger.Error("failed to buffer commit", "did", evt.Repo, "error", err)
 			return err
 		}
@@ -178,19 +183,19 @@ func (ep *EventProcessor) updateRepoState(commit *Commit) error {
 	})
 }
 
-func (ep *EventProcessor) addToBackfillBuffer(commit *Commit) error {
+func (ep *EventProcessor) addToResyncBuffer(commit *Commit) error {
 	jsonData, err := json.Marshal(commit)
 	if err != nil {
 		return err
 	}
-	return ep.DB.Create(&models.BackfillBuffer{
+	return ep.DB.Create(&models.ResyncBuffer{
 		Did:  commit.Did,
 		Data: string(jsonData),
 	}).Error
 }
 
-func (ep *EventProcessor) drainBackfillBuffer(ctx context.Context, did string) error {
-	var bufferedEvts []models.BackfillBuffer
+func (ep *EventProcessor) drainResyncBuffer(ctx context.Context, did string) error {
+	var bufferedEvts []models.ResyncBuffer
 	if err := ep.DB.Where("did = ?", did).Order("id ASC").Find(&bufferedEvts).Error; err != nil {
 		return fmt.Errorf("failed to load buffered events: %w", err)
 	}
@@ -199,7 +204,7 @@ func (ep *EventProcessor) drainBackfillBuffer(ctx context.Context, did string) e
 		return nil
 	}
 
-	ep.Logger.Info("processing buffered backfill events", "did", did, "count", len(bufferedEvts))
+	ep.Logger.Info("processing buffered resync events", "did", did, "count", len(bufferedEvts))
 
 	for _, evt := range bufferedEvts {
 		var commit Commit
@@ -219,13 +224,13 @@ func (ep *EventProcessor) drainBackfillBuffer(ctx context.Context, did string) e
 			return err
 		}
 
-		if err := ep.DB.Delete(&models.BackfillBuffer{}, "id = ?", evt.ID).Error; err != nil {
+		if err := ep.DB.Delete(&models.ResyncBuffer{}, "id = ?", evt.ID).Error; err != nil {
 			ep.Logger.Error("failed to delete buffered event", "id", evt.ID, "did", commit.Did, "rev", commit.Rev, "error", err)
 			return err
 		}
 	}
 
-	ep.Logger.Info("processed buffered backfill events", "did", did, "count", len(bufferedEvts))
+	ep.Logger.Info("processed buffered resync events", "did", did, "count", len(bufferedEvts))
 	return nil
 }
 
@@ -279,4 +284,10 @@ func (ep *EventProcessor) ReadLastCursor(ctx context.Context, relayHost string) 
 		return 0, err
 	}
 	return cursor.Cursor, nil
+}
+
+func (ep *EventProcessor) UpdateRepoState(did string, state models.RepoState) error {
+	return ep.DB.Model(&models.Repo{}).
+		Where("did = ?", did).
+		Update("state", state).Error
 }

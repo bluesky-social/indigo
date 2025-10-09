@@ -17,13 +17,13 @@ import (
 	"gorm.io/gorm"
 )
 
-func (n *Nexus) runBackfillWorker(ctx context.Context, workerID int) {
+func (n *Nexus) runResyncWorker(ctx context.Context, workerID int) {
 	logger := n.logger.With("worker", workerID)
 
 	for {
-		did, found, err := n.claimBackfillJob(ctx)
+		did, found, err := n.claimResyncJob(ctx)
 		if err != nil {
-			logger.Error("failed to claim backfill job", "error", err)
+			logger.Error("failed to claim resync job", "error", err)
 			time.Sleep(3 * time.Second)
 			continue
 		}
@@ -33,25 +33,25 @@ func (n *Nexus) runBackfillWorker(ctx context.Context, workerID int) {
 			continue
 		}
 
-		logger.Info("processing backfill", "did", did)
-		err = n.backfillDid(ctx, did)
+		logger.Info("processing resync", "did", did)
+		err = n.resyncDid(ctx, did)
 		if err != nil {
-			logger.Error("backfill failed", "did", did, "error", err)
+			logger.Error("resync failed", "did", did, "error", err)
 		}
 	}
 }
 
-func (n *Nexus) claimBackfillJob(ctx context.Context) (string, bool, error) {
+func (n *Nexus) claimResyncJob(ctx context.Context) (string, bool, error) {
 	var did models.Repo
 	err := n.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("state = ?", models.RepoStatePending).
+		if err := tx.Where("state IN (?)", []models.RepoState{models.RepoStatePending, models.RepoStateDesynced}).
 			First(&did).Error; err != nil {
 			return err
 		}
 
 		return tx.Model(&models.Repo{}).
 			Where("did = ?", did.Did).
-			Update("state", models.RepoStateBackfilling).Error
+			Update("state", models.RepoStateResyncing).Error
 	})
 
 	if err != nil {
@@ -64,10 +64,10 @@ func (n *Nexus) claimBackfillJob(ctx context.Context) (string, bool, error) {
 	return did.Did, true, nil
 }
 
-func (n *Nexus) backfillDid(ctx context.Context, did string) error {
-	n.logger.Info("starting backfill", "did", did)
+func (n *Nexus) resyncDid(ctx context.Context, did string) error {
+	n.logger.Info("starting resync", "did", did)
 
-	err := n.doBackfill(ctx, did)
+	err := n.doResync(ctx, did)
 	if err != nil {
 		n.db.Model(&models.Repo{}).
 			Where("did = ?", did).
@@ -80,14 +80,14 @@ func (n *Nexus) backfillDid(ctx context.Context, did string) error {
 		return err
 	}
 
-	if err := n.EventProcessor.drainBackfillBuffer(ctx, did); err != nil {
-		n.logger.Error("failed to drain backfill buffer events", "did", did, "error", err)
+	if err := n.EventProcessor.drainResyncBuffer(ctx, did); err != nil {
+		n.logger.Error("failed to drain resync buffer events", "did", did, "error", err)
 	}
 
 	return nil
 }
 
-func (n *Nexus) doBackfill(ctx context.Context, did string) error {
+func (n *Nexus) doResync(ctx context.Context, did string) error {
 	ident, err := n.Dir.LookupDID(ctx, syntax.DID(did))
 	if err != nil {
 		return fmt.Errorf("failed to resolve DID: %w", err)
@@ -210,12 +210,12 @@ func (n *Nexus) doBackfill(ctx context.Context, did string) error {
 		return fmt.Errorf("failed to update repo state to active %w", err)
 	}
 
-	n.logger.Info("backfill repo complete", "did", did, "records", numRecords, "rev", rev)
+	n.logger.Info("resync repo complete", "did", did, "records", numRecords, "rev", rev)
 	return nil
 }
 
-func (n *Nexus) resetBackfillingToPending() error {
+func (n *Nexus) resetPartiallyResynced() error {
 	return n.db.Model(&models.Repo{}).
-		Where("state = ?", models.RepoStateBackfilling).
-		Update("state", models.RepoStatePending).Error
+		Where("state = ?", models.RepoStateResyncing).
+		Update("state", models.RepoStateDesynced).Error
 }
