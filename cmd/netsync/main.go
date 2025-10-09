@@ -19,7 +19,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/ipfs/go-cid"
 	_ "github.com/joho/godotenv/autoload"
@@ -573,7 +573,7 @@ func (s *NetsyncState) cloneRepo(ctx context.Context, did string) (cloneState st
 			collectionsSeen[collection] = struct{}{}
 		}
 
-		asCbor, err := data.UnmarshalCBOR(*rec)
+		asCbor, err := atdata.UnmarshalCBOR(*rec)
 		if err != nil {
 			log.Error("Error unmarshalling record", "err", err)
 			return fmt.Errorf("Failed to unmarshal record: %w", err)

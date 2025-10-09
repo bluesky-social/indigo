@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/rivo/uniseg"
@@ -810,7 +810,7 @@ func (s *SchemaBytes) CheckSchema() error {
 }
 
 func (s *SchemaBytes) Validate(d any) error {
-	v, ok := d.(data.Bytes)
+	v, ok := d.(atdata.Bytes)
 	if !ok {
 		return fmt.Errorf("expecting bytes")
 	}
@@ -830,7 +830,7 @@ func (s *SchemaCIDLink) CheckSchema() error {
 }
 
 func (s *SchemaCIDLink) Validate(d any) error {
-	_, ok := d.(data.CIDLink)
+	_, ok := d.(atdata.CIDLink)
 	if !ok {
 		return fmt.Errorf("expecting a cid-link")
 	}
@@ -915,7 +915,7 @@ func (s *SchemaBlob) CheckSchema() error {
 }
 
 func (s *SchemaBlob) Validate(d any, flags ValidateFlags) error {
-	v, ok := d.(data.Blob)
+	v, ok := d.(atdata.Blob)
 	if !ok {
 		return fmt.Errorf("expected a blob")
 	}

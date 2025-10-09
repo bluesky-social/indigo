@@ -7,7 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/bluesky-social/indigo/api/agnostic"
-	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -25,7 +25,7 @@ func ResolveLexiconData(ctx context.Context, dir identity.Directory, nsid syntax
 		return nil, err
 	}
 
-	d, err := data.UnmarshalJSON(*record)
+	d, err := atdata.UnmarshalJSON(*record)
 	if err != nil {
 		return nil, fmt.Errorf("fetched Lexicon schema record was invalid: %w", err)
 	}

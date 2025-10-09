@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/atproto/crypto"
-	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/ipfs/go-cid"
@@ -45,11 +45,11 @@ func (c *Commit) AsData() map[string]any {
 	d := map[string]any{
 		"did":     c.DID,
 		"version": c.Version,
-		"prev":    (*data.CIDLink)(c.Prev),
-		"data":    data.CIDLink(c.Data),
+		"prev":    (*atdata.CIDLink)(c.Prev),
+		"data":    atdata.CIDLink(c.Data),
 	}
 	if c.Sig != nil {
-		d["sig"] = data.Bytes(c.Sig)
+		d["sig"] = atdata.Bytes(c.Sig)
 	}
 	if c.Rev != "" {
 		d["rev"] = c.Rev
@@ -80,7 +80,7 @@ func (c *Commit) UnsignedBytes() ([]byte, error) {
 }
 
 // Signs the commit, storing the signature in the `Sig` field
-func (c *Commit) Sign(privkey crypto.PrivateKey) error {
+func (c *Commit) Sign(privkey atcrypto.PrivateKey) error {
 	b, err := c.UnsignedBytes()
 	if err != nil {
 		return err
@@ -94,7 +94,7 @@ func (c *Commit) Sign(privkey crypto.PrivateKey) error {
 }
 
 // Verifies `Sig` field using the provided key. Returns `nil` if signature is valid.
-func (c *Commit) VerifySignature(pubkey crypto.PublicKey) error {
+func (c *Commit) VerifySignature(pubkey atcrypto.PublicKey) error {
 	if c.Sig == nil {
 		return fmt.Errorf("can not verify unsigned commit")
 	}
