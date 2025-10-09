@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/client"
-	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -73,7 +73,7 @@ type ClientSession struct {
 
 	Config         *ClientConfig
 	Data           *ClientSessionData
-	DPoPPrivateKey crypto.PrivateKey
+	DPoPPrivateKey atcrypto.PrivateKey
 
 	PersistSessionCallback PersistSessionCallback
 

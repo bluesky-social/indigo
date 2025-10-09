@@ -9,7 +9,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
@@ -122,7 +122,7 @@ func randomNonce() string {
 	return base64.RawURLEncoding.EncodeToString(buf)
 }
 
-func SignServiceAuth(iss syntax.DID, aud string, ttl time.Duration, lexMethod *syntax.NSID, priv crypto.PrivateKey) (string, error) {
+func SignServiceAuth(iss syntax.DID, aud string, ttl time.Duration, lexMethod *syntax.NSID, priv atcrypto.PrivateKey) (string, error) {
 	claims := serviceAuthClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
@@ -138,11 +138,11 @@ func SignServiceAuth(iss syntax.DID, aud string, ttl time.Duration, lexMethod *s
 
 	var sm *signingMethodAtproto
 
-	// NOTE: could also have a crypto.PrivateKey.Alg() method which returns a string
+	// NOTE: could also have a atcrypto.PrivateKey.Alg() method which returns a string
 	switch priv.(type) {
-	case *crypto.PrivateKeyP256:
+	case *atcrypto.PrivateKeyP256:
 		sm = signingMethodES256
-	case *crypto.PrivateKeyK256:
+	case *atcrypto.PrivateKeyK256:
 		sm = signingMethodES256K
 	default:
 		return "", fmt.Errorf("unknown signing key type: %T", priv)

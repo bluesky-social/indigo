@@ -12,8 +12,8 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/auth/oauth"
-	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
@@ -101,7 +101,7 @@ func runServer(cctx *cli.Context) error {
 
 	// If a client secret key is provided (as a multibase string), turn this in to a confidential client
 	if cctx.String("client-secret-key") != "" && hostname != "" {
-		priv, err := crypto.ParsePrivateMultibase(cctx.String("client-secret-key"))
+		priv, err := atcrypto.ParsePrivateMultibase(cctx.String("client-secret-key"))
 		if err != nil {
 			return err
 		}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
@@ -110,7 +110,7 @@ func (l *Label) UnsignedBytes() ([]byte, error) {
 }
 
 // Signs the commit, storing the signature in the `Sig` field
-func (l *Label) Sign(privkey crypto.PrivateKey) error {
+func (l *Label) Sign(privkey atcrypto.PrivateKey) error {
 	b, err := l.UnsignedBytes()
 	if err != nil {
 		return err
@@ -124,7 +124,7 @@ func (l *Label) Sign(privkey crypto.PrivateKey) error {
 }
 
 // Verifies `Sig` field using the provided key. Returns `nil` if signature is valid.
-func (l *Label) VerifySignature(pubkey crypto.PublicKey) error {
+func (l *Label) VerifySignature(pubkey atcrypto.PublicKey) error {
 	if l.Sig == nil {
 		return fmt.Errorf("can not verify unsigned commit")
 	}

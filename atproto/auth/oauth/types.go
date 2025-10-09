@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
@@ -19,7 +19,7 @@ var (
 )
 
 type JWKS struct {
-	Keys []crypto.JWK `json:"keys"`
+	Keys []atcrypto.JWK `json:"keys"`
 }
 
 // Expected response type from looking up OAuth Protected Resource information on a server (eg, a PDS instance)
