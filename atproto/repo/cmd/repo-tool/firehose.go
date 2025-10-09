@@ -36,7 +36,7 @@ func runVerifyFirehose(cctx *cli.Context) error {
 	}
 	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
 	con, _, err := dialer.Dial(u.String(), http.Header{
-		"User-Agent": []string{fmt.Sprintf("goat/%s", versioninfo.Short())},
+		"User-Agent": []string{fmt.Sprintf("at-repo-tool/%s", versioninfo.Short())},
 	})
 	if err != nil {
 		return fmt.Errorf("subscribing to firehose failed (dialing): %w", err)
