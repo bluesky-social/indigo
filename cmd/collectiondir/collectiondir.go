@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -18,11 +19,11 @@ import (
 	"time"
 
 	"github.com/earthboundkid/versioninfo/v2"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func main() {
-	app := cli.App{
+	app := cli.Command{
 		Name:    "collectiondir",
 		Usage:   "collection directory service",
 		Version: versioninfo.Short(),
@@ -40,8 +41,7 @@ func main() {
 			adminCrawlCmd,
 		},
 	}
-	err := app.Run(os.Args)
-	if err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 		os.Exit(1)
 	}
@@ -57,14 +57,14 @@ var statsCmd = &cli.Command{
 			Required: true,
 		},
 	},
-	Action: func(cctx *cli.Context) error {
+	Action: func(ctx context.Context, cmd *cli.Command) error {
 		logLevel := slog.LevelInfo
-		if cctx.Bool("verbose") {
+		if cmd.Bool("verbose") {
 			logLevel = slog.LevelDebug
 		}
 		log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel}))
 		slog.SetDefault(log)
-		pebblePath := cctx.String("pebble")
+		pebblePath := cmd.String("pebble")
 		var db PebbleCollectionDirectory
 		db.log = log
 		err := db.Open(pebblePath)
@@ -94,14 +94,14 @@ var exportCmd = &cli.Command{
 			Required: true,
 		},
 	},
-	Action: func(cctx *cli.Context) error {
+	Action: func(ctx context.Context, cmd *cli.Command) error {
 		logLevel := slog.LevelInfo
-		if cctx.Bool("verbose") {
+		if cmd.Bool("verbose") {
 			logLevel = slog.LevelDebug
 		}
 		log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel}))
 		slog.SetDefault(log)
-		pebblePath := cctx.String("pebble")
+		pebblePath := cmd.String("pebble")
 		var db PebbleCollectionDirectory
 		db.log = log
 		err := db.Open(pebblePath)
@@ -112,7 +112,7 @@ var exportCmd = &cli.Command{
 
 		rows := make(chan CollectionDidTime, 100)
 		go func() {
-			err := db.ReadAllPrimary(cctx.Context, rows)
+			err := db.ReadAllPrimary(ctx, rows)
 			if err != nil {
 				log.Error("db read", "path", pebblePath, "err", err)
 			}
@@ -153,14 +153,14 @@ var buildCmd = &cli.Command{
 			Required: true,
 		},
 	},
-	Action: func(cctx *cli.Context) error {
+	Action: func(ctx context.Context, cmd *cli.Command) error {
 		logLevel := slog.LevelInfo
-		if cctx.Bool("verbose") {
+		if cmd.Bool("verbose") {
 			logLevel = slog.LevelDebug
 		}
 		log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel}))
 		slog.SetDefault(log)
-		pebblePath := cctx.String("pebble")
+		pebblePath := cmd.String("pebble")
 		var db PebbleCollectionDirectory
 		db.log = log
 		err := db.Open(pebblePath)
@@ -168,7 +168,7 @@ var buildCmd = &cli.Command{
 			return err
 		}
 		defer db.Close()
-		csvPath := cctx.String("csv")
+		csvPath := cmd.String("csv")
 		var fin io.Reader
 		if csvPath == "-" {
 			fin = os.Stdin
@@ -231,17 +231,17 @@ var adminCrawlCmd = &cli.Command{
 			Name:     "url",
 			Usage:    "host:port of collectiondir server",
 			Required: true,
-			EnvVars:  []string{"COLLECTIONDIR_URL"},
+			Sources:  cli.EnvVars("COLLECTIONDIR_URL"),
 		},
 		&cli.StringFlag{
 			Name:    "auth",
 			Usage:   "Auth token for admin api",
-			EnvVars: []string{"ADMIN_AUTH"},
+			Sources: cli.EnvVars("ADMIN_AUTH"),
 		},
 	},
-	Action: func(cctx *cli.Context) error {
+	Action: func(ctx context.Context, cmd *cli.Command) error {
 		logLevel := slog.LevelInfo
-		if cctx.Bool("verbose") {
+		if cmd.Bool("verbose") {
 			logLevel = slog.LevelDebug
 		}
 		log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel}))
@@ -249,21 +249,21 @@ var adminCrawlCmd = &cli.Command{
 
 		var hostList []string
 
-		serverUrl, err := url.Parse(cctx.String("url"))
+		serverUrl, err := url.Parse(cmd.String("url"))
 		if err != nil {
 			var e2 error
 			// try to fixup a bare host:port which can confuse url.Parse
-			serverUrl, e2 = url.Parse("http://" + cctx.String("url"))
+			serverUrl, e2 = url.Parse("http://" + cmd.String("url"))
 			if e2 != nil {
 				return fmt.Errorf("could not parse url, %w", err)
 			}
 		}
 		requestCrawlUrl := serverUrl.JoinPath("/admin/pds/requestCrawl")
 
-		if cctx.IsSet("list") {
-			fin, err := os.Open(cctx.String("list"))
+		if cmd.IsSet("list") {
+			fin, err := os.Open(cmd.String("list"))
 			if err != nil {
-				return fmt.Errorf("%s: could not open, %w", cctx.String("list"), err)
+				return fmt.Errorf("%s: could not open, %w", cmd.String("list"), err)
 			}
 			defer fin.Close()
 			bufin := bufio.NewScanner(fin)
@@ -272,20 +272,20 @@ var adminCrawlCmd = &cli.Command{
 			}
 			err = bufin.Err()
 			if err != nil {
-				return fmt.Errorf("%s: error reading, %w", cctx.String("list"), err)
+				return fmt.Errorf("%s: error reading, %w", cmd.String("list"), err)
 			}
-		} else if cctx.IsSet("csv") {
-			fin, err := os.Open(cctx.String("csv"))
+		} else if cmd.IsSet("csv") {
+			fin, err := os.Open(cmd.String("csv"))
 			if err != nil {
-				return fmt.Errorf("%s: could not open, %w", cctx.String("csv"), err)
+				return fmt.Errorf("%s: could not open, %w", cmd.String("csv"), err)
 			}
 			defer fin.Close()
 			data, err := csv.NewReader(fin).ReadAll()
 			if err != nil {
-				return fmt.Errorf("%s: could not read, %w", cctx.String("csv"), err)
+				return fmt.Errorf("%s: could not read, %w", cmd.String("csv"), err)
 			}
 			if len(data) < 2 {
-				return fmt.Errorf("%s: empty CSV file", cctx.String("csv"))
+				return fmt.Errorf("%s: empty CSV file", cmd.String("csv"))
 			}
 			headerRow := data[0]
 			hostCol := -1
@@ -297,7 +297,7 @@ var adminCrawlCmd = &cli.Command{
 				}
 			}
 			if hostCol < 0 {
-				return fmt.Errorf("%s: header missing 'host' or 'hostname'", cctx.String("csv"))
+				return fmt.Errorf("%s: header missing 'host' or 'hostname'", cmd.String("csv"))
 			}
 			for _, row := range data[1:] {
 				hostList = append(hostList, row[hostCol])
@@ -310,8 +310,8 @@ var adminCrawlCmd = &cli.Command{
 
 		client := http.Client{Timeout: 1 * time.Second}
 		var headers http.Header = make(http.Header)
-		if cctx.IsSet("auth") {
-			headers.Add("Authorization", "Bearer "+cctx.String("auth"))
+		if cmd.IsSet("auth") {
+			headers.Add("Authorization", "Bearer "+cmd.String("auth"))
 		}
 		headers.Add("Content-Type", "application/json")
 		var response *http.Response
