@@ -103,13 +103,13 @@ func run(args []string) error {
 					Sources: cli.EnvVars("RELAY_HOST_CONCURRENCY", "RELAY_CONCURRENCY_PER_PDS"),
 					Value:   40,
 				},
-				&cli.IntFlag{
+				&cli.Int64Flag{
 					Name:    "default-account-limit",
 					Value:   100,
 					Usage:   "max number of active accounts for new upstream hosts",
 					Sources: cli.EnvVars("RELAY_DEFAULT_ACCOUNT_LIMIT", "RELAY_DEFAULT_REPO_LIMIT"),
 				},
-				&cli.IntFlag{
+				&cli.Int64Flag{
 					Name:    "new-hosts-per-day-limit",
 					Value:   50,
 					Usage:   "max number of new upstream hosts subscribed per day via public requestCrawl",
