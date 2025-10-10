@@ -100,8 +100,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 			return n.EventProcessor.ProcessIdentity(context.Background(), evt)
 		},
 		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
-			// @TODO
-			return nil
+			return n.EventProcessor.ProcessAccount(context.Background(), evt)
 		},
 	}
 

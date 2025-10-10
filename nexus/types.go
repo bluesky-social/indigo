@@ -44,8 +44,7 @@ type RecordEvt struct {
 type UserEvt struct {
 	Did      string `json:"did"`
 	Handle   string `json:"handle"`
-	Pds      string `json:"pds"`
-	IsActive string `json:"is_active"`
+	IsActive bool   `json:"is_active"`
 	Status   string `json:"status"`
 }
 
