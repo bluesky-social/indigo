@@ -28,90 +28,6 @@ type EventProcessor struct {
 	seqMu   sync.Mutex
 }
 
-func (ep *EventProcessor) ProcessIdentity(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Identity) error {
-	defer ep.trackLastSeq(evt.Seq)
-	return ep.RefreshIdentity(ctx, evt.Did)
-}
-
-func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error {
-	curr, err := ep.GetRepoState(did)
-	if err != nil {
-		return err
-	} else if curr == nil {
-		return nil
-	}
-
-	if err := ep.Dir.Purge(ctx, syntax.DID(did).AtIdentifier()); err != nil {
-		ep.Logger.Error("failed to purge identity cache", "did", did, "error", err)
-	}
-
-	id, err := ep.Dir.LookupDID(ctx, syntax.DID(did))
-	if err != nil {
-		return err
-	}
-
-	handleStr := id.Handle.String()
-	if handleStr == curr.Handle {
-		return nil
-	}
-
-	userEvt := &UserEvt{
-		Did:    did,
-		Handle: handleStr,
-	}
-
-	if err := ep.Outbox.SendUserEvt(userEvt); err != nil {
-		ep.Logger.Error("failed to send user evt", "did", did, "error", err)
-		return err
-	}
-
-	if err := ep.DB.Model(&models.Repo{}).
-		Where("did = ?", did).
-		Update("handle", handleStr).Error; err != nil {
-		ep.Logger.Error("failed to update handle", "did", did, "handle", handleStr, "error", err)
-		return err
-	}
-
-	return nil
-}
-
-func (ep *EventProcessor) ProcessSync(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync) error {
-	defer ep.trackLastSeq(evt.Seq)
-
-	curr, err := ep.GetRepoState(evt.Did)
-	if err != nil {
-		return err
-	} else if curr == nil {
-		return nil
-	}
-
-	commit, err := repo.VerifySyncMessage(ctx, ep.Dir, evt)
-	if err != nil {
-		return fmt.Errorf("failed to verify sync message: %w", err)
-	}
-
-	if curr.State != models.RepoStateActive {
-		return nil
-	}
-
-	if curr.Rev != "" && commit.Rev <= curr.Rev {
-		ep.Logger.Debug("skipping replayed event", "did", commit.DID, "eventRev", commit.Rev, "currentRev", curr.Rev)
-		return nil
-	}
-
-	if curr.PrevData == commit.Data.String() {
-		ep.Logger.Debug("skipping noop sync event", "did", commit.DID, "rev", commit.Rev)
-		return nil
-	}
-
-	if err := ep.UpdateRepoState(commit.DID, models.RepoStateDesynced); err != nil {
-		ep.Logger.Error("failed to update repo state to desynced", "did", commit.DID, "error", err)
-		return err
-	}
-
-	return nil
-}
-
 func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
 	defer ep.trackLastSeq(evt.Seq)
 
@@ -233,37 +149,88 @@ func (ep *EventProcessor) validateCommit(ctx context.Context, evt *comatproto.Sy
 	return commit, nil
 }
 
-func (ep *EventProcessor) updateRepoState(commit *Commit) error {
-	return ep.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.Repo{}).
-			Where("did = ?", commit.Did).
-			Updates(map[string]interface{}{
-				"rev":       commit.Rev,
-				"prev_data": commit.DataCid,
-			}).Error; err != nil {
-			return err
-		}
+func (ep *EventProcessor) ProcessSync(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync) error {
+	defer ep.trackLastSeq(evt.Seq)
 
-		for _, op := range commit.Ops {
-			if op.Action == "delete" {
-				if err := tx.Delete(&models.RepoRecord{}, "did = ? AND collection = ? AND rkey = ?", commit.Did, op.Collection, op.Rkey).Error; err != nil {
-					return err
-				}
-			} else {
-				repoRecord := models.RepoRecord{
-					Did:        commit.Did,
-					Collection: op.Collection,
-					Rkey:       op.Rkey,
-					Cid:        op.Cid,
-				}
-				if err := tx.Save(&repoRecord).Error; err != nil {
-					return err
-				}
-			}
-		}
-
+	curr, err := ep.GetRepoState(evt.Did)
+	if err != nil {
+		return err
+	} else if curr == nil {
 		return nil
-	})
+	}
+
+	commit, err := repo.VerifySyncMessage(ctx, ep.Dir, evt)
+	if err != nil {
+		return fmt.Errorf("failed to verify sync message: %w", err)
+	}
+
+	if curr.State != models.RepoStateActive {
+		return nil
+	}
+
+	if curr.Rev != "" && commit.Rev <= curr.Rev {
+		ep.Logger.Debug("skipping replayed event", "did", commit.DID, "eventRev", commit.Rev, "currentRev", curr.Rev)
+		return nil
+	}
+
+	if curr.PrevData == commit.Data.String() {
+		ep.Logger.Debug("skipping noop sync event", "did", commit.DID, "rev", commit.Rev)
+		return nil
+	}
+
+	if err := ep.UpdateRepoState(commit.DID, models.RepoStateDesynced); err != nil {
+		ep.Logger.Error("failed to update repo state to desynced", "did", commit.DID, "error", err)
+		return err
+	}
+
+	return nil
+}
+
+func (ep *EventProcessor) ProcessIdentity(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Identity) error {
+	defer ep.trackLastSeq(evt.Seq)
+	return ep.RefreshIdentity(ctx, evt.Did)
+}
+
+func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error {
+	curr, err := ep.GetRepoState(did)
+	if err != nil {
+		return err
+	} else if curr == nil {
+		return nil
+	}
+
+	if err := ep.Dir.Purge(ctx, syntax.DID(did).AtIdentifier()); err != nil {
+		ep.Logger.Error("failed to purge identity cache", "did", did, "error", err)
+	}
+
+	id, err := ep.Dir.LookupDID(ctx, syntax.DID(did))
+	if err != nil {
+		return err
+	}
+
+	handleStr := id.Handle.String()
+	if handleStr == curr.Handle {
+		return nil
+	}
+
+	userEvt := &UserEvt{
+		Did:    did,
+		Handle: handleStr,
+	}
+
+	if err := ep.Outbox.SendUserEvt(userEvt); err != nil {
+		ep.Logger.Error("failed to send user evt", "did", did, "error", err)
+		return err
+	}
+
+	if err := ep.DB.Model(&models.Repo{}).
+		Where("did = ?", did).
+		Update("handle", handleStr).Error; err != nil {
+		ep.Logger.Error("failed to update handle", "did", did, "handle", handleStr, "error", err)
+		return err
+	}
+
+	return nil
 }
 
 func (ep *EventProcessor) addToResyncBuffer(commit *Commit) error {
@@ -315,6 +282,39 @@ func (ep *EventProcessor) drainResyncBuffer(ctx context.Context, did string) err
 
 	ep.Logger.Info("processed buffered resync events", "did", did, "count", len(bufferedEvts))
 	return nil
+}
+
+func (ep *EventProcessor) updateRepoState(commit *Commit) error {
+	return ep.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.Repo{}).
+			Where("did = ?", commit.Did).
+			Updates(map[string]interface{}{
+				"rev":       commit.Rev,
+				"prev_data": commit.DataCid,
+			}).Error; err != nil {
+			return err
+		}
+
+		for _, op := range commit.Ops {
+			if op.Action == "delete" {
+				if err := tx.Delete(&models.RepoRecord{}, "did = ? AND collection = ? AND rkey = ?", commit.Did, op.Collection, op.Rkey).Error; err != nil {
+					return err
+				}
+			} else {
+				repoRecord := models.RepoRecord{
+					Did:        commit.Did,
+					Collection: op.Collection,
+					Rkey:       op.Rkey,
+					Cid:        op.Cid,
+				}
+				if err := tx.Save(&repoRecord).Error; err != nil {
+					return err
+				}
+			}
+		}
+
+		return nil
+	})
 }
 
 func (ep *EventProcessor) trackLastSeq(seq int64) {
