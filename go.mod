@@ -13,7 +13,6 @@ require (
 	github.com/carlmjohnson/versioninfo v0.22.5
 	github.com/cockroachdb/pebble v1.1.2
 	github.com/dustinkirkland/golang-petname v0.0.0-20231002161417-6a283f1aaaf2
-	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/go-redis/cache/v9 v9.0.0
 	github.com/gocql/gocql v1.7.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
