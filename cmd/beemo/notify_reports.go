@@ -12,30 +12,29 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
-func pollNewReports(cctx *cli.Context) error {
-	ctx := context.Background()
-	logger := configLogger(cctx, os.Stdout)
-	slackWebhookURL := cctx.String("slack-webhook-url")
+func pollNewReports(ctx context.Context, cmd *cli.Command) error {
+	logger := configLogger(cmd, os.Stdout)
+	slackWebhookURL := cmd.String("slack-webhook-url")
 
 	// record last-seen report timestamp
 	since := time.Now()
 	// NOTE: uncomment this for testing
 	//since = time.Now().Add(time.Duration(-12) * time.Hour)
-	period := time.Duration(cctx.Int("poll-period")) * time.Second
+	period := time.Duration(cmd.Int("poll-period")) * time.Second
 
 	// create a new session
 	xrpcc := &xrpc.Client{
 		Client: util.RobustHTTPClient(),
-		Host:   cctx.String("pds-host"),
-		Auth:   &xrpc.AuthInfo{Handle: cctx.String("handle")},
+		Host:   cmd.String("pds-host"),
+		Auth:   &xrpc.AuthInfo{Handle: cmd.String("handle")},
 	}
 
 	auth, err := comatproto.ServerCreateSession(ctx, xrpcc, &comatproto.ServerCreateSession_Input{
 		Identifier: xrpcc.Auth.Handle,
-		Password:   cctx.String("password"),
+		Password:   cmd.String("password"),
 	})
 	if err != nil {
 		return err
@@ -45,7 +44,7 @@ func pollNewReports(cctx *cli.Context) error {
 	xrpcc.Auth.Did = auth.Did
 	xrpcc.Auth.Handle = auth.Handle
 
-	adminToken := cctx.String("admin-password")
+	adminToken := cmd.String("admin-password")
 	if len(adminToken) > 0 {
 		xrpcc.AdminToken = &adminToken
 	}
@@ -70,7 +69,7 @@ func pollNewReports(cctx *cli.Context) error {
 		// query just new reports (regardless of resolution state)
 		var limit int64 = 50
 		me, err := toolsozone.ModerationQueryEvents(
-			cctx.Context,
+			ctx,
 			xrpcc,
 			nil,   // addedLabels []string
 			nil,   // addedTags []string
@@ -113,9 +112,9 @@ func pollNewReports(cctx *cli.Context) error {
 				// ok, we found a "new" report, need to notify
 				msg := fmt.Sprintf("⚠️ New report at `%s` ⚠️\n", evt.CreatedAt)
 				msg += fmt.Sprintf("report id: `%d`\t", evt.Id)
-				msg += fmt.Sprintf("instance: `%s`\n", cctx.String("pds-host"))
+				msg += fmt.Sprintf("instance: `%s`\n", cmd.String("pds-host"))
 				msg += fmt.Sprintf("reasonType: `%s`\t", shortType)
-				msg += fmt.Sprintf("Admin: %s/reports/%d\n", cctx.String("admin-host"), evt.Id)
+				msg += fmt.Sprintf("Admin: %s/reports/%d\n", cmd.String("admin-host"), evt.Id)
 				//msg += fmt.Sprintf("reportedByDid: `%s`\n", report.ReportedByDid)
 				logger.Info("found new report, notifying slack", "report", report)
 				err := sendSlackMsg(ctx, msg, slackWebhookURL)
