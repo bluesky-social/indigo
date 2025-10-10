@@ -35,9 +35,16 @@ func (n *Nexus) handleListen(c echo.Context) error {
 
 	n.logger.Info("websocket connected")
 
-	return n.outbox.Subscribe(c.Request().Context(), func(evt *OutboxEvt) error {
-		return ws.WriteJSON(evt)
-	})
+	evtCh := n.outbox.Subscribe(c.Request().Context())
+
+	for evt := range evtCh {
+		if err := ws.WriteJSON(evt); err != nil {
+			n.logger.Info("websocket write error", "error", err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 type DidPayload struct {

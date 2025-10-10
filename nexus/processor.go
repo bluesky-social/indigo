@@ -71,18 +71,24 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 		}
 	}
 
-	for _, recEvt := range commit.ToEvts() {
-		if err := ep.Outbox.SendRecordEvt(recEvt); err != nil {
-			ep.Logger.Error("failed to send to outbox", "did", commit.Did, "rev", commit.Rev, "error", err)
+	if err := ep.DB.Transaction(func(tx *gorm.DB) error {
+		if err := updateRepoState(tx, commit); err != nil {
 			return err
 		}
-	}
 
-	if err := ep.updateRepoState(commit); err != nil {
+		for _, recEvt := range commit.ToEvts() {
+			if err := persistRecordEvt(tx, recEvt); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}); err != nil {
 		ep.Logger.Error("failed to update repo state", "did", commit.Did, "rev", commit.Rev, "error", err)
 		return err
 	}
 
+	ep.Outbox.Notify()
 	return nil
 }
 
@@ -212,13 +218,6 @@ func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error
 		return nil
 	}
 
-	if err := ep.DB.Model(&models.Repo{}).
-		Where("did = ?", did).
-		Update("handle", handleStr).Error; err != nil {
-		ep.Logger.Error("failed to update handle", "did", did, "handle", handleStr, "error", err)
-		return err
-	}
-
 	userEvt := &UserEvt{
 		Did:      did,
 		Handle:   handleStr,
@@ -226,11 +225,20 @@ func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error
 		Status:   curr.Status,
 	}
 
-	if err := ep.Outbox.SendUserEvt(userEvt); err != nil {
-		ep.Logger.Error("failed to send user evt", "did", did, "error", err)
+	if err := ep.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.Repo{}).
+			Where("did = ?", did).
+			Update("handle", handleStr).Error; err != nil {
+			return err
+		}
+
+		return persistUserEvt(tx, userEvt)
+	}); err != nil {
+		ep.Logger.Error("failed to update handle", "did", did, "handle", handleStr, "error", err)
 		return err
 	}
 
+	ep.Outbox.Notify()
 	return nil
 }
 
@@ -258,33 +266,38 @@ func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.Sy
 		return nil
 	}
 
-	if updateTo == models.AccountStatusDeleted {
-		err := ep.DeleteRepo(evt.Did)
-		if err != nil {
-			ep.Logger.Error("failed to delete repo", "did", evt.Did, "error", err)
-			return err
-		}
-	} else {
-		err = ep.DB.Model(&models.Repo{}).
-			Where("did = ?", evt.Did).
-			Update("status", updateTo).Error
-		if err != nil {
-			ep.Logger.Error("failed to update repo status", "did", evt.Did, "status", models.AccountStatusActive, "error", err)
-			return err
-		}
-	}
-
-	err = ep.Outbox.SendUserEvt(&UserEvt{
+	userEvt := &UserEvt{
 		Did:      curr.Did,
 		Handle:   curr.Handle,
 		IsActive: evt.Active,
 		Status:   updateTo,
-	})
-	if err != nil {
-		ep.Logger.Error("failed to send user evt", "did", evt.Did, "error", err)
-		return err
 	}
 
+	if updateTo == models.AccountStatusDeleted {
+		if err := ep.DB.Transaction(func(tx *gorm.DB) error {
+			if err := deleteRepo(tx, evt.Did); err != nil {
+				return err
+			}
+			return persistUserEvt(tx, userEvt)
+		}); err != nil {
+			ep.Logger.Error("failed to delete repo", "did", evt.Did, "error", err)
+			return err
+		}
+	} else {
+		if err := ep.DB.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Model(&models.Repo{}).
+				Where("did = ?", evt.Did).
+				Update("status", updateTo).Error; err != nil {
+				return err
+			}
+			return persistUserEvt(tx, userEvt)
+		}); err != nil {
+			ep.Logger.Error("failed to update repo status", "did", evt.Did, "status", updateTo, "error", err)
+			return err
+		}
+	}
+
+	ep.Outbox.Notify()
 	return nil
 }
 
@@ -317,77 +330,104 @@ func (ep *EventProcessor) drainResyncBuffer(ctx context.Context, did string) err
 			return fmt.Errorf("failed to unmarshal buffered event: %w", err)
 		}
 
-		for _, recEvt := range commit.ToEvts() {
-			if err := ep.Outbox.SendRecordEvt(recEvt); err != nil {
-				ep.Logger.Error("failed to send to outbox", "did", commit.Did, "rev", commit.Rev, "error", err)
+		if err := ep.DB.Transaction(func(tx *gorm.DB) error {
+			if err := updateRepoState(tx, &commit); err != nil {
 				return err
 			}
-		}
 
-		if err := ep.updateRepoState(&commit); err != nil {
-			ep.Logger.Error("failed to update repo state", "did", commit.Did, "rev", commit.Rev, "error", err)
+			for _, recEvt := range commit.ToEvts() {
+				if err := persistRecordEvt(tx, recEvt); err != nil {
+					return err
+				}
+			}
+
+			if err := tx.Delete(&models.ResyncBuffer{}, "id = ?", evt.ID).Error; err != nil {
+				return err
+			}
+
+			return nil
+		}); err != nil {
+			ep.Logger.Error("failed to process buffered commit", "did", commit.Did, "rev", commit.Rev, "error", err)
 			return err
 		}
 
-		if err := ep.DB.Delete(&models.ResyncBuffer{}, "id = ?", evt.ID).Error; err != nil {
-			ep.Logger.Error("failed to delete buffered event", "id", evt.ID, "did", commit.Did, "rev", commit.Rev, "error", err)
-			return err
-		}
+		ep.Outbox.Notify()
 	}
 
 	ep.Logger.Info("processed buffered resync events", "did", did, "count", len(bufferedEvts))
 	return nil
 }
 
-func (ep *EventProcessor) updateRepoState(commit *Commit) error {
-	return ep.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.Repo{}).
-			Where("did = ?", commit.Did).
-			Updates(map[string]interface{}{
-				"rev":       commit.Rev,
-				"prev_data": commit.DataCid,
-			}).Error; err != nil {
-			return err
-		}
+func updateRepoState(tx *gorm.DB, commit *Commit) error {
+	if err := tx.Model(&models.Repo{}).
+		Where("did = ?", commit.Did).
+		Updates(map[string]interface{}{
+			"rev":       commit.Rev,
+			"prev_data": commit.DataCid,
+		}).Error; err != nil {
+		return err
+	}
 
-		for _, op := range commit.Ops {
-			if op.Action == "delete" {
-				if err := tx.Delete(&models.RepoRecord{}, "did = ? AND collection = ? AND rkey = ?", commit.Did, op.Collection, op.Rkey).Error; err != nil {
-					return err
-				}
-			} else {
-				repoRecord := models.RepoRecord{
-					Did:        commit.Did,
-					Collection: op.Collection,
-					Rkey:       op.Rkey,
-					Cid:        op.Cid,
-				}
-				if err := tx.Save(&repoRecord).Error; err != nil {
-					return err
-				}
+	for _, op := range commit.Ops {
+		if op.Action == "delete" {
+			if err := tx.Delete(&models.RepoRecord{}, "did = ? AND collection = ? AND rkey = ?", commit.Did, op.Collection, op.Rkey).Error; err != nil {
+				return err
+			}
+		} else {
+			repoRecord := models.RepoRecord{
+				Did:        commit.Did,
+				Collection: op.Collection,
+				Rkey:       op.Rkey,
+				Cid:        op.Cid,
+			}
+			if err := tx.Save(&repoRecord).Error; err != nil {
+				return err
 			}
 		}
+	}
 
-		return nil
+	return nil
+}
+
+func deleteRepo(tx *gorm.DB, did string) error {
+	if err := tx.Delete(&models.RepoRecord{}, "did = ?", did).Error; err != nil {
+		return err
+	}
+
+	if err := tx.Delete(&models.ResyncBuffer{}, "did = ?", did).Error; err != nil {
+		return err
+	}
+
+	if err := tx.Delete(&models.Repo{}, "did = ?", did).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func persistRecordEvt(tx *gorm.DB, evt *RecordEvt) error {
+	return persistOutboxEvt(tx, &OutboxEvt{
+		Type:      "record",
+		RecordEvt: evt,
 	})
 }
 
-func (ep *EventProcessor) DeleteRepo(did string) error {
-	return ep.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Delete(&models.RepoRecord{}, "did = ?", did).Error; err != nil {
-			return err
-		}
-
-		if err := tx.Delete(&models.ResyncBuffer{}, "did = ?", did).Error; err != nil {
-			return err
-		}
-
-		if err := tx.Delete(&models.Repo{}, "did = ?", did).Error; err != nil {
-			return err
-		}
-
-		return nil
+func persistUserEvt(tx *gorm.DB, evt *UserEvt) error {
+	return persistOutboxEvt(tx, &OutboxEvt{
+		Type:    "user",
+		UserEvt: evt,
 	})
+}
+
+func persistOutboxEvt(tx *gorm.DB, evt *OutboxEvt) error {
+	jsonData, err := json.Marshal(evt)
+	if err != nil {
+		return err
+	}
+
+	return tx.Create(&models.OutboxBuffer{
+		Data: string(jsonData),
+	}).Error
 }
 
 func (ep *EventProcessor) saveCursor(ctx context.Context) error {

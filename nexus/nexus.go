@@ -122,6 +122,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	}
 
 	go n.EventProcessor.RunCursorSaver(context.Background(), cursorSaveInterval)
+	go n.outbox.Run(context.Background())
 
 	n.registerRoutes()
 
