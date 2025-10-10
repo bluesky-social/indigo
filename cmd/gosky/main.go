@@ -15,6 +15,8 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/joho/godotenv/autoload"
+
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
@@ -28,22 +30,19 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
-	"golang.org/x/time/rate"
 
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/gorilla/websocket"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car"
-
-	_ "github.com/joho/godotenv/autoload"
-
-	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/polydawn/refmt/cbor"
 	rejson "github.com/polydawn/refmt/json"
 	"github.com/polydawn/refmt/shared"
-	cli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
+	"golang.org/x/time/rate"
 )
 
 var log = slog.Default().With("system", "gosky")

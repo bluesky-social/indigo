@@ -13,13 +13,6 @@ import (
 	"time"
 
 	_ "github.com/joho/godotenv/autoload"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/sdk/resource"
-	tracesdk "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
-	"golang.org/x/time/rate"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/search"
@@ -27,7 +20,14 @@ import (
 
 	"github.com/earthboundkid/versioninfo/v2"
 	es "github.com/opensearch-project/opensearch-go/v2"
-	cli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/sdk/resource"
+	tracesdk "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	"golang.org/x/time/rate"
 )
 
 func main() {

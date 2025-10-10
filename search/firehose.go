@@ -17,11 +17,11 @@ import (
 	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
-	typegen "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
+	typegen "github.com/whyrusleeping/cbor-gen"
 )
 
 func (idx *Indexer) getLastCursor() (int64, error) {
@@ -219,7 +219,7 @@ func (idx *Indexer) handleCreateOrUpdate(ctx context.Context, rawDID string, rev
 	}
 
 	switch rec := rec.(type) {
-	case *bsky.FeedPost:
+	case *appbsky.FeedPost:
 		rkey, err := syntax.ParseTID(parts[1])
 		if err != nil {
 			logger.Warn("skipping post record with non-TID rkey")
@@ -236,7 +236,7 @@ func (idx *Indexer) handleCreateOrUpdate(ctx context.Context, rawDID string, rev
 		// Send the job to the bulk indexer
 		idx.postQueue <- &job
 		postsIndexed.Inc()
-	case *bsky.ActorProfile:
+	case *appbsky.ActorProfile:
 		if parts[1] != "self" {
 			return nil
 		}
@@ -330,7 +330,7 @@ func (idx *Indexer) processTooBigCommit(ctx context.Context, evt *comatproto.Syn
 			}
 
 			switch rec := rec.(type) {
-			case *bsky.FeedPost:
+			case *appbsky.FeedPost:
 				rkey, err := syntax.ParseTID(parts[1])
 				if err != nil {
 					logger.Warn("skipping post record with non-TID rkey")
@@ -346,7 +346,7 @@ func (idx *Indexer) processTooBigCommit(ctx context.Context, evt *comatproto.Syn
 
 				// Send the job to the bulk indexer
 				idx.postQueue <- &job
-			case *bsky.ActorProfile:
+			case *appbsky.ActorProfile:
 				if parts[1] != "self" {
 					return nil
 				}

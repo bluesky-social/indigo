@@ -19,18 +19,18 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/joho/godotenv/autoload"
+
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/repo"
+
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/ipfs/go-cid"
-	_ "github.com/joho/godotenv/autoload"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"golang.org/x/time/rate"
-
-	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/time/rate"
 )
 
 func main() {
