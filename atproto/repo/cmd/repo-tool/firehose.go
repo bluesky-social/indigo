@@ -16,18 +16,17 @@ import (
 
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/gorilla/websocket"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 // write out error cases as JSON files to disk, for use in regression tests
 var CAPTURE_TEST_CASES = false
 
-func runVerifyFirehose(cctx *cli.Context) error {
-	ctx := context.Background()
+func runVerifyFirehose(ctx context.Context, cmd *cli.Command) error {
 
-	slog.SetDefault(configLogger(cctx, os.Stdout))
+	slog.SetDefault(configLogger(ctx, cmd, os.Stdout))
 
-	relayHost := cctx.String("relay-host")
+	relayHost := cmd.String("relay-host")
 
 	dialer := websocket.DefaultDialer
 	u, err := url.Parse(relayHost)

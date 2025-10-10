@@ -12,12 +12,11 @@ import (
 	"github.com/bluesky-social/indigo/atproto/lexicon"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
-func runValidateRecord(cctx *cli.Context) error {
-	ctx := context.Background()
-	args := cctx.Args().Slice()
+func runValidateRecord(ctx context.Context, cmd *cli.Command) error {
+	args := cmd.Args().Slice()
 	if len(args) != 2 {
 		return fmt.Errorf("expected two args (catalog path and AT-URI)")
 	}
