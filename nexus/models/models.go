@@ -3,20 +3,34 @@ package models
 type RepoState string
 
 const (
-	RepoStatePending   RepoState = "pending"
-	RepoStateResyncing RepoState = "resyncing"
-	RepoStateActive    RepoState = "active"
-	RepoStateDesynced  RepoState = "desynced"
-	RepoStateError     RepoState = "error"
+	RepoStatePending     RepoState = "pending"
+	RepoStateDesynced    RepoState = "desynced"
+	RepoStateResyncing   RepoState = "resyncing"
+	RepoStateActive      RepoState = "active"
+	RepoStateTakendown   RepoState = "takendown"
+	RepoStateSuspended   RepoState = "suspended"
+	RepoStateDeactivated RepoState = "deactivated"
+	RepoStateError       RepoState = "error"
+)
+
+type RepoStatus string
+
+const (
+	RepoStatusActive      RepoStatus = "active"
+	RepoStatusTakendown   RepoStatus = "takendown"
+	RepoStatusSuspended   RepoStatus = "suspended"
+	RepoStatusDeactivated RepoStatus = "deactivated"
+	RepoStatusDeleted     RepoStatus = "deleted"
 )
 
 type Repo struct {
-	Did      string    `gorm:"primaryKey"`
-	State    RepoState `gorm:"not null;default:'pending';index"`
-	Handle   string    `gorm:"type:text"`
-	Rev      string    `gorm:"type:text"`
-	PrevData string    `gorm:"type:text"`
-	ErrorMsg string    `gorm:"type:text"`
+	Did      string     `gorm:"primaryKey"`
+	State    RepoState  `gorm:"not null;default:'pending';index"`
+	Status   RepoStatus `gorm:"not null;default:'active'"`
+	Handle   string     `gorm:"type:text"`
+	Rev      string     `gorm:"type:text"`
+	PrevData string     `gorm:"type:text"`
+	ErrorMsg string     `gorm:"type:text"`
 }
 
 type OutboxBuffer struct {

@@ -213,6 +213,13 @@ func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error
 		return nil
 	}
 
+	if err := ep.DB.Model(&models.Repo{}).
+		Where("did = ?", did).
+		Update("handle", handleStr).Error; err != nil {
+		ep.Logger.Error("failed to update handle", "did", did, "handle", handleStr, "error", err)
+		return err
+	}
+
 	userEvt := &UserEvt{
 		Did:    did,
 		Handle: handleStr,
@@ -223,10 +230,50 @@ func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error
 		return err
 	}
 
-	if err := ep.DB.Model(&models.Repo{}).
-		Where("did = ?", did).
-		Update("handle", handleStr).Error; err != nil {
-		ep.Logger.Error("failed to update handle", "did", did, "handle", handleStr, "error", err)
+	return nil
+}
+
+func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Account) error {
+	curr, err := ep.GetRepoState(evt.Did)
+	if err != nil {
+		return err
+	} else if curr == nil {
+		return nil
+	}
+
+	// handle delete first
+
+	var updateTo models.RepoStatus
+	if evt.Active {
+		updateTo = models.RepoStatusActive
+	} else if *evt.Status == string(models.RepoStatusDeactivated) || *evt.Status == string(models.RepoStatusTakendown) || *evt.Status == string(models.RepoStatusSuspended) {
+		updateTo = models.RepoStatus(*evt.Status)
+	} else {
+		// NOOP
+		return nil
+	}
+
+	if curr.Status == updateTo {
+		return nil
+	}
+
+	err = ep.DB.Model(&models.Repo{}).
+		Where("did = ?", evt.Did).
+		Update("status", updateTo).Error
+	if err != nil {
+		ep.Logger.Error("failed to update repo status", "did", evt.Did, "status", models.RepoStatusActive, "error", err)
+		return err
+	}
+
+	err = ep.Outbox.SendUserEvt(&UserEvt{
+		Did:      curr.Did,
+		Handle:   curr.Handle,
+		IsActive: evt.Active,
+		Status:   string(updateTo),
+	})
+
+	if err != nil {
+		ep.Logger.Error("failed to send user evt", "did", evt.Did, "error", err)
 		return err
 	}
 
