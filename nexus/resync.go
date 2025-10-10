@@ -182,20 +182,24 @@ func (n *Nexus) doResync(ctx context.Context, did string) error {
 			Cid:        recCid.String(),
 		}
 
-		if err := n.outbox.SendRecordEvt(evt); err != nil {
-			return fmt.Errorf("failed to send evt: %w", err)
-		}
-
 		repoRecord := models.RepoRecord{
 			Did:        did,
 			Collection: collStr,
 			Rkey:       rkeyStr,
 			Cid:        cidStr,
 		}
-		if err := n.db.Save(&repoRecord).Error; err != nil {
-			n.logger.Error("failed to save repo record", "error", err, "did", did, "path", recPath)
+
+		if err := n.db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Save(&repoRecord).Error; err != nil {
+				return err
+			}
+			return persistRecordEvt(tx, evt)
+		}); err != nil {
+			n.logger.Error("failed to save record and persist event", "error", err, "did", did, "path", recPath)
+			return nil
 		}
 
+		n.outbox.Notify()
 		numRecords++
 		return nil
 	})
