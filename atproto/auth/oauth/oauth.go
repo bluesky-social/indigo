@@ -521,6 +521,15 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 //
 // The returned sting will be a web URL that the user should be redirected to (in browser) to approve the auth flow.
 func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (string, error) {
+	return app.StartAuthFlowWithUserData(ctx, identifier, "")
+}
+
+// The same as StartAuthFlow, but accepting an additional `userData` string argument.
+//
+// This string will be persisted to the session store, along with the rest of the session metadata.
+//
+// At the end of a successful auth flow, it is accessible via the `ClientSessionData.UserData` field.
+func (app *ClientApp) StartAuthFlowWithUserData(ctx context.Context, identifier string, userData string) (string, error) {
 
 	var authserverURL string
 	var accountDID syntax.DID
@@ -565,6 +574,8 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (str
 	if accountDID != "" {
 		info.AccountDID = &accountDID
 	}
+
+	info.UserData = userData
 
 	// persist auth request info
 	app.Store.SaveAuthRequestInfo(ctx, *info)
@@ -681,6 +692,7 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 		DPoPAuthServerNonce:          info.DPoPAuthServerNonce,
 		DPoPHostNonce:                info.DPoPAuthServerNonce, // bootstrap host nonce from authserver
 		DPoPPrivateKeyMultibase:      info.DPoPPrivateKeyMultibase,
+		UserData:                     info.UserData,
 	}
 	if err := app.Store.SaveSession(ctx, sessData); err != nil {
 		return nil, err
