@@ -17,7 +17,7 @@ import (
 	"github.com/bluesky-social/indigo/splitter"
 	"github.com/bluesky-social/indigo/util/svcutil"
 
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"

@@ -31,7 +31,7 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	_ "go.uber.org/automaxprocs"
 
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"

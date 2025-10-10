@@ -11,7 +11,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	es "github.com/opensearch-project/opensearch-go/v2"

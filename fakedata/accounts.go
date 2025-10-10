@@ -10,7 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 )
 
 type AccountCatalog struct {

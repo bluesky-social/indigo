@@ -14,7 +14,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity/apidir"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/urfave/cli/v2"
 )

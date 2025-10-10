@@ -25,7 +25,7 @@ import (
 	"github.com/bluesky-social/indigo/search"
 	"github.com/bluesky-social/indigo/util/cliutil"
 
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	es "github.com/opensearch-project/opensearch-go/v2"
 	cli "github.com/urfave/cli/v2"
 )

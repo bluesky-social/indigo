@@ -19,7 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "go.uber.org/automaxprocs"
 
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v2"
 )
 

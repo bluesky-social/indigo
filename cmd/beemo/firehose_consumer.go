@@ -17,7 +17,7 @@ import (
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/gorilla/websocket"
 )
 

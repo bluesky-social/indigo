@@ -13,7 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
 
 	"github.com/bluesky-social/indigo/events"
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"
 )

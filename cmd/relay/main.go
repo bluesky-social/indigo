@@ -22,7 +22,7 @@ import (
 	"github.com/bluesky-social/indigo/cmd/relay/stream/persist/diskpersist"
 	"github.com/bluesky-social/indigo/util/cliutil"
 
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v2"
 	"gorm.io/plugin/opentelemetry/tracing"
 )
