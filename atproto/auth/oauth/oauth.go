@@ -112,6 +112,11 @@ func (config *ClientConfig) IsConfidential() bool {
 	return config.PrivateKey != nil && config.KeyID != nil
 }
 
+// Set the secret key used for client assertions (for confidential clients).
+//
+// The corresponding public key (with matching key ID) must be present in the JWK list referenced by the client metadata document.
+//
+// Key IDs may be arbitrary strings such as UUIDs, stringified sequence numbers, or human-readable identifiers.
 func (config *ClientConfig) SetClientSecret(priv atcrypto.PrivateKey, keyID string) error {
 	switch priv.(type) {
 	case *atcrypto.PrivateKeyP256:
