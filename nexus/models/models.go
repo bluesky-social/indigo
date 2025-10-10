@@ -13,6 +13,7 @@ const (
 type Repo struct {
 	Did      string    `gorm:"primaryKey"`
 	State    RepoState `gorm:"not null;default:'pending';index"`
+	Handle   string    `gorm:"type:text"`
 	Rev      string    `gorm:"type:text"`
 	PrevData string    `gorm:"type:text"`
 	ErrorMsg string    `gorm:"type:text"`

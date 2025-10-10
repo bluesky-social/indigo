@@ -168,7 +168,7 @@ func (n *Nexus) doResync(ctx context.Context, did string) error {
 			return nil
 		}
 
-		op := &Op{
+		evt := &RecordEvt{
 			Did:        did,
 			Collection: collStr,
 			Rkey:       rkeyStr,
@@ -177,8 +177,8 @@ func (n *Nexus) doResync(ctx context.Context, did string) error {
 			Cid:        recCid.String(),
 		}
 
-		if err := n.outbox.Send(op); err != nil {
-			return fmt.Errorf("failed to send op: %w", err)
+		if err := n.outbox.SendRecordEvt(evt); err != nil {
+			return fmt.Errorf("failed to send evt: %w", err)
 		}
 
 		repoRecord := models.RepoRecord{

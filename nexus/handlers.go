@@ -35,8 +35,8 @@ func (n *Nexus) handleListen(c echo.Context) error {
 
 	n.logger.Info("websocket connected")
 
-	return n.outbox.Subscribe(c.Request().Context(), func(op *Op) error {
-		return ws.WriteJSON(op)
+	return n.outbox.Subscribe(c.Request().Context(), func(evt *OutboxEvt) error {
+		return ws.WriteJSON(evt)
 	})
 }
 
