@@ -19,22 +19,22 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/joho/godotenv/autoload"
+
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/repo"
+
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/ipfs/go-cid"
-	_ "github.com/joho/godotenv/autoload"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
+	"github.com/urfave/cli/v3"
 	"golang.org/x/time/rate"
-
-	"github.com/carlmjohnson/versioninfo"
-	"github.com/urfave/cli/v2"
 )
 
 func main() {
-	app := cli.App{
+	app := cli.Command{
 		Name:    "netsync",
 		Usage:   "atproto network cloning tool",
 		Version: versioninfo.Short(),
@@ -80,13 +80,13 @@ func main() {
 			Name:    "magic-header-key",
 			Usage:   "header key to send with checkout request",
 			Value:   "",
-			EnvVars: []string{"MAGIC_HEADER_KEY"},
+			Sources: cli.EnvVars("MAGIC_HEADER_KEY"),
 		},
 		&cli.StringFlag{
 			Name:    "magic-header-val",
 			Usage:   "header value to send with checkout request",
 			Value:   "",
-			EnvVars: []string{"MAGIC_HEADER_VAL"},
+			Sources: cli.EnvVars("MAGIC_HEADER_VAL"),
 		},
 	}
 
@@ -94,9 +94,9 @@ func main() {
 		{
 			Name:  "retry",
 			Usage: "requeue failed repos",
-			Action: func(cctx *cli.Context) error {
+			Action: func(ctx context.Context, cmd *cli.Command) error {
 				state := &NetsyncState{
-					StatePath: cctx.String("state-file"),
+					StatePath: cmd.String("state-file"),
 				}
 
 				err := state.Resume()
@@ -123,8 +123,7 @@ func main() {
 
 	app.Action = Netsync
 
-	err := app.Run(os.Args)
-	if err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -260,8 +259,7 @@ func (s *NetsyncState) Finish(repo string, state string) {
 	delete(s.EnqueuedRepos, repo)
 }
 
-func Netsync(cctx *cli.Context) error {
-	ctx := cctx.Context
+func Netsync(ctx context.Context, cmd *cli.Command) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -270,14 +268,14 @@ func Netsync(cctx *cli.Context) error {
 	slog.SetDefault(slog.New(logger.Handler()))
 
 	state := &NetsyncState{
-		StatePath:    cctx.String("state-file"),
-		CheckoutPath: cctx.String("checkout-path"),
+		StatePath:    cmd.String("state-file"),
+		CheckoutPath: cmd.String("checkout-path"),
 
-		outDir:         cctx.String("out-dir"),
-		workerCount:    cctx.Int("worker-count"),
-		limiter:        rate.NewLimiter(rate.Limit(cctx.Float64("checkout-limit")), 1),
-		magicHeaderKey: cctx.String("magic-header-key"),
-		magicHeaderVal: cctx.String("magic-header-val"),
+		outDir:         cmd.String("out-dir"),
+		workerCount:    cmd.Int("worker-count"),
+		limiter:        rate.NewLimiter(rate.Limit(cmd.Float64("checkout-limit")), 1),
+		magicHeaderKey: cmd.String("magic-header-key"),
+		magicHeaderVal: cmd.String("magic-header-val"),
 
 		exit: make(chan struct{}),
 		wg:   sync.WaitGroup{},
@@ -317,7 +315,7 @@ func Netsync(cctx *cli.Context) error {
 
 	if err != nil {
 		// Read repo list
-		repoListFile, err := os.Open(cctx.String("repo-list"))
+		repoListFile, err := os.Open(cmd.String("repo-list"))
 		if err != nil {
 			return err
 		}
@@ -341,7 +339,7 @@ func Netsync(cctx *cli.Context) error {
 	mux.Handle("/metrics", promhttp.Handler())
 
 	metricsServer := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cctx.Int("port")),
+		Addr:    fmt.Sprintf(":%d", cmd.Int("port")),
 		Handler: mux,
 	}
 

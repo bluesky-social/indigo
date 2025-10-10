@@ -11,15 +11,16 @@ import (
 	"os"
 	"runtime"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/fakedata"
-	"github.com/bluesky-social/indigo/util/cliutil"
-
 	_ "github.com/joho/godotenv/autoload"
 	_ "go.uber.org/automaxprocs"
 
-	"github.com/carlmjohnson/versioninfo"
-	"github.com/urfave/cli/v2"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/fakedata"
+	"github.com/bluesky-social/indigo/util/cliutil"
+	"github.com/bluesky-social/indigo/xrpc"
+
+	"github.com/earthboundkid/versioninfo/v2"
+	"github.com/urfave/cli/v3"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -29,7 +30,7 @@ func main() {
 
 func run(args []string) {
 
-	app := cli.App{
+	app := cli.Command{
 		Name:    "fakermaker",
 		Usage:   "bluesky fake account/content generator",
 		Version: versioninfo.Short(),
@@ -40,13 +41,13 @@ func run(args []string) {
 			Name:    "pds-host",
 			Usage:   "method, hostname, and port of PDS instance",
 			Value:   "http://localhost:4849",
-			EnvVars: []string{"ATP_PDS_HOST"},
+			Sources: cli.EnvVars("ATP_PDS_HOST"),
 		},
 		&cli.StringFlag{
 			Name:     "admin-password",
 			Usage:    "admin authentication password for PDS",
 			Required: true,
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
+			Sources:  cli.EnvVars("ATP_AUTH_ADMIN_PASSWORD"),
 		},
 		&cli.IntFlag{
 			Name:    "jobs",
@@ -196,33 +197,36 @@ func run(args []string) {
 		},
 	}
 	all := fakedata.MeasureIterations("entire command")
-	app.RunAndExitOnError()
+	if err := app.Run(context.Background(), os.Args); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+		os.Exit(1)
+	}
 	all(1)
 }
 
 // registers fake accounts with PDS, and spits out JSON-lines to stdout with auth info
-func genAccounts(cctx *cli.Context) error {
+func genAccounts(ctx context.Context, cmd *cli.Command) error {
 
 	// establish atproto client, with admin token for auth
-	xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+	xrpcc, err := getXrpcClient(cmd, false)
 	if err != nil {
 		return err
 	}
-	adminToken := cctx.String("admin-password")
+	adminToken := cmd.String("admin-password")
 	if len(adminToken) > 0 {
 		xrpcc.AdminToken = &adminToken
 	}
 
-	countTotal := cctx.Int("count")
-	countCelebrities := cctx.Int("count-celebrities")
-	domainSuffix := cctx.String("domain-suffix")
+	countTotal := cmd.Int("count")
+	countCelebrities := cmd.Int("count-celebrities")
+	domainSuffix := cmd.String("domain-suffix")
 	if countCelebrities > countTotal {
 		return fmt.Errorf("more celebrities than total accounts!")
 	}
 	countRegulars := countTotal - countCelebrities
 
 	var inviteCode *string = nil
-	if cctx.Bool("use-invite-code") {
+	if cmd.Bool("use-invite-code") {
 		resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
 			UseCount:    int64(countTotal),
 			ForAccounts: nil,
@@ -268,16 +272,16 @@ func genAccounts(cctx *cli.Context) error {
 	return nil
 }
 
-func genProfiles(cctx *cli.Context) error {
-	catalog, err := fakedata.ReadAccountCatalog(cctx.String("catalog"))
+func genProfiles(ctx context.Context, cmd *cli.Command) error {
+	catalog, err := fakedata.ReadAccountCatalog(cmd.String("catalog"))
 	if err != nil {
 		return err
 	}
 
-	pdsHost := cctx.String("pds-host")
-	genAvatar := !cctx.Bool("no-avatars")
-	genBanner := !cctx.Bool("no-banners")
-	jobs := cctx.Int("jobs")
+	pdsHost := cmd.String("pds-host")
+	genAvatar := !cmd.Bool("no-avatars")
+	genBanner := !cmd.Bool("no-banners")
+	jobs := cmd.Int("jobs")
 
 	accChan := make(chan fakedata.AccountContext, len(catalog.Celebs)+len(catalog.Regulars))
 	eg := new(errgroup.Group)
@@ -303,16 +307,16 @@ func genProfiles(cctx *cli.Context) error {
 	return eg.Wait()
 }
 
-func genGraph(cctx *cli.Context) error {
-	catalog, err := fakedata.ReadAccountCatalog(cctx.String("catalog"))
+func genGraph(ctx context.Context, cmd *cli.Command) error {
+	catalog, err := fakedata.ReadAccountCatalog(cmd.String("catalog"))
 	if err != nil {
 		return err
 	}
 
-	pdsHost := cctx.String("pds-host")
-	maxFollows := cctx.Int("max-follows")
-	maxMutes := cctx.Int("max-mutes")
-	jobs := cctx.Int("jobs")
+	pdsHost := cmd.String("pds-host")
+	maxFollows := cmd.Int("max-follows")
+	maxMutes := cmd.Int("max-mutes")
+	jobs := cmd.Int("jobs")
 
 	accChan := make(chan fakedata.AccountContext, len(catalog.Celebs)+len(catalog.Regulars))
 	eg := new(errgroup.Group)
@@ -338,17 +342,17 @@ func genGraph(cctx *cli.Context) error {
 	return eg.Wait()
 }
 
-func genPosts(cctx *cli.Context) error {
-	catalog, err := fakedata.ReadAccountCatalog(cctx.String("catalog"))
+func genPosts(ctx context.Context, cmd *cli.Command) error {
+	catalog, err := fakedata.ReadAccountCatalog(cmd.String("catalog"))
 	if err != nil {
 		return err
 	}
 
-	pdsHost := cctx.String("pds-host")
-	maxPosts := cctx.Int("max-posts")
-	fracImage := cctx.Float64("frac-image")
-	fracMention := cctx.Float64("frac-mention")
-	jobs := cctx.Int("jobs")
+	pdsHost := cmd.String("pds-host")
+	maxPosts := cmd.Int("max-posts")
+	fracImage := cmd.Float64("frac-image")
+	fracMention := cmd.Float64("frac-mention")
+	jobs := cmd.Int("jobs")
 
 	accChan := make(chan fakedata.AccountContext, len(catalog.Celebs)+len(catalog.Regulars))
 	eg := new(errgroup.Group)
@@ -374,17 +378,17 @@ func genPosts(cctx *cli.Context) error {
 	return eg.Wait()
 }
 
-func genInteractions(cctx *cli.Context) error {
-	catalog, err := fakedata.ReadAccountCatalog(cctx.String("catalog"))
+func genInteractions(ctx context.Context, cmd *cli.Command) error {
+	catalog, err := fakedata.ReadAccountCatalog(cmd.String("catalog"))
 	if err != nil {
 		return err
 	}
 
-	pdsHost := cctx.String("pds-host")
-	fracLike := cctx.Float64("frac-like")
-	fracRepost := cctx.Float64("frac-repost")
-	fracReply := cctx.Float64("frac-reply")
-	jobs := cctx.Int("jobs")
+	pdsHost := cmd.String("pds-host")
+	fracLike := cmd.Float64("frac-like")
+	fracRepost := cmd.Float64("frac-repost")
+	fracReply := cmd.Float64("frac-reply")
+	jobs := cmd.Int("jobs")
 
 	accChan := make(chan fakedata.AccountContext, len(catalog.Celebs)+len(catalog.Regulars))
 	eg := new(errgroup.Group)
@@ -412,14 +416,14 @@ func genInteractions(cctx *cli.Context) error {
 	return eg.Wait()
 }
 
-func runBrowsing(cctx *cli.Context) error {
-	catalog, err := fakedata.ReadAccountCatalog(cctx.String("catalog"))
+func runBrowsing(ctx context.Context, cmd *cli.Command) error {
+	catalog, err := fakedata.ReadAccountCatalog(cmd.String("catalog"))
 	if err != nil {
 		return err
 	}
 
-	pdsHost := cctx.String("pds-host")
-	jobs := cctx.Int("jobs")
+	pdsHost := cmd.String("pds-host")
+	jobs := cmd.Int("jobs")
 
 	accChan := make(chan fakedata.AccountContext, len(catalog.Celebs)+len(catalog.Regulars))
 	eg := new(errgroup.Group)
@@ -443,4 +447,48 @@ func runBrowsing(cctx *cli.Context) error {
 	}
 	close(accChan)
 	return eg.Wait()
+}
+
+func getXrpcClient(cmd *cli.Command, authreq bool) (*xrpc.Client, error) {
+	h := "http://localhost:4989"
+	if pdsurl := cmd.String("pds-host"); pdsurl != "" {
+		h = pdsurl
+	}
+
+	auth, err := loadAuthFromEnv(cmd, authreq)
+	if err != nil {
+		return nil, fmt.Errorf("loading auth: %w", err)
+	}
+
+	return &xrpc.Client{
+		Client: cliutil.NewHttpClient(),
+		Host:   h,
+		Auth:   auth,
+	}, nil
+}
+
+func loadAuthFromEnv(cmd *cli.Command, req bool) (*xrpc.AuthInfo, error) {
+	if a := cmd.String("auth"); a != "" {
+		if ai, err := cliutil.ReadAuth(a); err != nil && req {
+			return nil, err
+		} else {
+			return ai, nil
+		}
+	}
+
+	val := os.Getenv("ATP_AUTH_FILE")
+	if val == "" {
+		if req {
+			return nil, fmt.Errorf("no auth env present, ATP_AUTH_FILE not set")
+		}
+
+		return nil, nil
+	}
+
+	var auth xrpc.AuthInfo
+	if err := json.Unmarshal([]byte(val), &auth); err != nil {
+		return nil, err
+	}
+
+	return &auth, nil
 }

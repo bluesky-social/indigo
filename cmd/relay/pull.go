@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var cmdPullHosts = &cli.Command{
@@ -23,64 +24,63 @@ var cmdPullHosts = &cli.Command{
 			Name:    "relay-host",
 			Usage:   "method, hostname, and port of relay to pull from",
 			Value:   "https://bsky.network",
-			EnvVars: []string{"RELAY_HOST"},
+			Sources: cli.EnvVars("RELAY_HOST"),
 		},
 		&cli.StringFlag{
 			Name:    "db-url",
 			Usage:   "database connection string for relay database",
 			Value:   "sqlite://data/relay/relay.sqlite",
-			EnvVars: []string{"DATABASE_URL"},
+			Sources: cli.EnvVars("DATABASE_URL"),
 		},
 		&cli.IntFlag{
 			Name:    "default-account-limit",
 			Value:   100,
 			Usage:   "max number of active accounts for new upstream hosts",
-			EnvVars: []string{"RELAY_DEFAULT_ACCOUNT_LIMIT", "RELAY_DEFAULT_REPO_LIMIT"},
+			Sources: cli.EnvVars("RELAY_DEFAULT_ACCOUNT_LIMIT", "RELAY_DEFAULT_REPO_LIMIT"),
 		},
 		&cli.IntFlag{
 			Name:    "batch-size",
 			Value:   500,
 			Usage:   "host many hosts to pull at a time",
-			EnvVars: []string{"RELAY_PULL_HOSTS_BATCH_SIZE"},
+			Sources: cli.EnvVars("RELAY_PULL_HOSTS_BATCH_SIZE"),
 		},
 		&cli.StringSliceFlag{
 			Name:    "trusted-domains",
 			Usage:   "domain names which mark trusted hosts; use wildcard prefix to match suffixes",
-			Value:   cli.NewStringSlice("*.host.bsky.network"),
-			EnvVars: []string{"RELAY_TRUSTED_DOMAINS"},
+			Value:   []string{"*.host.bsky.network"},
+			Sources: cli.EnvVars("RELAY_TRUSTED_DOMAINS"),
 		},
 		&cli.BoolFlag{
 			Name:    "skip-host-checks",
 			Usage:   "don't run describeServer requests to see if host is a PDS before adding",
-			EnvVars: []string{"RELAY_SKIP_HOST_CHECKS"},
+			Sources: cli.EnvVars("RELAY_SKIP_HOST_CHECKS"),
 		},
 	},
 }
 
-func runPullHosts(cctx *cli.Context) error {
-	ctx := cctx.Context
+func runPullHosts(ctx context.Context, cmd *cli.Command) error {
 
-	if cctx.Args().Len() > 0 {
+	if cmd.Args().Len() > 0 {
 		return fmt.Errorf("unexpected arguments")
 	}
 
 	client := xrpc.Client{
-		Host: cctx.String("relay-host"),
+		Host: cmd.String("relay-host"),
 	}
 
-	skipHostChecks := cctx.Bool("skip-host-checks")
+	skipHostChecks := cmd.Bool("skip-host-checks")
 
 	dir := identity.DefaultDirectory()
 
-	dburl := cctx.String("db-url")
+	dburl := cmd.String("db-url")
 	db, err := cliutil.SetupDatabase(dburl, 10)
 	if err != nil {
 		return err
 	}
 
 	relayConfig := relay.DefaultRelayConfig()
-	relayConfig.DefaultRepoLimit = cctx.Int64("default-account-limit")
-	relayConfig.TrustedDomains = cctx.StringSlice("trusted-domains")
+	relayConfig.DefaultRepoLimit = cmd.Int64("default-account-limit")
+	relayConfig.TrustedDomains = cmd.StringSlice("trusted-domains")
 
 	// NOTE: setting evtmgr to nil
 	r, err := relay.NewRelay(db, nil, dir, relayConfig)
@@ -91,7 +91,7 @@ func runPullHosts(cctx *cli.Context) error {
 	checker := relay.NewHostClient(relayConfig.UserAgent)
 
 	cursor := ""
-	size := cctx.Int64("batch-size")
+	size := cmd.Int64("batch-size")
 	for {
 		resp, err := comatproto.SyncListHosts(ctx, &client, cursor, size)
 		if err != nil {

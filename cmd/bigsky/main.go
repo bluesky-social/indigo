@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"os/signal"
@@ -13,6 +12,10 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	_ "github.com/joho/godotenv/autoload"
+	_ "go.uber.org/automaxprocs"
+	_ "net/http/pprof"
 
 	libbgs "github.com/bluesky-social/indigo/bgs"
 	"github.com/bluesky-social/indigo/carstore"
@@ -28,10 +31,7 @@ import (
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	_ "github.com/joho/godotenv/autoload"
-	_ "go.uber.org/automaxprocs"
-
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"

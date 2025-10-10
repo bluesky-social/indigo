@@ -14,7 +14,8 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/util"
-	"github.com/carlmjohnson/versioninfo"
+
+	"github.com/earthboundkid/versioninfo/v2"
 )
 
 type Client struct {

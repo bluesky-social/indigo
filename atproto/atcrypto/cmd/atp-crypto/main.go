@@ -1,17 +1,18 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
 
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func main() {
-	app := cli.App{
+	app := cli.Command{
 		Name:  "atp-crypto",
 		Usage: "informal debugging CLI tool for atproto key and cryptography",
 	}
@@ -35,11 +36,14 @@ func main() {
 	}
 	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})
 	slog.SetDefault(slog.New(h))
-	app.RunAndExitOnError()
+	if err := app.Run(context.Background(), os.Args); err != nil {
+		slog.Error("command failed", "error", err)
+		os.Exit(-1)
+	}
 }
 
-func runGenerate(cctx *cli.Context) error {
-	if cctx.Bool("k256") {
+func runGenerate(ctx context.Context, cmd *cli.Command) error {
+	if cmd.Bool("k256") {
 		priv, err := atcrypto.GeneratePrivateKeyK256()
 		if err != nil {
 			return err

@@ -17,7 +17,8 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/handles"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	cli "github.com/urfave/cli/v2"
+
+	"github.com/urfave/cli/v2"
 )
 
 var adminCmd = &cli.Command{

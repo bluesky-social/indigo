@@ -10,7 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 )
 
 // Parses out any blobs from the enclosed record.
