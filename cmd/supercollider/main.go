@@ -43,7 +43,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	godid "github.com/whyrusleeping/go-did"
 	"golang.org/x/crypto/acme/autocert"
@@ -84,7 +84,7 @@ func main() {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	app := cli.App{
+	app := cli.Command{
 		Name:    "supercollider",
 		Usage:   "atproto event noise-maker for Relay load testing",
 		Version: versioninfo.Short(),
@@ -95,25 +95,25 @@ func main() {
 			Name:    "hostname",
 			Usage:   "hostname of this server (forward *.hostname DNS records to this server)",
 			Value:   "supercollider.jazco.io",
-			EnvVars: []string{"SUPERCOLLIDER_HOST"},
+			Sources: cli.EnvVars("SUPERCOLLIDER_HOST"),
 		},
 		&cli.BoolFlag{
 			Name:    "use-ssl",
 			Usage:   "listen on port 443 and use SSL (needs to be run as root and have external DNS setup)",
 			Value:   false,
-			EnvVars: []string{"SUPERCOLLIDER_USE_SSL"},
+			Sources: cli.EnvVars("SUPERCOLLIDER_USE_SSL"),
 		},
 		&cli.IntFlag{
 			Name:    "port",
 			Usage:   "port for the HTTP(S) server to listen on (defaults to 80 if not using SSL, 443 if using SSL)",
-			EnvVars: []string{"SUPERCOLLIDER_PORT"},
+			Sources: cli.EnvVars("SUPERCOLLIDER_PORT"),
 		},
 
 		&cli.StringFlag{
 			Name:    "key-file",
 			Usage:   "file to store the private key used to sign events",
 			Value:   "key.raw",
-			EnvVars: []string{"KEY_FILE"},
+			Sources: cli.EnvVars("KEY_FILE"),
 		},
 	}
 
@@ -127,19 +127,19 @@ func main() {
 					Name:    "num-users",
 					Usage:   "number of fake users to produce events for",
 					Value:   100,
-					EnvVars: []string{"NUM_USERS"},
+					Sources: cli.EnvVars("NUM_USERS"),
 				},
 				&cli.IntFlag{
 					Name:    "total-events",
 					Usage:   "total number of events to generate",
 					Value:   1_000_000,
-					EnvVars: []string{"TOTAL_EVENTS"},
+					Sources: cli.EnvVars("TOTAL_EVENTS"),
 				},
 				&cli.StringFlag{
 					Name:    "output-file",
 					Usage:   "output file for the generated events",
 					Value:   "events_out.cbor",
-					EnvVars: []string{"OUTPUT_FILE"},
+					Sources: cli.EnvVars("OUTPUT_FILE"),
 				},
 			}, app.Flags...),
 		},
@@ -152,26 +152,24 @@ func main() {
 					Name:    "events-per-second",
 					Usage:   "maximum number of events to generate per second",
 					Value:   300,
-					EnvVars: []string{"EVENTS_PER_SECOND"},
+					Sources: cli.EnvVars("EVENTS_PER_SECOND"),
 				},
 				&cli.StringFlag{
 					Name:    "input-file",
 					Usage:   "input file for the generated events (if set, will read events from this file instead of generating them)",
 					Value:   "events_in.cbor",
-					EnvVars: []string{"INPUT_FILE"},
+					Sources: cli.EnvVars("INPUT_FILE"),
 				},
 			}, app.Flags...),
 		},
 	}
 
-	err := app.Run(os.Args)
-	if err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func Reload(cctx *cli.Context) error {
-	ctx := cctx.Context
+func Reload(ctx context.Context, cmd *cli.Command) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -203,12 +201,12 @@ func Reload(cctx *cli.Context) error {
 
 	logger.Info("Starting Supercollider in Reload Mode")
 	logger.Info(fmt.Sprintf("Generating %d total events and writing them to %s",
-		cctx.Int("total-events"), cctx.String("output-file")))
+		cmd.Int("total-events"), cmd.String("output-file")))
 
 	em := events.NewEventManager(yolopersist.NewYoloPersister())
 
 	// Try to read the key from disk
-	keyBytes, err := os.ReadFile(cctx.String("key-file"))
+	keyBytes, err := os.ReadFile(cmd.String("key-file"))
 	if err != nil {
 		logger.Warn("failed to read key from disk, creating new key", "err", err.Error())
 	}
@@ -223,7 +221,7 @@ func Reload(cctx *cli.Context) error {
 		if err != nil {
 			log.Fatalf("failed to serialize privkey: %+v\n", err)
 		}
-		err = os.WriteFile(cctx.String("key-file"), rawKey, 0644)
+		err = os.WriteFile(cmd.String("key-file"), rawKey, 0644)
 		if err != nil {
 			log.Fatalf("failed to write privkey to disk: %+v\n", err)
 		}
@@ -247,23 +245,23 @@ func Reload(cctx *cli.Context) error {
 
 	// Initialize fake account DIDs
 	dids := []string{}
-	for i := 0; i < cctx.Int("num-users"); i++ {
-		did := fmt.Sprintf("did:web:%s.%s", petname.Generate(4, "-"), cctx.String("hostname"))
+	for i := 0; i < cmd.Int("num-users"); i++ {
+		did := fmt.Sprintf("did:web:%s.%s", petname.Generate(4, "-"), cmd.String("hostname"))
 		dids = append(dids, did)
 	}
 
 	// Instantiate Server
 	s := &Server{
 		Logger:    logger,
-		EnableSSL: cctx.Bool("use-ssl"),
-		Host:      cctx.String("hostname"),
+		EnableSSL: cmd.Bool("use-ssl"),
+		Host:      cmd.String("hostname"),
 
 		RepoManager:  repoman,
 		MultibaseKey: *vMethod.PublicKeyMultibase,
 		Dids:         dids,
 
 		Events:             em,
-		TotalDesiredEvents: cctx.Int("total-events"),
+		TotalDesiredEvents: cmd.Int("total-events"),
 	}
 
 	repoman.SetEventHandler(s.HandleRepoEvent, false)
@@ -281,9 +279,9 @@ func Reload(cctx *cli.Context) error {
 	})
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 
-	port := cctx.Int("port")
+	port := cmd.Int("port")
 	if port == 0 {
-		if cctx.Bool("use-ssl") {
+		if cmd.Bool("use-ssl") {
 			port = 443
 		} else {
 			port = 80
@@ -295,7 +293,7 @@ func Reload(cctx *cli.Context) error {
 	// Start a loop to subscribe to events and write them to a file
 	go func() {
 		defer wg.Done()
-		outFile := cctx.String("output-file")
+		outFile := cmd.String("output-file")
 		f, err := os.OpenFile(outFile, os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			log.Fatalf("failed to open output file: %+v\n", err)
@@ -367,7 +365,7 @@ func Reload(cctx *cli.Context) error {
 
 	listenAddress := fmt.Sprintf(":%d", port)
 	go func() {
-		if cctx.Bool("use-ssl") {
+		if cmd.Bool("use-ssl") {
 			err = e.StartAutoTLS(listenAddress)
 		} else {
 			err = e.Start(listenAddress)
@@ -383,8 +381,7 @@ func Reload(cctx *cli.Context) error {
 	return nil
 }
 
-func Fire(cctx *cli.Context) error {
-	ctx := cctx.Context
+func Fire(ctx context.Context, cmd *cli.Command) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -417,7 +414,7 @@ func Fire(cctx *cli.Context) error {
 	logger.Info("Starting Supercollider in Fire Mode")
 
 	// Try to read the key from disk
-	keyBytes, err := os.ReadFile(cctx.String("key-file"))
+	keyBytes, err := os.ReadFile(cmd.String("key-file"))
 	if err != nil {
 		logger.Warn("failed to read key from disk, creating new key", "err", err.Error())
 	}
@@ -432,7 +429,7 @@ func Fire(cctx *cli.Context) error {
 		if err != nil {
 			log.Fatalf("failed to serialize privkey: %+v\n", err)
 		}
-		err = os.WriteFile(cctx.String("key-file"), rawKey, 0644)
+		err = os.WriteFile(cmd.String("key-file"), rawKey, 0644)
 		if err != nil {
 			log.Fatalf("failed to write privkey to disk: %+v\n", err)
 		}
@@ -451,11 +448,11 @@ func Fire(cctx *cli.Context) error {
 	// Instantiate Server
 	s := &Server{
 		Logger:             logger,
-		EnableSSL:          cctx.Bool("use-ssl"),
-		Host:               cctx.String("hostname"),
+		EnableSSL:          cmd.Bool("use-ssl"),
+		Host:               cmd.String("hostname"),
 		MultibaseKey:       *vMethod.PublicKeyMultibase,
-		MaxEventsPerSecond: cctx.Int("events-per-second"),
-		PlaybackFile:       cctx.String("input-file"),
+		MaxEventsPerSecond: cmd.Int("events-per-second"),
+		PlaybackFile:       cmd.String("input-file"),
 	}
 
 	// HTTP Server setup and Middleware Plumbing
@@ -499,9 +496,9 @@ func Fire(cctx *cli.Context) error {
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.HandleSubscribeRepos)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 
-	port := cctx.Int("port")
+	port := cmd.Int("port")
 	if port == 0 {
-		if cctx.Bool("use-ssl") {
+		if cmd.Bool("use-ssl") {
 			port = 443
 		} else {
 			port = 80
@@ -510,7 +507,7 @@ func Fire(cctx *cli.Context) error {
 
 	listenAddress := fmt.Sprintf(":%d", port)
 	go func() {
-		if cctx.Bool("use-ssl") {
+		if cmd.Bool("use-ssl") {
 			err = e.StartAutoTLS(listenAddress)
 		} else {
 			err = e.Start(listenAddress)

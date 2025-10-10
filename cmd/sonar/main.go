@@ -21,11 +21,11 @@ import (
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func main() {
-	app := cli.App{
+	app := cli.Command{
 		Name:    "sonar",
 		Usage:   "atproto firehose monitoring tool",
 		Version: versioninfo.Short(),
@@ -36,19 +36,19 @@ func main() {
 			Name:    "ws-url",
 			Usage:   "full websocket path to the ATProto SubscribeRepos XRPC endpoint",
 			Value:   "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
-			EnvVars: []string{"SONAR_WS_URL"},
+			Sources: cli.EnvVars("SONAR_WS_URL"),
 		},
 		&cli.StringFlag{
 			Name:    "log-level",
 			Usage:   "log level",
 			Value:   "info",
-			EnvVars: []string{"SONAR_LOG_LEVEL"},
+			Sources: cli.EnvVars("SONAR_LOG_LEVEL"),
 		},
 		&cli.IntFlag{
 			Name:    "port",
 			Usage:   "listen port for metrics server",
 			Value:   8345,
-			EnvVars: []string{"SONAR_PORT"},
+			Sources: cli.EnvVars("SONAR_PORT"),
 		},
 		&cli.IntFlag{
 			Name:  "max-queue-size",
@@ -59,20 +59,18 @@ func main() {
 			Name:    "cursor-file",
 			Usage:   "path to cursor file",
 			Value:   "sonar_cursor.json",
-			EnvVars: []string{"SONAR_CURSOR_FILE"},
+			Sources: cli.EnvVars("SONAR_CURSOR_FILE"),
 		},
 	}
 
 	app.Action = runSonar
 
-	err := app.Run(os.Args)
-	if err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func runSonar(cctx *cli.Context) error {
-	ctx := cctx.Context
+func runSonar(ctx context.Context, cmd *cli.Command) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -89,12 +87,12 @@ func runSonar(cctx *cli.Context) error {
 	logger = logger.With("source", "sonar_main")
 	logger.Info("starting sonar")
 
-	u, err := url.Parse(cctx.String("ws-url"))
+	u, err := url.Parse(cmd.String("ws-url"))
 	if err != nil {
 		log.Fatalf("failed to parse ws-url: %+v", err)
 	}
 
-	s, err := NewSonar(logger, cctx.String("cursor-file"), u.String())
+	s, err := NewSonar(logger, cmd.String("cursor-file"), u.String())
 	if err != nil {
 		log.Fatalf("failed to create sonar: %+v", err)
 	}
@@ -162,7 +160,7 @@ func runSonar(cctx *cli.Context) error {
 	mux.Handle("/metrics", promhttp.Handler())
 
 	metricServer := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cctx.Int("port")),
+		Addr:    fmt.Sprintf(":%d", cmd.Int("port")),
 		Handler: mux,
 	}
 
@@ -172,7 +170,7 @@ func runSonar(cctx *cli.Context) error {
 		defer wg.Done()
 		logger = logger.With("source", "metrics_server")
 
-		logger.Info("metrics server listening", "port", cctx.Int("port"))
+		logger.Info("metrics server listening", "port", cmd.Int("port"))
 
 		if err := metricServer.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatalf("failed to start metrics server: %+v", err)
