@@ -21,7 +21,6 @@ src/build/
 test-coverage.out
 
 # executables
-/athome
 /beemo
 /bigsky
 /bluepages
