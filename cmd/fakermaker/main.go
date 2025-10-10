@@ -11,12 +11,12 @@ import (
 	"os"
 	"runtime"
 
+	_ "github.com/joho/godotenv/autoload"
+	_ "go.uber.org/automaxprocs"
+
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/fakedata"
 	"github.com/bluesky-social/indigo/util/cliutil"
-
-	_ "github.com/joho/godotenv/autoload"
-	_ "go.uber.org/automaxprocs"
 
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v2"

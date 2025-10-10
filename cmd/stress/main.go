@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/joho/godotenv/autoload"
+
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
@@ -18,16 +20,13 @@ import (
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
 
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cbor "github.com/ipfs/go-ipld-cbor"
-
-	_ "github.com/joho/godotenv/autoload"
-
-	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/ipld/go-car"
-	cli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {

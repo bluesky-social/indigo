@@ -6,16 +6,17 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"strings"
+
+	_ "github.com/joho/godotenv/autoload"
+	_ "net/http/pprof"
 
 	"github.com/bluesky-social/indigo/atproto/identity/apidir"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/earthboundkid/versioninfo/v2"
-	_ "github.com/joho/godotenv/autoload"
 	"github.com/urfave/cli/v2"
 )
 

@@ -10,9 +10,9 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
 
-	"github.com/bluesky-social/indigo/events"
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"

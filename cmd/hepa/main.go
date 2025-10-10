@@ -7,11 +7,13 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"strings"
 	"time"
+
+	_ "github.com/joho/godotenv/autoload"
+	_ "net/http/pprof"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/identity/redisdir"
@@ -20,8 +22,7 @@ import (
 	"github.com/bluesky-social/indigo/automod/consumer"
 
 	"github.com/earthboundkid/versioninfo/v2"
-	_ "github.com/joho/godotenv/autoload"
-	cli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
 	"golang.org/x/time/rate"
 )
 

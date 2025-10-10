@@ -9,7 +9,8 @@ import (
 	"strconv"
 
 	"github.com/bluesky-social/indigo/xrpc"
-	cli "github.com/urfave/cli/v2"
+
+	"github.com/urfave/cli/v2"
 )
 
 var bgsAdminCmd = &cli.Command{

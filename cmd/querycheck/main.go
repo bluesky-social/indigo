@@ -5,26 +5,24 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
-	"net/http"
 	_ "net/http/pprof"
 
 	"github.com/bluesky-social/indigo/querycheck"
 	"github.com/bluesky-social/indigo/util/tracing"
-	"github.com/labstack/echo-contrib/pprof"
-	"github.com/labstack/echo/v4"
-
-	"github.com/labstack/echo/v4/middleware"
-
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/earthboundkid/versioninfo/v2"
+	"github.com/labstack/echo-contrib/pprof"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/urfave/cli/v2"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func main() {

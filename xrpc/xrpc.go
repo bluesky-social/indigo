@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/util"
+
 	"github.com/earthboundkid/versioninfo/v2"
 )
 
