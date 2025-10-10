@@ -5,12 +5,12 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
-func ConfigLogger(cctx *cli.Context, writer io.Writer) *slog.Logger {
+func ConfigLogger(cmd *cli.Command, writer io.Writer) *slog.Logger {
 	var level slog.Level
-	switch strings.ToLower(cctx.String("log-level")) {
+	switch strings.ToLower(cmd.String("log-level")) {
 	case "error":
 		level = slog.LevelError
 	case "warn":
