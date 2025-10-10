@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,11 +10,11 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/lexicon"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func main() {
-	app := cli.App{
+	app := cli.Command{
 		Name:  "lex-tool",
 		Usage: "informal debugging CLI tool for atproto lexicons",
 	}
@@ -41,11 +42,14 @@ func main() {
 	}
 	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})
 	slog.SetDefault(slog.New(h))
-	app.RunAndExitOnError()
+	if err := app.Run(context.Background(), os.Args); err != nil {
+		slog.Error("command failed", "error", err)
+		os.Exit(-1)
+	}
 }
 
-func runParseSchema(cctx *cli.Context) error {
-	p := cctx.Args().First()
+func runParseSchema(ctx context.Context, cmd *cli.Command) error {
+	p := cmd.Args().First()
 	if p == "" {
 		return fmt.Errorf("need to provide path to a schema file as an argument")
 	}
@@ -73,8 +77,8 @@ func runParseSchema(cctx *cli.Context) error {
 	return nil
 }
 
-func runLoadDirectory(cctx *cli.Context) error {
-	p := cctx.Args().First()
+func runLoadDirectory(ctx context.Context, cmd *cli.Command) error {
+	p := cmd.Args().First()
 	if p == "" {
 		return fmt.Errorf("need to provide directory path as an argument")
 	}
@@ -89,8 +93,8 @@ func runLoadDirectory(cctx *cli.Context) error {
 	return nil
 }
 
-func runResolve(cctx *cli.Context) error {
-	ref := cctx.Args().First()
+func runResolve(ctx context.Context, cmd *cli.Command) error {
+	ref := cmd.Args().First()
 	if ref == "" {
 		return fmt.Errorf("need to provide NSID as an argument")
 	}

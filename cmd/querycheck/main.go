@@ -5,30 +5,28 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
-	"net/http"
 	_ "net/http/pprof"
 
 	"github.com/bluesky-social/indigo/querycheck"
 	"github.com/bluesky-social/indigo/util/tracing"
+
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/labstack/echo-contrib/pprof"
 	"github.com/labstack/echo/v4"
-
 	"github.com/labstack/echo/v4/middleware"
-
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/urfave/cli/v3"
 	"go.opentelemetry.io/otel/trace"
-
-	"github.com/carlmjohnson/versioninfo"
-	"github.com/urfave/cli/v2"
 )
 
 func main() {
-	app := cli.App{
+	app := cli.Command{
 		Name:    "querycheck",
 		Usage:   "a postgresql query plan checker",
 		Version: versioninfo.Short(),
@@ -39,26 +37,25 @@ func main() {
 			Name:    "postgres-url",
 			Usage:   "postgres url for storing events",
 			Value:   "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable",
-			EnvVars: []string{"POSTGRES_URL"},
+			Sources: cli.EnvVars("POSTGRES_URL"),
 		},
 		&cli.IntFlag{
 			Name:    "port",
 			Usage:   "port to serve metrics on",
 			Value:   8080,
-			EnvVars: []string{"PORT"},
+			Sources: cli.EnvVars("PORT"),
 		},
 		&cli.StringFlag{
 			Name:    "auth-token",
 			Usage:   "auth token for accessing the querycheck api",
 			Value:   "",
-			EnvVars: []string{"AUTH_TOKEN"},
+			Sources: cli.EnvVars("AUTH_TOKEN"),
 		},
 	}
 
 	app.Action = Querycheck
 
-	err := app.Run(os.Args)
-	if err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -66,8 +63,7 @@ func main() {
 var tracer trace.Tracer
 
 // Querycheck is the main function for querycheck
-func Querycheck(cctx *cli.Context) error {
-	ctx := cctx.Context
+func Querycheck(ctx context.Context, cmd *cli.Command) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -110,7 +106,7 @@ func Querycheck(cctx *cli.Context) error {
 	e.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
 
 	// Start the query checker
-	querychecker, err := querycheck.NewQuerychecker(ctx, cctx.String("postgres-url"))
+	querychecker, err := querycheck.NewQuerychecker(ctx, cmd.String("postgres-url"))
 	if err != nil {
 		log.Fatalf("failed to create querychecker: %+v\n", err)
 	}
@@ -131,7 +127,7 @@ func Querycheck(cctx *cli.Context) error {
 
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			if cctx.String("auth-token") != "" && c.Request().Header.Get("Authorization") != cctx.String("auth-token") {
+			if cmd.String("auth-token") != "" && c.Request().Header.Get("Authorization") != cmd.String("auth-token") {
 				return c.String(http.StatusUnauthorized, "unauthorized")
 			}
 			return next(c)
@@ -147,8 +143,8 @@ func Querycheck(cctx *cli.Context) error {
 	// Start the metrics server
 	wg.Add(1)
 	go func() {
-		logger.Info("starting metrics serverd", "port", cctx.Int("port"))
-		if err := e.Start(fmt.Sprintf(":%d", cctx.Int("port"))); err != nil {
+		logger.Info("starting metrics serverd", "port", cmd.Int("port"))
+		if err := e.Start(fmt.Sprintf(":%d", cmd.Int("port"))); err != nil {
 			logger.Error("failed to start metrics server", "err", err)
 		}
 		wg.Done()

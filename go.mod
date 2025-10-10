@@ -10,9 +10,9 @@ require (
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
 	github.com/brianvoe/gofakeit/v6 v6.25.0
-	github.com/carlmjohnson/versioninfo v0.22.5
 	github.com/cockroachdb/pebble v1.1.2
 	github.com/dustinkirkland/golang-petname v0.0.0-20231002161417-6a283f1aaaf2
+	github.com/earthboundkid/versioninfo/v2 v2.24.1
 	github.com/go-redis/cache/v9 v9.0.0
 	github.com/gocql/gocql v1.7.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
@@ -53,8 +53,9 @@ require (
 	github.com/redis/go-redis/v9 v9.3.0
 	github.com/rivo/uniseg v0.1.0
 	github.com/samber/slog-echo v1.8.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/urfave/cli/v2 v2.25.7
+	github.com/urfave/cli/v3 v3.4.1
 	github.com/whyrusleeping/cbor-gen v0.2.1-0.20241030202151-b7a6831be65e
 	github.com/whyrusleeping/go-did v0.0.0-20230824162731-404d1707d5d6
 	gitlab.com/yawning/secp256k1-voi v0.0.0-20230925100816-f2616030848b

@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	lex "github.com/bluesky-social/indigo/lex"
-	cli "github.com/urfave/cli/v2"
+	"github.com/bluesky-social/indigo/lex"
+	"github.com/urfave/cli/v2"
 )
 
 func findSchemas(dir string, out []string) ([]string, error) {
