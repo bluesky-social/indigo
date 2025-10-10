@@ -60,7 +60,11 @@ func (o *Outbox) deliverPending() {
 			continue
 		}
 
+		outboxEvt.AckCh = make(chan struct{})
+
 		o.events <- &outboxEvt
+
+		<-outboxEvt.AckCh
 
 		if err := o.db.Delete(&evt).Error; err != nil {
 			o.logger.Error("failed to delete outbox event", "error", err, "id", evt.ID)

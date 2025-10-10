@@ -35,16 +35,35 @@ func (n *Nexus) handleListen(c echo.Context) error {
 
 	n.logger.Info("websocket connected")
 
+	// read loop so we can detect if the client disconnects
+	disconnected := make(chan struct{})
+	go func() {
+		for {
+			if _, _, err := ws.ReadMessage(); err != nil {
+				close(disconnected)
+				return
+			}
+		}
+	}()
+
 	evtCh := n.outbox.Subscribe(c.Request().Context())
 
-	for evt := range evtCh {
-		if err := ws.WriteJSON(evt); err != nil {
-			n.logger.Info("websocket write error", "error", err)
-			return err
+	for {
+		select {
+		case <-disconnected:
+			n.logger.Info("websocket disconnected")
+			return nil
+		case evt, ok := <-evtCh:
+			if !ok {
+				return nil
+			}
+			if err := ws.WriteJSON(evt); err != nil {
+				n.logger.Info("websocket write error", "error", err)
+				return err
+			}
+			close(evt.AckCh)
 		}
 	}
-
-	return nil
 }
 
 type DidPayload struct {
