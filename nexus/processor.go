@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -24,12 +24,11 @@ type EventProcessor struct {
 	RelayHost string
 	Outbox    *Outbox
 
-	lastSeq int64
-	seqMu   sync.Mutex
+	lastSeq atomic.Int64
 }
 
 func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
-	defer ep.trackLastSeq(evt.Seq)
+	defer ep.lastSeq.Swap(evt.Seq)
 
 	curr, err := ep.GetRepoState(evt.Repo)
 	if err != nil {
@@ -150,7 +149,7 @@ func (ep *EventProcessor) validateCommit(ctx context.Context, evt *comatproto.Sy
 }
 
 func (ep *EventProcessor) ProcessSync(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync) error {
-	defer ep.trackLastSeq(evt.Seq)
+	defer ep.lastSeq.Swap(evt.Seq)
 
 	curr, err := ep.GetRepoState(evt.Did)
 	if err != nil {
@@ -187,7 +186,7 @@ func (ep *EventProcessor) ProcessSync(ctx context.Context, evt *comatproto.SyncS
 }
 
 func (ep *EventProcessor) ProcessIdentity(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Identity) error {
-	defer ep.trackLastSeq(evt.Seq)
+	defer ep.lastSeq.Swap(evt.Seq)
 	return ep.RefreshIdentity(ctx, evt.Did)
 }
 
@@ -236,6 +235,8 @@ func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error
 }
 
 func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Account) error {
+	defer ep.lastSeq.Swap(evt.Seq)
+
 	curr, err := ep.GetRepoState(evt.Did)
 	if err != nil {
 		return err
@@ -389,18 +390,9 @@ func (ep *EventProcessor) DeleteRepo(did string) error {
 	})
 }
 
-func (ep *EventProcessor) trackLastSeq(seq int64) {
-	ep.seqMu.Lock()
-	ep.lastSeq = seq
-	ep.seqMu.Unlock()
-}
-
 func (ep *EventProcessor) saveCursor(ctx context.Context) error {
-	ep.seqMu.Lock()
-	seq := ep.lastSeq
-	ep.seqMu.Unlock()
-
-	if seq == 0 {
+	seq := ep.lastSeq.Load()
+	if seq < 1 {
 		return nil
 	}
 
