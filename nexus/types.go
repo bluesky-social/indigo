@@ -52,6 +52,6 @@ type UserEvt struct {
 
 type OutboxEvt struct {
 	Type      string     `json:"type"`
-	RecordEvt *RecordEvt `json:"evt,omitempty"`
-	UserEvt   *UserEvt   `json:"evt,omitempty"`
+	RecordEvt *RecordEvt `json:"record,omitempty"`
+	UserEvt   *UserEvt   `json:"user,omitempty"`
 }

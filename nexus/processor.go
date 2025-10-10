@@ -221,8 +221,10 @@ func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error
 	}
 
 	userEvt := &UserEvt{
-		Did:    did,
-		Handle: handleStr,
+		Did:      did,
+		Handle:   handleStr,
+		IsActive: curr.Status == models.AccountStatusActive,
+		Status:   curr.Status,
 	}
 
 	if err := ep.Outbox.SendUserEvt(userEvt); err != nil {
