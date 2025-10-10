@@ -13,9 +13,10 @@ import (
 	"syscall"
 	"time"
 
+	_ "net/http/pprof"
+
 	_ "github.com/joho/godotenv/autoload"
 	_ "go.uber.org/automaxprocs"
-	_ "net/http/pprof"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/relay/relay"
@@ -135,7 +136,7 @@ func run(args []string) error {
 					Usage:   "when messages fail atproto 'Sync 1.1' validation, just log, don't drop",
 					Sources: cli.EnvVars("RELAY_LENIENT_SYNC_VALIDATION"),
 				},
-				&cli.IntFlag{
+				&cli.Int64Flag{
 					Name:    "initial-seq-number",
 					Usage:   "when initializing output firehose, start with this sequence number",
 					Value:   1,
