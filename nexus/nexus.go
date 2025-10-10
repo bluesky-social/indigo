@@ -51,11 +51,10 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	e.HideBanner = true
 
 	bdir := identity.BaseDirectory{
-		SkipHandleVerification: true,
-		TryAuthoritativeDNS:    false,
-		SkipDNSDomainSuffixes:  []string{".bsky.social"},
+		TryAuthoritativeDNS:   false,
+		SkipDNSDomainSuffixes: []string{".bsky.social"},
 	}
-	cdir := identity.NewCacheDirectory(&bdir, 1_000_000, time.Hour*24, time.Minute*2, time.Minute*5)
+	cdir := identity.NewCacheDirectory(&bdir, 2_000_000, time.Hour*24, time.Minute*2, time.Minute*5)
 
 	n := &Nexus{
 		db:     db,
@@ -98,8 +97,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 			return n.EventProcessor.ProcessSync(context.Background(), evt)
 		},
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
-			// @TODO
-			return nil
+			return n.EventProcessor.ProcessIdentity(context.Background(), evt)
 		},
 		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
 			// @TODO

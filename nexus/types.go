@@ -15,10 +15,10 @@ type CommitOp struct {
 	Cid        string                 `json:"cid,omitempty"`
 }
 
-func (c *Commit) ToOps() []*Op {
-	var ops []*Op
+func (c *Commit) ToEvts() []*RecordEvt {
+	var evts []*RecordEvt
 	for _, op := range c.Ops {
-		ops = append(ops, &Op{
+		evts = append(evts, &RecordEvt{
 			Did:        c.Did,
 			Rev:        c.Rev,
 			Collection: op.Collection,
@@ -28,10 +28,10 @@ func (c *Commit) ToOps() []*Op {
 			Cid:        op.Cid,
 		})
 	}
-	return ops
+	return evts
 }
 
-type Op struct {
+type RecordEvt struct {
 	Did        string                 `json:"did"`
 	Rev        string                 `json:"rev"`
 	Collection string                 `json:"collection"`
@@ -39,4 +39,18 @@ type Op struct {
 	Action     string                 `json:"action"`
 	Record     map[string]interface{} `json:"record,omitempty"`
 	Cid        string                 `json:"cid,omitempty"`
+}
+
+type UserEvt struct {
+	Did      string `json:"did"`
+	Handle   string `json:"handle"`
+	Pds      string `json:"pds"`
+	IsActive string `json:"is_active"`
+	Status   string `json:"status"`
+}
+
+type OutboxEvt struct {
+	Type      string     `json:"type"`
+	RecordEvt *RecordEvt `json:"evt,omitempty"`
+	UserEvt   *UserEvt   `json:"evt,omitempty"`
 }

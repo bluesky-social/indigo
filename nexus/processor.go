@@ -28,14 +28,62 @@ type EventProcessor struct {
 	seqMu   sync.Mutex
 }
 
+func (ep *EventProcessor) ProcessIdentity(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Identity) error {
+	defer ep.trackLastSeq(evt.Seq)
+
+	curr, err := ep.GetRepoState(evt.Did)
+	if err != nil {
+		return err
+	} else if curr == nil {
+		return nil
+	}
+
+	did := syntax.DID(evt.Did)
+	if err := ep.Dir.Purge(ctx, did.AtIdentifier()); err != nil {
+		ep.Logger.Error("failed to purge identity cache", "did", evt.Did, "error", err)
+	}
+
+	id, err := ep.Dir.LookupDID(ctx, did)
+	if err != nil {
+		return err
+	}
+
+	handleStr := id.Handle.String()
+	if handleStr == curr.Handle {
+		return nil
+	}
+
+	if evt.Handle == nil || *evt.Handle == "handle.invalid" {
+		return nil
+	}
+
+	userEvt := &UserEvt{
+		Did:    evt.Did,
+		Handle: handleStr,
+	}
+
+	if err := ep.Outbox.SendUserEvt(userEvt); err != nil {
+		ep.Logger.Error("failed to send user evt", "did", evt.Did, "error", err)
+		return err
+	}
+
+	if err := ep.DB.Model(&models.Repo{}).
+		Where("did = ?", evt.Did).
+		Update("handle", handleStr).Error; err != nil {
+		ep.Logger.Error("failed to update handle", "did", evt.Did, "handle", handleStr, "error", err)
+		return err
+	}
+
+	return nil
+}
+
 func (ep *EventProcessor) ProcessSync(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync) error {
 	defer ep.trackLastSeq(evt.Seq)
 
-	var curr models.Repo
-	if err := ep.DB.First(&curr, "did = ?", evt.Did).Error; err != nil {
-		if err != gorm.ErrRecordNotFound {
-			ep.Logger.Error("failed to get repo state", "did", evt.Did, "error", err)
-		}
+	curr, err := ep.GetRepoState(evt.Did)
+	if err != nil {
+		return err
+	} else if curr == nil {
 		return nil
 	}
 
@@ -69,26 +117,25 @@ func (ep *EventProcessor) ProcessSync(ctx context.Context, evt *comatproto.SyncS
 func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
 	defer ep.trackLastSeq(evt.Seq)
 
-	var d models.Repo
-	if err := ep.DB.First(&d, "did = ?", evt.Repo).Error; err != nil {
-		if err != gorm.ErrRecordNotFound {
-			ep.Logger.Error("failed to get repo state", "did", evt.Repo, "error", err)
-		}
+	curr, err := ep.GetRepoState(evt.Repo)
+	if err != nil {
+		return err
+	} else if curr == nil {
 		return nil
 	}
 
-	if d.State != models.RepoStateActive && d.State != models.RepoStateResyncing {
+	if curr.State != models.RepoStateActive && curr.State != models.RepoStateResyncing {
 		return nil
 	}
 
-	if d.Rev != "" && evt.Rev <= d.Rev {
-		ep.Logger.Debug("skipping replayed event", "did", evt.Repo, "eventRev", evt.Rev, "currentRev", d.Rev)
+	if curr.Rev != "" && evt.Rev <= curr.Rev {
+		ep.Logger.Debug("skipping replayed event", "did", evt.Repo, "eventRev", evt.Rev, "currentRev", curr.Rev)
 		return nil
 	}
 
 	if evt.PrevData == nil {
 		ep.Logger.Debug("legacy commit event, skipping prev data check", "did", evt.Repo, "rev", evt.Rev)
-	} else if evt.PrevData.String() != d.PrevData {
+	} else if evt.PrevData.String() != curr.PrevData {
 		ep.Logger.Warn("repo state desynced", "did", evt.Repo, "rev", evt.Rev)
 		// gets picked up by resync workers
 		if err := ep.UpdateRepoState(evt.Repo, models.RepoStateDesynced); err != nil {
@@ -104,15 +151,15 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 		return err
 	}
 
-	if d.State == models.RepoStateResyncing {
+	if curr.State == models.RepoStateResyncing {
 		if err := ep.addToResyncBuffer(commit); err != nil {
 			ep.Logger.Error("failed to buffer commit", "did", evt.Repo, "error", err)
 			return err
 		}
 	}
 
-	for _, op := range commit.ToOps() {
-		if err := ep.Outbox.Send(op); err != nil {
+	for _, recEvt := range commit.ToEvts() {
+		if err := ep.Outbox.SendRecordEvt(recEvt); err != nil {
 			ep.Logger.Error("failed to send to outbox", "did", commit.Did, "rev", commit.Rev, "error", err)
 			return err
 		}
@@ -250,8 +297,8 @@ func (ep *EventProcessor) drainResyncBuffer(ctx context.Context, did string) err
 			return fmt.Errorf("failed to unmarshal buffered event: %w", err)
 		}
 
-		for _, op := range commit.ToOps() {
-			if err := ep.Outbox.Send(op); err != nil {
+		for _, recEvt := range commit.ToEvts() {
+			if err := ep.Outbox.SendRecordEvt(recEvt); err != nil {
 				ep.Logger.Error("failed to send to outbox", "did", commit.Did, "rev", commit.Rev, "error", err)
 				return err
 			}
@@ -322,6 +369,17 @@ func (ep *EventProcessor) ReadLastCursor(ctx context.Context, relayHost string) 
 		return 0, err
 	}
 	return cursor.Cursor, nil
+}
+
+func (ep *EventProcessor) GetRepoState(did string) (*models.Repo, error) {
+	var r models.Repo
+	if err := ep.DB.First(&r, "did = ?", did).Error; err != nil {
+		if err != gorm.ErrRecordNotFound {
+			return nil, err
+		}
+		return nil, nil
+	}
+	return &r, nil
 }
 
 func (ep *EventProcessor) UpdateRepoState(did string, state models.RepoState) error {

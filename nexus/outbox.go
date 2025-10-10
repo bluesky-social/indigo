@@ -11,19 +11,19 @@ import (
 
 type Outbox struct {
 	db     *gorm.DB
-	outCh  chan *Op
+	outCh  chan *OutboxEvt
 	logger *slog.Logger
 }
 
 func NewOutbox(db *gorm.DB) *Outbox {
 	return &Outbox{
 		db:     db,
-		outCh:  make(chan *Op, 100),
+		outCh:  make(chan *OutboxEvt, 100),
 		logger: slog.Default().With("system", "outbox"),
 	}
 }
 
-func (o *Outbox) Subscribe(ctx context.Context, send func(op *Op) error) error {
+func (o *Outbox) Subscribe(ctx context.Context, send func(evt *OutboxEvt) error) error {
 	var bufferedEvts []models.OutboxBuffer
 	if err := o.db.Order("id ASC").Find(&bufferedEvts).Error; err != nil {
 		o.logger.Error("failed to load buffered events", "error", err)
@@ -33,14 +33,13 @@ func (o *Outbox) Subscribe(ctx context.Context, send func(op *Op) error) error {
 	if len(bufferedEvts) > 0 {
 		o.logger.Info("draining buffered events", "count", len(bufferedEvts))
 		for _, evt := range bufferedEvts {
-			// Unmarshal buffered JSON back to Commit
-			var op Op
-			if err := json.Unmarshal([]byte(evt.Data), &op); err != nil {
-				o.logger.Error("failed to unmarshal buffered op", "error", err, "id", evt.ID)
+			var outboxEvt OutboxEvt
+			if err := json.Unmarshal([]byte(evt.Data), &outboxEvt); err != nil {
+				o.logger.Error("failed to unmarshal buffered event", "error", err, "id", evt.ID)
 				continue
 			}
 
-			if err := send(&op); err != nil {
+			if err := send(&outboxEvt); err != nil {
 				o.logger.Info("send error during drain", "error", err)
 				return err
 			}
@@ -58,8 +57,8 @@ func (o *Outbox) Subscribe(ctx context.Context, send func(op *Op) error) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case op := <-o.outCh:
-			if err := send(op); err != nil {
+		case evt := <-o.outCh:
+			if err := send(evt); err != nil {
 				o.logger.Info("send error during live stream", "error", err)
 				return err
 			}
@@ -67,17 +66,31 @@ func (o *Outbox) Subscribe(ctx context.Context, send func(op *Op) error) error {
 	}
 }
 
-func (o *Outbox) Send(op *Op) error {
+func (o *Outbox) SendRecordEvt(evt *RecordEvt) error {
+	return o.SendOutboxEvt(&OutboxEvt{
+		Type:      "record",
+		RecordEvt: evt,
+	})
+}
+
+func (o *Outbox) SendUserEvt(evt *UserEvt) error {
+	return o.SendOutboxEvt(&OutboxEvt{
+		Type:    "user",
+		UserEvt: evt,
+	})
+}
+
+func (o *Outbox) SendOutboxEvt(evt *OutboxEvt) error {
 	select {
-	case o.outCh <- op:
+	case o.outCh <- evt:
 		return nil
 	default:
-		return o.bufferToDB(op)
+		return o.bufferEvent(evt)
 	}
 }
 
-func (o *Outbox) bufferToDB(op *Op) error {
-	jsonData, err := json.Marshal(op)
+func (o *Outbox) bufferEvent(evt *OutboxEvt) error {
+	jsonData, err := json.Marshal(evt)
 	if err != nil {
 		return err
 	}
