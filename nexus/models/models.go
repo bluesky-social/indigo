@@ -13,24 +13,24 @@ const (
 	RepoStateError       RepoState = "error"
 )
 
-type RepoStatus string
+type AccountStatus string
 
 const (
-	RepoStatusActive      RepoStatus = "active"
-	RepoStatusTakendown   RepoStatus = "takendown"
-	RepoStatusSuspended   RepoStatus = "suspended"
-	RepoStatusDeactivated RepoStatus = "deactivated"
-	RepoStatusDeleted     RepoStatus = "deleted"
+	AccountStatusActive      AccountStatus = "active"
+	AccountStatusTakendown   AccountStatus = "takendown"
+	AccountStatusSuspended   AccountStatus = "suspended"
+	AccountStatusDeactivated AccountStatus = "deactivated"
+	AccountStatusDeleted     AccountStatus = "deleted"
 )
 
 type Repo struct {
-	Did      string     `gorm:"primaryKey"`
-	State    RepoState  `gorm:"not null;default:'pending';index"`
-	Status   RepoStatus `gorm:"not null;default:'active'"`
-	Handle   string     `gorm:"type:text"`
-	Rev      string     `gorm:"type:text"`
-	PrevData string     `gorm:"type:text"`
-	ErrorMsg string     `gorm:"type:text"`
+	Did      string        `gorm:"primaryKey"`
+	State    RepoState     `gorm:"not null;default:'pending';index"`
+	Status   AccountStatus `gorm:"not null;default:'active'"`
+	Handle   string        `gorm:"type:text"`
+	Rev      string        `gorm:"type:text"`
+	PrevData string        `gorm:"type:text"`
+	ErrorMsg string        `gorm:"type:text"`
 }
 
 type OutboxBuffer struct {
