@@ -17,7 +17,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/earthboundkid/versioninfo/v2"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func main() {
@@ -29,7 +29,7 @@ func main() {
 
 func run(args []string) error {
 
-	app := cli.App{
+	app := cli.Command{
 		Name:    "bluepages",
 		Usage:   "atproto identity directory",
 		Version: versioninfo.Short(),
@@ -38,30 +38,30 @@ func run(args []string) error {
 				Name:    "atp-relay-host",
 				Usage:   "hostname and port of Relay to subscribe to",
 				Value:   "wss://bsky.network",
-				EnvVars: []string{"ATP_RELAY_HOST", "ATP_BGS_HOST"},
+				Sources: cli.EnvVars("ATP_RELAY_HOST", "ATP_BGS_HOST"),
 			},
 			&cli.StringFlag{
 				Name:    "atp-plc-host",
 				Usage:   "method, hostname, and port of PLC registry",
 				Value:   "https://plc.directory",
-				EnvVars: []string{"ATP_PLC_HOST"},
+				Sources: cli.EnvVars("ATP_PLC_HOST"),
 			},
 			&cli.IntFlag{
 				Name:    "plc-rate-limit",
 				Usage:   "max number of requests per second to PLC registry",
 				Value:   300,
-				EnvVars: []string{"BLUEPAGES_PLC_RATE_LIMIT"},
+				Sources: cli.EnvVars("BLUEPAGES_PLC_RATE_LIMIT"),
 			},
 			&cli.StringFlag{
 				Name:    "redis-url",
 				Usage:   "redis connection URL: redis://<user>:<pass>@<hostname>:6379/<db>",
 				Value:   "redis://localhost:6379/0",
-				EnvVars: []string{"BLUEPAGES_REDIS_URL"},
+				Sources: cli.EnvVars("BLUEPAGES_REDIS_URL"),
 			},
 			&cli.StringFlag{
 				Name:    "log-level",
 				Usage:   "log verbosity level (eg: warn, info, debug)",
-				EnvVars: []string{"BLUEPAGES_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"},
+				Sources: cli.EnvVars("BLUEPAGES_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"),
 			},
 		},
 		Commands: []*cli.Command{
@@ -75,29 +75,29 @@ func run(args []string) error {
 						Usage:    "Specify the local IP/port to bind to",
 						Required: false,
 						Value:    ":6600",
-						EnvVars:  []string{"BLUEPAGES_BIND"},
+						Sources:  cli.EnvVars("BLUEPAGES_BIND"),
 					},
 					&cli.StringFlag{
 						Name:    "metrics-listen",
 						Usage:   "IP or address, and port, to listen on for metrics APIs",
 						Value:   ":3989",
-						EnvVars: []string{"BLUEPAGES_METRICS_LISTEN"},
+						Sources: cli.EnvVars("BLUEPAGES_METRICS_LISTEN"),
 					},
 					&cli.BoolFlag{
 						Name:    "disable-firehose-consumer",
 						Usage:   "don't consume #identity events from firehose",
-						EnvVars: []string{"BLUEPAGES_DISABLE_FIREHOSE_CONSUMER"},
+						Sources: cli.EnvVars("BLUEPAGES_DISABLE_FIREHOSE_CONSUMER"),
 					},
 					&cli.BoolFlag{
 						Name:    "disable-refresh",
 						Usage:   "disable the refreshIdentity API endpoint",
-						EnvVars: []string{"BLUEPAGES_DISABLE_REFRESH"},
+						Sources: cli.EnvVars("BLUEPAGES_DISABLE_REFRESH"),
 					},
 					&cli.IntFlag{
 						Name:    "firehose-parallelism",
 						Usage:   "number of concurrent firehose workers",
 						Value:   4,
-						EnvVars: []string{"BLUEPAGES_FIREHOSE_PARALLELISM"},
+						Sources: cli.EnvVars("BLUEPAGES_FIREHOSE_PARALLELISM"),
 					},
 				},
 			},
@@ -111,7 +111,7 @@ func run(args []string) error {
 						Name:    "host",
 						Usage:   "bluepages server to send request to",
 						Value:   "http://localhost:6600",
-						EnvVars: []string{"BLUEPAGES_HOST"},
+						Sources: cli.EnvVars("BLUEPAGES_HOST"),
 					},
 				},
 			},
@@ -125,7 +125,7 @@ func run(args []string) error {
 						Name:    "host",
 						Usage:   "bluepages server to send request to",
 						Value:   "http://localhost:6600",
-						EnvVars: []string{"BLUEPAGES_HOST"},
+						Sources: cli.EnvVars("BLUEPAGES_HOST"),
 					},
 				},
 			},
@@ -139,7 +139,7 @@ func run(args []string) error {
 						Name:    "host",
 						Usage:   "bluepages server to send request to",
 						Value:   "http://localhost:6600",
-						EnvVars: []string{"BLUEPAGES_HOST"},
+						Sources: cli.EnvVars("BLUEPAGES_HOST"),
 					},
 				},
 			},
@@ -153,19 +153,19 @@ func run(args []string) error {
 						Name:    "host",
 						Usage:   "bluepages server to send request to",
 						Value:   "http://localhost:6600",
-						EnvVars: []string{"BLUEPAGES_HOST"},
+						Sources: cli.EnvVars("BLUEPAGES_HOST"),
 					},
 				},
 			},
 		},
 	}
 
-	return app.Run(args)
+	return app.Run(context.Background(), args)
 }
 
-func configLogger(cctx *cli.Context, writer io.Writer) *slog.Logger {
+func configLogger(cmd *cli.Command, writer io.Writer) *slog.Logger {
 	var level slog.Level
-	switch strings.ToLower(cctx.String("log-level")) {
+	switch strings.ToLower(cmd.String("log-level")) {
 	case "error":
 		level = slog.LevelError
 	case "warn":
@@ -184,32 +184,31 @@ func configLogger(cctx *cli.Context, writer io.Writer) *slog.Logger {
 	return logger
 }
 
-func configClient(cctx *cli.Context) apidir.APIDirectory {
-	return apidir.NewAPIDirectory(cctx.String("host"))
+func configClient(cmd *cli.Command) apidir.APIDirectory {
+	return apidir.NewAPIDirectory(cmd.String("host"))
 }
 
-func runServeCmd(cctx *cli.Context) error {
-	logger := configLogger(cctx, os.Stdout)
-	ctx := context.Background()
+func runServeCmd(ctx context.Context, cmd *cli.Command) error {
+	logger := configLogger(cmd, os.Stdout)
 
 	srv, err := NewServer(
 		Config{
 			Logger:         logger,
-			Bind:           cctx.String("bind"),
-			RedisURL:       cctx.String("redis-url"),
-			PLCHost:        cctx.String("atp-plc-host"),
-			PLCRateLimit:   cctx.Int("plc-rate-limit"),
-			DisableRefresh: cctx.Bool("disable-refresh"),
+			Bind:           cmd.String("bind"),
+			RedisURL:       cmd.String("redis-url"),
+			PLCHost:        cmd.String("atp-plc-host"),
+			PLCRateLimit:   cmd.Int("plc-rate-limit"),
+			DisableRefresh: cmd.Bool("disable-refresh"),
 		},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to construct server: %v", err)
 	}
 
-	if !cctx.Bool("disable-firehose-consumer") {
+	if !cmd.Bool("disable-firehose-consumer") {
 		go func() {
-			firehoseHost := cctx.String("atp-relay-host")
-			firehoseParallelism := cctx.Int("firehose-parallelism")
+			firehoseHost := cmd.String("atp-relay-host")
+			firehoseParallelism := cmd.Int("firehose-parallelism")
 			if err := srv.RunFirehoseConsumer(ctx, firehoseHost, firehoseParallelism); err != nil {
 				slog.Error("firehose consumer thread failed", "err", err)
 				// NOTE: not crashing or halting process here
@@ -228,7 +227,7 @@ func runServeCmd(cctx *cli.Context) error {
 		// TODO: what is this tuning for? just cargo-culted it
 		runtime.SetBlockProfileRate(10)
 		runtime.SetMutexProfileFraction(10)
-		if err := srv.RunMetrics(cctx.String("metrics-listen")); err != nil {
+		if err := srv.RunMetrics(cmd.String("metrics-listen")); err != nil {
 			slog.Error("failed to start metrics endpoint", "error", err)
 			// NOTE: not crashing or halting process here
 		}
@@ -237,11 +236,10 @@ func runServeCmd(cctx *cli.Context) error {
 	return srv.RunAPI()
 }
 
-func runResolveHandleCmd(cctx *cli.Context) error {
-	ctx := context.Background()
-	dir := configClient(cctx)
+func runResolveHandleCmd(ctx context.Context, cmd *cli.Command) error {
+	dir := configClient(cmd)
 
-	s := cctx.Args().First()
+	s := cmd.Args().First()
 	if s == "" {
 		return fmt.Errorf("need to provide identifier for resolution")
 	}
@@ -258,11 +256,10 @@ func runResolveHandleCmd(cctx *cli.Context) error {
 	return nil
 }
 
-func runResolveDIDCmd(cctx *cli.Context) error {
-	ctx := context.Background()
-	dir := configClient(cctx)
+func runResolveDIDCmd(ctx context.Context, cmd *cli.Command) error {
+	dir := configClient(cmd)
 
-	s := cctx.Args().First()
+	s := cmd.Args().First()
 	if s == "" {
 		return fmt.Errorf("need to provide identifier for resolution")
 	}
@@ -283,11 +280,10 @@ func runResolveDIDCmd(cctx *cli.Context) error {
 	return nil
 }
 
-func runLookupCmd(cctx *cli.Context) error {
-	ctx := context.Background()
-	dir := configClient(cctx)
+func runLookupCmd(ctx context.Context, cmd *cli.Command) error {
+	dir := configClient(cmd)
 
-	s := cctx.Args().First()
+	s := cmd.Args().First()
 	if s == "" {
 		return fmt.Errorf("need to provide identifier for resolution")
 	}
@@ -309,11 +305,10 @@ func runLookupCmd(cctx *cli.Context) error {
 	return nil
 }
 
-func runRefreshCmd(cctx *cli.Context) error {
-	ctx := context.Background()
-	dir := configClient(cctx)
+func runRefreshCmd(ctx context.Context, cmd *cli.Command) error {
+	dir := configClient(cmd)
 
-	s := cctx.Args().First()
+	s := cmd.Args().First()
 	if s == "" {
 		return fmt.Errorf("need to provide identifier for resolution")
 	}
