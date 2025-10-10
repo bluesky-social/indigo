@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
@@ -23,7 +24,7 @@ import (
 	"github.com/bluesky-social/indigo/util/cliutil"
 
 	"github.com/earthboundkid/versioninfo/v2"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"gorm.io/plugin/opentelemetry/tracing"
 )
 
@@ -36,7 +37,7 @@ func main() {
 
 func run(args []string) error {
 
-	app := cli.App{
+	app := cli.Command{
 		Name:    "relay",
 		Usage:   "atproto relay daemon",
 		Version: versioninfo.Short(),
@@ -45,18 +46,18 @@ func run(args []string) error {
 		&cli.StringSliceFlag{
 			Name:    "admin-password",
 			Usage:   "secret password/token for accessing admin endpoints (multiple values allowed)",
-			EnvVars: []string{"RELAY_ADMIN_PASSWORD", "RELAY_ADMIN_KEY"},
+			Sources: cli.EnvVars("RELAY_ADMIN_PASSWORD", "RELAY_ADMIN_KEY"),
 		},
 		&cli.StringFlag{
 			Name:    "plc-host",
 			Usage:   "method, hostname, and port of PLC registry",
 			Value:   "https://plc.directory",
-			EnvVars: []string{"RELAY_PLC_HOST", "ATP_PLC_HOST"},
+			Sources: cli.EnvVars("RELAY_PLC_HOST", "ATP_PLC_HOST"),
 		},
 		&cli.StringFlag{
 			Name:    "log-level",
 			Usage:   "log verbosity level (eg: warn, info, debug)",
-			EnvVars: []string{"RELAY_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"},
+			Sources: cli.EnvVars("RELAY_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"),
 		},
 	}
 	app.Commands = []*cli.Command{
@@ -69,92 +70,92 @@ func run(args []string) error {
 					Name:    "db-url",
 					Usage:   "database connection string for relay database",
 					Value:   "sqlite://data/relay/relay.sqlite",
-					EnvVars: []string{"DATABASE_URL"},
+					Sources: cli.EnvVars("DATABASE_URL"),
 				},
 				&cli.IntFlag{
 					Name:    "max-db-conn",
 					Usage:   "limit on size of database connection pool",
-					EnvVars: []string{"MAX_DB_CONNECTIONS", "MAX_METADB_CONNECTIONS"},
+					Sources: cli.EnvVars("MAX_DB_CONNECTIONS", "MAX_METADB_CONNECTIONS"),
 					Value:   40,
 				},
 				&cli.StringFlag{
 					Name:    "bind",
 					Usage:   "IP or address, and port, to listen on for HTTP APIs (including firehose)",
 					Value:   ":2470",
-					EnvVars: []string{"RELAY_API_BIND", "RELAY_API_LISTEN"},
+					Sources: cli.EnvVars("RELAY_API_BIND", "RELAY_API_LISTEN"),
 				},
 				&cli.StringFlag{
 					Name:    "persist-dir",
 					Usage:   "local folder to store firehose playback files",
 					Value:   "data/relay/persist",
-					EnvVars: []string{"RELAY_PERSIST_DIR", "RELAY_PERSISTER_DIR"},
+					Sources: cli.EnvVars("RELAY_PERSIST_DIR", "RELAY_PERSISTER_DIR"),
 				},
 				&cli.DurationFlag{
 					Name:    "replay-window",
 					Usage:   "retention duration for firehose playback",
-					EnvVars: []string{"RELAY_REPLAY_WINDOW", "RELAY_EVENT_PLAYBACK_TTL"},
+					Sources: cli.EnvVars("RELAY_REPLAY_WINDOW", "RELAY_EVENT_PLAYBACK_TTL"),
 					Value:   72 * time.Hour,
 				},
 				&cli.IntFlag{
 					Name:    "host-concurrency",
 					Usage:   "number of concurrent worker routines per upstream host",
-					EnvVars: []string{"RELAY_HOST_CONCURRENCY", "RELAY_CONCURRENCY_PER_PDS"},
+					Sources: cli.EnvVars("RELAY_HOST_CONCURRENCY", "RELAY_CONCURRENCY_PER_PDS"),
 					Value:   40,
 				},
 				&cli.IntFlag{
 					Name:    "default-account-limit",
 					Value:   100,
 					Usage:   "max number of active accounts for new upstream hosts",
-					EnvVars: []string{"RELAY_DEFAULT_ACCOUNT_LIMIT", "RELAY_DEFAULT_REPO_LIMIT"},
+					Sources: cli.EnvVars("RELAY_DEFAULT_ACCOUNT_LIMIT", "RELAY_DEFAULT_REPO_LIMIT"),
 				},
 				&cli.IntFlag{
 					Name:    "new-hosts-per-day-limit",
 					Value:   50,
 					Usage:   "max number of new upstream hosts subscribed per day via public requestCrawl",
-					EnvVars: []string{"RELAY_NEW_HOSTS_PER_DAY_LIMIT"},
+					Sources: cli.EnvVars("RELAY_NEW_HOSTS_PER_DAY_LIMIT"),
 				},
 				&cli.IntFlag{
 					Name:    "ident-cache-size",
 					Value:   5_000_000,
 					Usage:   "size of in-process identity cache (eg, DID docs)",
-					EnvVars: []string{"RELAY_IDENT_CACHE_SIZE", "RELAY_DID_CACHE_SIZE"},
+					Sources: cli.EnvVars("RELAY_IDENT_CACHE_SIZE", "RELAY_DID_CACHE_SIZE"),
 				},
 				&cli.BoolFlag{
 					Name:    "disable-request-crawl",
 					Usage:   "don't process public (un-authenticated) com.atproto.sync.requestCrawl",
-					EnvVars: []string{"RELAY_DISABLE_REQUEST_CRAWL"},
+					Sources: cli.EnvVars("RELAY_DISABLE_REQUEST_CRAWL"),
 				},
 				&cli.BoolFlag{
 					Name:    "allow-insecure-hosts",
 					Usage:   "enables subscription to non-SSL hosts via requestCrawl",
-					EnvVars: []string{"RELAY_ALLOW_INSECURE_HOSTS"},
+					Sources: cli.EnvVars("RELAY_ALLOW_INSECURE_HOSTS"),
 				},
 				&cli.BoolFlag{
 					Name:    "lenient-sync-validation",
 					Usage:   "when messages fail atproto 'Sync 1.1' validation, just log, don't drop",
-					EnvVars: []string{"RELAY_LENIENT_SYNC_VALIDATION"},
+					Sources: cli.EnvVars("RELAY_LENIENT_SYNC_VALIDATION"),
 				},
 				&cli.IntFlag{
 					Name:    "initial-seq-number",
 					Usage:   "when initializing output firehose, start with this sequence number",
 					Value:   1,
-					EnvVars: []string{"RELAY_INITIAL_SEQ_NUMBER"},
+					Sources: cli.EnvVars("RELAY_INITIAL_SEQ_NUMBER"),
 				},
 				&cli.StringSliceFlag{
 					Name:    "sibling-relays",
 					Usage:   "servers (eg https://example.com) to forward admin state changes to; multiple allowed",
-					EnvVars: []string{"RELAY_SIBLING_RELAYS"},
+					Sources: cli.EnvVars("RELAY_SIBLING_RELAYS"),
 				},
 				&cli.StringSliceFlag{
 					Name:    "trusted-domains",
 					Usage:   "domain names which mark trusted hosts; use wildcard prefix to match suffixes",
-					Value:   cli.NewStringSlice("*.host.bsky.network"),
-					EnvVars: []string{"RELAY_TRUSTED_DOMAINS"},
+					Value:   []string{"*.host.bsky.network"},
+					Sources: cli.EnvVars("RELAY_TRUSTED_DOMAINS"),
 				},
 				&cli.StringFlag{
 					Name:    "env",
 					Value:   "dev",
-					EnvVars: []string{"ENVIRONMENT"},
+					Sources: cli.EnvVars("ENVIRONMENT"),
 					Usage:   "declared hosting environment (prod, qa, etc); used in metrics",
 				},
 				&cli.BoolFlag{
@@ -170,25 +171,25 @@ func run(args []string) error {
 					Name:    "metrics-listen",
 					Usage:   "IP or address, and port, to listen on for prometheus metrics",
 					Value:   ":2471",
-					EnvVars: []string{"RELAY_METRICS_LISTEN"},
+					Sources: cli.EnvVars("RELAY_METRICS_LISTEN"),
 				},
 				&cli.StringFlag{
 					Name:    "otel-exporter-otlp-endpoint",
 					Value:   "http://localhost:4328",
-					EnvVars: []string{"OTEL_EXPORTER_OTLP_ENDPOINT"},
+					Sources: cli.EnvVars("OTEL_EXPORTER_OTLP_ENDPOINT"),
 				},
 			},
 		},
 		// additional commands defined in pull.go
 		cmdPullHosts,
 	}
-	return app.Run(os.Args)
+	return app.Run(context.Background(), args)
 
 }
 
-func configLogger(cctx *cli.Context, writer io.Writer) *slog.Logger {
+func configLogger(cmd *cli.Command, writer io.Writer) *slog.Logger {
 	var level slog.Level
-	switch strings.ToLower(cctx.String("log-level")) {
+	switch strings.ToLower(cmd.String("log-level")) {
 	case "error":
 		level = slog.LevelError
 	case "warn":
@@ -207,16 +208,15 @@ func configLogger(cctx *cli.Context, writer io.Writer) *slog.Logger {
 	return logger
 }
 
-func runRelay(cctx *cli.Context) error {
-	ctx := cctx.Context
-	logger := configLogger(cctx, os.Stdout)
+func runRelay(ctx context.Context, cmd *cli.Command) error {
+	logger := configLogger(cmd, os.Stdout)
 
 	// Trap SIGINT to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
-	dburl := cctx.String("db-url")
-	maxConn := cctx.Int("max-db-conn")
+	dburl := cmd.String("db-url")
+	maxConn := cmd.Int("max-db-conn")
 	logger.Info("configuring database", "url", dburl, "maxConn", maxConn)
 	db, err := cliutil.SetupDatabase(dburl, maxConn)
 	if err != nil {
@@ -228,17 +228,17 @@ func runRelay(cctx *cli.Context) error {
 		SkipHandleVerification: true,
 		SkipDNSDomainSuffixes:  []string{".bsky.social"},
 		TryAuthoritativeDNS:    true,
-		PLCURL:                 cctx.String("plc-host"),
+		PLCURL:                 cmd.String("plc-host"),
 	}
-	dir := identity.NewCacheDirectory(&baseDir, cctx.Int("ident-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
+	dir := identity.NewCacheDirectory(&baseDir, cmd.Int("ident-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
 
-	persistDir := cctx.String("persist-dir")
+	persistDir := cmd.String("persist-dir")
 	if err := os.MkdirAll(persistDir, os.ModePerm); err != nil {
 		return err
 	}
 	persitConfig := diskpersist.DefaultDiskPersistOptions()
-	persitConfig.Retention = cctx.Duration("replay-window")
-	persitConfig.InitialSeq = cctx.Int64("initial-seq-number")
+	persitConfig.Retention = cmd.Duration("replay-window")
+	persitConfig.InitialSeq = cmd.Int64("initial-seq-number")
 	logger.Info("setting up disk persister", "dir", persistDir, "replayWindow", persitConfig.Retention)
 	persister, err := diskpersist.NewDiskPersistence(persistDir, "", db, persitConfig)
 	if err != nil {
@@ -247,21 +247,21 @@ func runRelay(cctx *cli.Context) error {
 
 	relayConfig := relay.DefaultRelayConfig()
 	relayConfig.UserAgent = fmt.Sprintf("indigo-relay/%s (atproto-relay)", versioninfo.Short())
-	relayConfig.ConcurrencyPerHost = cctx.Int("host-concurrency")
-	relayConfig.DefaultRepoLimit = cctx.Int64("default-account-limit")
-	relayConfig.HostPerDayLimit = cctx.Int64("new-hosts-per-day-limit")
-	relayConfig.TrustedDomains = cctx.StringSlice("trusted-domains")
-	relayConfig.LenientSyncValidation = cctx.Bool("lenient-sync-validation")
+	relayConfig.ConcurrencyPerHost = cmd.Int("host-concurrency")
+	relayConfig.DefaultRepoLimit = cmd.Int64("default-account-limit")
+	relayConfig.HostPerDayLimit = cmd.Int64("new-hosts-per-day-limit")
+	relayConfig.TrustedDomains = cmd.StringSlice("trusted-domains")
+	relayConfig.LenientSyncValidation = cmd.Bool("lenient-sync-validation")
 
 	svcConfig := DefaultServiceConfig()
-	svcConfig.AllowInsecureHosts = cctx.Bool("allow-insecure-hosts")
-	svcConfig.DisableRequestCrawl = cctx.Bool("disable-request-crawl")
-	svcConfig.SiblingRelayHosts = cctx.StringSlice("sibling-relays")
+	svcConfig.AllowInsecureHosts = cmd.Bool("allow-insecure-hosts")
+	svcConfig.DisableRequestCrawl = cmd.Bool("disable-request-crawl")
+	svcConfig.SiblingRelayHosts = cmd.StringSlice("sibling-relays")
 	if len(svcConfig.SiblingRelayHosts) > 0 {
 		logger.Info("sibling relay hosts configured for admin state forwarding", "servers", svcConfig.SiblingRelayHosts)
 	}
-	if cctx.IsSet("admin-password") {
-		svcConfig.AdminPasswords = cctx.StringSlice("admin-password")
+	if cmd.IsSet("admin-password") {
+		svcConfig.AdminPasswords = cmd.StringSlice("admin-password")
 	} else {
 		var rblob [10]byte
 		_, _ = rand.Read(rblob[:])
@@ -285,17 +285,17 @@ func runRelay(cctx *cli.Context) error {
 
 	// start metrics endpoint
 	go func() {
-		if err := svc.StartMetrics(cctx.String("metrics-listen")); err != nil {
+		if err := svc.StartMetrics(cmd.String("metrics-listen")); err != nil {
 			logger.Error("failed to start metrics endpoint", "err", err)
 			os.Exit(1)
 		}
 	}()
 
 	// start observability/tracing (OTEL and jaeger)
-	if err := setupOTEL(cctx); err != nil {
+	if err := setupOTEL(cmd); err != nil {
 		return err
 	}
-	if cctx.Bool("enable-db-tracing") {
+	if cmd.Bool("enable-db-tracing") {
 		if err := db.Use(tracing.NewPlugin()); err != nil {
 			return err
 		}
@@ -308,7 +308,7 @@ func runRelay(cctx *cli.Context) error {
 
 	svcErr := make(chan error, 1)
 	go func() {
-		err := svc.StartAPI(cctx.String("bind"))
+		err := svc.StartAPI(cmd.String("bind"))
 		svcErr <- err
 	}()
 
