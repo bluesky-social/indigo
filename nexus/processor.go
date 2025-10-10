@@ -30,20 +30,22 @@ type EventProcessor struct {
 
 func (ep *EventProcessor) ProcessIdentity(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Identity) error {
 	defer ep.trackLastSeq(evt.Seq)
+	return ep.RefreshIdentity(ctx, evt.Did)
+}
 
-	curr, err := ep.GetRepoState(evt.Did)
+func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error {
+	curr, err := ep.GetRepoState(did)
 	if err != nil {
 		return err
 	} else if curr == nil {
 		return nil
 	}
 
-	did := syntax.DID(evt.Did)
-	if err := ep.Dir.Purge(ctx, did.AtIdentifier()); err != nil {
-		ep.Logger.Error("failed to purge identity cache", "did", evt.Did, "error", err)
+	if err := ep.Dir.Purge(ctx, syntax.DID(did).AtIdentifier()); err != nil {
+		ep.Logger.Error("failed to purge identity cache", "did", did, "error", err)
 	}
 
-	id, err := ep.Dir.LookupDID(ctx, did)
+	id, err := ep.Dir.LookupDID(ctx, syntax.DID(did))
 	if err != nil {
 		return err
 	}
@@ -53,24 +55,20 @@ func (ep *EventProcessor) ProcessIdentity(ctx context.Context, evt *comatproto.S
 		return nil
 	}
 
-	if evt.Handle == nil || *evt.Handle == "handle.invalid" {
-		return nil
-	}
-
 	userEvt := &UserEvt{
-		Did:    evt.Did,
+		Did:    did,
 		Handle: handleStr,
 	}
 
 	if err := ep.Outbox.SendUserEvt(userEvt); err != nil {
-		ep.Logger.Error("failed to send user evt", "did", evt.Did, "error", err)
+		ep.Logger.Error("failed to send user evt", "did", did, "error", err)
 		return err
 	}
 
 	if err := ep.DB.Model(&models.Repo{}).
-		Where("did = ?", evt.Did).
+		Where("did = ?", did).
 		Update("handle", handleStr).Error; err != nil {
-		ep.Logger.Error("failed to update handle", "did", evt.Did, "handle", handleStr, "error", err)
+		ep.Logger.Error("failed to update handle", "did", did, "handle", handleStr, "error", err)
 		return err
 	}
 

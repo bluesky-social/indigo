@@ -67,7 +67,12 @@ func (n *Nexus) claimResyncJob(ctx context.Context) (string, bool, error) {
 func (n *Nexus) resyncDid(ctx context.Context, did string) error {
 	n.logger.Info("starting resync", "did", did)
 
-	err := n.doResync(ctx, did)
+	err := n.EventProcessor.RefreshIdentity(ctx, did)
+	if err != nil {
+		n.logger.Info("failed to refresh identity", "did", did, "error", err)
+	}
+
+	err = n.doResync(ctx, did)
 	if err != nil {
 		n.db.Model(&models.Repo{}).
 			Where("did = ?", did).
