@@ -39,7 +39,7 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/polydawn/refmt/cbor"
 	rejson "github.com/polydawn/refmt/json"
 	"github.com/polydawn/refmt/shared"

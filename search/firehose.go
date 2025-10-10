@@ -19,7 +19,7 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	typegen "github.com/whyrusleeping/cbor-gen"
 
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
 )

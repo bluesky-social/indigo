@@ -29,7 +29,7 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v2"
 )
 

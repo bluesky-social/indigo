@@ -19,7 +19,7 @@ import (
 	"github.com/bluesky-social/indigo/automod/capture"
 	"github.com/bluesky-social/indigo/automod/consumer"
 
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	_ "github.com/joho/godotenv/autoload"
 	cli "github.com/urfave/cli/v2"
 	"golang.org/x/time/rate"

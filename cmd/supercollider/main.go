@@ -49,7 +49,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
