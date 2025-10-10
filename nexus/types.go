@@ -54,4 +54,6 @@ type OutboxEvt struct {
 	Type      string     `json:"type"`
 	RecordEvt *RecordEvt `json:"record,omitempty"`
 	UserEvt   *UserEvt   `json:"user,omitempty"`
+
+	AckCh chan struct{} `json:"-"`
 }
