@@ -243,15 +243,13 @@ func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.Sy
 		return nil
 	}
 
-	// handle delete first
-
 	var updateTo models.AccountStatus
 	if evt.Active {
 		updateTo = models.AccountStatusActive
-	} else if *evt.Status == string(models.AccountStatusDeactivated) || *evt.Status == string(models.AccountStatusTakendown) || *evt.Status == string(models.AccountStatusSuspended) {
+	} else if *evt.Status == string(models.AccountStatusDeactivated) || *evt.Status == string(models.AccountStatusTakendown) || *evt.Status == string(models.AccountStatusSuspended) || *evt.Status == string(models.AccountStatusDeleted) {
 		updateTo = models.AccountStatus(*evt.Status)
 	} else {
-		// NOOP
+		// no-op for other events such as throttled or desynchronized
 		return nil
 	}
 
@@ -259,12 +257,20 @@ func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.Sy
 		return nil
 	}
 
-	err = ep.DB.Model(&models.Repo{}).
-		Where("did = ?", evt.Did).
-		Update("status", updateTo).Error
-	if err != nil {
-		ep.Logger.Error("failed to update repo status", "did", evt.Did, "status", models.AccountStatusActive, "error", err)
-		return err
+	if updateTo == models.AccountStatusDeleted {
+		err := ep.DeleteRepo(evt.Did)
+		if err != nil {
+			ep.Logger.Error("failed to delete repo", "did", evt.Did, "error", err)
+			return err
+		}
+	} else {
+		err = ep.DB.Model(&models.Repo{}).
+			Where("did = ?", evt.Did).
+			Update("status", updateTo).Error
+		if err != nil {
+			ep.Logger.Error("failed to update repo status", "did", evt.Did, "status", models.AccountStatusActive, "error", err)
+			return err
+		}
 	}
 
 	err = ep.Outbox.SendUserEvt(&UserEvt{
@@ -273,7 +279,6 @@ func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.Sy
 		IsActive: evt.Active,
 		Status:   updateTo,
 	})
-
 	if err != nil {
 		ep.Logger.Error("failed to send user evt", "did", evt.Did, "error", err)
 		return err
@@ -360,6 +365,24 @@ func (ep *EventProcessor) updateRepoState(commit *Commit) error {
 					return err
 				}
 			}
+		}
+
+		return nil
+	})
+}
+
+func (ep *EventProcessor) DeleteRepo(did string) error {
+	return ep.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&models.RepoRecord{}, "did = ?", did).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Delete(&models.ResyncBuffer{}, "did = ?", did).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Delete(&models.Repo{}, "did = ?", did).Error; err != nil {
+			return err
 		}
 
 		return nil
