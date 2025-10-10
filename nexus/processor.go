@@ -243,11 +243,11 @@ func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.Sy
 
 	// handle delete first
 
-	var updateTo models.RepoStatus
+	var updateTo models.AccountStatus
 	if evt.Active {
-		updateTo = models.RepoStatusActive
-	} else if *evt.Status == string(models.RepoStatusDeactivated) || *evt.Status == string(models.RepoStatusTakendown) || *evt.Status == string(models.RepoStatusSuspended) {
-		updateTo = models.RepoStatus(*evt.Status)
+		updateTo = models.AccountStatusActive
+	} else if *evt.Status == string(models.AccountStatusDeactivated) || *evt.Status == string(models.AccountStatusTakendown) || *evt.Status == string(models.AccountStatusSuspended) {
+		updateTo = models.AccountStatus(*evt.Status)
 	} else {
 		// NOOP
 		return nil
@@ -261,7 +261,7 @@ func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.Sy
 		Where("did = ?", evt.Did).
 		Update("status", updateTo).Error
 	if err != nil {
-		ep.Logger.Error("failed to update repo status", "did", evt.Did, "status", models.RepoStatusActive, "error", err)
+		ep.Logger.Error("failed to update repo status", "did", evt.Did, "status", models.AccountStatusActive, "error", err)
 		return err
 	}
 
@@ -269,7 +269,7 @@ func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.Sy
 		Did:      curr.Did,
 		Handle:   curr.Handle,
 		IsActive: evt.Active,
-		Status:   string(updateTo),
+		Status:   updateTo,
 	})
 
 	if err != nil {

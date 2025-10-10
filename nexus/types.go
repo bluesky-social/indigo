@@ -1,5 +1,7 @@
 package main
 
+import "github.com/bluesky-social/indigo/nexus/models"
+
 type Commit struct {
 	Did     string     `json:"did"`
 	Rev     string     `json:"rev"`
@@ -42,10 +44,10 @@ type RecordEvt struct {
 }
 
 type UserEvt struct {
-	Did      string `json:"did"`
-	Handle   string `json:"handle"`
-	IsActive bool   `json:"is_active"`
-	Status   string `json:"status"`
+	Did      string               `json:"did"`
+	Handle   string               `json:"handle"`
+	IsActive bool                 `json:"is_active"`
+	Status   models.AccountStatus `json:"status"`
 }
 
 type OutboxEvt struct {
