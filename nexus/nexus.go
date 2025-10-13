@@ -84,11 +84,6 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		Outbox:    n.outbox,
 	}
 
-	cursor, err := n.EventProcessor.ReadLastCursor(context.Background(), config.RelayHost)
-	if err != nil {
-		return nil, err
-	}
-
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 			return n.EventProcessor.ProcessCommit(context.Background(), evt)
@@ -106,10 +101,10 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 
 	n.FirehoseConsumer = &FirehoseConsumer{
 		RelayHost:   config.RelayHost,
-		Cursor:      cursor,
 		Logger:      n.logger.With("component", "firehose"),
 		Parallelism: parallelism,
 		Callbacks:   rsc,
+		GetCursor:   n.EventProcessor.ReadLastCursor,
 	}
 
 	// crash recovery: reset any partially repos
