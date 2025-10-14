@@ -24,6 +24,8 @@ type EventProcessor struct {
 	RelayHost string
 	Outbox    *Outbox
 
+	FullNetworkMode bool
+
 	lastSeq atomic.Int64
 }
 
@@ -34,6 +36,14 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 	if err != nil {
 		return err
 	} else if curr == nil {
+		if ep.FullNetworkMode {
+			if err := ep.EnsureRepo(evt.Repo); err != nil {
+				ep.Logger.Error("failed to auto-track repo", "did", evt.Repo, "error", err)
+				return err
+			}
+			ep.Logger.Info("auto-tracked new repo from firehose", "did", evt.Repo)
+			return nil
+		}
 		return nil
 	}
 
@@ -161,6 +171,14 @@ func (ep *EventProcessor) ProcessSync(ctx context.Context, evt *comatproto.SyncS
 	if err != nil {
 		return err
 	} else if curr == nil {
+		if ep.FullNetworkMode {
+			if err := ep.EnsureRepo(evt.Did); err != nil {
+				ep.Logger.Error("failed to auto-track repo", "did", evt.Did, "error", err)
+				return err
+			}
+			ep.Logger.Info("auto-tracked new repo from firehose", "did", evt.Did)
+			return nil
+		}
 		return nil
 	}
 
@@ -201,6 +219,14 @@ func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error
 	if err != nil {
 		return err
 	} else if curr == nil {
+		if ep.FullNetworkMode {
+			if err := ep.EnsureRepo(did); err != nil {
+				ep.Logger.Error("failed to auto-track repo", "did", did, "error", err)
+				return err
+			}
+			ep.Logger.Info("auto-tracked new repo from firehose", "did", did)
+			return nil
+		}
 		return nil
 	}
 
@@ -249,6 +275,14 @@ func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.Sy
 	if err != nil {
 		return err
 	} else if curr == nil {
+		if ep.FullNetworkMode && evt.Active {
+			if err := ep.EnsureRepo(evt.Did); err != nil {
+				ep.Logger.Error("failed to auto-track repo", "did", evt.Did, "error", err)
+				return err
+			}
+			ep.Logger.Info("auto-tracked new repo from firehose", "did", evt.Did)
+			return nil
+		}
 		return nil
 	}
 
@@ -436,7 +470,7 @@ func (ep *EventProcessor) saveCursor(ctx context.Context) error {
 		return nil
 	}
 
-	return ep.DB.Save(&models.Cursor{
+	return ep.DB.Save(&models.FirehoseCursor{
 		Host:   ep.RelayHost,
 		Cursor: seq,
 	}).Error
@@ -462,7 +496,7 @@ func (ep *EventProcessor) RunCursorSaver(ctx context.Context, interval time.Dura
 }
 
 func (ep *EventProcessor) ReadLastCursor(ctx context.Context, relayHost string) (int64, error) {
-	var cursor models.Cursor
+	var cursor models.FirehoseCursor
 	if err := ep.DB.Where("host = ?", relayHost).First(&cursor).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			ep.Logger.Info("no pre-existing cursor in database", "relayHost", relayHost)
@@ -488,4 +522,12 @@ func (ep *EventProcessor) UpdateRepoState(did string, state models.RepoState) er
 	return ep.DB.Model(&models.Repo{}).
 		Where("did = ?", did).
 		Update("state", state).Error
+}
+
+func (ep *EventProcessor) EnsureRepo(did string) error {
+	return ep.DB.Save(&models.Repo{
+		Did:    did,
+		State:  models.RepoStatePending,
+		Status: models.AccountStatusActive,
+	}).Error
 }
