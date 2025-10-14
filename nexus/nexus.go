@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -29,6 +30,8 @@ type Nexus struct {
 
 	FullNetworkMode bool
 	RelayHost       string
+
+	claimJobMu sync.Mutex
 }
 
 type NexusConfig struct {

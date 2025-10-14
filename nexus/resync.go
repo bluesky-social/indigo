@@ -42,26 +42,28 @@ func (n *Nexus) runResyncWorker(ctx context.Context, workerID int) {
 }
 
 func (n *Nexus) claimResyncJob(ctx context.Context) (string, bool, error) {
-	var did models.Repo
-	err := n.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("state IN (?)", []models.RepoState{models.RepoStatePending, models.RepoStateDesynced}).
-			First(&did).Error; err != nil {
-			return err
-		}
+	n.claimJobMu.Lock()
+	defer n.claimJobMu.Unlock()
 
-		return tx.Model(&models.Repo{}).
-			Where("did = ?", did.Did).
-			Update("state", models.RepoStateResyncing).Error
-	})
-
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return "", false, nil
-		}
-		return "", false, err
+	var did string
+	result := n.db.Raw(`
+		UPDATE repos
+		SET state = ?
+		WHERE did = (
+			SELECT did FROM repos
+			WHERE state IN (?, ?)
+			ORDER BY RANDOM()
+			LIMIT 1
+		)
+		RETURNING did
+		`, models.RepoStateResyncing, models.RepoStatePending, models.RepoStateDesynced).Scan(&did)
+	if result.Error != nil {
+		return "", false, result.Error
 	}
-
-	return did.Did, true, nil
+	if result.RowsAffected == 0 {
+		return "", false, nil
+	}
+	return did, true, nil
 }
 
 func (n *Nexus) resyncDid(ctx context.Context, did string) error {
@@ -91,6 +93,8 @@ func (n *Nexus) resyncDid(ctx context.Context, did string) error {
 
 	return nil
 }
+
+const BATCH_SIZE = 100
 
 func (n *Nexus) doResync(ctx context.Context, did string) error {
 	ident, err := n.Dir.LookupDID(ctx, syntax.DID(did))
@@ -137,7 +141,7 @@ func (n *Nexus) doResync(ctx context.Context, did string) error {
 	}
 	n.logger.Info("pre-loaded existing records", "did", did, "count", len(existingCids))
 
-	numRecords := 0
+	var evtBatch []*RecordEvt
 
 	err = r.MST.Walk(func(recPathBytes []byte, recCid cid.Cid) error {
 		recPath := string(recPathBytes)
@@ -181,31 +185,25 @@ func (n *Nexus) doResync(ctx context.Context, did string) error {
 			Record:     rec,
 			Cid:        recCid.String(),
 		}
+		evtBatch = append(evtBatch, evt)
 
-		repoRecord := models.RepoRecord{
-			Did:        did,
-			Collection: collStr,
-			Rkey:       rkeyStr,
-			Cid:        cidStr,
-		}
-
-		if err := n.db.Transaction(func(tx *gorm.DB) error {
-			if err := tx.Save(&repoRecord).Error; err != nil {
+		if len(evtBatch) >= BATCH_SIZE {
+			if err := n.writeBatch(evtBatch); err != nil {
+				n.logger.Error("failed to flush batch", "error", err, "did", did)
 				return err
 			}
-			return persistRecordEvt(tx, evt)
-		}); err != nil {
-			n.logger.Error("failed to save record and persist event", "error", err, "did", did, "path", recPath)
-			return nil
 		}
+		evtBatch = evtBatch[:0]
 
-		n.outbox.Notify()
-		numRecords++
 		return nil
 	})
 
 	if err != nil {
 		return fmt.Errorf("failed to iterate repo: %w", err)
+	}
+
+	if err := n.writeBatch(evtBatch); err != nil {
+		return fmt.Errorf("failed to flush final batch: %w", err)
 	}
 
 	if err := n.db.Model(&models.Repo{}).
@@ -219,7 +217,44 @@ func (n *Nexus) doResync(ctx context.Context, did string) error {
 		return fmt.Errorf("failed to update repo state to active %w", err)
 	}
 
-	n.logger.Info("resync repo complete", "did", did, "records", numRecords, "rev", rev)
+	n.logger.Info("resync repo complete", "did", did, "rev", rev)
+	return nil
+}
+
+func (n *Nexus) writeBatch(evtBatch []*RecordEvt) error {
+	if len(evtBatch) == 0 {
+		return nil
+	}
+
+	recordBatch := make([]*models.RepoRecord, 0, len(evtBatch))
+	for _, evt := range evtBatch {
+		recordBatch = append(recordBatch, &models.RepoRecord{
+			Did:        evt.Did,
+			Collection: evt.Collection,
+			Rkey:       evt.Rkey,
+			Cid:        evt.Cid,
+		})
+	}
+
+	if err := n.db.Transaction(func(tx *gorm.DB) error {
+		for _, record := range recordBatch {
+			if err := tx.Save(&record).Error; err != nil {
+				return err
+			}
+		}
+
+		for _, evt := range evtBatch {
+			if err := persistRecordEvt(tx, evt); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	n.outbox.Notify()
 	return nil
 }
 
