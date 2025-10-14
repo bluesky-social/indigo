@@ -1,186 +1,116 @@
 package main
 
 import (
-	"errors"
+	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
+	"path"
 	"path/filepath"
-	"strings"
 
-	"github.com/bluesky-social/indigo/lex"
-	"github.com/urfave/cli/v2"
+	_ "github.com/joho/godotenv/autoload"
+
+	"github.com/bluesky-social/indigo/atproto/lexicon"
+
+	"github.com/earthboundkid/versioninfo/v2"
+	"github.com/urfave/cli/v3"
 )
 
-func findSchemas(dir string, out []string) ([]string, error) {
-	err := filepath.Walk(dir, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if info.IsDir() {
-			return nil
-		}
-
-		if strings.HasSuffix(path, ".json") {
-			out = append(out, path)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return out, err
-	}
-
-	return out, nil
-
-}
-
-// for direct .json lexicon files or directories containing lexicon .json files, get one flat list of all paths to .json files
-func expandArgs(args []string) ([]string, error) {
-	var out []string
-	for _, a := range args {
-		st, err := os.Stat(a)
-		if err != nil {
-			return nil, err
-		}
-		if st.IsDir() {
-			out, err = findSchemas(a, out)
-			if err != nil {
-				return nil, err
-			}
-		} else if strings.HasSuffix(a, ".json") {
-			out = append(out, a)
-		}
-	}
-
-	return out, nil
-}
-
 func main() {
-	app := cli.NewApp()
-
-	app.Flags = []cli.Flag{
-		&cli.StringFlag{
-			Name: "outdir",
-		},
-		&cli.BoolFlag{
-			Name: "gen-server",
-		},
-		&cli.BoolFlag{
-			Name: "gen-handlers",
-		},
-		&cli.StringSliceFlag{
-			Name: "types-import",
-		},
-		&cli.StringSliceFlag{
-			Name: "external-lexicons",
-		},
-		&cli.StringFlag{
-			Name:  "package",
-			Value: "schemagen",
-		},
-		&cli.StringFlag{
-			Name:  "build",
-			Value: "",
-		},
-		&cli.StringFlag{
-			Name:  "build-file",
-			Value: "",
-		},
+	if err := run(os.Args); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(-1)
 	}
-	app.Action = func(cctx *cli.Context) error {
-		paths, err := expandArgs(cctx.Args().Slice())
+}
+
+func run(args []string) error {
+
+	app := cli.Command{
+		Name:  "lexgen",
+		Usage: "AT lexicon code generation for Go",
+		//Description: "",
+		Version: versioninfo.Short(),
+	}
+	app.Commands = []*cli.Command{
+		cmdGenerate,
+	}
+	return app.Run(context.Background(), args)
+}
+
+var cmdGenerate = &cli.Command{
+	Name:      "generate",
+	Usage:     "check schema syntax, best practices, and style",
+	ArgsUsage: `<file-or-dir>*`,
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "lexicons-dir",
+			Value:   "./lexicons/",
+			Usage:   "base directory for project Lexicon files",
+			Sources: cli.EnvVars("LEXICONS_DIR"),
+		},
+		&cli.BoolFlag{
+			Name:  "json",
+			Usage: "output structured JSON",
+		},
+	},
+	Action: runGenerate,
+}
+
+func runGenerate(ctx context.Context, cmd *cli.Command) error {
+	paths := cmd.Args().Slice()
+	if !cmd.Args().Present() {
+		paths = []string{cmd.String("lexicons-dir")}
+		_, err := os.Stat(paths[0])
 		if err != nil {
-			return err
+			return fmt.Errorf("no path arguments specified and default lexicon directory not found\n%w", err)
 		}
+	}
 
-		var schemas []*lex.Schema
-		for _, arg := range paths {
-			if strings.HasSuffix(arg, "com/atproto/temp/importRepo.json") {
-				fmt.Printf("skipping schema: %s\n", arg)
-				continue
-			}
-			s, err := lex.ReadSchema(arg)
-			if err != nil {
-				return fmt.Errorf("failed to read file %q: %w", arg, err)
-			}
+	// TODO: load up entire directory in to a catalog? or have a "linter" struct?
 
-			schemas = append(schemas, s)
-		}
-
-		externalPaths, err := expandArgs(cctx.StringSlice("external-lexicons"))
+	slog.Debug("starting lint run")
+	for _, p := range paths {
+		finfo, err := os.Stat(p)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed loading %s: %w", p, err)
 		}
-		var externalSchemas []*lex.Schema
-		for _, arg := range externalPaths {
-			s, err := lex.ReadSchema(arg)
-			if err != nil {
-				return fmt.Errorf("failed to read file %q: %w", arg, err)
-			}
-
-			externalSchemas = append(externalSchemas, s)
-		}
-
-		buildLiteral := cctx.String("build")
-		buildPath := cctx.String("build-file")
-		var packages []lex.Package
-		if buildLiteral != "" {
-			if buildPath != "" {
-				return errors.New("must not set both --build and --build-file")
-			}
-			packages, err = lex.ParsePackages([]byte(buildLiteral))
-			if err != nil {
-				return fmt.Errorf("--build error, %w", err)
-			}
-			if len(packages) == 0 {
-				return errors.New("--build must specify at least one Package{}")
-			}
-		} else if buildPath != "" {
-			blob, err := os.ReadFile(buildPath)
-			if err != nil {
-				return fmt.Errorf("--build-file error, %w", err)
-			}
-			packages, err = lex.ParsePackages(blob)
-			if err != nil {
-				return fmt.Errorf("--build-file error, %w", err)
-			}
-			if len(packages) == 0 {
-				return errors.New("--build-file must specify at least one Package{}")
-			}
-		} else {
-			return errors.New("need exactly one of --build or --build-file")
-		}
-
-		if cctx.Bool("gen-server") {
-			pkgname := cctx.String("package")
-			outdir := cctx.String("outdir")
-			if outdir == "" {
-				return fmt.Errorf("must specify output directory (--outdir)")
-			}
-			defmap := lex.BuildExtDefMap(append(schemas, externalSchemas...), packages)
-			_ = defmap
-
-			paths := cctx.StringSlice("types-import")
-			importmap := make(map[string]string)
-			for _, p := range paths {
-				parts := strings.Split(p, ":")
-				importmap[parts[0]] = parts[1]
-			}
-
-			handlers := cctx.Bool("gen-handlers")
-
-			if err := lex.CreateHandlerStub(pkgname, importmap, outdir, schemas, handlers); err != nil {
+		if finfo.IsDir() {
+			if err := filepath.WalkDir(p, func(fp string, d fs.DirEntry, err error) error {
+				if d.IsDir() || path.Ext(fp) != ".json" {
+					return nil
+				}
+				return blah(ctx, cmd, fp)
+			}); err != nil {
 				return err
 			}
-
-		} else {
-			return lex.Run(schemas, externalSchemas, packages)
+			continue
 		}
+		if err := blah(ctx, cmd, p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-		return nil
+func blah(ctx context.Context, cmd *cli.Command, p string) error {
+	b, err := os.ReadFile(p)
+	if err != nil {
+		return err
 	}
 
-	app.RunAndExitOnError()
+	// parse file regularly
+	// TODO: use json/v2 when available for case-sensitivity
+	var sf lexicon.SchemaFile
+
+	// two-part parsing before looking at errors
+	err = json.Unmarshal(b, &sf)
+	if err == nil {
+		err = sf.FinishParse()
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }
