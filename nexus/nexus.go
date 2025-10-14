@@ -26,6 +26,9 @@ type Nexus struct {
 
 	FirehoseConsumer *FirehoseConsumer
 	EventProcessor   *EventProcessor
+
+	FullNetworkMode bool
+	RelayHost       string
 }
 
 type NexusConfig struct {
@@ -33,6 +36,7 @@ type NexusConfig struct {
 	RelayHost                  string
 	FirehoseParallelism        int
 	FirehoseCursorSaveInterval time.Duration
+	FullNetworkMode            bool
 }
 
 func NewNexus(config NexusConfig) (*Nexus, error) {
@@ -43,7 +47,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&models.Repo{}, &models.RepoRecord{}, &models.OutboxBuffer{}, &models.ResyncBuffer{}, &models.Cursor{}); err != nil {
+	if err := db.AutoMigrate(&models.Repo{}, &models.RepoRecord{}, &models.OutboxBuffer{}, &models.ResyncBuffer{}, &models.FirehoseCursor{}, &models.ListReposCursor{}); err != nil {
 		return nil, err
 	}
 
@@ -64,6 +68,9 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		Dir: &cdir,
 
 		outbox: NewOutbox(db),
+
+		FullNetworkMode: config.FullNetworkMode,
+		RelayHost:       config.RelayHost,
 	}
 
 	parallelism := config.FirehoseParallelism
@@ -77,11 +84,12 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	}
 
 	n.EventProcessor = &EventProcessor{
-		Logger:    n.logger.With("component", "processor"),
-		DB:        db,
-		Dir:       n.Dir,
-		RelayHost: config.RelayHost,
-		Outbox:    n.outbox,
+		Logger:          n.logger.With("component", "processor"),
+		DB:              db,
+		Dir:             n.Dir,
+		RelayHost:       config.RelayHost,
+		Outbox:          n.outbox,
+		FullNetworkMode: config.FullNetworkMode,
 	}
 
 	rsc := &events.RepoStreamCallbacks{
@@ -110,6 +118,14 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	// crash recovery: reset any partially repos
 	if err := n.resetPartiallyResynced(); err != nil {
 		return nil, err
+	}
+
+	if config.FullNetworkMode {
+		go func() {
+			if err := n.EnumerateNetwork(context.Background()); err != nil {
+				n.logger.Error("network enumeration failed", "error", err)
+			}
+		}()
 	}
 
 	for i := 0; i < 20; i++ {
