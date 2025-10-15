@@ -155,6 +155,11 @@ func (n *Nexus) doResync(ctx context.Context, did string) error {
 		rkeyStr := rkey.String()
 		cidStr := recCid.String()
 
+		// Filter collections - only process if matches filters
+		if !matchesCollection(collStr, n.EventProcessor.CollectionFilters) {
+			return nil
+		}
+
 		existingCid, exists := existingCids[recPath]
 		if exists && existingCid == cidStr {
 			return nil

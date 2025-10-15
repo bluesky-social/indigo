@@ -24,7 +24,8 @@ type EventProcessor struct {
 	RelayHost string
 	Outbox    *Outbox
 
-	FullNetworkMode bool
+	FullNetworkMode   bool
+	CollectionFilters []string
 
 	lastSeq atomic.Int64
 }
@@ -73,6 +74,18 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 		ep.Logger.Error("failed to parse operations", "did", evt.Repo, "error", err)
 		return err
 	}
+
+	// filter ops to only matching collections after validation (since all ops are necessary for commit validation)
+	filteredOps := []CommitOp{}
+	for _, op := range commit.Ops {
+		if matchesCollection(op.Collection, ep.CollectionFilters) {
+			filteredOps = append(filteredOps, op)
+		}
+	}
+	if len(filteredOps) == 0 {
+		return nil
+	}
+	commit.Ops = filteredOps
 
 	if curr.State == models.RepoStateResyncing {
 		if err := ep.addToResyncBuffer(commit); err != nil {
