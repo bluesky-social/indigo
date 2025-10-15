@@ -119,17 +119,17 @@ func (fl *FlatLexicon) flattenType(fd *FlatDef, tpath []string, def *lexicon.Sch
 		}
 	case lexicon.SchemaProcedure:
 		// v.Properties: same as above
-		if v.Output != nil && v.Output.Schema != nil {
-			tp := slices.Clone(tpath)
-			tp = append(tp, "output")
-			if err := fl.flattenType(fd, tp, v.Output.Schema); err != nil {
-				return err
-			}
-		}
 		if v.Input != nil && v.Input.Schema != nil {
 			tp := slices.Clone(tpath)
 			tp = append(tp, "input")
 			if err := fl.flattenType(fd, tp, v.Input.Schema); err != nil {
+				return err
+			}
+		}
+		if v.Output != nil && v.Output.Schema != nil {
+			tp := slices.Clone(tpath)
+			tp = append(tp, "output")
+			if err := fl.flattenType(fd, tp, v.Output.Schema); err != nil {
 				return err
 			}
 		}
@@ -146,7 +146,6 @@ func (fl *FlatLexicon) flattenType(fd *FlatDef, tpath []string, def *lexicon.Sch
 			default:
 				return fmt.Errorf("subscription with non-union message schema: %T", v.Message.Schema.Inner)
 			}
-
 		}
 	case lexicon.SchemaObject:
 		if err := fl.flattenObject(fd, tpath, &v); err != nil {

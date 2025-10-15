@@ -162,7 +162,6 @@ func genFile(ctx context.Context, cmd *cli.Command, cat lexicon.Catalog, p strin
 			TabIndent: false,
 			TabWidth:  4,
 		}
-		//_ = fmtOpts
 		formatted, err := imports.Process(outPath, buf.Bytes(), &fmtOpts)
 		if err != nil {
 			return fmt.Errorf("failed to format codegen output (%s): %w", p, err)

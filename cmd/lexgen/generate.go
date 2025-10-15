@@ -73,14 +73,15 @@ func (gen *FlatGenerator) fileName() string {
 func (gen *FlatGenerator) deps() map[string]bool {
 	d := map[string]bool{
 		"lexutil \"github.com/bluesky-social/indigo/lex/util\"": true,
+		// TODO: this could be more conditional (the record check is not enough though)
+		"cbg \"github.com/whyrusleeping/cbor-gen\"": true,
 	}
 	for _, t := range gen.Lex.Types {
 		switch t.Type {
 		case "query", "procedure":
 			d["\"context\""] = true
 		case "record":
-			// TODO
-			//d["cbg \"github.com/whyrusleeping/cbor-gen\""]: true
+			d["cbg \"github.com/whyrusleeping/cbor-gen\""] = true
 		}
 	}
 	for ext, _ := range gen.Lex.ExternalRefs {
@@ -89,7 +90,7 @@ func (gen *FlatGenerator) deps() map[string]bool {
 		} else if strings.HasPrefix(ext, "app.bsky.") {
 			d["appbsky \"github.com/bluesky-social/indigo/api/bsky\""] = true
 		} else if strings.HasPrefix(ext, "tools.ozone.") {
-			d["toolsozone \"github.com/bluesky-social/indigo/api/toolsozone\""] = true
+			d["toolsozone \"github.com/bluesky-social/indigo/api/ozone\""] = true
 		} else {
 			// XXX: handle more mappings; or log/error if missing
 		}
@@ -429,11 +430,80 @@ func (gen *FlatGenerator) writeUnion(ft *FlatType, union *lexicon.SchemaUnion) e
 		}
 	}
 	fmt.Fprintf(gen.Out, "type %s struct {\n", name)
-
 	for _, rname := range refNames {
 		ref := unionRefs[rname]
 		fmt.Fprintf(gen.Out, "    %s *%s\n", ref.FieldName, ref.TypeName)
 	}
+	fmt.Fprintf(gen.Out, "}\n\n")
+
+	// ... then MarshalJSON
+	fmt.Fprintf(gen.Out, "func (t *%s) MarshalJSON() ([]byte, error) {\n", name)
+	for _, rname := range refNames {
+		ref := unionRefs[rname]
+		fmt.Fprintf(gen.Out, "    if t.%s != nil {\n", ref.FieldName)
+		fmt.Fprintf(gen.Out, "        t.%s.LexiconTypeID = \"%s\"\n", ref.FieldName, ref.LexName)
+		fmt.Fprintf(gen.Out, "        return json.Marshal(t.%s)\n", ref.FieldName)
+		fmt.Fprintf(gen.Out, "    }\n")
+	}
+	// TODO: better error message here?
+	fmt.Fprintf(gen.Out, "    return nil, fmt.Errorf(\"cannot marshal empty enum\")")
+	fmt.Fprintf(gen.Out, "}\n\n")
+
+	// ... then UnmarshalJSON
+	fmt.Fprintf(gen.Out, "func (t *%s) UnmarshalJSON(b []byte) error {\n", name)
+	fmt.Fprintf(gen.Out, "    typ, err := lexutil.TypeExtract(b)\n")
+	fmt.Fprintf(gen.Out, "    if err != nil {\n")
+	fmt.Fprintf(gen.Out, "        return err\n")
+	fmt.Fprintf(gen.Out, "    }\n\n")
+	fmt.Fprintf(gen.Out, "    switch typ {\n")
+	for _, rname := range refNames {
+		ref := unionRefs[rname]
+		fmt.Fprintf(gen.Out, "    case \"%s\":\n", ref.LexName)
+		fmt.Fprintf(gen.Out, "        t.%s = new(%s)\n", ref.FieldName, ref.TypeName)
+		fmt.Fprintf(gen.Out, "        return json.Unmarshal(b, t.%s)\n", ref.FieldName)
+	}
+	fmt.Fprintf(gen.Out, "    default:\n")
+	fmt.Fprintf(gen.Out, "        return nil\n")
+	fmt.Fprintf(gen.Out, "    }\n")
+	fmt.Fprintf(gen.Out, "}\n\n")
+
+	// TODO: bailing out here for; need better logic around whether this is required for a record or not
+	if true {
+		return nil
+	}
+
+	// ... then MarshalCBOR
+	fmt.Fprintf(gen.Out, "func (t *%s) MarshalCBOR(w io.Writer) error {\n", name)
+	fmt.Fprintf(gen.Out, "    if t == nil {\n")
+	fmt.Fprintf(gen.Out, "        _, err := w.Write(cbg.CborNull)\n")
+	fmt.Fprintf(gen.Out, "        return err")
+	fmt.Fprintf(gen.Out, "    }\n")
+	for _, rname := range refNames {
+		ref := unionRefs[rname]
+		fmt.Fprintf(gen.Out, "    if t.%s != nil {\n", ref.FieldName)
+		fmt.Fprintf(gen.Out, "        return t.%s.MarshalCBOR(w)\n", ref.FieldName)
+		fmt.Fprintf(gen.Out, "    }\n")
+	}
+	// TODO: better error message here?
+	fmt.Fprintf(gen.Out, "    return fmt.Errorf(\"cannot cbor marshal empty enum\")")
+	fmt.Fprintf(gen.Out, "}\n\n")
+
+	// ... then UnmarshalCBOR
+	fmt.Fprintf(gen.Out, "func (t *%s) UnmarshalCBOR(b []byte) error {\n", name)
+	fmt.Fprintf(gen.Out, "    typ, err := lexutil.TypeExtract(b)\n")
+	fmt.Fprintf(gen.Out, "    if err != nil {\n")
+	fmt.Fprintf(gen.Out, "        return err\n")
+	fmt.Fprintf(gen.Out, "    }\n\n")
+	fmt.Fprintf(gen.Out, "    switch typ {\n")
+	for _, rname := range refNames {
+		ref := unionRefs[rname]
+		fmt.Fprintf(gen.Out, "    case \"%s\":\n", ref.LexName)
+		fmt.Fprintf(gen.Out, "        t.%s = new(%s)\n", ref.FieldName, ref.TypeName)
+		fmt.Fprintf(gen.Out, "        return t.%s.UnmarshalCBOR(bytes.NewReader(b))\n", ref.FieldName)
+	}
+	fmt.Fprintf(gen.Out, "    default:\n")
+	fmt.Fprintf(gen.Out, "        return nil\n")
+	fmt.Fprintf(gen.Out, "    }\n")
 	fmt.Fprintf(gen.Out, "}\n\n")
 
 	return nil
