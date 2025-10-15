@@ -10,7 +10,7 @@
         "type": "params",
         "description": "a params type",
         "required": [
-          "string"
+          "stringField"
         ],
         "properties": {
           "boolean": {
@@ -21,7 +21,7 @@
             "type": "integer",
             "description": "field of type integer"
           },
-          "string": {
+          "stringField": {
             "type": "string",
             "description": "field of type string"
           },
