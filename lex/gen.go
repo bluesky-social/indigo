@@ -196,7 +196,7 @@ func writeDecoderRegister(w io.Writer, tps []outputType) error {
 	if buf.Len() == 0 {
 		return nil
 	}
-	outf("}")
+	outf("}\n")
 	_, err := w.Write(buf.Bytes())
 	return err
 }
