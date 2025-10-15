@@ -27,6 +27,10 @@ func (n *Nexus) handleHealthcheck(c echo.Context) error {
 }
 
 func (n *Nexus) handleListen(c echo.Context) error {
+	if n.outbox.mode == OutboxModeWebhook {
+		return echo.NewHTTPError(http.StatusBadRequest, "websocket not available in webhook mode")
+	}
+
 	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
 		return err
@@ -35,25 +39,30 @@ func (n *Nexus) handleListen(c echo.Context) error {
 
 	n.logger.Info("websocket connected")
 
-	// read loop so we can detect if the client disconnects
+	// read loop to detect disconnects and handle acks in websocket-ack mode
 	disconnected := make(chan struct{})
+
 	go func() {
 		for {
-			if _, _, err := ws.ReadMessage(); err != nil {
+			var msg AckMessage
+			if err := ws.ReadJSON(&msg); err != nil {
 				close(disconnected)
 				return
 			}
+
+			// Process acks directly in websocket-ack mode
+			if n.outbox.mode == OutboxModeWebsocketAck {
+				n.outbox.AckEvent(msg.ID)
+			}
 		}
 	}()
-
-	evtCh := n.outbox.Subscribe(c.Request().Context())
 
 	for {
 		select {
 		case <-disconnected:
 			n.logger.Info("websocket disconnected")
 			return nil
-		case evt, ok := <-evtCh:
+		case evt, ok := <-n.outbox.events:
 			if !ok {
 				return nil
 			}
@@ -61,7 +70,11 @@ func (n *Nexus) handleListen(c echo.Context) error {
 				n.logger.Info("websocket write error", "error", err)
 				return err
 			}
-			close(evt.AckCh)
+			// In fire-and-forget mode, ack immediately after write succeeds
+			// In websocket-ack mode, wait for client to send ack and handle in read loop
+			if n.outbox.mode == OutboxModeFireAndForget {
+				n.outbox.AckEvent(evt.ID)
+			}
 		}
 	}
 }

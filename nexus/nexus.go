@@ -40,6 +40,8 @@ type NexusConfig struct {
 	FirehoseParallelism        int
 	FirehoseCursorSaveInterval time.Duration
 	FullNetworkMode            bool
+	DisableAcks                bool
+	WebhookURL                 string
 }
 
 func NewNexus(config NexusConfig) (*Nexus, error) {
@@ -63,6 +65,15 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	}
 	cdir := identity.NewCacheDirectory(&bdir, 2_000_000, time.Hour*24, time.Minute*2, time.Minute*5)
 
+	var outboxMode OutboxMode
+	if config.WebhookURL != "" {
+		outboxMode = OutboxModeWebhook
+	} else if config.DisableAcks {
+		outboxMode = OutboxModeFireAndForget
+	} else {
+		outboxMode = OutboxModeWebsocketAck
+	}
+
 	n := &Nexus{
 		db:     db,
 		echo:   e,
@@ -70,7 +81,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 
 		Dir: &cdir,
 
-		outbox: NewOutbox(db),
+		outbox: NewOutbox(db, outboxMode, config.WebhookURL),
 
 		FullNetworkMode: config.FullNetworkMode,
 		RelayHost:       config.RelayHost,

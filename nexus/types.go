@@ -2,6 +2,14 @@ package main
 
 import "github.com/bluesky-social/indigo/nexus/models"
 
+type OutboxMode string
+
+const (
+	OutboxModeFireAndForget OutboxMode = "fire-and-forget"
+	OutboxModeWebsocketAck  OutboxMode = "websocket-ack"
+	OutboxModeWebhook       OutboxMode = "webhook"
+)
+
 type Commit struct {
 	Did     string     `json:"did"`
 	Rev     string     `json:"rev"`
@@ -51,9 +59,22 @@ type UserEvt struct {
 }
 
 type OutboxEvt struct {
+	ID        uint       `json:"id"`
 	Type      string     `json:"type"`
 	RecordEvt *RecordEvt `json:"record,omitempty"`
 	UserEvt   *UserEvt   `json:"user,omitempty"`
+}
 
-	AckCh chan struct{} `json:"-"`
+func (evt *OutboxEvt) DID() string {
+	if evt.RecordEvt != nil {
+		return evt.RecordEvt.Did
+	}
+	if evt.UserEvt != nil {
+		return evt.UserEvt.Did
+	}
+	return ""
+}
+
+type AckMessage struct {
+	ID uint `json:"id"`
 }
