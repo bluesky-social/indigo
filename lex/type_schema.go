@@ -641,7 +641,7 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 		pf("type %s bool\n", name)
 	case "object":
 		if ts.needsType {
-			pf("//\n// RECORDTYPE: %s\n", name)
+			pf("\n// RECORDTYPE: %s\n", name)
 		}
 
 		pf("type %s struct {\n", name)
@@ -818,7 +818,7 @@ func (ts *TypeSchema) writeJsonMarshalerEnum(name string, w io.Writer) error {
 		pf("\t\treturn json.Marshal(t.%s)\n\t}\n", vname)
 	}
 
-	pf("\treturn nil, fmt.Errorf(\"cannot marshal empty enum\")\n}\n")
+	pf("\treturn nil, fmt.Errorf(\"cannot marshal empty enum\")\n}\n\n")
 	return nil
 }
 
