@@ -16,7 +16,7 @@
             "type": "integer",
             "description": "field of type integer"
           },
-          "string": {
+          "stringField": {
             "type": "string",
             "description": "field of type string"
           }
