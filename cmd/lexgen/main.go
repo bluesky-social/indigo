@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"go/format"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -16,6 +18,7 @@ import (
 
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v3"
+	"golang.org/x/tools/imports"
 )
 
 func main() {
@@ -51,9 +54,11 @@ var cmdGenerate = &cli.Command{
 			Usage:   "base directory for project Lexicon files",
 			Sources: cli.EnvVars("LEXICONS_DIR"),
 		},
-		&cli.BoolFlag{
-			Name:  "json",
-			Usage: "output structured JSON",
+		&cli.StringFlag{
+			Name:    "output-dir",
+			Value:   "./lexgen-out/",
+			Usage:   "base directory for output packages",
+			Sources: cli.EnvVars("OUTPUT_DIR"),
 		},
 	},
 	Action: runGenerate,
@@ -69,7 +74,15 @@ func runGenerate(ctx context.Context, cmd *cli.Command) error {
 		}
 	}
 
-	// TODO: load up entire directory in to a catalog? or have a "linter" struct?
+	// load all directories
+	cat := lexicon.NewBaseCatalog()
+	lexDir := cmd.String("lexicons-dir")
+	ldinfo, err := os.Stat(lexDir)
+	if err == nil && ldinfo.IsDir() {
+		if err := cat.LoadDirectory(lexDir); err != nil {
+			return err
+		}
+	}
 
 	slog.Debug("starting lint run")
 	for _, p := range paths {
@@ -78,27 +91,33 @@ func runGenerate(ctx context.Context, cmd *cli.Command) error {
 			return fmt.Errorf("failed loading %s: %w", p, err)
 		}
 		if finfo.IsDir() {
+			if p != cmd.String("lexicons-dir") {
+				// HACK: load first directory
+				if err := cat.LoadDirectory(p); err != nil {
+					return err
+				}
+			}
 			if err := filepath.WalkDir(p, func(fp string, d fs.DirEntry, err error) error {
 				if d.IsDir() || path.Ext(fp) != ".json" {
 					return nil
 				}
-				return blah(ctx, cmd, fp)
+				return genFile(ctx, cmd, &cat, fp)
 			}); err != nil {
 				return err
 			}
 			continue
 		}
-		if err := blah(ctx, cmd, p); err != nil {
+		if err := genFile(ctx, cmd, &cat, p); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func blah(ctx context.Context, cmd *cli.Command, p string) error {
+func genFile(ctx context.Context, cmd *cli.Command, cat lexicon.Catalog, p string) error {
 	b, err := os.ReadFile(p)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read lexicon schema from disk (%s): %w", p, err)
 	}
 
 	// parse file regularly
@@ -111,9 +130,51 @@ func blah(ctx context.Context, cmd *cli.Command, p string) error {
 		err = sf.FinishParse()
 	}
 	if err != nil {
+		return fmt.Errorf("failed to parse lexicon schema from disk (%s): %w", p, err)
+	}
+
+	flat, err := FlattenSchemaFile(&sf)
+	if err != nil {
+		return fmt.Errorf("internal codegen flattening error (%s): %w", p, err)
+	}
+
+	buf := new(bytes.Buffer)
+
+	gen := FlatGenerator{
+		Config: LegacyConfig(),
+		Lex:    flat,
+		Cat:    cat,
+		Out:    buf,
+	}
+	if err := gen.WriteLexicon(); err != nil {
+		return fmt.Errorf("failed to format codegen output (%s): %w", p, err)
+	}
+
+	outPath := path.Join(cmd.String("output-dir"), gen.pkgName(), gen.fileName())
+	if err := os.MkdirAll(path.Dir(outPath), 0755); err != nil {
 		return err
 	}
-	return nil
+
+	fixImports := false
+	if fixImports {
+		fmtOpts := imports.Options{
+			Comments:  true,
+			TabIndent: false,
+			TabWidth:  4,
+		}
+		//_ = fmtOpts
+		formatted, err := imports.Process(outPath, buf.Bytes(), &fmtOpts)
+		if err != nil {
+			return fmt.Errorf("failed to format codegen output (%s): %w", p, err)
+		}
+		return os.WriteFile(outPath, formatted, 0644)
+	} else {
+		formatted, err := format.Source(buf.Bytes())
+		if err != nil {
+			return fmt.Errorf("failed to format codegen output (%s): %w", p, err)
+		}
+		return os.WriteFile(outPath, formatted, 0644)
+	}
 }
 
 var cmdDev = &cli.Command{
@@ -154,10 +215,12 @@ func runDev(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
+	cat := lexicon.NewBaseCatalog()
 	gen := FlatGenerator{
 		Config: &GenConfig{
 			RegisterLexiconTypeID: true,
 		},
+		Cat: &cat,
 		Lex: flat,
 		Out: os.Stdout,
 	}
