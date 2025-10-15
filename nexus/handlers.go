@@ -17,7 +17,8 @@ var upgrader = websocket.Upgrader{
 func (n *Nexus) registerRoutes() {
 	n.echo.GET("/health", n.handleHealthcheck)
 	n.echo.GET("/listen", n.handleListen)
-	n.echo.POST("/add-dids", n.handleAddDids)
+	n.echo.POST("/add-repos", n.handleAddRepos)
+	n.echo.POST("/remove-repos", n.handleAddRepos)
 }
 
 func (n *Nexus) handleHealthcheck(c echo.Context) error {
@@ -83,7 +84,7 @@ type DidPayload struct {
 	DIDs []string `json:"dids"`
 }
 
-func (n *Nexus) handleAddDids(c echo.Context) error {
+func (n *Nexus) handleAddRepos(c echo.Context) error {
 	var payload DidPayload
 	if err := c.Bind(&payload); err != nil {
 		return err
@@ -100,6 +101,27 @@ func (n *Nexus) handleAddDids(c echo.Context) error {
 	if err := n.db.Save(&dids).Error; err != nil {
 		n.logger.Error("failed to upsert dids", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	n.logger.Info("added dids", "count", len(payload.DIDs))
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"count": len(payload.DIDs),
+	})
+}
+
+func (n *Nexus) handleRemoveRepos(c echo.Context) error {
+	var payload DidPayload
+	if err := c.Bind(&payload); err != nil {
+		return err
+	}
+
+	for _, did := range payload.DIDs {
+		err := deleteRepo(n.db, did)
+		if err != nil {
+			n.logger.Error("failed to delete repo", "error", err)
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
 	}
 
 	n.logger.Info("added dids", "count", len(payload.DIDs))
