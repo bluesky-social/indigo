@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
 	"slices"
 	"sort"
 	"strings"
@@ -16,7 +15,6 @@ type FlatLexicon struct {
 	NSID         syntax.NSID
 	Description  *string
 	ExternalRefs map[string]bool // NSID with optional ref
-	SelfRefs     map[string]bool // def names
 	Defs         map[string]FlatDef
 	Types        []FlatType
 }
@@ -46,7 +44,6 @@ func FlattenSchemaFile(sf *lexicon.SchemaFile) (*FlatLexicon, error) {
 		NSID:         nsid,
 		Description:  sf.Description,
 		ExternalRefs: map[string]bool{},
-		SelfRefs:     map[string]bool{},
 		Defs:         map[string]FlatDef{},
 		Types:        []FlatType{},
 	}
@@ -106,7 +103,6 @@ func (fl *FlatLexicon) flattenType(fd *FlatDef, tpath []string, def *lexicon.Sch
 		Schema:  def,
 	}
 
-	// XXX: recurse
 	switch v := def.Inner.(type) {
 	case lexicon.SchemaRecord:
 		if err := fl.flattenObject(fd, tpath, &v.Record); err != nil {
@@ -122,50 +118,70 @@ func (fl *FlatLexicon) flattenType(fd *FlatDef, tpath []string, def *lexicon.Sch
 			}
 		}
 	case lexicon.SchemaProcedure:
-		// XXX
-		/*
-			if v.Output != nil && v.Output.Schema != nil {
-				tp := slices.Clone(tpath)
-				tp = append(tp, "output")
-				if err := fl.flattenType(fd, tp, v.Output.Schema); err != nil {
-					return err
-				}
+		// v.Properties: same as above
+		if v.Output != nil && v.Output.Schema != nil {
+			tp := slices.Clone(tpath)
+			tp = append(tp, "output")
+			if err := fl.flattenType(fd, tp, v.Output.Schema); err != nil {
+				return err
 			}
-			if v.Input != nil {
-				props = v.Input
+		}
+		if v.Input != nil && v.Input.Schema != nil {
+			tp := slices.Clone(tpath)
+			tp = append(tp, "input")
+			if err := fl.flattenType(fd, tp, v.Input.Schema); err != nil {
+				return err
 			}
-			if v.Output != nil {
-				props = v.Output
-			}
-		*/
+		}
 	case lexicon.SchemaSubscription:
-		// XXX:
-		/*
-			if v.Message != nil {
-				props = v.Message
+		// v.Properties: same as above
+		if v.Message != nil {
+			switch vv := v.Message.Schema.Inner.(type) {
+			case lexicon.SchemaUnion:
+				for _, ref := range vv.Refs {
+					if !strings.HasPrefix(ref, "#") {
+						fl.ExternalRefs[strings.TrimSuffix(ref, "#main")] = true
+					}
+				}
+			default:
+				return fmt.Errorf("subscription with non-union message schema: %T", v.Message.Schema.Inner)
 			}
-		*/
-	case lexicon.SchemaArray:
-		// XXX: isCompoundDef
+
+		}
 	case lexicon.SchemaObject:
 		if err := fl.flattenObject(fd, tpath, &v); err != nil {
 			return err
 		}
 	case lexicon.SchemaRef:
 		if !strings.HasPrefix(v.Ref, "#") {
-			fl.ExternalRefs[v.Ref] = true
+			fl.ExternalRefs[strings.TrimSuffix(v.Ref, "#main")] = true
 		}
 	case lexicon.SchemaUnion:
 		for _, ref := range v.Refs {
 			if !strings.HasPrefix(ref, "#") {
-				fl.ExternalRefs[ref] = true
+				fl.ExternalRefs[strings.TrimSuffix(ref, "#main")] = true
 			}
 		}
-	case lexicon.SchemaString, lexicon.SchemaNull, lexicon.SchemaInteger, lexicon.SchemaBoolean, lexicon.SchemaUnknown:
-		// pass, don't emit (?)
+	case lexicon.SchemaArray:
+		// flatten the inner item
+		tp := slices.Clone(tpath)
+		tp = append(tp, "elem")
+		if err := fl.flattenType(fd, tpath, &v.Items); err != nil {
+			return err
+		}
+		// don't emit the array itself
+		return nil
+	case lexicon.SchemaString, lexicon.SchemaNull, lexicon.SchemaInteger, lexicon.SchemaBoolean, lexicon.SchemaUnknown, lexicon.SchemaBytes:
+		// don't emit
+		// NOTE: might want to emit some string "knownValue" lists in the future?
+		return nil
+	case lexicon.SchemaCIDLink, lexicon.SchemaBlob:
+		// don't emit
 		return nil
 	case lexicon.SchemaToken:
-		// pass
+		// pass-through (emit)
+	case lexicon.SchemaPermissionSet, lexicon.SchemaPermission:
+		// pass-through (emit)
 	default:
 		return fmt.Errorf("unsupported def type for flattening (%s): %T", fd.Name, def.Inner)
 	}
@@ -184,6 +200,7 @@ func (fl *FlatLexicon) flattenObject(fd *FlatDef, tpath []string, obj *lexicon.S
 		case lexicon.SchemaCIDLink, lexicon.SchemaBlob, lexicon.SchemaUnknown:
 			// no-op, but maybe set a flag on def?
 		case lexicon.SchemaArray:
+			tp = append(tp, "elem")
 			if err := fl.flattenType(fd, tp, &v.Items); err != nil {
 				return err
 			}
@@ -192,21 +209,13 @@ func (fl *FlatLexicon) flattenObject(fd *FlatDef, tpath []string, obj *lexicon.S
 				return err
 			}
 		case lexicon.SchemaRef:
-			slog.Info("reference", "ref", v.Ref)
-			if strings.HasPrefix(v.Ref, "#") {
-				fl.SelfRefs[v.Ref] = true
-			} else {
-				// TODO: normalize #main refs?
-				fl.ExternalRefs[v.Ref] = true
+			if !strings.HasPrefix(v.Ref, "#") {
+				// remove any #main suffix
+				fl.ExternalRefs[strings.TrimSuffix(v.Ref, "#main")] = true
 			}
 		case lexicon.SchemaUnion:
-			for _, ref := range v.Refs {
-				if strings.HasPrefix(ref, "#") {
-					fl.SelfRefs[ref] = true
-				} else {
-					// TODO: normalize #main refs?
-					fl.ExternalRefs[ref] = true
-				}
+			if err := fl.flattenType(fd, tp, &field); err != nil {
+				return err
 			}
 		default:
 			return fmt.Errorf("unsupported field type for object flattening: %T", field.Inner)
