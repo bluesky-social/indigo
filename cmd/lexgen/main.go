@@ -35,6 +35,7 @@ func run(args []string) error {
 	}
 	app.Commands = []*cli.Command{
 		cmdGenerate,
+		cmdDev,
 	}
 	return app.Run(context.Background(), args)
 }
@@ -113,4 +114,52 @@ func blah(ctx context.Context, cmd *cli.Command, p string) error {
 		return err
 	}
 	return nil
+}
+
+var cmdDev = &cli.Command{
+	Name:      "dev",
+	ArgsUsage: `<file>`,
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "lexicons-dir",
+			Value:   "./lexicons/",
+			Usage:   "base directory for project Lexicon files",
+			Sources: cli.EnvVars("LEXICONS_DIR"),
+		},
+	},
+	Action: runDev,
+}
+
+func runDev(ctx context.Context, cmd *cli.Command) error {
+	if !cmd.Args().Present() {
+		return fmt.Errorf("require one or more paths")
+	}
+
+	b, err := os.ReadFile(cmd.Args().First())
+	if err != nil {
+		return err
+	}
+
+	var sf lexicon.SchemaFile
+	err = json.Unmarshal(b, &sf)
+	if err == nil {
+		err = sf.FinishParse()
+	}
+	if err != nil {
+		return err
+	}
+
+	flat, err := FlattenSchemaFile(&sf)
+	if err != nil {
+		return err
+	}
+
+	gen := FlatGenerator{
+		Config: &GenConfig{
+			RegisterLexiconTypeID: true,
+		},
+		Lex: flat,
+		Out: os.Stdout,
+	}
+	return gen.WriteLexicon()
 }
