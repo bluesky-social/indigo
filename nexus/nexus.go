@@ -21,15 +21,16 @@ type Nexus struct {
 	echo   *echo.Echo
 	logger *slog.Logger
 
-	Dir identity.Directory
+	Dir       identity.Directory
+	RelayHost string
 
 	outbox *Outbox
 
 	FirehoseConsumer *FirehoseConsumer
 	EventProcessor   *EventProcessor
 
-	FullNetworkMode bool
-	RelayHost       string
+	FullNetworkMode   bool
+	CollectionFilters []string
 
 	claimJobMu sync.Mutex
 }
@@ -42,6 +43,7 @@ type NexusConfig struct {
 	FullNetworkMode            bool
 	DisableAcks                bool
 	WebhookURL                 string
+	CollectionFilters          []string // e.g., ["app.bsky.feed.post", "app.bsky.graph.*"]
 }
 
 func NewNexus(config NexusConfig) (*Nexus, error) {
@@ -79,12 +81,13 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		echo:   e,
 		logger: slog.Default().With("system", "nexus"),
 
-		Dir: &cdir,
+		Dir:       &cdir,
+		RelayHost: config.RelayHost,
 
 		outbox: NewOutbox(db, outboxMode, config.WebhookURL),
 
-		FullNetworkMode: config.FullNetworkMode,
-		RelayHost:       config.RelayHost,
+		FullNetworkMode:   config.FullNetworkMode,
+		CollectionFilters: config.CollectionFilters,
 	}
 
 	parallelism := config.FirehoseParallelism
@@ -98,12 +101,13 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	}
 
 	n.EventProcessor = &EventProcessor{
-		Logger:          n.logger.With("component", "processor"),
-		DB:              db,
-		Dir:             n.Dir,
-		RelayHost:       config.RelayHost,
-		Outbox:          n.outbox,
-		FullNetworkMode: config.FullNetworkMode,
+		Logger:            n.logger.With("component", "processor"),
+		DB:                db,
+		Dir:               n.Dir,
+		RelayHost:         config.RelayHost,
+		Outbox:            n.outbox,
+		FullNetworkMode:   config.FullNetworkMode,
+		CollectionFilters: config.CollectionFilters,
 	}
 
 	rsc := &events.RepoStreamCallbacks{
