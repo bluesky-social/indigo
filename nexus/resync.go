@@ -74,17 +74,9 @@ func (n *Nexus) resyncDid(ctx context.Context, did string) error {
 		n.logger.Info("failed to refresh identity", "did", did, "error", err)
 	}
 
-	err = n.doResync(ctx, did)
-	if err != nil {
-		n.db.Model(&models.Repo{}).
-			Where("did = ?", did).
-			Updates(map[string]interface{}{
-				"state":     models.RepoStateError,
-				"rev":       "",
-				"prev_data": "",
-				"error_msg": err.Error(),
-			})
-		return err
+	success, err := n.doResync(ctx, did)
+	if !success {
+		return n.handleResyncError(did, err)
 	}
 
 	if err := n.EventProcessor.drainResyncBuffer(ctx, did); err != nil {
@@ -96,15 +88,22 @@ func (n *Nexus) resyncDid(ctx context.Context, did string) error {
 
 const BATCH_SIZE = 100
 
-func (n *Nexus) doResync(ctx context.Context, did string) error {
+func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 	ident, err := n.Dir.LookupDID(ctx, syntax.DID(did))
 	if err != nil {
-		return fmt.Errorf("failed to resolve DID: %w", err)
+		return false, fmt.Errorf("failed to resolve DID: %w", err)
 	}
 
 	pdsURL := ident.PDSEndpoint()
 	if pdsURL == "" {
-		return fmt.Errorf("no PDS endpoint for DID: %s", did)
+		return false, fmt.Errorf("no PDS endpoint for DID: %s", did)
+	}
+
+	n.pdsBackoffMu.RLock()
+	backoffUntil, inBackoff := n.pdsBackoff[pdsURL]
+	n.pdsBackoffMu.RUnlock()
+	if inBackoff && time.Now().Before(backoffUntil) {
+		return false, nil
 	}
 
 	n.logger.Info("fetching repo from PDS", "did", did, "pds", pdsURL)
@@ -116,14 +115,20 @@ func (n *Nexus) doResync(ctx context.Context, did string) error {
 
 	repoBytes, err := comatproto.SyncGetRepo(ctx, client, did, "")
 	if err != nil {
-		return fmt.Errorf("failed to get repo: %w", err)
+		if isRateLimitError(err) {
+			n.pdsBackoffMu.Lock()
+			n.pdsBackoff[pdsURL] = time.Now().Add(10 * time.Second)
+			n.pdsBackoffMu.Unlock()
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to get repo: %w", err)
 	}
 
 	n.logger.Info("parsing repo CAR", "did", did, "size", len(repoBytes))
 
 	commit, r, err := repo.LoadRepoFromCAR(ctx, bytes.NewReader(repoBytes))
 	if err != nil {
-		return fmt.Errorf("failed to read repo from CAR: %w", err)
+		return false, fmt.Errorf("failed to read repo from CAR: %w", err)
 	}
 
 	rev := commit.Rev
@@ -131,7 +136,7 @@ func (n *Nexus) doResync(ctx context.Context, did string) error {
 
 	var existingRecords []models.RepoRecord
 	if err := n.db.Find(&existingRecords, "did = ?", did).Error; err != nil {
-		return fmt.Errorf("failed to load existing records: %w", err)
+		return false, fmt.Errorf("failed to load existing records: %w", err)
 	}
 
 	existingCids := make(map[string]string, len(existingRecords))
@@ -204,11 +209,11 @@ func (n *Nexus) doResync(ctx context.Context, did string) error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to iterate repo: %w", err)
+		return false, fmt.Errorf("failed to iterate repo: %w", err)
 	}
 
 	if err := n.writeBatch(evtBatch); err != nil {
-		return fmt.Errorf("failed to flush final batch: %w", err)
+		return false, fmt.Errorf("failed to flush final batch: %w", err)
 	}
 
 	if err := n.db.Model(&models.Repo{}).
@@ -219,11 +224,11 @@ func (n *Nexus) doResync(ctx context.Context, did string) error {
 			"prev_data": commit.Data.String(),
 			"error_msg": "",
 		}).Error; err != nil {
-		return fmt.Errorf("failed to update repo state to active %w", err)
+		return false, fmt.Errorf("failed to update repo state to active %w", err)
 	}
 
 	n.logger.Info("resync repo complete", "did", did, "rev", rev)
-	return nil
+	return true, nil
 }
 
 func (n *Nexus) writeBatch(evtBatch []*RecordEvt) error {
@@ -261,6 +266,41 @@ func (n *Nexus) writeBatch(evtBatch []*RecordEvt) error {
 
 	n.outbox.Notify()
 	return nil
+}
+
+func (n *Nexus) handleResyncError(did string, err error) error {
+	var state models.RepoState
+	var errMsg string
+	if err == nil {
+		state = models.RepoStateDesynced
+		errMsg = ""
+	} else {
+		state = models.RepoStateError
+		errMsg = err.Error()
+	}
+
+	repo, err := n.EventProcessor.GetRepoState(did)
+	if err != nil {
+		return err
+	}
+
+	// start a 1 min & go up to 1 hr between retries
+	retryAfter := time.Now().Add(60 * backoff(repo.RetryCount, 60))
+
+	dbErr := n.db.Model(&models.Repo{}).
+		Where("did = ?", did).
+		Updates(map[string]interface{}{
+			"state":       state,
+			"error_msg":   errMsg,
+			"retry_count": repo.RetryCount + 1,
+			"retry_after": retryAfter,
+		}).Error
+	if dbErr != nil {
+		return dbErr
+	} else {
+		return err
+	}
+
 }
 
 func (n *Nexus) resetPartiallyResynced() error {

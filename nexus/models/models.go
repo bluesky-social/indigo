@@ -24,13 +24,15 @@ const (
 )
 
 type Repo struct {
-	Did      string        `gorm:"primaryKey"`
-	State    RepoState     `gorm:"not null;default:'pending';index"`
-	Status   AccountStatus `gorm:"not null;default:'active'"`
-	Handle   string        `gorm:"type:text"`
-	Rev      string        `gorm:"type:text"`
-	PrevData string        `gorm:"type:text"`
-	ErrorMsg string        `gorm:"type:text"`
+	Did        string        `gorm:"primaryKey"`
+	State      RepoState     `gorm:"not null;default:'pending';index"`
+	Status     AccountStatus `gorm:"not null;default:'active'"`
+	Handle     string        `gorm:"type:text"`
+	Rev        string        `gorm:"type:text"`
+	PrevData   string        `gorm:"type:text"`
+	ErrorMsg   string        `gorm:"type:text"`
+	RetryCount int           `gorm:"not null;default:0"`
+	RetryAfter int64         `gorm:"not null;default:0"` // Unix timestamp
 }
 
 type OutboxBuffer struct {
