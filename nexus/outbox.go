@@ -159,12 +159,12 @@ func (o *Outbox) AckEvent(eventID uint) {
 }
 
 func (o *Outbox) sendWebhook(eventID uint, evt *OutboxEvt) {
-	backoff := 0
+	retries := 0
 	for {
 		if err := o.postWebhook(evt); err != nil {
-			o.logger.Warn("webhook failed, retrying", "error", err, "id", eventID, "backoff", backoff)
-			time.Sleep(webhookBackoff(backoff))
-			backoff++
+			o.logger.Warn("webhook failed, retrying", "error", err, "id", eventID, "retries", retries)
+			time.Sleep(backoff(retries, 10))
+			retries++
 			continue
 		}
 
@@ -172,18 +172,6 @@ func (o *Outbox) sendWebhook(eventID uint, evt *OutboxEvt) {
 		o.AckEvent(eventID)
 		return
 	}
-}
-
-func webhookBackoff(attempt int) time.Duration {
-	if attempt == 0 {
-		return time.Second
-	}
-	// Exponential: 1s, 2s, 4s, 8s, cap at 10s
-	duration := time.Second * (1 << attempt)
-	if duration > 10*time.Second {
-		duration = 10 * time.Second
-	}
-	return duration
 }
 
 func (o *Outbox) postWebhook(evt *OutboxEvt) error {

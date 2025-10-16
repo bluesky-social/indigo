@@ -32,7 +32,9 @@ type Nexus struct {
 	FullNetworkMode   bool
 	CollectionFilters []string
 
-	claimJobMu sync.Mutex
+	claimJobMu   sync.Mutex
+	pdsBackoff   map[string]time.Time
+	pdsBackoffMu sync.RWMutex
 }
 
 type NexusConfig struct {
@@ -88,6 +90,8 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 
 		FullNetworkMode:   config.FullNetworkMode,
 		CollectionFilters: config.CollectionFilters,
+
+		pdsBackoff: make(map[string]time.Time),
 	}
 
 	parallelism := config.FirehoseParallelism
