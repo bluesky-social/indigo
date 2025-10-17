@@ -202,8 +202,8 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 				n.logger.Error("failed to flush batch", "error", err, "did", did)
 				return err
 			}
+			evtBatch = evtBatch[:0]
 		}
-		evtBatch = evtBatch[:0]
 
 		return nil
 	})
@@ -219,10 +219,12 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 	if err := n.db.Model(&models.Repo{}).
 		Where("did = ?", did).
 		Updates(map[string]interface{}{
-			"state":     models.RepoStateActive,
-			"rev":       rev,
-			"prev_data": commit.Data.String(),
-			"error_msg": "",
+			"state":       models.RepoStateActive,
+			"rev":         rev,
+			"prev_data":   commit.Data.String(),
+			"error_msg":   "",
+			"retry_count": 0,
+			"retry_after": 0,
 		}).Error; err != nil {
 		return false, fmt.Errorf("failed to update repo state to active %w", err)
 	}
