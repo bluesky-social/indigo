@@ -396,6 +396,7 @@ var listReportsCmd = &cli.Command{
 			nil,   // addedLabels []string
 			nil,   // addedTags []string
 			"",    // ageAssuranceState
+			"",    // batchId string
 			nil,   // collections []string
 			"",    // comment string
 			"",    // createdAfter string
@@ -713,6 +714,7 @@ var queryModerationStatusesCmd = &cli.Command{
 			nil,   // addedLabels []string
 			nil,   // addedTags []string
 			"",    // ageAssuranceState
+			"",    // batchId string
 			nil,   // collections []string
 			"",    // comment string
 			"",    // createdAfter string

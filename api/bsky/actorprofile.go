@@ -33,6 +33,9 @@ type ActorProfile struct {
 	// labels: Self-label values, specific to the Bluesky application, on the overall account.
 	Labels     *ActorProfile_Labels           `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	PinnedPost *comatprototypes.RepoStrongRef `json:"pinnedPost,omitempty" cborgen:"pinnedPost,omitempty"`
+	// pronouns: Free-form pronouns text.
+	Pronouns *string `json:"pronouns,omitempty" cborgen:"pronouns,omitempty"`
+	Website  *string `json:"website,omitempty" cborgen:"website,omitempty"`
 }
 
 // Self-label values, specific to the Bluesky application, on the overall account.

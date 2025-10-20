@@ -137,6 +137,16 @@ func (t *ModerationDefs_BlobView_Details) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// ModerationDefs_CancelScheduledTakedownEvent is a "cancelScheduledTakedownEvent" in the tools.ozone.moderation.defs schema.
+//
+// Logs cancellation of a scheduled takedown action for an account.
+//
+// RECORDTYPE: ModerationDefs_CancelScheduledTakedownEvent
+type ModerationDefs_CancelScheduledTakedownEvent struct {
+	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#cancelScheduledTakedownEvent" cborgen:"$type,const=tools.ozone.moderation.defs#cancelScheduledTakedownEvent"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+}
+
 // ModerationDefs_IdentityEvent is a "identityEvent" in the tools.ozone.moderation.defs schema.
 //
 // Logs identity related events on a repo subject. Normally captured by automod from the firehose and emitted to ozone for historical tracking.
@@ -377,27 +387,30 @@ type ModerationDefs_ModEventViewDetail struct {
 }
 
 type ModerationDefs_ModEventViewDetail_Event struct {
-	ModerationDefs_ModEventTakedown          *ModerationDefs_ModEventTakedown
-	ModerationDefs_ModEventReverseTakedown   *ModerationDefs_ModEventReverseTakedown
-	ModerationDefs_ModEventComment           *ModerationDefs_ModEventComment
-	ModerationDefs_ModEventReport            *ModerationDefs_ModEventReport
-	ModerationDefs_ModEventLabel             *ModerationDefs_ModEventLabel
-	ModerationDefs_ModEventAcknowledge       *ModerationDefs_ModEventAcknowledge
-	ModerationDefs_ModEventEscalate          *ModerationDefs_ModEventEscalate
-	ModerationDefs_ModEventMute              *ModerationDefs_ModEventMute
-	ModerationDefs_ModEventUnmute            *ModerationDefs_ModEventUnmute
-	ModerationDefs_ModEventMuteReporter      *ModerationDefs_ModEventMuteReporter
-	ModerationDefs_ModEventUnmuteReporter    *ModerationDefs_ModEventUnmuteReporter
-	ModerationDefs_ModEventEmail             *ModerationDefs_ModEventEmail
-	ModerationDefs_ModEventResolveAppeal     *ModerationDefs_ModEventResolveAppeal
-	ModerationDefs_ModEventDivert            *ModerationDefs_ModEventDivert
-	ModerationDefs_ModEventTag               *ModerationDefs_ModEventTag
-	ModerationDefs_AccountEvent              *ModerationDefs_AccountEvent
-	ModerationDefs_IdentityEvent             *ModerationDefs_IdentityEvent
-	ModerationDefs_RecordEvent               *ModerationDefs_RecordEvent
-	ModerationDefs_ModEventPriorityScore     *ModerationDefs_ModEventPriorityScore
-	ModerationDefs_AgeAssuranceEvent         *ModerationDefs_AgeAssuranceEvent
-	ModerationDefs_AgeAssuranceOverrideEvent *ModerationDefs_AgeAssuranceOverrideEvent
+	ModerationDefs_ModEventTakedown              *ModerationDefs_ModEventTakedown
+	ModerationDefs_ModEventReverseTakedown       *ModerationDefs_ModEventReverseTakedown
+	ModerationDefs_ModEventComment               *ModerationDefs_ModEventComment
+	ModerationDefs_ModEventReport                *ModerationDefs_ModEventReport
+	ModerationDefs_ModEventLabel                 *ModerationDefs_ModEventLabel
+	ModerationDefs_ModEventAcknowledge           *ModerationDefs_ModEventAcknowledge
+	ModerationDefs_ModEventEscalate              *ModerationDefs_ModEventEscalate
+	ModerationDefs_ModEventMute                  *ModerationDefs_ModEventMute
+	ModerationDefs_ModEventUnmute                *ModerationDefs_ModEventUnmute
+	ModerationDefs_ModEventMuteReporter          *ModerationDefs_ModEventMuteReporter
+	ModerationDefs_ModEventUnmuteReporter        *ModerationDefs_ModEventUnmuteReporter
+	ModerationDefs_ModEventEmail                 *ModerationDefs_ModEventEmail
+	ModerationDefs_ModEventResolveAppeal         *ModerationDefs_ModEventResolveAppeal
+	ModerationDefs_ModEventDivert                *ModerationDefs_ModEventDivert
+	ModerationDefs_ModEventTag                   *ModerationDefs_ModEventTag
+	ModerationDefs_AccountEvent                  *ModerationDefs_AccountEvent
+	ModerationDefs_IdentityEvent                 *ModerationDefs_IdentityEvent
+	ModerationDefs_RecordEvent                   *ModerationDefs_RecordEvent
+	ModerationDefs_ModEventPriorityScore         *ModerationDefs_ModEventPriorityScore
+	ModerationDefs_AgeAssuranceEvent             *ModerationDefs_AgeAssuranceEvent
+	ModerationDefs_AgeAssuranceOverrideEvent     *ModerationDefs_AgeAssuranceOverrideEvent
+	ModerationDefs_RevokeAccountCredentialsEvent *ModerationDefs_RevokeAccountCredentialsEvent
+	ModerationDefs_ScheduleTakedownEvent         *ModerationDefs_ScheduleTakedownEvent
+	ModerationDefs_CancelScheduledTakedownEvent  *ModerationDefs_CancelScheduledTakedownEvent
 }
 
 func (t *ModerationDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) {
@@ -485,6 +498,18 @@ func (t *ModerationDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) 
 		t.ModerationDefs_AgeAssuranceOverrideEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
 		return json.Marshal(t.ModerationDefs_AgeAssuranceOverrideEvent)
 	}
+	if t.ModerationDefs_RevokeAccountCredentialsEvent != nil {
+		t.ModerationDefs_RevokeAccountCredentialsEvent.LexiconTypeID = "tools.ozone.moderation.defs#revokeAccountCredentialsEvent"
+		return json.Marshal(t.ModerationDefs_RevokeAccountCredentialsEvent)
+	}
+	if t.ModerationDefs_ScheduleTakedownEvent != nil {
+		t.ModerationDefs_ScheduleTakedownEvent.LexiconTypeID = "tools.ozone.moderation.defs#scheduleTakedownEvent"
+		return json.Marshal(t.ModerationDefs_ScheduleTakedownEvent)
+	}
+	if t.ModerationDefs_CancelScheduledTakedownEvent != nil {
+		t.ModerationDefs_CancelScheduledTakedownEvent.LexiconTypeID = "tools.ozone.moderation.defs#cancelScheduledTakedownEvent"
+		return json.Marshal(t.ModerationDefs_CancelScheduledTakedownEvent)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error {
@@ -557,6 +582,15 @@ func (t *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error 
 	case "tools.ozone.moderation.defs#ageAssuranceOverrideEvent":
 		t.ModerationDefs_AgeAssuranceOverrideEvent = new(ModerationDefs_AgeAssuranceOverrideEvent)
 		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceOverrideEvent)
+	case "tools.ozone.moderation.defs#revokeAccountCredentialsEvent":
+		t.ModerationDefs_RevokeAccountCredentialsEvent = new(ModerationDefs_RevokeAccountCredentialsEvent)
+		return json.Unmarshal(b, t.ModerationDefs_RevokeAccountCredentialsEvent)
+	case "tools.ozone.moderation.defs#scheduleTakedownEvent":
+		t.ModerationDefs_ScheduleTakedownEvent = new(ModerationDefs_ScheduleTakedownEvent)
+		return json.Unmarshal(b, t.ModerationDefs_ScheduleTakedownEvent)
+	case "tools.ozone.moderation.defs#cancelScheduledTakedownEvent":
+		t.ModerationDefs_CancelScheduledTakedownEvent = new(ModerationDefs_CancelScheduledTakedownEvent)
+		return json.Unmarshal(b, t.ModerationDefs_CancelScheduledTakedownEvent)
 
 	default:
 		return nil
@@ -615,27 +649,30 @@ func (t *ModerationDefs_ModEventViewDetail_Subject) UnmarshalJSON(b []byte) erro
 }
 
 type ModerationDefs_ModEventView_Event struct {
-	ModerationDefs_ModEventTakedown          *ModerationDefs_ModEventTakedown
-	ModerationDefs_ModEventReverseTakedown   *ModerationDefs_ModEventReverseTakedown
-	ModerationDefs_ModEventComment           *ModerationDefs_ModEventComment
-	ModerationDefs_ModEventReport            *ModerationDefs_ModEventReport
-	ModerationDefs_ModEventLabel             *ModerationDefs_ModEventLabel
-	ModerationDefs_ModEventAcknowledge       *ModerationDefs_ModEventAcknowledge
-	ModerationDefs_ModEventEscalate          *ModerationDefs_ModEventEscalate
-	ModerationDefs_ModEventMute              *ModerationDefs_ModEventMute
-	ModerationDefs_ModEventUnmute            *ModerationDefs_ModEventUnmute
-	ModerationDefs_ModEventMuteReporter      *ModerationDefs_ModEventMuteReporter
-	ModerationDefs_ModEventUnmuteReporter    *ModerationDefs_ModEventUnmuteReporter
-	ModerationDefs_ModEventEmail             *ModerationDefs_ModEventEmail
-	ModerationDefs_ModEventResolveAppeal     *ModerationDefs_ModEventResolveAppeal
-	ModerationDefs_ModEventDivert            *ModerationDefs_ModEventDivert
-	ModerationDefs_ModEventTag               *ModerationDefs_ModEventTag
-	ModerationDefs_AccountEvent              *ModerationDefs_AccountEvent
-	ModerationDefs_IdentityEvent             *ModerationDefs_IdentityEvent
-	ModerationDefs_RecordEvent               *ModerationDefs_RecordEvent
-	ModerationDefs_ModEventPriorityScore     *ModerationDefs_ModEventPriorityScore
-	ModerationDefs_AgeAssuranceEvent         *ModerationDefs_AgeAssuranceEvent
-	ModerationDefs_AgeAssuranceOverrideEvent *ModerationDefs_AgeAssuranceOverrideEvent
+	ModerationDefs_ModEventTakedown              *ModerationDefs_ModEventTakedown
+	ModerationDefs_ModEventReverseTakedown       *ModerationDefs_ModEventReverseTakedown
+	ModerationDefs_ModEventComment               *ModerationDefs_ModEventComment
+	ModerationDefs_ModEventReport                *ModerationDefs_ModEventReport
+	ModerationDefs_ModEventLabel                 *ModerationDefs_ModEventLabel
+	ModerationDefs_ModEventAcknowledge           *ModerationDefs_ModEventAcknowledge
+	ModerationDefs_ModEventEscalate              *ModerationDefs_ModEventEscalate
+	ModerationDefs_ModEventMute                  *ModerationDefs_ModEventMute
+	ModerationDefs_ModEventUnmute                *ModerationDefs_ModEventUnmute
+	ModerationDefs_ModEventMuteReporter          *ModerationDefs_ModEventMuteReporter
+	ModerationDefs_ModEventUnmuteReporter        *ModerationDefs_ModEventUnmuteReporter
+	ModerationDefs_ModEventEmail                 *ModerationDefs_ModEventEmail
+	ModerationDefs_ModEventResolveAppeal         *ModerationDefs_ModEventResolveAppeal
+	ModerationDefs_ModEventDivert                *ModerationDefs_ModEventDivert
+	ModerationDefs_ModEventTag                   *ModerationDefs_ModEventTag
+	ModerationDefs_AccountEvent                  *ModerationDefs_AccountEvent
+	ModerationDefs_IdentityEvent                 *ModerationDefs_IdentityEvent
+	ModerationDefs_RecordEvent                   *ModerationDefs_RecordEvent
+	ModerationDefs_ModEventPriorityScore         *ModerationDefs_ModEventPriorityScore
+	ModerationDefs_AgeAssuranceEvent             *ModerationDefs_AgeAssuranceEvent
+	ModerationDefs_AgeAssuranceOverrideEvent     *ModerationDefs_AgeAssuranceOverrideEvent
+	ModerationDefs_RevokeAccountCredentialsEvent *ModerationDefs_RevokeAccountCredentialsEvent
+	ModerationDefs_ScheduleTakedownEvent         *ModerationDefs_ScheduleTakedownEvent
+	ModerationDefs_CancelScheduledTakedownEvent  *ModerationDefs_CancelScheduledTakedownEvent
 }
 
 func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
@@ -723,6 +760,18 @@ func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
 		t.ModerationDefs_AgeAssuranceOverrideEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
 		return json.Marshal(t.ModerationDefs_AgeAssuranceOverrideEvent)
 	}
+	if t.ModerationDefs_RevokeAccountCredentialsEvent != nil {
+		t.ModerationDefs_RevokeAccountCredentialsEvent.LexiconTypeID = "tools.ozone.moderation.defs#revokeAccountCredentialsEvent"
+		return json.Marshal(t.ModerationDefs_RevokeAccountCredentialsEvent)
+	}
+	if t.ModerationDefs_ScheduleTakedownEvent != nil {
+		t.ModerationDefs_ScheduleTakedownEvent.LexiconTypeID = "tools.ozone.moderation.defs#scheduleTakedownEvent"
+		return json.Marshal(t.ModerationDefs_ScheduleTakedownEvent)
+	}
+	if t.ModerationDefs_CancelScheduledTakedownEvent != nil {
+		t.ModerationDefs_CancelScheduledTakedownEvent.LexiconTypeID = "tools.ozone.moderation.defs#cancelScheduledTakedownEvent"
+		return json.Marshal(t.ModerationDefs_CancelScheduledTakedownEvent)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
@@ -795,6 +844,15 @@ func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#ageAssuranceOverrideEvent":
 		t.ModerationDefs_AgeAssuranceOverrideEvent = new(ModerationDefs_AgeAssuranceOverrideEvent)
 		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceOverrideEvent)
+	case "tools.ozone.moderation.defs#revokeAccountCredentialsEvent":
+		t.ModerationDefs_RevokeAccountCredentialsEvent = new(ModerationDefs_RevokeAccountCredentialsEvent)
+		return json.Unmarshal(b, t.ModerationDefs_RevokeAccountCredentialsEvent)
+	case "tools.ozone.moderation.defs#scheduleTakedownEvent":
+		t.ModerationDefs_ScheduleTakedownEvent = new(ModerationDefs_ScheduleTakedownEvent)
+		return json.Unmarshal(b, t.ModerationDefs_ScheduleTakedownEvent)
+	case "tools.ozone.moderation.defs#cancelScheduledTakedownEvent":
+		t.ModerationDefs_CancelScheduledTakedownEvent = new(ModerationDefs_CancelScheduledTakedownEvent)
+		return json.Unmarshal(b, t.ModerationDefs_CancelScheduledTakedownEvent)
 
 	default:
 		return nil
@@ -1013,6 +1071,66 @@ type ModerationDefs_ReporterStats struct {
 	TakendownAccountCount int64 `json:"takendownAccountCount" cborgen:"takendownAccountCount"`
 	// takendownRecordCount: The total number of records taken down as a result of the user's reports.
 	TakendownRecordCount int64 `json:"takendownRecordCount" cborgen:"takendownRecordCount"`
+}
+
+// ModerationDefs_RevokeAccountCredentialsEvent is a "revokeAccountCredentialsEvent" in the tools.ozone.moderation.defs schema.
+//
+// Account credentials revocation by moderators. Only works on DID subjects.
+//
+// RECORDTYPE: ModerationDefs_RevokeAccountCredentialsEvent
+type ModerationDefs_RevokeAccountCredentialsEvent struct {
+	LexiconTypeID string `json:"$type,const=tools.ozone.moderation.defs#revokeAccountCredentialsEvent" cborgen:"$type,const=tools.ozone.moderation.defs#revokeAccountCredentialsEvent"`
+	// comment: Comment describing the reason for the revocation.
+	Comment string `json:"comment" cborgen:"comment"`
+}
+
+// ModerationDefs_ScheduleTakedownEvent is a "scheduleTakedownEvent" in the tools.ozone.moderation.defs schema.
+//
+// Logs a scheduled takedown action for an account.
+//
+// RECORDTYPE: ModerationDefs_ScheduleTakedownEvent
+type ModerationDefs_ScheduleTakedownEvent struct {
+	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#scheduleTakedownEvent" cborgen:"$type,const=tools.ozone.moderation.defs#scheduleTakedownEvent"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	ExecuteAfter  *string `json:"executeAfter,omitempty" cborgen:"executeAfter,omitempty"`
+	ExecuteAt     *string `json:"executeAt,omitempty" cborgen:"executeAt,omitempty"`
+	ExecuteUntil  *string `json:"executeUntil,omitempty" cborgen:"executeUntil,omitempty"`
+}
+
+// ModerationDefs_ScheduledActionView is a "scheduledActionView" in the tools.ozone.moderation.defs schema.
+//
+// View of a scheduled moderation action
+type ModerationDefs_ScheduledActionView struct {
+	// action: Type of action to be executed
+	Action string `json:"action" cborgen:"action"`
+	// createdAt: When the scheduled action was created
+	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
+	// createdBy: DID of the user who created this scheduled action
+	CreatedBy string `json:"createdBy" cborgen:"createdBy"`
+	// did: Subject DID for the action
+	Did string `json:"did" cborgen:"did"`
+	// eventData: Serialized event object that will be propagated to the event when performed
+	EventData *util.LexiconTypeDecoder `json:"eventData,omitempty" cborgen:"eventData,omitempty"`
+	// executeAfter: Earliest time to execute the action (for randomized scheduling)
+	ExecuteAfter *string `json:"executeAfter,omitempty" cborgen:"executeAfter,omitempty"`
+	// executeAt: Exact time to execute the action
+	ExecuteAt *string `json:"executeAt,omitempty" cborgen:"executeAt,omitempty"`
+	// executeUntil: Latest time to execute the action (for randomized scheduling)
+	ExecuteUntil *string `json:"executeUntil,omitempty" cborgen:"executeUntil,omitempty"`
+	// executionEventId: ID of the moderation event created when action was successfully executed
+	ExecutionEventId *int64 `json:"executionEventId,omitempty" cborgen:"executionEventId,omitempty"`
+	// id: Auto-incrementing row ID
+	Id int64 `json:"id" cborgen:"id"`
+	// lastExecutedAt: When the action was last attempted to be executed
+	LastExecutedAt *string `json:"lastExecutedAt,omitempty" cborgen:"lastExecutedAt,omitempty"`
+	// lastFailureReason: Reason for the last execution failure
+	LastFailureReason *string `json:"lastFailureReason,omitempty" cborgen:"lastFailureReason,omitempty"`
+	// randomizeExecution: Whether execution time should be randomized within the specified range
+	RandomizeExecution *bool `json:"randomizeExecution,omitempty" cborgen:"randomizeExecution,omitempty"`
+	// status: Current status of the scheduled action
+	Status string `json:"status" cborgen:"status"`
+	// updatedAt: When the scheduled action was last updated
+	UpdatedAt *string `json:"updatedAt,omitempty" cborgen:"updatedAt,omitempty"`
 }
 
 // ModerationDefs_SubjectStatusView is a "subjectStatusView" in the tools.ozone.moderation.defs schema.

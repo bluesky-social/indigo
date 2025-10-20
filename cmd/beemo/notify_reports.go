@@ -74,6 +74,7 @@ func pollNewReports(ctx context.Context, cmd *cli.Command) error {
 			nil,   // addedLabels []string
 			nil,   // addedTags []string
 			"",    // ageAssuranceState
+			"",    // batchId string
 			nil,   // collections []string
 			"",    // comment string
 			"",    // createdAfter string
