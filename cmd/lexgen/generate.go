@@ -213,7 +213,6 @@ func (gen *FlatGenerator) fieldType(def *lexicon.SchemaDef, optional bool) (stri
 			return "map[string]any", nil
 		}
 	case lexicon.SchemaRef:
-		// XXX: this currently assumes that a struct is being referenced, but it might actually be something like an array or strings (with known values)
 		ptr := ""
 		if optional {
 			ptr = "*"
