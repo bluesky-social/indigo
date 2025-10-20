@@ -3,7 +3,7 @@ SHELL = /bin/bash
 .SHELLFLAGS = -o pipefail -c
 
 # base path for Lexicon document tree (for lexgen)
-LEXDIR?=../atproto/lexicons
+LEXDIR?=./lexicons
 
 # https://github.com/golang/go/wiki/LoopvarExperiment
 export GOEXPERIMENT := loopvar
