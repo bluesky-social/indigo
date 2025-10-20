@@ -640,10 +640,6 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 	case "boolean":
 		pf("type %s bool\n", name)
 	case "object":
-		if ts.needsType {
-			pf("\n// RECORDTYPE: %s\n", name)
-		}
-
 		pf("type %s struct {\n", name)
 
 		if ts.needsType {
