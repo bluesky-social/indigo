@@ -814,7 +814,7 @@ func (ts *TypeSchema) writeJsonMarshalerEnum(name string, w io.Writer) error {
 		pf("\t\treturn json.Marshal(t.%s)\n\t}\n", vname)
 	}
 
-	pf("\treturn nil, fmt.Errorf(\"cannot marshal empty enum\")\n}\n\n")
+	pf("\treturn nil, fmt.Errorf(\"can not marshal empty union as JSON\")\n}\n\n")
 	return nil
 }
 
@@ -845,7 +845,7 @@ func (ts *TypeSchema) writeJsonUnmarshalerEnum(name string, w io.Writer) error {
 	if ts.Closed {
 		pf(`
 			default:
-				return fmt.Errorf("closed enums must have a matching value")
+				return fmt.Errorf("closed unions must match a listed schema")
 		`)
 	} else {
 		pf(`
@@ -877,7 +877,7 @@ func (ts *TypeSchema) writeCborMarshalerEnum(name string, w io.Writer) error {
 		pf("\t\treturn t.%s.MarshalCBOR(w)\n\t}\n", vname)
 	}
 
-	pf("\treturn fmt.Errorf(\"cannot cbor marshal empty enum\")\n}\n")
+	pf("\treturn fmt.Errorf(\"can not marshal empty union as CBOR\")\n}\n")
 	return nil
 }
 
@@ -902,7 +902,7 @@ func (ts *TypeSchema) writeCborUnmarshalerEnum(name string, w io.Writer) error {
 	if ts.Closed {
 		pf(`
 			default:
-				return fmt.Errorf("closed enums must have a matching value")
+				return fmt.Errorf("closed unions must match a listed schema")
 		`)
 	} else {
 		pf(`
