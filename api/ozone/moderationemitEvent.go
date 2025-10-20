@@ -25,27 +25,30 @@ type ModerationEmitEvent_Input struct {
 }
 
 type ModerationEmitEvent_Input_Event struct {
-	ModerationDefs_ModEventTakedown          *ModerationDefs_ModEventTakedown
-	ModerationDefs_ModEventAcknowledge       *ModerationDefs_ModEventAcknowledge
-	ModerationDefs_ModEventEscalate          *ModerationDefs_ModEventEscalate
-	ModerationDefs_ModEventComment           *ModerationDefs_ModEventComment
-	ModerationDefs_ModEventLabel             *ModerationDefs_ModEventLabel
-	ModerationDefs_ModEventReport            *ModerationDefs_ModEventReport
-	ModerationDefs_ModEventMute              *ModerationDefs_ModEventMute
-	ModerationDefs_ModEventUnmute            *ModerationDefs_ModEventUnmute
-	ModerationDefs_ModEventMuteReporter      *ModerationDefs_ModEventMuteReporter
-	ModerationDefs_ModEventUnmuteReporter    *ModerationDefs_ModEventUnmuteReporter
-	ModerationDefs_ModEventReverseTakedown   *ModerationDefs_ModEventReverseTakedown
-	ModerationDefs_ModEventResolveAppeal     *ModerationDefs_ModEventResolveAppeal
-	ModerationDefs_ModEventEmail             *ModerationDefs_ModEventEmail
-	ModerationDefs_ModEventDivert            *ModerationDefs_ModEventDivert
-	ModerationDefs_ModEventTag               *ModerationDefs_ModEventTag
-	ModerationDefs_AccountEvent              *ModerationDefs_AccountEvent
-	ModerationDefs_IdentityEvent             *ModerationDefs_IdentityEvent
-	ModerationDefs_RecordEvent               *ModerationDefs_RecordEvent
-	ModerationDefs_ModEventPriorityScore     *ModerationDefs_ModEventPriorityScore
-	ModerationDefs_AgeAssuranceEvent         *ModerationDefs_AgeAssuranceEvent
-	ModerationDefs_AgeAssuranceOverrideEvent *ModerationDefs_AgeAssuranceOverrideEvent
+	ModerationDefs_ModEventTakedown              *ModerationDefs_ModEventTakedown
+	ModerationDefs_ModEventAcknowledge           *ModerationDefs_ModEventAcknowledge
+	ModerationDefs_ModEventEscalate              *ModerationDefs_ModEventEscalate
+	ModerationDefs_ModEventComment               *ModerationDefs_ModEventComment
+	ModerationDefs_ModEventLabel                 *ModerationDefs_ModEventLabel
+	ModerationDefs_ModEventReport                *ModerationDefs_ModEventReport
+	ModerationDefs_ModEventMute                  *ModerationDefs_ModEventMute
+	ModerationDefs_ModEventUnmute                *ModerationDefs_ModEventUnmute
+	ModerationDefs_ModEventMuteReporter          *ModerationDefs_ModEventMuteReporter
+	ModerationDefs_ModEventUnmuteReporter        *ModerationDefs_ModEventUnmuteReporter
+	ModerationDefs_ModEventReverseTakedown       *ModerationDefs_ModEventReverseTakedown
+	ModerationDefs_ModEventResolveAppeal         *ModerationDefs_ModEventResolveAppeal
+	ModerationDefs_ModEventEmail                 *ModerationDefs_ModEventEmail
+	ModerationDefs_ModEventDivert                *ModerationDefs_ModEventDivert
+	ModerationDefs_ModEventTag                   *ModerationDefs_ModEventTag
+	ModerationDefs_AccountEvent                  *ModerationDefs_AccountEvent
+	ModerationDefs_IdentityEvent                 *ModerationDefs_IdentityEvent
+	ModerationDefs_RecordEvent                   *ModerationDefs_RecordEvent
+	ModerationDefs_ModEventPriorityScore         *ModerationDefs_ModEventPriorityScore
+	ModerationDefs_AgeAssuranceEvent             *ModerationDefs_AgeAssuranceEvent
+	ModerationDefs_AgeAssuranceOverrideEvent     *ModerationDefs_AgeAssuranceOverrideEvent
+	ModerationDefs_RevokeAccountCredentialsEvent *ModerationDefs_RevokeAccountCredentialsEvent
+	ModerationDefs_ScheduleTakedownEvent         *ModerationDefs_ScheduleTakedownEvent
+	ModerationDefs_CancelScheduledTakedownEvent  *ModerationDefs_CancelScheduledTakedownEvent
 }
 
 func (t *ModerationEmitEvent_Input_Event) MarshalJSON() ([]byte, error) {
@@ -133,6 +136,18 @@ func (t *ModerationEmitEvent_Input_Event) MarshalJSON() ([]byte, error) {
 		t.ModerationDefs_AgeAssuranceOverrideEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
 		return json.Marshal(t.ModerationDefs_AgeAssuranceOverrideEvent)
 	}
+	if t.ModerationDefs_RevokeAccountCredentialsEvent != nil {
+		t.ModerationDefs_RevokeAccountCredentialsEvent.LexiconTypeID = "tools.ozone.moderation.defs#revokeAccountCredentialsEvent"
+		return json.Marshal(t.ModerationDefs_RevokeAccountCredentialsEvent)
+	}
+	if t.ModerationDefs_ScheduleTakedownEvent != nil {
+		t.ModerationDefs_ScheduleTakedownEvent.LexiconTypeID = "tools.ozone.moderation.defs#scheduleTakedownEvent"
+		return json.Marshal(t.ModerationDefs_ScheduleTakedownEvent)
+	}
+	if t.ModerationDefs_CancelScheduledTakedownEvent != nil {
+		t.ModerationDefs_CancelScheduledTakedownEvent.LexiconTypeID = "tools.ozone.moderation.defs#cancelScheduledTakedownEvent"
+		return json.Marshal(t.ModerationDefs_CancelScheduledTakedownEvent)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ModerationEmitEvent_Input_Event) UnmarshalJSON(b []byte) error {
@@ -205,6 +220,15 @@ func (t *ModerationEmitEvent_Input_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#ageAssuranceOverrideEvent":
 		t.ModerationDefs_AgeAssuranceOverrideEvent = new(ModerationDefs_AgeAssuranceOverrideEvent)
 		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceOverrideEvent)
+	case "tools.ozone.moderation.defs#revokeAccountCredentialsEvent":
+		t.ModerationDefs_RevokeAccountCredentialsEvent = new(ModerationDefs_RevokeAccountCredentialsEvent)
+		return json.Unmarshal(b, t.ModerationDefs_RevokeAccountCredentialsEvent)
+	case "tools.ozone.moderation.defs#scheduleTakedownEvent":
+		t.ModerationDefs_ScheduleTakedownEvent = new(ModerationDefs_ScheduleTakedownEvent)
+		return json.Unmarshal(b, t.ModerationDefs_ScheduleTakedownEvent)
+	case "tools.ozone.moderation.defs#cancelScheduledTakedownEvent":
+		t.ModerationDefs_CancelScheduledTakedownEvent = new(ModerationDefs_CancelScheduledTakedownEvent)
+		return json.Unmarshal(b, t.ModerationDefs_CancelScheduledTakedownEvent)
 
 	default:
 		return nil

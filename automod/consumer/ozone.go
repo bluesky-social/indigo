@@ -61,6 +61,7 @@ func (oc *OzoneConsumer) Run(ctx context.Context) error {
 			nil,            // addedLabels []string
 			nil,            // addedTags []string
 			"",             // ageAssuranceState
+			"",             // batchId string
 			nil,            // collections []string
 			"",             // comment string
 			since.String(), // createdAfter string

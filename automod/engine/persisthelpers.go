@@ -174,6 +174,7 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 		nil,            // addedLabels []string
 		nil,            // addedTags []string
 		"",             // ageAssuranceState
+		"",             // batchId string
 		nil,            // collections []string
 		"",             // comment string
 		"",             // createdAfter string
@@ -258,6 +259,7 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 		nil,            // addedLabels []string
 		nil,            // addedTags []string
 		"",             // ageAssuranceState
+		"",             // batchId string
 		nil,            // collections []string
 		"",             // comment string
 		"",             // createdAfter string
