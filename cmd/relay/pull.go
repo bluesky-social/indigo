@@ -32,13 +32,13 @@ var cmdPullHosts = &cli.Command{
 			Value:   "sqlite://data/relay/relay.sqlite",
 			Sources: cli.EnvVars("DATABASE_URL"),
 		},
-		&cli.IntFlag{
+		&cli.Int64Flag{
 			Name:    "default-account-limit",
 			Value:   100,
 			Usage:   "max number of active accounts for new upstream hosts",
 			Sources: cli.EnvVars("RELAY_DEFAULT_ACCOUNT_LIMIT", "RELAY_DEFAULT_REPO_LIMIT"),
 		},
-		&cli.IntFlag{
+		&cli.Int64Flag{
 			Name:    "batch-size",
 			Value:   500,
 			Usage:   "host many hosts to pull at a time",
