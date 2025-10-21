@@ -240,7 +240,11 @@ func runRelay(ctx context.Context, cmd *cli.Command) error {
 	persitConfig := diskpersist.DefaultDiskPersistOptions()
 	persitConfig.Retention = cmd.Duration("replay-window")
 	persitConfig.InitialSeq = cmd.Int64("initial-seq-number")
-	logger.Info("setting up disk persister", "dir", persistDir, "replayWindow", persitConfig.Retention)
+	if persitConfig.InitialSeq <= 0 {
+		// belt-and-suspenders: the disk persister also checks this internally
+		return fmt.Errorf("negative or zero initial sequence config: %d", persitConfig.InitialSeq)
+	}
+	logger.Info("setting up disk persister", "dir", persistDir, "replayWindow", persitConfig.Retention, "initialSeq", persitConfig.InitialSeq)
 	persister, err := diskpersist.NewDiskPersistence(persistDir, "", db, persitConfig)
 	if err != nil {
 		return fmt.Errorf("setting up disk persister: %w", err)
