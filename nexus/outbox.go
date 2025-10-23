@@ -17,8 +17,14 @@ import (
 type InFlightEvent struct {
 	ID     uint
 	DID    string
+	Live   bool
 	Event  *OutboxEvt
 	SentAt time.Time
+}
+
+type DIDInFlight struct {
+	LiveCount       int
+	HistoricalCount int
 }
 
 type Outbox struct {
@@ -30,7 +36,7 @@ type Outbox struct {
 	webhookURL     string
 	httpClient     *http.Client
 	inFlightEvents map[uint]*InFlightEvent
-	inFlightDIDs   map[string]uint
+	inFlightDIDs   map[string]*DIDInFlight
 	inFlightMu     sync.RWMutex
 }
 
@@ -46,12 +52,12 @@ func NewOutbox(db *gorm.DB, mode OutboxMode, webhookURL string) *Outbox {
 			Timeout: 30 * time.Second,
 		},
 		inFlightEvents: make(map[uint]*InFlightEvent),
-		inFlightDIDs:   make(map[string]uint),
+		inFlightDIDs:   make(map[string]*DIDInFlight),
 	}
 }
 
 func (o *Outbox) Run(ctx context.Context) {
-	ticker := time.NewTicker(100 * time.Millisecond)
+	ticker := time.NewTicker(1000 * time.Millisecond)
 	defer ticker.Stop()
 
 	// Start timeout checker for websocket-ack mode
@@ -99,21 +105,30 @@ func (o *Outbox) deliverPending() {
 			continue
 		}
 
-		// Set the ID from the database record
 		outboxEvt.ID = evt.ID
 		did := outboxEvt.DID()
 
-		// Check if this DID already has an in-flight event
+		// check if events for the same DID are in flight and we should skip the event for now
+		// it will remain in the DB & be tried again later
 		o.inFlightMu.RLock()
-		_, hasInFlight := o.inFlightDIDs[did]
+		counts, didExists := o.inFlightDIDs[did]
+		_, evtExists := o.inFlightEvents[evt.ID]
 		o.inFlightMu.RUnlock()
 
-		if hasInFlight {
-			// Skip this event for now, will be retried later
+		if evtExists {
 			continue
+		} else if didExists {
+			// Live events: wait for ALL in-flight events to clear (historical and live)
+			if evt.Live && (counts.LiveCount > 0 || counts.HistoricalCount > 0) {
+				continue
+			}
+			// Historical events: only wait for in-flight live events
+			if !evt.Live && counts.LiveCount > 0 {
+				continue
+			}
 		}
 
-		o.trackInFlight(&evt, &outboxEvt, did)
+		o.trackInFlight(&evt, &outboxEvt, did, evt.Live)
 
 		// Deliver based on consumer mode
 		switch o.mode {
@@ -127,15 +142,27 @@ func (o *Outbox) deliverPending() {
 	}
 }
 
-func (o *Outbox) trackInFlight(dbEvt *models.OutboxBuffer, outboxEvt *OutboxEvt, did string) {
+func (o *Outbox) trackInFlight(dbEvt *models.OutboxBuffer, outboxEvt *OutboxEvt, did string, isLive bool) {
 	o.inFlightMu.Lock()
 	o.inFlightEvents[dbEvt.ID] = &InFlightEvent{
 		ID:     dbEvt.ID,
 		DID:    did,
+		Live:   isLive,
 		Event:  outboxEvt,
 		SentAt: time.Now(),
 	}
-	o.inFlightDIDs[did] = dbEvt.ID
+
+	// Increment the appropriate counter
+	counts, exists := o.inFlightDIDs[did]
+	if !exists {
+		counts = &DIDInFlight{}
+		o.inFlightDIDs[did] = counts
+	}
+	if isLive {
+		counts.LiveCount++
+	} else {
+		counts.HistoricalCount++
+	}
 	o.inFlightMu.Unlock()
 }
 
@@ -146,10 +173,22 @@ func (o *Outbox) AckEvent(eventID uint) {
 	// Check if this was a tracked event (websocket-ack or webhook mode)
 	inFlight, exists := o.inFlightEvents[eventID]
 	if exists {
-		// Remove from in-flight tracking
-		delete(o.inFlightDIDs, inFlight.DID)
+		// Decrement the appropriate counter
+		did := inFlight.DID
+		counts := o.inFlightDIDs[did]
+		if inFlight.Live {
+			counts.LiveCount--
+		} else {
+			counts.HistoricalCount--
+		}
+
+		// If no more events for this DID, remove the key
+		if counts.LiveCount == 0 && counts.HistoricalCount == 0 {
+			delete(o.inFlightDIDs, did)
+		}
+
 		delete(o.inFlightEvents, eventID)
-		o.logger.Info("event acked", "id", eventID, "did", inFlight.DID)
+		o.logger.Info("event acked", "id", eventID, "did", did, "live", inFlight.Live)
 	}
 
 	// Delete from DB (for both tracked and untracked events)
@@ -214,6 +253,7 @@ func (o *Outbox) checkTimeouts(ctx context.Context) {
 	}
 }
 
+// this just clears them out of tracking which will allow them to be retried on the next deliverPend
 func (o *Outbox) retryTimedOutEvents() {
 	o.inFlightMu.Lock()
 	defer o.inFlightMu.Unlock()
@@ -221,10 +261,22 @@ func (o *Outbox) retryTimedOutEvents() {
 	now := time.Now()
 	for id, inFlight := range o.inFlightEvents {
 		if now.Sub(inFlight.SentAt) > 10*time.Second {
-			o.logger.Info("event timed out, resending", "id", id, "did", inFlight.DID)
+			o.logger.Info("event timed out, resending", "id", id, "did", inFlight.DID, "live", inFlight.Live)
 
-			// Remove from in-flight tracking so it can be retried
-			delete(o.inFlightDIDs, inFlight.DID)
+			// Decrement the appropriate counter
+			did := inFlight.DID
+			counts := o.inFlightDIDs[did]
+			if inFlight.Live {
+				counts.LiveCount--
+			} else {
+				counts.HistoricalCount--
+			}
+
+			// If no more events for this DID, remove the key
+			if counts.LiveCount == 0 && counts.HistoricalCount == 0 {
+				delete(o.inFlightDIDs, did)
+			}
+
 			delete(o.inFlightEvents, id)
 		}
 	}
