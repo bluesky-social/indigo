@@ -37,6 +37,7 @@ type Repo struct {
 
 type OutboxBuffer struct {
 	ID   uint   `gorm:"primaryKey"`
+	Live bool   `gorm:"not null"`
 	Data string `gorm:"type:text;not null"` // JSON-encoded operations
 }
 

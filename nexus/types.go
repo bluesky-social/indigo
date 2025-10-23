@@ -29,6 +29,7 @@ func (c *Commit) ToEvts() []*RecordEvt {
 	var evts []*RecordEvt
 	for _, op := range c.Ops {
 		evts = append(evts, &RecordEvt{
+			Live:       true,
 			Did:        c.Did,
 			Rev:        c.Rev,
 			Collection: op.Collection,
@@ -42,6 +43,7 @@ func (c *Commit) ToEvts() []*RecordEvt {
 }
 
 type RecordEvt struct {
+	Live       bool                   `json:"live"`
 	Did        string                 `json:"did"`
 	Rev        string                 `json:"rev"`
 	Collection string                 `json:"collection"`
