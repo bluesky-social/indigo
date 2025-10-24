@@ -22,12 +22,6 @@ type FirehoseConsumer struct {
 }
 
 func (fc *FirehoseConsumer) Run(ctx context.Context) error {
-	scheduler := parallel.NewScheduler(
-		fc.Parallelism,
-		100,
-		fc.RelayHost,
-		fc.Callbacks.EventHandler,
-	)
 
 	u, err := url.Parse(fc.RelayHost)
 	if err != nil {
@@ -73,6 +67,12 @@ func (fc *FirehoseConsumer) Run(ctx context.Context) error {
 		fc.Logger.Info("connected to firehose")
 		retries = 0
 
+		scheduler := parallel.NewScheduler(
+			fc.Parallelism,
+			100,
+			fc.RelayHost,
+			fc.Callbacks.EventHandler,
+		)
 		if err := events.HandleRepoStream(ctx, con, scheduler, nil); err != nil {
 			fc.Logger.Warn("firehose connection failed", "err", err)
 		}
