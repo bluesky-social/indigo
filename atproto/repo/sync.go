@@ -164,31 +164,41 @@ func parseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]Operation, e
 	return out, nil
 }
 
+func VerifySyncMessage(ctx context.Context, dir identity.Directory, msg *comatproto.SyncSubscribeRepos_Sync) (*Commit, error) {
+	return VerifyCommitSignatureFromCar(ctx, dir, []byte(msg.Blocks))
+}
+
 // temporary/experimental code showing how to verify a commit signature from firehose
 //
 // TODO: in real implementation, will want to merge this code with `VerifyCommitMessage` above, and have it hanging off some service struct with a configured `identity.Directory`
 func VerifyCommitSignature(ctx context.Context, dir identity.Directory, msg *comatproto.SyncSubscribeRepos_Commit) error {
-	commit, _, err := LoadRepoFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
+	_, err := VerifyCommitSignatureFromCar(ctx, dir, []byte(msg.Blocks))
+	return err
+}
+
+func VerifyCommitSignatureFromCar(ctx context.Context, dir identity.Directory, car []byte) (*Commit, error) {
+	commit, _, err := LoadCommitFromCAR(ctx, bytes.NewReader(car))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := commit.VerifyStructure(); err != nil {
-		return err
-	}
 	did, err := syntax.ParseDID(commit.DID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ident, err := dir.LookupDID(ctx, did)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	pubkey, err := ident.PublicKey()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return commit.VerifySignature(pubkey)
+	err = commit.VerifySignature(pubkey)
+	if err != nil {
+		return nil, err
+	}
+	return commit, nil
 }
