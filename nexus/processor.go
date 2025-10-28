@@ -15,6 +15,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/nexus/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type EventProcessor struct {
@@ -42,7 +43,6 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 				ep.Logger.Error("failed to auto-track repo", "did", evt.Repo, "error", err)
 				return err
 			}
-			ep.Logger.Info("auto-tracked new repo from firehose", "did", evt.Repo)
 			return nil
 		}
 		return nil
@@ -95,17 +95,7 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 	}
 
 	if err := ep.DB.Transaction(func(tx *gorm.DB) error {
-		if err := updateRepoState(tx, commit); err != nil {
-			return err
-		}
-
-		for _, recEvt := range commit.ToEvts() {
-			if err := persistRecordEvt(tx, recEvt); err != nil {
-				return err
-			}
-		}
-
-		return nil
+		return applyCommit(tx, commit)
 	}); err != nil {
 		ep.Logger.Error("failed to update repo state", "did", commit.Did, "rev", commit.Rev, "error", err)
 		return err
@@ -188,7 +178,6 @@ func (ep *EventProcessor) ProcessSync(ctx context.Context, evt *comatproto.SyncS
 				ep.Logger.Error("failed to auto-track repo", "did", evt.Did, "error", err)
 				return err
 			}
-			ep.Logger.Info("auto-tracked new repo from firehose", "did", evt.Did)
 			return nil
 		}
 		return nil
@@ -236,7 +225,6 @@ func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error
 				ep.Logger.Error("failed to auto-track repo", "did", did, "error", err)
 				return err
 			}
-			ep.Logger.Info("auto-tracked new repo from firehose", "did", did)
 			return nil
 		}
 		return nil
@@ -291,7 +279,6 @@ func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.Sy
 				ep.Logger.Error("failed to auto-track repo", "did", evt.Did, "error", err)
 				return err
 			}
-			ep.Logger.Info("auto-tracked new repo from firehose", "did", evt.Did)
 			return nil
 		}
 		return nil
@@ -375,21 +362,10 @@ func (ep *EventProcessor) drainResyncBuffer(ctx context.Context, did string) err
 		}
 
 		if err := ep.DB.Transaction(func(tx *gorm.DB) error {
-			if err := updateRepoState(tx, &commit); err != nil {
+			if err := applyCommit(tx, &commit); err != nil {
 				return err
 			}
-
-			for _, recEvt := range commit.ToEvts() {
-				if err := persistRecordEvt(tx, recEvt); err != nil {
-					return err
-				}
-			}
-
-			if err := tx.Delete(&models.ResyncBuffer{}, "id = ?", evt.ID).Error; err != nil {
-				return err
-			}
-
-			return nil
+			return tx.Delete(&models.ResyncBuffer{}, "id = ?", evt.ID).Error
 		}); err != nil {
 			ep.Logger.Error("failed to process buffered commit", "did", commit.Did, "rev", commit.Rev, "error", err)
 			return err
@@ -401,7 +377,7 @@ func (ep *EventProcessor) drainResyncBuffer(ctx context.Context, did string) err
 	return nil
 }
 
-func updateRepoState(tx *gorm.DB, commit *Commit) error {
+func applyCommit(tx *gorm.DB, commit *Commit) error {
 	if err := tx.Model(&models.Repo{}).
 		Where("did = ?", commit.Did).
 		Updates(map[string]interface{}{
@@ -411,21 +387,51 @@ func updateRepoState(tx *gorm.DB, commit *Commit) error {
 		return err
 	}
 
+	var toPut []*models.RepoRecord
+	var outboxBatch []*models.OutboxBuffer
+
 	for _, op := range commit.Ops {
 		if op.Action == "delete" {
-			if err := tx.Delete(&models.RepoRecord{}, "did = ? AND collection = ? AND rkey = ?", commit.Did, op.Collection, op.Rkey).Error; err != nil {
+			if err := tx.Delete(&models.RepoRecord{}, "did = ? AND collection = ? AND rkey = ?",
+				commit.Did, op.Collection, op.Rkey).Error; err != nil {
 				return err
 			}
 		} else {
-			repoRecord := models.RepoRecord{
+			toPut = append(toPut, &models.RepoRecord{
 				Did:        commit.Did,
 				Collection: op.Collection,
 				Rkey:       op.Rkey,
 				Cid:        op.Cid,
-			}
-			if err := tx.Save(&repoRecord).Error; err != nil {
-				return err
-			}
+			})
+		}
+	}
+
+	if len(toPut) > 0 {
+		if err := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "did"}, {Name: "collection"}, {Name: "rkey"}},
+			DoUpdates: clause.AssignmentColumns([]string{"cid"}),
+		}).CreateInBatches(toPut, 100).Error; err != nil {
+			return err
+		}
+	}
+
+	for _, recEvt := range commit.ToEvts() {
+		jsonData, err := json.Marshal(&OutboxEvt{
+			Type:      "record",
+			RecordEvt: recEvt,
+		})
+		if err != nil {
+			return err
+		}
+		outboxBatch = append(outboxBatch, &models.OutboxBuffer{
+			Live: recEvt.Live,
+			Data: string(jsonData),
+		})
+	}
+
+	if len(outboxBatch) > 0 {
+		if err := tx.CreateInBatches(outboxBatch, 100).Error; err != nil {
+			return err
 		}
 	}
 
@@ -436,38 +442,20 @@ func deleteRepo(tx *gorm.DB, did string) error {
 	if err := tx.Delete(&models.RepoRecord{}, "did = ?", did).Error; err != nil {
 		return err
 	}
-
 	if err := tx.Delete(&models.ResyncBuffer{}, "did = ?", did).Error; err != nil {
 		return err
 	}
-
-	if err := tx.Delete(&models.Repo{}, "did = ?", did).Error; err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func persistRecordEvt(tx *gorm.DB, evt *RecordEvt) error {
-	return persistOutboxEvt(tx, &OutboxEvt{
-		Type:      "record",
-		RecordEvt: evt,
-	})
+	return tx.Delete(&models.Repo{}, "did = ?", did).Error
 }
 
 func persistUserEvt(tx *gorm.DB, evt *UserEvt) error {
-	return persistOutboxEvt(tx, &OutboxEvt{
+	jsonData, err := json.Marshal(&OutboxEvt{
 		Type:    "user",
 		UserEvt: evt,
 	})
-}
-
-func persistOutboxEvt(tx *gorm.DB, evt *OutboxEvt) error {
-	jsonData, err := json.Marshal(evt)
 	if err != nil {
 		return err
 	}
-
 	return tx.Create(&models.OutboxBuffer{
 		Data: string(jsonData),
 	}).Error

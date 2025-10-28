@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func (n *Nexus) runResyncWorker(ctx context.Context, workerID int) {
@@ -239,7 +241,9 @@ func (n *Nexus) writeBatch(evtBatch []*RecordEvt) error {
 		return nil
 	}
 
-	recordBatch := make([]*models.RepoRecord, 0, len(evtBatch))
+	var recordBatch []*models.RepoRecord
+	var outboxBatch []*models.OutboxBuffer
+
 	for _, evt := range evtBatch {
 		recordBatch = append(recordBatch, &models.RepoRecord{
 			Did:        evt.Did,
@@ -247,27 +251,33 @@ func (n *Nexus) writeBatch(evtBatch []*RecordEvt) error {
 			Rkey:       evt.Rkey,
 			Cid:        evt.Cid,
 		})
+
+		jsonData, err := json.Marshal(&OutboxEvt{
+			Type:      "record",
+			RecordEvt: evt,
+		})
+		if err != nil {
+			return err
+		}
+		outboxBatch = append(outboxBatch, &models.OutboxBuffer{
+			Live: evt.Live,
+			Data: string(jsonData),
+		})
 	}
 
-	if err := n.db.Transaction(func(tx *gorm.DB) error {
-		for _, record := range recordBatch {
-			if err := tx.Save(&record).Error; err != nil {
+	return n.db.Transaction(func(tx *gorm.DB) error {
+		if len(recordBatch) > 0 {
+			if err := tx.Clauses(clause.OnConflict{
+				UpdateAll: true,
+			}).CreateInBatches(recordBatch, 100).Error; err != nil {
 				return err
 			}
 		}
-
-		for _, evt := range evtBatch {
-			if err := persistRecordEvt(tx, evt); err != nil {
-				return err
-			}
+		if len(outboxBatch) > 0 {
+			return tx.CreateInBatches(outboxBatch, 100).Error
 		}
-
 		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }
 
 func (n *Nexus) handleResyncError(did string, err error) error {
@@ -295,7 +305,7 @@ func (n *Nexus) handleResyncError(did string, err error) error {
 			"state":       state,
 			"error_msg":   errMsg,
 			"retry_count": repo.RetryCount + 1,
-			"retry_after": retryAfter,
+			"retry_after": retryAfter.Unix(),
 		}).Error
 	if dbErr != nil {
 		return dbErr
