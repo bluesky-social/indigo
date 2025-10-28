@@ -40,8 +40,8 @@ func (gen *FlatGenerator) WriteLexicon() error {
 	if gen.Config.WarningText != "" {
 		fmt.Fprintf(gen.Out, "// %s\n\n", gen.Config.WarningText)
 	}
+	fmt.Fprintf(gen.Out, "// Lexicon schema: %s\n\n", gen.Lex.NSID)
 	fmt.Fprintf(gen.Out, "package %s\n\n", gen.pkgName())
-	fmt.Fprintf(gen.Out, "// schema: %s\n\n", gen.Lex.NSID)
 	fmt.Fprintln(gen.Out, "import (")
 	for dep, _ := range gen.deps() {
 		fmt.Fprintf(gen.Out, "    %s\n", dep)
@@ -323,7 +323,11 @@ func (gen *FlatGenerator) writeStruct(ft *FlatType, obj *lexicon.SchemaObject) e
 
 	// if this is a def-level struct, write out type decoder
 	if len(ft.Path) == 0 {
-		fmt.Fprintf(gen.Out, "    LexiconTypeID string `json:\"$type\" cborgen:\"$type\"`\n")
+		fullName := gen.Lex.NSID.String()
+		if ft.DefName != "main" {
+			fullName += "#" + ft.DefName
+		}
+		fmt.Fprintf(gen.Out, "    LexiconTypeID string `json:\"$type\" cborgen:\"$type,const=%s\"`\n", fullName)
 	}
 
 	for _, fname := range fieldNames {
