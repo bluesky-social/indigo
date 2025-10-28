@@ -56,7 +56,7 @@ var cmdGenerate = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name:    "output-dir",
-			Value:   "./lexgen-out/",
+			Value:   "./lexgen-output/",
 			Usage:   "base directory for output packages",
 			Sources: cli.EnvVars("OUTPUT_DIR"),
 		},
