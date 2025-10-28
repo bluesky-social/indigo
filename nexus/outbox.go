@@ -147,8 +147,6 @@ func (o *Outbox) loadMoreEvents() {
 		}
 	}
 	o.cacheMu.Unlock()
-
-	o.logger.Info("loaded events into cache", "count", len(events), "cacheSize", len(o.eventCache))
 }
 
 // runDelivery continuously pulls from pendingIDs and delivers events
