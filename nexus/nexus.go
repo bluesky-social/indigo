@@ -150,7 +150,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		}()
 	}
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 50; i++ {
 		go n.runResyncWorker(context.Background(), i)
 	}
 

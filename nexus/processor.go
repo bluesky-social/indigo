@@ -111,7 +111,6 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 		return err
 	}
 
-	ep.Outbox.Notify()
 	return nil
 }
 
@@ -277,7 +276,6 @@ func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error
 		return err
 	}
 
-	ep.Outbox.Notify()
 	return nil
 }
 
@@ -344,7 +342,6 @@ func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.Sy
 		}
 	}
 
-	ep.Outbox.Notify()
 	return nil
 }
 
@@ -398,7 +395,6 @@ func (ep *EventProcessor) drainResyncBuffer(ctx context.Context, did string) err
 			return err
 		}
 
-		ep.Outbox.Notify()
 	}
 
 	ep.Logger.Info("processed buffered resync events", "did", did, "count", len(bufferedEvts))

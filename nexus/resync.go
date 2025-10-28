@@ -46,19 +46,17 @@ func (n *Nexus) claimResyncJob(ctx context.Context) (string, bool, error) {
 	defer n.claimJobMu.Unlock()
 
 	var did string
-	now := time.Now().Unix()
 	result := n.db.Raw(`
 		UPDATE repos
 		SET state = ?
 		WHERE did = (
 			SELECT did FROM repos
 			WHERE state IN (?, ?)
-			AND retry_after <= ?
-			ORDER BY retry_after ASC
+			ORDER BY RANDOM()
 			LIMIT 1
 		)
 		RETURNING did
-		`, models.RepoStateResyncing, models.RepoStatePending, models.RepoStateDesynced, now).Scan(&did)
+		`, models.RepoStateResyncing, models.RepoStatePending, models.RepoStateDesynced).Scan(&did)
 	if result.Error != nil {
 		return "", false, result.Error
 	}
@@ -269,7 +267,6 @@ func (n *Nexus) writeBatch(evtBatch []*RecordEvt) error {
 		return err
 	}
 
-	n.outbox.Notify()
 	return nil
 }
 
@@ -298,7 +295,7 @@ func (n *Nexus) handleResyncError(did string, err error) error {
 			"state":       state,
 			"error_msg":   errMsg,
 			"retry_count": repo.RetryCount + 1,
-			"retry_after": retryAfter.Unix(),
+			"retry_after": retryAfter,
 		}).Error
 	if dbErr != nil {
 		return dbErr
