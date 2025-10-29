@@ -41,6 +41,7 @@ type NexusConfig struct {
 	DBPath                     string
 	RelayHost                  string
 	FirehoseParallelism        int
+	ResyncParallelism          int
 	FirehoseCursorSaveInterval time.Duration
 	FullNetworkMode            bool
 	DisableAcks                bool
@@ -94,9 +95,9 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		pdsBackoff: make(map[string]time.Time),
 	}
 
-	parallelism := config.FirehoseParallelism
-	if parallelism == 0 {
-		parallelism = 10
+	firehoseParallelism := config.FirehoseParallelism
+	if firehoseParallelism == 0 {
+		firehoseParallelism = 10
 	}
 
 	cursorSaveInterval := config.FirehoseCursorSaveInterval
@@ -132,7 +133,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	n.FirehoseConsumer = &FirehoseConsumer{
 		RelayHost:   config.RelayHost,
 		Logger:      n.logger.With("component", "firehose"),
-		Parallelism: parallelism,
+		Parallelism: firehoseParallelism,
 		Callbacks:   rsc,
 		GetCursor:   n.EventProcessor.ReadLastCursor,
 	}
@@ -150,7 +151,11 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		}()
 	}
 
-	for i := 0; i < 20; i++ {
+	resyncParallelism := config.ResyncParallelism
+	if resyncParallelism == 0 {
+		resyncParallelism = 5
+	}
+	for i := 0; i < resyncParallelism; i++ {
 		go n.runResyncWorker(context.Background(), i)
 	}
 
