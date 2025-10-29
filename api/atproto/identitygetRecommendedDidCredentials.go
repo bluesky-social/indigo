@@ -7,22 +7,22 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // IdentityGetRecommendedDidCredentials_Output is the output of a com.atproto.identity.getRecommendedDidCredentials call.
 type IdentityGetRecommendedDidCredentials_Output struct {
 	AlsoKnownAs []string `json:"alsoKnownAs,omitempty" cborgen:"alsoKnownAs,omitempty"`
 	// rotationKeys: Recommended rotation keys for PLC dids. Should be undefined (or ignored) for did:webs.
-	RotationKeys        []string                 `json:"rotationKeys,omitempty" cborgen:"rotationKeys,omitempty"`
-	Services            *util.LexiconTypeDecoder `json:"services,omitempty" cborgen:"services,omitempty"`
-	VerificationMethods *util.LexiconTypeDecoder `json:"verificationMethods,omitempty" cborgen:"verificationMethods,omitempty"`
+	RotationKeys        []string                    `json:"rotationKeys,omitempty" cborgen:"rotationKeys,omitempty"`
+	Services            *lexutil.LexiconTypeDecoder `json:"services,omitempty" cborgen:"services,omitempty"`
+	VerificationMethods *lexutil.LexiconTypeDecoder `json:"verificationMethods,omitempty" cborgen:"verificationMethods,omitempty"`
 }
 
 // IdentityGetRecommendedDidCredentials calls the XRPC method "com.atproto.identity.getRecommendedDidCredentials".
-func IdentityGetRecommendedDidCredentials(ctx context.Context, c util.LexClient) (*IdentityGetRecommendedDidCredentials_Output, error) {
+func IdentityGetRecommendedDidCredentials(ctx context.Context, c lexutil.LexClient) (*IdentityGetRecommendedDidCredentials_Output, error) {
 	var out IdentityGetRecommendedDidCredentials_Output
-	if err := c.LexDo(ctx, util.Query, "", "com.atproto.identity.getRecommendedDidCredentials", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.identity.getRecommendedDidCredentials", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

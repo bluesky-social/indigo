@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationEmitEvent_Input is the input argument to a tools.ozone.moderation.emitEvent call.
@@ -152,7 +152,7 @@ func (t *ModerationEmitEvent_Input_Event) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ModerationEmitEvent_Input_Event) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -230,15 +230,14 @@ func (t *ModerationEmitEvent_Input_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#cancelScheduledTakedownEvent":
 		t.ModerationDefs_CancelScheduledTakedownEvent = new(ModerationDefs_CancelScheduledTakedownEvent)
 		return json.Unmarshal(b, t.ModerationDefs_CancelScheduledTakedownEvent)
-
 	default:
 		return nil
 	}
 }
 
 type ModerationEmitEvent_Input_Subject struct {
-	AdminDefs_RepoRef *comatprototypes.AdminDefs_RepoRef
-	RepoStrongRef     *comatprototypes.RepoStrongRef
+	AdminDefs_RepoRef *comatproto.AdminDefs_RepoRef
+	RepoStrongRef     *comatproto.RepoStrongRef
 }
 
 func (t *ModerationEmitEvent_Input_Subject) MarshalJSON() ([]byte, error) {
@@ -254,28 +253,27 @@ func (t *ModerationEmitEvent_Input_Subject) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ModerationEmitEvent_Input_Subject) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
 
 	switch typ {
 	case "com.atproto.admin.defs#repoRef":
-		t.AdminDefs_RepoRef = new(comatprototypes.AdminDefs_RepoRef)
+		t.AdminDefs_RepoRef = new(comatproto.AdminDefs_RepoRef)
 		return json.Unmarshal(b, t.AdminDefs_RepoRef)
 	case "com.atproto.repo.strongRef":
-		t.RepoStrongRef = new(comatprototypes.RepoStrongRef)
+		t.RepoStrongRef = new(comatproto.RepoStrongRef)
 		return json.Unmarshal(b, t.RepoStrongRef)
-
 	default:
 		return nil
 	}
 }
 
 // ModerationEmitEvent calls the XRPC method "tools.ozone.moderation.emitEvent".
-func ModerationEmitEvent(ctx context.Context, c util.LexClient, input *ModerationEmitEvent_Input) (*ModerationDefs_ModEventView, error) {
+func ModerationEmitEvent(ctx context.Context, c lexutil.LexClient, input *ModerationEmitEvent_Input) (*ModerationDefs_ModEventView, error) {
 	var out ModerationDefs_ModEventView
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.moderation.emitEvent", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.moderation.emitEvent", nil, input, &out); err != nil {
 		return nil, err
 	}
 

@@ -5,11 +5,11 @@
 package bsky
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 func init() {
-	util.RegisterType("app.bsky.graph.listitem", &GraphListitem{})
+	lexutil.RegisterType("app.bsky.graph.listitem", &GraphListitem{})
 }
 
 type GraphListitem struct {

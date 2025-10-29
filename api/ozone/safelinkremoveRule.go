@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SafelinkRemoveRule_Input is the input argument to a tools.ozone.safelink.removeRule call.
@@ -22,9 +22,9 @@ type SafelinkRemoveRule_Input struct {
 }
 
 // SafelinkRemoveRule calls the XRPC method "tools.ozone.safelink.removeRule".
-func SafelinkRemoveRule(ctx context.Context, c util.LexClient, input *SafelinkRemoveRule_Input) (*SafelinkDefs_Event, error) {
+func SafelinkRemoveRule(ctx context.Context, c lexutil.LexClient, input *SafelinkRemoveRule_Input) (*SafelinkDefs_Event, error) {
 	var out SafelinkDefs_Event
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.safelink.removeRule", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.safelink.removeRule", nil, input, &out); err != nil {
 		return nil, err
 	}
 

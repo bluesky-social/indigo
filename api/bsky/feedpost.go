@@ -10,13 +10,13 @@ import (
 	"fmt"
 	"io"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	util.RegisterType("app.bsky.feed.post", &FeedPost{})
+	lexutil.RegisterType("app.bsky.feed.post", &FeedPost{})
 }
 
 type FeedPost struct {
@@ -72,7 +72,7 @@ func (t *FeedPost_Embed) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedPost_Embed) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,6 @@ func (t *FeedPost_Embed) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.recordWithMedia":
 		t.EmbedRecordWithMedia = new(EmbedRecordWithMedia)
 		return json.Unmarshal(b, t.EmbedRecordWithMedia)
-
 	default:
 		return nil
 	}
@@ -122,8 +121,9 @@ func (t *FeedPost_Embed) MarshalCBOR(w io.Writer) error {
 	}
 	return fmt.Errorf("can not marshal empty union as CBOR")
 }
+
 func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := util.CborTypeExtractReader(r)
+	typ, b, err := lexutil.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,6 @@ func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.embed.recordWithMedia":
 		t.EmbedRecordWithMedia = new(EmbedRecordWithMedia)
 		return t.EmbedRecordWithMedia.UnmarshalCBOR(bytes.NewReader(b))
-
 	default:
 		return nil
 	}
@@ -162,7 +161,7 @@ type FeedPost_Entity struct {
 
 // Self-label values for this post. Effectively content warnings.
 type FeedPost_Labels struct {
-	LabelDefs_SelfLabels *comatprototypes.LabelDefs_SelfLabels
+	LabelDefs_SelfLabels *comatproto.LabelDefs_SelfLabels
 }
 
 func (t *FeedPost_Labels) MarshalJSON() ([]byte, error) {
@@ -174,16 +173,15 @@ func (t *FeedPost_Labels) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedPost_Labels) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
 
 	switch typ {
 	case "com.atproto.label.defs#selfLabels":
-		t.LabelDefs_SelfLabels = new(comatprototypes.LabelDefs_SelfLabels)
+		t.LabelDefs_SelfLabels = new(comatproto.LabelDefs_SelfLabels)
 		return json.Unmarshal(b, t.LabelDefs_SelfLabels)
-
 	default:
 		return nil
 	}
@@ -200,17 +198,17 @@ func (t *FeedPost_Labels) MarshalCBOR(w io.Writer) error {
 	}
 	return fmt.Errorf("can not marshal empty union as CBOR")
 }
+
 func (t *FeedPost_Labels) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := util.CborTypeExtractReader(r)
+	typ, b, err := lexutil.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
 
 	switch typ {
 	case "com.atproto.label.defs#selfLabels":
-		t.LabelDefs_SelfLabels = new(comatprototypes.LabelDefs_SelfLabels)
+		t.LabelDefs_SelfLabels = new(comatproto.LabelDefs_SelfLabels)
 		return t.LabelDefs_SelfLabels.UnmarshalCBOR(bytes.NewReader(b))
-
 	default:
 		return nil
 	}
@@ -218,8 +216,8 @@ func (t *FeedPost_Labels) UnmarshalCBOR(r io.Reader) error {
 
 // FeedPost_ReplyRef is a "replyRef" in the app.bsky.feed.post schema.
 type FeedPost_ReplyRef struct {
-	Parent *comatprototypes.RepoStrongRef `json:"parent" cborgen:"parent"`
-	Root   *comatprototypes.RepoStrongRef `json:"root" cborgen:"root"`
+	Parent *comatproto.RepoStrongRef `json:"parent" cborgen:"parent"`
+	Root   *comatproto.RepoStrongRef `json:"root" cborgen:"root"`
 }
 
 // FeedPost_TextSlice is a "textSlice" in the app.bsky.feed.post schema.

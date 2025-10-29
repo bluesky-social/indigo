@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // BookmarkDefs_Bookmark is a "bookmark" in the app.bsky.bookmark.defs schema.
@@ -17,7 +17,7 @@ import (
 // Object used to store bookmark data in stash.
 type BookmarkDefs_Bookmark struct {
 	// subject: A strong ref to the record to be bookmarked. Currently, only `app.bsky.feed.post` records are supported.
-	Subject *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
+	Subject *comatproto.RepoStrongRef `json:"subject" cborgen:"subject"`
 }
 
 // BookmarkDefs_BookmarkView is a "bookmarkView" in the app.bsky.bookmark.defs schema.
@@ -25,7 +25,7 @@ type BookmarkDefs_BookmarkView struct {
 	CreatedAt *string                         `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
 	Item      *BookmarkDefs_BookmarkView_Item `json:"item" cborgen:"item"`
 	// subject: A strong ref to the bookmarked record.
-	Subject *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
+	Subject *comatproto.RepoStrongRef `json:"subject" cborgen:"subject"`
 }
 
 type BookmarkDefs_BookmarkView_Item struct {
@@ -51,7 +51,7 @@ func (t *BookmarkDefs_BookmarkView_Item) MarshalJSON() ([]byte, error) {
 }
 
 func (t *BookmarkDefs_BookmarkView_Item) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,6 @@ func (t *BookmarkDefs_BookmarkView_Item) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.defs#postView":
 		t.FeedDefs_PostView = new(FeedDefs_PostView)
 		return json.Unmarshal(b, t.FeedDefs_PostView)
-
 	default:
 		return nil
 	}

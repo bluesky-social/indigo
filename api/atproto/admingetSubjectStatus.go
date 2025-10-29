@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // AdminGetSubjectStatus_Output is the output of a com.atproto.admin.getSubjectStatus call.
@@ -42,7 +42,7 @@ func (t *AdminGetSubjectStatus_Output_Subject) MarshalJSON() ([]byte, error) {
 }
 
 func (t *AdminGetSubjectStatus_Output_Subject) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -57,14 +57,13 @@ func (t *AdminGetSubjectStatus_Output_Subject) UnmarshalJSON(b []byte) error {
 	case "com.atproto.admin.defs#repoBlobRef":
 		t.AdminDefs_RepoBlobRef = new(AdminDefs_RepoBlobRef)
 		return json.Unmarshal(b, t.AdminDefs_RepoBlobRef)
-
 	default:
 		return nil
 	}
 }
 
 // AdminGetSubjectStatus calls the XRPC method "com.atproto.admin.getSubjectStatus".
-func AdminGetSubjectStatus(ctx context.Context, c util.LexClient, blob string, did string, uri string) (*AdminGetSubjectStatus_Output, error) {
+func AdminGetSubjectStatus(ctx context.Context, c lexutil.LexClient, blob string, did string, uri string) (*AdminGetSubjectStatus_Output, error) {
 	var out AdminGetSubjectStatus_Output
 
 	params := map[string]interface{}{}
@@ -77,7 +76,7 @@ func AdminGetSubjectStatus(ctx context.Context, c util.LexClient, blob string, d
 	if uri != "" {
 		params["uri"] = uri
 	}
-	if err := c.LexDo(ctx, util.Query, "", "com.atproto.admin.getSubjectStatus", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.admin.getSubjectStatus", params, nil, &out); err != nil {
 		return nil, err
 	}
 

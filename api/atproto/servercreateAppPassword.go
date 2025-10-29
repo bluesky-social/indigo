@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerCreateAppPassword_AppPassword is a "appPassword" in the com.atproto.server.createAppPassword schema.
@@ -27,9 +27,9 @@ type ServerCreateAppPassword_Input struct {
 }
 
 // ServerCreateAppPassword calls the XRPC method "com.atproto.server.createAppPassword".
-func ServerCreateAppPassword(ctx context.Context, c util.LexClient, input *ServerCreateAppPassword_Input) (*ServerCreateAppPassword_AppPassword, error) {
+func ServerCreateAppPassword(ctx context.Context, c lexutil.LexClient, input *ServerCreateAppPassword_Input) (*ServerCreateAppPassword_AppPassword, error) {
 	var out ServerCreateAppPassword_AppPassword
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.server.createAppPassword", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.server.createAppPassword", nil, input, &out); err != nil {
 		return nil, err
 	}
 

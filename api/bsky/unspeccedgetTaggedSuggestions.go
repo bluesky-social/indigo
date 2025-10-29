@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetTaggedSuggestions_Output is the output of a app.bsky.unspecced.getTaggedSuggestions call.
@@ -23,11 +23,11 @@ type UnspeccedGetTaggedSuggestions_Suggestion struct {
 }
 
 // UnspeccedGetTaggedSuggestions calls the XRPC method "app.bsky.unspecced.getTaggedSuggestions".
-func UnspeccedGetTaggedSuggestions(ctx context.Context, c util.LexClient) (*UnspeccedGetTaggedSuggestions_Output, error) {
+func UnspeccedGetTaggedSuggestions(ctx context.Context, c lexutil.LexClient) (*UnspeccedGetTaggedSuggestions_Output, error) {
 	var out UnspeccedGetTaggedSuggestions_Output
 
 	params := map[string]interface{}{}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getTaggedSuggestions", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.getTaggedSuggestions", params, nil, &out); err != nil {
 		return nil, err
 	}
 

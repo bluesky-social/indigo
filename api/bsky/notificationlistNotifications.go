@@ -7,22 +7,22 @@ package bsky
 import (
 	"context"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // NotificationListNotifications_Notification is a "notification" in the app.bsky.notification.listNotifications schema.
 type NotificationListNotifications_Notification struct {
-	Author    *ActorDefs_ProfileView             `json:"author" cborgen:"author"`
-	Cid       string                             `json:"cid" cborgen:"cid"`
-	IndexedAt string                             `json:"indexedAt" cborgen:"indexedAt"`
-	IsRead    bool                               `json:"isRead" cborgen:"isRead"`
-	Labels    []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Author    *ActorDefs_ProfileView        `json:"author" cborgen:"author"`
+	Cid       string                        `json:"cid" cborgen:"cid"`
+	IndexedAt string                        `json:"indexedAt" cborgen:"indexedAt"`
+	IsRead    bool                          `json:"isRead" cborgen:"isRead"`
+	Labels    []*comatproto.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	// reason: The reason why this notification was delivered - e.g. your post was liked, or you received a new follower.
-	Reason        string                   `json:"reason" cborgen:"reason"`
-	ReasonSubject *string                  `json:"reasonSubject,omitempty" cborgen:"reasonSubject,omitempty"`
-	Record        *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
-	Uri           string                   `json:"uri" cborgen:"uri"`
+	Reason        string                      `json:"reason" cborgen:"reason"`
+	ReasonSubject *string                     `json:"reasonSubject,omitempty" cborgen:"reasonSubject,omitempty"`
+	Record        *lexutil.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	Uri           string                      `json:"uri" cborgen:"uri"`
 }
 
 // NotificationListNotifications_Output is the output of a app.bsky.notification.listNotifications call.
@@ -36,7 +36,7 @@ type NotificationListNotifications_Output struct {
 // NotificationListNotifications calls the XRPC method "app.bsky.notification.listNotifications".
 //
 // reasons: Notification reasons to include in response.
-func NotificationListNotifications(ctx context.Context, c util.LexClient, cursor string, limit int64, priority bool, reasons []string, seenAt string) (*NotificationListNotifications_Output, error) {
+func NotificationListNotifications(ctx context.Context, c lexutil.LexClient, cursor string, limit int64, priority bool, reasons []string, seenAt string) (*NotificationListNotifications_Output, error) {
 	var out NotificationListNotifications_Output
 
 	params := map[string]interface{}{}
@@ -55,7 +55,7 @@ func NotificationListNotifications(ctx context.Context, c util.LexClient, cursor
 	if seenAt != "" {
 		params["seenAt"] = seenAt
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.notification.listNotifications", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.notification.listNotifications", params, nil, &out); err != nil {
 		return nil, err
 	}
 

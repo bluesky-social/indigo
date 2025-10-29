@@ -10,29 +10,29 @@ import (
 	"fmt"
 	"io"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	util.RegisterType("app.bsky.actor.profile", &ActorProfile{})
+	lexutil.RegisterType("app.bsky.actor.profile", &ActorProfile{})
 }
 
 type ActorProfile struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.profile"`
 	// avatar: Small image to be displayed next to posts from account. AKA, 'profile picture'
-	Avatar *util.LexBlob `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	Avatar *lexutil.LexBlob `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	// banner: Larger horizontal image to display behind profile view.
-	Banner    *util.LexBlob `json:"banner,omitempty" cborgen:"banner,omitempty"`
-	CreatedAt *string       `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	Banner    *lexutil.LexBlob `json:"banner,omitempty" cborgen:"banner,omitempty"`
+	CreatedAt *string          `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
 	// description: Free-form profile description text.
-	Description          *string                        `json:"description,omitempty" cborgen:"description,omitempty"`
-	DisplayName          *string                        `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
-	JoinedViaStarterPack *comatprototypes.RepoStrongRef `json:"joinedViaStarterPack,omitempty" cborgen:"joinedViaStarterPack,omitempty"`
+	Description          *string                   `json:"description,omitempty" cborgen:"description,omitempty"`
+	DisplayName          *string                   `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
+	JoinedViaStarterPack *comatproto.RepoStrongRef `json:"joinedViaStarterPack,omitempty" cborgen:"joinedViaStarterPack,omitempty"`
 	// labels: Self-label values, specific to the Bluesky application, on the overall account.
-	Labels     *ActorProfile_Labels           `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	PinnedPost *comatprototypes.RepoStrongRef `json:"pinnedPost,omitempty" cborgen:"pinnedPost,omitempty"`
+	Labels     *ActorProfile_Labels      `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	PinnedPost *comatproto.RepoStrongRef `json:"pinnedPost,omitempty" cborgen:"pinnedPost,omitempty"`
 	// pronouns: Free-form pronouns text.
 	Pronouns *string `json:"pronouns,omitempty" cborgen:"pronouns,omitempty"`
 	Website  *string `json:"website,omitempty" cborgen:"website,omitempty"`
@@ -40,7 +40,7 @@ type ActorProfile struct {
 
 // Self-label values, specific to the Bluesky application, on the overall account.
 type ActorProfile_Labels struct {
-	LabelDefs_SelfLabels *comatprototypes.LabelDefs_SelfLabels
+	LabelDefs_SelfLabels *comatproto.LabelDefs_SelfLabels
 }
 
 func (t *ActorProfile_Labels) MarshalJSON() ([]byte, error) {
@@ -52,16 +52,15 @@ func (t *ActorProfile_Labels) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ActorProfile_Labels) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
 
 	switch typ {
 	case "com.atproto.label.defs#selfLabels":
-		t.LabelDefs_SelfLabels = new(comatprototypes.LabelDefs_SelfLabels)
+		t.LabelDefs_SelfLabels = new(comatproto.LabelDefs_SelfLabels)
 		return json.Unmarshal(b, t.LabelDefs_SelfLabels)
-
 	default:
 		return nil
 	}
@@ -78,17 +77,17 @@ func (t *ActorProfile_Labels) MarshalCBOR(w io.Writer) error {
 	}
 	return fmt.Errorf("can not marshal empty union as CBOR")
 }
+
 func (t *ActorProfile_Labels) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := util.CborTypeExtractReader(r)
+	typ, b, err := lexutil.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
 
 	switch typ {
 	case "com.atproto.label.defs#selfLabels":
-		t.LabelDefs_SelfLabels = new(comatprototypes.LabelDefs_SelfLabels)
+		t.LabelDefs_SelfLabels = new(comatproto.LabelDefs_SelfLabels)
 		return t.LabelDefs_SelfLabels.UnmarshalCBOR(bytes.NewReader(b))
-
 	default:
 		return nil
 	}

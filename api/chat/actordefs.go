@@ -5,20 +5,20 @@
 package chat
 
 import (
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
 )
 
 // ActorDefs_ProfileViewBasic is a "profileViewBasic" in the chat.bsky.actor.defs schema.
 type ActorDefs_ProfileViewBasic struct {
-	Associated *appbskytypes.ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
-	Avatar     *string                                   `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	Associated *appbsky.ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Avatar     *string                              `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	// chatDisabled: Set to true when the actor cannot actively participate in conversations
-	ChatDisabled *bool                                     `json:"chatDisabled,omitempty" cborgen:"chatDisabled,omitempty"`
-	Did          string                                    `json:"did" cborgen:"did"`
-	DisplayName  *string                                   `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
-	Handle       string                                    `json:"handle" cborgen:"handle"`
-	Labels       []*comatprototypes.LabelDefs_Label        `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	Verification *appbskytypes.ActorDefs_VerificationState `json:"verification,omitempty" cborgen:"verification,omitempty"`
-	Viewer       *appbskytypes.ActorDefs_ViewerState       `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	ChatDisabled *bool                                `json:"chatDisabled,omitempty" cborgen:"chatDisabled,omitempty"`
+	Did          string                               `json:"did" cborgen:"did"`
+	DisplayName  *string                              `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
+	Handle       string                               `json:"handle" cborgen:"handle"`
+	Labels       []*comatproto.LabelDefs_Label        `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Verification *appbsky.ActorDefs_VerificationState `json:"verification,omitempty" cborgen:"verification,omitempty"`
+	Viewer       *appbsky.ActorDefs_ViewerState       `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }

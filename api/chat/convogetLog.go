@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ConvoGetLog_Output is the output of a chat.bsky.convo.getLog call.
@@ -76,7 +76,7 @@ func (t *ConvoGetLog_Output_Logs_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ConvoGetLog_Output_Logs_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -112,21 +112,20 @@ func (t *ConvoGetLog_Output_Logs_Elem) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#logRemoveReaction":
 		t.ConvoDefs_LogRemoveReaction = new(ConvoDefs_LogRemoveReaction)
 		return json.Unmarshal(b, t.ConvoDefs_LogRemoveReaction)
-
 	default:
 		return nil
 	}
 }
 
 // ConvoGetLog calls the XRPC method "chat.bsky.convo.getLog".
-func ConvoGetLog(ctx context.Context, c util.LexClient, cursor string) (*ConvoGetLog_Output, error) {
+func ConvoGetLog(ctx context.Context, c lexutil.LexClient, cursor string) (*ConvoGetLog_Output, error) {
 	var out ConvoGetLog_Output
 
 	params := map[string]interface{}{}
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
-	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.convo.getLog", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "chat.bsky.convo.getLog", params, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ActorGetSuggestions_Output is the output of a app.bsky.actor.getSuggestions call.
@@ -19,7 +19,7 @@ type ActorGetSuggestions_Output struct {
 }
 
 // ActorGetSuggestions calls the XRPC method "app.bsky.actor.getSuggestions".
-func ActorGetSuggestions(ctx context.Context, c util.LexClient, cursor string, limit int64) (*ActorGetSuggestions_Output, error) {
+func ActorGetSuggestions(ctx context.Context, c lexutil.LexClient, cursor string, limit int64) (*ActorGetSuggestions_Output, error) {
 	var out ActorGetSuggestions_Output
 
 	params := map[string]interface{}{}
@@ -29,7 +29,7 @@ func ActorGetSuggestions(ctx context.Context, c util.LexClient, cursor string, l
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.actor.getSuggestions", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.actor.getSuggestions", params, nil, &out); err != nil {
 		return nil, err
 	}
 

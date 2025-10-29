@@ -7,13 +7,13 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetAgeAssuranceState calls the XRPC method "app.bsky.unspecced.getAgeAssuranceState".
-func UnspeccedGetAgeAssuranceState(ctx context.Context, c util.LexClient) (*UnspeccedDefs_AgeAssuranceState, error) {
+func UnspeccedGetAgeAssuranceState(ctx context.Context, c lexutil.LexClient) (*UnspeccedDefs_AgeAssuranceState, error) {
 	var out UnspeccedDefs_AgeAssuranceState
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getAgeAssuranceState", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.getAgeAssuranceState", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

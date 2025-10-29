@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -53,7 +53,7 @@ func (t *RichtextFacet_Features_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *RichtextFacet_Features_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,6 @@ func (t *RichtextFacet_Features_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.richtext.facet#tag":
 		t.RichtextFacet_Tag = new(RichtextFacet_Tag)
 		return json.Unmarshal(b, t.RichtextFacet_Tag)
-
 	default:
 		return nil
 	}
@@ -91,8 +90,9 @@ func (t *RichtextFacet_Features_Elem) MarshalCBOR(w io.Writer) error {
 	}
 	return fmt.Errorf("can not marshal empty union as CBOR")
 }
+
 func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := util.CborTypeExtractReader(r)
+	typ, b, err := lexutil.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,6 @@ func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.richtext.facet#tag":
 		t.RichtextFacet_Tag = new(RichtextFacet_Tag)
 		return t.RichtextFacet_Tag.UnmarshalCBOR(bytes.NewReader(b))
-
 	default:
 		return nil
 	}

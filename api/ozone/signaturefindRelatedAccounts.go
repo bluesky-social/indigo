@@ -7,8 +7,8 @@ package ozone
 import (
 	"context"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SignatureFindRelatedAccounts_Output is the output of a tools.ozone.signature.findRelatedAccounts call.
@@ -19,12 +19,12 @@ type SignatureFindRelatedAccounts_Output struct {
 
 // SignatureFindRelatedAccounts_RelatedAccount is a "relatedAccount" in the tools.ozone.signature.findRelatedAccounts schema.
 type SignatureFindRelatedAccounts_RelatedAccount struct {
-	Account      *comatprototypes.AdminDefs_AccountView `json:"account" cborgen:"account"`
-	Similarities []*SignatureDefs_SigDetail             `json:"similarities,omitempty" cborgen:"similarities,omitempty"`
+	Account      *comatproto.AdminDefs_AccountView `json:"account" cborgen:"account"`
+	Similarities []*SignatureDefs_SigDetail        `json:"similarities,omitempty" cborgen:"similarities,omitempty"`
 }
 
 // SignatureFindRelatedAccounts calls the XRPC method "tools.ozone.signature.findRelatedAccounts".
-func SignatureFindRelatedAccounts(ctx context.Context, c util.LexClient, cursor string, did string, limit int64) (*SignatureFindRelatedAccounts_Output, error) {
+func SignatureFindRelatedAccounts(ctx context.Context, c lexutil.LexClient, cursor string, did string, limit int64) (*SignatureFindRelatedAccounts_Output, error) {
 	var out SignatureFindRelatedAccounts_Output
 
 	params := map[string]interface{}{}
@@ -35,7 +35,7 @@ func SignatureFindRelatedAccounts(ctx context.Context, c util.LexClient, cursor 
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.signature.findRelatedAccounts", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.signature.findRelatedAccounts", params, nil, &out); err != nil {
 		return nil, err
 	}
 

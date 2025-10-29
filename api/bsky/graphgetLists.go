@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphGetLists_Output is the output of a app.bsky.graph.getLists call.
@@ -20,7 +20,7 @@ type GraphGetLists_Output struct {
 //
 // actor: The account (actor) to enumerate lists from.
 // purposes: Optional filter by list purpose. If not specified, all supported types are returned.
-func GraphGetLists(ctx context.Context, c util.LexClient, actor string, cursor string, limit int64, purposes []string) (*GraphGetLists_Output, error) {
+func GraphGetLists(ctx context.Context, c lexutil.LexClient, actor string, cursor string, limit int64, purposes []string) (*GraphGetLists_Output, error) {
 	var out GraphGetLists_Output
 
 	params := map[string]interface{}{}
@@ -34,7 +34,7 @@ func GraphGetLists(ctx context.Context, c util.LexClient, actor string, cursor s
 	if len(purposes) != 0 {
 		params["purposes"] = purposes
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.graph.getLists", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.graph.getLists", params, nil, &out); err != nil {
 		return nil, err
 	}
 

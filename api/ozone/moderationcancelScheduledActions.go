@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationCancelScheduledActions_CancellationResults is a "cancellationResults" in the tools.ozone.moderation.cancelScheduledActions schema.
@@ -34,9 +34,9 @@ type ModerationCancelScheduledActions_Input struct {
 }
 
 // ModerationCancelScheduledActions calls the XRPC method "tools.ozone.moderation.cancelScheduledActions".
-func ModerationCancelScheduledActions(ctx context.Context, c util.LexClient, input *ModerationCancelScheduledActions_Input) (*ModerationCancelScheduledActions_CancellationResults, error) {
+func ModerationCancelScheduledActions(ctx context.Context, c lexutil.LexClient, input *ModerationCancelScheduledActions_Input) (*ModerationCancelScheduledActions_CancellationResults, error) {
 	var out ModerationCancelScheduledActions_CancellationResults
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.moderation.cancelScheduledActions", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.moderation.cancelScheduledActions", nil, input, &out); err != nil {
 		return nil, err
 	}
 

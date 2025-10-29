@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // AdminDisableInviteCodes_Input is the input argument to a com.atproto.admin.disableInviteCodes call.
@@ -17,8 +17,8 @@ type AdminDisableInviteCodes_Input struct {
 }
 
 // AdminDisableInviteCodes calls the XRPC method "com.atproto.admin.disableInviteCodes".
-func AdminDisableInviteCodes(ctx context.Context, c util.LexClient, input *AdminDisableInviteCodes_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.admin.disableInviteCodes", nil, input, nil); err != nil {
+func AdminDisableInviteCodes(ctx context.Context, c lexutil.LexClient, input *AdminDisableInviteCodes_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.admin.disableInviteCodes", nil, input, nil); err != nil {
 		return err
 	}
 

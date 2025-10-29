@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // CommunicationCreateTemplate_Input is the input argument to a tools.ozone.communication.createTemplate call.
@@ -25,9 +25,9 @@ type CommunicationCreateTemplate_Input struct {
 }
 
 // CommunicationCreateTemplate calls the XRPC method "tools.ozone.communication.createTemplate".
-func CommunicationCreateTemplate(ctx context.Context, c util.LexClient, input *CommunicationCreateTemplate_Input) (*CommunicationDefs_TemplateView, error) {
+func CommunicationCreateTemplate(ctx context.Context, c lexutil.LexClient, input *CommunicationCreateTemplate_Input) (*CommunicationDefs_TemplateView, error) {
 	var out CommunicationDefs_TemplateView
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.communication.createTemplate", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.communication.createTemplate", nil, input, &out); err != nil {
 		return nil, err
 	}
 

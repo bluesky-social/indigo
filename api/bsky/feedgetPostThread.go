@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedGetPostThread_Output is the output of a app.bsky.feed.getPostThread call.
@@ -41,7 +41,7 @@ func (t *FeedGetPostThread_Output_Thread) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedGetPostThread_Output_Thread) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -56,7 +56,6 @@ func (t *FeedGetPostThread_Output_Thread) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.defs#blockedPost":
 		t.FeedDefs_BlockedPost = new(FeedDefs_BlockedPost)
 		return json.Unmarshal(b, t.FeedDefs_BlockedPost)
-
 	default:
 		return nil
 	}
@@ -67,7 +66,7 @@ func (t *FeedGetPostThread_Output_Thread) UnmarshalJSON(b []byte) error {
 // depth: How many levels of reply depth should be included in response.
 // parentHeight: How many levels of parent (and grandparent, etc) post to include.
 // uri: Reference (AT-URI) to post record.
-func FeedGetPostThread(ctx context.Context, c util.LexClient, depth int64, parentHeight int64, uri string) (*FeedGetPostThread_Output, error) {
+func FeedGetPostThread(ctx context.Context, c lexutil.LexClient, depth int64, parentHeight int64, uri string) (*FeedGetPostThread_Output, error) {
 	var out FeedGetPostThread_Output
 
 	params := map[string]interface{}{}
@@ -78,7 +77,7 @@ func FeedGetPostThread(ctx context.Context, c util.LexClient, depth int64, paren
 		params["parentHeight"] = parentHeight
 	}
 	params["uri"] = uri
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.getPostThread", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.feed.getPostThread", params, nil, &out); err != nil {
 		return nil, err
 	}
 

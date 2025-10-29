@@ -7,17 +7,17 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // IdentitySubmitPlcOperation_Input is the input argument to a com.atproto.identity.submitPlcOperation call.
 type IdentitySubmitPlcOperation_Input struct {
-	Operation *util.LexiconTypeDecoder `json:"operation" cborgen:"operation"`
+	Operation *lexutil.LexiconTypeDecoder `json:"operation" cborgen:"operation"`
 }
 
 // IdentitySubmitPlcOperation calls the XRPC method "com.atproto.identity.submitPlcOperation".
-func IdentitySubmitPlcOperation(ctx context.Context, c util.LexClient, input *IdentitySubmitPlcOperation_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.identity.submitPlcOperation", nil, input, nil); err != nil {
+func IdentitySubmitPlcOperation(ctx context.Context, c lexutil.LexClient, input *IdentitySubmitPlcOperation_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.identity.submitPlcOperation", nil, input, nil); err != nil {
 		return err
 	}
 

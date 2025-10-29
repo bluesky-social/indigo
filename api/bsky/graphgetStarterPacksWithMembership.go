@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphGetStarterPacksWithMembership_Output is the output of a app.bsky.graph.getStarterPacksWithMembership call.
@@ -27,7 +27,7 @@ type GraphGetStarterPacksWithMembership_StarterPackWithMembership struct {
 // GraphGetStarterPacksWithMembership calls the XRPC method "app.bsky.graph.getStarterPacksWithMembership".
 //
 // actor: The account (actor) to check for membership.
-func GraphGetStarterPacksWithMembership(ctx context.Context, c util.LexClient, actor string, cursor string, limit int64) (*GraphGetStarterPacksWithMembership_Output, error) {
+func GraphGetStarterPacksWithMembership(ctx context.Context, c lexutil.LexClient, actor string, cursor string, limit int64) (*GraphGetStarterPacksWithMembership_Output, error) {
 	var out GraphGetStarterPacksWithMembership_Output
 
 	params := map[string]interface{}{}
@@ -38,7 +38,7 @@ func GraphGetStarterPacksWithMembership(ctx context.Context, c util.LexClient, a
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.graph.getStarterPacksWithMembership", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.graph.getStarterPacksWithMembership", params, nil, &out); err != nil {
 		return nil, err
 	}
 

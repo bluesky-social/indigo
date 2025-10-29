@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SetDeleteSet_Input is the input argument to a tools.ozone.set.deleteSet call.
@@ -21,9 +21,9 @@ type SetDeleteSet_Output struct {
 }
 
 // SetDeleteSet calls the XRPC method "tools.ozone.set.deleteSet".
-func SetDeleteSet(ctx context.Context, c util.LexClient, input *SetDeleteSet_Input) (*SetDeleteSet_Output, error) {
+func SetDeleteSet(ctx context.Context, c lexutil.LexClient, input *SetDeleteSet_Input) (*SetDeleteSet_Output, error) {
 	var out SetDeleteSet_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.set.deleteSet", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.set.deleteSet", nil, input, &out); err != nil {
 		return nil, err
 	}
 

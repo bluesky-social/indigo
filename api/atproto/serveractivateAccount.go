@@ -7,12 +7,12 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerActivateAccount calls the XRPC method "com.atproto.server.activateAccount".
-func ServerActivateAccount(ctx context.Context, c util.LexClient) error {
-	if err := c.LexDo(ctx, util.Procedure, "", "com.atproto.server.activateAccount", nil, nil, nil); err != nil {
+func ServerActivateAccount(ctx context.Context, c lexutil.LexClient) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "", "com.atproto.server.activateAccount", nil, nil, nil); err != nil {
 		return err
 	}
 

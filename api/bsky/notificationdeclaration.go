@@ -5,11 +5,11 @@
 package bsky
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 func init() {
-	util.RegisterType("app.bsky.notification.declaration", &NotificationDeclaration{})
+	lexutil.RegisterType("app.bsky.notification.declaration", &NotificationDeclaration{})
 }
 
 type NotificationDeclaration struct {

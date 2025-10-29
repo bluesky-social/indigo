@@ -5,11 +5,11 @@
 package bsky
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 func init() {
-	util.RegisterType("app.bsky.graph.verification", &GraphVerification{})
+	lexutil.RegisterType("app.bsky.graph.verification", &GraphVerification{})
 }
 
 type GraphVerification struct {

@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerRequestPasswordReset_Input is the input argument to a com.atproto.server.requestPasswordReset call.
@@ -16,8 +16,8 @@ type ServerRequestPasswordReset_Input struct {
 }
 
 // ServerRequestPasswordReset calls the XRPC method "com.atproto.server.requestPasswordReset".
-func ServerRequestPasswordReset(ctx context.Context, c util.LexClient, input *ServerRequestPasswordReset_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.server.requestPasswordReset", nil, input, nil); err != nil {
+func ServerRequestPasswordReset(ctx context.Context, c lexutil.LexClient, input *ServerRequestPasswordReset_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.server.requestPasswordReset", nil, input, nil); err != nil {
 		return err
 	}
 

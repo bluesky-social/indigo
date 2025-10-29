@@ -5,19 +5,19 @@
 package ozone
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SettingDefs_Option is a "option" in the tools.ozone.setting.defs schema.
 type SettingDefs_Option struct {
-	CreatedAt     *string                  `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
-	CreatedBy     string                   `json:"createdBy" cborgen:"createdBy"`
-	Description   *string                  `json:"description,omitempty" cborgen:"description,omitempty"`
-	Did           string                   `json:"did" cborgen:"did"`
-	Key           string                   `json:"key" cborgen:"key"`
-	LastUpdatedBy string                   `json:"lastUpdatedBy" cborgen:"lastUpdatedBy"`
-	ManagerRole   *string                  `json:"managerRole,omitempty" cborgen:"managerRole,omitempty"`
-	Scope         string                   `json:"scope" cborgen:"scope"`
-	UpdatedAt     *string                  `json:"updatedAt,omitempty" cborgen:"updatedAt,omitempty"`
-	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
+	CreatedAt     *string                     `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	CreatedBy     string                      `json:"createdBy" cborgen:"createdBy"`
+	Description   *string                     `json:"description,omitempty" cborgen:"description,omitempty"`
+	Did           string                      `json:"did" cborgen:"did"`
+	Key           string                      `json:"key" cborgen:"key"`
+	LastUpdatedBy string                      `json:"lastUpdatedBy" cborgen:"lastUpdatedBy"`
+	ManagerRole   *string                     `json:"managerRole,omitempty" cborgen:"managerRole,omitempty"`
+	Scope         string                      `json:"scope" cborgen:"scope"`
+	UpdatedAt     *string                     `json:"updatedAt,omitempty" cborgen:"updatedAt,omitempty"`
+	Value         *lexutil.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }

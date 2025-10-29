@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationGetRepos_Output is the output of a tools.ozone.moderation.getRepos call.
@@ -35,7 +35,7 @@ func (t *ModerationGetRepos_Output_Repos_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ModerationGetRepos_Output_Repos_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -47,19 +47,18 @@ func (t *ModerationGetRepos_Output_Repos_Elem) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#repoViewNotFound":
 		t.ModerationDefs_RepoViewNotFound = new(ModerationDefs_RepoViewNotFound)
 		return json.Unmarshal(b, t.ModerationDefs_RepoViewNotFound)
-
 	default:
 		return nil
 	}
 }
 
 // ModerationGetRepos calls the XRPC method "tools.ozone.moderation.getRepos".
-func ModerationGetRepos(ctx context.Context, c util.LexClient, dids []string) (*ModerationGetRepos_Output, error) {
+func ModerationGetRepos(ctx context.Context, c lexutil.LexClient, dids []string) (*ModerationGetRepos_Output, error) {
 	var out ModerationGetRepos_Output
 
 	params := map[string]interface{}{}
 	params["dids"] = dids
-	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.moderation.getRepos", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.moderation.getRepos", params, nil, &out); err != nil {
 		return nil, err
 	}
 

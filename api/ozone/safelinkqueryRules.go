@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SafelinkQueryRules_Input is the input argument to a tools.ozone.safelink.queryRules call.
@@ -38,9 +38,9 @@ type SafelinkQueryRules_Output struct {
 }
 
 // SafelinkQueryRules calls the XRPC method "tools.ozone.safelink.queryRules".
-func SafelinkQueryRules(ctx context.Context, c util.LexClient, input *SafelinkQueryRules_Input) (*SafelinkQueryRules_Output, error) {
+func SafelinkQueryRules(ctx context.Context, c lexutil.LexClient, input *SafelinkQueryRules_Input) (*SafelinkQueryRules_Output, error) {
 	var out SafelinkQueryRules_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.safelink.queryRules", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.safelink.queryRules", nil, input, &out); err != nil {
 		return nil, err
 	}
 

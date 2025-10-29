@@ -7,7 +7,7 @@ package chat
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ConvoUnmuteConvo_Input is the input argument to a chat.bsky.convo.unmuteConvo call.
@@ -21,9 +21,9 @@ type ConvoUnmuteConvo_Output struct {
 }
 
 // ConvoUnmuteConvo calls the XRPC method "chat.bsky.convo.unmuteConvo".
-func ConvoUnmuteConvo(ctx context.Context, c util.LexClient, input *ConvoUnmuteConvo_Input) (*ConvoUnmuteConvo_Output, error) {
+func ConvoUnmuteConvo(ctx context.Context, c lexutil.LexClient, input *ConvoUnmuteConvo_Input) (*ConvoUnmuteConvo_Output, error) {
 	var out ConvoUnmuteConvo_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.unmuteConvo", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "chat.bsky.convo.unmuteConvo", nil, input, &out); err != nil {
 		return nil, err
 	}
 

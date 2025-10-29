@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // AdminSendEmail_Input is the input argument to a com.atproto.admin.sendEmail call.
@@ -26,9 +26,9 @@ type AdminSendEmail_Output struct {
 }
 
 // AdminSendEmail calls the XRPC method "com.atproto.admin.sendEmail".
-func AdminSendEmail(ctx context.Context, c util.LexClient, input *AdminSendEmail_Input) (*AdminSendEmail_Output, error) {
+func AdminSendEmail(ctx context.Context, c lexutil.LexClient, input *AdminSendEmail_Input) (*AdminSendEmail_Output, error) {
 	var out AdminSendEmail_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.admin.sendEmail", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.admin.sendEmail", nil, input, &out); err != nil {
 		return nil, err
 	}
 

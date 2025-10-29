@@ -7,7 +7,7 @@ package chat
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ConvoGetConvoForMembers_Output is the output of a chat.bsky.convo.getConvoForMembers call.
@@ -16,12 +16,12 @@ type ConvoGetConvoForMembers_Output struct {
 }
 
 // ConvoGetConvoForMembers calls the XRPC method "chat.bsky.convo.getConvoForMembers".
-func ConvoGetConvoForMembers(ctx context.Context, c util.LexClient, members []string) (*ConvoGetConvoForMembers_Output, error) {
+func ConvoGetConvoForMembers(ctx context.Context, c lexutil.LexClient, members []string) (*ConvoGetConvoForMembers_Output, error) {
 	var out ConvoGetConvoForMembers_Output
 
 	params := map[string]interface{}{}
 	params["members"] = members
-	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.convo.getConvoForMembers", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "chat.bsky.convo.getConvoForMembers", params, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // NotificationListActivitySubscriptions_Output is the output of a app.bsky.notification.listActivitySubscriptions call.
@@ -17,7 +17,7 @@ type NotificationListActivitySubscriptions_Output struct {
 }
 
 // NotificationListActivitySubscriptions calls the XRPC method "app.bsky.notification.listActivitySubscriptions".
-func NotificationListActivitySubscriptions(ctx context.Context, c util.LexClient, cursor string, limit int64) (*NotificationListActivitySubscriptions_Output, error) {
+func NotificationListActivitySubscriptions(ctx context.Context, c lexutil.LexClient, cursor string, limit int64) (*NotificationListActivitySubscriptions_Output, error) {
 	var out NotificationListActivitySubscriptions_Output
 
 	params := map[string]interface{}{}
@@ -27,7 +27,7 @@ func NotificationListActivitySubscriptions(ctx context.Context, c util.LexClient
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.notification.listActivitySubscriptions", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.notification.listActivitySubscriptions", params, nil, &out); err != nil {
 		return nil, err
 	}
 

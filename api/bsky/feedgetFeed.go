@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedGetFeed_Output is the output of a app.bsky.feed.getFeed call.
@@ -17,7 +17,7 @@ type FeedGetFeed_Output struct {
 }
 
 // FeedGetFeed calls the XRPC method "app.bsky.feed.getFeed".
-func FeedGetFeed(ctx context.Context, c util.LexClient, cursor string, feed string, limit int64) (*FeedGetFeed_Output, error) {
+func FeedGetFeed(ctx context.Context, c lexutil.LexClient, cursor string, feed string, limit int64) (*FeedGetFeed_Output, error) {
 	var out FeedGetFeed_Output
 
 	params := map[string]interface{}{}
@@ -28,7 +28,7 @@ func FeedGetFeed(ctx context.Context, c util.LexClient, cursor string, feed stri
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.getFeed", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.feed.getFeed", params, nil, &out); err != nil {
 		return nil, err
 	}
 
