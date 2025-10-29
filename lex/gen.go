@@ -308,7 +308,7 @@ func CreateHandlerStub(pkg string, impmap map[string]string, dir string, schemas
 }
 
 func importNameForPrefix(prefix string) string {
-	return strings.Join(strings.Split(prefix, "."), "") + "types"
+	return strings.Join(strings.Split(prefix, "."), "")
 }
 
 func WriteServerHandlers(w io.Writer, schemas []*Schema, pkg string, impmap map[string]string) error {
