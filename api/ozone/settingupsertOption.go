@@ -7,16 +7,16 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SettingUpsertOption_Input is the input argument to a tools.ozone.setting.upsertOption call.
 type SettingUpsertOption_Input struct {
-	Description *string                  `json:"description,omitempty" cborgen:"description,omitempty"`
-	Key         string                   `json:"key" cborgen:"key"`
-	ManagerRole *string                  `json:"managerRole,omitempty" cborgen:"managerRole,omitempty"`
-	Scope       string                   `json:"scope" cborgen:"scope"`
-	Value       *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
+	Description *string                     `json:"description,omitempty" cborgen:"description,omitempty"`
+	Key         string                      `json:"key" cborgen:"key"`
+	ManagerRole *string                     `json:"managerRole,omitempty" cborgen:"managerRole,omitempty"`
+	Scope       string                      `json:"scope" cborgen:"scope"`
+	Value       *lexutil.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 // SettingUpsertOption_Output is the output of a tools.ozone.setting.upsertOption call.
@@ -25,9 +25,9 @@ type SettingUpsertOption_Output struct {
 }
 
 // SettingUpsertOption calls the XRPC method "tools.ozone.setting.upsertOption".
-func SettingUpsertOption(ctx context.Context, c util.LexClient, input *SettingUpsertOption_Input) (*SettingUpsertOption_Output, error) {
+func SettingUpsertOption(ctx context.Context, c lexutil.LexClient, input *SettingUpsertOption_Input) (*SettingUpsertOption_Output, error) {
 	var out SettingUpsertOption_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.setting.upsertOption", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.setting.upsertOption", nil, input, &out); err != nil {
 		return nil, err
 	}
 

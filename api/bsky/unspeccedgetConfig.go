@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetConfig_LiveNowConfig is a "liveNowConfig" in the app.bsky.unspecced.getConfig schema.
@@ -23,9 +23,9 @@ type UnspeccedGetConfig_Output struct {
 }
 
 // UnspeccedGetConfig calls the XRPC method "app.bsky.unspecced.getConfig".
-func UnspeccedGetConfig(ctx context.Context, c util.LexClient) (*UnspeccedGetConfig_Output, error) {
+func UnspeccedGetConfig(ctx context.Context, c lexutil.LexClient) (*UnspeccedGetConfig_Output, error) {
 	var out UnspeccedGetConfig_Output
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getConfig", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.getConfig", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

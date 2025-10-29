@@ -7,7 +7,7 @@ package chat
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ConvoUpdateRead_Input is the input argument to a chat.bsky.convo.updateRead call.
@@ -22,9 +22,9 @@ type ConvoUpdateRead_Output struct {
 }
 
 // ConvoUpdateRead calls the XRPC method "chat.bsky.convo.updateRead".
-func ConvoUpdateRead(ctx context.Context, c util.LexClient, input *ConvoUpdateRead_Input) (*ConvoUpdateRead_Output, error) {
+func ConvoUpdateRead(ctx context.Context, c lexutil.LexClient, input *ConvoUpdateRead_Input) (*ConvoUpdateRead_Output, error) {
 	var out ConvoUpdateRead_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.updateRead", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "chat.bsky.convo.updateRead", nil, input, &out); err != nil {
 		return nil, err
 	}
 

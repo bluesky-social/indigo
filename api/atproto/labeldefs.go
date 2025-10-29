@@ -5,7 +5,7 @@
 package atproto
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // LabelDefs_Label is a "label" in the com.atproto.label.defs schema.
@@ -21,7 +21,7 @@ type LabelDefs_Label struct {
 	// neg: If true, this is a negation label, overwriting a previous label.
 	Neg *bool `json:"neg,omitempty" cborgen:"neg,omitempty"`
 	// sig: Signature of dag-cbor encoded label.
-	Sig util.LexBytes `json:"sig,omitempty" cborgen:"sig,omitempty"`
+	Sig lexutil.LexBytes `json:"sig,omitempty" cborgen:"sig,omitempty"`
 	// src: DID of the actor who created this label.
 	Src string `json:"src" cborgen:"src"`
 	// uri: AT URI of the record, repository (account), or other resource that this label applies to.

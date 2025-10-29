@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetTrendsSkeleton_Output is the output of a app.bsky.unspecced.getTrendsSkeleton call.
@@ -18,7 +18,7 @@ type UnspeccedGetTrendsSkeleton_Output struct {
 // UnspeccedGetTrendsSkeleton calls the XRPC method "app.bsky.unspecced.getTrendsSkeleton".
 //
 // viewer: DID of the account making the request (not included for public/unauthenticated queries).
-func UnspeccedGetTrendsSkeleton(ctx context.Context, c util.LexClient, limit int64, viewer string) (*UnspeccedGetTrendsSkeleton_Output, error) {
+func UnspeccedGetTrendsSkeleton(ctx context.Context, c lexutil.LexClient, limit int64, viewer string) (*UnspeccedGetTrendsSkeleton_Output, error) {
 	var out UnspeccedGetTrendsSkeleton_Output
 
 	params := map[string]interface{}{}
@@ -28,7 +28,7 @@ func UnspeccedGetTrendsSkeleton(ctx context.Context, c util.LexClient, limit int
 	if viewer != "" {
 		params["viewer"] = viewer
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getTrendsSkeleton", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.getTrendsSkeleton", params, nil, &out); err != nil {
 		return nil, err
 	}
 

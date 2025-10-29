@@ -5,11 +5,11 @@
 package atproto
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 func init() {
-	util.RegisterType("com.atproto.lexicon.schema", &LexiconSchema{})
+	lexutil.RegisterType("com.atproto.lexicon.schema", &LexiconSchema{})
 }
 
 type LexiconSchema struct {

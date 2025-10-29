@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ConvoGetMessages_Output is the output of a chat.bsky.convo.getMessages call.
@@ -36,7 +36,7 @@ func (t *ConvoGetMessages_Output_Messages_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ConvoGetMessages_Output_Messages_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -48,14 +48,13 @@ func (t *ConvoGetMessages_Output_Messages_Elem) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#deletedMessageView":
 		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
 		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
-
 	default:
 		return nil
 	}
 }
 
 // ConvoGetMessages calls the XRPC method "chat.bsky.convo.getMessages".
-func ConvoGetMessages(ctx context.Context, c util.LexClient, convoId string, cursor string, limit int64) (*ConvoGetMessages_Output, error) {
+func ConvoGetMessages(ctx context.Context, c lexutil.LexClient, convoId string, cursor string, limit int64) (*ConvoGetMessages_Output, error) {
 	var out ConvoGetMessages_Output
 
 	params := map[string]interface{}{}
@@ -66,7 +65,7 @@ func ConvoGetMessages(ctx context.Context, c util.LexClient, convoId string, cur
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.convo.getMessages", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "chat.bsky.convo.getMessages", params, nil, &out); err != nil {
 		return nil, err
 	}
 

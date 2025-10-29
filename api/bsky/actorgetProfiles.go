@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ActorGetProfiles_Output is the output of a app.bsky.actor.getProfiles call.
@@ -16,12 +16,12 @@ type ActorGetProfiles_Output struct {
 }
 
 // ActorGetProfiles calls the XRPC method "app.bsky.actor.getProfiles".
-func ActorGetProfiles(ctx context.Context, c util.LexClient, actors []string) (*ActorGetProfiles_Output, error) {
+func ActorGetProfiles(ctx context.Context, c lexutil.LexClient, actors []string) (*ActorGetProfiles_Output, error) {
 	var out ActorGetProfiles_Output
 
 	params := map[string]interface{}{}
 	params["actors"] = actors
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.actor.getProfiles", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.actor.getProfiles", params, nil, &out); err != nil {
 		return nil, err
 	}
 

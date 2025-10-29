@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // NotificationPutActivitySubscription_Input is the input argument to a app.bsky.notification.putActivitySubscription call.
@@ -23,9 +23,9 @@ type NotificationPutActivitySubscription_Output struct {
 }
 
 // NotificationPutActivitySubscription calls the XRPC method "app.bsky.notification.putActivitySubscription".
-func NotificationPutActivitySubscription(ctx context.Context, c util.LexClient, input *NotificationPutActivitySubscription_Input) (*NotificationPutActivitySubscription_Output, error) {
+func NotificationPutActivitySubscription(ctx context.Context, c lexutil.LexClient, input *NotificationPutActivitySubscription_Input) (*NotificationPutActivitySubscription_Output, error) {
 	var out NotificationPutActivitySubscription_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "app.bsky.notification.putActivitySubscription", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "app.bsky.notification.putActivitySubscription", nil, input, &out); err != nil {
 		return nil, err
 	}
 

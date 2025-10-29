@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // RepoListRecords_Output is the output of a com.atproto.repo.listRecords call.
@@ -18,9 +18,9 @@ type RepoListRecords_Output struct {
 
 // RepoListRecords_Record is a "record" in the com.atproto.repo.listRecords schema.
 type RepoListRecords_Record struct {
-	Cid   string                   `json:"cid" cborgen:"cid"`
-	Uri   string                   `json:"uri" cborgen:"uri"`
-	Value *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
+	Cid   string                      `json:"cid" cborgen:"cid"`
+	Uri   string                      `json:"uri" cborgen:"uri"`
+	Value *lexutil.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 // RepoListRecords calls the XRPC method "com.atproto.repo.listRecords".
@@ -29,7 +29,7 @@ type RepoListRecords_Record struct {
 // limit: The number of records to return.
 // repo: The handle or DID of the repo.
 // reverse: Flag to reverse the order of the returned records.
-func RepoListRecords(ctx context.Context, c util.LexClient, collection string, cursor string, limit int64, repo string, reverse bool) (*RepoListRecords_Output, error) {
+func RepoListRecords(ctx context.Context, c lexutil.LexClient, collection string, cursor string, limit int64, repo string, reverse bool) (*RepoListRecords_Output, error) {
 	var out RepoListRecords_Output
 
 	params := map[string]interface{}{}
@@ -44,7 +44,7 @@ func RepoListRecords(ctx context.Context, c util.LexClient, collection string, c
 	if reverse {
 		params["reverse"] = reverse
 	}
-	if err := c.LexDo(ctx, util.Query, "", "com.atproto.repo.listRecords", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.repo.listRecords", params, nil, &out); err != nil {
 		return nil, err
 	}
 

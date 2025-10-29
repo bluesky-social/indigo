@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedGetAuthorFeed_Output is the output of a app.bsky.feed.getAuthorFeed call.
@@ -19,7 +19,7 @@ type FeedGetAuthorFeed_Output struct {
 // FeedGetAuthorFeed calls the XRPC method "app.bsky.feed.getAuthorFeed".
 //
 // filter: Combinations of post/repost types to include in response.
-func FeedGetAuthorFeed(ctx context.Context, c util.LexClient, actor string, cursor string, filter string, includePins bool, limit int64) (*FeedGetAuthorFeed_Output, error) {
+func FeedGetAuthorFeed(ctx context.Context, c lexutil.LexClient, actor string, cursor string, filter string, includePins bool, limit int64) (*FeedGetAuthorFeed_Output, error) {
 	var out FeedGetAuthorFeed_Output
 
 	params := map[string]interface{}{}
@@ -36,7 +36,7 @@ func FeedGetAuthorFeed(ctx context.Context, c util.LexClient, actor string, curs
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.getAuthorFeed", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.feed.getAuthorFeed", params, nil, &out); err != nil {
 		return nil, err
 	}
 

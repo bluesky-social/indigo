@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationGetRecords_Output is the output of a tools.ozone.moderation.getRecords call.
@@ -35,7 +35,7 @@ func (t *ModerationGetRecords_Output_Records_Elem) MarshalJSON() ([]byte, error)
 }
 
 func (t *ModerationGetRecords_Output_Records_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -47,19 +47,18 @@ func (t *ModerationGetRecords_Output_Records_Elem) UnmarshalJSON(b []byte) error
 	case "tools.ozone.moderation.defs#recordViewNotFound":
 		t.ModerationDefs_RecordViewNotFound = new(ModerationDefs_RecordViewNotFound)
 		return json.Unmarshal(b, t.ModerationDefs_RecordViewNotFound)
-
 	default:
 		return nil
 	}
 }
 
 // ModerationGetRecords calls the XRPC method "tools.ozone.moderation.getRecords".
-func ModerationGetRecords(ctx context.Context, c util.LexClient, uris []string) (*ModerationGetRecords_Output, error) {
+func ModerationGetRecords(ctx context.Context, c lexutil.LexClient, uris []string) (*ModerationGetRecords_Output, error) {
 	var out ModerationGetRecords_Output
 
 	params := map[string]interface{}{}
 	params["uris"] = uris
-	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.moderation.getRecords", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.moderation.getRecords", params, nil, &out); err != nil {
 		return nil, err
 	}
 

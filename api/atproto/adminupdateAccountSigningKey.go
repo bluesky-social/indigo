@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // AdminUpdateAccountSigningKey_Input is the input argument to a com.atproto.admin.updateAccountSigningKey call.
@@ -18,8 +18,8 @@ type AdminUpdateAccountSigningKey_Input struct {
 }
 
 // AdminUpdateAccountSigningKey calls the XRPC method "com.atproto.admin.updateAccountSigningKey".
-func AdminUpdateAccountSigningKey(ctx context.Context, c util.LexClient, input *AdminUpdateAccountSigningKey_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.admin.updateAccountSigningKey", nil, input, nil); err != nil {
+func AdminUpdateAccountSigningKey(ctx context.Context, c lexutil.LexClient, input *AdminUpdateAccountSigningKey_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.admin.updateAccountSigningKey", nil, input, nil); err != nil {
 		return err
 	}
 

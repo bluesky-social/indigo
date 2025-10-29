@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SafelinkUpdateRule_Input is the input argument to a tools.ozone.safelink.updateRule call.
@@ -24,9 +24,9 @@ type SafelinkUpdateRule_Input struct {
 }
 
 // SafelinkUpdateRule calls the XRPC method "tools.ozone.safelink.updateRule".
-func SafelinkUpdateRule(ctx context.Context, c util.LexClient, input *SafelinkUpdateRule_Input) (*SafelinkDefs_Event, error) {
+func SafelinkUpdateRule(ctx context.Context, c lexutil.LexClient, input *SafelinkUpdateRule_Input) (*SafelinkDefs_Event, error) {
 	var out SafelinkDefs_Event
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.safelink.updateRule", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.safelink.updateRule", nil, input, &out); err != nil {
 		return nil, err
 	}
 

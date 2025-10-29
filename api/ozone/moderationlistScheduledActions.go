@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationListScheduledActions_Input is the input argument to a tools.ozone.moderation.listScheduledActions call.
@@ -34,9 +34,9 @@ type ModerationListScheduledActions_Output struct {
 }
 
 // ModerationListScheduledActions calls the XRPC method "tools.ozone.moderation.listScheduledActions".
-func ModerationListScheduledActions(ctx context.Context, c util.LexClient, input *ModerationListScheduledActions_Input) (*ModerationListScheduledActions_Output, error) {
+func ModerationListScheduledActions(ctx context.Context, c lexutil.LexClient, input *ModerationListScheduledActions_Input) (*ModerationListScheduledActions_Output, error) {
 	var out ModerationListScheduledActions_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.moderation.listScheduledActions", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.moderation.listScheduledActions", nil, input, &out); err != nil {
 		return nil, err
 	}
 

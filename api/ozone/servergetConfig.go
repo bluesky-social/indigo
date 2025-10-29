@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerGetConfig_Output is the output of a tools.ozone.server.getConfig call.
@@ -32,9 +32,9 @@ type ServerGetConfig_ViewerConfig struct {
 }
 
 // ServerGetConfig calls the XRPC method "tools.ozone.server.getConfig".
-func ServerGetConfig(ctx context.Context, c util.LexClient) (*ServerGetConfig_Output, error) {
+func ServerGetConfig(ctx context.Context, c lexutil.LexClient) (*ServerGetConfig_Output, error) {
 	var out ServerGetConfig_Output
-	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.server.getConfig", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.server.getConfig", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedDefs_BlockedAuthor is a "blockedAuthor" in the app.bsky.feed.defs schema.
@@ -55,7 +55,7 @@ func (t *FeedDefs_FeedViewPost_Reason) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedDefs_FeedViewPost_Reason) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,6 @@ func (t *FeedDefs_FeedViewPost_Reason) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.defs#reasonPin":
 		t.FeedDefs_ReasonPin = new(FeedDefs_ReasonPin)
 		return json.Unmarshal(b, t.FeedDefs_ReasonPin)
-
 	default:
 		return nil
 	}
@@ -75,21 +74,21 @@ func (t *FeedDefs_FeedViewPost_Reason) UnmarshalJSON(b []byte) error {
 
 // FeedDefs_GeneratorView is a "generatorView" in the app.bsky.feed.defs schema.
 type FeedDefs_GeneratorView struct {
-	LexiconTypeID       string                             `json:"$type" cborgen:"$type,const=app.bsky.feed.defs#generatorView"`
-	AcceptsInteractions *bool                              `json:"acceptsInteractions,omitempty" cborgen:"acceptsInteractions,omitempty"`
-	Avatar              *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	Cid                 string                             `json:"cid" cborgen:"cid"`
-	ContentMode         *string                            `json:"contentMode,omitempty" cborgen:"contentMode,omitempty"`
-	Creator             *ActorDefs_ProfileView             `json:"creator" cborgen:"creator"`
-	Description         *string                            `json:"description,omitempty" cborgen:"description,omitempty"`
-	DescriptionFacets   []*RichtextFacet                   `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
-	Did                 string                             `json:"did" cborgen:"did"`
-	DisplayName         string                             `json:"displayName" cborgen:"displayName"`
-	IndexedAt           string                             `json:"indexedAt" cborgen:"indexedAt"`
-	Labels              []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	LikeCount           *int64                             `json:"likeCount,omitempty" cborgen:"likeCount,omitempty"`
-	Uri                 string                             `json:"uri" cborgen:"uri"`
-	Viewer              *FeedDefs_GeneratorViewerState     `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	LexiconTypeID       string                         `json:"$type" cborgen:"$type,const=app.bsky.feed.defs#generatorView"`
+	AcceptsInteractions *bool                          `json:"acceptsInteractions,omitempty" cborgen:"acceptsInteractions,omitempty"`
+	Avatar              *string                        `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	Cid                 string                         `json:"cid" cborgen:"cid"`
+	ContentMode         *string                        `json:"contentMode,omitempty" cborgen:"contentMode,omitempty"`
+	Creator             *ActorDefs_ProfileView         `json:"creator" cborgen:"creator"`
+	Description         *string                        `json:"description,omitempty" cborgen:"description,omitempty"`
+	DescriptionFacets   []*RichtextFacet               `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
+	Did                 string                         `json:"did" cborgen:"did"`
+	DisplayName         string                         `json:"displayName" cborgen:"displayName"`
+	IndexedAt           string                         `json:"indexedAt" cborgen:"indexedAt"`
+	Labels              []*comatproto.LabelDefs_Label  `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	LikeCount           *int64                         `json:"likeCount,omitempty" cborgen:"likeCount,omitempty"`
+	Uri                 string                         `json:"uri" cborgen:"uri"`
+	Viewer              *FeedDefs_GeneratorViewerState `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 // FeedDefs_GeneratorViewerState is a "generatorViewerState" in the app.bsky.feed.defs schema.
@@ -116,21 +115,21 @@ type FeedDefs_NotFoundPost struct {
 
 // FeedDefs_PostView is a "postView" in the app.bsky.feed.defs schema.
 type FeedDefs_PostView struct {
-	LexiconTypeID string                             `json:"$type" cborgen:"$type,const=app.bsky.feed.defs#postView"`
-	Author        *ActorDefs_ProfileViewBasic        `json:"author" cborgen:"author"`
-	BookmarkCount *int64                             `json:"bookmarkCount,omitempty" cborgen:"bookmarkCount,omitempty"`
-	Cid           string                             `json:"cid" cborgen:"cid"`
-	Embed         *FeedDefs_PostView_Embed           `json:"embed,omitempty" cborgen:"embed,omitempty"`
-	IndexedAt     string                             `json:"indexedAt" cborgen:"indexedAt"`
-	Labels        []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	LikeCount     *int64                             `json:"likeCount,omitempty" cborgen:"likeCount,omitempty"`
-	QuoteCount    *int64                             `json:"quoteCount,omitempty" cborgen:"quoteCount,omitempty"`
-	Record        *util.LexiconTypeDecoder           `json:"record" cborgen:"record"`
-	ReplyCount    *int64                             `json:"replyCount,omitempty" cborgen:"replyCount,omitempty"`
-	RepostCount   *int64                             `json:"repostCount,omitempty" cborgen:"repostCount,omitempty"`
-	Threadgate    *FeedDefs_ThreadgateView           `json:"threadgate,omitempty" cborgen:"threadgate,omitempty"`
-	Uri           string                             `json:"uri" cborgen:"uri"`
-	Viewer        *FeedDefs_ViewerState              `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	LexiconTypeID string                        `json:"$type" cborgen:"$type,const=app.bsky.feed.defs#postView"`
+	Author        *ActorDefs_ProfileViewBasic   `json:"author" cborgen:"author"`
+	BookmarkCount *int64                        `json:"bookmarkCount,omitempty" cborgen:"bookmarkCount,omitempty"`
+	Cid           string                        `json:"cid" cborgen:"cid"`
+	Embed         *FeedDefs_PostView_Embed      `json:"embed,omitempty" cborgen:"embed,omitempty"`
+	IndexedAt     string                        `json:"indexedAt" cborgen:"indexedAt"`
+	Labels        []*comatproto.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	LikeCount     *int64                        `json:"likeCount,omitempty" cborgen:"likeCount,omitempty"`
+	QuoteCount    *int64                        `json:"quoteCount,omitempty" cborgen:"quoteCount,omitempty"`
+	Record        *lexutil.LexiconTypeDecoder   `json:"record" cborgen:"record"`
+	ReplyCount    *int64                        `json:"replyCount,omitempty" cborgen:"replyCount,omitempty"`
+	RepostCount   *int64                        `json:"repostCount,omitempty" cborgen:"repostCount,omitempty"`
+	Threadgate    *FeedDefs_ThreadgateView      `json:"threadgate,omitempty" cborgen:"threadgate,omitempty"`
+	Uri           string                        `json:"uri" cborgen:"uri"`
+	Viewer        *FeedDefs_ViewerState         `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 type FeedDefs_PostView_Embed struct {
@@ -166,7 +165,7 @@ func (t *FeedDefs_PostView_Embed) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedDefs_PostView_Embed) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -187,7 +186,6 @@ func (t *FeedDefs_PostView_Embed) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.recordWithMedia#view":
 		t.EmbedRecordWithMedia_View = new(EmbedRecordWithMedia_View)
 		return json.Unmarshal(b, t.EmbedRecordWithMedia_View)
-
 	default:
 		return nil
 	}
@@ -238,7 +236,7 @@ func (t *FeedDefs_ReplyRef_Parent) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedDefs_ReplyRef_Parent) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -253,7 +251,6 @@ func (t *FeedDefs_ReplyRef_Parent) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.defs#blockedPost":
 		t.FeedDefs_BlockedPost = new(FeedDefs_BlockedPost)
 		return json.Unmarshal(b, t.FeedDefs_BlockedPost)
-
 	default:
 		return nil
 	}
@@ -282,7 +279,7 @@ func (t *FeedDefs_ReplyRef_Root) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedDefs_ReplyRef_Root) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -297,7 +294,6 @@ func (t *FeedDefs_ReplyRef_Root) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.defs#blockedPost":
 		t.FeedDefs_BlockedPost = new(FeedDefs_BlockedPost)
 		return json.Unmarshal(b, t.FeedDefs_BlockedPost)
-
 	default:
 		return nil
 	}
@@ -329,7 +325,7 @@ func (t *FeedDefs_SkeletonFeedPost_Reason) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedDefs_SkeletonFeedPost_Reason) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -341,7 +337,6 @@ func (t *FeedDefs_SkeletonFeedPost_Reason) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.defs#skeletonReasonPin":
 		t.FeedDefs_SkeletonReasonPin = new(FeedDefs_SkeletonReasonPin)
 		return json.Unmarshal(b, t.FeedDefs_SkeletonReasonPin)
-
 	default:
 		return nil
 	}
@@ -397,7 +392,7 @@ func (t *FeedDefs_ThreadViewPost_Parent) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedDefs_ThreadViewPost_Parent) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -412,7 +407,6 @@ func (t *FeedDefs_ThreadViewPost_Parent) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.defs#blockedPost":
 		t.FeedDefs_BlockedPost = new(FeedDefs_BlockedPost)
 		return json.Unmarshal(b, t.FeedDefs_BlockedPost)
-
 	default:
 		return nil
 	}
@@ -441,7 +435,7 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -456,7 +450,6 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.defs#blockedPost":
 		t.FeedDefs_BlockedPost = new(FeedDefs_BlockedPost)
 		return json.Unmarshal(b, t.FeedDefs_BlockedPost)
-
 	default:
 		return nil
 	}
@@ -464,10 +457,10 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalJSON(b []byte) error {
 
 // FeedDefs_ThreadgateView is a "threadgateView" in the app.bsky.feed.defs schema.
 type FeedDefs_ThreadgateView struct {
-	Cid    *string                    `json:"cid,omitempty" cborgen:"cid,omitempty"`
-	Lists  []*GraphDefs_ListViewBasic `json:"lists,omitempty" cborgen:"lists,omitempty"`
-	Record *util.LexiconTypeDecoder   `json:"record,omitempty" cborgen:"record,omitempty"`
-	Uri    *string                    `json:"uri,omitempty" cborgen:"uri,omitempty"`
+	Cid    *string                     `json:"cid,omitempty" cborgen:"cid,omitempty"`
+	Lists  []*GraphDefs_ListViewBasic  `json:"lists,omitempty" cborgen:"lists,omitempty"`
+	Record *lexutil.LexiconTypeDecoder `json:"record,omitempty" cborgen:"record,omitempty"`
+	Uri    *string                     `json:"uri,omitempty" cborgen:"uri,omitempty"`
 }
 
 // FeedDefs_ViewerState is a "viewerState" in the app.bsky.feed.defs schema.

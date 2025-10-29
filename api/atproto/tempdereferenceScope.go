@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // TempDereferenceScope_Output is the output of a com.atproto.temp.dereferenceScope call.
@@ -19,12 +19,12 @@ type TempDereferenceScope_Output struct {
 // TempDereferenceScope calls the XRPC method "com.atproto.temp.dereferenceScope".
 //
 // scope: The scope reference (starts with 'ref:')
-func TempDereferenceScope(ctx context.Context, c util.LexClient, scope string) (*TempDereferenceScope_Output, error) {
+func TempDereferenceScope(ctx context.Context, c lexutil.LexClient, scope string) (*TempDereferenceScope_Output, error) {
 	var out TempDereferenceScope_Output
 
 	params := map[string]interface{}{}
 	params["scope"] = scope
-	if err := c.LexDo(ctx, util.Query, "", "com.atproto.temp.dereferenceScope", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.temp.dereferenceScope", params, nil, &out); err != nil {
 		return nil, err
 	}
 

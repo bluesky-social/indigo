@@ -7,18 +7,18 @@ package ozone
 import (
 	"context"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SignatureSearchAccounts_Output is the output of a tools.ozone.signature.searchAccounts call.
 type SignatureSearchAccounts_Output struct {
-	Accounts []*comatprototypes.AdminDefs_AccountView `json:"accounts" cborgen:"accounts"`
-	Cursor   *string                                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
+	Accounts []*comatproto.AdminDefs_AccountView `json:"accounts" cborgen:"accounts"`
+	Cursor   *string                             `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 }
 
 // SignatureSearchAccounts calls the XRPC method "tools.ozone.signature.searchAccounts".
-func SignatureSearchAccounts(ctx context.Context, c util.LexClient, cursor string, limit int64, values []string) (*SignatureSearchAccounts_Output, error) {
+func SignatureSearchAccounts(ctx context.Context, c lexutil.LexClient, cursor string, limit int64, values []string) (*SignatureSearchAccounts_Output, error) {
 	var out SignatureSearchAccounts_Output
 
 	params := map[string]interface{}{}
@@ -29,7 +29,7 @@ func SignatureSearchAccounts(ctx context.Context, c util.LexClient, cursor strin
 		params["limit"] = limit
 	}
 	params["values"] = values
-	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.signature.searchAccounts", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.signature.searchAccounts", params, nil, &out); err != nil {
 		return nil, err
 	}
 

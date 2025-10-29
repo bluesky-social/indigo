@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SetDeleteValues_Input is the input argument to a tools.ozone.set.deleteValues call.
@@ -19,8 +19,8 @@ type SetDeleteValues_Input struct {
 }
 
 // SetDeleteValues calls the XRPC method "tools.ozone.set.deleteValues".
-func SetDeleteValues(ctx context.Context, c util.LexClient, input *SetDeleteValues_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.set.deleteValues", nil, input, nil); err != nil {
+func SetDeleteValues(ctx context.Context, c lexutil.LexClient, input *SetDeleteValues_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.set.deleteValues", nil, input, nil); err != nil {
 		return err
 	}
 

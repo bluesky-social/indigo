@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // NotificationGetPreferences_Output is the output of a app.bsky.notification.getPreferences call.
@@ -16,11 +16,11 @@ type NotificationGetPreferences_Output struct {
 }
 
 // NotificationGetPreferences calls the XRPC method "app.bsky.notification.getPreferences".
-func NotificationGetPreferences(ctx context.Context, c util.LexClient) (*NotificationGetPreferences_Output, error) {
+func NotificationGetPreferences(ctx context.Context, c lexutil.LexClient) (*NotificationGetPreferences_Output, error) {
 	var out NotificationGetPreferences_Output
 
 	params := map[string]interface{}{}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.notification.getPreferences", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.notification.getPreferences", params, nil, &out); err != nil {
 		return nil, err
 	}
 

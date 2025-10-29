@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerRefreshSession_Output is the output of a com.atproto.server.refreshSession call.
@@ -23,9 +23,9 @@ type ServerRefreshSession_Output struct {
 }
 
 // ServerRefreshSession calls the XRPC method "com.atproto.server.refreshSession".
-func ServerRefreshSession(ctx context.Context, c util.LexClient) (*ServerRefreshSession_Output, error) {
+func ServerRefreshSession(ctx context.Context, c lexutil.LexClient) (*ServerRefreshSession_Output, error) {
 	var out ServerRefreshSession_Output
-	if err := c.LexDo(ctx, util.Procedure, "", "com.atproto.server.refreshSession", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "", "com.atproto.server.refreshSession", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

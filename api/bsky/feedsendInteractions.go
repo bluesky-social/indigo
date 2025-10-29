@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedSendInteractions_Input is the input argument to a app.bsky.feed.sendInteractions call.
@@ -20,9 +20,9 @@ type FeedSendInteractions_Output struct {
 }
 
 // FeedSendInteractions calls the XRPC method "app.bsky.feed.sendInteractions".
-func FeedSendInteractions(ctx context.Context, c util.LexClient, input *FeedSendInteractions_Input) (*FeedSendInteractions_Output, error) {
+func FeedSendInteractions(ctx context.Context, c lexutil.LexClient, input *FeedSendInteractions_Input) (*FeedSendInteractions_Output, error) {
 	var out FeedSendInteractions_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "app.bsky.feed.sendInteractions", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "app.bsky.feed.sendInteractions", nil, input, &out); err != nil {
 		return nil, err
 	}
 

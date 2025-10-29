@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // HostingGetAccountHistory_AccountCreated is a "accountCreated" in the tools.ozone.hosting.getAccountHistory schema.
@@ -71,7 +71,7 @@ func (t *HostingGetAccountHistory_Event_Details) MarshalJSON() ([]byte, error) {
 }
 
 func (t *HostingGetAccountHistory_Event_Details) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,6 @@ func (t *HostingGetAccountHistory_Event_Details) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.hosting.getAccountHistory#handleUpdated":
 		t.HostingGetAccountHistory_HandleUpdated = new(HostingGetAccountHistory_HandleUpdated)
 		return json.Unmarshal(b, t.HostingGetAccountHistory_HandleUpdated)
-
 	default:
 		return nil
 	}
@@ -116,7 +115,7 @@ type HostingGetAccountHistory_PasswordUpdated struct {
 }
 
 // HostingGetAccountHistory calls the XRPC method "tools.ozone.hosting.getAccountHistory".
-func HostingGetAccountHistory(ctx context.Context, c util.LexClient, cursor string, did string, events []string, limit int64) (*HostingGetAccountHistory_Output, error) {
+func HostingGetAccountHistory(ctx context.Context, c lexutil.LexClient, cursor string, did string, events []string, limit int64) (*HostingGetAccountHistory_Output, error) {
 	var out HostingGetAccountHistory_Output
 
 	params := map[string]interface{}{}
@@ -130,7 +129,7 @@ func HostingGetAccountHistory(ctx context.Context, c util.LexClient, cursor stri
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.hosting.getAccountHistory", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.hosting.getAccountHistory", params, nil, &out); err != nil {
 		return nil, err
 	}
 

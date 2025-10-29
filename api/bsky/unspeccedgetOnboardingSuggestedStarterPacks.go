@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetOnboardingSuggestedStarterPacks_Output is the output of a app.bsky.unspecced.getOnboardingSuggestedStarterPacks call.
@@ -16,14 +16,14 @@ type UnspeccedGetOnboardingSuggestedStarterPacks_Output struct {
 }
 
 // UnspeccedGetOnboardingSuggestedStarterPacks calls the XRPC method "app.bsky.unspecced.getOnboardingSuggestedStarterPacks".
-func UnspeccedGetOnboardingSuggestedStarterPacks(ctx context.Context, c util.LexClient, limit int64) (*UnspeccedGetOnboardingSuggestedStarterPacks_Output, error) {
+func UnspeccedGetOnboardingSuggestedStarterPacks(ctx context.Context, c lexutil.LexClient, limit int64) (*UnspeccedGetOnboardingSuggestedStarterPacks_Output, error) {
 	var out UnspeccedGetOnboardingSuggestedStarterPacks_Output
 
 	params := map[string]interface{}{}
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getOnboardingSuggestedStarterPacks", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.getOnboardingSuggestedStarterPacks", params, nil, &out); err != nil {
 		return nil, err
 	}
 

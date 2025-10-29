@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetPostThreadOtherV2_Output is the output of a app.bsky.unspecced.getPostThreadOtherV2 call.
@@ -39,7 +39,7 @@ func (t *UnspeccedGetPostThreadOtherV2_ThreadItem_Value) MarshalJSON() ([]byte, 
 }
 
 func (t *UnspeccedGetPostThreadOtherV2_ThreadItem_Value) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,6 @@ func (t *UnspeccedGetPostThreadOtherV2_ThreadItem_Value) UnmarshalJSON(b []byte)
 	case "app.bsky.unspecced.defs#threadItemPost":
 		t.UnspeccedDefs_ThreadItemPost = new(UnspeccedDefs_ThreadItemPost)
 		return json.Unmarshal(b, t.UnspeccedDefs_ThreadItemPost)
-
 	default:
 		return nil
 	}
@@ -58,7 +57,7 @@ func (t *UnspeccedGetPostThreadOtherV2_ThreadItem_Value) UnmarshalJSON(b []byte)
 //
 // anchor: Reference (AT-URI) to post record. This is the anchor post.
 // prioritizeFollowedUsers: Whether to prioritize posts from followed users. It only has effect when the user is authenticated.
-func UnspeccedGetPostThreadOtherV2(ctx context.Context, c util.LexClient, anchor string, prioritizeFollowedUsers bool) (*UnspeccedGetPostThreadOtherV2_Output, error) {
+func UnspeccedGetPostThreadOtherV2(ctx context.Context, c lexutil.LexClient, anchor string, prioritizeFollowedUsers bool) (*UnspeccedGetPostThreadOtherV2_Output, error) {
 	var out UnspeccedGetPostThreadOtherV2_Output
 
 	params := map[string]interface{}{}
@@ -66,7 +65,7 @@ func UnspeccedGetPostThreadOtherV2(ctx context.Context, c util.LexClient, anchor
 	if prioritizeFollowedUsers {
 		params["prioritizeFollowedUsers"] = prioritizeFollowedUsers
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getPostThreadOtherV2", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.getPostThreadOtherV2", params, nil, &out); err != nil {
 		return nil, err
 	}
 

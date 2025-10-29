@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ActorGetPreferences_Output is the output of a app.bsky.actor.getPreferences call.
@@ -16,11 +16,11 @@ type ActorGetPreferences_Output struct {
 }
 
 // ActorGetPreferences calls the XRPC method "app.bsky.actor.getPreferences".
-func ActorGetPreferences(ctx context.Context, c util.LexClient) (*ActorGetPreferences_Output, error) {
+func ActorGetPreferences(ctx context.Context, c lexutil.LexClient) (*ActorGetPreferences_Output, error) {
 	var out ActorGetPreferences_Output
 
 	params := map[string]interface{}{}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.actor.getPreferences", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.actor.getPreferences", params, nil, &out); err != nil {
 		return nil, err
 	}
 

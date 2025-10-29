@@ -5,11 +5,11 @@
 package bsky
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 func init() {
-	util.RegisterType("app.bsky.embed.external#main", &EmbedExternal{})
+	lexutil.RegisterType("app.bsky.embed.external#main", &EmbedExternal{})
 }
 
 // EmbedExternal is a "main" in the app.bsky.embed.external schema.
@@ -22,10 +22,10 @@ type EmbedExternal struct {
 
 // EmbedExternal_External is a "external" in the app.bsky.embed.external schema.
 type EmbedExternal_External struct {
-	Description string        `json:"description" cborgen:"description"`
-	Thumb       *util.LexBlob `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
-	Title       string        `json:"title" cborgen:"title"`
-	Uri         string        `json:"uri" cborgen:"uri"`
+	Description string           `json:"description" cborgen:"description"`
+	Thumb       *lexutil.LexBlob `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
+	Title       string           `json:"title" cborgen:"title"`
+	Uri         string           `json:"uri" cborgen:"uri"`
 }
 
 // EmbedExternal_View is a "view" in the app.bsky.embed.external schema.

@@ -7,13 +7,13 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SetUpsertSet calls the XRPC method "tools.ozone.set.upsertSet".
-func SetUpsertSet(ctx context.Context, c util.LexClient, input *SetDefs_Set) (*SetDefs_SetView, error) {
+func SetUpsertSet(ctx context.Context, c lexutil.LexClient, input *SetDefs_Set) (*SetDefs_SetView, error) {
 	var out SetDefs_SetView
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.set.upsertSet", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.set.upsertSet", nil, input, &out); err != nil {
 		return nil, err
 	}
 

@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // AdminUpdateSubjectStatus_Input is the input argument to a com.atproto.admin.updateSubjectStatus call.
@@ -42,7 +42,7 @@ func (t *AdminUpdateSubjectStatus_Input_Subject) MarshalJSON() ([]byte, error) {
 }
 
 func (t *AdminUpdateSubjectStatus_Input_Subject) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,6 @@ func (t *AdminUpdateSubjectStatus_Input_Subject) UnmarshalJSON(b []byte) error {
 	case "com.atproto.admin.defs#repoBlobRef":
 		t.AdminDefs_RepoBlobRef = new(AdminDefs_RepoBlobRef)
 		return json.Unmarshal(b, t.AdminDefs_RepoBlobRef)
-
 	default:
 		return nil
 	}
@@ -92,7 +91,7 @@ func (t *AdminUpdateSubjectStatus_Output_Subject) MarshalJSON() ([]byte, error) 
 }
 
 func (t *AdminUpdateSubjectStatus_Output_Subject) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -107,16 +106,15 @@ func (t *AdminUpdateSubjectStatus_Output_Subject) UnmarshalJSON(b []byte) error 
 	case "com.atproto.admin.defs#repoBlobRef":
 		t.AdminDefs_RepoBlobRef = new(AdminDefs_RepoBlobRef)
 		return json.Unmarshal(b, t.AdminDefs_RepoBlobRef)
-
 	default:
 		return nil
 	}
 }
 
 // AdminUpdateSubjectStatus calls the XRPC method "com.atproto.admin.updateSubjectStatus".
-func AdminUpdateSubjectStatus(ctx context.Context, c util.LexClient, input *AdminUpdateSubjectStatus_Input) (*AdminUpdateSubjectStatus_Output, error) {
+func AdminUpdateSubjectStatus(ctx context.Context, c lexutil.LexClient, input *AdminUpdateSubjectStatus_Input) (*AdminUpdateSubjectStatus_Output, error) {
 	var out AdminUpdateSubjectStatus_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.admin.updateSubjectStatus", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.admin.updateSubjectStatus", nil, input, &out); err != nil {
 		return nil, err
 	}
 

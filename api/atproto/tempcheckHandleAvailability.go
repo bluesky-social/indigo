@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // TempCheckHandleAvailability_Output is the output of a com.atproto.temp.checkHandleAvailability call.
@@ -37,7 +37,7 @@ func (t *TempCheckHandleAvailability_Output_Result) MarshalJSON() ([]byte, error
 }
 
 func (t *TempCheckHandleAvailability_Output_Result) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,6 @@ func (t *TempCheckHandleAvailability_Output_Result) UnmarshalJSON(b []byte) erro
 	case "com.atproto.temp.checkHandleAvailability#resultUnavailable":
 		t.TempCheckHandleAvailability_ResultUnavailable = new(TempCheckHandleAvailability_ResultUnavailable)
 		return json.Unmarshal(b, t.TempCheckHandleAvailability_ResultUnavailable)
-
 	default:
 		return nil
 	}
@@ -83,7 +82,7 @@ type TempCheckHandleAvailability_Suggestion struct {
 // birthDate: User-provided birth date. Might be used to build handle suggestions.
 // email: User-provided email. Might be used to build handle suggestions.
 // handle: Tentative handle. Will be checked for availability or used to build handle suggestions.
-func TempCheckHandleAvailability(ctx context.Context, c util.LexClient, birthDate string, email string, handle string) (*TempCheckHandleAvailability_Output, error) {
+func TempCheckHandleAvailability(ctx context.Context, c lexutil.LexClient, birthDate string, email string, handle string) (*TempCheckHandleAvailability_Output, error) {
 	var out TempCheckHandleAvailability_Output
 
 	params := map[string]interface{}{}
@@ -94,7 +93,7 @@ func TempCheckHandleAvailability(ctx context.Context, c util.LexClient, birthDat
 		params["email"] = email
 	}
 	params["handle"] = handle
-	if err := c.LexDo(ctx, util.Query, "", "com.atproto.temp.checkHandleAvailability", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.temp.checkHandleAvailability", params, nil, &out); err != nil {
 		return nil, err
 	}
 

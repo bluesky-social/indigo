@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // TempCheckSignupQueue_Output is the output of a com.atproto.temp.checkSignupQueue call.
@@ -18,9 +18,9 @@ type TempCheckSignupQueue_Output struct {
 }
 
 // TempCheckSignupQueue calls the XRPC method "com.atproto.temp.checkSignupQueue".
-func TempCheckSignupQueue(ctx context.Context, c util.LexClient) (*TempCheckSignupQueue_Output, error) {
+func TempCheckSignupQueue(ctx context.Context, c lexutil.LexClient) (*TempCheckSignupQueue_Output, error) {
 	var out TempCheckSignupQueue_Output
-	if err := c.LexDo(ctx, util.Query, "", "com.atproto.temp.checkSignupQueue", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.temp.checkSignupQueue", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

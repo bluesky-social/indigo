@@ -7,7 +7,7 @@ package chat
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ConvoAcceptConvo_Input is the input argument to a chat.bsky.convo.acceptConvo call.
@@ -22,9 +22,9 @@ type ConvoAcceptConvo_Output struct {
 }
 
 // ConvoAcceptConvo calls the XRPC method "chat.bsky.convo.acceptConvo".
-func ConvoAcceptConvo(ctx context.Context, c util.LexClient, input *ConvoAcceptConvo_Input) (*ConvoAcceptConvo_Output, error) {
+func ConvoAcceptConvo(ctx context.Context, c lexutil.LexClient, input *ConvoAcceptConvo_Input) (*ConvoAcceptConvo_Output, error) {
 	var out ConvoAcceptConvo_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.acceptConvo", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "chat.bsky.convo.acceptConvo", nil, input, &out); err != nil {
 		return nil, err
 	}
 

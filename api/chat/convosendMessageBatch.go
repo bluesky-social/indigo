@@ -7,7 +7,7 @@ package chat
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ConvoSendMessageBatch_BatchItem is a "batchItem" in the chat.bsky.convo.sendMessageBatch schema.
@@ -27,9 +27,9 @@ type ConvoSendMessageBatch_Output struct {
 }
 
 // ConvoSendMessageBatch calls the XRPC method "chat.bsky.convo.sendMessageBatch".
-func ConvoSendMessageBatch(ctx context.Context, c util.LexClient, input *ConvoSendMessageBatch_Input) (*ConvoSendMessageBatch_Output, error) {
+func ConvoSendMessageBatch(ctx context.Context, c lexutil.LexClient, input *ConvoSendMessageBatch_Input) (*ConvoSendMessageBatch_Output, error) {
 	var out ConvoSendMessageBatch_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.sendMessageBatch", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "chat.bsky.convo.sendMessageBatch", nil, input, &out); err != nil {
 		return nil, err
 	}
 
