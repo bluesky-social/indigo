@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // TempAddReservedHandle_Input is the input argument to a com.atproto.temp.addReservedHandle call.
@@ -20,9 +20,9 @@ type TempAddReservedHandle_Output struct {
 }
 
 // TempAddReservedHandle calls the XRPC method "com.atproto.temp.addReservedHandle".
-func TempAddReservedHandle(ctx context.Context, c util.LexClient, input *TempAddReservedHandle_Input) (*TempAddReservedHandle_Output, error) {
+func TempAddReservedHandle(ctx context.Context, c lexutil.LexClient, input *TempAddReservedHandle_Input) (*TempAddReservedHandle_Output, error) {
 	var out TempAddReservedHandle_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.temp.addReservedHandle", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.temp.addReservedHandle", nil, input, &out); err != nil {
 		return nil, err
 	}
 

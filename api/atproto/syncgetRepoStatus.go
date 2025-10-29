@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SyncGetRepoStatus_Output is the output of a com.atproto.sync.getRepoStatus call.
@@ -23,12 +23,12 @@ type SyncGetRepoStatus_Output struct {
 // SyncGetRepoStatus calls the XRPC method "com.atproto.sync.getRepoStatus".
 //
 // did: The DID of the repo.
-func SyncGetRepoStatus(ctx context.Context, c util.LexClient, did string) (*SyncGetRepoStatus_Output, error) {
+func SyncGetRepoStatus(ctx context.Context, c lexutil.LexClient, did string) (*SyncGetRepoStatus_Output, error) {
 	var out SyncGetRepoStatus_Output
 
 	params := map[string]interface{}{}
 	params["did"] = did
-	if err := c.LexDo(ctx, util.Query, "", "com.atproto.sync.getRepoStatus", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.sync.getRepoStatus", params, nil, &out); err != nil {
 		return nil, err
 	}
 

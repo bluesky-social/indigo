@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerListAppPasswords_AppPassword is a "appPassword" in the com.atproto.server.listAppPasswords schema.
@@ -23,9 +23,9 @@ type ServerListAppPasswords_Output struct {
 }
 
 // ServerListAppPasswords calls the XRPC method "com.atproto.server.listAppPasswords".
-func ServerListAppPasswords(ctx context.Context, c util.LexClient) (*ServerListAppPasswords_Output, error) {
+func ServerListAppPasswords(ctx context.Context, c lexutil.LexClient) (*ServerListAppPasswords_Output, error) {
 	var out ServerListAppPasswords_Output
-	if err := c.LexDo(ctx, util.Query, "", "com.atproto.server.listAppPasswords", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.server.listAppPasswords", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationGetSubjects_Output is the output of a tools.ozone.moderation.getSubjects call.
@@ -16,12 +16,12 @@ type ModerationGetSubjects_Output struct {
 }
 
 // ModerationGetSubjects calls the XRPC method "tools.ozone.moderation.getSubjects".
-func ModerationGetSubjects(ctx context.Context, c util.LexClient, subjects []string) (*ModerationGetSubjects_Output, error) {
+func ModerationGetSubjects(ctx context.Context, c lexutil.LexClient, subjects []string) (*ModerationGetSubjects_Output, error) {
 	var out ModerationGetSubjects_Output
 
 	params := map[string]interface{}{}
 	params["subjects"] = subjects
-	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.moderation.getSubjects", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.moderation.getSubjects", params, nil, &out); err != nil {
 		return nil, err
 	}
 

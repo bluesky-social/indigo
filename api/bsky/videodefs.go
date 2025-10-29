@@ -5,16 +5,16 @@
 package bsky
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // VideoDefs_JobStatus is a "jobStatus" in the app.bsky.video.defs schema.
 type VideoDefs_JobStatus struct {
-	Blob    *util.LexBlob `json:"blob,omitempty" cborgen:"blob,omitempty"`
-	Did     string        `json:"did" cborgen:"did"`
-	Error   *string       `json:"error,omitempty" cborgen:"error,omitempty"`
-	JobId   string        `json:"jobId" cborgen:"jobId"`
-	Message *string       `json:"message,omitempty" cborgen:"message,omitempty"`
+	Blob    *lexutil.LexBlob `json:"blob,omitempty" cborgen:"blob,omitempty"`
+	Did     string           `json:"did" cborgen:"did"`
+	Error   *string          `json:"error,omitempty" cborgen:"error,omitempty"`
+	JobId   string           `json:"jobId" cborgen:"jobId"`
+	Message *string          `json:"message,omitempty" cborgen:"message,omitempty"`
 	// progress: Progress within the current processing state.
 	Progress *int64 `json:"progress,omitempty" cborgen:"progress,omitempty"`
 	// state: The state of the video processing job. All values not listed as a known value indicate that the job is in process.

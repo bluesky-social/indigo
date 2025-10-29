@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // CommunicationListTemplates_Output is the output of a tools.ozone.communication.listTemplates call.
@@ -16,9 +16,9 @@ type CommunicationListTemplates_Output struct {
 }
 
 // CommunicationListTemplates calls the XRPC method "tools.ozone.communication.listTemplates".
-func CommunicationListTemplates(ctx context.Context, c util.LexClient) (*CommunicationListTemplates_Output, error) {
+func CommunicationListTemplates(ctx context.Context, c lexutil.LexClient) (*CommunicationListTemplates_Output, error) {
 	var out CommunicationListTemplates_Output
-	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.communication.listTemplates", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.communication.listTemplates", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

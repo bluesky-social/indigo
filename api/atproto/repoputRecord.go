@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // RepoPutRecord_Input is the input argument to a com.atproto.repo.putRecord call.
@@ -15,7 +15,7 @@ type RepoPutRecord_Input struct {
 	// collection: The NSID of the record collection.
 	Collection string `json:"collection" cborgen:"collection"`
 	// record: The record to write.
-	Record *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	Record *lexutil.LexiconTypeDecoder `json:"record" cborgen:"record"`
 	// repo: The handle or DID of the repo (aka, current account).
 	Repo string `json:"repo" cborgen:"repo"`
 	// rkey: The Record Key.
@@ -37,9 +37,9 @@ type RepoPutRecord_Output struct {
 }
 
 // RepoPutRecord calls the XRPC method "com.atproto.repo.putRecord".
-func RepoPutRecord(ctx context.Context, c util.LexClient, input *RepoPutRecord_Input) (*RepoPutRecord_Output, error) {
+func RepoPutRecord(ctx context.Context, c lexutil.LexClient, input *RepoPutRecord_Input) (*RepoPutRecord_Output, error) {
 	var out RepoPutRecord_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.repo.putRecord", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.repo.putRecord", nil, input, &out); err != nil {
 		return nil, err
 	}
 

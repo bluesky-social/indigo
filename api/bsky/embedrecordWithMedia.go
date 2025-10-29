@@ -10,12 +10,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	util.RegisterType("app.bsky.embed.recordWithMedia#main", &EmbedRecordWithMedia{})
+	lexutil.RegisterType("app.bsky.embed.recordWithMedia#main", &EmbedRecordWithMedia{})
 }
 
 // EmbedRecordWithMedia is a "main" in the app.bsky.embed.recordWithMedia schema.
@@ -48,7 +48,7 @@ func (t *EmbedRecordWithMedia_Media) MarshalJSON() ([]byte, error) {
 }
 
 func (t *EmbedRecordWithMedia_Media) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,6 @@ func (t *EmbedRecordWithMedia_Media) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.external":
 		t.EmbedExternal = new(EmbedExternal)
 		return json.Unmarshal(b, t.EmbedExternal)
-
 	default:
 		return nil
 	}
@@ -86,8 +85,9 @@ func (t *EmbedRecordWithMedia_Media) MarshalCBOR(w io.Writer) error {
 	}
 	return fmt.Errorf("can not marshal empty union as CBOR")
 }
+
 func (t *EmbedRecordWithMedia_Media) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := util.CborTypeExtractReader(r)
+	typ, b, err := lexutil.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,6 @@ func (t *EmbedRecordWithMedia_Media) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.embed.external":
 		t.EmbedExternal = new(EmbedExternal)
 		return t.EmbedExternal.UnmarshalCBOR(bytes.NewReader(b))
-
 	default:
 		return nil
 	}
@@ -138,7 +137,7 @@ func (t *EmbedRecordWithMedia_View_Media) MarshalJSON() ([]byte, error) {
 }
 
 func (t *EmbedRecordWithMedia_View_Media) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -153,7 +152,6 @@ func (t *EmbedRecordWithMedia_View_Media) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.external#view":
 		t.EmbedExternal_View = new(EmbedExternal_View)
 		return json.Unmarshal(b, t.EmbedExternal_View)
-
 	default:
 		return nil
 	}

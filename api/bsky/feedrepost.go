@@ -5,17 +5,17 @@
 package bsky
 
 import (
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 func init() {
-	util.RegisterType("app.bsky.feed.repost", &FeedRepost{})
+	lexutil.RegisterType("app.bsky.feed.repost", &FeedRepost{})
 }
 
 type FeedRepost struct {
-	LexiconTypeID string                         `json:"$type" cborgen:"$type,const=app.bsky.feed.repost"`
-	CreatedAt     string                         `json:"createdAt" cborgen:"createdAt"`
-	Subject       *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
-	Via           *comatprototypes.RepoStrongRef `json:"via,omitempty" cborgen:"via,omitempty"`
+	LexiconTypeID string                    `json:"$type" cborgen:"$type,const=app.bsky.feed.repost"`
+	CreatedAt     string                    `json:"createdAt" cborgen:"createdAt"`
+	Subject       *comatproto.RepoStrongRef `json:"subject" cborgen:"subject"`
+	Via           *comatproto.RepoStrongRef `json:"via,omitempty" cborgen:"via,omitempty"`
 }

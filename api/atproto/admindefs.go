@@ -5,23 +5,23 @@
 package atproto
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // AdminDefs_AccountView is a "accountView" in the com.atproto.admin.defs schema.
 type AdminDefs_AccountView struct {
-	DeactivatedAt    *string                      `json:"deactivatedAt,omitempty" cborgen:"deactivatedAt,omitempty"`
-	Did              string                       `json:"did" cborgen:"did"`
-	Email            *string                      `json:"email,omitempty" cborgen:"email,omitempty"`
-	EmailConfirmedAt *string                      `json:"emailConfirmedAt,omitempty" cborgen:"emailConfirmedAt,omitempty"`
-	Handle           string                       `json:"handle" cborgen:"handle"`
-	IndexedAt        string                       `json:"indexedAt" cborgen:"indexedAt"`
-	InviteNote       *string                      `json:"inviteNote,omitempty" cborgen:"inviteNote,omitempty"`
-	InvitedBy        *ServerDefs_InviteCode       `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
-	Invites          []*ServerDefs_InviteCode     `json:"invites,omitempty" cborgen:"invites,omitempty"`
-	InvitesDisabled  *bool                        `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
-	RelatedRecords   []*util.LexiconTypeDecoder   `json:"relatedRecords,omitempty" cborgen:"relatedRecords,omitempty"`
-	ThreatSignatures []*AdminDefs_ThreatSignature `json:"threatSignatures,omitempty" cborgen:"threatSignatures,omitempty"`
+	DeactivatedAt    *string                       `json:"deactivatedAt,omitempty" cborgen:"deactivatedAt,omitempty"`
+	Did              string                        `json:"did" cborgen:"did"`
+	Email            *string                       `json:"email,omitempty" cborgen:"email,omitempty"`
+	EmailConfirmedAt *string                       `json:"emailConfirmedAt,omitempty" cborgen:"emailConfirmedAt,omitempty"`
+	Handle           string                        `json:"handle" cborgen:"handle"`
+	IndexedAt        string                        `json:"indexedAt" cborgen:"indexedAt"`
+	InviteNote       *string                       `json:"inviteNote,omitempty" cborgen:"inviteNote,omitempty"`
+	InvitedBy        *ServerDefs_InviteCode        `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
+	Invites          []*ServerDefs_InviteCode      `json:"invites,omitempty" cborgen:"invites,omitempty"`
+	InvitesDisabled  *bool                         `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
+	RelatedRecords   []*lexutil.LexiconTypeDecoder `json:"relatedRecords,omitempty" cborgen:"relatedRecords,omitempty"`
+	ThreatSignatures []*AdminDefs_ThreatSignature  `json:"threatSignatures,omitempty" cborgen:"threatSignatures,omitempty"`
 }
 
 // AdminDefs_RepoBlobRef is a "repoBlobRef" in the com.atproto.admin.defs schema.

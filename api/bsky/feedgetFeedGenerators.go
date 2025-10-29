@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // FeedGetFeedGenerators_Output is the output of a app.bsky.feed.getFeedGenerators call.
@@ -16,12 +16,12 @@ type FeedGetFeedGenerators_Output struct {
 }
 
 // FeedGetFeedGenerators calls the XRPC method "app.bsky.feed.getFeedGenerators".
-func FeedGetFeedGenerators(ctx context.Context, c util.LexClient, feeds []string) (*FeedGetFeedGenerators_Output, error) {
+func FeedGetFeedGenerators(ctx context.Context, c lexutil.LexClient, feeds []string) (*FeedGetFeedGenerators_Output, error) {
 	var out FeedGetFeedGenerators_Output
 
 	params := map[string]interface{}{}
 	params["feeds"] = feeds
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.feed.getFeedGenerators", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.feed.getFeedGenerators", params, nil, &out); err != nil {
 		return nil, err
 	}
 

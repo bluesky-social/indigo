@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // AdminUpdateAccountPassword_Input is the input argument to a com.atproto.admin.updateAccountPassword call.
@@ -17,8 +17,8 @@ type AdminUpdateAccountPassword_Input struct {
 }
 
 // AdminUpdateAccountPassword calls the XRPC method "com.atproto.admin.updateAccountPassword".
-func AdminUpdateAccountPassword(ctx context.Context, c util.LexClient, input *AdminUpdateAccountPassword_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.admin.updateAccountPassword", nil, input, nil); err != nil {
+func AdminUpdateAccountPassword(ctx context.Context, c lexutil.LexClient, input *AdminUpdateAccountPassword_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.admin.updateAccountPassword", nil, input, nil); err != nil {
 		return err
 	}
 

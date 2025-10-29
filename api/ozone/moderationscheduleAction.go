@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationScheduleAction_FailedScheduling is a "failedScheduling" in the tools.ozone.moderation.scheduleAction schema.
@@ -43,7 +43,7 @@ func (t *ModerationScheduleAction_Input_Action) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ModerationScheduleAction_Input_Action) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,6 @@ func (t *ModerationScheduleAction_Input_Action) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.scheduleAction#takedown":
 		t.ModerationScheduleAction_Takedown = new(ModerationScheduleAction_Takedown)
 		return json.Unmarshal(b, t.ModerationScheduleAction_Takedown)
-
 	default:
 		return nil
 	}
@@ -91,9 +90,9 @@ type ModerationScheduleAction_Takedown struct {
 }
 
 // ModerationScheduleAction calls the XRPC method "tools.ozone.moderation.scheduleAction".
-func ModerationScheduleAction(ctx context.Context, c util.LexClient, input *ModerationScheduleAction_Input) (*ModerationScheduleAction_ScheduledActionResults, error) {
+func ModerationScheduleAction(ctx context.Context, c lexutil.LexClient, input *ModerationScheduleAction_Input) (*ModerationScheduleAction_ScheduledActionResults, error) {
 	var out ModerationScheduleAction_ScheduledActionResults
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.moderation.scheduleAction", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.moderation.scheduleAction", nil, input, &out); err != nil {
 		return nil, err
 	}
 

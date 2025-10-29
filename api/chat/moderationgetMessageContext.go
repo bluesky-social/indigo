@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationGetMessageContext_Output is the output of a chat.bsky.moderation.getMessageContext call.
@@ -35,7 +35,7 @@ func (t *ModerationGetMessageContext_Output_Messages_Elem) MarshalJSON() ([]byte
 }
 
 func (t *ModerationGetMessageContext_Output_Messages_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -47,7 +47,6 @@ func (t *ModerationGetMessageContext_Output_Messages_Elem) UnmarshalJSON(b []byt
 	case "chat.bsky.convo.defs#deletedMessageView":
 		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
 		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
-
 	default:
 		return nil
 	}
@@ -56,7 +55,7 @@ func (t *ModerationGetMessageContext_Output_Messages_Elem) UnmarshalJSON(b []byt
 // ModerationGetMessageContext calls the XRPC method "chat.bsky.moderation.getMessageContext".
 //
 // convoId: Conversation that the message is from. NOTE: this field will eventually be required.
-func ModerationGetMessageContext(ctx context.Context, c util.LexClient, after int64, before int64, convoId string, messageId string) (*ModerationGetMessageContext_Output, error) {
+func ModerationGetMessageContext(ctx context.Context, c lexutil.LexClient, after int64, before int64, convoId string, messageId string) (*ModerationGetMessageContext_Output, error) {
 	var out ModerationGetMessageContext_Output
 
 	params := map[string]interface{}{}
@@ -70,7 +69,7 @@ func ModerationGetMessageContext(ctx context.Context, c util.LexClient, after in
 		params["convoId"] = convoId
 	}
 	params["messageId"] = messageId
-	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.moderation.getMessageContext", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "chat.bsky.moderation.getMessageContext", params, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // IdentityUpdateHandle_Input is the input argument to a com.atproto.identity.updateHandle call.
@@ -17,8 +17,8 @@ type IdentityUpdateHandle_Input struct {
 }
 
 // IdentityUpdateHandle calls the XRPC method "com.atproto.identity.updateHandle".
-func IdentityUpdateHandle(ctx context.Context, c util.LexClient, input *IdentityUpdateHandle_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.identity.updateHandle", nil, input, nil); err != nil {
+func IdentityUpdateHandle(ctx context.Context, c lexutil.LexClient, input *IdentityUpdateHandle_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.identity.updateHandle", nil, input, nil); err != nil {
 		return err
 	}
 

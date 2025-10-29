@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/lex/util"
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ConvoDefs_ConvoView is a "convoView" in the chat.bsky.convo.defs schema.
@@ -42,7 +42,7 @@ func (t *ConvoDefs_ConvoView_LastMessage) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ConvoDefs_ConvoView_LastMessage) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,6 @@ func (t *ConvoDefs_ConvoView_LastMessage) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#deletedMessageView":
 		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
 		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
-
 	default:
 		return nil
 	}
@@ -73,7 +72,7 @@ func (t *ConvoDefs_ConvoView_LastReaction) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ConvoDefs_ConvoView_LastReaction) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -82,7 +81,6 @@ func (t *ConvoDefs_ConvoView_LastReaction) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#messageAndReactionView":
 		t.ConvoDefs_MessageAndReactionView = new(ConvoDefs_MessageAndReactionView)
 		return json.Unmarshal(b, t.ConvoDefs_MessageAndReactionView)
-
 	default:
 		return nil
 	}
@@ -131,7 +129,7 @@ func (t *ConvoDefs_LogAddReaction_Message) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ConvoDefs_LogAddReaction_Message) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -143,7 +141,6 @@ func (t *ConvoDefs_LogAddReaction_Message) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#deletedMessageView":
 		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
 		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
-
 	default:
 		return nil
 	}
@@ -182,7 +179,7 @@ func (t *ConvoDefs_LogCreateMessage_Message) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ConvoDefs_LogCreateMessage_Message) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -194,7 +191,6 @@ func (t *ConvoDefs_LogCreateMessage_Message) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#deletedMessageView":
 		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
 		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
-
 	default:
 		return nil
 	}
@@ -226,7 +222,7 @@ func (t *ConvoDefs_LogDeleteMessage_Message) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ConvoDefs_LogDeleteMessage_Message) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -238,7 +234,6 @@ func (t *ConvoDefs_LogDeleteMessage_Message) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#deletedMessageView":
 		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
 		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
-
 	default:
 		return nil
 	}
@@ -284,7 +279,7 @@ func (t *ConvoDefs_LogReadMessage_Message) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ConvoDefs_LogReadMessage_Message) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -296,7 +291,6 @@ func (t *ConvoDefs_LogReadMessage_Message) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#deletedMessageView":
 		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
 		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
-
 	default:
 		return nil
 	}
@@ -329,7 +323,7 @@ func (t *ConvoDefs_LogRemoveReaction_Message) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ConvoDefs_LogRemoveReaction_Message) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -341,7 +335,6 @@ func (t *ConvoDefs_LogRemoveReaction_Message) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#deletedMessageView":
 		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
 		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
-
 	default:
 		return nil
 	}
@@ -365,12 +358,12 @@ type ConvoDefs_MessageAndReactionView struct {
 type ConvoDefs_MessageInput struct {
 	Embed *ConvoDefs_MessageInput_Embed `json:"embed,omitempty" cborgen:"embed,omitempty"`
 	// facets: Annotations of text (mentions, URLs, hashtags, etc)
-	Facets []*appbskytypes.RichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
-	Text   string                        `json:"text" cborgen:"text"`
+	Facets []*appbsky.RichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
+	Text   string                   `json:"text" cborgen:"text"`
 }
 
 type ConvoDefs_MessageInput_Embed struct {
-	EmbedRecord *appbskytypes.EmbedRecord
+	EmbedRecord *appbsky.EmbedRecord
 }
 
 func (t *ConvoDefs_MessageInput_Embed) MarshalJSON() ([]byte, error) {
@@ -382,16 +375,15 @@ func (t *ConvoDefs_MessageInput_Embed) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ConvoDefs_MessageInput_Embed) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
 
 	switch typ {
 	case "app.bsky.embed.record":
-		t.EmbedRecord = new(appbskytypes.EmbedRecord)
+		t.EmbedRecord = new(appbsky.EmbedRecord)
 		return json.Unmarshal(b, t.EmbedRecord)
-
 	default:
 		return nil
 	}
@@ -410,8 +402,8 @@ type ConvoDefs_MessageView struct {
 	LexiconTypeID string                       `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#messageView"`
 	Embed         *ConvoDefs_MessageView_Embed `json:"embed,omitempty" cborgen:"embed,omitempty"`
 	// facets: Annotations of text (mentions, URLs, hashtags, etc)
-	Facets []*appbskytypes.RichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
-	Id     string                        `json:"id" cborgen:"id"`
+	Facets []*appbsky.RichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
+	Id     string                   `json:"id" cborgen:"id"`
 	// reactions: Reactions to this message, in ascending order of creation time.
 	Reactions []*ConvoDefs_ReactionView    `json:"reactions,omitempty" cborgen:"reactions,omitempty"`
 	Rev       string                       `json:"rev" cborgen:"rev"`
@@ -426,7 +418,7 @@ type ConvoDefs_MessageViewSender struct {
 }
 
 type ConvoDefs_MessageView_Embed struct {
-	EmbedRecord_View *appbskytypes.EmbedRecord_View
+	EmbedRecord_View *appbsky.EmbedRecord_View
 }
 
 func (t *ConvoDefs_MessageView_Embed) MarshalJSON() ([]byte, error) {
@@ -438,16 +430,15 @@ func (t *ConvoDefs_MessageView_Embed) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ConvoDefs_MessageView_Embed) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
 
 	switch typ {
 	case "app.bsky.embed.record#view":
-		t.EmbedRecord_View = new(appbskytypes.EmbedRecord_View)
+		t.EmbedRecord_View = new(appbsky.EmbedRecord_View)
 		return json.Unmarshal(b, t.EmbedRecord_View)
-
 	default:
 		return nil
 	}

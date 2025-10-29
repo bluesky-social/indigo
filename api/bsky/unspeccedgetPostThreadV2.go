@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetPostThreadV2_Output is the output of a app.bsky.unspecced.getPostThreadV2 call.
@@ -57,7 +57,7 @@ func (t *UnspeccedGetPostThreadV2_ThreadItem_Value) MarshalJSON() ([]byte, error
 }
 
 func (t *UnspeccedGetPostThreadV2_ThreadItem_Value) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,6 @@ func (t *UnspeccedGetPostThreadV2_ThreadItem_Value) UnmarshalJSON(b []byte) erro
 	case "app.bsky.unspecced.defs#threadItemBlocked":
 		t.UnspeccedDefs_ThreadItemBlocked = new(UnspeccedDefs_ThreadItemBlocked)
 		return json.Unmarshal(b, t.UnspeccedDefs_ThreadItemBlocked)
-
 	default:
 		return nil
 	}
@@ -89,7 +88,7 @@ func (t *UnspeccedGetPostThreadV2_ThreadItem_Value) UnmarshalJSON(b []byte) erro
 // branchingFactor: Maximum of replies to include at each level of the thread, except for the direct replies to the anchor, which are (NOTE: currently, during unspecced phase) all returned (NOTE: later they might be paginated).
 // prioritizeFollowedUsers: Whether to prioritize posts from followed users. It only has effect when the user is authenticated.
 // sort: Sorting for the thread replies.
-func UnspeccedGetPostThreadV2(ctx context.Context, c util.LexClient, above bool, anchor string, below int64, branchingFactor int64, prioritizeFollowedUsers bool, sort string) (*UnspeccedGetPostThreadV2_Output, error) {
+func UnspeccedGetPostThreadV2(ctx context.Context, c lexutil.LexClient, above bool, anchor string, below int64, branchingFactor int64, prioritizeFollowedUsers bool, sort string) (*UnspeccedGetPostThreadV2_Output, error) {
 	var out UnspeccedGetPostThreadV2_Output
 
 	params := map[string]interface{}{}
@@ -109,7 +108,7 @@ func UnspeccedGetPostThreadV2(ctx context.Context, c util.LexClient, above bool,
 	if sort != "" {
 		params["sort"] = sort
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getPostThreadV2", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.getPostThreadV2", params, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -5,11 +5,11 @@
 package bsky
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 func init() {
-	util.RegisterType("app.bsky.embed.video#main", &EmbedVideo{})
+	lexutil.RegisterType("app.bsky.embed.video#main", &EmbedVideo{})
 }
 
 // EmbedVideo is a "main" in the app.bsky.embed.video schema.
@@ -20,13 +20,13 @@ type EmbedVideo struct {
 	AspectRatio *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`
 	Captions    []*EmbedVideo_Caption  `json:"captions,omitempty" cborgen:"captions,omitempty"`
 	// video: The mp4 video file. May be up to 100mb, formerly limited to 50mb.
-	Video *util.LexBlob `json:"video" cborgen:"video"`
+	Video *lexutil.LexBlob `json:"video" cborgen:"video"`
 }
 
 // EmbedVideo_Caption is a "caption" in the app.bsky.embed.video schema.
 type EmbedVideo_Caption struct {
-	File *util.LexBlob `json:"file" cborgen:"file"`
-	Lang string        `json:"lang" cborgen:"lang"`
+	File *lexutil.LexBlob `json:"file" cborgen:"file"`
+	Lang string           `json:"lang" cborgen:"lang"`
 }
 
 // EmbedVideo_View is a "view" in the app.bsky.embed.video schema.

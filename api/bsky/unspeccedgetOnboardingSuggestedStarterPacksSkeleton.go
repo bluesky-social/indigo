@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetOnboardingSuggestedStarterPacksSkeleton_Output is the output of a app.bsky.unspecced.getOnboardingSuggestedStarterPacksSkeleton call.
@@ -18,7 +18,7 @@ type UnspeccedGetOnboardingSuggestedStarterPacksSkeleton_Output struct {
 // UnspeccedGetOnboardingSuggestedStarterPacksSkeleton calls the XRPC method "app.bsky.unspecced.getOnboardingSuggestedStarterPacksSkeleton".
 //
 // viewer: DID of the account making the request (not included for public/unauthenticated queries).
-func UnspeccedGetOnboardingSuggestedStarterPacksSkeleton(ctx context.Context, c util.LexClient, limit int64, viewer string) (*UnspeccedGetOnboardingSuggestedStarterPacksSkeleton_Output, error) {
+func UnspeccedGetOnboardingSuggestedStarterPacksSkeleton(ctx context.Context, c lexutil.LexClient, limit int64, viewer string) (*UnspeccedGetOnboardingSuggestedStarterPacksSkeleton_Output, error) {
 	var out UnspeccedGetOnboardingSuggestedStarterPacksSkeleton_Output
 
 	params := map[string]interface{}{}
@@ -28,7 +28,7 @@ func UnspeccedGetOnboardingSuggestedStarterPacksSkeleton(ctx context.Context, c 
 	if viewer != "" {
 		params["viewer"] = viewer
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getOnboardingSuggestedStarterPacksSkeleton", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.getOnboardingSuggestedStarterPacksSkeleton", params, nil, &out); err != nil {
 		return nil, err
 	}
 

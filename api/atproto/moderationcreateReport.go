@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationCreateReport_Input is the input argument to a com.atproto.moderation.createReport call.
@@ -40,7 +40,7 @@ func (t *ModerationCreateReport_Input_Subject) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ModerationCreateReport_Input_Subject) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,6 @@ func (t *ModerationCreateReport_Input_Subject) UnmarshalJSON(b []byte) error {
 	case "com.atproto.repo.strongRef":
 		t.RepoStrongRef = new(RepoStrongRef)
 		return json.Unmarshal(b, t.RepoStrongRef)
-
 	default:
 		return nil
 	}
@@ -96,7 +95,7 @@ func (t *ModerationCreateReport_Output_Subject) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ModerationCreateReport_Output_Subject) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -108,16 +107,15 @@ func (t *ModerationCreateReport_Output_Subject) UnmarshalJSON(b []byte) error {
 	case "com.atproto.repo.strongRef":
 		t.RepoStrongRef = new(RepoStrongRef)
 		return json.Unmarshal(b, t.RepoStrongRef)
-
 	default:
 		return nil
 	}
 }
 
 // ModerationCreateReport calls the XRPC method "com.atproto.moderation.createReport".
-func ModerationCreateReport(ctx context.Context, c util.LexClient, input *ModerationCreateReport_Input) (*ModerationCreateReport_Output, error) {
+func ModerationCreateReport(ctx context.Context, c lexutil.LexClient, input *ModerationCreateReport_Input) (*ModerationCreateReport_Output, error) {
 	var out ModerationCreateReport_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.moderation.createReport", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.moderation.createReport", nil, input, &out); err != nil {
 		return nil, err
 	}
 

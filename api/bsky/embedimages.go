@@ -5,11 +5,11 @@
 package bsky
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 func init() {
-	util.RegisterType("app.bsky.embed.images#main", &EmbedImages{})
+	lexutil.RegisterType("app.bsky.embed.images#main", &EmbedImages{})
 }
 
 // EmbedImages is a "main" in the app.bsky.embed.images schema.
@@ -23,7 +23,7 @@ type EmbedImages_Image struct {
 	// alt: Alt text description of the image, for accessibility.
 	Alt         string                 `json:"alt" cborgen:"alt"`
 	AspectRatio *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`
-	Image       *util.LexBlob          `json:"image" cborgen:"image"`
+	Image       *lexutil.LexBlob       `json:"image" cborgen:"image"`
 }
 
 // EmbedImages_View is a "view" in the app.bsky.embed.images schema.

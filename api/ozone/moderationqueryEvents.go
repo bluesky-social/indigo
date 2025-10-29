@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationQueryEvents_Output is the output of a tools.ozone.moderation.queryEvents call.
@@ -34,7 +34,7 @@ type ModerationQueryEvents_Output struct {
 // sortDirection: Sort direction for the events. Defaults to descending order of created at timestamp.
 // subjectType: If specified, only events where the subject is of the given type (account or record) will be returned. When this is set to 'account' the 'collections' parameter will be ignored. When includeAllUserRecords or subject is set, this will be ignored.
 // types: The types of events (fully qualified string in the format of tools.ozone.moderation.defs#modEvent<name>) to filter by. If not specified, all events are returned.
-func ModerationQueryEvents(ctx context.Context, c util.LexClient, addedLabels []string, addedTags []string, ageAssuranceState string, batchId string, collections []string, comment string, createdAfter string, createdBefore string, createdBy string, cursor string, hasComment bool, includeAllUserRecords bool, limit int64, modTool []string, policies []string, removedLabels []string, removedTags []string, reportTypes []string, sortDirection string, subject string, subjectType string, types []string) (*ModerationQueryEvents_Output, error) {
+func ModerationQueryEvents(ctx context.Context, c lexutil.LexClient, addedLabels []string, addedTags []string, ageAssuranceState string, batchId string, collections []string, comment string, createdAfter string, createdBefore string, createdBy string, cursor string, hasComment bool, includeAllUserRecords bool, limit int64, modTool []string, policies []string, removedLabels []string, removedTags []string, reportTypes []string, sortDirection string, subject string, subjectType string, types []string) (*ModerationQueryEvents_Output, error) {
 	var out ModerationQueryEvents_Output
 
 	params := map[string]interface{}{}
@@ -104,7 +104,7 @@ func ModerationQueryEvents(ctx context.Context, c util.LexClient, addedLabels []
 	if len(types) != 0 {
 		params["types"] = types
 	}
-	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.moderation.queryEvents", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.moderation.queryEvents", params, nil, &out); err != nil {
 		return nil, err
 	}
 

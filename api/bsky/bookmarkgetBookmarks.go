@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // BookmarkGetBookmarks_Output is the output of a app.bsky.bookmark.getBookmarks call.
@@ -17,7 +17,7 @@ type BookmarkGetBookmarks_Output struct {
 }
 
 // BookmarkGetBookmarks calls the XRPC method "app.bsky.bookmark.getBookmarks".
-func BookmarkGetBookmarks(ctx context.Context, c util.LexClient, cursor string, limit int64) (*BookmarkGetBookmarks_Output, error) {
+func BookmarkGetBookmarks(ctx context.Context, c lexutil.LexClient, cursor string, limit int64) (*BookmarkGetBookmarks_Output, error) {
 	var out BookmarkGetBookmarks_Output
 
 	params := map[string]interface{}{}
@@ -27,7 +27,7 @@ func BookmarkGetBookmarks(ctx context.Context, c util.LexClient, cursor string, 
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.bookmark.getBookmarks", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.bookmark.getBookmarks", params, nil, &out); err != nil {
 		return nil, err
 	}
 

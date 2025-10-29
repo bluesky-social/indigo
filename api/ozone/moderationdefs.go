@@ -8,9 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	chatbskytypes "github.com/bluesky-social/indigo/api/chat"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	chatbsky "github.com/bluesky-social/indigo/api/chat"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationDefs_AccountEvent is a "accountEvent" in the tools.ozone.moderation.defs schema.
@@ -112,7 +112,7 @@ func (t *ModerationDefs_BlobView_Details) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ModerationDefs_BlobView_Details) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,6 @@ func (t *ModerationDefs_BlobView_Details) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#videoDetails":
 		t.ModerationDefs_VideoDetails = new(ModerationDefs_VideoDetails)
 		return json.Unmarshal(b, t.ModerationDefs_VideoDetails)
-
 	default:
 		return nil
 	}
@@ -469,7 +468,7 @@ func (t *ModerationDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) 
 }
 
 func (t *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -547,7 +546,6 @@ func (t *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error 
 	case "tools.ozone.moderation.defs#cancelScheduledTakedownEvent":
 		t.ModerationDefs_CancelScheduledTakedownEvent = new(ModerationDefs_CancelScheduledTakedownEvent)
 		return json.Unmarshal(b, t.ModerationDefs_CancelScheduledTakedownEvent)
-
 	default:
 		return nil
 	}
@@ -581,7 +579,7 @@ func (t *ModerationDefs_ModEventViewDetail_Subject) MarshalJSON() ([]byte, error
 }
 
 func (t *ModerationDefs_ModEventViewDetail_Subject) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -599,7 +597,6 @@ func (t *ModerationDefs_ModEventViewDetail_Subject) UnmarshalJSON(b []byte) erro
 	case "tools.ozone.moderation.defs#recordViewNotFound":
 		t.ModerationDefs_RecordViewNotFound = new(ModerationDefs_RecordViewNotFound)
 		return json.Unmarshal(b, t.ModerationDefs_RecordViewNotFound)
-
 	default:
 		return nil
 	}
@@ -733,7 +730,7 @@ func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -811,16 +808,15 @@ func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#cancelScheduledTakedownEvent":
 		t.ModerationDefs_CancelScheduledTakedownEvent = new(ModerationDefs_CancelScheduledTakedownEvent)
 		return json.Unmarshal(b, t.ModerationDefs_CancelScheduledTakedownEvent)
-
 	default:
 		return nil
 	}
 }
 
 type ModerationDefs_ModEventView_Subject struct {
-	AdminDefs_RepoRef    *comatprototypes.AdminDefs_RepoRef
-	RepoStrongRef        *comatprototypes.RepoStrongRef
-	ConvoDefs_MessageRef *chatbskytypes.ConvoDefs_MessageRef
+	AdminDefs_RepoRef    *comatproto.AdminDefs_RepoRef
+	RepoStrongRef        *comatproto.RepoStrongRef
+	ConvoDefs_MessageRef *chatbsky.ConvoDefs_MessageRef
 }
 
 func (t *ModerationDefs_ModEventView_Subject) MarshalJSON() ([]byte, error) {
@@ -840,22 +836,21 @@ func (t *ModerationDefs_ModEventView_Subject) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ModerationDefs_ModEventView_Subject) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
 
 	switch typ {
 	case "com.atproto.admin.defs#repoRef":
-		t.AdminDefs_RepoRef = new(comatprototypes.AdminDefs_RepoRef)
+		t.AdminDefs_RepoRef = new(comatproto.AdminDefs_RepoRef)
 		return json.Unmarshal(b, t.AdminDefs_RepoRef)
 	case "com.atproto.repo.strongRef":
-		t.RepoStrongRef = new(comatprototypes.RepoStrongRef)
+		t.RepoStrongRef = new(comatproto.RepoStrongRef)
 		return json.Unmarshal(b, t.RepoStrongRef)
 	case "chat.bsky.convo.defs#messageRef":
-		t.ConvoDefs_MessageRef = new(chatbskytypes.ConvoDefs_MessageRef)
+		t.ConvoDefs_MessageRef = new(chatbsky.ConvoDefs_MessageRef)
 		return json.Unmarshal(b, t.ConvoDefs_MessageRef)
-
 	default:
 		return nil
 	}
@@ -903,27 +898,27 @@ type ModerationDefs_RecordHosting struct {
 
 // ModerationDefs_RecordView is a "recordView" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_RecordView struct {
-	LexiconTypeID string                     `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#recordView"`
-	BlobCids      []string                   `json:"blobCids" cborgen:"blobCids"`
-	Cid           string                     `json:"cid" cborgen:"cid"`
-	IndexedAt     string                     `json:"indexedAt" cborgen:"indexedAt"`
-	Moderation    *ModerationDefs_Moderation `json:"moderation" cborgen:"moderation"`
-	Repo          *ModerationDefs_RepoView   `json:"repo" cborgen:"repo"`
-	Uri           string                     `json:"uri" cborgen:"uri"`
-	Value         *util.LexiconTypeDecoder   `json:"value" cborgen:"value"`
+	LexiconTypeID string                      `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#recordView"`
+	BlobCids      []string                    `json:"blobCids" cborgen:"blobCids"`
+	Cid           string                      `json:"cid" cborgen:"cid"`
+	IndexedAt     string                      `json:"indexedAt" cborgen:"indexedAt"`
+	Moderation    *ModerationDefs_Moderation  `json:"moderation" cborgen:"moderation"`
+	Repo          *ModerationDefs_RepoView    `json:"repo" cborgen:"repo"`
+	Uri           string                      `json:"uri" cborgen:"uri"`
+	Value         *lexutil.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 // ModerationDefs_RecordViewDetail is a "recordViewDetail" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_RecordViewDetail struct {
-	LexiconTypeID string                             `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#recordViewDetail"`
-	Blobs         []*ModerationDefs_BlobView         `json:"blobs" cborgen:"blobs"`
-	Cid           string                             `json:"cid" cborgen:"cid"`
-	IndexedAt     string                             `json:"indexedAt" cborgen:"indexedAt"`
-	Labels        []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	Moderation    *ModerationDefs_ModerationDetail   `json:"moderation" cborgen:"moderation"`
-	Repo          *ModerationDefs_RepoView           `json:"repo" cborgen:"repo"`
-	Uri           string                             `json:"uri" cborgen:"uri"`
-	Value         *util.LexiconTypeDecoder           `json:"value" cborgen:"value"`
+	LexiconTypeID string                           `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#recordViewDetail"`
+	Blobs         []*ModerationDefs_BlobView       `json:"blobs" cborgen:"blobs"`
+	Cid           string                           `json:"cid" cborgen:"cid"`
+	IndexedAt     string                           `json:"indexedAt" cborgen:"indexedAt"`
+	Labels        []*comatproto.LabelDefs_Label    `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Moderation    *ModerationDefs_ModerationDetail `json:"moderation" cborgen:"moderation"`
+	Repo          *ModerationDefs_RepoView         `json:"repo" cborgen:"repo"`
+	Uri           string                           `json:"uri" cborgen:"uri"`
+	Value         *lexutil.LexiconTypeDecoder      `json:"value" cborgen:"value"`
 }
 
 // ModerationDefs_RecordViewNotFound is a "recordViewNotFound" in the tools.ozone.moderation.defs schema.
@@ -956,37 +951,37 @@ type ModerationDefs_RecordsStats struct {
 
 // ModerationDefs_RepoView is a "repoView" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_RepoView struct {
-	LexiconTypeID    string                                       `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#repoView"`
-	DeactivatedAt    *string                                      `json:"deactivatedAt,omitempty" cborgen:"deactivatedAt,omitempty"`
-	Did              string                                       `json:"did" cborgen:"did"`
-	Email            *string                                      `json:"email,omitempty" cborgen:"email,omitempty"`
-	Handle           string                                       `json:"handle" cborgen:"handle"`
-	IndexedAt        string                                       `json:"indexedAt" cborgen:"indexedAt"`
-	InviteNote       *string                                      `json:"inviteNote,omitempty" cborgen:"inviteNote,omitempty"`
-	InvitedBy        *comatprototypes.ServerDefs_InviteCode       `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
-	InvitesDisabled  *bool                                        `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
-	Moderation       *ModerationDefs_Moderation                   `json:"moderation" cborgen:"moderation"`
-	RelatedRecords   []*util.LexiconTypeDecoder                   `json:"relatedRecords" cborgen:"relatedRecords"`
-	ThreatSignatures []*comatprototypes.AdminDefs_ThreatSignature `json:"threatSignatures,omitempty" cborgen:"threatSignatures,omitempty"`
+	LexiconTypeID    string                                  `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#repoView"`
+	DeactivatedAt    *string                                 `json:"deactivatedAt,omitempty" cborgen:"deactivatedAt,omitempty"`
+	Did              string                                  `json:"did" cborgen:"did"`
+	Email            *string                                 `json:"email,omitempty" cborgen:"email,omitempty"`
+	Handle           string                                  `json:"handle" cborgen:"handle"`
+	IndexedAt        string                                  `json:"indexedAt" cborgen:"indexedAt"`
+	InviteNote       *string                                 `json:"inviteNote,omitempty" cborgen:"inviteNote,omitempty"`
+	InvitedBy        *comatproto.ServerDefs_InviteCode       `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
+	InvitesDisabled  *bool                                   `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
+	Moderation       *ModerationDefs_Moderation              `json:"moderation" cborgen:"moderation"`
+	RelatedRecords   []*lexutil.LexiconTypeDecoder           `json:"relatedRecords" cborgen:"relatedRecords"`
+	ThreatSignatures []*comatproto.AdminDefs_ThreatSignature `json:"threatSignatures,omitempty" cborgen:"threatSignatures,omitempty"`
 }
 
 // ModerationDefs_RepoViewDetail is a "repoViewDetail" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_RepoViewDetail struct {
-	LexiconTypeID    string                                       `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#repoViewDetail"`
-	DeactivatedAt    *string                                      `json:"deactivatedAt,omitempty" cborgen:"deactivatedAt,omitempty"`
-	Did              string                                       `json:"did" cborgen:"did"`
-	Email            *string                                      `json:"email,omitempty" cborgen:"email,omitempty"`
-	EmailConfirmedAt *string                                      `json:"emailConfirmedAt,omitempty" cborgen:"emailConfirmedAt,omitempty"`
-	Handle           string                                       `json:"handle" cborgen:"handle"`
-	IndexedAt        string                                       `json:"indexedAt" cborgen:"indexedAt"`
-	InviteNote       *string                                      `json:"inviteNote,omitempty" cborgen:"inviteNote,omitempty"`
-	InvitedBy        *comatprototypes.ServerDefs_InviteCode       `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
-	Invites          []*comatprototypes.ServerDefs_InviteCode     `json:"invites,omitempty" cborgen:"invites,omitempty"`
-	InvitesDisabled  *bool                                        `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
-	Labels           []*comatprototypes.LabelDefs_Label           `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	Moderation       *ModerationDefs_ModerationDetail             `json:"moderation" cborgen:"moderation"`
-	RelatedRecords   []*util.LexiconTypeDecoder                   `json:"relatedRecords" cborgen:"relatedRecords"`
-	ThreatSignatures []*comatprototypes.AdminDefs_ThreatSignature `json:"threatSignatures,omitempty" cborgen:"threatSignatures,omitempty"`
+	LexiconTypeID    string                                  `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#repoViewDetail"`
+	DeactivatedAt    *string                                 `json:"deactivatedAt,omitempty" cborgen:"deactivatedAt,omitempty"`
+	Did              string                                  `json:"did" cborgen:"did"`
+	Email            *string                                 `json:"email,omitempty" cborgen:"email,omitempty"`
+	EmailConfirmedAt *string                                 `json:"emailConfirmedAt,omitempty" cborgen:"emailConfirmedAt,omitempty"`
+	Handle           string                                  `json:"handle" cborgen:"handle"`
+	IndexedAt        string                                  `json:"indexedAt" cborgen:"indexedAt"`
+	InviteNote       *string                                 `json:"inviteNote,omitempty" cborgen:"inviteNote,omitempty"`
+	InvitedBy        *comatproto.ServerDefs_InviteCode       `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
+	Invites          []*comatproto.ServerDefs_InviteCode     `json:"invites,omitempty" cborgen:"invites,omitempty"`
+	InvitesDisabled  *bool                                   `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
+	Labels           []*comatproto.LabelDefs_Label           `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Moderation       *ModerationDefs_ModerationDetail        `json:"moderation" cborgen:"moderation"`
+	RelatedRecords   []*lexutil.LexiconTypeDecoder           `json:"relatedRecords" cborgen:"relatedRecords"`
+	ThreatSignatures []*comatproto.AdminDefs_ThreatSignature `json:"threatSignatures,omitempty" cborgen:"threatSignatures,omitempty"`
 }
 
 // ModerationDefs_RepoViewNotFound is a "repoViewNotFound" in the tools.ozone.moderation.defs schema.
@@ -1049,7 +1044,7 @@ type ModerationDefs_ScheduledActionView struct {
 	// did: Subject DID for the action
 	Did string `json:"did" cborgen:"did"`
 	// eventData: Serialized event object that will be propagated to the event when performed
-	EventData *util.LexiconTypeDecoder `json:"eventData,omitempty" cborgen:"eventData,omitempty"`
+	EventData *lexutil.LexiconTypeDecoder `json:"eventData,omitempty" cborgen:"eventData,omitempty"`
 	// executeAfter: Earliest time to execute the action (for randomized scheduling)
 	ExecuteAfter *string `json:"executeAfter,omitempty" cborgen:"executeAfter,omitempty"`
 	// executeAt: Exact time to execute the action
@@ -1128,7 +1123,7 @@ func (t *ModerationDefs_SubjectStatusView_Hosting) MarshalJSON() ([]byte, error)
 }
 
 func (t *ModerationDefs_SubjectStatusView_Hosting) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -1140,16 +1135,15 @@ func (t *ModerationDefs_SubjectStatusView_Hosting) UnmarshalJSON(b []byte) error
 	case "tools.ozone.moderation.defs#recordHosting":
 		t.ModerationDefs_RecordHosting = new(ModerationDefs_RecordHosting)
 		return json.Unmarshal(b, t.ModerationDefs_RecordHosting)
-
 	default:
 		return nil
 	}
 }
 
 type ModerationDefs_SubjectStatusView_Subject struct {
-	AdminDefs_RepoRef    *comatprototypes.AdminDefs_RepoRef
-	RepoStrongRef        *comatprototypes.RepoStrongRef
-	ConvoDefs_MessageRef *chatbskytypes.ConvoDefs_MessageRef
+	AdminDefs_RepoRef    *comatproto.AdminDefs_RepoRef
+	RepoStrongRef        *comatproto.RepoStrongRef
+	ConvoDefs_MessageRef *chatbsky.ConvoDefs_MessageRef
 }
 
 func (t *ModerationDefs_SubjectStatusView_Subject) MarshalJSON() ([]byte, error) {
@@ -1169,22 +1163,21 @@ func (t *ModerationDefs_SubjectStatusView_Subject) MarshalJSON() ([]byte, error)
 }
 
 func (t *ModerationDefs_SubjectStatusView_Subject) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
 
 	switch typ {
 	case "com.atproto.admin.defs#repoRef":
-		t.AdminDefs_RepoRef = new(comatprototypes.AdminDefs_RepoRef)
+		t.AdminDefs_RepoRef = new(comatproto.AdminDefs_RepoRef)
 		return json.Unmarshal(b, t.AdminDefs_RepoRef)
 	case "com.atproto.repo.strongRef":
-		t.RepoStrongRef = new(comatprototypes.RepoStrongRef)
+		t.RepoStrongRef = new(comatproto.RepoStrongRef)
 		return json.Unmarshal(b, t.RepoStrongRef)
 	case "chat.bsky.convo.defs#messageRef":
-		t.ConvoDefs_MessageRef = new(chatbskytypes.ConvoDefs_MessageRef)
+		t.ConvoDefs_MessageRef = new(chatbsky.ConvoDefs_MessageRef)
 		return json.Unmarshal(b, t.ConvoDefs_MessageRef)
-
 	default:
 		return nil
 	}
@@ -1194,7 +1187,7 @@ func (t *ModerationDefs_SubjectStatusView_Subject) UnmarshalJSON(b []byte) error
 //
 // Detailed view of a subject. For record subjects, the author's repo and profile will be returned.
 type ModerationDefs_SubjectView struct {
-	Profile *util.LexiconTypeDecoder          `json:"profile,omitempty" cborgen:"profile,omitempty"`
+	Profile *lexutil.LexiconTypeDecoder       `json:"profile,omitempty" cborgen:"profile,omitempty"`
 	Record  *ModerationDefs_RecordViewDetail  `json:"record,omitempty" cborgen:"record,omitempty"`
 	Repo    *ModerationDefs_RepoViewDetail    `json:"repo,omitempty" cborgen:"repo,omitempty"`
 	Status  *ModerationDefs_SubjectStatusView `json:"status,omitempty" cborgen:"status,omitempty"`

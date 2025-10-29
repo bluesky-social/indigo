@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SetAddValues_Input is the input argument to a tools.ozone.set.addValues call.
@@ -19,8 +19,8 @@ type SetAddValues_Input struct {
 }
 
 // SetAddValues calls the XRPC method "tools.ozone.set.addValues".
-func SetAddValues(ctx context.Context, c util.LexClient, input *SetAddValues_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.set.addValues", nil, input, nil); err != nil {
+func SetAddValues(ctx context.Context, c lexutil.LexClient, input *SetAddValues_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.set.addValues", nil, input, nil); err != nil {
 		return err
 	}
 

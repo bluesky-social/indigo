@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SyncNotifyOfUpdate_Input is the input argument to a com.atproto.sync.notifyOfUpdate call.
@@ -17,8 +17,8 @@ type SyncNotifyOfUpdate_Input struct {
 }
 
 // SyncNotifyOfUpdate calls the XRPC method "com.atproto.sync.notifyOfUpdate".
-func SyncNotifyOfUpdate(ctx context.Context, c util.LexClient, input *SyncNotifyOfUpdate_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.sync.notifyOfUpdate", nil, input, nil); err != nil {
+func SyncNotifyOfUpdate(ctx context.Context, c lexutil.LexClient, input *SyncNotifyOfUpdate_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.sync.notifyOfUpdate", nil, input, nil); err != nil {
 		return err
 	}
 

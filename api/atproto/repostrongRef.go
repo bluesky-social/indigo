@@ -5,11 +5,11 @@
 package atproto
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 func init() {
-	util.RegisterType("com.atproto.repo.strongRef#main", &RepoStrongRef{})
+	lexutil.RegisterType("com.atproto.repo.strongRef#main", &RepoStrongRef{})
 }
 
 // RepoStrongRef is a "main" in the com.atproto.repo.strongRef schema.

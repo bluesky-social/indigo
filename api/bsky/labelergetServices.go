@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // LabelerGetServices_Output is the output of a app.bsky.labeler.getServices call.
@@ -35,7 +35,7 @@ func (t *LabelerGetServices_Output_Views_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *LabelerGetServices_Output_Views_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -47,14 +47,13 @@ func (t *LabelerGetServices_Output_Views_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.labeler.defs#labelerViewDetailed":
 		t.LabelerDefs_LabelerViewDetailed = new(LabelerDefs_LabelerViewDetailed)
 		return json.Unmarshal(b, t.LabelerDefs_LabelerViewDetailed)
-
 	default:
 		return nil
 	}
 }
 
 // LabelerGetServices calls the XRPC method "app.bsky.labeler.getServices".
-func LabelerGetServices(ctx context.Context, c util.LexClient, detailed bool, dids []string) (*LabelerGetServices_Output, error) {
+func LabelerGetServices(ctx context.Context, c lexutil.LexClient, detailed bool, dids []string) (*LabelerGetServices_Output, error) {
 	var out LabelerGetServices_Output
 
 	params := map[string]interface{}{}
@@ -62,7 +61,7 @@ func LabelerGetServices(ctx context.Context, c util.LexClient, detailed bool, di
 		params["detailed"] = detailed
 	}
 	params["dids"] = dids
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.labeler.getServices", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.labeler.getServices", params, nil, &out); err != nil {
 		return nil, err
 	}
 

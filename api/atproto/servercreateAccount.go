@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerCreateAccount_Input is the input argument to a com.atproto.server.createAccount call.
@@ -42,9 +42,9 @@ type ServerCreateAccount_Output struct {
 }
 
 // ServerCreateAccount calls the XRPC method "com.atproto.server.createAccount".
-func ServerCreateAccount(ctx context.Context, c util.LexClient, input *ServerCreateAccount_Input) (*ServerCreateAccount_Output, error) {
+func ServerCreateAccount(ctx context.Context, c lexutil.LexClient, input *ServerCreateAccount_Input) (*ServerCreateAccount_Output, error) {
 	var out ServerCreateAccount_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.server.createAccount", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.server.createAccount", nil, input, &out); err != nil {
 		return nil, err
 	}
 

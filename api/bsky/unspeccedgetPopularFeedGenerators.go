@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // UnspeccedGetPopularFeedGenerators_Output is the output of a app.bsky.unspecced.getPopularFeedGenerators call.
@@ -17,7 +17,7 @@ type UnspeccedGetPopularFeedGenerators_Output struct {
 }
 
 // UnspeccedGetPopularFeedGenerators calls the XRPC method "app.bsky.unspecced.getPopularFeedGenerators".
-func UnspeccedGetPopularFeedGenerators(ctx context.Context, c util.LexClient, cursor string, limit int64, query string) (*UnspeccedGetPopularFeedGenerators_Output, error) {
+func UnspeccedGetPopularFeedGenerators(ctx context.Context, c lexutil.LexClient, cursor string, limit int64, query string) (*UnspeccedGetPopularFeedGenerators_Output, error) {
 	var out UnspeccedGetPopularFeedGenerators_Output
 
 	params := map[string]interface{}{}
@@ -30,7 +30,7 @@ func UnspeccedGetPopularFeedGenerators(ctx context.Context, c util.LexClient, cu
 	if query != "" {
 		params["query"] = query
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.unspecced.getPopularFeedGenerators", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.getPopularFeedGenerators", params, nil, &out); err != nil {
 		return nil, err
 	}
 

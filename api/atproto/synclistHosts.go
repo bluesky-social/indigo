@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SyncListHosts_Host is a "host" in the com.atproto.sync.listHosts schema.
@@ -28,7 +28,7 @@ type SyncListHosts_Output struct {
 }
 
 // SyncListHosts calls the XRPC method "com.atproto.sync.listHosts".
-func SyncListHosts(ctx context.Context, c util.LexClient, cursor string, limit int64) (*SyncListHosts_Output, error) {
+func SyncListHosts(ctx context.Context, c lexutil.LexClient, cursor string, limit int64) (*SyncListHosts_Output, error) {
 	var out SyncListHosts_Output
 
 	params := map[string]interface{}{}
@@ -38,7 +38,7 @@ func SyncListHosts(ctx context.Context, c util.LexClient, cursor string, limit i
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	if err := c.LexDo(ctx, util.Query, "", "com.atproto.sync.listHosts", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.sync.listHosts", params, nil, &out); err != nil {
 		return nil, err
 	}
 
