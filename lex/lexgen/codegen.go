@@ -1,4 +1,4 @@
-package main
+package lexgen
 
 import (
 	"fmt"
@@ -42,7 +42,7 @@ func (gen *FlatGenerator) WriteLexicon() error {
 		fmt.Fprintf(gen.Out, "// %s\n\n", gen.Config.WarningText)
 	}
 	fmt.Fprintf(gen.Out, "// Lexicon schema: %s\n\n", gen.Lex.NSID)
-	fmt.Fprintf(gen.Out, "package %s\n\n", gen.pkgName())
+	fmt.Fprintf(gen.Out, "package %s\n\n", gen.PkgName())
 	fmt.Fprintln(gen.Out, "import (")
 	for dep, _ := range gen.deps() {
 		fmt.Fprintf(gen.Out, "    %s\n", dep)
@@ -58,7 +58,7 @@ func (gen *FlatGenerator) WriteLexicon() error {
 	return nil
 }
 
-func (gen *FlatGenerator) pkgName() string {
+func (gen *FlatGenerator) PkgName() string {
 	n := nsidPkgName(gen.Lex.NSID)
 	if gen.Config.LegacyMode {
 		switch n {
@@ -80,7 +80,7 @@ func (gen *FlatGenerator) baseName() string {
 	return nsidBaseName(gen.Lex.NSID)
 }
 
-func (gen *FlatGenerator) fileName() string {
+func (gen *FlatGenerator) FileName() string {
 	return nsidFileName(gen.Lex.NSID) + ".go"
 }
 
