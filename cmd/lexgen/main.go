@@ -14,6 +14,7 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/bluesky-social/indigo/atproto/lexicon"
+	"github.com/bluesky-social/indigo/lex/lexgen"
 
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v3"
@@ -156,18 +157,18 @@ func genFile(ctx context.Context, cmd *cli.Command, cat lexicon.Catalog, p strin
 		return fmt.Errorf("failed to parse lexicon schema from disk (%s): %w", p, err)
 	}
 
-	flat, err := FlattenSchemaFile(&sf)
+	flat, err := lexgen.FlattenSchemaFile(&sf)
 	if err != nil {
 		return fmt.Errorf("internal codegen flattening error (%s): %w", p, err)
 	}
 
-	cfg := &GenConfig{}
+	cfg := &lexgen.GenConfig{}
 	if cmd.Bool("legacy-mode") {
-		cfg = LegacyConfig()
+		cfg = lexgen.LegacyConfig()
 	}
 
 	buf := new(bytes.Buffer)
-	gen := FlatGenerator{
+	gen := lexgen.FlatGenerator{
 		Config: cfg,
 		Lex:    flat,
 		Cat:    cat,
@@ -177,7 +178,7 @@ func genFile(ctx context.Context, cmd *cli.Command, cat lexicon.Catalog, p strin
 		return fmt.Errorf("failed to format codegen output (%s): %w", p, err)
 	}
 
-	outPath := path.Join(cmd.String("output-dir"), gen.pkgName(), gen.fileName())
+	outPath := path.Join(cmd.String("output-dir"), gen.PkgName(), gen.FileName())
 	if err := os.MkdirAll(path.Dir(outPath), 0755); err != nil {
 		return err
 	}
