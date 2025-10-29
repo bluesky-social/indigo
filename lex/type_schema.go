@@ -67,7 +67,6 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 			params = fmt.Sprintf("%s, input io.Reader", params)
 		case EncodingJSON:
 			params = fmt.Sprintf("%s, input *%s", params, inputname)
-
 		default:
 			return fmt.Errorf("unsupported input encoding (RPC input): %q", s.Input.Encoding)
 		}
@@ -843,13 +842,11 @@ func (ts *TypeSchema) writeJsonUnmarshalerEnum(name string, w io.Writer) error {
 	}
 
 	if ts.Closed {
-		pf(`
-			default:
+		pf(`			default:
 				return fmt.Errorf("closed unions must match a listed schema")
 		`)
 	} else {
-		pf(`
-			default:
+		pf(`			default:
 				return nil
 		`)
 
@@ -877,7 +874,7 @@ func (ts *TypeSchema) writeCborMarshalerEnum(name string, w io.Writer) error {
 		pf("\t\treturn t.%s.MarshalCBOR(w)\n\t}\n", vname)
 	}
 
-	pf("\treturn fmt.Errorf(\"can not marshal empty union as CBOR\")\n}\n")
+	pf("\treturn fmt.Errorf(\"can not marshal empty union as CBOR\")\n}\n\n")
 	return nil
 }
 
@@ -900,13 +897,11 @@ func (ts *TypeSchema) writeCborUnmarshalerEnum(name string, w io.Writer) error {
 	}
 
 	if ts.Closed {
-		pf(`
-			default:
+		pf(`			default:
 				return fmt.Errorf("closed unions must match a listed schema")
 		`)
 	} else {
-		pf(`
-			default:
+		pf(`			default:
 				return nil
 		`)
 
