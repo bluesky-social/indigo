@@ -69,7 +69,7 @@ func (n *Nexus) handleListen(c echo.Context) error {
 			}
 			if err := ws.WriteJSON(evt); err != nil {
 				n.logger.Info("websocket write error", "error", err)
-				return err
+				return nil
 			}
 			// In fire-and-forget mode, ack immediately after write succeeds
 			// In websocket-ack mode, wait for client to send ack and handle in read loop
