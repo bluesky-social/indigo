@@ -58,6 +58,8 @@ type Outbox struct {
 	didWorkers map[string]*DIDWorker
 	workersMu  sync.Mutex
 
+	ackQueue chan uint
+
 	ctx context.Context
 }
 
@@ -74,18 +76,19 @@ func NewOutbox(db *gorm.DB, mode OutboxMode, webhookURL string) *Outbox {
 		eventCache: make(map[uint]*OutboxEvt),
 		pendingIDs: make(chan uint, 1000000),
 		didWorkers: make(map[string]*DIDWorker),
+		ackQueue:   make(chan uint, 100000),
 	}
 }
 
 func (o *Outbox) Run(ctx context.Context) {
 	o.ctx = ctx
 
-	// Webhook mode doesn't need timeout checker since sendWebhook() retries indefinitely
 	if o.mode == OutboxModeWebsocketAck {
 		go o.checkTimeouts(ctx)
 	}
 	go o.runCacheLoader(ctx)
 	go o.runDelivery(ctx)
+	go o.runBatchedDeletes(ctx)
 
 	<-ctx.Done()
 }
@@ -198,6 +201,151 @@ func (o *Outbox) sendEvent(evt *OutboxEvt) {
 		o.events <- evt
 	case OutboxModeWebhook:
 		go o.sendWebhook(evt)
+	}
+}
+
+func (o *Outbox) AckEvent(eventID uint) {
+	o.cacheMu.RLock()
+	outboxEvt, exists := o.eventCache[eventID]
+	o.cacheMu.RUnlock()
+
+	if exists {
+		did := outboxEvt.DID()
+
+		o.workersMu.Lock()
+		worker := o.didWorkers[did]
+		o.workersMu.Unlock()
+
+		if worker != nil {
+			worker.ackEvent(eventID)
+		}
+
+		o.cacheMu.Lock()
+		delete(o.eventCache, eventID)
+		o.cacheMu.Unlock()
+	}
+
+	select {
+	case o.ackQueue <- eventID:
+	default:
+		o.logger.Warn("ack queue full, deleting synchronously", "id", eventID)
+		if err := o.db.Delete(&models.OutboxBuffer{}, eventID).Error; err != nil {
+			o.logger.Error("failed to delete acked event", "error", err, "id", eventID)
+		}
+	}
+}
+
+func (o *Outbox) sendWebhook(evt *OutboxEvt) {
+	retries := 0
+	for {
+		if err := o.postWebhook(evt); err != nil {
+			o.logger.Warn("webhook failed, retrying", "error", err, "id", evt.ID, "retries", retries)
+			time.Sleep(backoff(retries, 10))
+			retries++
+			continue
+		}
+
+		o.AckEvent(evt.ID)
+		return
+	}
+}
+
+func (o *Outbox) postWebhook(evt *OutboxEvt) error {
+	body, err := json.Marshal(evt)
+	if err != nil {
+		return fmt.Errorf("failed to marshal event: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", o.webhookURL, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := o.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("webhook returned non-2xx status: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (o *Outbox) runBatchedDeletes(ctx context.Context) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	var batch []uint
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case id := <-o.ackQueue:
+			batch = append(batch, id)
+			if len(batch) >= 100 {
+				o.flushDeleteBatch(batch)
+				batch = nil
+			}
+		case <-ticker.C:
+			if len(batch) > 0 {
+				o.flushDeleteBatch(batch)
+				batch = nil
+			}
+		}
+	}
+}
+
+func (o *Outbox) flushDeleteBatch(ids []uint) {
+	if len(ids) == 0 {
+		return
+	}
+
+	if err := o.db.Delete(&models.OutboxBuffer{}, ids).Error; err != nil {
+		o.logger.Error("failed to delete batch of acked events", "error", err, "count", len(ids))
+	}
+}
+
+func (o *Outbox) checkTimeouts(ctx context.Context) {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			o.retryTimedOutEvents()
+		}
+	}
+}
+
+// retryTimedOutEvents iterates through all workers and re-queues timed out events
+func (o *Outbox) retryTimedOutEvents() {
+	// Get snapshot of all active workers
+	o.workersMu.Lock()
+	workers := make([]*DIDWorker, 0, len(o.didWorkers))
+	for _, w := range o.didWorkers {
+		workers = append(workers, w)
+	}
+	o.workersMu.Unlock()
+
+	for _, worker := range workers {
+		timedOutIDs := worker.timedOutEvents()
+		for _, id := range timedOutIDs {
+			o.cacheMu.RLock()
+			evt, exists := o.eventCache[id]
+			o.cacheMu.RUnlock()
+			if exists {
+				o.logger.Info("retrying timed out event", "id", id)
+				o.sendEvent(evt)
+			}
+		}
 	}
 }
 
@@ -336,115 +484,4 @@ func (w *DIDWorker) timedOutEvents() []uint {
 	}
 
 	return timedOut
-}
-
-func (o *Outbox) AckEvent(eventID uint) {
-	o.cacheMu.RLock()
-	outboxEvt, exists := o.eventCache[eventID]
-	o.cacheMu.RUnlock()
-
-	if !exists {
-		// evt not in cache, may have already been acked - still try to delete from DB
-		if err := o.db.Delete(&models.OutboxBuffer{}, eventID).Error; err != nil {
-			o.logger.Error("failed to delete acked event", "error", err, "id", eventID)
-		}
-		return
-	}
-
-	did := outboxEvt.DID()
-
-	o.workersMu.Lock()
-	worker := o.didWorkers[did]
-	o.workersMu.Unlock()
-
-	if worker != nil {
-		worker.ackEvent(eventID)
-	}
-
-	o.cacheMu.Lock()
-	delete(o.eventCache, eventID)
-	o.cacheMu.Unlock()
-
-	if err := o.db.Delete(&models.OutboxBuffer{}, eventID).Error; err != nil {
-		o.logger.Error("failed to delete acked event", "error", err, "id", eventID)
-	}
-}
-
-func (o *Outbox) sendWebhook(evt *OutboxEvt) {
-	retries := 0
-	for {
-		if err := o.postWebhook(evt); err != nil {
-			o.logger.Warn("webhook failed, retrying", "error", err, "id", evt.ID, "retries", retries)
-			time.Sleep(backoff(retries, 10))
-			retries++
-			continue
-		}
-
-		o.AckEvent(evt.ID)
-		return
-	}
-}
-
-func (o *Outbox) postWebhook(evt *OutboxEvt) error {
-	body, err := json.Marshal(evt)
-	if err != nil {
-		return fmt.Errorf("failed to marshal event: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", o.webhookURL, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := o.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("webhook returned non-2xx status: %d", resp.StatusCode)
-	}
-
-	return nil
-}
-
-func (o *Outbox) checkTimeouts(ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			o.retryTimedOutEvents()
-		}
-	}
-}
-
-// retryTimedOutEvents iterates through all workers and re-queues timed out events
-func (o *Outbox) retryTimedOutEvents() {
-	// Get snapshot of all active workers
-	o.workersMu.Lock()
-	workers := make([]*DIDWorker, 0, len(o.didWorkers))
-	for _, w := range o.didWorkers {
-		workers = append(workers, w)
-	}
-	o.workersMu.Unlock()
-
-	for _, worker := range workers {
-		timedOutIDs := worker.timedOutEvents()
-		for _, id := range timedOutIDs {
-			o.cacheMu.RLock()
-			evt, exists := o.eventCache[id]
-			o.cacheMu.RUnlock()
-			if exists {
-				o.logger.Info("retrying timed out event", "id", id)
-				o.sendEvent(evt)
-			}
-		}
-	}
 }
