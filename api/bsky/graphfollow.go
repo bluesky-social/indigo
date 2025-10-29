@@ -5,6 +5,7 @@
 package bsky
 
 import (
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
@@ -13,7 +14,8 @@ func init() {
 }
 
 type GraphFollow struct {
-	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.graph.follow"`
-	CreatedAt     string `json:"createdAt" cborgen:"createdAt"`
-	Subject       string `json:"subject" cborgen:"subject"`
+	LexiconTypeID string                    `json:"$type" cborgen:"$type,const=app.bsky.graph.follow"`
+	CreatedAt     string                    `json:"createdAt" cborgen:"createdAt"`
+	Subject       string                    `json:"subject" cborgen:"subject"`
+	Via           *comatproto.RepoStrongRef `json:"via,omitempty" cborgen:"via,omitempty"`
 }
