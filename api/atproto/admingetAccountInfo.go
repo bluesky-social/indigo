@@ -7,16 +7,16 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // AdminGetAccountInfo calls the XRPC method "com.atproto.admin.getAccountInfo".
-func AdminGetAccountInfo(ctx context.Context, c util.LexClient, did string) (*AdminDefs_AccountView, error) {
+func AdminGetAccountInfo(ctx context.Context, c lexutil.LexClient, did string) (*AdminDefs_AccountView, error) {
 	var out AdminDefs_AccountView
 
 	params := map[string]interface{}{}
 	params["did"] = did
-	if err := c.LexDo(ctx, util.Query, "", "com.atproto.admin.getAccountInfo", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.admin.getAccountInfo", params, nil, &out); err != nil {
 		return nil, err
 	}
 

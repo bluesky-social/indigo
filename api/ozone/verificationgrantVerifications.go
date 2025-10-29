@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // VerificationGrantVerifications_GrantError is a "grantError" in the tools.ozone.verification.grantVerifications schema.
@@ -45,9 +45,9 @@ type VerificationGrantVerifications_VerificationInput struct {
 }
 
 // VerificationGrantVerifications calls the XRPC method "tools.ozone.verification.grantVerifications".
-func VerificationGrantVerifications(ctx context.Context, c util.LexClient, input *VerificationGrantVerifications_Input) (*VerificationGrantVerifications_Output, error) {
+func VerificationGrantVerifications(ctx context.Context, c lexutil.LexClient, input *VerificationGrantVerifications_Input) (*VerificationGrantVerifications_Output, error) {
 	var out VerificationGrantVerifications_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.verification.grantVerifications", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.verification.grantVerifications", nil, input, &out); err != nil {
 		return nil, err
 	}
 

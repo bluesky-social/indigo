@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // NotificationUpdateSeen_Input is the input argument to a app.bsky.notification.updateSeen call.
@@ -16,8 +16,8 @@ type NotificationUpdateSeen_Input struct {
 }
 
 // NotificationUpdateSeen calls the XRPC method "app.bsky.notification.updateSeen".
-func NotificationUpdateSeen(ctx context.Context, c util.LexClient, input *NotificationUpdateSeen_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "app.bsky.notification.updateSeen", nil, input, nil); err != nil {
+func NotificationUpdateSeen(ctx context.Context, c lexutil.LexClient, input *NotificationUpdateSeen_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "app.bsky.notification.updateSeen", nil, input, nil); err != nil {
 		return err
 	}
 

@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationGetAccountTimeline_Output is the output of a tools.ozone.moderation.getAccountTimeline call.
@@ -29,12 +29,12 @@ type ModerationGetAccountTimeline_TimelineItemSummary struct {
 }
 
 // ModerationGetAccountTimeline calls the XRPC method "tools.ozone.moderation.getAccountTimeline".
-func ModerationGetAccountTimeline(ctx context.Context, c util.LexClient, did string) (*ModerationGetAccountTimeline_Output, error) {
+func ModerationGetAccountTimeline(ctx context.Context, c lexutil.LexClient, did string) (*ModerationGetAccountTimeline_Output, error) {
 	var out ModerationGetAccountTimeline_Output
 
 	params := map[string]interface{}{}
 	params["did"] = did
-	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.moderation.getAccountTimeline", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.moderation.getAccountTimeline", params, nil, &out); err != nil {
 		return nil, err
 	}
 

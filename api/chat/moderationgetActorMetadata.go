@@ -7,7 +7,7 @@ package chat
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ModerationGetActorMetadata_Metadata is a "metadata" in the chat.bsky.moderation.getActorMetadata schema.
@@ -26,12 +26,12 @@ type ModerationGetActorMetadata_Output struct {
 }
 
 // ModerationGetActorMetadata calls the XRPC method "chat.bsky.moderation.getActorMetadata".
-func ModerationGetActorMetadata(ctx context.Context, c util.LexClient, actor string) (*ModerationGetActorMetadata_Output, error) {
+func ModerationGetActorMetadata(ctx context.Context, c lexutil.LexClient, actor string) (*ModerationGetActorMetadata_Output, error) {
 	var out ModerationGetActorMetadata_Output
 
 	params := map[string]interface{}{}
 	params["actor"] = actor
-	if err := c.LexDo(ctx, util.Query, "", "chat.bsky.moderation.getActorMetadata", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "chat.bsky.moderation.getActorMetadata", params, nil, &out); err != nil {
 		return nil, err
 	}
 

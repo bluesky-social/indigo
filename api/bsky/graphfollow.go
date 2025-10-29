@@ -5,11 +5,11 @@
 package bsky
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 func init() {
-	util.RegisterType("app.bsky.graph.follow", &GraphFollow{})
+	lexutil.RegisterType("app.bsky.graph.follow", &GraphFollow{})
 }
 
 type GraphFollow struct {

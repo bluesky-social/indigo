@@ -135,7 +135,7 @@ func GenCodeForSchema(pkg Package, reqcode bool, s *Schema, packages []Package, 
 	pf("\t\"fmt\"\n")
 	pf("\t\"encoding/json\"\n")
 	pf("\tcbg \"github.com/whyrusleeping/cbor-gen\"\n")
-	pf("\t\"github.com/bluesky-social/indigo/lex/util\"\n")
+	pf("\tlexutil \"github.com/bluesky-social/indigo/lex/util\"\n")
 	for _, xpkg := range packages {
 		if xpkg.Prefix != pkg.Prefix {
 			pf("\t%s %q\n", importNameForPrefix(xpkg.Prefix), xpkg.Import)
@@ -190,7 +190,7 @@ func writeDecoderRegister(w io.Writer, tps []outputType) error {
 			if buf.Len() == 0 {
 				outf("func init() {\n")
 			}
-			outf("util.RegisterType(%q, &%s{})\n", id, t.Name)
+			outf("lexutil.RegisterType(%q, &%s{})\n", id, t.Name)
 		}
 	}
 	if buf.Len() == 0 {
@@ -308,7 +308,7 @@ func CreateHandlerStub(pkg string, impmap map[string]string, dir string, schemas
 }
 
 func importNameForPrefix(prefix string) string {
-	return strings.Join(strings.Split(prefix, "."), "") + "types"
+	return strings.Join(strings.Split(prefix, "."), "")
 }
 
 func WriteServerHandlers(w io.Writer, schemas []*Schema, pkg string, impmap map[string]string) error {

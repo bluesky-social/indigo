@@ -5,11 +5,11 @@
 package chat
 
 import (
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 func init() {
-	util.RegisterType("chat.bsky.actor.declaration", &ActorDeclaration{})
+	lexutil.RegisterType("chat.bsky.actor.declaration", &ActorDeclaration{})
 }
 
 type ActorDeclaration struct {

@@ -8,18 +8,18 @@ import (
 	"encoding/json"
 	"fmt"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 func init() {
-	util.RegisterType("app.bsky.embed.record#main", &EmbedRecord{})
+	lexutil.RegisterType("app.bsky.embed.record#main", &EmbedRecord{})
 }
 
 // EmbedRecord is a "main" in the app.bsky.embed.record schema.
 type EmbedRecord struct {
-	LexiconTypeID string                         `json:"$type" cborgen:"$type,const=app.bsky.embed.record"`
-	Record        *comatprototypes.RepoStrongRef `json:"record" cborgen:"record"`
+	LexiconTypeID string                    `json:"$type" cborgen:"$type,const=app.bsky.embed.record"`
+	Record        *comatproto.RepoStrongRef `json:"record" cborgen:"record"`
 }
 
 // EmbedRecord_View is a "view" in the app.bsky.embed.record schema.
@@ -57,14 +57,14 @@ type EmbedRecord_ViewRecord struct {
 	Cid           string                                `json:"cid" cborgen:"cid"`
 	Embeds        []*EmbedRecord_ViewRecord_Embeds_Elem `json:"embeds,omitempty" cborgen:"embeds,omitempty"`
 	IndexedAt     string                                `json:"indexedAt" cborgen:"indexedAt"`
-	Labels        []*comatprototypes.LabelDefs_Label    `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Labels        []*comatproto.LabelDefs_Label         `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	LikeCount     *int64                                `json:"likeCount,omitempty" cborgen:"likeCount,omitempty"`
 	QuoteCount    *int64                                `json:"quoteCount,omitempty" cborgen:"quoteCount,omitempty"`
 	ReplyCount    *int64                                `json:"replyCount,omitempty" cborgen:"replyCount,omitempty"`
 	RepostCount   *int64                                `json:"repostCount,omitempty" cborgen:"repostCount,omitempty"`
 	Uri           string                                `json:"uri" cborgen:"uri"`
 	// value: The record data itself.
-	Value *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
+	Value *lexutil.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 type EmbedRecord_ViewRecord_Embeds_Elem struct {
@@ -100,7 +100,7 @@ func (t *EmbedRecord_ViewRecord_Embeds_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *EmbedRecord_ViewRecord_Embeds_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,6 @@ func (t *EmbedRecord_ViewRecord_Embeds_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.recordWithMedia#view":
 		t.EmbedRecordWithMedia_View = new(EmbedRecordWithMedia_View)
 		return json.Unmarshal(b, t.EmbedRecordWithMedia_View)
-
 	default:
 		return nil
 	}
@@ -175,7 +174,7 @@ func (t *EmbedRecord_View_Record) MarshalJSON() ([]byte, error) {
 }
 
 func (t *EmbedRecord_View_Record) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -205,7 +204,6 @@ func (t *EmbedRecord_View_Record) UnmarshalJSON(b []byte) error {
 	case "app.bsky.graph.defs#starterPackViewBasic":
 		t.GraphDefs_StarterPackViewBasic = new(GraphDefs_StarterPackViewBasic)
 		return json.Unmarshal(b, t.GraphDefs_StarterPackViewBasic)
-
 	default:
 		return nil
 	}

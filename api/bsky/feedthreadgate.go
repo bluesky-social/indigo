@@ -10,12 +10,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	util.RegisterType("app.bsky.feed.threadgate", &FeedThreadgate{})
+	lexutil.RegisterType("app.bsky.feed.threadgate", &FeedThreadgate{})
 }
 
 type FeedThreadgate struct {
@@ -57,7 +57,7 @@ func (t *FeedThreadgate_Allow_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedThreadgate_Allow_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,6 @@ func (t *FeedThreadgate_Allow_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.threadgate#listRule":
 		t.FeedThreadgate_ListRule = new(FeedThreadgate_ListRule)
 		return json.Unmarshal(b, t.FeedThreadgate_ListRule)
-
 	default:
 		return nil
 	}
@@ -101,8 +100,9 @@ func (t *FeedThreadgate_Allow_Elem) MarshalCBOR(w io.Writer) error {
 	}
 	return fmt.Errorf("can not marshal empty union as CBOR")
 }
+
 func (t *FeedThreadgate_Allow_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := util.CborTypeExtractReader(r)
+	typ, b, err := lexutil.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,6 @@ func (t *FeedThreadgate_Allow_Elem) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.feed.threadgate#listRule":
 		t.FeedThreadgate_ListRule = new(FeedThreadgate_ListRule)
 		return t.FeedThreadgate_ListRule.UnmarshalCBOR(bytes.NewReader(b))
-
 	default:
 		return nil
 	}

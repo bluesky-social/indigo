@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SettingRemoveOptions_Input is the input argument to a tools.ozone.setting.removeOptions call.
@@ -21,9 +21,9 @@ type SettingRemoveOptions_Output struct {
 }
 
 // SettingRemoveOptions calls the XRPC method "tools.ozone.setting.removeOptions".
-func SettingRemoveOptions(ctx context.Context, c util.LexClient, input *SettingRemoveOptions_Input) (*SettingRemoveOptions_Output, error) {
+func SettingRemoveOptions(ctx context.Context, c lexutil.LexClient, input *SettingRemoveOptions_Input) (*SettingRemoveOptions_Output, error) {
 	var out SettingRemoveOptions_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "tools.ozone.setting.removeOptions", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.setting.removeOptions", nil, input, &out); err != nil {
 		return nil, err
 	}
 

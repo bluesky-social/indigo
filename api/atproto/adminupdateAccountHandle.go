@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // AdminUpdateAccountHandle_Input is the input argument to a com.atproto.admin.updateAccountHandle call.
@@ -17,8 +17,8 @@ type AdminUpdateAccountHandle_Input struct {
 }
 
 // AdminUpdateAccountHandle calls the XRPC method "com.atproto.admin.updateAccountHandle".
-func AdminUpdateAccountHandle(ctx context.Context, c util.LexClient, input *AdminUpdateAccountHandle_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.admin.updateAccountHandle", nil, input, nil); err != nil {
+func AdminUpdateAccountHandle(ctx context.Context, c lexutil.LexClient, input *AdminUpdateAccountHandle_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.admin.updateAccountHandle", nil, input, nil); err != nil {
 		return err
 	}
 

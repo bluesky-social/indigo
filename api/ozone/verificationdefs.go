@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // VerificationDefs_VerificationView is a "verificationView" in the tools.ozone.verification.defs schema.
@@ -23,7 +23,7 @@ type VerificationDefs_VerificationView struct {
 	Handle string `json:"handle" cborgen:"handle"`
 	// issuer: The user who issued this verification.
 	Issuer        string                                        `json:"issuer" cborgen:"issuer"`
-	IssuerProfile *util.LexiconTypeDecoder                      `json:"issuerProfile,omitempty" cborgen:"issuerProfile,omitempty"`
+	IssuerProfile *lexutil.LexiconTypeDecoder                   `json:"issuerProfile,omitempty" cborgen:"issuerProfile,omitempty"`
 	IssuerRepo    *VerificationDefs_VerificationView_IssuerRepo `json:"issuerRepo,omitempty" cborgen:"issuerRepo,omitempty"`
 	// revokeReason: Describes the reason for revocation, also indicating that the verification is no longer valid.
 	RevokeReason *string `json:"revokeReason,omitempty" cborgen:"revokeReason,omitempty"`
@@ -33,7 +33,7 @@ type VerificationDefs_VerificationView struct {
 	RevokedBy *string `json:"revokedBy,omitempty" cborgen:"revokedBy,omitempty"`
 	// subject: The subject of the verification.
 	Subject        string                                         `json:"subject" cborgen:"subject"`
-	SubjectProfile *util.LexiconTypeDecoder                       `json:"subjectProfile,omitempty" cborgen:"subjectProfile,omitempty"`
+	SubjectProfile *lexutil.LexiconTypeDecoder                    `json:"subjectProfile,omitempty" cborgen:"subjectProfile,omitempty"`
 	SubjectRepo    *VerificationDefs_VerificationView_SubjectRepo `json:"subjectRepo,omitempty" cborgen:"subjectRepo,omitempty"`
 	// uri: The AT-URI of the verification record.
 	Uri string `json:"uri" cborgen:"uri"`
@@ -57,7 +57,7 @@ func (t *VerificationDefs_VerificationView_IssuerRepo) MarshalJSON() ([]byte, er
 }
 
 func (t *VerificationDefs_VerificationView_IssuerRepo) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,6 @@ func (t *VerificationDefs_VerificationView_IssuerRepo) UnmarshalJSON(b []byte) e
 	case "tools.ozone.moderation.defs#repoViewNotFound":
 		t.ModerationDefs_RepoViewNotFound = new(ModerationDefs_RepoViewNotFound)
 		return json.Unmarshal(b, t.ModerationDefs_RepoViewNotFound)
-
 	default:
 		return nil
 	}
@@ -93,7 +92,7 @@ func (t *VerificationDefs_VerificationView_SubjectRepo) MarshalJSON() ([]byte, e
 }
 
 func (t *VerificationDefs_VerificationView_SubjectRepo) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -105,7 +104,6 @@ func (t *VerificationDefs_VerificationView_SubjectRepo) UnmarshalJSON(b []byte) 
 	case "tools.ozone.moderation.defs#repoViewNotFound":
 		t.ModerationDefs_RepoViewNotFound = new(ModerationDefs_RepoViewNotFound)
 		return json.Unmarshal(b, t.ModerationDefs_RepoViewNotFound)
-
 	default:
 		return nil
 	}

@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ActorDefs_AdultContentPref is a "adultContentPref" in the app.bsky.actor.defs schema.
@@ -161,7 +161,7 @@ func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) Mars
 }
 
 func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,6 @@ func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) Unma
 	case "app.bsky.feed.postgate#disableRule":
 		t.FeedPostgate_DisableRule = new(FeedPostgate_DisableRule)
 		return json.Unmarshal(b, t.FeedPostgate_DisableRule)
-
 	default:
 		return nil
 	}
@@ -204,7 +203,7 @@ func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) Marsha
 }
 
 func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -222,7 +221,6 @@ func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) Unmars
 	case "app.bsky.feed.threadgate#listRule":
 		t.FeedThreadgate_ListRule = new(FeedThreadgate_ListRule)
 		return json.Unmarshal(b, t.FeedThreadgate_ListRule)
-
 	default:
 		return nil
 	}
@@ -306,7 +304,7 @@ func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -354,7 +352,6 @@ func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.actor.defs#verificationPrefs":
 		t.ActorDefs_VerificationPrefs = new(ActorDefs_VerificationPrefs)
 		return json.Unmarshal(b, t.ActorDefs_VerificationPrefs)
-
 	default:
 		return nil
 	}
@@ -382,58 +379,58 @@ type ActorDefs_ProfileAssociatedChat struct {
 
 // ActorDefs_ProfileView is a "profileView" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileView struct {
-	Associated   *ActorDefs_ProfileAssociated       `json:"associated,omitempty" cborgen:"associated,omitempty"`
-	Avatar       *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	CreatedAt    *string                            `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
-	Description  *string                            `json:"description,omitempty" cborgen:"description,omitempty"`
-	Did          string                             `json:"did" cborgen:"did"`
-	DisplayName  *string                            `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
-	Handle       string                             `json:"handle" cborgen:"handle"`
-	IndexedAt    *string                            `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
-	Labels       []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	Pronouns     *string                            `json:"pronouns,omitempty" cborgen:"pronouns,omitempty"`
-	Status       *ActorDefs_StatusView              `json:"status,omitempty" cborgen:"status,omitempty"`
-	Verification *ActorDefs_VerificationState       `json:"verification,omitempty" cborgen:"verification,omitempty"`
-	Viewer       *ActorDefs_ViewerState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	Associated   *ActorDefs_ProfileAssociated  `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Avatar       *string                       `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	CreatedAt    *string                       `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	Description  *string                       `json:"description,omitempty" cborgen:"description,omitempty"`
+	Did          string                        `json:"did" cborgen:"did"`
+	DisplayName  *string                       `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
+	Handle       string                        `json:"handle" cborgen:"handle"`
+	IndexedAt    *string                       `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
+	Labels       []*comatproto.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Pronouns     *string                       `json:"pronouns,omitempty" cborgen:"pronouns,omitempty"`
+	Status       *ActorDefs_StatusView         `json:"status,omitempty" cborgen:"status,omitempty"`
+	Verification *ActorDefs_VerificationState  `json:"verification,omitempty" cborgen:"verification,omitempty"`
+	Viewer       *ActorDefs_ViewerState        `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 // ActorDefs_ProfileViewBasic is a "profileViewBasic" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileViewBasic struct {
-	Associated   *ActorDefs_ProfileAssociated       `json:"associated,omitempty" cborgen:"associated,omitempty"`
-	Avatar       *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	CreatedAt    *string                            `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
-	Did          string                             `json:"did" cborgen:"did"`
-	DisplayName  *string                            `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
-	Handle       string                             `json:"handle" cborgen:"handle"`
-	Labels       []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	Pronouns     *string                            `json:"pronouns,omitempty" cborgen:"pronouns,omitempty"`
-	Status       *ActorDefs_StatusView              `json:"status,omitempty" cborgen:"status,omitempty"`
-	Verification *ActorDefs_VerificationState       `json:"verification,omitempty" cborgen:"verification,omitempty"`
-	Viewer       *ActorDefs_ViewerState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	Associated   *ActorDefs_ProfileAssociated  `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Avatar       *string                       `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	CreatedAt    *string                       `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	Did          string                        `json:"did" cborgen:"did"`
+	DisplayName  *string                       `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
+	Handle       string                        `json:"handle" cborgen:"handle"`
+	Labels       []*comatproto.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Pronouns     *string                       `json:"pronouns,omitempty" cborgen:"pronouns,omitempty"`
+	Status       *ActorDefs_StatusView         `json:"status,omitempty" cborgen:"status,omitempty"`
+	Verification *ActorDefs_VerificationState  `json:"verification,omitempty" cborgen:"verification,omitempty"`
+	Viewer       *ActorDefs_ViewerState        `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 // ActorDefs_ProfileViewDetailed is a "profileViewDetailed" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileViewDetailed struct {
-	Associated           *ActorDefs_ProfileAssociated       `json:"associated,omitempty" cborgen:"associated,omitempty"`
-	Avatar               *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	Banner               *string                            `json:"banner,omitempty" cborgen:"banner,omitempty"`
-	CreatedAt            *string                            `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
-	Description          *string                            `json:"description,omitempty" cborgen:"description,omitempty"`
-	Did                  string                             `json:"did" cborgen:"did"`
-	DisplayName          *string                            `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
-	FollowersCount       *int64                             `json:"followersCount,omitempty" cborgen:"followersCount,omitempty"`
-	FollowsCount         *int64                             `json:"followsCount,omitempty" cborgen:"followsCount,omitempty"`
-	Handle               string                             `json:"handle" cborgen:"handle"`
-	IndexedAt            *string                            `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
-	JoinedViaStarterPack *GraphDefs_StarterPackViewBasic    `json:"joinedViaStarterPack,omitempty" cborgen:"joinedViaStarterPack,omitempty"`
-	Labels               []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	PinnedPost           *comatprototypes.RepoStrongRef     `json:"pinnedPost,omitempty" cborgen:"pinnedPost,omitempty"`
-	PostsCount           *int64                             `json:"postsCount,omitempty" cborgen:"postsCount,omitempty"`
-	Pronouns             *string                            `json:"pronouns,omitempty" cborgen:"pronouns,omitempty"`
-	Status               *ActorDefs_StatusView              `json:"status,omitempty" cborgen:"status,omitempty"`
-	Verification         *ActorDefs_VerificationState       `json:"verification,omitempty" cborgen:"verification,omitempty"`
-	Viewer               *ActorDefs_ViewerState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
-	Website              *string                            `json:"website,omitempty" cborgen:"website,omitempty"`
+	Associated           *ActorDefs_ProfileAssociated    `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Avatar               *string                         `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	Banner               *string                         `json:"banner,omitempty" cborgen:"banner,omitempty"`
+	CreatedAt            *string                         `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	Description          *string                         `json:"description,omitempty" cborgen:"description,omitempty"`
+	Did                  string                          `json:"did" cborgen:"did"`
+	DisplayName          *string                         `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
+	FollowersCount       *int64                          `json:"followersCount,omitempty" cborgen:"followersCount,omitempty"`
+	FollowsCount         *int64                          `json:"followsCount,omitempty" cborgen:"followsCount,omitempty"`
+	Handle               string                          `json:"handle" cborgen:"handle"`
+	IndexedAt            *string                         `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
+	JoinedViaStarterPack *GraphDefs_StarterPackViewBasic `json:"joinedViaStarterPack,omitempty" cborgen:"joinedViaStarterPack,omitempty"`
+	Labels               []*comatproto.LabelDefs_Label   `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	PinnedPost           *comatproto.RepoStrongRef       `json:"pinnedPost,omitempty" cborgen:"pinnedPost,omitempty"`
+	PostsCount           *int64                          `json:"postsCount,omitempty" cborgen:"postsCount,omitempty"`
+	Pronouns             *string                         `json:"pronouns,omitempty" cborgen:"pronouns,omitempty"`
+	Status               *ActorDefs_StatusView           `json:"status,omitempty" cborgen:"status,omitempty"`
+	Verification         *ActorDefs_VerificationState    `json:"verification,omitempty" cborgen:"verification,omitempty"`
+	Viewer               *ActorDefs_ViewerState          `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	Website              *string                         `json:"website,omitempty" cborgen:"website,omitempty"`
 }
 
 // ActorDefs_SavedFeed is a "savedFeed" in the app.bsky.actor.defs schema.
@@ -465,8 +462,8 @@ type ActorDefs_StatusView struct {
 	// expiresAt: The date when this status will expire. The application might choose to no longer return the status after expiration.
 	ExpiresAt *string `json:"expiresAt,omitempty" cborgen:"expiresAt,omitempty"`
 	// isActive: True if the status is not expired, false if it is expired. Only present if expiration was set.
-	IsActive *bool                    `json:"isActive,omitempty" cborgen:"isActive,omitempty"`
-	Record   *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	IsActive *bool                       `json:"isActive,omitempty" cborgen:"isActive,omitempty"`
+	Record   *lexutil.LexiconTypeDecoder `json:"record" cborgen:"record"`
 	// status: The status for the account.
 	Status string `json:"status" cborgen:"status"`
 }
@@ -485,7 +482,7 @@ func (t *ActorDefs_StatusView_Embed) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ActorDefs_StatusView_Embed) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -494,7 +491,6 @@ func (t *ActorDefs_StatusView_Embed) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.external#view":
 		t.EmbedExternal_View = new(EmbedExternal_View)
 		return json.Unmarshal(b, t.EmbedExternal_View)
-
 	default:
 		return nil
 	}

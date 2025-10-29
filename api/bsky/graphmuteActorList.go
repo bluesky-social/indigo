@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphMuteActorList_Input is the input argument to a app.bsky.graph.muteActorList call.
@@ -16,8 +16,8 @@ type GraphMuteActorList_Input struct {
 }
 
 // GraphMuteActorList calls the XRPC method "app.bsky.graph.muteActorList".
-func GraphMuteActorList(ctx context.Context, c util.LexClient, input *GraphMuteActorList_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "app.bsky.graph.muteActorList", nil, input, nil); err != nil {
+func GraphMuteActorList(ctx context.Context, c lexutil.LexClient, input *GraphMuteActorList_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "app.bsky.graph.muteActorList", nil, input, nil); err != nil {
 		return err
 	}
 

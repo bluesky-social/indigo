@@ -7,7 +7,7 @@ package ozone
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // VerificationListVerifications_Output is the output of a tools.ozone.verification.listVerifications call.
@@ -26,7 +26,7 @@ type VerificationListVerifications_Output struct {
 // limit: Maximum number of results to return
 // sortDirection: Sort direction for creation date
 // subjects: Filter to specific verified DIDs
-func VerificationListVerifications(ctx context.Context, c util.LexClient, createdAfter string, createdBefore string, cursor string, isRevoked bool, issuers []string, limit int64, sortDirection string, subjects []string) (*VerificationListVerifications_Output, error) {
+func VerificationListVerifications(ctx context.Context, c lexutil.LexClient, createdAfter string, createdBefore string, cursor string, isRevoked bool, issuers []string, limit int64, sortDirection string, subjects []string) (*VerificationListVerifications_Output, error) {
 	var out VerificationListVerifications_Output
 
 	params := map[string]interface{}{}
@@ -54,7 +54,7 @@ func VerificationListVerifications(ctx context.Context, c util.LexClient, create
 	if len(subjects) != 0 {
 		params["subjects"] = subjects
 	}
-	if err := c.LexDo(ctx, util.Query, "", "tools.ozone.verification.listVerifications", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.verification.listVerifications", params, nil, &out); err != nil {
 		return nil, err
 	}
 

@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerRevokeAppPassword_Input is the input argument to a com.atproto.server.revokeAppPassword call.
@@ -16,8 +16,8 @@ type ServerRevokeAppPassword_Input struct {
 }
 
 // ServerRevokeAppPassword calls the XRPC method "com.atproto.server.revokeAppPassword".
-func ServerRevokeAppPassword(ctx context.Context, c util.LexClient, input *ServerRevokeAppPassword_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.server.revokeAppPassword", nil, input, nil); err != nil {
+func ServerRevokeAppPassword(ctx context.Context, c lexutil.LexClient, input *ServerRevokeAppPassword_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.server.revokeAppPassword", nil, input, nil); err != nil {
 		return err
 	}
 

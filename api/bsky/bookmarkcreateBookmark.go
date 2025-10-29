@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // BookmarkCreateBookmark_Input is the input argument to a app.bsky.bookmark.createBookmark call.
@@ -17,8 +17,8 @@ type BookmarkCreateBookmark_Input struct {
 }
 
 // BookmarkCreateBookmark calls the XRPC method "app.bsky.bookmark.createBookmark".
-func BookmarkCreateBookmark(ctx context.Context, c util.LexClient, input *BookmarkCreateBookmark_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "app.bsky.bookmark.createBookmark", nil, input, nil); err != nil {
+func BookmarkCreateBookmark(ctx context.Context, c lexutil.LexClient, input *BookmarkCreateBookmark_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "app.bsky.bookmark.createBookmark", nil, input, nil); err != nil {
 		return err
 	}
 

@@ -7,7 +7,7 @@ package chat
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ConvoDeleteMessageForSelf_Input is the input argument to a chat.bsky.convo.deleteMessageForSelf call.
@@ -17,9 +17,9 @@ type ConvoDeleteMessageForSelf_Input struct {
 }
 
 // ConvoDeleteMessageForSelf calls the XRPC method "chat.bsky.convo.deleteMessageForSelf".
-func ConvoDeleteMessageForSelf(ctx context.Context, c util.LexClient, input *ConvoDeleteMessageForSelf_Input) (*ConvoDefs_DeletedMessageView, error) {
+func ConvoDeleteMessageForSelf(ctx context.Context, c lexutil.LexClient, input *ConvoDeleteMessageForSelf_Input) (*ConvoDefs_DeletedMessageView, error) {
 	var out ConvoDefs_DeletedMessageView
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "chat.bsky.convo.deleteMessageForSelf", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "chat.bsky.convo.deleteMessageForSelf", nil, input, &out); err != nil {
 		return nil, err
 	}
 

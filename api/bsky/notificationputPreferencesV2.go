@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // NotificationPutPreferencesV2_Input is the input argument to a app.bsky.notification.putPreferencesV2 call.
@@ -33,9 +33,9 @@ type NotificationPutPreferencesV2_Output struct {
 }
 
 // NotificationPutPreferencesV2 calls the XRPC method "app.bsky.notification.putPreferencesV2".
-func NotificationPutPreferencesV2(ctx context.Context, c util.LexClient, input *NotificationPutPreferencesV2_Input) (*NotificationPutPreferencesV2_Output, error) {
+func NotificationPutPreferencesV2(ctx context.Context, c lexutil.LexClient, input *NotificationPutPreferencesV2_Input) (*NotificationPutPreferencesV2_Output, error) {
 	var out NotificationPutPreferencesV2_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "app.bsky.notification.putPreferencesV2", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "app.bsky.notification.putPreferencesV2", nil, input, &out); err != nil {
 		return nil, err
 	}
 

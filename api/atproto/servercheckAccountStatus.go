@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerCheckAccountStatus_Output is the output of a com.atproto.server.checkAccountStatus call.
@@ -24,9 +24,9 @@ type ServerCheckAccountStatus_Output struct {
 }
 
 // ServerCheckAccountStatus calls the XRPC method "com.atproto.server.checkAccountStatus".
-func ServerCheckAccountStatus(ctx context.Context, c util.LexClient) (*ServerCheckAccountStatus_Output, error) {
+func ServerCheckAccountStatus(ctx context.Context, c lexutil.LexClient) (*ServerCheckAccountStatus_Output, error) {
 	var out ServerCheckAccountStatus_Output
-	if err := c.LexDo(ctx, util.Query, "", "com.atproto.server.checkAccountStatus", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.server.checkAccountStatus", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

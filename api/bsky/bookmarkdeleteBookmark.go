@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // BookmarkDeleteBookmark_Input is the input argument to a app.bsky.bookmark.deleteBookmark call.
@@ -16,8 +16,8 @@ type BookmarkDeleteBookmark_Input struct {
 }
 
 // BookmarkDeleteBookmark calls the XRPC method "app.bsky.bookmark.deleteBookmark".
-func BookmarkDeleteBookmark(ctx context.Context, c util.LexClient, input *BookmarkDeleteBookmark_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "app.bsky.bookmark.deleteBookmark", nil, input, nil); err != nil {
+func BookmarkDeleteBookmark(ctx context.Context, c lexutil.LexClient, input *BookmarkDeleteBookmark_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "app.bsky.bookmark.deleteBookmark", nil, input, nil); err != nil {
 		return err
 	}
 

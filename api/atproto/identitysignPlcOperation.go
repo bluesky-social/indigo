@@ -7,29 +7,29 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // IdentitySignPlcOperation_Input is the input argument to a com.atproto.identity.signPlcOperation call.
 type IdentitySignPlcOperation_Input struct {
-	AlsoKnownAs  []string                 `json:"alsoKnownAs,omitempty" cborgen:"alsoKnownAs,omitempty"`
-	RotationKeys []string                 `json:"rotationKeys,omitempty" cborgen:"rotationKeys,omitempty"`
-	Services     *util.LexiconTypeDecoder `json:"services,omitempty" cborgen:"services,omitempty"`
+	AlsoKnownAs  []string                    `json:"alsoKnownAs,omitempty" cborgen:"alsoKnownAs,omitempty"`
+	RotationKeys []string                    `json:"rotationKeys,omitempty" cborgen:"rotationKeys,omitempty"`
+	Services     *lexutil.LexiconTypeDecoder `json:"services,omitempty" cborgen:"services,omitempty"`
 	// token: A token received through com.atproto.identity.requestPlcOperationSignature
-	Token               *string                  `json:"token,omitempty" cborgen:"token,omitempty"`
-	VerificationMethods *util.LexiconTypeDecoder `json:"verificationMethods,omitempty" cborgen:"verificationMethods,omitempty"`
+	Token               *string                     `json:"token,omitempty" cborgen:"token,omitempty"`
+	VerificationMethods *lexutil.LexiconTypeDecoder `json:"verificationMethods,omitempty" cborgen:"verificationMethods,omitempty"`
 }
 
 // IdentitySignPlcOperation_Output is the output of a com.atproto.identity.signPlcOperation call.
 type IdentitySignPlcOperation_Output struct {
 	// operation: A signed DID PLC operation.
-	Operation *util.LexiconTypeDecoder `json:"operation" cborgen:"operation"`
+	Operation *lexutil.LexiconTypeDecoder `json:"operation" cborgen:"operation"`
 }
 
 // IdentitySignPlcOperation calls the XRPC method "com.atproto.identity.signPlcOperation".
-func IdentitySignPlcOperation(ctx context.Context, c util.LexClient, input *IdentitySignPlcOperation_Input) (*IdentitySignPlcOperation_Output, error) {
+func IdentitySignPlcOperation(ctx context.Context, c lexutil.LexClient, input *IdentitySignPlcOperation_Input) (*IdentitySignPlcOperation_Output, error) {
 	var out IdentitySignPlcOperation_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.identity.signPlcOperation", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.identity.signPlcOperation", nil, input, &out); err != nil {
 		return nil, err
 	}
 

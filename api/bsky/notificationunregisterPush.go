@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // NotificationUnregisterPush_Input is the input argument to a app.bsky.notification.unregisterPush call.
@@ -19,8 +19,8 @@ type NotificationUnregisterPush_Input struct {
 }
 
 // NotificationUnregisterPush calls the XRPC method "app.bsky.notification.unregisterPush".
-func NotificationUnregisterPush(ctx context.Context, c util.LexClient, input *NotificationUnregisterPush_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "app.bsky.notification.unregisterPush", nil, input, nil); err != nil {
+func NotificationUnregisterPush(ctx context.Context, c lexutil.LexClient, input *NotificationUnregisterPush_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "app.bsky.notification.unregisterPush", nil, input, nil); err != nil {
 		return err
 	}
 

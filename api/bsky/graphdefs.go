@@ -5,8 +5,8 @@
 package bsky
 
 import (
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphDefs_ListItemView is a "listItemView" in the app.bsky.graph.defs schema.
@@ -17,32 +17,32 @@ type GraphDefs_ListItemView struct {
 
 // GraphDefs_ListView is a "listView" in the app.bsky.graph.defs schema.
 type GraphDefs_ListView struct {
-	LexiconTypeID     string                             `json:"$type" cborgen:"$type,const=app.bsky.graph.defs#listView"`
-	Avatar            *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	Cid               string                             `json:"cid" cborgen:"cid"`
-	Creator           *ActorDefs_ProfileView             `json:"creator" cborgen:"creator"`
-	Description       *string                            `json:"description,omitempty" cborgen:"description,omitempty"`
-	DescriptionFacets []*RichtextFacet                   `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
-	IndexedAt         string                             `json:"indexedAt" cborgen:"indexedAt"`
-	Labels            []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	ListItemCount     *int64                             `json:"listItemCount,omitempty" cborgen:"listItemCount,omitempty"`
-	Name              string                             `json:"name" cborgen:"name"`
-	Purpose           *string                            `json:"purpose" cborgen:"purpose"`
-	Uri               string                             `json:"uri" cborgen:"uri"`
-	Viewer            *GraphDefs_ListViewerState         `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	LexiconTypeID     string                        `json:"$type" cborgen:"$type,const=app.bsky.graph.defs#listView"`
+	Avatar            *string                       `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	Cid               string                        `json:"cid" cborgen:"cid"`
+	Creator           *ActorDefs_ProfileView        `json:"creator" cborgen:"creator"`
+	Description       *string                       `json:"description,omitempty" cborgen:"description,omitempty"`
+	DescriptionFacets []*RichtextFacet              `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
+	IndexedAt         string                        `json:"indexedAt" cborgen:"indexedAt"`
+	Labels            []*comatproto.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	ListItemCount     *int64                        `json:"listItemCount,omitempty" cborgen:"listItemCount,omitempty"`
+	Name              string                        `json:"name" cborgen:"name"`
+	Purpose           *string                       `json:"purpose" cborgen:"purpose"`
+	Uri               string                        `json:"uri" cborgen:"uri"`
+	Viewer            *GraphDefs_ListViewerState    `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 // GraphDefs_ListViewBasic is a "listViewBasic" in the app.bsky.graph.defs schema.
 type GraphDefs_ListViewBasic struct {
-	Avatar        *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	Cid           string                             `json:"cid" cborgen:"cid"`
-	IndexedAt     *string                            `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
-	Labels        []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	ListItemCount *int64                             `json:"listItemCount,omitempty" cborgen:"listItemCount,omitempty"`
-	Name          string                             `json:"name" cborgen:"name"`
-	Purpose       *string                            `json:"purpose" cborgen:"purpose"`
-	Uri           string                             `json:"uri" cborgen:"uri"`
-	Viewer        *GraphDefs_ListViewerState         `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	Avatar        *string                       `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	Cid           string                        `json:"cid" cborgen:"cid"`
+	IndexedAt     *string                       `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
+	Labels        []*comatproto.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	ListItemCount *int64                        `json:"listItemCount,omitempty" cborgen:"listItemCount,omitempty"`
+	Name          string                        `json:"name" cborgen:"name"`
+	Purpose       *string                       `json:"purpose" cborgen:"purpose"`
+	Uri           string                        `json:"uri" cborgen:"uri"`
+	Viewer        *GraphDefs_ListViewerState    `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 // GraphDefs_ListViewerState is a "listViewerState" in the app.bsky.graph.defs schema.
@@ -74,29 +74,29 @@ type GraphDefs_Relationship struct {
 
 // GraphDefs_StarterPackView is a "starterPackView" in the app.bsky.graph.defs schema.
 type GraphDefs_StarterPackView struct {
-	Cid                string                             `json:"cid" cborgen:"cid"`
-	Creator            *ActorDefs_ProfileViewBasic        `json:"creator" cborgen:"creator"`
-	Feeds              []*FeedDefs_GeneratorView          `json:"feeds,omitempty" cborgen:"feeds,omitempty"`
-	IndexedAt          string                             `json:"indexedAt" cborgen:"indexedAt"`
-	JoinedAllTimeCount *int64                             `json:"joinedAllTimeCount,omitempty" cborgen:"joinedAllTimeCount,omitempty"`
-	JoinedWeekCount    *int64                             `json:"joinedWeekCount,omitempty" cborgen:"joinedWeekCount,omitempty"`
-	Labels             []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	List               *GraphDefs_ListViewBasic           `json:"list,omitempty" cborgen:"list,omitempty"`
-	ListItemsSample    []*GraphDefs_ListItemView          `json:"listItemsSample,omitempty" cborgen:"listItemsSample,omitempty"`
-	Record             *util.LexiconTypeDecoder           `json:"record" cborgen:"record"`
-	Uri                string                             `json:"uri" cborgen:"uri"`
+	Cid                string                        `json:"cid" cborgen:"cid"`
+	Creator            *ActorDefs_ProfileViewBasic   `json:"creator" cborgen:"creator"`
+	Feeds              []*FeedDefs_GeneratorView     `json:"feeds,omitempty" cborgen:"feeds,omitempty"`
+	IndexedAt          string                        `json:"indexedAt" cborgen:"indexedAt"`
+	JoinedAllTimeCount *int64                        `json:"joinedAllTimeCount,omitempty" cborgen:"joinedAllTimeCount,omitempty"`
+	JoinedWeekCount    *int64                        `json:"joinedWeekCount,omitempty" cborgen:"joinedWeekCount,omitempty"`
+	Labels             []*comatproto.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	List               *GraphDefs_ListViewBasic      `json:"list,omitempty" cborgen:"list,omitempty"`
+	ListItemsSample    []*GraphDefs_ListItemView     `json:"listItemsSample,omitempty" cborgen:"listItemsSample,omitempty"`
+	Record             *lexutil.LexiconTypeDecoder   `json:"record" cborgen:"record"`
+	Uri                string                        `json:"uri" cborgen:"uri"`
 }
 
 // GraphDefs_StarterPackViewBasic is a "starterPackViewBasic" in the app.bsky.graph.defs schema.
 type GraphDefs_StarterPackViewBasic struct {
-	LexiconTypeID      string                             `json:"$type" cborgen:"$type,const=app.bsky.graph.defs#starterPackViewBasic"`
-	Cid                string                             `json:"cid" cborgen:"cid"`
-	Creator            *ActorDefs_ProfileViewBasic        `json:"creator" cborgen:"creator"`
-	IndexedAt          string                             `json:"indexedAt" cborgen:"indexedAt"`
-	JoinedAllTimeCount *int64                             `json:"joinedAllTimeCount,omitempty" cborgen:"joinedAllTimeCount,omitempty"`
-	JoinedWeekCount    *int64                             `json:"joinedWeekCount,omitempty" cborgen:"joinedWeekCount,omitempty"`
-	Labels             []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	ListItemCount      *int64                             `json:"listItemCount,omitempty" cborgen:"listItemCount,omitempty"`
-	Record             *util.LexiconTypeDecoder           `json:"record" cborgen:"record"`
-	Uri                string                             `json:"uri" cborgen:"uri"`
+	LexiconTypeID      string                        `json:"$type" cborgen:"$type,const=app.bsky.graph.defs#starterPackViewBasic"`
+	Cid                string                        `json:"cid" cborgen:"cid"`
+	Creator            *ActorDefs_ProfileViewBasic   `json:"creator" cborgen:"creator"`
+	IndexedAt          string                        `json:"indexedAt" cborgen:"indexedAt"`
+	JoinedAllTimeCount *int64                        `json:"joinedAllTimeCount,omitempty" cborgen:"joinedAllTimeCount,omitempty"`
+	JoinedWeekCount    *int64                        `json:"joinedWeekCount,omitempty" cborgen:"joinedWeekCount,omitempty"`
+	Labels             []*comatproto.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	ListItemCount      *int64                        `json:"listItemCount,omitempty" cborgen:"listItemCount,omitempty"`
+	Record             *lexutil.LexiconTypeDecoder   `json:"record" cborgen:"record"`
+	Uri                string                        `json:"uri" cborgen:"uri"`
 }

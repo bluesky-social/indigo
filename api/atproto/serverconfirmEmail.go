@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // ServerConfirmEmail_Input is the input argument to a com.atproto.server.confirmEmail call.
@@ -17,8 +17,8 @@ type ServerConfirmEmail_Input struct {
 }
 
 // ServerConfirmEmail calls the XRPC method "com.atproto.server.confirmEmail".
-func ServerConfirmEmail(ctx context.Context, c util.LexClient, input *ServerConfirmEmail_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.server.confirmEmail", nil, input, nil); err != nil {
+func ServerConfirmEmail(ctx context.Context, c lexutil.LexClient, input *ServerConfirmEmail_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.server.confirmEmail", nil, input, nil); err != nil {
 		return err
 	}
 

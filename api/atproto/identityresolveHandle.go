@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // IdentityResolveHandle_Output is the output of a com.atproto.identity.resolveHandle call.
@@ -18,12 +18,12 @@ type IdentityResolveHandle_Output struct {
 // IdentityResolveHandle calls the XRPC method "com.atproto.identity.resolveHandle".
 //
 // handle: The handle to resolve.
-func IdentityResolveHandle(ctx context.Context, c util.LexClient, handle string) (*IdentityResolveHandle_Output, error) {
+func IdentityResolveHandle(ctx context.Context, c lexutil.LexClient, handle string) (*IdentityResolveHandle_Output, error) {
 	var out IdentityResolveHandle_Output
 
 	params := map[string]interface{}{}
 	params["handle"] = handle
-	if err := c.LexDo(ctx, util.Query, "", "com.atproto.identity.resolveHandle", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.identity.resolveHandle", params, nil, &out); err != nil {
 		return nil, err
 	}
 

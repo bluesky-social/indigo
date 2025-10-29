@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // TempRevokeAccountCredentials_Input is the input argument to a com.atproto.temp.revokeAccountCredentials call.
@@ -16,8 +16,8 @@ type TempRevokeAccountCredentials_Input struct {
 }
 
 // TempRevokeAccountCredentials calls the XRPC method "com.atproto.temp.revokeAccountCredentials".
-func TempRevokeAccountCredentials(ctx context.Context, c util.LexClient, input *TempRevokeAccountCredentials_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.temp.revokeAccountCredentials", nil, input, nil); err != nil {
+func TempRevokeAccountCredentials(ctx context.Context, c lexutil.LexClient, input *TempRevokeAccountCredentials_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.temp.revokeAccountCredentials", nil, input, nil); err != nil {
 		return err
 	}
 

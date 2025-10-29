@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphMuteThread_Input is the input argument to a app.bsky.graph.muteThread call.
@@ -16,8 +16,8 @@ type GraphMuteThread_Input struct {
 }
 
 // GraphMuteThread calls the XRPC method "app.bsky.graph.muteThread".
-func GraphMuteThread(ctx context.Context, c util.LexClient, input *GraphMuteThread_Input) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "app.bsky.graph.muteThread", nil, input, nil); err != nil {
+func GraphMuteThread(ctx context.Context, c lexutil.LexClient, input *GraphMuteThread_Input) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "app.bsky.graph.muteThread", nil, input, nil); err != nil {
 		return err
 	}
 

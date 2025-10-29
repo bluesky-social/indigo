@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // RepoApplyWrites_Create is a "create" in the com.atproto.repo.applyWrites schema.
@@ -19,8 +19,8 @@ type RepoApplyWrites_Create struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.repo.applyWrites#create"`
 	Collection    string `json:"collection" cborgen:"collection"`
 	// rkey: NOTE: maxLength is redundant with record-key format. Keeping it temporarily to ensure backwards compatibility.
-	Rkey  *string                  `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
-	Value *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
+	Rkey  *string                     `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
+	Value *lexutil.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 // RepoApplyWrites_CreateResult is a "createResult" in the com.atproto.repo.applyWrites schema.
@@ -79,7 +79,7 @@ func (t *RepoApplyWrites_Input_Writes_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *RepoApplyWrites_Input_Writes_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,6 @@ func (t *RepoApplyWrites_Input_Writes_Elem) UnmarshalJSON(b []byte) error {
 	case "com.atproto.repo.applyWrites#delete":
 		t.RepoApplyWrites_Delete = new(RepoApplyWrites_Delete)
 		return json.Unmarshal(b, t.RepoApplyWrites_Delete)
-
 	default:
 		return fmt.Errorf("closed unions must match a listed schema")
 	}
@@ -129,7 +128,7 @@ func (t *RepoApplyWrites_Output_Results_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *RepoApplyWrites_Output_Results_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -144,7 +143,6 @@ func (t *RepoApplyWrites_Output_Results_Elem) UnmarshalJSON(b []byte) error {
 	case "com.atproto.repo.applyWrites#deleteResult":
 		t.RepoApplyWrites_DeleteResult = new(RepoApplyWrites_DeleteResult)
 		return json.Unmarshal(b, t.RepoApplyWrites_DeleteResult)
-
 	default:
 		return fmt.Errorf("closed unions must match a listed schema")
 	}
@@ -154,10 +152,10 @@ func (t *RepoApplyWrites_Output_Results_Elem) UnmarshalJSON(b []byte) error {
 //
 // Operation which updates an existing record.
 type RepoApplyWrites_Update struct {
-	LexiconTypeID string                   `json:"$type" cborgen:"$type,const=com.atproto.repo.applyWrites#update"`
-	Collection    string                   `json:"collection" cborgen:"collection"`
-	Rkey          string                   `json:"rkey" cborgen:"rkey"`
-	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
+	LexiconTypeID string                      `json:"$type" cborgen:"$type,const=com.atproto.repo.applyWrites#update"`
+	Collection    string                      `json:"collection" cborgen:"collection"`
+	Rkey          string                      `json:"rkey" cborgen:"rkey"`
+	Value         *lexutil.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 // RepoApplyWrites_UpdateResult is a "updateResult" in the com.atproto.repo.applyWrites schema.
@@ -169,9 +167,9 @@ type RepoApplyWrites_UpdateResult struct {
 }
 
 // RepoApplyWrites calls the XRPC method "com.atproto.repo.applyWrites".
-func RepoApplyWrites(ctx context.Context, c util.LexClient, input *RepoApplyWrites_Input) (*RepoApplyWrites_Output, error) {
+func RepoApplyWrites(ctx context.Context, c lexutil.LexClient, input *RepoApplyWrites_Input) (*RepoApplyWrites_Output, error) {
 	var out RepoApplyWrites_Output
-	if err := c.LexDo(ctx, util.Procedure, "application/json", "com.atproto.repo.applyWrites", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.repo.applyWrites", nil, input, &out); err != nil {
 		return nil, err
 	}
 

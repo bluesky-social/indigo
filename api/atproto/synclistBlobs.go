@@ -7,7 +7,7 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // SyncListBlobs_Output is the output of a com.atproto.sync.listBlobs call.
@@ -20,7 +20,7 @@ type SyncListBlobs_Output struct {
 //
 // did: The DID of the repo.
 // since: Optional revision of the repo to list blobs since.
-func SyncListBlobs(ctx context.Context, c util.LexClient, cursor string, did string, limit int64, since string) (*SyncListBlobs_Output, error) {
+func SyncListBlobs(ctx context.Context, c lexutil.LexClient, cursor string, did string, limit int64, since string) (*SyncListBlobs_Output, error) {
 	var out SyncListBlobs_Output
 
 	params := map[string]interface{}{}
@@ -34,7 +34,7 @@ func SyncListBlobs(ctx context.Context, c util.LexClient, cursor string, did str
 	if since != "" {
 		params["since"] = since
 	}
-	if err := c.LexDo(ctx, util.Query, "", "com.atproto.sync.listBlobs", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.sync.listBlobs", params, nil, &out); err != nil {
 		return nil, err
 	}
 

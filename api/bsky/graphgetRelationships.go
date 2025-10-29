@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphGetRelationships_Output is the output of a app.bsky.graph.getRelationships call.
@@ -36,7 +36,7 @@ func (t *GraphGetRelationships_Output_Relationships_Elem) MarshalJSON() ([]byte,
 }
 
 func (t *GraphGetRelationships_Output_Relationships_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
+	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,6 @@ func (t *GraphGetRelationships_Output_Relationships_Elem) UnmarshalJSON(b []byte
 	case "app.bsky.graph.defs#notFoundActor":
 		t.GraphDefs_NotFoundActor = new(GraphDefs_NotFoundActor)
 		return json.Unmarshal(b, t.GraphDefs_NotFoundActor)
-
 	default:
 		return nil
 	}
@@ -58,7 +57,7 @@ func (t *GraphGetRelationships_Output_Relationships_Elem) UnmarshalJSON(b []byte
 //
 // actor: Primary account requesting relationships for.
 // others: List of 'other' accounts to be related back to the primary.
-func GraphGetRelationships(ctx context.Context, c util.LexClient, actor string, others []string) (*GraphGetRelationships_Output, error) {
+func GraphGetRelationships(ctx context.Context, c lexutil.LexClient, actor string, others []string) (*GraphGetRelationships_Output, error) {
 	var out GraphGetRelationships_Output
 
 	params := map[string]interface{}{}
@@ -66,7 +65,7 @@ func GraphGetRelationships(ctx context.Context, c util.LexClient, actor string, 
 	if len(others) != 0 {
 		params["others"] = others
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.graph.getRelationships", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.graph.getRelationships", params, nil, &out); err != nil {
 		return nil, err
 	}
 

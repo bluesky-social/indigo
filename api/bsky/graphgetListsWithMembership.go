@@ -7,7 +7,7 @@ package bsky
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphGetListsWithMembership_ListWithMembership is a "listWithMembership" in the app.bsky.graph.getListsWithMembership schema.
@@ -28,7 +28,7 @@ type GraphGetListsWithMembership_Output struct {
 //
 // actor: The account (actor) to check for membership.
 // purposes: Optional filter by list purpose. If not specified, all supported types are returned.
-func GraphGetListsWithMembership(ctx context.Context, c util.LexClient, actor string, cursor string, limit int64, purposes []string) (*GraphGetListsWithMembership_Output, error) {
+func GraphGetListsWithMembership(ctx context.Context, c lexutil.LexClient, actor string, cursor string, limit int64, purposes []string) (*GraphGetListsWithMembership_Output, error) {
 	var out GraphGetListsWithMembership_Output
 
 	params := map[string]interface{}{}
@@ -42,7 +42,7 @@ func GraphGetListsWithMembership(ctx context.Context, c util.LexClient, actor st
 	if len(purposes) != 0 {
 		params["purposes"] = purposes
 	}
-	if err := c.LexDo(ctx, util.Query, "", "app.bsky.graph.getListsWithMembership", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.graph.getListsWithMembership", params, nil, &out); err != nil {
 		return nil, err
 	}
 

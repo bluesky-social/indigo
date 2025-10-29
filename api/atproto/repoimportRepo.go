@@ -8,12 +8,12 @@ import (
 	"context"
 	"io"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // RepoImportRepo calls the XRPC method "com.atproto.repo.importRepo".
-func RepoImportRepo(ctx context.Context, c util.LexClient, input io.Reader) error {
-	if err := c.LexDo(ctx, util.Procedure, "application/vnd.ipld.car", "com.atproto.repo.importRepo", nil, input, nil); err != nil {
+func RepoImportRepo(ctx context.Context, c lexutil.LexClient, input io.Reader) error {
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/vnd.ipld.car", "com.atproto.repo.importRepo", nil, input, nil); err != nil {
 		return err
 	}
 
