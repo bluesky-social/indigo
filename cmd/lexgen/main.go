@@ -45,7 +45,7 @@ func run(args []string) error {
 
 var cmdLegacy = &cli.Command{
 	Name:      "legacy",
-	Usage:     "generate code with legacy behaviors",
+	Usage:     "generate code with legacy behaviors (for indigo only)",
 	ArgsUsage: `<file-or-dir>*`,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
@@ -85,17 +85,21 @@ var cmdGen = &cli.Command{
 			Usage:   "base directory for output packages",
 			Sources: cli.EnvVars("OUTPUT_DIR"),
 		},
+		&cli.BoolFlag{
+			Name:  "no-imports-tidy",
+			Usage: "skip cleanup of go imports in writen output",
+		},
 	},
 	Action: runGen,
 }
 
-func runGen(ctx context.Context, cmd *cli.Command) error {
+func collectPaths(cmd *cli.Command) ([]string, lexicon.Catalog, error) {
 	paths := cmd.Args().Slice()
 	if !cmd.Args().Present() {
 		paths = []string{cmd.String("lexicons-dir")}
 		_, err := os.Stat(paths[0])
 		if err != nil {
-			return fmt.Errorf("no path arguments specified and default lexicon directory not found\n%w", err)
+			return nil, nil, fmt.Errorf("no path arguments specified and default lexicon directory not found\n%w", err)
 		}
 	}
 
@@ -105,33 +109,49 @@ func runGen(ctx context.Context, cmd *cli.Command) error {
 	ldinfo, err := os.Stat(lexDir)
 	if err == nil && ldinfo.IsDir() {
 		if err := cat.LoadDirectory(lexDir); err != nil {
-			return err
+			return nil, nil, err
 		}
 	}
+
+	filePaths := []string{}
 
 	for _, p := range paths {
 		finfo, err := os.Stat(p)
 		if err != nil {
-			return fmt.Errorf("failed loading %s: %w", p, err)
+			return nil, nil, fmt.Errorf("failed loading %s: %w", p, err)
 		}
 		if finfo.IsDir() {
 			if p != cmd.String("lexicons-dir") {
 				// HACK: load first directory
 				if err := cat.LoadDirectory(p); err != nil {
-					return err
+					return nil, nil, err
 				}
 			}
 			if err := filepath.WalkDir(p, func(fp string, d fs.DirEntry, err error) error {
 				if d.IsDir() || path.Ext(fp) != ".json" {
 					return nil
 				}
-				return genFile(ctx, cmd, &cat, fp)
+				filePaths = append(filePaths, fp)
+				return nil
 			}); err != nil {
-				return err
+				return nil, nil, err
 			}
 			continue
 		}
-		if err := genFile(ctx, cmd, &cat, p); err != nil {
+		filePaths = append(filePaths, p)
+	}
+	return filePaths, &cat, nil
+}
+
+func runGen(ctx context.Context, cmd *cli.Command) error {
+
+	filePaths, cat, err := collectPaths(cmd)
+	if err != nil {
+		return err
+	}
+
+	for _, p := range filePaths {
+		if err := genFile(ctx, cmd, cat, p); err != nil {
 			return err
 		}
 	}
@@ -145,10 +165,9 @@ func genFile(ctx context.Context, cmd *cli.Command, cat lexicon.Catalog, p strin
 	}
 
 	// parse file regularly
-	// TODO: use json/v2 when available for case-sensitivity
+	// NOTE: use json/v2 when it stabilizes for case-sensitivity
 	var sf lexicon.SchemaFile
 
-	// two-part parsing before looking at errors
 	err = json.Unmarshal(b, &sf)
 	if err == nil {
 		err = sf.FinishParse()
@@ -162,7 +181,7 @@ func genFile(ctx context.Context, cmd *cli.Command, cat lexicon.Catalog, p strin
 		return fmt.Errorf("internal codegen flattening error (%s): %w", p, err)
 	}
 
-	cfg := &lexgen.GenConfig{}
+	cfg := lexgen.NewGenConfig()
 	if cmd.Bool("legacy-mode") {
 		cfg = lexgen.LegacyConfig()
 	}
@@ -183,9 +202,8 @@ func genFile(ctx context.Context, cmd *cli.Command, cat lexicon.Catalog, p strin
 		return err
 	}
 
-	// TODO: this gets really slow if any imports are missing. should make this a CLI arg
-	fixImports := true
-	if fixImports {
+	if !cmd.Bool("no-imports-tidy") {
+		// NOTE: processing imports per file gets slow if imports are missing
 		fmtOpts := imports.Options{
 			Comments:  true,
 			TabIndent: false,
