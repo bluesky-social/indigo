@@ -105,6 +105,7 @@ func (fl *FlatLexicon) flattenType(fd *FlatDef, tpath []string, def *lexicon.Sch
 
 	switch v := def.Inner.(type) {
 	case lexicon.SchemaRecord:
+		fl.Types = append(fl.Types, ft)
 		if err := fl.flattenObject(fd, tpath, &v.Record); err != nil {
 			return err
 		}
@@ -117,6 +118,7 @@ func (fl *FlatLexicon) flattenType(fd *FlatDef, tpath []string, def *lexicon.Sch
 				return err
 			}
 		}
+		fl.Types = append(fl.Types, ft)
 	case lexicon.SchemaProcedure:
 		// v.Properties: same as above
 		if v.Input != nil && v.Input.Schema != nil {
@@ -133,6 +135,7 @@ func (fl *FlatLexicon) flattenType(fd *FlatDef, tpath []string, def *lexicon.Sch
 				return err
 			}
 		}
+		fl.Types = append(fl.Types, ft)
 	case lexicon.SchemaSubscription:
 		// v.Properties: same as above
 		if v.Message != nil {
@@ -147,7 +150,9 @@ func (fl *FlatLexicon) flattenType(fd *FlatDef, tpath []string, def *lexicon.Sch
 				return fmt.Errorf("subscription with non-union message schema: %T", v.Message.Schema.Inner)
 			}
 		}
+		fl.Types = append(fl.Types, ft)
 	case lexicon.SchemaObject:
+		fl.Types = append(fl.Types, ft)
 		if err := fl.flattenObject(fd, tpath, &v); err != nil {
 			return err
 		}
@@ -155,12 +160,14 @@ func (fl *FlatLexicon) flattenType(fd *FlatDef, tpath []string, def *lexicon.Sch
 		if !strings.HasPrefix(v.Ref, "#") {
 			fl.ExternalRefs[strings.TrimSuffix(v.Ref, "#main")] = true
 		}
+		fl.Types = append(fl.Types, ft)
 	case lexicon.SchemaUnion:
 		for _, ref := range v.Refs {
 			if !strings.HasPrefix(ref, "#") {
 				fl.ExternalRefs[strings.TrimSuffix(ref, "#main")] = true
 			}
 		}
+		fl.Types = append(fl.Types, ft)
 	case lexicon.SchemaArray:
 		// flatten the inner item
 		tp := slices.Clone(tpath)
@@ -173,24 +180,31 @@ func (fl *FlatLexicon) flattenType(fd *FlatDef, tpath []string, def *lexicon.Sch
 	case lexicon.SchemaString, lexicon.SchemaNull, lexicon.SchemaInteger, lexicon.SchemaBoolean, lexicon.SchemaUnknown, lexicon.SchemaBytes:
 		// don't emit
 		// NOTE: might want to emit some string "knownValue" lists in the future?
-		return nil
 	case lexicon.SchemaCIDLink, lexicon.SchemaBlob:
 		// don't emit
-		return nil
 	case lexicon.SchemaToken:
 		// pass-through (emit)
+		fl.Types = append(fl.Types, ft)
 	case lexicon.SchemaPermissionSet, lexicon.SchemaPermission:
 		// pass-through (emit)
+		fl.Types = append(fl.Types, ft)
 	default:
 		return fmt.Errorf("unsupported def type for flattening (%s): %T", fd.Name, def.Inner)
 	}
 
-	fl.Types = append(fl.Types, ft)
 	return nil
 }
 
 func (fl *FlatLexicon) flattenObject(fd *FlatDef, tpath []string, obj *lexicon.SchemaObject) error {
-	for fname, field := range obj.Properties {
+
+	keys := []string{}
+	for n := range obj.Properties {
+		keys = append(keys, n)
+	}
+	sort.Strings(keys)
+
+	for _, fname := range keys {
+		field := obj.Properties[fname]
 		tp := slices.Clone(tpath)
 		tp = append(tp, fname)
 		switch v := field.Inner.(type) {
@@ -221,4 +235,13 @@ func (fl *FlatLexicon) flattenObject(fd *FlatDef, tpath []string, obj *lexicon.S
 		}
 	}
 	return nil
+}
+
+// Returns the type of any "#main" definition in this file (or else an empty string)
+func (fl *FlatLexicon) MainType() string {
+	main, ok := fl.Defs["main"]
+	if !ok {
+		return ""
+	}
+	return main.Type
 }

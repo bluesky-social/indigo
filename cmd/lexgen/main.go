@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"go/format"
 	"io/fs"
-	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
@@ -37,15 +36,40 @@ func run(args []string) error {
 		Version: versioninfo.Short(),
 	}
 	app.Commands = []*cli.Command{
-		cmdGenerate,
-		cmdDev,
+		cmdLegacy,
+		cmdGen,
 	}
 	return app.Run(context.Background(), args)
 }
 
-var cmdGenerate = &cli.Command{
-	Name:      "generate",
-	Usage:     "check schema syntax, best practices, and style",
+var cmdLegacy = &cli.Command{
+	Name:      "legacy",
+	Usage:     "generate code with legacy behaviors",
+	ArgsUsage: `<file-or-dir>*`,
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "lexicons-dir",
+			Value:   "./lexicons/",
+			Usage:   "base directory for project Lexicon files",
+			Sources: cli.EnvVars("LEXICONS_DIR"),
+		},
+		&cli.StringFlag{
+			Name:    "output-dir",
+			Value:   "./lexgen-output/",
+			Usage:   "base directory for output packages",
+			Sources: cli.EnvVars("OUTPUT_DIR"),
+		},
+		&cli.BoolFlag{
+			Name:  "legacy-mode",
+			Value: true,
+		},
+	},
+	Action: runGen,
+}
+
+var cmdGen = &cli.Command{
+	Name:      "gen",
+	Usage:     "generate code for lexicons",
 	ArgsUsage: `<file-or-dir>*`,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
@@ -61,10 +85,10 @@ var cmdGenerate = &cli.Command{
 			Sources: cli.EnvVars("OUTPUT_DIR"),
 		},
 	},
-	Action: runGenerate,
+	Action: runGen,
 }
 
-func runGenerate(ctx context.Context, cmd *cli.Command) error {
+func runGen(ctx context.Context, cmd *cli.Command) error {
 	paths := cmd.Args().Slice()
 	if !cmd.Args().Present() {
 		paths = []string{cmd.String("lexicons-dir")}
@@ -84,7 +108,6 @@ func runGenerate(ctx context.Context, cmd *cli.Command) error {
 		}
 	}
 
-	slog.Debug("starting lint run")
 	for _, p := range paths {
 		finfo, err := os.Stat(p)
 		if err != nil {
@@ -138,10 +161,14 @@ func genFile(ctx context.Context, cmd *cli.Command, cat lexicon.Catalog, p strin
 		return fmt.Errorf("internal codegen flattening error (%s): %w", p, err)
 	}
 
-	buf := new(bytes.Buffer)
+	cfg := &GenConfig{}
+	if cmd.Bool("legacy-mode") {
+		cfg = LegacyConfig()
+	}
 
+	buf := new(bytes.Buffer)
 	gen := FlatGenerator{
-		Config: LegacyConfig(),
+		Config: cfg,
 		Lex:    flat,
 		Cat:    cat,
 		Out:    buf,
@@ -155,7 +182,8 @@ func genFile(ctx context.Context, cmd *cli.Command, cat lexicon.Catalog, p strin
 		return err
 	}
 
-	fixImports := false
+	// TODO: this gets really slow if any imports are missing. should make this a CLI arg
+	fixImports := true
 	if fixImports {
 		fmtOpts := imports.Options{
 			Comments:  true,
@@ -174,54 +202,4 @@ func genFile(ctx context.Context, cmd *cli.Command, cat lexicon.Catalog, p strin
 		}
 		return os.WriteFile(outPath, formatted, 0644)
 	}
-}
-
-var cmdDev = &cli.Command{
-	Name:      "dev",
-	ArgsUsage: `<file>`,
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:    "lexicons-dir",
-			Value:   "./lexicons/",
-			Usage:   "base directory for project Lexicon files",
-			Sources: cli.EnvVars("LEXICONS_DIR"),
-		},
-	},
-	Action: runDev,
-}
-
-func runDev(ctx context.Context, cmd *cli.Command) error {
-	if !cmd.Args().Present() {
-		return fmt.Errorf("require one or more paths")
-	}
-
-	b, err := os.ReadFile(cmd.Args().First())
-	if err != nil {
-		return err
-	}
-
-	var sf lexicon.SchemaFile
-	err = json.Unmarshal(b, &sf)
-	if err == nil {
-		err = sf.FinishParse()
-	}
-	if err != nil {
-		return err
-	}
-
-	flat, err := FlattenSchemaFile(&sf)
-	if err != nil {
-		return err
-	}
-
-	cat := lexicon.NewBaseCatalog()
-	gen := FlatGenerator{
-		Config: &GenConfig{
-			RegisterLexiconTypeID: true,
-		},
-		Cat: &cat,
-		Lex: flat,
-		Out: os.Stdout,
-	}
-	return gen.WriteLexicon()
 }
