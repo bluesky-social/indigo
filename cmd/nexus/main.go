@@ -2,56 +2,187 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	_ "github.com/joho/godotenv/autoload"
+
+	"github.com/carlmjohnson/versioninfo"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
-	nexus, err := NewNexus(NexusConfig{
-		DBPath:    "./nexus.db",
-		RelayHost: "https://relay1.us-east.bsky.network",
-		// SignalCollection:  "xyz.statusphere.status",
-		FullNetworkMode:   false,
-		DisableAcks:       false,
-		ResyncParallelism: 5,
-	})
-	if err != nil {
-		log.Fatal(err)
+	if err := run(os.Args); err != nil {
+		slog.Error("exiting process", "err", err.Error())
+		os.Exit(-1)
+	}
+}
+
+func run(args []string) error {
+	app := cli.App{
+		Name:    "nexus",
+		Usage:   "atproto sync service",
+		Version: versioninfo.Short(),
 	}
 
-	fhCtx, fhCancel := context.WithCancel(context.Background())
+	app.Flags = []cli.Flag{
+		&cli.StringFlag{
+			Name:    "db-path",
+			Usage:   "path to SQLite database file",
+			Value:   "./nexus.db",
+			EnvVars: []string{"NEXUS_DB_PATH"},
+		},
+		&cli.StringFlag{
+			Name:    "relay-host",
+			Usage:   "AT Protocol relay host URL",
+			Value:   "https://bsky.network",
+			EnvVars: []string{"NEXUS_RELAY_HOST"},
+		},
+		&cli.StringFlag{
+			Name:    "bind",
+			Usage:   "address and port to listen on for HTTP APIs",
+			Value:   ":8080",
+			EnvVars: []string{"NEXUS_BIND"},
+		},
+		&cli.IntFlag{
+			Name:    "firehose-parallelism",
+			Usage:   "number of parallel firehose event processors",
+			Value:   10,
+			EnvVars: []string{"NEXUS_FIREHOSE_PARALLELISM"},
+		},
+		&cli.IntFlag{
+			Name:    "resync-parallelism",
+			Usage:   "number of parallel resync workers",
+			Value:   5,
+			EnvVars: []string{"NEXUS_RESYNC_PARALLELISM"},
+		},
+		&cli.DurationFlag{
+			Name:    "cursor-save-interval",
+			Usage:   "how often to save firehose cursor",
+			Value:   0,
+			EnvVars: []string{"NEXUS_CURSOR_SAVE_INTERVAL"},
+		},
+		&cli.BoolFlag{
+			Name:    "full-network-mode",
+			Usage:   "enumerate and sync all repos on the network",
+			EnvVars: []string{"NEXUS_FULL_NETWORK_MODE"},
+		},
+		&cli.StringFlag{
+			Name:    "signal-collection",
+			Usage:   "enumerate repos by collection (exact NSID)",
+			EnvVars: []string{"NEXUS_SIGNAL_COLLECTION"},
+		},
+		&cli.BoolFlag{
+			Name:    "disable-acks",
+			Usage:   "disable client acknowledgments (fire-and-forget mode)",
+			EnvVars: []string{"NEXUS_DISABLE_ACKS"},
+		},
+		&cli.StringFlag{
+			Name:    "webhook-url",
+			Usage:   "webhook URL for event delivery (instead of WebSocket)",
+			EnvVars: []string{"NEXUS_WEBHOOK_URL"},
+		},
+		&cli.StringSliceFlag{
+			Name:    "collection-filters",
+			Usage:   "filter output records by collection (supports wildcards)",
+			EnvVars: []string{"NEXUS_COLLECTION_FILTERS"},
+		},
+		&cli.StringFlag{
+			Name:    "log-level",
+			Usage:   "log verbosity level (debug, info, warn, error)",
+			Value:   "info",
+			EnvVars: []string{"NEXUS_LOG_LEVEL", "LOG_LEVEL"},
+		},
+	}
+
+	app.Action = runNexus
+
+	return app.Run(args)
+}
+
+func runNexus(cctx *cli.Context) error {
+	ctx := cctx.Context
+	logger := configLogger(cctx, os.Stdout)
+	slog.SetDefault(logger)
+
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+
+	config := NexusConfig{
+		DBPath:                     cctx.String("db-path"),
+		RelayHost:                  cctx.String("relay-host"),
+		FirehoseParallelism:        cctx.Int("firehose-parallelism"),
+		ResyncParallelism:          cctx.Int("resync-parallelism"),
+		FirehoseCursorSaveInterval: cctx.Duration("cursor-save-interval"),
+		FullNetworkMode:            cctx.Bool("full-network-mode"),
+		SignalCollection:           cctx.String("signal-collection"),
+		DisableAcks:                cctx.Bool("disable-acks"),
+		WebhookURL:                 cctx.String("webhook-url"),
+		CollectionFilters:          cctx.StringSlice("collection-filters"),
+	}
+
+	logger.Info("creating nexus service", "config", config)
+	nexus, err := NewNexus(config)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("starting nexus background workers")
+	if err := nexus.Start(ctx); err != nil {
+		return err
+	}
+
+	svcErr := make(chan error, 1)
 	go func() {
-		err := nexus.FirehoseConsumer.Run(fhCtx)
+		logger.Info("starting HTTP server", "addr", cctx.String("bind"))
+		err := nexus.echo.Start(cctx.String("bind"))
+		svcErr <- err
+	}()
+
+	logger.Info("startup complete")
+	select {
+	case <-signals:
+		logger.Info("received shutdown signal")
+	case err := <-svcErr:
 		if err != nil {
-			log.Printf("Firehose error: %v", err)
+			logger.Error("server error", "err", err)
 		}
-	}()
+	}
 
-	go func() {
-		if err := nexus.Start(context.Background(), ":8080"); err != nil {
-			log.Printf("Server error: %v", err)
-		}
-	}()
-
-	// Wait for interrupt signal
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-	<-quit
-
-	log.Println("Shutting down server...")
-
-	fhCancel()
-
-	// Graceful shutdown with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	logger.Info("shutting down")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := nexus.Shutdown(ctx); err != nil {
-		log.Fatal(err)
+	if err := nexus.Shutdown(shutdownCtx); err != nil {
+		logger.Error("error during shutdown", "err", err)
+		return err
 	}
 
-	log.Println("Server stopped")
+	logger.Info("shutdown complete")
+	return nil
+}
+
+func configLogger(cctx *cli.Context, writer *os.File) *slog.Logger {
+	var level slog.Level
+	switch cctx.String("log-level") {
+	case "debug":
+		level = slog.LevelDebug
+	case "info":
+		level = slog.LevelInfo
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
+	logger := slog.New(slog.NewJSONHandler(writer, &slog.HandlerOptions{
+		Level: level,
+	}))
+
+	return logger
 }

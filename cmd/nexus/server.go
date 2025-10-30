@@ -1,38 +1,55 @@
 package main
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
 
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
+type NexusServer struct {
+	db     *gorm.DB
+	echo   *echo.Echo
+	logger *slog.Logger
+	Outbox *Outbox
 }
 
-func (n *Nexus) registerRoutes() {
+func (n *NexusServer) Start(address string) error {
+	n.echo = echo.New()
+	n.echo.HideBanner = true
 	n.echo.GET("/health", n.handleHealthcheck)
 	n.echo.GET("/listen", n.handleListen)
 	n.echo.POST("/add-repos", n.handleAddRepos)
 	n.echo.POST("/remove-repos", n.handleAddRepos)
+	return n.echo.Start(address)
 }
 
-func (n *Nexus) handleHealthcheck(c echo.Context) error {
+func (n *NexusServer) Shutdown(ctx context.Context) error {
+	return n.echo.Shutdown(ctx)
+}
+
+func (n *NexusServer) handleHealthcheck(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{
 		"status": "ok",
 	})
 }
 
-func (n *Nexus) handleListen(c echo.Context) error {
-	if n.outbox.mode == OutboxModeWebhook {
+var wsUpgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
+func (n *NexusServer) handleListen(c echo.Context) error {
+	if n.Outbox.mode == OutboxModeWebhook {
 		return echo.NewHTTPError(http.StatusBadRequest, "websocket not available in webhook mode")
 	}
 
-	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
+	ws, err := wsUpgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
 		return err
 	}
@@ -52,8 +69,8 @@ func (n *Nexus) handleListen(c echo.Context) error {
 			}
 
 			// Process acks directly in websocket-ack mode
-			if n.outbox.mode == OutboxModeWebsocketAck {
-				n.outbox.AckEvent(msg.ID)
+			if n.Outbox.mode == OutboxModeWebsocketAck {
+				n.Outbox.AckEvent(msg.ID)
 			}
 		}
 	}()
@@ -63,7 +80,7 @@ func (n *Nexus) handleListen(c echo.Context) error {
 		case <-disconnected:
 			n.logger.Info("websocket disconnected")
 			return nil
-		case evt, ok := <-n.outbox.events:
+		case evt, ok := <-n.Outbox.events:
 			if !ok {
 				return nil
 			}
@@ -73,8 +90,8 @@ func (n *Nexus) handleListen(c echo.Context) error {
 			}
 			// In fire-and-forget mode, ack immediately after write succeeds
 			// In websocket-ack mode, wait for client to send ack and handle in read loop
-			if n.outbox.mode == OutboxModeFireAndForget {
-				n.outbox.AckEvent(evt.ID)
+			if n.Outbox.mode == OutboxModeFireAndForget {
+				n.Outbox.AckEvent(evt.ID)
 			}
 		}
 	}
@@ -84,7 +101,7 @@ type DidPayload struct {
 	DIDs []string `json:"dids"`
 }
 
-func (n *Nexus) handleAddRepos(c echo.Context) error {
+func (n *NexusServer) handleAddRepos(c echo.Context) error {
 	var payload DidPayload
 	if err := c.Bind(&payload); err != nil {
 		return err
@@ -110,7 +127,7 @@ func (n *Nexus) handleAddRepos(c echo.Context) error {
 	})
 }
 
-func (n *Nexus) handleRemoveRepos(c echo.Context) error {
+func (n *NexusServer) handleRemoveRepos(c echo.Context) error {
 	var payload DidPayload
 	if err := c.Bind(&payload); err != nil {
 		return err

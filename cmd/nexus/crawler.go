@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -11,15 +12,21 @@ import (
 	"gorm.io/gorm"
 )
 
-func (n *Nexus) EnumerateNetwork(ctx context.Context) error {
-	cursor, err := n.getListReposCursor(ctx)
+type Crawler struct {
+	DB        *gorm.DB
+	Logger    *slog.Logger
+	RelayHost string
+}
+
+func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
+	cursor, err := c.getListReposCursor(ctx)
 	if err != nil {
 		return err
 	}
 
 	client := &xrpc.Client{
 		Client: &http.Client{},
-		Host:   n.RelayHost,
+		Host:   c.RelayHost,
 	}
 
 	for {
@@ -50,33 +57,33 @@ func (n *Nexus) EnumerateNetwork(ctx context.Context) error {
 			break
 		}
 
-		if err := n.db.Save(&repos).Error; err != nil {
-			n.logger.Error("failed to save repos batch", "error", err)
+		if err := c.DB.Save(&repos).Error; err != nil {
+			c.Logger.Error("failed to save repos batch", "error", err)
 			return err
 		}
 
-		n.logger.Info("enumerated repos batch", "count", len(repos))
+		c.Logger.Info("enumerated repos batch", "count", len(repos))
 
 		if repoList.Cursor == nil || *repoList.Cursor == "" {
 			break
 		}
 		cursor = *repoList.Cursor
 
-		if err := n.db.Save(&models.ListReposCursor{
-			Host:   n.RelayHost,
+		if err := c.DB.Save(&models.ListReposCursor{
+			Host:   c.RelayHost,
 			Cursor: cursor,
 		}).Error; err != nil {
-			n.logger.Error("failed to save lsit repos cursor", "error", err)
+			c.Logger.Error("failed to save lsit repos cursor", "error", err)
 		}
 	}
 
-	n.logger.Info("network enumeration complete")
+	c.Logger.Info("network enumeration complete")
 	return nil
 }
 
-func (n *Nexus) getListReposCursor(ctx context.Context) (string, error) {
+func (c *Crawler) getListReposCursor(ctx context.Context) (string, error) {
 	var dbCursor models.ListReposCursor
-	err := n.db.Where("host = ?", n.RelayHost).First(&dbCursor).Error
+	err := c.DB.Where("host = ?", c.RelayHost).First(&dbCursor).Error
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return "", fmt.Errorf("failed to read list repos cursor: %w", err)
@@ -86,15 +93,15 @@ func (n *Nexus) getListReposCursor(ctx context.Context) (string, error) {
 	return dbCursor.Cursor, nil
 }
 
-func (n *Nexus) EnumerateNetworkByCollection(ctx context.Context, collection string) error {
-	cursor, err := n.getCollectionCursor(ctx, collection)
+func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection string) error {
+	cursor, err := c.getCollectionCursor(ctx, collection)
 	if err != nil {
 		return err
 	}
 
 	client := &xrpc.Client{
 		Client: &http.Client{},
-		Host:   n.RelayHost,
+		Host:   c.RelayHost,
 	}
 
 	for {
@@ -122,34 +129,34 @@ func (n *Nexus) EnumerateNetworkByCollection(ctx context.Context, collection str
 			break
 		}
 
-		if err := n.db.Save(&repos).Error; err != nil {
-			n.logger.Error("failed to save repos batch", "error", err)
+		if err := c.DB.Save(&repos).Error; err != nil {
+			c.Logger.Error("failed to save repos batch", "error", err)
 			return err
 		}
 
-		n.logger.Info("enumerated repos by collection batch", "collection", collection, "count", len(repos))
+		c.Logger.Info("enumerated repos by collection batch", "collection", collection, "count", len(repos))
 
 		if repoList.Cursor == nil || *repoList.Cursor == "" {
 			break
 		}
 		cursor = *repoList.Cursor
 
-		if err := n.db.Save(&models.CollectionCursor{
-			Host:       n.RelayHost,
+		if err := c.DB.Save(&models.CollectionCursor{
+			Host:       c.RelayHost,
 			Collection: collection,
 			Cursor:     cursor,
 		}).Error; err != nil {
-			n.logger.Error("failed to save collection cursor", "error", err)
+			c.Logger.Error("failed to save collection cursor", "error", err)
 		}
 	}
 
-	n.logger.Info("collection enumeration complete", "collection", collection)
+	c.Logger.Info("collection enumeration complete", "collection", collection)
 	return nil
 }
 
-func (n *Nexus) getCollectionCursor(ctx context.Context, collection string) (string, error) {
+func (c *Crawler) getCollectionCursor(ctx context.Context, collection string) (string, error) {
 	var dbCursor models.CollectionCursor
-	err := n.db.Where("host = ? AND collection = ?", n.RelayHost, collection).First(&dbCursor).Error
+	err := c.DB.Where("host = ? AND collection = ?", c.RelayHost, collection).First(&dbCursor).Error
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return "", fmt.Errorf("failed to read collection cursor: %w", err)
