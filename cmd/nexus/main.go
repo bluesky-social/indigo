@@ -11,9 +11,12 @@ import (
 
 func main() {
 	nexus, err := NewNexus(NexusConfig{
-		DBPath:          "./nexus.db",
-		RelayHost:       "wss://relay1.us-east.bsky.network",
-		FullNetworkMode: true,
+		DBPath:    "./nexus.db",
+		RelayHost: "https://relay1.us-east.bsky.network",
+		// SignalCollection:  "xyz.statusphere.status",
+		FullNetworkMode:   false,
+		DisableAcks:       false,
+		ResyncParallelism: 5,
 	})
 	if err != nil {
 		log.Fatal(err)
