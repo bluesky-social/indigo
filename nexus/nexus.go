@@ -51,7 +51,7 @@ type NexusConfig struct {
 }
 
 func NewNexus(config NexusConfig) (*Nexus, error) {
-	db, err := gorm.Open(sqlite.Open(config.DBPath+"?_journal_mode=WAL&_busy_timeout=10000&_synchronous=NORMAL&_temp_store=MEMORY&_cache_size=-64000&_wal_autocheckpoint=3000"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(config.DBPath+"?_journal_mode=WAL&_busy_timeout=10000&_synchronous=NORMAL&_temp_store=MEMORY&_cache_size=8000&_wal_autocheckpoint=3000"), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
