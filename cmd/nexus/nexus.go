@@ -8,9 +8,8 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
-	"github.com/labstack/echo/v4"
+	"github.com/bluesky-social/indigo/events"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -18,19 +17,22 @@ import (
 
 type Nexus struct {
 	db     *gorm.DB
-	echo   *echo.Echo
 	logger *slog.Logger
 
 	Dir       identity.Directory
 	RelayHost string
 
-	outbox *Outbox
+	Server *NexusServer
+	Outbox *Outbox
 
 	FirehoseConsumer *FirehoseConsumer
 	EventProcessor   *EventProcessor
+	Crawler          *Crawler
 
 	FullNetworkMode   bool
 	CollectionFilters []string
+
+	config NexusConfig
 
 	claimJobMu   sync.Mutex
 	pdsBackoff   map[string]time.Time
@@ -62,9 +64,6 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		return nil, err
 	}
 
-	e := echo.New()
-	e.HideBanner = true
-
 	bdir := identity.BaseDirectory{
 		TryAuthoritativeDNS:   false,
 		SkipDNSDomainSuffixes: []string{".bsky.social"},
@@ -82,18 +81,25 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 
 	n := &Nexus{
 		db:     db,
-		echo:   e,
 		logger: slog.Default().With("system", "nexus"),
 
 		Dir:       &cdir,
 		RelayHost: config.RelayHost,
 
-		outbox: NewOutbox(db, outboxMode, config.WebhookURL),
+		Outbox: NewOutbox(db, outboxMode, config.WebhookURL),
 
 		FullNetworkMode:   config.FullNetworkMode,
 		CollectionFilters: config.CollectionFilters,
 
+		config: config,
+
 		pdsBackoff: make(map[string]time.Time),
+	}
+
+	n.Server = &NexusServer{
+		db:     db,
+		logger: n.logger.With("component", "server"),
+		Outbox: n.Outbox,
 	}
 
 	firehoseParallelism := config.FirehoseParallelism
@@ -111,7 +117,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		DB:                db,
 		Dir:               n.Dir,
 		RelayHost:         config.RelayHost,
-		Outbox:            n.outbox,
+		Outbox:            n.Outbox,
 		FullNetworkMode:   config.FullNetworkMode,
 		CollectionFilters: config.CollectionFilters,
 	}
@@ -139,44 +145,58 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		GetCursor:   n.EventProcessor.ReadLastCursor,
 	}
 
-	// crash recovery: reset any partially repos
-	if err := n.resetPartiallyResynced(); err != nil {
-		return nil, err
+	n.Crawler = &Crawler{
+		Logger:    n.logger.With("component", "crawler"),
+		DB:        db,
+		RelayHost: config.RelayHost,
 	}
 
-	if config.SignalCollection != "" {
+	return n, nil
+}
+
+func (n *Nexus) Start(ctx context.Context) error {
+	if err := n.resetPartiallyResynced(); err != nil {
+		return err
+	}
+
+	if n.config.SignalCollection != "" {
 		go func() {
-			if err := n.EnumerateNetworkByCollection(context.Background(), config.SignalCollection); err != nil {
-				n.logger.Error("collection enumeration failed", "error", err, "collection", config.SignalCollection)
+			if err := n.Crawler.EnumerateNetworkByCollection(ctx, n.config.SignalCollection); err != nil {
+				n.logger.Error("collection enumeration failed", "error", err, "collection", n.config.SignalCollection)
 			}
 		}()
-	} else if config.FullNetworkMode {
+	} else if n.config.FullNetworkMode {
 		go func() {
-			if err := n.EnumerateNetwork(context.Background()); err != nil {
+			if err := n.Crawler.EnumerateNetwork(ctx); err != nil {
 				n.logger.Error("network enumeration failed", "error", err)
 			}
 		}()
 	}
 
-	resyncParallelism := config.ResyncParallelism
+	resyncParallelism := n.config.ResyncParallelism
 	if resyncParallelism == 0 {
 		resyncParallelism = 5
 	}
 	for i := 0; i < resyncParallelism; i++ {
-		go n.runResyncWorker(context.Background(), i)
+		go n.runResyncWorker(ctx, i)
 	}
 
-	go n.EventProcessor.RunCursorSaver(context.Background(), cursorSaveInterval)
-	go n.outbox.Run(context.Background())
+	cursorSaveInterval := n.config.FirehoseCursorSaveInterval
+	if cursorSaveInterval == 0 {
+		cursorSaveInterval = 5 * time.Second
+	}
+	go n.EventProcessor.RunCursorSaver(ctx, cursorSaveInterval)
 
-	n.registerRoutes()
+	go n.Outbox.Run(ctx)
 
-	return n, nil
-}
+	return n.FirehoseConsumer.Run(ctx)
+	go func() {
+		if err := n.FirehoseConsumer.Run(ctx); err != nil {
+			n.logger.Error("firehose error", "error", err)
+		}
+	}()
 
-func (n *Nexus) Start(ctx context.Context, addr string) error {
-	n.logger.Info("starting nexus server", "addr", addr)
-	return n.echo.Start(addr)
+	return nil
 }
 
 func (n *Nexus) Shutdown(ctx context.Context) error {
