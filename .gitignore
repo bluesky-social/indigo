@@ -17,6 +17,8 @@ _build/
 src/build/
 *.log
 *.db
+*.db-shm
+*.db-wal
 /data/
 test-coverage.out
 
