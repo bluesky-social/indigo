@@ -104,7 +104,7 @@ func run(args []string) error {
 }
 
 func runNexus(cctx *cli.Context) error {
-	ctx := cctx.Context
+	ctx, cancel := context.WithCancel(cctx.Context)
 	logger := configLogger(cctx, os.Stdout)
 	slog.SetDefault(logger)
 
@@ -124,22 +124,42 @@ func runNexus(cctx *cli.Context) error {
 		CollectionFilters:          cctx.StringSlice("collection-filters"),
 	}
 
-	logger.Info("creating nexus service", "config", config)
+	logger.Info("creating nexus service")
 	nexus, err := NewNexus(config)
 	if err != nil {
 		return err
 	}
 
-	logger.Info("starting nexus background workers")
-	if err := nexus.Start(ctx); err != nil {
-		return err
+	if config.SignalCollection != "" {
+		go func() {
+			if err := nexus.Crawler.EnumerateNetworkByCollection(ctx, config.SignalCollection); err != nil {
+				logger.Error("collection enumeration failed", "error", err, "collection", config.SignalCollection)
+			}
+		}()
+	} else if config.FullNetworkMode {
+		go func() {
+			if err := nexus.Crawler.EnumerateNetwork(ctx); err != nil {
+				logger.Error("network enumeration failed", "error", err)
+			}
+		}()
 	}
 
 	svcErr := make(chan error, 1)
+
+	go func() {
+		logger.Info("starting firehose consumer")
+		if err := nexus.FirehoseConsumer.Run(ctx); err != nil {
+			svcErr <- err
+		}
+	}()
+
+	go nexus.Run(ctx)
+
 	go func() {
 		logger.Info("starting HTTP server", "addr", cctx.String("bind"))
-		err := nexus.echo.Start(cctx.String("bind"))
-		svcErr <- err
+		if err := nexus.Server.Start(cctx.String("bind")); err != nil {
+			svcErr <- err
+		}
 	}()
 
 	logger.Info("startup complete")
@@ -148,16 +168,22 @@ func runNexus(cctx *cli.Context) error {
 		logger.Info("received shutdown signal")
 	case err := <-svcErr:
 		if err != nil {
-			logger.Error("server error", "err", err)
+			logger.Error("service error", "err", err)
 		}
 	}
 
 	logger.Info("shutting down")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	cancel()
 
-	if err := nexus.Shutdown(shutdownCtx); err != nil {
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	if err := nexus.Server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("error during shutdown", "err", err)
+		return err
+	}
+
+	if err := nexus.CloseDb(shutdownCtx); err != nil {
 		return err
 	}
 

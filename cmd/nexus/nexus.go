@@ -151,28 +151,14 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		RelayHost: config.RelayHost,
 	}
 
+	if err := n.resetPartiallyResynced(); err != nil {
+		return nil, err
+	}
+
 	return n, nil
 }
 
-func (n *Nexus) Start(ctx context.Context) error {
-	if err := n.resetPartiallyResynced(); err != nil {
-		return err
-	}
-
-	if n.config.SignalCollection != "" {
-		go func() {
-			if err := n.Crawler.EnumerateNetworkByCollection(ctx, n.config.SignalCollection); err != nil {
-				n.logger.Error("collection enumeration failed", "error", err, "collection", n.config.SignalCollection)
-			}
-		}()
-	} else if n.config.FullNetworkMode {
-		go func() {
-			if err := n.Crawler.EnumerateNetwork(ctx); err != nil {
-				n.logger.Error("network enumeration failed", "error", err)
-			}
-		}()
-	}
-
+func (n *Nexus) Run(ctx context.Context) {
 	resyncParallelism := n.config.ResyncParallelism
 	if resyncParallelism == 0 {
 		resyncParallelism = 5
@@ -188,22 +174,10 @@ func (n *Nexus) Start(ctx context.Context) error {
 	go n.EventProcessor.RunCursorSaver(ctx, cursorSaveInterval)
 
 	go n.Outbox.Run(ctx)
-
-	return n.FirehoseConsumer.Run(ctx)
-	go func() {
-		if err := n.FirehoseConsumer.Run(ctx); err != nil {
-			n.logger.Error("firehose error", "error", err)
-		}
-	}()
-
-	return nil
 }
 
-func (n *Nexus) Shutdown(ctx context.Context) error {
-	n.logger.Info("shutting down nexus server")
-	if err := n.echo.Shutdown(ctx); err != nil {
-		n.logger.Error("error shutting down echo", "error", err)
-	}
+func (n *Nexus) CloseDb(ctx context.Context) error {
+	n.logger.Info("shutting down nexus")
 
 	sqlDB, err := n.db.DB()
 	if err != nil {
