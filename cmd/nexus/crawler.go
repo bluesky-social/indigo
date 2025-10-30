@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/nexus/models"
+	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"github.com/bluesky-social/indigo/xrpc"
 	"gorm.io/gorm"
 )

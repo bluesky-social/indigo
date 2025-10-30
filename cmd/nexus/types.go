@@ -1,6 +1,6 @@
 package main
 
-import "github.com/bluesky-social/indigo/nexus/models"
+import "github.com/bluesky-social/indigo/cmd/nexus/models"
 
 type OutboxMode string
 

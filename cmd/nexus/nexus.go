@@ -9,7 +9,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/nexus/models"
+	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"github.com/labstack/echo/v4"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

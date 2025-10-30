@@ -12,7 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/nexus/models"
+	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	"gorm.io/gorm"
