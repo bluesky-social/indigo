@@ -10,6 +10,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"github.com/bluesky-social/indigo/xrpc"
+	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
 )
 
@@ -21,6 +22,9 @@ type Crawler struct {
 
 // EnumerateNetwork discovers and tracks all repositories on the network.
 func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
+	ctx, span := tracer.Start(ctx, "EnumerateNetwork")
+	defer span.End()
+
 	cursor, err := c.getListReposCursor(ctx)
 	if err != nil {
 		return err
@@ -99,6 +103,10 @@ func (c *Crawler) getListReposCursor(ctx context.Context) (string, error) {
 
 // EnumerateNetworkByCollection discovers repositories that have records in the specified collection.
 func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection string) error {
+	ctx, span := tracer.Start(ctx, "EnumerateNetworkByCollection")
+	span.SetAttributes(attribute.String("collection", collection))
+	defer span.End()
+
 	cursor, err := c.getCollectionCursor(ctx, collection)
 	if err != nil {
 		return err

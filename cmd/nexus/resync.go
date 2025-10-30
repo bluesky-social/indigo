@@ -15,6 +15,7 @@ import (
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
+	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -69,6 +70,10 @@ func (n *Nexus) claimResyncJob(ctx context.Context) (string, bool, error) {
 }
 
 func (n *Nexus) resyncDid(ctx context.Context, did string) error {
+	ctx, span := tracer.Start(ctx, "resyncDid")
+	span.SetAttributes(attribute.String("did", did))
+	defer span.End()
+
 	n.logger.Info("starting resync", "did", did)
 
 	err := n.EventProcessor.RefreshIdentity(ctx, did)
@@ -91,6 +96,10 @@ func (n *Nexus) resyncDid(ctx context.Context, did string) error {
 const batchSize = 100
 
 func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
+	ctx, span := tracer.Start(ctx, "doResync")
+	span.SetAttributes(attribute.String("did", did))
+	defer span.End()
+
 	ident, err := n.Dir.LookupDID(ctx, syntax.DID(did))
 	if err != nil {
 		return false, fmt.Errorf("failed to resolve DID: %w", err)

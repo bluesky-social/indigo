@@ -30,6 +30,22 @@ func run(args []string) error {
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
+			Name:    "env",
+			Usage:   "environment name for observability",
+			Value:   "dev",
+			EnvVars: []string{"NEXUS_ENV"},
+		},
+		&cli.BoolFlag{
+			Name: "enable-jaeger-tracing",
+		},
+		&cli.BoolFlag{
+			Name: "enable-otel-tracing",
+		},
+		&cli.StringFlag{
+			Name:    "otel-exporter-otlp-endpoint",
+			EnvVars: []string{"OTEL_EXPORTER_OTLP_ENDPOINT"},
+		},
+		&cli.StringFlag{
 			Name:    "db-path",
 			Usage:   "path to SQLite database file",
 			Value:   "./nexus.db",
@@ -107,6 +123,10 @@ func runNexus(cctx *cli.Context) error {
 	ctx, cancel := context.WithCancel(cctx.Context)
 	logger := configLogger(cctx, os.Stdout)
 	slog.SetDefault(logger)
+
+	if err := setupOTEL(cctx); err != nil {
+		return err
+	}
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
