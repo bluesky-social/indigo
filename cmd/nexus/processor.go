@@ -14,9 +14,12 @@ import (
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
+	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+var tracer = otel.Tracer("nexus")
 
 type EventProcessor struct {
 	Logger   *slog.Logger
@@ -33,6 +36,9 @@ type EventProcessor struct {
 
 // ProcessCommit validates and applies a commit event from the firehose.
 func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
+	ctx, span := tracer.Start(ctx, "ProcessCommit")
+	defer span.End()
+
 	defer ep.lastSeq.Store(evt.Seq)
 
 	curr, err := ep.GetRepoState(evt.Repo)
@@ -170,6 +176,9 @@ func (ep *EventProcessor) validateCommit(ctx context.Context, evt *comatproto.Sy
 
 // ProcessSync handles sync events and marks repos for resync if needed.
 func (ep *EventProcessor) ProcessSync(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync) error {
+	ctx, span := tracer.Start(ctx, "ProcessSync")
+	defer span.End()
+
 	defer ep.lastSeq.Store(evt.Seq)
 
 	curr, err := ep.GetRepoState(evt.Did)
@@ -220,6 +229,9 @@ func (ep *EventProcessor) ProcessIdentity(ctx context.Context, evt *comatproto.S
 
 // RefreshIdentity fetches the latest identity information for a DID.
 func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error {
+	ctx, span := tracer.Start(ctx, "RefreshIdentity")
+	defer span.End()
+
 	curr, err := ep.GetRepoState(did)
 	if err != nil {
 		return err
