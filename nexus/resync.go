@@ -185,8 +185,9 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 
 		rec, err := atdata.UnmarshalCBOR(blk.RawData())
 		if err != nil {
-			n.logger.Error("failed to unmarshal record", "path", recPath, "error", err)
-			return nil
+			// do not fail here
+			// we end up storing the CID but not passing the record along in the outbox
+			n.logger.Error("failed to unmarshal record", "did", did, "path", recPath, "error", err)
 		}
 
 		evt := &RecordEvt{
@@ -251,6 +252,11 @@ func (n *Nexus) writeBatch(evtBatch []*RecordEvt) error {
 			Rkey:       evt.Rkey,
 			Cid:        evt.Cid,
 		})
+
+		// in the case of invalid record CBOR
+		if evt.Record == nil && evt.Action != "delete" {
+			continue
+		}
 
 		jsonData, err := json.Marshal(&OutboxEvt{
 			Type:      "record",

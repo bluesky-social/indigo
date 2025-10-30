@@ -142,8 +142,9 @@ func (ep *EventProcessor) validateCommit(ctx context.Context, evt *comatproto.Sy
 
 			record, err := atdata.UnmarshalCBOR(recBytes)
 			if err != nil {
+				// do not skip here
+				// we end up storing the CID but not passing the record along in the outbox
 				ep.Logger.Error("failed to unmarshal record", "did", evt.Repo, "path", op.Path, "error", err)
-				continue
 			}
 			parsed.Record = record
 		}
@@ -415,16 +416,20 @@ func applyCommit(tx *gorm.DB, commit *Commit) error {
 		}
 	}
 
-	for _, recEvt := range commit.ToEvts() {
+	for _, evt := range commit.ToEvts() {
+		// in the case of invalid record CBOR
+		if evt.Record == nil && evt.Action != "delete" {
+			continue
+		}
 		jsonData, err := json.Marshal(&OutboxEvt{
 			Type:      "record",
-			RecordEvt: recEvt,
+			RecordEvt: evt,
 		})
 		if err != nil {
 			return err
 		}
 		outboxBatch = append(outboxBatch, &models.OutboxBuffer{
-			Live: recEvt.Live,
+			Live: evt.Live,
 			Data: string(jsonData),
 		})
 	}
