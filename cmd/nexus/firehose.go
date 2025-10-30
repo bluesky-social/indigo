@@ -21,9 +21,10 @@ type FirehoseConsumer struct {
 	GetCursor   func(ctx context.Context, relayHost string) (int64, error)
 }
 
-func (fc *FirehoseConsumer) Run(ctx context.Context) error {
+// Run connects to the firehose and processes events until context cancellation or error.
+func (f *FirehoseConsumer) Run(ctx context.Context) error {
 
-	u, err := url.Parse(fc.RelayHost)
+	u, err := url.Parse(f.RelayHost)
 	if err != nil {
 		return fmt.Errorf("invalid relayHost URI: %w", err)
 	}
@@ -43,7 +44,7 @@ func (fc *FirehoseConsumer) Run(ctx context.Context) error {
 		default:
 		}
 
-		cursor, err := fc.GetCursor(ctx, fc.RelayHost)
+		cursor, err := f.GetCursor(ctx, f.RelayHost)
 		if err != nil {
 			return fmt.Errorf("failed to read cursor: %w", err)
 		}
@@ -53,28 +54,28 @@ func (fc *FirehoseConsumer) Run(ctx context.Context) error {
 		}
 		urlStr := u.String()
 
-		fc.Logger.Info("connecting to firehose", "url", urlStr, "cursor", cursor, "retries", retries)
+		f.Logger.Info("connecting to firehose", "url", urlStr, "cursor", cursor, "retries", retries)
 
 		dialer := websocket.DefaultDialer
 		con, _, err := dialer.DialContext(ctx, urlStr, http.Header{})
 		if err != nil {
-			fc.Logger.Warn("dialing failed", "err", err, "retries", retries)
+			f.Logger.Warn("dialing failed", "error", err, "retries", retries)
 			time.Sleep(backoff(retries, 10))
 			retries++
 			continue
 		}
 
-		fc.Logger.Info("connected to firehose")
+		f.Logger.Info("connected to firehose")
 		retries = 0
 
 		scheduler := parallel.NewScheduler(
-			fc.Parallelism,
+			f.Parallelism,
 			100,
-			fc.RelayHost,
-			fc.Callbacks.EventHandler,
+			f.RelayHost,
+			f.Callbacks.EventHandler,
 		)
 		if err := events.HandleRepoStream(ctx, con, scheduler, nil); err != nil {
-			fc.Logger.Warn("firehose connection failed", "err", err)
+			f.Logger.Warn("firehose connection failed", "error", err)
 		}
 	}
 }

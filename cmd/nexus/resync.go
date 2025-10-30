@@ -88,7 +88,7 @@ func (n *Nexus) resyncDid(ctx context.Context, did string) error {
 	return nil
 }
 
-const BATCH_SIZE = 100
+const batchSize = 100
 
 func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 	ident, err := n.Dir.LookupDID(ctx, syntax.DID(did))
@@ -111,8 +111,10 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 	n.logger.Info("fetching repo from PDS", "did", did, "pds", pdsURL)
 
 	client := &xrpc.Client{
-		Client: &http.Client{},
-		Host:   pdsURL,
+		Client: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+		Host: pdsURL,
 	}
 
 	repoBytes, err := comatproto.SyncGetRepo(ctx, client, did, "")
@@ -151,6 +153,12 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 	var evtBatch []*RecordEvt
 
 	err = r.MST.Walk(func(recPathBytes []byte, recCid cid.Cid) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		recPath := string(recPathBytes)
 		collection, rkey, err := syntax.ParseRepoPath(recPath)
 		if err != nil {
@@ -201,7 +209,7 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 		}
 		evtBatch = append(evtBatch, evt)
 
-		if len(evtBatch) >= BATCH_SIZE {
+		if len(evtBatch) >= batchSize {
 			if err := n.writeBatch(evtBatch); err != nil {
 				n.logger.Error("failed to flush batch", "error", err, "did", did)
 				return err
@@ -279,10 +287,7 @@ func (n *Nexus) writeBatch(evtBatch []*RecordEvt) error {
 				return err
 			}
 		}
-		if len(outboxBatch) > 0 {
-			return tx.CreateInBatches(outboxBatch, 100).Error
-		}
-		return nil
+		return batchInsertOutboxEvents(tx, outboxBatch)
 	})
 }
 
@@ -303,7 +308,7 @@ func (n *Nexus) handleResyncError(did string, err error) error {
 	}
 
 	// start a 1 min & go up to 1 hr between retries
-	retryAfter := time.Now().Add(60 * backoff(repo.RetryCount, 60))
+	retryAfter := time.Now().Add(backoff(repo.RetryCount, 60))
 
 	dbErr := n.db.Model(&models.Repo{}).
 		Where("did = ?", did).

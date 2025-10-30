@@ -80,6 +80,7 @@ func NewOutbox(db *gorm.DB, mode OutboxMode, webhookURL string) *Outbox {
 	}
 }
 
+// Run starts the outbox workers for event delivery and cleanup.
 func (o *Outbox) Run(ctx context.Context) {
 	o.ctx = ctx
 
@@ -120,7 +121,7 @@ func (o *Outbox) loadMoreEvents() {
 		Order("id ASC").
 		Limit(batchSize).
 		Find(&events).Error; err != nil {
-		o.logger.Error("failed to load events into cache", "error", err)
+		o.logger.Error("failed to load events into cache", "error", err, "lastID", lastID)
 		return
 	}
 
@@ -204,6 +205,7 @@ func (o *Outbox) sendEvent(evt *OutboxEvt) {
 	}
 }
 
+// AckEvent marks an event as delivered and queues it for deletion.
 func (o *Outbox) AckEvent(eventID uint) {
 	o.cacheMu.RLock()
 	outboxEvt, exists := o.eventCache[eventID]
@@ -381,9 +383,16 @@ func (w *DIDWorker) run() {
 // returns when it hits a blocking event
 func (w *DIDWorker) processPendingEvts() {
 	for {
+		select {
+		case <-w.ctx.Done():
+			return
+		default:
+		}
+
 		w.mu.Lock()
 		if w.blockedOnLive {
-			return // can't proceed, break out of send loop and wait for acks
+			w.mu.Unlock()
+			return
 		}
 
 		if len(w.pendingEvts) == 0 {

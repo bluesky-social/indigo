@@ -31,8 +31,9 @@ type EventProcessor struct {
 	lastSeq atomic.Int64
 }
 
+// ProcessCommit validates and applies a commit event from the firehose.
 func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
-	defer ep.lastSeq.Swap(evt.Seq)
+	defer ep.lastSeq.Store(evt.Seq)
 
 	curr, err := ep.GetRepoState(evt.Repo)
 	if err != nil {
@@ -167,8 +168,9 @@ func (ep *EventProcessor) validateCommit(ctx context.Context, evt *comatproto.Sy
 	return commit, nil
 }
 
+// ProcessSync handles sync events and marks repos for resync if needed.
 func (ep *EventProcessor) ProcessSync(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync) error {
-	defer ep.lastSeq.Swap(evt.Seq)
+	defer ep.lastSeq.Store(evt.Seq)
 
 	curr, err := ep.GetRepoState(evt.Did)
 	if err != nil {
@@ -212,10 +214,11 @@ func (ep *EventProcessor) ProcessSync(ctx context.Context, evt *comatproto.SyncS
 }
 
 func (ep *EventProcessor) ProcessIdentity(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Identity) error {
-	defer ep.lastSeq.Swap(evt.Seq)
+	defer ep.lastSeq.Store(evt.Seq)
 	return ep.RefreshIdentity(ctx, evt.Did)
 }
 
+// RefreshIdentity fetches the latest identity information for a DID.
 func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error {
 	curr, err := ep.GetRepoState(did)
 	if err != nil {
@@ -269,7 +272,7 @@ func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error
 }
 
 func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Account) error {
-	defer ep.lastSeq.Swap(evt.Seq)
+	defer ep.lastSeq.Store(evt.Seq)
 
 	curr, err := ep.GetRepoState(evt.Did)
 	if err != nil {
@@ -288,7 +291,7 @@ func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.Sy
 	var updateTo models.AccountStatus
 	if evt.Active {
 		updateTo = models.AccountStatusActive
-	} else if *evt.Status == string(models.AccountStatusDeactivated) || *evt.Status == string(models.AccountStatusTakendown) || *evt.Status == string(models.AccountStatusSuspended) || *evt.Status == string(models.AccountStatusDeleted) {
+	} else if evt.Status != nil && (*evt.Status == string(models.AccountStatusDeactivated) || *evt.Status == string(models.AccountStatusTakendown) || *evt.Status == string(models.AccountStatusSuspended) || *evt.Status == string(models.AccountStatusDeleted)) {
 		updateTo = models.AccountStatus(*evt.Status)
 	} else {
 		// no-op for other events such as throttled or desynchronized
@@ -434,13 +437,14 @@ func applyCommit(tx *gorm.DB, commit *Commit) error {
 		})
 	}
 
-	if len(outboxBatch) > 0 {
-		if err := tx.CreateInBatches(outboxBatch, 100).Error; err != nil {
-			return err
-		}
-	}
+	return batchInsertOutboxEvents(tx, outboxBatch)
+}
 
-	return nil
+func batchInsertOutboxEvents(tx *gorm.DB, events []*models.OutboxBuffer) error {
+	if len(events) == 0 {
+		return nil
+	}
+	return tx.CreateInBatches(events, 100).Error
 }
 
 func deleteRepo(tx *gorm.DB, did string) error {
@@ -478,6 +482,7 @@ func (ep *EventProcessor) saveCursor(ctx context.Context) error {
 	}).Error
 }
 
+// RunCursorSaver periodically saves the firehose cursor to the database.
 func (ep *EventProcessor) RunCursorSaver(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -486,12 +491,12 @@ func (ep *EventProcessor) RunCursorSaver(ctx context.Context, interval time.Dura
 		select {
 		case <-ctx.Done():
 			if err := ep.saveCursor(ctx); err != nil {
-				ep.Logger.Error("failed to save cursor on shutdown", "error", err)
+				ep.Logger.Error("failed to save cursor on shutdown", "error", err, "relayHost", ep.RelayHost)
 			}
 			return
 		case <-ticker.C:
 			if err := ep.saveCursor(ctx); err != nil {
-				ep.Logger.Error("failed to save cursor", "error", err)
+				ep.Logger.Error("failed to save cursor", "error", err, "relayHost", ep.RelayHost)
 			}
 		}
 	}
@@ -526,6 +531,7 @@ func (ep *EventProcessor) UpdateRepoState(did string, state models.RepoState) er
 		Update("state", state).Error
 }
 
+// EnsureRepo creates or updates a repository record in the database.
 func (ep *EventProcessor) EnsureRepo(did string) error {
 	return ep.DB.Save(&models.Repo{
 		Did:    did,

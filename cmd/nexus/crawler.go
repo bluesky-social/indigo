@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
@@ -18,6 +19,7 @@ type Crawler struct {
 	RelayHost string
 }
 
+// EnumerateNetwork discovers and tracks all repositories on the network.
 func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 	cursor, err := c.getListReposCursor(ctx)
 	if err != nil {
@@ -25,8 +27,10 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 	}
 
 	client := &xrpc.Client{
-		Client: &http.Client{},
-		Host:   c.RelayHost,
+		Client: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+		Host: c.RelayHost,
 	}
 
 	for {
@@ -58,7 +62,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 		}
 
 		if err := c.DB.Save(&repos).Error; err != nil {
-			c.Logger.Error("failed to save repos batch", "error", err)
+			c.Logger.Error("failed to save repos batch", "error", err, "count", len(repos))
 			return err
 		}
 
@@ -73,7 +77,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 			Host:   c.RelayHost,
 			Cursor: cursor,
 		}).Error; err != nil {
-			c.Logger.Error("failed to save lsit repos cursor", "error", err)
+			c.Logger.Error("failed to save list repos cursor", "error", err)
 		}
 	}
 
@@ -93,6 +97,7 @@ func (c *Crawler) getListReposCursor(ctx context.Context) (string, error) {
 	return dbCursor.Cursor, nil
 }
 
+// EnumerateNetworkByCollection discovers repositories that have records in the specified collection.
 func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection string) error {
 	cursor, err := c.getCollectionCursor(ctx, collection)
 	if err != nil {
@@ -100,8 +105,10 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 	}
 
 	client := &xrpc.Client{
-		Client: &http.Client{},
-		Host:   c.RelayHost,
+		Client: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+		Host: c.RelayHost,
 	}
 
 	for {
@@ -130,7 +137,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 		}
 
 		if err := c.DB.Save(&repos).Error; err != nil {
-			c.Logger.Error("failed to save repos batch", "error", err)
+			c.Logger.Error("failed to save repos batch", "error", err, "collection", collection, "count", len(repos))
 			return err
 		}
 
