@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/nexus/models"
+	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"gorm.io/gorm"
 )
 

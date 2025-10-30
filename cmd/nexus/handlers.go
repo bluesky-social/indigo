@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 
-	"github.com/bluesky-social/indigo/nexus/models"
+	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 )
