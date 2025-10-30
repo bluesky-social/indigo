@@ -36,10 +36,10 @@ func run(args []string) error {
 			EnvVars: []string{"NEXUS_DB_PATH"},
 		},
 		&cli.StringFlag{
-			Name:    "relay-host",
-			Usage:   "AT Protocol relay host URL",
-			Value:   "https://bsky.network",
-			EnvVars: []string{"NEXUS_RELAY_HOST"},
+			Name:    "relay-url",
+			Usage:   "AT Protocol relay URL",
+			Value:   "https://relay1.us-east.bsky.network",
+			EnvVars: []string{"NEXUS_RELAY_URL"},
 		},
 		&cli.StringFlag{
 			Name:    "bind",
@@ -113,7 +113,7 @@ func runNexus(cctx *cli.Context) error {
 
 	config := NexusConfig{
 		DBPath:                     cctx.String("db-path"),
-		RelayHost:                  cctx.String("relay-host"),
+		RelayUrl:                   cctx.String("relay-url"),
 		FirehoseParallelism:        cctx.Int("firehose-parallelism"),
 		ResyncParallelism:          cctx.Int("resync-parallelism"),
 		FirehoseCursorSaveInterval: cctx.Duration("cursor-save-interval"),

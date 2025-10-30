@@ -14,19 +14,19 @@ import (
 )
 
 type FirehoseConsumer struct {
-	RelayHost   string
+	RelayUrl    string
 	Logger      *slog.Logger
 	Parallelism int
 	Callbacks   *events.RepoStreamCallbacks
-	GetCursor   func(ctx context.Context, relayHost string) (int64, error)
+	GetCursor   func(ctx context.Context, relayUrl string) (int64, error)
 }
 
 // Run connects to the firehose and processes events until context cancellation or error.
 func (f *FirehoseConsumer) Run(ctx context.Context) error {
 
-	u, err := url.Parse(f.RelayHost)
+	u, err := url.Parse(f.RelayUrl)
 	if err != nil {
-		return fmt.Errorf("invalid relayHost URI: %w", err)
+		return fmt.Errorf("invalid relay URL: %w", err)
 	}
 	switch u.Scheme {
 	case "http":
@@ -44,7 +44,7 @@ func (f *FirehoseConsumer) Run(ctx context.Context) error {
 		default:
 		}
 
-		cursor, err := f.GetCursor(ctx, f.RelayHost)
+		cursor, err := f.GetCursor(ctx, f.RelayUrl)
 		if err != nil {
 			return fmt.Errorf("failed to read cursor: %w", err)
 		}
@@ -71,7 +71,7 @@ func (f *FirehoseConsumer) Run(ctx context.Context) error {
 		scheduler := parallel.NewScheduler(
 			f.Parallelism,
 			100,
-			f.RelayHost,
+			f.RelayUrl,
 			f.Callbacks.EventHandler,
 		)
 		if err := events.HandleRepoStream(ctx, con, scheduler, nil); err != nil {

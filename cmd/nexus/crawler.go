@@ -14,9 +14,9 @@ import (
 )
 
 type Crawler struct {
-	DB        *gorm.DB
-	Logger    *slog.Logger
-	RelayHost string
+	DB       *gorm.DB
+	Logger   *slog.Logger
+	RelayUrl string
 }
 
 // EnumerateNetwork discovers and tracks all repositories on the network.
@@ -30,7 +30,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 		Client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		Host: c.RelayHost,
+		Host: c.RelayUrl,
 	}
 
 	for {
@@ -74,7 +74,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 		cursor = *repoList.Cursor
 
 		if err := c.DB.Save(&models.ListReposCursor{
-			Host:   c.RelayHost,
+			Url:    c.RelayUrl,
 			Cursor: cursor,
 		}).Error; err != nil {
 			c.Logger.Error("failed to save list repos cursor", "error", err)
@@ -87,7 +87,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 
 func (c *Crawler) getListReposCursor(ctx context.Context) (string, error) {
 	var dbCursor models.ListReposCursor
-	err := c.DB.Where("host = ?", c.RelayHost).First(&dbCursor).Error
+	err := c.DB.Where("url = ?", c.RelayUrl).First(&dbCursor).Error
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return "", fmt.Errorf("failed to read list repos cursor: %w", err)
@@ -108,7 +108,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 		Client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		Host: c.RelayHost,
+		Host: c.RelayUrl,
 	}
 
 	for {
@@ -149,7 +149,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 		cursor = *repoList.Cursor
 
 		if err := c.DB.Save(&models.CollectionCursor{
-			Host:       c.RelayHost,
+			Url:        c.RelayUrl,
 			Collection: collection,
 			Cursor:     cursor,
 		}).Error; err != nil {
@@ -163,7 +163,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 
 func (c *Crawler) getCollectionCursor(ctx context.Context, collection string) (string, error) {
 	var dbCursor models.CollectionCursor
-	err := c.DB.Where("host = ? AND collection = ?", c.RelayHost, collection).First(&dbCursor).Error
+	err := c.DB.Where("url = ? AND collection = ?", c.RelayUrl, collection).First(&dbCursor).Error
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return "", fmt.Errorf("failed to read collection cursor: %w", err)

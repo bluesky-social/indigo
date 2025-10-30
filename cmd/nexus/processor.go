@@ -19,11 +19,11 @@ import (
 )
 
 type EventProcessor struct {
-	Logger    *slog.Logger
-	DB        *gorm.DB
-	Dir       identity.Directory
-	RelayHost string
-	Outbox    *Outbox
+	Logger   *slog.Logger
+	DB       *gorm.DB
+	Dir      identity.Directory
+	RelayUrl string
+	Outbox   *Outbox
 
 	FullNetworkMode   bool
 	CollectionFilters []string
@@ -477,7 +477,7 @@ func (ep *EventProcessor) saveCursor(ctx context.Context) error {
 	}
 
 	return ep.DB.Save(&models.FirehoseCursor{
-		Host:   ep.RelayHost,
+		Url:    ep.RelayUrl,
 		Cursor: seq,
 	}).Error
 }
@@ -491,22 +491,22 @@ func (ep *EventProcessor) RunCursorSaver(ctx context.Context, interval time.Dura
 		select {
 		case <-ctx.Done():
 			if err := ep.saveCursor(ctx); err != nil {
-				ep.Logger.Error("failed to save cursor on shutdown", "error", err, "relayHost", ep.RelayHost)
+				ep.Logger.Error("failed to save cursor on shutdown", "error", err, "relayUrl", ep.RelayUrl)
 			}
 			return
 		case <-ticker.C:
 			if err := ep.saveCursor(ctx); err != nil {
-				ep.Logger.Error("failed to save cursor", "error", err, "relayHost", ep.RelayHost)
+				ep.Logger.Error("failed to save cursor", "error", err, "relayUrl", ep.RelayUrl)
 			}
 		}
 	}
 }
 
-func (ep *EventProcessor) ReadLastCursor(ctx context.Context, relayHost string) (int64, error) {
+func (ep *EventProcessor) ReadLastCursor(ctx context.Context, relayUrl string) (int64, error) {
 	var cursor models.FirehoseCursor
-	if err := ep.DB.Where("host = ?", relayHost).First(&cursor).Error; err != nil {
+	if err := ep.DB.Where("url = ?", relayUrl).First(&cursor).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			ep.Logger.Info("no pre-existing cursor in database", "relayHost", relayHost)
+			ep.Logger.Info("no pre-existing cursor in database", "relayUrl", relayUrl)
 			return 0, nil
 		}
 		return 0, err
