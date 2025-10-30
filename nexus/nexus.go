@@ -44,20 +44,21 @@ type NexusConfig struct {
 	ResyncParallelism          int
 	FirehoseCursorSaveInterval time.Duration
 	FullNetworkMode            bool
+	SignalCollection           string
 	DisableAcks                bool
 	WebhookURL                 string
 	CollectionFilters          []string // e.g., ["app.bsky.feed.post", "app.bsky.graph.*"]
 }
 
 func NewNexus(config NexusConfig) (*Nexus, error) {
-	db, err := gorm.Open(sqlite.Open(config.DBPath+"?_journal_mode=WAL&_busy_timeout=10000"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(config.DBPath+"?_journal_mode=WAL&_busy_timeout=10000&_synchronous=NORMAL&_temp_store=MEMORY&_cache_size=-64000&_wal_autocheckpoint=3000"), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&models.Repo{}, &models.RepoRecord{}, &models.OutboxBuffer{}, &models.ResyncBuffer{}, &models.FirehoseCursor{}, &models.ListReposCursor{}); err != nil {
+	if err := db.AutoMigrate(&models.Repo{}, &models.RepoRecord{}, &models.OutboxBuffer{}, &models.ResyncBuffer{}, &models.FirehoseCursor{}, &models.ListReposCursor{}, &models.CollectionCursor{}); err != nil {
 		return nil, err
 	}
 
@@ -143,7 +144,13 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		return nil, err
 	}
 
-	if config.FullNetworkMode {
+	if config.SignalCollection != "" {
+		go func() {
+			if err := n.EnumerateNetworkByCollection(context.Background(), config.SignalCollection); err != nil {
+				n.logger.Error("collection enumeration failed", "error", err, "collection", config.SignalCollection)
+			}
+		}()
+	} else if config.FullNetworkMode {
 		go func() {
 			if err := n.EnumerateNetwork(context.Background()); err != nil {
 				n.logger.Error("network enumeration failed", "error", err)

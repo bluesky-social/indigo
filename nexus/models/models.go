@@ -63,3 +63,9 @@ type ListReposCursor struct {
 	Host   string `gorm:"primaryKey"`
 	Cursor string `gorm:"not null"`
 }
+
+type CollectionCursor struct {
+	Host       string `gorm:"primaryKey"`
+	Collection string `gorm:"primaryKey"`
+	Cursor     string `gorm:"not null"`
+}
