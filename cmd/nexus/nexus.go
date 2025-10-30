@@ -158,6 +158,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	return n, nil
 }
 
+// Run starts internal background workers for resync, cursor saving, and outbox delivery.
 func (n *Nexus) Run(ctx context.Context) {
 	resyncParallelism := n.config.ResyncParallelism
 	if resyncParallelism == 0 {

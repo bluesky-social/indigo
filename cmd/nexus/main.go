@@ -16,7 +16,7 @@ import (
 
 func main() {
 	if err := run(os.Args); err != nil {
-		slog.Error("exiting process", "err", err.Error())
+		slog.Error("exiting process", "error", err)
 		os.Exit(-1)
 	}
 }
@@ -168,7 +168,7 @@ func runNexus(cctx *cli.Context) error {
 		logger.Info("received shutdown signal")
 	case err := <-svcErr:
 		if err != nil {
-			logger.Error("service error", "err", err)
+			logger.Error("service error", "error", err)
 		}
 	}
 
@@ -179,7 +179,7 @@ func runNexus(cctx *cli.Context) error {
 	defer shutdownCancel()
 
 	if err := nexus.Server.Shutdown(shutdownCtx); err != nil {
-		logger.Error("error during shutdown", "err", err)
+		logger.Error("error during shutdown", "error", err)
 		return err
 	}
 

@@ -18,21 +18,22 @@ type NexusServer struct {
 	Outbox *Outbox
 }
 
-func (n *NexusServer) Start(address string) error {
-	n.echo = echo.New()
-	n.echo.HideBanner = true
-	n.echo.GET("/health", n.handleHealthcheck)
-	n.echo.GET("/listen", n.handleListen)
-	n.echo.POST("/add-repos", n.handleAddRepos)
-	n.echo.POST("/remove-repos", n.handleAddRepos)
-	return n.echo.Start(address)
+func (ns *NexusServer) Start(address string) error {
+	ns.echo = echo.New()
+	ns.echo.HideBanner = true
+	ns.echo.GET("/health", ns.handleHealthcheck)
+	ns.echo.GET("/listen", ns.handleListen)
+	ns.echo.POST("/add-repos", ns.handleAddRepos)
+	ns.echo.POST("/remove-repos", ns.handleRemoveRepos)
+	return ns.echo.Start(address)
 }
 
-func (n *NexusServer) Shutdown(ctx context.Context) error {
-	return n.echo.Shutdown(ctx)
+// Shutdown gracefully shuts down the HTTP server.
+func (ns *NexusServer) Shutdown(ctx context.Context) error {
+	return ns.echo.Shutdown(ctx)
 }
 
-func (n *NexusServer) handleHealthcheck(c echo.Context) error {
+func (ns *NexusServer) handleHealthcheck(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{
 		"status": "ok",
 	})
@@ -44,8 +45,8 @@ var wsUpgrader = websocket.Upgrader{
 	},
 }
 
-func (n *NexusServer) handleListen(c echo.Context) error {
-	if n.Outbox.mode == OutboxModeWebhook {
+func (ns *NexusServer) handleListen(c echo.Context) error {
+	if ns.Outbox.mode == OutboxModeWebhook {
 		return echo.NewHTTPError(http.StatusBadRequest, "websocket not available in webhook mode")
 	}
 
@@ -55,7 +56,7 @@ func (n *NexusServer) handleListen(c echo.Context) error {
 	}
 	defer ws.Close()
 
-	n.logger.Info("websocket connected")
+	ns.logger.Info("websocket connected")
 
 	// read loop to detect disconnects and handle acks in websocket-ack mode
 	disconnected := make(chan struct{})
@@ -69,8 +70,8 @@ func (n *NexusServer) handleListen(c echo.Context) error {
 			}
 
 			// Process acks directly in websocket-ack mode
-			if n.Outbox.mode == OutboxModeWebsocketAck {
-				n.Outbox.AckEvent(msg.ID)
+			if ns.Outbox.mode == OutboxModeWebsocketAck {
+				ns.Outbox.AckEvent(msg.ID)
 			}
 		}
 	}()
@@ -78,20 +79,20 @@ func (n *NexusServer) handleListen(c echo.Context) error {
 	for {
 		select {
 		case <-disconnected:
-			n.logger.Info("websocket disconnected")
+			ns.logger.Info("websocket disconnected")
 			return nil
-		case evt, ok := <-n.Outbox.events:
+		case evt, ok := <-ns.Outbox.events:
 			if !ok {
 				return nil
 			}
 			if err := ws.WriteJSON(evt); err != nil {
-				n.logger.Info("websocket write error", "error", err)
+				ns.logger.Info("websocket write error", "error", err)
 				return nil
 			}
 			// In fire-and-forget mode, ack immediately after write succeeds
 			// In websocket-ack mode, wait for client to send ack and handle in read loop
-			if n.Outbox.mode == OutboxModeFireAndForget {
-				n.Outbox.AckEvent(evt.ID)
+			if ns.Outbox.mode == OutboxModeFireAndForget {
+				ns.Outbox.AckEvent(evt.ID)
 			}
 		}
 	}
@@ -101,7 +102,7 @@ type DidPayload struct {
 	DIDs []string `json:"dids"`
 }
 
-func (n *NexusServer) handleAddRepos(c echo.Context) error {
+func (ns *NexusServer) handleAddRepos(c echo.Context) error {
 	var payload DidPayload
 	if err := c.Bind(&payload); err != nil {
 		return err
@@ -115,33 +116,33 @@ func (n *NexusServer) handleAddRepos(c echo.Context) error {
 		}
 	}
 
-	if err := n.db.Save(&dids).Error; err != nil {
-		n.logger.Error("failed to upsert dids", "error", err)
+	if err := ns.db.Save(&dids).Error; err != nil {
+		ns.logger.Error("failed to upsert dids", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	n.logger.Info("added dids", "count", len(payload.DIDs))
+	ns.logger.Info("added dids", "count", len(payload.DIDs))
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"count": len(payload.DIDs),
 	})
 }
 
-func (n *NexusServer) handleRemoveRepos(c echo.Context) error {
+func (ns *NexusServer) handleRemoveRepos(c echo.Context) error {
 	var payload DidPayload
 	if err := c.Bind(&payload); err != nil {
 		return err
 	}
 
 	for _, did := range payload.DIDs {
-		err := deleteRepo(n.db, did)
+		err := deleteRepo(ns.db, did)
 		if err != nil {
-			n.logger.Error("failed to delete repo", "error", err)
+			ns.logger.Error("failed to delete repo", "error", err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 	}
 
-	n.logger.Info("added dids", "count", len(payload.DIDs))
+	ns.logger.Info("removed dids", "count", len(payload.DIDs))
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"count": len(payload.DIDs),
