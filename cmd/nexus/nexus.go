@@ -19,8 +19,8 @@ type Nexus struct {
 	db     *gorm.DB
 	logger *slog.Logger
 
-	Dir       identity.Directory
-	RelayHost string
+	Dir      identity.Directory
+	RelayUrl string
 
 	Server *NexusServer
 	Outbox *Outbox
@@ -41,7 +41,7 @@ type Nexus struct {
 
 type NexusConfig struct {
 	DBPath                     string
-	RelayHost                  string
+	RelayUrl                   string
 	FirehoseParallelism        int
 	ResyncParallelism          int
 	FirehoseCursorSaveInterval time.Duration
@@ -83,8 +83,8 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		db:     db,
 		logger: slog.Default().With("system", "nexus"),
 
-		Dir:       &cdir,
-		RelayHost: config.RelayHost,
+		Dir:      &cdir,
+		RelayUrl: config.RelayUrl,
 
 		Outbox: NewOutbox(db, outboxMode, config.WebhookURL),
 
@@ -116,7 +116,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		Logger:            n.logger.With("component", "processor"),
 		DB:                db,
 		Dir:               n.Dir,
-		RelayHost:         config.RelayHost,
+		RelayUrl:          config.RelayUrl,
 		Outbox:            n.Outbox,
 		FullNetworkMode:   config.FullNetworkMode,
 		CollectionFilters: config.CollectionFilters,
@@ -138,7 +138,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	}
 
 	n.FirehoseConsumer = &FirehoseConsumer{
-		RelayHost:   config.RelayHost,
+		RelayUrl:    config.RelayUrl,
 		Logger:      n.logger.With("component", "firehose"),
 		Parallelism: firehoseParallelism,
 		Callbacks:   rsc,
@@ -146,9 +146,9 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	}
 
 	n.Crawler = &Crawler{
-		Logger:    n.logger.With("component", "crawler"),
-		DB:        db,
-		RelayHost: config.RelayHost,
+		Logger:   n.logger.With("component", "crawler"),
+		DB:       db,
+		RelayUrl: config.RelayUrl,
 	}
 
 	if err := n.resetPartiallyResynced(); err != nil {

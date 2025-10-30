@@ -22,7 +22,7 @@ func (ns *NexusServer) Start(address string) error {
 	ns.echo = echo.New()
 	ns.echo.HideBanner = true
 	ns.echo.GET("/health", ns.handleHealthcheck)
-	ns.echo.GET("/listen", ns.handleListen)
+	ns.echo.GET("/channel", ns.handleChannelWebsocket)
 	ns.echo.POST("/add-repos", ns.handleAddRepos)
 	ns.echo.POST("/remove-repos", ns.handleRemoveRepos)
 	return ns.echo.Start(address)
@@ -45,7 +45,7 @@ var wsUpgrader = websocket.Upgrader{
 	},
 }
 
-func (ns *NexusServer) handleListen(c echo.Context) error {
+func (ns *NexusServer) handleChannelWebsocket(c echo.Context) error {
 	if ns.Outbox.mode == OutboxModeWebhook {
 		return echo.NewHTTPError(http.StatusBadRequest, "websocket not available in webhook mode")
 	}

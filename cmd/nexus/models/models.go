@@ -55,17 +55,17 @@ type RepoRecord struct {
 }
 
 type FirehoseCursor struct {
-	Host   string `gorm:"primaryKey"`
+	Url    string `gorm:"primaryKey"`
 	Cursor int64  `gorm:"not null"`
 }
 
 type ListReposCursor struct {
-	Host   string `gorm:"primaryKey"`
+	Url    string `gorm:"primaryKey"`
 	Cursor string `gorm:"not null"`
 }
 
 type CollectionCursor struct {
-	Host       string `gorm:"primaryKey"`
+	Url        string `gorm:"primaryKey"`
 	Collection string `gorm:"primaryKey"`
 	Cursor     string `gorm:"not null"`
 }
