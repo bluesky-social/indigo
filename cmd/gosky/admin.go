@@ -415,6 +415,7 @@ var listReportsCmd = &cli.Command{
 			"",    // subject string
 			"",    // subjectType string
 			[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
+			false, // withStrike bool
 		)
 		if err != nil {
 			return err
@@ -733,6 +734,7 @@ var queryModerationStatusesCmd = &cli.Command{
 			"",    // subject string
 			"",    // subjectType string
 			[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
+			false, // withStrike bool
 		)
 		if err != nil {
 			return err
