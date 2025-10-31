@@ -34,7 +34,8 @@ type ModerationQueryEvents_Output struct {
 // sortDirection: Sort direction for the events. Defaults to descending order of created at timestamp.
 // subjectType: If specified, only events where the subject is of the given type (account or record) will be returned. When this is set to 'account' the 'collections' parameter will be ignored. When includeAllUserRecords or subject is set, this will be ignored.
 // types: The types of events (fully qualified string in the format of tools.ozone.moderation.defs#modEvent<name>) to filter by. If not specified, all events are returned.
-func ModerationQueryEvents(ctx context.Context, c lexutil.LexClient, addedLabels []string, addedTags []string, ageAssuranceState string, batchId string, collections []string, comment string, createdAfter string, createdBefore string, createdBy string, cursor string, hasComment bool, includeAllUserRecords bool, limit int64, modTool []string, policies []string, removedLabels []string, removedTags []string, reportTypes []string, sortDirection string, subject string, subjectType string, types []string) (*ModerationQueryEvents_Output, error) {
+// withStrike: If specified, only events where strikeCount value is set are returned.
+func ModerationQueryEvents(ctx context.Context, c lexutil.LexClient, addedLabels []string, addedTags []string, ageAssuranceState string, batchId string, collections []string, comment string, createdAfter string, createdBefore string, createdBy string, cursor string, hasComment bool, includeAllUserRecords bool, limit int64, modTool []string, policies []string, removedLabels []string, removedTags []string, reportTypes []string, sortDirection string, subject string, subjectType string, types []string, withStrike bool) (*ModerationQueryEvents_Output, error) {
 	var out ModerationQueryEvents_Output
 
 	params := map[string]interface{}{}
@@ -103,6 +104,9 @@ func ModerationQueryEvents(ctx context.Context, c lexutil.LexClient, addedLabels
 	}
 	if len(types) != 0 {
 		params["types"] = types
+	}
+	if withStrike {
+		params["withStrike"] = withStrike
 	}
 	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.moderation.queryEvents", params, nil, &out); err != nil {
 		return nil, err
