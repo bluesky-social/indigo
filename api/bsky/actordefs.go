@@ -379,9 +379,11 @@ type ActorDefs_ProfileAssociatedChat struct {
 
 // ActorDefs_ProfileView is a "profileView" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileView struct {
-	Associated   *ActorDefs_ProfileAssociated  `json:"associated,omitempty" cborgen:"associated,omitempty"`
-	Avatar       *string                       `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	CreatedAt    *string                       `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	Associated *ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Avatar     *string                      `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	CreatedAt  *string                      `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	// debug: Debug information for internal development
+	Debug        *interface{}                  `json:"debug,omitempty" cborgen:"debug,omitempty"`
 	Description  *string                       `json:"description,omitempty" cborgen:"description,omitempty"`
 	Did          string                        `json:"did" cborgen:"did"`
 	DisplayName  *string                       `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
@@ -396,9 +398,11 @@ type ActorDefs_ProfileView struct {
 
 // ActorDefs_ProfileViewBasic is a "profileViewBasic" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileViewBasic struct {
-	Associated   *ActorDefs_ProfileAssociated  `json:"associated,omitempty" cborgen:"associated,omitempty"`
-	Avatar       *string                       `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	CreatedAt    *string                       `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	Associated *ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Avatar     *string                      `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	CreatedAt  *string                      `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	// debug: Debug information for internal development
+	Debug        *interface{}                  `json:"debug,omitempty" cborgen:"debug,omitempty"`
 	Did          string                        `json:"did" cborgen:"did"`
 	DisplayName  *string                       `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
 	Handle       string                        `json:"handle" cborgen:"handle"`
@@ -411,10 +415,12 @@ type ActorDefs_ProfileViewBasic struct {
 
 // ActorDefs_ProfileViewDetailed is a "profileViewDetailed" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileViewDetailed struct {
-	Associated           *ActorDefs_ProfileAssociated    `json:"associated,omitempty" cborgen:"associated,omitempty"`
-	Avatar               *string                         `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	Banner               *string                         `json:"banner,omitempty" cborgen:"banner,omitempty"`
-	CreatedAt            *string                         `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	Associated *ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Avatar     *string                      `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	Banner     *string                      `json:"banner,omitempty" cborgen:"banner,omitempty"`
+	CreatedAt  *string                      `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	// debug: Debug information for internal development
+	Debug                *interface{}                    `json:"debug,omitempty" cborgen:"debug,omitempty"`
 	Description          *string                         `json:"description,omitempty" cborgen:"description,omitempty"`
 	Did                  string                          `json:"did" cborgen:"did"`
 	DisplayName          *string                         `json:"displayName,omitempty" cborgen:"displayName,omitempty"`

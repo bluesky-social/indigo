@@ -115,21 +115,23 @@ type FeedDefs_NotFoundPost struct {
 
 // FeedDefs_PostView is a "postView" in the app.bsky.feed.defs schema.
 type FeedDefs_PostView struct {
-	LexiconTypeID string                        `json:"$type" cborgen:"$type,const=app.bsky.feed.defs#postView"`
-	Author        *ActorDefs_ProfileViewBasic   `json:"author" cborgen:"author"`
-	BookmarkCount *int64                        `json:"bookmarkCount,omitempty" cborgen:"bookmarkCount,omitempty"`
-	Cid           string                        `json:"cid" cborgen:"cid"`
-	Embed         *FeedDefs_PostView_Embed      `json:"embed,omitempty" cborgen:"embed,omitempty"`
-	IndexedAt     string                        `json:"indexedAt" cborgen:"indexedAt"`
-	Labels        []*comatproto.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	LikeCount     *int64                        `json:"likeCount,omitempty" cborgen:"likeCount,omitempty"`
-	QuoteCount    *int64                        `json:"quoteCount,omitempty" cborgen:"quoteCount,omitempty"`
-	Record        *lexutil.LexiconTypeDecoder   `json:"record" cborgen:"record"`
-	ReplyCount    *int64                        `json:"replyCount,omitempty" cborgen:"replyCount,omitempty"`
-	RepostCount   *int64                        `json:"repostCount,omitempty" cborgen:"repostCount,omitempty"`
-	Threadgate    *FeedDefs_ThreadgateView      `json:"threadgate,omitempty" cborgen:"threadgate,omitempty"`
-	Uri           string                        `json:"uri" cborgen:"uri"`
-	Viewer        *FeedDefs_ViewerState         `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	LexiconTypeID string                      `json:"$type" cborgen:"$type,const=app.bsky.feed.defs#postView"`
+	Author        *ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
+	BookmarkCount *int64                      `json:"bookmarkCount,omitempty" cborgen:"bookmarkCount,omitempty"`
+	Cid           string                      `json:"cid" cborgen:"cid"`
+	// debug: Debug information for internal development
+	Debug       *interface{}                  `json:"debug,omitempty" cborgen:"debug,omitempty"`
+	Embed       *FeedDefs_PostView_Embed      `json:"embed,omitempty" cborgen:"embed,omitempty"`
+	IndexedAt   string                        `json:"indexedAt" cborgen:"indexedAt"`
+	Labels      []*comatproto.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	LikeCount   *int64                        `json:"likeCount,omitempty" cborgen:"likeCount,omitempty"`
+	QuoteCount  *int64                        `json:"quoteCount,omitempty" cborgen:"quoteCount,omitempty"`
+	Record      *lexutil.LexiconTypeDecoder   `json:"record" cborgen:"record"`
+	ReplyCount  *int64                        `json:"replyCount,omitempty" cborgen:"replyCount,omitempty"`
+	RepostCount *int64                        `json:"repostCount,omitempty" cborgen:"repostCount,omitempty"`
+	Threadgate  *FeedDefs_ThreadgateView      `json:"threadgate,omitempty" cborgen:"threadgate,omitempty"`
+	Uri         string                        `json:"uri" cborgen:"uri"`
+	Viewer      *FeedDefs_ViewerState         `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 type FeedDefs_PostView_Embed struct {
