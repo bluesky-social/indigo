@@ -52,6 +52,20 @@ type ModerationDefs_AccountStats struct {
 	TakedownCount *int64 `json:"takedownCount,omitempty" cborgen:"takedownCount,omitempty"`
 }
 
+// ModerationDefs_AccountStrike is a "accountStrike" in the tools.ozone.moderation.defs schema.
+//
+// Strike information for an account
+type ModerationDefs_AccountStrike struct {
+	// activeStrikeCount: Current number of active strikes (excluding expired strikes)
+	ActiveStrikeCount *int64 `json:"activeStrikeCount,omitempty" cborgen:"activeStrikeCount,omitempty"`
+	// firstStrikeAt: Timestamp of the first strike received
+	FirstStrikeAt *string `json:"firstStrikeAt,omitempty" cborgen:"firstStrikeAt,omitempty"`
+	// lastStrikeAt: Timestamp of the most recent strike received
+	LastStrikeAt *string `json:"lastStrikeAt,omitempty" cborgen:"lastStrikeAt,omitempty"`
+	// totalStrikeCount: Total number of strikes ever received (including expired strikes)
+	TotalStrikeCount *int64 `json:"totalStrikeCount,omitempty" cborgen:"totalStrikeCount,omitempty"`
+}
+
 // ModerationDefs_AgeAssuranceEvent is a "ageAssuranceEvent" in the tools.ozone.moderation.defs schema.
 //
 // Age assurance info coming directly from users. Only works on DID subjects.
@@ -191,6 +205,14 @@ type ModerationDefs_ModEventEmail struct {
 	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	// content: The content of the email sent to the user.
 	Content *string `json:"content,omitempty" cborgen:"content,omitempty"`
+	// policies: Names/Keywords of the policies that necessitated the email.
+	Policies []string `json:"policies,omitempty" cborgen:"policies,omitempty"`
+	// severityLevel: Severity level of the violation. Normally 'sev-1' that adds strike on repeat offense
+	SeverityLevel *string `json:"severityLevel,omitempty" cborgen:"severityLevel,omitempty"`
+	// strikeCount: Number of strikes to assign to the user for this violation. Normally 0 as an indicator of a warning and only added as a strike on a repeat offense.
+	StrikeCount *int64 `json:"strikeCount,omitempty" cborgen:"strikeCount,omitempty"`
+	// strikeExpiresAt: When the strike should expire. If not provided, the strike never expires.
+	StrikeExpiresAt *string `json:"strikeExpiresAt,omitempty" cborgen:"strikeExpiresAt,omitempty"`
 	// subjectLine: The subject line of the email sent to the user.
 	SubjectLine string `json:"subjectLine" cborgen:"subjectLine"`
 }
@@ -269,6 +291,12 @@ type ModerationDefs_ModEventReverseTakedown struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#modEventReverseTakedown"`
 	// comment: Describe reasoning behind the reversal.
 	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	// policies: Names/Keywords of the policy infraction for which takedown is being reversed.
+	Policies []string `json:"policies,omitempty" cborgen:"policies,omitempty"`
+	// severityLevel: Severity level of the violation. Usually set from the last policy infraction's severity.
+	SeverityLevel *string `json:"severityLevel,omitempty" cborgen:"severityLevel,omitempty"`
+	// strikeCount: Number of strikes to subtract from the user's strike count. Usually set from the last policy infraction's severity.
+	StrikeCount *int64 `json:"strikeCount,omitempty" cborgen:"strikeCount,omitempty"`
 }
 
 // ModerationDefs_ModEventTag is a "modEventTag" in the tools.ozone.moderation.defs schema.
@@ -296,6 +324,12 @@ type ModerationDefs_ModEventTakedown struct {
 	DurationInHours *int64 `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 	// policies: Names/Keywords of the policies that drove the decision.
 	Policies []string `json:"policies,omitempty" cborgen:"policies,omitempty"`
+	// severityLevel: Severity level of the violation (e.g., 'sev-0', 'sev-1', 'sev-2', etc.).
+	SeverityLevel *string `json:"severityLevel,omitempty" cborgen:"severityLevel,omitempty"`
+	// strikeCount: Number of strikes to assign to the user for this violation.
+	StrikeCount *int64 `json:"strikeCount,omitempty" cborgen:"strikeCount,omitempty"`
+	// strikeExpiresAt: When the strike should expire. If not provided, the strike never expires.
+	StrikeExpiresAt *string `json:"strikeExpiresAt,omitempty" cborgen:"strikeExpiresAt,omitempty"`
 }
 
 // ModerationDefs_ModEventUnmute is a "modEventUnmute" in the tools.ozone.moderation.defs schema.
@@ -1071,6 +1105,8 @@ type ModerationDefs_ScheduledActionView struct {
 type ModerationDefs_SubjectStatusView struct {
 	// accountStats: Statistics related to the account subject
 	AccountStats *ModerationDefs_AccountStats `json:"accountStats,omitempty" cborgen:"accountStats,omitempty"`
+	// accountStrike: Strike information for the account (account-level only)
+	AccountStrike *ModerationDefs_AccountStrike `json:"accountStrike,omitempty" cborgen:"accountStrike,omitempty"`
 	// ageAssuranceState: Current age assurance state of the subject.
 	AgeAssuranceState *string `json:"ageAssuranceState,omitempty" cborgen:"ageAssuranceState,omitempty"`
 	// ageAssuranceUpdatedBy: Whether or not the last successful update to age assurance was made by the user or admin.
