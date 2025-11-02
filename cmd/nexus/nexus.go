@@ -2,7 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -10,6 +14,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"github.com/bluesky-social/indigo/events"
+	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -40,7 +45,7 @@ type Nexus struct {
 }
 
 type NexusConfig struct {
-	DBPath                     string
+	DatabaseURL                string
 	RelayUrl                   string
 	FirehoseParallelism        int
 	ResyncParallelism          int
@@ -53,14 +58,8 @@ type NexusConfig struct {
 }
 
 func NewNexus(config NexusConfig) (*Nexus, error) {
-	db, err := gorm.Open(sqlite.Open(config.DBPath+"?_journal_mode=WAL&_busy_timeout=10000&_synchronous=NORMAL&_temp_store=MEMORY&_cache_size=8000&_wal_autocheckpoint=3000"), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
+	db, err := SetupDatabase(config.DatabaseURL)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := db.AutoMigrate(&models.Repo{}, &models.RepoRecord{}, &models.OutboxBuffer{}, &models.ResyncBuffer{}, &models.FirehoseCursor{}, &models.ListReposCursor{}, &models.CollectionCursor{}); err != nil {
 		return nil, err
 	}
 
@@ -192,4 +191,59 @@ func (n *Nexus) CloseDb(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func SetupDatabase(dbUrl string) (*gorm.DB, error) {
+	// Setup database connection (supports both SQLite and Postgres)
+	var dialector gorm.Dialector
+	isSqlite := false
+	maxOpenConns := 80
+
+	if strings.HasPrefix(dbUrl, "sqlite://") {
+		sqlitePath := dbUrl[len("sqlite://"):]
+		// Create directory if it doesn't exist
+		if err := os.MkdirAll(filepath.Dir(sqlitePath), os.ModePerm); err != nil {
+			return nil, err
+		}
+		// SQLite with pragmas in connection string
+		dialector = sqlite.Open(sqlitePath + "?_journal_mode=WAL&_busy_timeout=10000&_synchronous=NORMAL&_temp_store=MEMORY&_cache_size=8000&_wal_autocheckpoint=3000")
+		isSqlite = true
+		maxOpenConns = 1
+	} else if strings.HasPrefix(dbUrl, "postgresql://") || strings.HasPrefix(dbUrl, "postgres://") {
+		dialector = postgres.Open(dbUrl)
+	} else {
+		return nil, fmt.Errorf("unsupported database URL scheme: must start with sqlite://, postgres://, or postgresql://")
+	}
+
+	db, err := gorm.Open(dialector, &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if isSqlite {
+		db.Exec("PRAGMA journal_mode=WAL;")
+		db.Exec("PRAGMA synchronous=NORMAL;")
+		db.Exec("PRAGMA busy_timeout=10000;")
+		db.Exec("PRAGMA temp_store=MEMORY;")
+		db.Exec("PRAGMA cache_size=8000;")
+		db.Exec("PRAGMA wal_autocheckpoint=3000;")
+	} else {
+		// Configure connection pool
+		sqlDB, err := db.DB()
+		if err != nil {
+			return nil, err
+		}
+		sqlDB.SetMaxOpenConns(maxOpenConns)
+		sqlDB.SetMaxIdleConns(maxOpenConns)
+		sqlDB.SetConnMaxIdleTime(time.Hour)
+
+	}
+
+	if err := db.AutoMigrate(&models.Repo{}, &models.RepoRecord{}, &models.OutboxBuffer{}, &models.ResyncBuffer{}, &models.FirehoseCursor{}, &models.ListReposCursor{}, &models.CollectionCursor{}); err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }

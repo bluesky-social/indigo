@@ -55,7 +55,6 @@ func (n *Nexus) claimResyncJob(ctx context.Context) (string, bool, error) {
 		WHERE did = (
 			SELECT did FROM repos
 			WHERE state IN (?, ?)
-			ORDER BY RANDOM()
 			LIMIT 1
 		)
 		RETURNING did
