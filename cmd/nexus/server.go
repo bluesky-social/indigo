@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"github.com/gorilla/websocket"
@@ -25,6 +26,7 @@ func (ns *NexusServer) Start(address string) error {
 	ns.echo.GET("/channel", ns.handleChannelWebsocket)
 	ns.echo.POST("/add-repos", ns.handleAddRepos)
 	ns.echo.POST("/remove-repos", ns.handleRemoveRepos)
+	ns.echo.Any("/debug/pprof/*", echo.WrapHandler(http.DefaultServeMux))
 	return ns.echo.Start(address)
 }
 

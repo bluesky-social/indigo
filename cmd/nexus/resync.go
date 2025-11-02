@@ -9,11 +9,11 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
-	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
@@ -118,11 +118,9 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 
 	n.logger.Info("fetching repo from PDS", "did", did, "pds", pdsURL)
 
-	client := &xrpc.Client{
-		Client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-		Host: pdsURL,
+	client := atclient.NewAPIClient(pdsURL)
+	client.Client = &http.Client{
+		Timeout: 30 * time.Second,
 	}
 
 	repoBytes, err := comatproto.SyncGetRepo(ctx, client, did, "")
