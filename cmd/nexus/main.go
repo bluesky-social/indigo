@@ -46,10 +46,10 @@ func run(args []string) error {
 			EnvVars: []string{"OTEL_EXPORTER_OTLP_ENDPOINT"},
 		},
 		&cli.StringFlag{
-			Name:    "db-path",
-			Usage:   "path to SQLite database file",
-			Value:   "./nexus.db",
-			EnvVars: []string{"NEXUS_DB_PATH"},
+			Name:    "database-url",
+			Usage:   "database connection string (sqlite://path or postgres://...)",
+			Value:   "sqlite://./nexus.db",
+			EnvVars: []string{"NEXUS_DATABASE_URL"},
 		},
 		&cli.StringFlag{
 			Name:    "relay-url",
@@ -132,7 +132,7 @@ func runNexus(cctx *cli.Context) error {
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	config := NexusConfig{
-		DBPath:                     cctx.String("db-path"),
+		DatabaseURL:                cctx.String("database-url"),
 		RelayUrl:                   cctx.String("relay-url"),
 		FirehoseParallelism:        cctx.Int("firehose-parallelism"),
 		ResyncParallelism:          cctx.Int("resync-parallelism"),
