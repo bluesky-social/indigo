@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -197,18 +195,11 @@ func SetupDatabase(dbUrl string) (*gorm.DB, error) {
 	// Setup database connection (supports both SQLite and Postgres)
 	var dialector gorm.Dialector
 	isSqlite := false
-	maxOpenConns := 80
 
 	if strings.HasPrefix(dbUrl, "sqlite://") {
 		sqlitePath := dbUrl[len("sqlite://"):]
-		// Create directory if it doesn't exist
-		if err := os.MkdirAll(filepath.Dir(sqlitePath), os.ModePerm); err != nil {
-			return nil, err
-		}
-		// SQLite with pragmas in connection string
-		dialector = sqlite.Open(sqlitePath + "?_journal_mode=WAL&_busy_timeout=10000&_synchronous=NORMAL&_temp_store=MEMORY&_cache_size=8000&_wal_autocheckpoint=3000")
+		dialector = sqlite.Open(sqlitePath)
 		isSqlite = true
-		maxOpenConns = 1
 	} else if strings.HasPrefix(dbUrl, "postgresql://") || strings.HasPrefix(dbUrl, "postgres://") {
 		dialector = postgres.Open(dbUrl)
 	} else {
@@ -235,8 +226,8 @@ func SetupDatabase(dbUrl string) (*gorm.DB, error) {
 		if err != nil {
 			return nil, err
 		}
-		sqlDB.SetMaxOpenConns(maxOpenConns)
-		sqlDB.SetMaxIdleConns(maxOpenConns)
+		sqlDB.SetMaxOpenConns(400)
+		sqlDB.SetMaxIdleConns(400)
 		sqlDB.SetConnMaxIdleTime(time.Hour)
 
 	}
