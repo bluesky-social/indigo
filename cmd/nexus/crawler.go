@@ -8,8 +8,8 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
-	"github.com/bluesky-social/indigo/xrpc"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
 )
@@ -30,11 +30,9 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 		return err
 	}
 
-	client := &xrpc.Client{
-		Client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-		Host: c.RelayUrl,
+	client := atclient.NewAPIClient(c.RelayUrl)
+	client.Client = &http.Client{
+		Timeout: 30 * time.Second,
 	}
 
 	for {
@@ -112,11 +110,9 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 		return err
 	}
 
-	client := &xrpc.Client{
-		Client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-		Host: c.RelayUrl,
+	client := atclient.NewAPIClient(c.RelayUrl)
+	client.Client = &http.Client{
+		Timeout: 30 * time.Second,
 	}
 
 	for {
