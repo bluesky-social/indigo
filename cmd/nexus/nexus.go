@@ -44,6 +44,7 @@ type Nexus struct {
 
 type NexusConfig struct {
 	DatabaseURL                string
+	DBMaxConns                 int
 	RelayUrl                   string
 	FirehoseParallelism        int
 	ResyncParallelism          int
@@ -56,7 +57,7 @@ type NexusConfig struct {
 }
 
 func NewNexus(config NexusConfig) (*Nexus, error) {
-	db, err := SetupDatabase(config.DatabaseURL)
+	db, err := SetupDatabase(config.DatabaseURL, config.DBMaxConns)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +192,7 @@ func (n *Nexus) CloseDb(ctx context.Context) error {
 	return nil
 }
 
-func SetupDatabase(dbUrl string) (*gorm.DB, error) {
+func SetupDatabase(dbUrl string, maxConns int) (*gorm.DB, error) {
 	// Setup database connection (supports both SQLite and Postgres)
 	var dialector gorm.Dialector
 	isSqlite := false
@@ -226,8 +227,8 @@ func SetupDatabase(dbUrl string) (*gorm.DB, error) {
 		if err != nil {
 			return nil, err
 		}
-		sqlDB.SetMaxOpenConns(400)
-		sqlDB.SetMaxIdleConns(400)
+		sqlDB.SetMaxOpenConns(maxConns)
+		sqlDB.SetMaxIdleConns(maxConns)
 		sqlDB.SetConnMaxIdleTime(time.Hour)
 
 	}
