@@ -279,7 +279,8 @@ func (o *Outbox) postWebhook(evt *OutboxEvt) error {
 }
 
 func (o *Outbox) runBatchedDeletes(ctx context.Context) {
-	ticker := time.NewTicker(time.Second)
+	// drain every 10s as a fallback in the case of low-throughput ack queue
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	var batch []uint
@@ -290,7 +291,7 @@ func (o *Outbox) runBatchedDeletes(ctx context.Context) {
 			return
 		case id := <-o.ackQueue:
 			batch = append(batch, id)
-			if len(batch) >= 100 {
+			if len(batch) >= 1000 {
 				o.flushDeleteBatch(batch)
 				batch = nil
 			}
