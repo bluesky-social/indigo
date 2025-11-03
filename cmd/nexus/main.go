@@ -51,6 +51,12 @@ func run(args []string) error {
 			Value:   "sqlite://./nexus.db",
 			EnvVars: []string{"NEXUS_DATABASE_URL"},
 		},
+		&cli.IntFlag{
+			Name:    "db-max-conns",
+			Usage:   "maximum number of database connections",
+			Value:   32,
+			EnvVars: []string{"NEXUS_DB_MAX_CONNS"},
+		},
 		&cli.StringFlag{
 			Name:    "relay-url",
 			Usage:   "AT Protocol relay URL",
@@ -133,6 +139,7 @@ func runNexus(cctx *cli.Context) error {
 
 	config := NexusConfig{
 		DatabaseURL:                cctx.String("database-url"),
+		DBMaxConns:                 cctx.Int("db-max-conns"),
 		RelayUrl:                   cctx.String("relay-url"),
 		FirehoseParallelism:        cctx.Int("firehose-parallelism"),
 		ResyncParallelism:          cctx.Int("resync-parallelism"),
