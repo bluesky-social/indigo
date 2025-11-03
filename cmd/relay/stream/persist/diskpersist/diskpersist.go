@@ -200,9 +200,21 @@ func (dp *DiskPersistence) resumeLog() error {
 		return fmt.Errorf("failed to scan log file for last seqno: %w", err)
 	}
 
+	if seq == -1 {
+		// The log file is empty, use its starting sequence
+		seq = lfr.SeqStart
+		if seq == 0 {
+			// First file, and no records in it: use the initial sequence number instead
+			seq = dp.initialSeq
+		}
+	} else {
+		// Restart at the last item plus one
+		seq++
+	}
+
 	dp.log.Info("loaded seq", "seq", seq, "now", time.Now().UnixMicro())
 
-	dp.curSeq = seq + 1
+	dp.curSeq = seq
 	dp.logfi = fi
 
 	return nil
@@ -362,7 +374,9 @@ func (dp *DiskPersistence) flushLog(ctx context.Context) error {
 	dp.outbuf.Truncate(0)
 
 	for _, ej := range dp.evtbuf {
-		dp.broadcast(ej.Evt)
+		if dp.broadcast != nil {
+			dp.broadcast(ej.Evt)
+		}
 		ej.Buffer.Truncate(0)
 		dp.buffers.Put(ej.Buffer)
 	}
