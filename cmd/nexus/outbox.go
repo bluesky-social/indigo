@@ -140,17 +140,17 @@ func (o *Outbox) loadMoreEvents() {
 		outboxEvt.ID = dbEvt.ID
 		o.eventCache[dbEvt.ID] = &outboxEvt
 
-		select {
-		case o.pendingIDs <- dbEvt.ID:
-		default:
-			// Channel full, will try again next time
-		}
-
 		if dbEvt.ID > o.lastLoadedID {
 			o.lastLoadedID = dbEvt.ID
 		}
 	}
 	o.cacheMu.Unlock()
+
+	// do outside of cacheMu lock to avoid holding the lcok in the case of back pressure
+	for _, dbEvt := range events {
+		// back pressure if pendingIDs channel is full
+		o.pendingIDs <- dbEvt.ID
+	}
 }
 
 // runDelivery continuously pulls from pendingIDs and delivers events
