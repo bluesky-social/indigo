@@ -12,6 +12,8 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/prometheus/client_golang/prometheus"
 
+	cbg "github.com/whyrusleeping/cbor-gen"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -162,6 +164,13 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 		return nil
 	})
 
+	cr := new(cbg.CborReader)
+
+	ir := &instrumentedReader{
+		addr:         remoteAddr,
+		bytesCounter: bytesFromStreamCounter.WithLabelValues(remoteAddr),
+	}
+
 	lastSeq := int64(-1)
 	for {
 		select {
@@ -182,14 +191,12 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 			// ok
 		}
 
-		r := &instrumentedReader{
-			r:            rawReader,
-			addr:         remoteAddr,
-			bytesCounter: bytesFromStreamCounter.WithLabelValues(remoteAddr),
-		}
+		ir.r = rawReader
+
+		cr.SetReader(ir)
 
 		var header EventHeader
-		if err := header.UnmarshalCBOR(r); err != nil {
+		if err := header.UnmarshalCBOR(cr); err != nil {
 			return fmt.Errorf("reading header: %w", err)
 		}
 
@@ -200,7 +207,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 			switch header.MsgType {
 			case "#commit":
 				var evt comatproto.SyncSubscribeRepos_Commit
-				if err := evt.UnmarshalCBOR(r); err != nil {
+				if err := evt.UnmarshalCBOR(cr); err != nil {
 					return fmt.Errorf("reading repoCommit event: %w", err)
 				}
 
@@ -217,7 +224,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 				}
 			case "#sync":
 				var evt comatproto.SyncSubscribeRepos_Sync
-				if err := evt.UnmarshalCBOR(r); err != nil {
+				if err := evt.UnmarshalCBOR(cr); err != nil {
 					return fmt.Errorf("reading repoSync event: %w", err)
 				}
 
@@ -234,7 +241,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 				}
 			case "#identity":
 				var evt comatproto.SyncSubscribeRepos_Identity
-				if err := evt.UnmarshalCBOR(r); err != nil {
+				if err := evt.UnmarshalCBOR(cr); err != nil {
 					return err
 				}
 
@@ -250,7 +257,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 				}
 			case "#account":
 				var evt comatproto.SyncSubscribeRepos_Account
-				if err := evt.UnmarshalCBOR(r); err != nil {
+				if err := evt.UnmarshalCBOR(cr); err != nil {
 					return err
 				}
 
@@ -267,7 +274,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 			case "#info":
 				// TODO: this might also be a LabelInfo (as opposed to RepoInfo)
 				var evt comatproto.SyncSubscribeRepos_Info
-				if err := evt.UnmarshalCBOR(r); err != nil {
+				if err := evt.UnmarshalCBOR(cr); err != nil {
 					return err
 				}
 
@@ -278,7 +285,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 				}
 			case "#labels":
 				var evt comatproto.LabelSubscribeLabels_Labels
-				if err := evt.UnmarshalCBOR(r); err != nil {
+				if err := evt.UnmarshalCBOR(cr); err != nil {
 					return fmt.Errorf("reading Labels event: %w", err)
 				}
 
@@ -297,7 +304,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 
 		case EvtKindErrorFrame:
 			var errframe ErrorFrame
-			if err := errframe.UnmarshalCBOR(r); err != nil {
+			if err := errframe.UnmarshalCBOR(cr); err != nil {
 				return err
 			}
 
