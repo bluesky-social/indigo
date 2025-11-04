@@ -504,7 +504,7 @@ func (s *Slurper) persistCursors(ctx context.Context) error {
 	return err
 }
 
-// gets a snapshot of current subsription hostnames
+// gets a snapshot of current subscription hostnames
 func (s *Slurper) GetActiveSubHostnames() []string {
 	s.subsLk.Lock()
 	defer s.subsLk.Unlock()
