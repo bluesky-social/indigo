@@ -73,7 +73,7 @@ func (ns *NexusServer) handleChannelWebsocket(c echo.Context) error {
 
 			// Process acks directly in websocket-ack mode
 			if ns.Outbox.mode == OutboxModeWebsocketAck {
-				ns.Outbox.AckEvent(msg.ID)
+				go ns.Outbox.AckEvent(msg.ID)
 			}
 		}
 	}()
@@ -94,7 +94,7 @@ func (ns *NexusServer) handleChannelWebsocket(c echo.Context) error {
 			// In fire-and-forget mode, ack immediately after write succeeds
 			// In websocket-ack mode, wait for client to send ack and handle in read loop
 			if ns.Outbox.mode == OutboxModeFireAndForget {
-				ns.Outbox.AckEvent(evt.ID)
+				go ns.Outbox.AckEvent(evt.ID)
 			}
 		}
 	}
