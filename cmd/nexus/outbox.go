@@ -52,8 +52,7 @@ type Outbox struct {
 
 	cache *EventCache
 
-	didWorkers map[string]*DIDWorker
-	workersMu  sync.Mutex
+	didWorkers sync.Map // map[string]*DIDWorker
 
 	ackQueue chan uint
 
@@ -71,9 +70,8 @@ func NewOutbox(db *gorm.DB, mode OutboxMode, webhookURL string) *Outbox {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		cache:      NewEventCache(db, logger, 1000, 1000000),
-		didWorkers: make(map[string]*DIDWorker),
-		ackQueue:   make(chan uint, 100000),
+		cache:    NewEventCache(db, logger, 1000, 1000000),
+		ackQueue: make(chan uint, 100000),
 	}
 }
 
@@ -85,7 +83,12 @@ func (o *Outbox) Run(ctx context.Context) {
 		go o.checkTimeouts(ctx)
 	}
 	go o.cache.run(ctx)
-	go o.runDelivery(ctx)
+
+	// Run multiple delivery workers for parallelism across DIDs
+	for i := 0; i < 20; i++ {
+		go o.runDelivery(ctx)
+	}
+
 	go o.runBatchedDeletes(ctx)
 
 	<-ctx.Done()
@@ -112,21 +115,23 @@ func (o *Outbox) deliverEvent(eventID uint) {
 
 	did := outboxEvt.DID()
 
-	o.workersMu.Lock()
-	worker, exists := o.didWorkers[did]
-	if !exists {
-		worker = &DIDWorker{
-			did:            did,
-			notifChan:      make(chan struct{}, 1),
-			inFlightSentAt: make(map[uint]time.Time),
-			outbox:         o,
-			ctx:            o.ctx,
-		}
-		o.didWorkers[did] = worker
+	// Fast path: try to load existing worker
+	if val, ok := o.didWorkers.Load(did); ok {
+		worker := val.(*DIDWorker)
+		worker.addEvent(outboxEvt)
+		return
 	}
-	o.workersMu.Unlock()
 
-	worker.addEvent(outboxEvt)
+	// Slow path: create new worker
+	worker := &DIDWorker{
+		did:            did,
+		notifChan:      make(chan struct{}, 1),
+		inFlightSentAt: make(map[uint]time.Time),
+		outbox:         o,
+		ctx:            o.ctx,
+	}
+	actual, _ := o.didWorkers.LoadOrStore(did, worker)
+	actual.(*DIDWorker).addEvent(outboxEvt)
 }
 
 func (o *Outbox) sendEvent(evt *OutboxEvt) {
@@ -147,11 +152,8 @@ func (o *Outbox) AckEvent(eventID uint) {
 	if exists {
 		did := outboxEvt.DID()
 
-		o.workersMu.Lock()
-		worker := o.didWorkers[did]
-		o.workersMu.Unlock()
-
-		if worker != nil {
+		if val, ok := o.didWorkers.Load(did); ok {
+			worker := val.(*DIDWorker)
 			worker.ackEvent(eventID)
 		}
 
@@ -262,12 +264,11 @@ func (o *Outbox) checkTimeouts(ctx context.Context) {
 // retryTimedOutEvents iterates through all workers and re-queues timed out events
 func (o *Outbox) retryTimedOutEvents() {
 	// Get snapshot of all active workers
-	o.workersMu.Lock()
-	workers := make([]*DIDWorker, 0, len(o.didWorkers))
-	for _, w := range o.didWorkers {
-		workers = append(workers, w)
-	}
-	o.workersMu.Unlock()
+	workers := make([]*DIDWorker, 0)
+	o.didWorkers.Range(func(key, value interface{}) bool {
+		workers = append(workers, value.(*DIDWorker))
+		return true
+	})
 
 	for _, worker := range workers {
 		timedOutIDs := worker.timedOutEvents()
@@ -449,7 +450,11 @@ func NewEventCache(db *gorm.DB, logger *slog.Logger, batchSize int, pendingSize 
 
 func (ec *EventCache) run(ctx context.Context) {
 	go ec.loadEvents(ctx)
-	go ec.processEvents(ctx)
+
+	// Run multiple processors for parallel JSON unmarshaling
+	for i := 0; i < 4; i++ {
+		go ec.processEvents(ctx)
+	}
 }
 
 func (ec *EventCache) loadEvents(ctx context.Context) {
