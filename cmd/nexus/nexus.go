@@ -54,6 +54,7 @@ type NexusConfig struct {
 	DisableAcks                bool
 	WebhookURL                 string
 	CollectionFilters          []string // e.g., ["app.bsky.feed.post", "app.bsky.graph.*"]
+	OutboxOnly                 bool
 }
 
 func NewNexus(config NexusConfig) (*Nexus, error) {
@@ -158,19 +159,21 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 
 // Run starts internal background workers for resync, cursor saving, and outbox delivery.
 func (n *Nexus) Run(ctx context.Context) {
-	resyncParallelism := n.config.ResyncParallelism
-	if resyncParallelism == 0 {
-		resyncParallelism = 5
-	}
-	for i := 0; i < resyncParallelism; i++ {
-		go n.runResyncWorker(ctx, i)
-	}
+	if !n.config.OutboxOnly {
+		resyncParallelism := n.config.ResyncParallelism
+		if resyncParallelism == 0 {
+			resyncParallelism = 5
+		}
+		for i := 0; i < resyncParallelism; i++ {
+			go n.runResyncWorker(ctx, i)
+		}
 
-	cursorSaveInterval := n.config.FirehoseCursorSaveInterval
-	if cursorSaveInterval == 0 {
-		cursorSaveInterval = 5 * time.Second
+		cursorSaveInterval := n.config.FirehoseCursorSaveInterval
+		if cursorSaveInterval == 0 {
+			cursorSaveInterval = 5 * time.Second
+		}
+		go n.EventProcessor.RunCursorSaver(ctx, cursorSaveInterval)
 	}
-	go n.EventProcessor.RunCursorSaver(ctx, cursorSaveInterval)
 
 	go n.Outbox.Run(ctx)
 }

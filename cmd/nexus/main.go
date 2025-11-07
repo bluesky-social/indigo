@@ -118,6 +118,11 @@ func run(args []string) error {
 			Value:   "info",
 			EnvVars: []string{"NEXUS_LOG_LEVEL", "LOG_LEVEL"},
 		},
+		&cli.BoolFlag{
+			Name:    "outbox-only",
+			Usage:   "run in outbox-only mode (no firehose, resync, or enumeration)",
+			EnvVars: []string{"NEXUS_OUTBOX_ONLY"},
+		},
 	}
 
 	app.Action = runNexus
@@ -149,6 +154,7 @@ func runNexus(cctx *cli.Context) error {
 		DisableAcks:                cctx.Bool("disable-acks"),
 		WebhookURL:                 cctx.String("webhook-url"),
 		CollectionFilters:          cctx.StringSlice("collection-filters"),
+		OutboxOnly:                 cctx.Bool("outbox-only"),
 	}
 
 	logger.Info("creating nexus service")
@@ -157,28 +163,32 @@ func runNexus(cctx *cli.Context) error {
 		return err
 	}
 
-	if config.SignalCollection != "" {
-		go func() {
-			if err := nexus.Crawler.EnumerateNetworkByCollection(ctx, config.SignalCollection); err != nil {
-				logger.Error("collection enumeration failed", "error", err, "collection", config.SignalCollection)
-			}
-		}()
-	} else if config.FullNetworkMode {
-		go func() {
-			if err := nexus.Crawler.EnumerateNetwork(ctx); err != nil {
-				logger.Error("network enumeration failed", "error", err)
-			}
-		}()
+	if !config.OutboxOnly {
+		if config.SignalCollection != "" {
+			go func() {
+				if err := nexus.Crawler.EnumerateNetworkByCollection(ctx, config.SignalCollection); err != nil {
+					logger.Error("collection enumeration failed", "error", err, "collection", config.SignalCollection)
+				}
+			}()
+		} else if config.FullNetworkMode {
+			go func() {
+				if err := nexus.Crawler.EnumerateNetwork(ctx); err != nil {
+					logger.Error("network enumeration failed", "error", err)
+				}
+			}()
+		}
 	}
 
 	svcErr := make(chan error, 1)
 
-	go func() {
-		logger.Info("starting firehose consumer")
-		if err := nexus.FirehoseConsumer.Run(ctx); err != nil {
-			svcErr <- err
-		}
-	}()
+	if !config.OutboxOnly {
+		go func() {
+			logger.Info("starting firehose consumer")
+			if err := nexus.FirehoseConsumer.Run(ctx); err != nil {
+				svcErr <- err
+			}
+		}()
+	}
 
 	go nexus.Run(ctx)
 

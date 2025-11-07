@@ -115,14 +115,12 @@ func (o *Outbox) deliverEvent(eventID uint) {
 
 	did := outboxEvt.DID()
 
-	// Fast path: try to load existing worker
 	if val, ok := o.didWorkers.Load(did); ok {
 		worker := val.(*DIDWorker)
 		worker.addEvent(outboxEvt)
 		return
 	}
 
-	// Slow path: create new worker
 	worker := &DIDWorker{
 		did:            did,
 		notifChan:      make(chan struct{}, 1),
