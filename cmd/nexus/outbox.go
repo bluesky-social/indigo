@@ -50,10 +50,7 @@ type Outbox struct {
 	webhookURL string
 	httpClient *http.Client
 
-	eventCache   map[uint]*OutboxEvt // ID -> event
-	pendingIDs   chan uint           // Buffered channel of event IDs
-	cacheMu      sync.RWMutex
-	lastLoadedID uint
+	cache *EventCache
 
 	didWorkers map[string]*DIDWorker
 	workersMu  sync.Mutex
@@ -64,6 +61,7 @@ type Outbox struct {
 }
 
 func NewOutbox(db *gorm.DB, mode OutboxMode, webhookURL string) *Outbox {
+	logger := slog.Default().With("system", "outbox")
 	return &Outbox{
 		db:         db,
 		logger:     slog.Default().With("system", "outbox"),
@@ -73,8 +71,7 @@ func NewOutbox(db *gorm.DB, mode OutboxMode, webhookURL string) *Outbox {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		eventCache: make(map[uint]*OutboxEvt),
-		pendingIDs: make(chan uint, 1000000),
+		cache:      NewEventCache(db, logger, 1000, 1000000),
 		didWorkers: make(map[string]*DIDWorker),
 		ackQueue:   make(chan uint, 100000),
 	}
@@ -87,71 +84,11 @@ func (o *Outbox) Run(ctx context.Context) {
 	if o.mode == OutboxModeWebsocketAck {
 		go o.checkTimeouts(ctx)
 	}
-	go o.runCacheLoader(ctx)
+	go o.cache.run(ctx)
 	go o.runDelivery(ctx)
 	go o.runBatchedDeletes(ctx)
 
 	<-ctx.Done()
-}
-
-// continuously load events from DB into memory cache
-func (o *Outbox) runCacheLoader(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			loaded := o.loadMoreEvents()
-			if !loaded {
-				time.Sleep(500 * time.Millisecond)
-			}
-		}
-	}
-}
-
-func (o *Outbox) loadMoreEvents() bool {
-	o.cacheMu.RLock()
-	lastID := o.lastLoadedID
-	o.cacheMu.RUnlock()
-
-	batchSize := 1000
-
-	var events []models.OutboxBuffer
-	if err := o.db.Where("id > ?", lastID).
-		Order("id ASC").
-		Limit(batchSize).
-		Find(&events).Error; err != nil {
-		o.logger.Error("failed to load events into cache", "error", err, "lastID", lastID)
-		return false
-	}
-
-	if len(events) == 0 {
-		return false
-	}
-
-	o.cacheMu.Lock()
-	for _, dbEvt := range events {
-		var outboxEvt OutboxEvt
-		if err := json.Unmarshal([]byte(dbEvt.Data), &outboxEvt); err != nil {
-			o.logger.Error("failed to unmarshal cached event", "error", err, "id", dbEvt.ID)
-			continue
-		}
-
-		outboxEvt.ID = dbEvt.ID
-		o.eventCache[dbEvt.ID] = &outboxEvt
-
-		if dbEvt.ID > o.lastLoadedID {
-			o.lastLoadedID = dbEvt.ID
-		}
-	}
-	o.cacheMu.Unlock()
-
-	// do outside of cacheMu lock to avoid holding the lcok in the case of back pressure
-	for _, dbEvt := range events {
-		// back pressure if pendingIDs channel is full
-		o.pendingIDs <- dbEvt.ID
-	}
-	return true
 }
 
 // runDelivery continuously pulls from pendingIDs and delivers events
@@ -160,17 +97,14 @@ func (o *Outbox) runDelivery(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case eventID := <-o.pendingIDs:
+		case eventID := <-o.cache.pendingIDs:
 			o.deliverEvent(eventID)
 		}
 	}
 }
 
 func (o *Outbox) deliverEvent(eventID uint) {
-	o.cacheMu.RLock()
-	outboxEvt, exists := o.eventCache[eventID]
-	o.cacheMu.RUnlock()
-
+	outboxEvt, exists := o.cache.GetEvent(eventID)
 	if !exists {
 		// Event was already acked/removed
 		return
@@ -208,9 +142,7 @@ func (o *Outbox) sendEvent(evt *OutboxEvt) {
 
 // AckEvent marks an event as delivered and queues it for deletion.
 func (o *Outbox) AckEvent(eventID uint) {
-	o.cacheMu.RLock()
-	outboxEvt, exists := o.eventCache[eventID]
-	o.cacheMu.RUnlock()
+	outboxEvt, exists := o.cache.GetEvent(eventID)
 
 	if exists {
 		did := outboxEvt.DID()
@@ -223,9 +155,7 @@ func (o *Outbox) AckEvent(eventID uint) {
 			worker.ackEvent(eventID)
 		}
 
-		o.cacheMu.Lock()
-		delete(o.eventCache, eventID)
-		o.cacheMu.Unlock()
+		o.cache.DeleteEvent(eventID)
 	}
 
 	select {
@@ -342,9 +272,7 @@ func (o *Outbox) retryTimedOutEvents() {
 	for _, worker := range workers {
 		timedOutIDs := worker.timedOutEvents()
 		for _, id := range timedOutIDs {
-			o.cacheMu.RLock()
-			evt, exists := o.eventCache[id]
-			o.cacheMu.RUnlock()
+			evt, exists := o.cache.GetEvent(id)
 			if exists {
 				o.logger.Info("retrying timed out event", "id", id)
 				o.sendEvent(evt)
@@ -404,9 +332,7 @@ func (w *DIDWorker) processPendingEvts() {
 		eventID := w.pendingEvts[0]
 		w.mu.Unlock()
 
-		w.outbox.cacheMu.RLock()
-		outboxEvt, exists := w.outbox.eventCache[eventID]
-		w.outbox.cacheMu.RUnlock()
+		outboxEvt, exists := w.outbox.cache.GetEvent(eventID)
 
 		if !exists {
 			// Event was already acked/removed, skip it
@@ -495,4 +421,98 @@ func (w *DIDWorker) timedOutEvents() []uint {
 	}
 
 	return timedOut
+}
+
+type EventCache struct {
+	db     *gorm.DB
+	logger *slog.Logger
+
+	batchSize int
+
+	eventCache map[uint]*OutboxEvt
+	cacheMu    sync.RWMutex
+
+	pendingIDs chan uint
+	dbEvtChan  chan *models.OutboxBuffer // internal channel
+}
+
+func NewEventCache(db *gorm.DB, logger *slog.Logger, batchSize int, pendingSize int) *EventCache {
+	return &EventCache{
+		db:         db,
+		logger:     logger,
+		batchSize:  batchSize,
+		eventCache: make(map[uint]*OutboxEvt),
+		pendingIDs: make(chan uint, pendingSize),
+		dbEvtChan:  make(chan *models.OutboxBuffer, batchSize*2),
+	}
+}
+
+func (ec *EventCache) run(ctx context.Context) {
+	go ec.loadEvents(ctx)
+	go ec.processEvents(ctx)
+}
+
+func (ec *EventCache) loadEvents(ctx context.Context) {
+	var lastID uint
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			var events []models.OutboxBuffer
+			if err := ec.db.Where("id > ?", lastID).
+				Order("id ASC").
+				Limit(ec.batchSize).
+				Find(&events).Error; err != nil {
+				ec.logger.Error("failed to load events into cache", "error", err, "lastID", lastID)
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
+			if len(events) == 0 {
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
+			for _, evt := range events {
+				ec.dbEvtChan <- &evt
+			}
+			lastID = events[len(events)-1].ID
+		}
+	}
+}
+
+func (ec *EventCache) processEvents(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case evt := <-ec.dbEvtChan:
+			var outboxEvt OutboxEvt
+			if err := json.Unmarshal([]byte(evt.Data), &outboxEvt); err != nil {
+				ec.logger.Error("failed to unmarshal cached event", "error", err, "id", evt.ID)
+				continue
+			}
+
+			outboxEvt.ID = evt.ID
+
+			ec.cacheMu.Lock()
+			ec.eventCache[evt.ID] = &outboxEvt
+			ec.cacheMu.Unlock()
+
+			// back pressure if pendingIDs channel is full
+			ec.pendingIDs <- evt.ID
+		}
+	}
+}
+
+func (ec *EventCache) GetEvent(id uint) (*OutboxEvt, bool) {
+	ec.cacheMu.RLock()
+	defer ec.cacheMu.RUnlock()
+	evt, exists := ec.eventCache[id]
+	return evt, exists
+}
+
+func (ec *EventCache) DeleteEvent(id uint) {
+	ec.cacheMu.Lock()
+	defer ec.cacheMu.Unlock()
+	delete(ec.eventCache, id)
 }
