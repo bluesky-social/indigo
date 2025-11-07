@@ -96,20 +96,20 @@ func (o *Outbox) Run(ctx context.Context) {
 
 // continuously load events from DB into memory cache
 func (o *Outbox) runCacheLoader(ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Millisecond)
-	defer ticker.Stop()
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			o.loadMoreEvents()
+		default:
+			loaded := o.loadMoreEvents()
+			if !loaded {
+				time.Sleep(500 * time.Millisecond)
+			}
 		}
 	}
 }
 
-func (o *Outbox) loadMoreEvents() {
+func (o *Outbox) loadMoreEvents() bool {
 	o.cacheMu.RLock()
 	lastID := o.lastLoadedID
 	o.cacheMu.RUnlock()
@@ -122,11 +122,11 @@ func (o *Outbox) loadMoreEvents() {
 		Limit(batchSize).
 		Find(&events).Error; err != nil {
 		o.logger.Error("failed to load events into cache", "error", err, "lastID", lastID)
-		return
+		return false
 	}
 
 	if len(events) == 0 {
-		return
+		return false
 	}
 
 	o.cacheMu.Lock()
@@ -151,6 +151,7 @@ func (o *Outbox) loadMoreEvents() {
 		// back pressure if pendingIDs channel is full
 		o.pendingIDs <- dbEvt.ID
 	}
+	return true
 }
 
 // runDelivery continuously pulls from pendingIDs and delivers events
