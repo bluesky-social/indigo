@@ -11,7 +11,7 @@ var EventsReceivedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "The total number of events received",
 }, []string{"pds"})
 
-var eventsWarningsCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+var EventsWarningsCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "events_warn_counter",
 	Help: "Events received with warnings",
 }, []string{"pds", "warn"})
