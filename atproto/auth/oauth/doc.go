@@ -140,6 +140,6 @@ In these scenarios, applications could use an implementation of [ClientAuthStore
 
 In the traditional web app backend scenario, a single account (DID) might have multiple active sessions. For example, a user might log in from a browser on their laptop and on a mobile device at the same time. The user must go through the entire flow on each device (or browser) to authenticate the user. To prevent a new session from "clobbering" existing sessions (including tokens), this package supports multiple concurrent sessions per account, distinguished by a session ID. The random 'state' token from the auth flow is re-used by default.
 
-In other scenarious, multiple sessions are not needed or desirable. For example, an integration backend, or tool with very short session lifetimes. In these scenarios, implementations of the [ClientAuthStore] interface could ignore the session ID. Or the [ClientApp] could be configured with an ephemeral [ClientAuthStore] (to support auth flows), and managed the session data returned by [ClientApp.ProcessCallback] using separate session storage logic.
+In other scenarios, multiple sessions are not needed or desirable. For example, an integration backend, or tool with very short session lifetimes. In these scenarios, implementations of the [ClientAuthStore] interface could ignore the session ID. Or the [ClientApp] could be configured with an ephemeral [ClientAuthStore] (to support auth flows), and managed the session data returned by [ClientApp.ProcessCallback] using separate session storage logic.
 */
 package oauth
