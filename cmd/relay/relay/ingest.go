@@ -99,7 +99,8 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 	}
 
 	if !acc.IsActive() {
-		logger.Info("dropping commit message for non-active account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
+		logger.Info("dropping commit message for inactive-active account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
+		eventsWarningsCounter.WithLabelValues(hostname, "inactive-account").Add(1)
 		return nil
 	}
 
@@ -158,7 +159,8 @@ func (r *Relay) processSyncEvent(ctx context.Context, evt *comatproto.SyncSubscr
 	}
 
 	if !acc.IsActive() {
-		logger.Info("dropping sync message for non-active account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
+		logger.Info("dropping sync message for inactive-active account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
+		eventsWarningsCounter.WithLabelValues(hostname, "inactive-account").Add(1)
 		return nil
 	}
 
