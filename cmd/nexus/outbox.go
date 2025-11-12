@@ -394,9 +394,8 @@ func (w *DIDWorker) addEvent(evt *OutboxEvt) {
 
 func (w *DIDWorker) ackEvent(evtID uint) {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
 	delete(w.inFlightSentAt, evtID)
+	w.mu.Unlock()
 
 	select {
 	case w.notifChan <- struct{}{}:
