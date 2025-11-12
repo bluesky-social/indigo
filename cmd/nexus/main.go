@@ -87,6 +87,12 @@ func run(args []string) error {
 			Value:   0,
 			EnvVars: []string{"NEXUS_CURSOR_SAVE_INTERVAL"},
 		},
+		&cli.DurationFlag{
+			Name:    "repo-fetch-timeout",
+			Usage:   "timeout when fetching repo CARs from PDS (e.g. 180s for slow hosts)",
+			Value:   30 * time.Second,
+			EnvVars: []string{"NEXUS_REPO_FETCH_TIMEOUT"},
+		},
 		&cli.BoolFlag{
 			Name:    "full-network-mode",
 			Usage:   "enumerate and sync all repos on the network",
@@ -149,6 +155,7 @@ func runNexus(cctx *cli.Context) error {
 		FirehoseParallelism:        cctx.Int("firehose-parallelism"),
 		ResyncParallelism:          cctx.Int("resync-parallelism"),
 		FirehoseCursorSaveInterval: cctx.Duration("cursor-save-interval"),
+		RepoFetchTimeout:           cctx.Duration("repo-fetch-timeout"),
 		FullNetworkMode:            cctx.Bool("full-network-mode"),
 		SignalCollection:           cctx.String("signal-collection"),
 		DisableAcks:                cctx.Bool("disable-acks"),
