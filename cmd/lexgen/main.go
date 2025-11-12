@@ -45,7 +45,7 @@ func run(args []string) error {
 
 var cmdLegacy = &cli.Command{
 	Name:      "legacy",
-	Usage:     "generate code with legacy behaviors (for indigo only)",
+	Usage:     "generate code with legacy behaviors (for indigo repo only)",
 	ArgsUsage: `<file-or-dir>*`,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
@@ -187,7 +187,7 @@ func genFile(ctx context.Context, cmd *cli.Command, cat lexicon.Catalog, p strin
 	}
 
 	buf := new(bytes.Buffer)
-	gen := lexgen.FlatGenerator{
+	gen := lexgen.CodeGenerator{
 		Config: cfg,
 		Lex:    flat,
 		Cat:    cat,

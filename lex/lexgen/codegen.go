@@ -11,6 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
+// Configuration for [CodeGenerator] output
 type GenConfig struct {
 	RegisterLexiconTypeID bool
 	PackageMappings       map[string]string
@@ -36,14 +37,16 @@ func LegacyConfig() *GenConfig {
 	}
 }
 
-type FlatGenerator struct {
+// Core implementation of Go code generation for a single Lexicon schema file (multiple definitions), building on pre-parsed [FlatLexicon]
+type CodeGenerator struct {
 	Config *GenConfig
 	Lex    *FlatLexicon
 	Cat    lexicon.Catalog
 	Out    io.Writer
 }
 
-func (gen *FlatGenerator) WriteLexicon() error {
+// Outputs Go source code to the "Out" [io.Writer].
+func (gen *CodeGenerator) WriteLexicon() error {
 
 	if gen.Config.WarningText != "" {
 		fmt.Fprintf(gen.Out, "// %s\n\n", gen.Config.WarningText)
@@ -65,7 +68,7 @@ func (gen *FlatGenerator) WriteLexicon() error {
 	return nil
 }
 
-func (gen *FlatGenerator) PkgName() string {
+func (gen *CodeGenerator) PkgName() string {
 	n := nsidPkgName(gen.Lex.NSID)
 	if gen.Config.LegacyMode {
 		switch n {
@@ -82,16 +85,16 @@ func (gen *FlatGenerator) PkgName() string {
 	return n
 }
 
-func (gen *FlatGenerator) baseName() string {
+func (gen *CodeGenerator) baseName() string {
 	// TODO: memoize this value? this method gets called a lot
 	return nsidBaseName(gen.Lex.NSID)
 }
 
-func (gen *FlatGenerator) FileName() string {
+func (gen *CodeGenerator) FileName() string {
 	return nsidFileName(gen.Lex.NSID) + ".go"
 }
 
-func (gen *FlatGenerator) deps() map[string]bool {
+func (gen *CodeGenerator) deps() map[string]bool {
 	d := map[string]bool{
 		"\"context\"":       true,
 		"\"fmt\"":           true,
@@ -103,7 +106,7 @@ func (gen *FlatGenerator) deps() map[string]bool {
 	}
 
 	for ext, _ := range gen.Lex.ExternalRefs {
-		// TODO: replace this with
+		// TODO: replace this with configurable/extensible mappings
 		if strings.HasPrefix(ext, "com.atproto.") {
 			d["comatproto \"github.com/bluesky-social/indigo/api/atproto\""] = true
 		} else if strings.HasPrefix(ext, "app.bsky.") {
@@ -120,7 +123,7 @@ func (gen *FlatGenerator) deps() map[string]bool {
 	return d
 }
 
-func (gen *FlatGenerator) WriteType(ft *FlatType) error {
+func (gen *CodeGenerator) WriteType(ft *FlatType) error {
 
 	switch v := ft.Schema.Inner.(type) {
 	case lexicon.SchemaRecord:
@@ -177,7 +180,7 @@ func isRequired(required []string, fname string) bool {
 	return false
 }
 
-func (gen *FlatGenerator) fieldType(fname string, def *lexicon.SchemaDef, optional bool) (string, error) {
+func (gen *CodeGenerator) fieldType(fname string, def *lexicon.SchemaDef, optional bool) (string, error) {
 	// NOTE: SchemaObject and SchemaUnion should be handled outside this function; as well as arrays of those types also count
 	// TODO: another pass to check for type completeness
 	switch v := def.Inner.(type) {
@@ -301,7 +304,7 @@ func (gen *FlatGenerator) fieldType(fname string, def *lexicon.SchemaDef, option
 	}
 }
 
-func (gen *FlatGenerator) externalRefType(ref string) (string, error) {
+func (gen *CodeGenerator) externalRefType(ref string) (string, error) {
 	s, err := gen.Cat.Resolve(ref)
 	if err != nil {
 		return "", fmt.Errorf("could not resolve lexicon reference (%s): %w", ref, err)
@@ -338,7 +341,7 @@ func (gen *FlatGenerator) externalRefType(ref string) (string, error) {
 	}
 }
 
-func (gen *FlatGenerator) writeStruct(ft *FlatType, obj *lexicon.SchemaObject) error {
+func (gen *CodeGenerator) writeStruct(ft *FlatType, obj *lexicon.SchemaObject) error {
 
 	name := gen.baseName()
 	if ft.DefName != "main" {
@@ -466,7 +469,7 @@ type unionRef struct {
 	LexName   string
 }
 
-func (gen *FlatGenerator) writeUnion(ft *FlatType, union *lexicon.SchemaUnion) error {
+func (gen *CodeGenerator) writeUnion(ft *FlatType, union *lexicon.SchemaUnion) error {
 
 	name := gen.baseName()
 	if ft.DefName != "main" {
@@ -612,7 +615,7 @@ func (gen *FlatGenerator) writeUnion(ft *FlatType, union *lexicon.SchemaUnion) e
 	return nil
 }
 
-func (gen *FlatGenerator) writeEndpoint(ft *FlatType, desc string, params *lexicon.SchemaParams, output, input *lexicon.SchemaBody, isProcedure bool) error {
+func (gen *CodeGenerator) writeEndpoint(ft *FlatType, desc string, params *lexicon.SchemaParams, output, input *lexicon.SchemaBody, isProcedure bool) error {
 	name := gen.baseName()
 
 	fmt.Fprintf(gen.Out, "// %s calls the XRPC method \"%s\".\n", name, gen.Lex.NSID)
