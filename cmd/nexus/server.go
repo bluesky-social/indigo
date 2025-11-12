@@ -83,18 +83,18 @@ func (ns *NexusServer) handleChannelWebsocket(c echo.Context) error {
 		case <-disconnected:
 			ns.logger.Info("websocket disconnected")
 			return nil
-		case evt, ok := <-ns.Outbox.events:
+		case msg, ok := <-ns.Outbox.events:
 			if !ok {
 				return nil
 			}
-			if err := ws.WriteJSON(evt); err != nil {
+			if err := ws.WriteMessage(websocket.TextMessage, msg.JSON); err != nil {
 				ns.logger.Info("websocket write error", "error", err)
 				return nil
 			}
 			// In fire-and-forget mode, ack immediately after write succeeds
 			// In websocket-ack mode, wait for client to send ack and handle in read loop
 			if ns.Outbox.mode == OutboxModeFireAndForget {
-				go ns.Outbox.AckEvent(evt.ID)
+				go ns.Outbox.AckEvent(msg.ID)
 			}
 		}
 	}
