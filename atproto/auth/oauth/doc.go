@@ -36,7 +36,7 @@ Create a single [ClientApp] instance during service setup that will be used (con
 
 	oauthApp := oauth.NewClientApp(&config, oauth.NewMemStore())
 
-For a real service, you would want to use a database or other peristant implementation of the [ClientAuthStore] interface instead of [MemStore]. Otherwise all user sessions are dropped every time the process restarts.
+For a real service, you would want to use a database or other persistant implementation of the [ClientAuthStore] interface instead of [MemStore]. Otherwise all user sessions are dropped every time the process restarts.
 
 The client metadata document needs to be served at the URL indicated by the 'client_id'. This can be done statically, or dynamically generated and served from the configuration:
 
