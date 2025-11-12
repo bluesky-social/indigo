@@ -1,0 +1,26 @@
+[
+  {
+    "package": "bsky",
+    "prefix": "app.bsky",
+    "outdir": "api/bsky",
+    "import": "github.com/bluesky-social/indigo/api/bsky"
+  },
+  {
+    "package": "atproto",
+    "prefix": "com.atproto",
+    "outdir": "api/atproto",
+    "import": "github.com/bluesky-social/indigo/api/atproto"
+  },
+  {
+    "package": "chat",
+    "prefix": "chat.bsky",
+    "outdir": "api/chat",
+    "import": "github.com/bluesky-social/indigo/api/chat"
+  },
+  {
+    "package": "ozone",
+    "prefix": "tools.ozone",
+    "outdir": "api/ozone",
+    "import": "github.com/bluesky-social/indigo/api/ozone"
+  }
+]
