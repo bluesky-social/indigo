@@ -30,22 +30,15 @@ import (
 //   - Wait for H3 and H4 to complete, then send L2 (alone)
 //   - Wait for L2 to complete, then send H5
 
-type DIDWorker struct {
-	outbox         *Outbox
-	ctx            context.Context
-	did            string
-	notifChan      chan struct{}
-	pendingEvts    []uint
-	inFlightSentAt map[uint]time.Time
-	blockedOnLive  bool
-	running        bool
-	mu             sync.Mutex
+type OutboxMessage struct {
+	ID   uint
+	JSON []byte
 }
 
 type Outbox struct {
 	db         *gorm.DB
 	logger     *slog.Logger
-	events     chan *OutboxEvt
+	events     chan *OutboxMessage
 	mode       OutboxMode
 	webhookURL string
 	httpClient *http.Client
@@ -64,7 +57,7 @@ func NewOutbox(db *gorm.DB, mode OutboxMode, webhookURL string) *Outbox {
 	return &Outbox{
 		db:         db,
 		logger:     slog.Default().With("system", "outbox"),
-		events:     make(chan *OutboxEvt, 10000),
+		events:     make(chan *OutboxMessage, 10000),
 		mode:       mode,
 		webhookURL: webhookURL,
 		httpClient: &http.Client{
@@ -134,10 +127,17 @@ func (o *Outbox) deliverEvent(eventID uint) {
 
 func (o *Outbox) sendEvent(evt *OutboxEvt) {
 	switch o.mode {
-	case OutboxModeFireAndForget:
-		o.events <- evt
-	case OutboxModeWebsocketAck:
-		o.events <- evt
+	case OutboxModeFireAndForget, OutboxModeWebsocketAck:
+		// Marshal to JSON before outputting to avoid marshaling serially
+		jsonBytes, err := json.Marshal(evt)
+		if err != nil {
+			o.logger.Error("failed to marshal event to JSON", "error", err, "id", evt.ID)
+			return
+		}
+		o.events <- &OutboxMessage{
+			ID:   evt.ID,
+			JSON: jsonBytes,
+		}
 	case OutboxModeWebhook:
 		go o.sendWebhook(evt)
 	}
@@ -278,6 +278,18 @@ func (o *Outbox) retryTimedOutEvents() {
 			}
 		}
 	}
+}
+
+type DIDWorker struct {
+	outbox         *Outbox
+	ctx            context.Context
+	did            string
+	notifChan      chan struct{}
+	pendingEvts    []uint
+	inFlightSentAt map[uint]time.Time
+	blockedOnLive  bool
+	running        bool
+	mu             sync.Mutex
 }
 
 func (w *DIDWorker) run() {
