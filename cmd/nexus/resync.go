@@ -119,8 +119,12 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 	n.logger.Info("fetching repo from PDS", "did", did, "pds", pdsURL)
 
 	client := atclient.NewAPIClient(pdsURL)
+	timeout := n.config.RepoFetchTimeout
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
 	client.Client = &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: timeout,
 	}
 
 	repoBytes, err := comatproto.SyncGetRepo(ctx, client, did, "")
