@@ -227,7 +227,7 @@ func (gen *FlatGenerator) fieldType(fname string, def *lexicon.SchemaDef, option
 	case lexicon.SchemaUnknown:
 		switch gen.Config.UnknownType {
 		case "type-decoder":
-			if gen.Config.LegacyMode && (fname == "didDoc" || fname == "plcOp" || fname == "meta") {
+			if gen.Config.LegacyMode && (fname == "didDoc" || fname == "plcOp" || fname == "meta" || fname == "debug") {
 				if optional {
 					return "*interface{}", nil
 				} else {
@@ -310,7 +310,7 @@ func (gen *FlatGenerator) externalRefType(ref string) (string, error) {
 	switch s.Def.(type) {
 	case lexicon.SchemaString:
 		return "string", nil
-		// XXX: other referenced types, like arrays?
+		// TODO: other concrete types and special-cases types, like arrays
 	}
 
 	parts := strings.SplitN(ref, "#", 3)
