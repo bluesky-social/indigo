@@ -29,13 +29,6 @@ type FeedPostgate struct {
 	Post string `json:"post" cborgen:"post"`
 }
 
-// FeedPostgate_DisableRule is a "disableRule" in the app.bsky.feed.postgate schema.
-//
-// Disables embedding of this post.
-type FeedPostgate_DisableRule struct {
-	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.feed.postgate#disableRule"`
-}
-
 type FeedPostgate_EmbeddingRules_Elem struct {
 	FeedPostgate_DisableRule *FeedPostgate_DisableRule
 }
@@ -88,4 +81,11 @@ func (t *FeedPostgate_EmbeddingRules_Elem) UnmarshalCBOR(r io.Reader) error {
 	default:
 		return nil
 	}
+}
+
+// FeedPostgate_DisableRule is a "disableRule" in the app.bsky.feed.postgate schema.
+//
+// Disables embedding of this post.
+type FeedPostgate_DisableRule struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.feed.postgate#disableRule"`
 }

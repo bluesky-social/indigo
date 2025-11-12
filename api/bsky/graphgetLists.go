@@ -24,7 +24,6 @@ func GraphGetLists(ctx context.Context, c lexutil.LexClient, actor string, curso
 	var out GraphGetLists_Output
 
 	params := map[string]interface{}{}
-	params["actor"] = actor
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
@@ -34,6 +33,7 @@ func GraphGetLists(ctx context.Context, c lexutil.LexClient, actor string, curso
 	if len(purposes) != 0 {
 		params["purposes"] = purposes
 	}
+	params["actor"] = actor
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.graph.getLists", params, nil, &out); err != nil {
 		return nil, err
 	}

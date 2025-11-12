@@ -12,6 +12,7 @@ import (
 //
 // Metadata tag on an atproto resource (eg, repo or record).
 type LabelDefs_Label struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.label.defs#label"`
 	// cid: Optionally, CID specifying the specific version of 'uri' resource this label applies to.
 	Cid *string `json:"cid,omitempty" cborgen:"cid,omitempty"`
 	// cts: Timestamp when this label was created.
@@ -36,6 +37,7 @@ type LabelDefs_Label struct {
 //
 // Declares a label value and its expected interpretations and behaviors.
 type LabelDefs_LabelValueDefinition struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.label.defs#labelValueDefinition"`
 	// adultOnly: Does the user need to have adult content enabled in order to configure this label?
 	AdultOnly *bool `json:"adultOnly,omitempty" cborgen:"adultOnly,omitempty"`
 	// blurs: What should this label hide in the UI, if applied? 'content' hides all of the target; 'media' hides the images/video/audio; 'none' hides nothing.
@@ -53,6 +55,7 @@ type LabelDefs_LabelValueDefinition struct {
 //
 // Strings which describe the label in the UI, localized into a specific language.
 type LabelDefs_LabelValueDefinitionStrings struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.label.defs#labelValueDefinitionStrings"`
 	// description: A longer description of what the label means and why it might be applied.
 	Description string `json:"description" cborgen:"description"`
 	// lang: The code of the language these strings are written in.
@@ -65,6 +68,7 @@ type LabelDefs_LabelValueDefinitionStrings struct {
 //
 // Metadata tag on an atproto record, published by the author within the record. Note that schemas should use #selfLabels, not #selfLabel.
 type LabelDefs_SelfLabel struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.label.defs#selfLabel"`
 	// val: The short string name of the value or type of this label.
 	Val string `json:"val" cborgen:"val"`
 }

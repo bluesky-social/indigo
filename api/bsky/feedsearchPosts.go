@@ -53,7 +53,6 @@ func FeedSearchPosts(ctx context.Context, c lexutil.LexClient, author string, cu
 	if mentions != "" {
 		params["mentions"] = mentions
 	}
-	params["q"] = q
 	if since != "" {
 		params["since"] = since
 	}
@@ -69,6 +68,7 @@ func FeedSearchPosts(ctx context.Context, c lexutil.LexClient, author string, cu
 	if url != "" {
 		params["url"] = url
 	}
+	params["q"] = q
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.feed.searchPosts", params, nil, &out); err != nil {
 		return nil, err
 	}

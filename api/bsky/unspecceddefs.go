@@ -8,6 +8,7 @@ package bsky
 //
 // Object used to store age assurance data in stash.
 type UnspeccedDefs_AgeAssuranceEvent struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.unspecced.defs#ageAssuranceEvent"`
 	// attemptId: The unique identifier for this instance of the age assurance flow, in UUID format.
 	AttemptId string `json:"attemptId" cborgen:"attemptId"`
 	// completeIp: The IP address used when completing the AA flow.
@@ -30,6 +31,7 @@ type UnspeccedDefs_AgeAssuranceEvent struct {
 //
 // The computed state of the age assurance process, returned to the user in question on certain authenticated requests.
 type UnspeccedDefs_AgeAssuranceState struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.unspecced.defs#ageAssuranceState"`
 	// lastInitiatedAt: The timestamp when this state was last updated.
 	LastInitiatedAt *string `json:"lastInitiatedAt,omitempty" cborgen:"lastInitiatedAt,omitempty"`
 	// status: The status of the age assurance process.
@@ -38,29 +40,33 @@ type UnspeccedDefs_AgeAssuranceState struct {
 
 // UnspeccedDefs_SkeletonSearchActor is a "skeletonSearchActor" in the app.bsky.unspecced.defs schema.
 type UnspeccedDefs_SkeletonSearchActor struct {
-	Did string `json:"did" cborgen:"did"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.unspecced.defs#skeletonSearchActor"`
+	Did           string `json:"did" cborgen:"did"`
 }
 
 // UnspeccedDefs_SkeletonSearchPost is a "skeletonSearchPost" in the app.bsky.unspecced.defs schema.
 type UnspeccedDefs_SkeletonSearchPost struct {
-	Uri string `json:"uri" cborgen:"uri"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.unspecced.defs#skeletonSearchPost"`
+	Uri           string `json:"uri" cborgen:"uri"`
 }
 
 // UnspeccedDefs_SkeletonSearchStarterPack is a "skeletonSearchStarterPack" in the app.bsky.unspecced.defs schema.
 type UnspeccedDefs_SkeletonSearchStarterPack struct {
-	Uri string `json:"uri" cborgen:"uri"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.unspecced.defs#skeletonSearchStarterPack"`
+	Uri           string `json:"uri" cborgen:"uri"`
 }
 
 // UnspeccedDefs_SkeletonTrend is a "skeletonTrend" in the app.bsky.unspecced.defs schema.
 type UnspeccedDefs_SkeletonTrend struct {
-	Category    *string  `json:"category,omitempty" cborgen:"category,omitempty"`
-	Dids        []string `json:"dids" cborgen:"dids"`
-	DisplayName string   `json:"displayName" cborgen:"displayName"`
-	Link        string   `json:"link" cborgen:"link"`
-	PostCount   int64    `json:"postCount" cborgen:"postCount"`
-	StartedAt   string   `json:"startedAt" cborgen:"startedAt"`
-	Status      *string  `json:"status,omitempty" cborgen:"status,omitempty"`
-	Topic       string   `json:"topic" cborgen:"topic"`
+	LexiconTypeID string   `json:"$type" cborgen:"$type,const=app.bsky.unspecced.defs#skeletonTrend"`
+	Category      *string  `json:"category,omitempty" cborgen:"category,omitempty"`
+	Dids          []string `json:"dids" cborgen:"dids"`
+	DisplayName   string   `json:"displayName" cborgen:"displayName"`
+	Link          string   `json:"link" cborgen:"link"`
+	PostCount     int64    `json:"postCount" cborgen:"postCount"`
+	StartedAt     string   `json:"startedAt" cborgen:"startedAt"`
+	Status        *string  `json:"status,omitempty" cborgen:"status,omitempty"`
+	Topic         string   `json:"topic" cborgen:"topic"`
 }
 
 // UnspeccedDefs_ThreadItemBlocked is a "threadItemBlocked" in the app.bsky.unspecced.defs schema.
@@ -97,20 +103,22 @@ type UnspeccedDefs_ThreadItemPost struct {
 
 // UnspeccedDefs_TrendView is a "trendView" in the app.bsky.unspecced.defs schema.
 type UnspeccedDefs_TrendView struct {
-	Actors      []*ActorDefs_ProfileViewBasic `json:"actors" cborgen:"actors"`
-	Category    *string                       `json:"category,omitempty" cborgen:"category,omitempty"`
-	DisplayName string                        `json:"displayName" cborgen:"displayName"`
-	Link        string                        `json:"link" cborgen:"link"`
-	PostCount   int64                         `json:"postCount" cborgen:"postCount"`
-	StartedAt   string                        `json:"startedAt" cborgen:"startedAt"`
-	Status      *string                       `json:"status,omitempty" cborgen:"status,omitempty"`
-	Topic       string                        `json:"topic" cborgen:"topic"`
+	LexiconTypeID string                        `json:"$type" cborgen:"$type,const=app.bsky.unspecced.defs#trendView"`
+	Actors        []*ActorDefs_ProfileViewBasic `json:"actors" cborgen:"actors"`
+	Category      *string                       `json:"category,omitempty" cborgen:"category,omitempty"`
+	DisplayName   string                        `json:"displayName" cborgen:"displayName"`
+	Link          string                        `json:"link" cborgen:"link"`
+	PostCount     int64                         `json:"postCount" cborgen:"postCount"`
+	StartedAt     string                        `json:"startedAt" cborgen:"startedAt"`
+	Status        *string                       `json:"status,omitempty" cborgen:"status,omitempty"`
+	Topic         string                        `json:"topic" cborgen:"topic"`
 }
 
 // UnspeccedDefs_TrendingTopic is a "trendingTopic" in the app.bsky.unspecced.defs schema.
 type UnspeccedDefs_TrendingTopic struct {
-	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
-	DisplayName *string `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
-	Link        string  `json:"link" cborgen:"link"`
-	Topic       string  `json:"topic" cborgen:"topic"`
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=app.bsky.unspecced.defs#trendingTopic"`
+	Description   *string `json:"description,omitempty" cborgen:"description,omitempty"`
+	DisplayName   *string `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
+	Link          string  `json:"link" cborgen:"link"`
+	Topic         string  `json:"topic" cborgen:"topic"`
 }

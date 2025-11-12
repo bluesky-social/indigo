@@ -11,8 +11,9 @@ import (
 
 // GraphDefs_ListItemView is a "listItemView" in the app.bsky.graph.defs schema.
 type GraphDefs_ListItemView struct {
-	Subject *ActorDefs_ProfileView `json:"subject" cborgen:"subject"`
-	Uri     string                 `json:"uri" cborgen:"uri"`
+	LexiconTypeID string                 `json:"$type" cborgen:"$type,const=app.bsky.graph.defs#listItemView"`
+	Subject       *ActorDefs_ProfileView `json:"subject" cborgen:"subject"`
+	Uri           string                 `json:"uri" cborgen:"uri"`
 }
 
 // GraphDefs_ListView is a "listView" in the app.bsky.graph.defs schema.
@@ -34,6 +35,7 @@ type GraphDefs_ListView struct {
 
 // GraphDefs_ListViewBasic is a "listViewBasic" in the app.bsky.graph.defs schema.
 type GraphDefs_ListViewBasic struct {
+	LexiconTypeID string                        `json:"$type" cborgen:"$type,const=app.bsky.graph.defs#listViewBasic"`
 	Avatar        *string                       `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	Cid           string                        `json:"cid" cborgen:"cid"`
 	IndexedAt     *string                       `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
@@ -47,8 +49,9 @@ type GraphDefs_ListViewBasic struct {
 
 // GraphDefs_ListViewerState is a "listViewerState" in the app.bsky.graph.defs schema.
 type GraphDefs_ListViewerState struct {
-	Blocked *string `json:"blocked,omitempty" cborgen:"blocked,omitempty"`
-	Muted   *bool   `json:"muted,omitempty" cborgen:"muted,omitempty"`
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=app.bsky.graph.defs#listViewerState"`
+	Blocked       *string `json:"blocked,omitempty" cborgen:"blocked,omitempty"`
+	Muted         *bool   `json:"muted,omitempty" cborgen:"muted,omitempty"`
 }
 
 // GraphDefs_NotFoundActor is a "notFoundActor" in the app.bsky.graph.defs schema.
@@ -74,6 +77,7 @@ type GraphDefs_Relationship struct {
 
 // GraphDefs_StarterPackView is a "starterPackView" in the app.bsky.graph.defs schema.
 type GraphDefs_StarterPackView struct {
+	LexiconTypeID      string                        `json:"$type" cborgen:"$type,const=app.bsky.graph.defs#starterPackView"`
 	Cid                string                        `json:"cid" cborgen:"cid"`
 	Creator            *ActorDefs_ProfileViewBasic   `json:"creator" cborgen:"creator"`
 	Feeds              []*FeedDefs_GeneratorView     `json:"feeds,omitempty" cborgen:"feeds,omitempty"`

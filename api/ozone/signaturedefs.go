@@ -6,6 +6,7 @@ package ozone
 
 // SignatureDefs_SigDetail is a "sigDetail" in the tools.ozone.signature.defs schema.
 type SignatureDefs_SigDetail struct {
-	Property string `json:"property" cborgen:"property"`
-	Value    string `json:"value" cborgen:"value"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.signature.defs#sigDetail"`
+	Property      string `json:"property" cborgen:"property"`
+	Value         string `json:"value" cborgen:"value"`
 }

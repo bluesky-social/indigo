@@ -17,12 +17,6 @@ type SignatureFindRelatedAccounts_Output struct {
 	Cursor   *string                                        `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 }
 
-// SignatureFindRelatedAccounts_RelatedAccount is a "relatedAccount" in the tools.ozone.signature.findRelatedAccounts schema.
-type SignatureFindRelatedAccounts_RelatedAccount struct {
-	Account      *comatproto.AdminDefs_AccountView `json:"account" cborgen:"account"`
-	Similarities []*SignatureDefs_SigDetail        `json:"similarities,omitempty" cborgen:"similarities,omitempty"`
-}
-
 // SignatureFindRelatedAccounts calls the XRPC method "tools.ozone.signature.findRelatedAccounts".
 func SignatureFindRelatedAccounts(ctx context.Context, c lexutil.LexClient, cursor string, did string, limit int64) (*SignatureFindRelatedAccounts_Output, error) {
 	var out SignatureFindRelatedAccounts_Output
@@ -31,13 +25,20 @@ func SignatureFindRelatedAccounts(ctx context.Context, c lexutil.LexClient, curs
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
-	params["did"] = did
 	if limit != 0 {
 		params["limit"] = limit
 	}
+	params["did"] = did
 	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.signature.findRelatedAccounts", params, nil, &out); err != nil {
 		return nil, err
 	}
 
 	return &out, nil
+}
+
+// SignatureFindRelatedAccounts_RelatedAccount is a "relatedAccount" in the tools.ozone.signature.findRelatedAccounts schema.
+type SignatureFindRelatedAccounts_RelatedAccount struct {
+	LexiconTypeID string                            `json:"$type" cborgen:"$type,const=tools.ozone.signature.findRelatedAccounts#relatedAccount"`
+	Account       *comatproto.AdminDefs_AccountView `json:"account" cborgen:"account"`
+	Similarities  []*SignatureDefs_SigDetail        `json:"similarities,omitempty" cborgen:"similarities,omitempty"`
 }

@@ -10,14 +10,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// GraphGetListsWithMembership_ListWithMembership is a "listWithMembership" in the app.bsky.graph.getListsWithMembership schema.
-//
-// A list and an optional list item indicating membership of a target user to that list.
-type GraphGetListsWithMembership_ListWithMembership struct {
-	List     *GraphDefs_ListView     `json:"list" cborgen:"list"`
-	ListItem *GraphDefs_ListItemView `json:"listItem,omitempty" cborgen:"listItem,omitempty"`
-}
-
 // GraphGetListsWithMembership_Output is the output of a app.bsky.graph.getListsWithMembership call.
 type GraphGetListsWithMembership_Output struct {
 	Cursor              *string                                           `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
@@ -32,7 +24,6 @@ func GraphGetListsWithMembership(ctx context.Context, c lexutil.LexClient, actor
 	var out GraphGetListsWithMembership_Output
 
 	params := map[string]interface{}{}
-	params["actor"] = actor
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
@@ -42,9 +33,19 @@ func GraphGetListsWithMembership(ctx context.Context, c lexutil.LexClient, actor
 	if len(purposes) != 0 {
 		params["purposes"] = purposes
 	}
+	params["actor"] = actor
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.graph.getListsWithMembership", params, nil, &out); err != nil {
 		return nil, err
 	}
 
 	return &out, nil
+}
+
+// GraphGetListsWithMembership_ListWithMembership is a "listWithMembership" in the app.bsky.graph.getListsWithMembership schema.
+//
+// A list and an optional list item indicating membership of a target user to that list.
+type GraphGetListsWithMembership_ListWithMembership struct {
+	LexiconTypeID string                  `json:"$type" cborgen:"$type,const=app.bsky.graph.getListsWithMembership#listWithMembership"`
+	List          *GraphDefs_ListView     `json:"list" cborgen:"list"`
+	ListItem      *GraphDefs_ListItemView `json:"listItem,omitempty" cborgen:"listItem,omitempty"`
 }

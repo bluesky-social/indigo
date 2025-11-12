@@ -10,6 +10,7 @@ import (
 
 // LabelerDefs_LabelerPolicies is a "labelerPolicies" in the app.bsky.labeler.defs schema.
 type LabelerDefs_LabelerPolicies struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.labeler.defs#labelerPolicies"`
 	// labelValueDefinitions: Label values created by this labeler and scoped exclusively to it. Labels defined here will override global label definitions for this labeler.
 	LabelValueDefinitions []*comatproto.LabelDefs_LabelValueDefinition `json:"labelValueDefinitions,omitempty" cborgen:"labelValueDefinitions,omitempty"`
 	// labelValues: The label values which this labeler publishes. May include global or custom labels.
@@ -49,5 +50,6 @@ type LabelerDefs_LabelerViewDetailed struct {
 
 // LabelerDefs_LabelerViewerState is a "labelerViewerState" in the app.bsky.labeler.defs schema.
 type LabelerDefs_LabelerViewerState struct {
-	Like *string `json:"like,omitempty" cborgen:"like,omitempty"`
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=app.bsky.labeler.defs#labelerViewerState"`
+	Like          *string `json:"like,omitempty" cborgen:"like,omitempty"`
 }

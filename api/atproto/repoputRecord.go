@@ -23,7 +23,7 @@ type RepoPutRecord_Input struct {
 	// swapCommit: Compare and swap with the previous commit by CID.
 	SwapCommit *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
 	// swapRecord: Compare and swap with the previous record by CID. WARNING: nullable and optional field; may cause problems with golang implementation
-	SwapRecord *string `json:"swapRecord" cborgen:"swapRecord"`
+	SwapRecord *string `json:"swapRecord,omitempty" cborgen:"swapRecord,omitempty"`
 	// validate: Can be set to 'false' to skip Lexicon schema validation of record data, 'true' to require it, or leave unset to validate only for known Lexicons.
 	Validate *bool `json:"validate,omitempty" cborgen:"validate,omitempty"`
 }

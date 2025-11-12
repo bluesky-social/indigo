@@ -12,15 +12,13 @@ import (
 
 // ActorGetPreferences_Output is the output of a app.bsky.actor.getPreferences call.
 type ActorGetPreferences_Output struct {
-	Preferences []ActorDefs_Preferences_Elem `json:"preferences" cborgen:"preferences"`
+	Preferences *ActorDefs_Preferences `json:"preferences" cborgen:"preferences"`
 }
 
 // ActorGetPreferences calls the XRPC method "app.bsky.actor.getPreferences".
 func ActorGetPreferences(ctx context.Context, c lexutil.LexClient) (*ActorGetPreferences_Output, error) {
 	var out ActorGetPreferences_Output
-
-	params := map[string]interface{}{}
-	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.actor.getPreferences", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.actor.getPreferences", nil, nil, &out); err != nil {
 		return nil, err
 	}
 

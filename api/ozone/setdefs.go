@@ -6,15 +6,17 @@ package ozone
 
 // SetDefs_Set is a "set" in the tools.ozone.set.defs schema.
 type SetDefs_Set struct {
-	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
-	Name        string  `json:"name" cborgen:"name"`
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=tools.ozone.set.defs#set"`
+	Description   *string `json:"description,omitempty" cborgen:"description,omitempty"`
+	Name          string  `json:"name" cborgen:"name"`
 }
 
 // SetDefs_SetView is a "setView" in the tools.ozone.set.defs schema.
 type SetDefs_SetView struct {
-	CreatedAt   string  `json:"createdAt" cborgen:"createdAt"`
-	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
-	Name        string  `json:"name" cborgen:"name"`
-	SetSize     int64   `json:"setSize" cborgen:"setSize"`
-	UpdatedAt   string  `json:"updatedAt" cborgen:"updatedAt"`
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=tools.ozone.set.defs#setView"`
+	CreatedAt     string  `json:"createdAt" cborgen:"createdAt"`
+	Description   *string `json:"description,omitempty" cborgen:"description,omitempty"`
+	Name          string  `json:"name" cborgen:"name"`
+	SetSize       int64   `json:"setSize" cborgen:"setSize"`
+	UpdatedAt     string  `json:"updatedAt" cborgen:"updatedAt"`
 }

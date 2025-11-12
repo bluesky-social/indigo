@@ -54,29 +54,6 @@ func (t *TempCheckHandleAvailability_Output_Result) UnmarshalJSON(b []byte) erro
 	}
 }
 
-// TempCheckHandleAvailability_ResultAvailable is a "resultAvailable" in the com.atproto.temp.checkHandleAvailability schema.
-//
-// Indicates the provided handle is available.
-type TempCheckHandleAvailability_ResultAvailable struct {
-	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.temp.checkHandleAvailability#resultAvailable"`
-}
-
-// TempCheckHandleAvailability_ResultUnavailable is a "resultUnavailable" in the com.atproto.temp.checkHandleAvailability schema.
-//
-// Indicates the provided handle is unavailable and gives suggestions of available handles.
-type TempCheckHandleAvailability_ResultUnavailable struct {
-	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.temp.checkHandleAvailability#resultUnavailable"`
-	// suggestions: List of suggested handles based on the provided inputs.
-	Suggestions []*TempCheckHandleAvailability_Suggestion `json:"suggestions" cborgen:"suggestions"`
-}
-
-// TempCheckHandleAvailability_Suggestion is a "suggestion" in the com.atproto.temp.checkHandleAvailability schema.
-type TempCheckHandleAvailability_Suggestion struct {
-	Handle string `json:"handle" cborgen:"handle"`
-	// method: Method used to build this suggestion. Should be considered opaque to clients. Can be used for metrics.
-	Method string `json:"method" cborgen:"method"`
-}
-
 // TempCheckHandleAvailability calls the XRPC method "com.atproto.temp.checkHandleAvailability".
 //
 // birthDate: User-provided birth date. Might be used to build handle suggestions.
@@ -98,4 +75,28 @@ func TempCheckHandleAvailability(ctx context.Context, c lexutil.LexClient, birth
 	}
 
 	return &out, nil
+}
+
+// TempCheckHandleAvailability_ResultAvailable is a "resultAvailable" in the com.atproto.temp.checkHandleAvailability schema.
+//
+// Indicates the provided handle is available.
+type TempCheckHandleAvailability_ResultAvailable struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.temp.checkHandleAvailability#resultAvailable"`
+}
+
+// TempCheckHandleAvailability_ResultUnavailable is a "resultUnavailable" in the com.atproto.temp.checkHandleAvailability schema.
+//
+// Indicates the provided handle is unavailable and gives suggestions of available handles.
+type TempCheckHandleAvailability_ResultUnavailable struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.temp.checkHandleAvailability#resultUnavailable"`
+	// suggestions: List of suggested handles based on the provided inputs.
+	Suggestions []*TempCheckHandleAvailability_Suggestion `json:"suggestions" cborgen:"suggestions"`
+}
+
+// TempCheckHandleAvailability_Suggestion is a "suggestion" in the com.atproto.temp.checkHandleAvailability schema.
+type TempCheckHandleAvailability_Suggestion struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.temp.checkHandleAvailability#suggestion"`
+	Handle        string `json:"handle" cborgen:"handle"`
+	// method: Method used to build this suggestion. Should be considered opaque to clients. Can be used for metrics.
+	Method string `json:"method" cborgen:"method"`
 }

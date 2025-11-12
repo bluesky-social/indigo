@@ -18,8 +18,24 @@ type UnspeccedGetPostThreadOtherV2_Output struct {
 	Thread []*UnspeccedGetPostThreadOtherV2_ThreadItem `json:"thread" cborgen:"thread"`
 }
 
+// UnspeccedGetPostThreadOtherV2 calls the XRPC method "app.bsky.unspecced.getPostThreadOtherV2".
+//
+// anchor: Reference (AT-URI) to post record. This is the anchor post.
+func UnspeccedGetPostThreadOtherV2(ctx context.Context, c lexutil.LexClient, anchor string) (*UnspeccedGetPostThreadOtherV2_Output, error) {
+	var out UnspeccedGetPostThreadOtherV2_Output
+
+	params := map[string]interface{}{}
+	params["anchor"] = anchor
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.getPostThreadOtherV2", params, nil, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
 // UnspeccedGetPostThreadOtherV2_ThreadItem is a "threadItem" in the app.bsky.unspecced.getPostThreadOtherV2 schema.
 type UnspeccedGetPostThreadOtherV2_ThreadItem struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.unspecced.getPostThreadOtherV2#threadItem"`
 	// depth: The nesting level of this item in the thread. Depth 0 means the anchor item. Items above have negative depths, items below have positive depths.
 	Depth int64                                           `json:"depth" cborgen:"depth"`
 	Uri   string                                          `json:"uri" cborgen:"uri"`
@@ -51,23 +67,4 @@ func (t *UnspeccedGetPostThreadOtherV2_ThreadItem_Value) UnmarshalJSON(b []byte)
 	default:
 		return nil
 	}
-}
-
-// UnspeccedGetPostThreadOtherV2 calls the XRPC method "app.bsky.unspecced.getPostThreadOtherV2".
-//
-// anchor: Reference (AT-URI) to post record. This is the anchor post.
-// prioritizeFollowedUsers: Whether to prioritize posts from followed users. It only has effect when the user is authenticated.
-func UnspeccedGetPostThreadOtherV2(ctx context.Context, c lexutil.LexClient, anchor string, prioritizeFollowedUsers bool) (*UnspeccedGetPostThreadOtherV2_Output, error) {
-	var out UnspeccedGetPostThreadOtherV2_Output
-
-	params := map[string]interface{}{}
-	params["anchor"] = anchor
-	if prioritizeFollowedUsers {
-		params["prioritizeFollowedUsers"] = prioritizeFollowedUsers
-	}
-	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.getPostThreadOtherV2", params, nil, &out); err != nil {
-		return nil, err
-	}
-
-	return &out, nil
 }

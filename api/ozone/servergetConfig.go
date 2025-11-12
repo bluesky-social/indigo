@@ -21,16 +21,6 @@ type ServerGetConfig_Output struct {
 	Viewer      *ServerGetConfig_ViewerConfig `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
-// ServerGetConfig_ServiceConfig is a "serviceConfig" in the tools.ozone.server.getConfig schema.
-type ServerGetConfig_ServiceConfig struct {
-	Url *string `json:"url,omitempty" cborgen:"url,omitempty"`
-}
-
-// ServerGetConfig_ViewerConfig is a "viewerConfig" in the tools.ozone.server.getConfig schema.
-type ServerGetConfig_ViewerConfig struct {
-	Role *string `json:"role,omitempty" cborgen:"role,omitempty"`
-}
-
 // ServerGetConfig calls the XRPC method "tools.ozone.server.getConfig".
 func ServerGetConfig(ctx context.Context, c lexutil.LexClient) (*ServerGetConfig_Output, error) {
 	var out ServerGetConfig_Output
@@ -39,4 +29,16 @@ func ServerGetConfig(ctx context.Context, c lexutil.LexClient) (*ServerGetConfig
 	}
 
 	return &out, nil
+}
+
+// ServerGetConfig_ServiceConfig is a "serviceConfig" in the tools.ozone.server.getConfig schema.
+type ServerGetConfig_ServiceConfig struct {
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=tools.ozone.server.getConfig#serviceConfig"`
+	Url           *string `json:"url,omitempty" cborgen:"url,omitempty"`
+}
+
+// ServerGetConfig_ViewerConfig is a "viewerConfig" in the tools.ozone.server.getConfig schema.
+type ServerGetConfig_ViewerConfig struct {
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=tools.ozone.server.getConfig#viewerConfig"`
+	Role          *string `json:"role,omitempty" cborgen:"role,omitempty"`
 }

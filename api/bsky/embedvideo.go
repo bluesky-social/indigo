@@ -12,7 +12,6 @@ func init() {
 	lexutil.RegisterType("app.bsky.embed.video#main", &EmbedVideo{})
 }
 
-// EmbedVideo is a "main" in the app.bsky.embed.video schema.
 type EmbedVideo struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.embed.video"`
 	// alt: Alt text description of the video, for accessibility.
@@ -25,8 +24,9 @@ type EmbedVideo struct {
 
 // EmbedVideo_Caption is a "caption" in the app.bsky.embed.video schema.
 type EmbedVideo_Caption struct {
-	File *lexutil.LexBlob `json:"file" cborgen:"file"`
-	Lang string           `json:"lang" cborgen:"lang"`
+	LexiconTypeID string           `json:"$type" cborgen:"$type,const=app.bsky.embed.video#caption"`
+	File          *lexutil.LexBlob `json:"file" cborgen:"file"`
+	Lang          string           `json:"lang" cborgen:"lang"`
 }
 
 // EmbedVideo_View is a "view" in the app.bsky.embed.video schema.

@@ -10,17 +10,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// ServerDescribeServer_Contact is a "contact" in the com.atproto.server.describeServer schema.
-type ServerDescribeServer_Contact struct {
-	Email *string `json:"email,omitempty" cborgen:"email,omitempty"`
-}
-
-// ServerDescribeServer_Links is a "links" in the com.atproto.server.describeServer schema.
-type ServerDescribeServer_Links struct {
-	PrivacyPolicy  *string `json:"privacyPolicy,omitempty" cborgen:"privacyPolicy,omitempty"`
-	TermsOfService *string `json:"termsOfService,omitempty" cborgen:"termsOfService,omitempty"`
-}
-
 // ServerDescribeServer_Output is the output of a com.atproto.server.describeServer call.
 type ServerDescribeServer_Output struct {
 	// availableUserDomains: List of domain suffixes that can be used in account handles.
@@ -44,4 +33,17 @@ func ServerDescribeServer(ctx context.Context, c lexutil.LexClient) (*ServerDesc
 	}
 
 	return &out, nil
+}
+
+// ServerDescribeServer_Contact is a "contact" in the com.atproto.server.describeServer schema.
+type ServerDescribeServer_Contact struct {
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=com.atproto.server.describeServer#contact"`
+	Email         *string `json:"email,omitempty" cborgen:"email,omitempty"`
+}
+
+// ServerDescribeServer_Links is a "links" in the com.atproto.server.describeServer schema.
+type ServerDescribeServer_Links struct {
+	LexiconTypeID  string  `json:"$type" cborgen:"$type,const=com.atproto.server.describeServer#links"`
+	PrivacyPolicy  *string `json:"privacyPolicy,omitempty" cborgen:"privacyPolicy,omitempty"`
+	TermsOfService *string `json:"termsOfService,omitempty" cborgen:"termsOfService,omitempty"`
 }

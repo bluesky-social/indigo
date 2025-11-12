@@ -12,6 +12,34 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
+// HostingGetAccountHistory_Output is the output of a tools.ozone.hosting.getAccountHistory call.
+type HostingGetAccountHistory_Output struct {
+	Cursor *string                           `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
+	Events []*HostingGetAccountHistory_Event `json:"events" cborgen:"events"`
+}
+
+// HostingGetAccountHistory calls the XRPC method "tools.ozone.hosting.getAccountHistory".
+func HostingGetAccountHistory(ctx context.Context, c lexutil.LexClient, cursor string, did string, events []string, limit int64) (*HostingGetAccountHistory_Output, error) {
+	var out HostingGetAccountHistory_Output
+
+	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if len(events) != 0 {
+		params["events"] = events
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	params["did"] = did
+	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.hosting.getAccountHistory", params, nil, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
 // HostingGetAccountHistory_AccountCreated is a "accountCreated" in the tools.ozone.hosting.getAccountHistory schema.
 type HostingGetAccountHistory_AccountCreated struct {
 	LexiconTypeID string  `json:"$type" cborgen:"$type,const=tools.ozone.hosting.getAccountHistory#accountCreated"`
@@ -33,9 +61,10 @@ type HostingGetAccountHistory_EmailUpdated struct {
 
 // HostingGetAccountHistory_Event is a "event" in the tools.ozone.hosting.getAccountHistory schema.
 type HostingGetAccountHistory_Event struct {
-	CreatedAt string                                  `json:"createdAt" cborgen:"createdAt"`
-	CreatedBy string                                  `json:"createdBy" cborgen:"createdBy"`
-	Details   *HostingGetAccountHistory_Event_Details `json:"details" cborgen:"details"`
+	LexiconTypeID string                                  `json:"$type" cborgen:"$type,const=tools.ozone.hosting.getAccountHistory#event"`
+	CreatedAt     string                                  `json:"createdAt" cborgen:"createdAt"`
+	CreatedBy     string                                  `json:"createdBy" cborgen:"createdBy"`
+	Details       *HostingGetAccountHistory_Event_Details `json:"details" cborgen:"details"`
 }
 
 type HostingGetAccountHistory_Event_Details struct {
@@ -103,35 +132,7 @@ type HostingGetAccountHistory_HandleUpdated struct {
 	Handle        string `json:"handle" cborgen:"handle"`
 }
 
-// HostingGetAccountHistory_Output is the output of a tools.ozone.hosting.getAccountHistory call.
-type HostingGetAccountHistory_Output struct {
-	Cursor *string                           `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
-	Events []*HostingGetAccountHistory_Event `json:"events" cborgen:"events"`
-}
-
 // HostingGetAccountHistory_PasswordUpdated is a "passwordUpdated" in the tools.ozone.hosting.getAccountHistory schema.
 type HostingGetAccountHistory_PasswordUpdated struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.hosting.getAccountHistory#passwordUpdated"`
-}
-
-// HostingGetAccountHistory calls the XRPC method "tools.ozone.hosting.getAccountHistory".
-func HostingGetAccountHistory(ctx context.Context, c lexutil.LexClient, cursor string, did string, events []string, limit int64) (*HostingGetAccountHistory_Output, error) {
-	var out HostingGetAccountHistory_Output
-
-	params := map[string]interface{}{}
-	if cursor != "" {
-		params["cursor"] = cursor
-	}
-	params["did"] = did
-	if len(events) != 0 {
-		params["events"] = events
-	}
-	if limit != 0 {
-		params["limit"] = limit
-	}
-	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.hosting.getAccountHistory", params, nil, &out); err != nil {
-		return nil, err
-	}
-
-	return &out, nil
 }

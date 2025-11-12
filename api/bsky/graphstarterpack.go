@@ -26,5 +26,6 @@ type GraphStarterpack struct {
 
 // GraphStarterpack_FeedItem is a "feedItem" in the app.bsky.graph.starterpack schema.
 type GraphStarterpack_FeedItem struct {
-	Uri string `json:"uri" cborgen:"uri"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.graph.starterpack#feedItem"`
+	Uri           string `json:"uri" cborgen:"uri"`
 }

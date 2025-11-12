@@ -11,20 +11,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// NotificationListNotifications_Notification is a "notification" in the app.bsky.notification.listNotifications schema.
-type NotificationListNotifications_Notification struct {
-	Author    *ActorDefs_ProfileView        `json:"author" cborgen:"author"`
-	Cid       string                        `json:"cid" cborgen:"cid"`
-	IndexedAt string                        `json:"indexedAt" cborgen:"indexedAt"`
-	IsRead    bool                          `json:"isRead" cborgen:"isRead"`
-	Labels    []*comatproto.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	// reason: The reason why this notification was delivered - e.g. your post was liked, or you received a new follower.
-	Reason        string                      `json:"reason" cborgen:"reason"`
-	ReasonSubject *string                     `json:"reasonSubject,omitempty" cborgen:"reasonSubject,omitempty"`
-	Record        *lexutil.LexiconTypeDecoder `json:"record" cborgen:"record"`
-	Uri           string                      `json:"uri" cborgen:"uri"`
-}
-
 // NotificationListNotifications_Output is the output of a app.bsky.notification.listNotifications call.
 type NotificationListNotifications_Output struct {
 	Cursor        *string                                       `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
@@ -60,4 +46,19 @@ func NotificationListNotifications(ctx context.Context, c lexutil.LexClient, cur
 	}
 
 	return &out, nil
+}
+
+// NotificationListNotifications_Notification is a "notification" in the app.bsky.notification.listNotifications schema.
+type NotificationListNotifications_Notification struct {
+	LexiconTypeID string                        `json:"$type" cborgen:"$type,const=app.bsky.notification.listNotifications#notification"`
+	Author        *ActorDefs_ProfileView        `json:"author" cborgen:"author"`
+	Cid           string                        `json:"cid" cborgen:"cid"`
+	IndexedAt     string                        `json:"indexedAt" cborgen:"indexedAt"`
+	IsRead        bool                          `json:"isRead" cborgen:"isRead"`
+	Labels        []*comatproto.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	// reason: The reason why this notification was delivered - e.g. your post was liked, or you received a new follower.
+	Reason        string                      `json:"reason" cborgen:"reason"`
+	ReasonSubject *string                     `json:"reasonSubject,omitempty" cborgen:"reasonSubject,omitempty"`
+	Record        *lexutil.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	Uri           string                      `json:"uri" cborgen:"uri"`
 }

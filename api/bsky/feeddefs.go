@@ -14,8 +14,9 @@ import (
 
 // FeedDefs_BlockedAuthor is a "blockedAuthor" in the app.bsky.feed.defs schema.
 type FeedDefs_BlockedAuthor struct {
-	Did    string                 `json:"did" cborgen:"did"`
-	Viewer *ActorDefs_ViewerState `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	LexiconTypeID string                 `json:"$type" cborgen:"$type,const=app.bsky.feed.defs#blockedAuthor"`
+	Did           string                 `json:"did" cborgen:"did"`
+	Viewer        *ActorDefs_ViewerState `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 // FeedDefs_BlockedPost is a "blockedPost" in the app.bsky.feed.defs schema.
@@ -28,6 +29,7 @@ type FeedDefs_BlockedPost struct {
 
 // FeedDefs_FeedViewPost is a "feedViewPost" in the app.bsky.feed.defs schema.
 type FeedDefs_FeedViewPost struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.feed.defs#feedViewPost"`
 	// feedContext: Context provided by feed generator that may be passed back alongside interactions.
 	FeedContext *string                       `json:"feedContext,omitempty" cborgen:"feedContext,omitempty"`
 	Post        *FeedDefs_PostView            `json:"post" cborgen:"post"`
@@ -93,12 +95,14 @@ type FeedDefs_GeneratorView struct {
 
 // FeedDefs_GeneratorViewerState is a "generatorViewerState" in the app.bsky.feed.defs schema.
 type FeedDefs_GeneratorViewerState struct {
-	Like *string `json:"like,omitempty" cborgen:"like,omitempty"`
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=app.bsky.feed.defs#generatorViewerState"`
+	Like          *string `json:"like,omitempty" cborgen:"like,omitempty"`
 }
 
 // FeedDefs_Interaction is a "interaction" in the app.bsky.feed.defs schema.
 type FeedDefs_Interaction struct {
-	Event *string `json:"event,omitempty" cborgen:"event,omitempty"`
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=app.bsky.feed.defs#interaction"`
+	Event         *string `json:"event,omitempty" cborgen:"event,omitempty"`
 	// feedContext: Context on a feed item that was originally supplied by the feed generator on getFeedSkeleton.
 	FeedContext *string `json:"feedContext,omitempty" cborgen:"feedContext,omitempty"`
 	Item        *string `json:"item,omitempty" cborgen:"item,omitempty"`
@@ -209,6 +213,7 @@ type FeedDefs_ReasonRepost struct {
 
 // FeedDefs_ReplyRef is a "replyRef" in the app.bsky.feed.defs schema.
 type FeedDefs_ReplyRef struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.feed.defs#replyRef"`
 	// grandparentAuthor: When parent is a reply to another post, this is the author of that post.
 	GrandparentAuthor *ActorDefs_ProfileViewBasic `json:"grandparentAuthor,omitempty" cborgen:"grandparentAuthor,omitempty"`
 	Parent            *FeedDefs_ReplyRef_Parent   `json:"parent" cborgen:"parent"`
@@ -303,6 +308,7 @@ func (t *FeedDefs_ReplyRef_Root) UnmarshalJSON(b []byte) error {
 
 // FeedDefs_SkeletonFeedPost is a "skeletonFeedPost" in the app.bsky.feed.defs schema.
 type FeedDefs_SkeletonFeedPost struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.feed.defs#skeletonFeedPost"`
 	// feedContext: Context that will be passed through to client and may be passed to feed generator back alongside interactions.
 	FeedContext *string                           `json:"feedContext,omitempty" cborgen:"feedContext,omitempty"`
 	Post        string                            `json:"post" cborgen:"post"`
@@ -359,6 +365,7 @@ type FeedDefs_SkeletonReasonRepost struct {
 //
 // Metadata about this post within the context of the thread it is in.
 type FeedDefs_ThreadContext struct {
+	LexiconTypeID  string  `json:"$type" cborgen:"$type,const=app.bsky.feed.defs#threadContext"`
 	RootAuthorLike *string `json:"rootAuthorLike,omitempty" cborgen:"rootAuthorLike,omitempty"`
 }
 
@@ -459,16 +466,18 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalJSON(b []byte) error {
 
 // FeedDefs_ThreadgateView is a "threadgateView" in the app.bsky.feed.defs schema.
 type FeedDefs_ThreadgateView struct {
-	Cid    *string                     `json:"cid,omitempty" cborgen:"cid,omitempty"`
-	Lists  []*GraphDefs_ListViewBasic  `json:"lists,omitempty" cborgen:"lists,omitempty"`
-	Record *lexutil.LexiconTypeDecoder `json:"record,omitempty" cborgen:"record,omitempty"`
-	Uri    *string                     `json:"uri,omitempty" cborgen:"uri,omitempty"`
+	LexiconTypeID string                      `json:"$type" cborgen:"$type,const=app.bsky.feed.defs#threadgateView"`
+	Cid           *string                     `json:"cid,omitempty" cborgen:"cid,omitempty"`
+	Lists         []*GraphDefs_ListViewBasic  `json:"lists,omitempty" cborgen:"lists,omitempty"`
+	Record        *lexutil.LexiconTypeDecoder `json:"record,omitempty" cborgen:"record,omitempty"`
+	Uri           *string                     `json:"uri,omitempty" cborgen:"uri,omitempty"`
 }
 
 // FeedDefs_ViewerState is a "viewerState" in the app.bsky.feed.defs schema.
 //
 // Metadata about the requesting account's relationship with the subject content. Only has meaningful content for authed requests.
 type FeedDefs_ViewerState struct {
+	LexiconTypeID     string  `json:"$type" cborgen:"$type,const=app.bsky.feed.defs#viewerState"`
 	Bookmarked        *bool   `json:"bookmarked,omitempty" cborgen:"bookmarked,omitempty"`
 	EmbeddingDisabled *bool   `json:"embeddingDisabled,omitempty" cborgen:"embeddingDisabled,omitempty"`
 	Like              *string `json:"like,omitempty" cborgen:"like,omitempty"`

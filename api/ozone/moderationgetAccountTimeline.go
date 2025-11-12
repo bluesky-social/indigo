@@ -15,19 +15,6 @@ type ModerationGetAccountTimeline_Output struct {
 	Timeline []*ModerationGetAccountTimeline_TimelineItem `json:"timeline" cborgen:"timeline"`
 }
 
-// ModerationGetAccountTimeline_TimelineItem is a "timelineItem" in the tools.ozone.moderation.getAccountTimeline schema.
-type ModerationGetAccountTimeline_TimelineItem struct {
-	Day     string                                              `json:"day" cborgen:"day"`
-	Summary []*ModerationGetAccountTimeline_TimelineItemSummary `json:"summary" cborgen:"summary"`
-}
-
-// ModerationGetAccountTimeline_TimelineItemSummary is a "timelineItemSummary" in the tools.ozone.moderation.getAccountTimeline schema.
-type ModerationGetAccountTimeline_TimelineItemSummary struct {
-	Count            int64  `json:"count" cborgen:"count"`
-	EventSubjectType string `json:"eventSubjectType" cborgen:"eventSubjectType"`
-	EventType        string `json:"eventType" cborgen:"eventType"`
-}
-
 // ModerationGetAccountTimeline calls the XRPC method "tools.ozone.moderation.getAccountTimeline".
 func ModerationGetAccountTimeline(ctx context.Context, c lexutil.LexClient, did string) (*ModerationGetAccountTimeline_Output, error) {
 	var out ModerationGetAccountTimeline_Output
@@ -39,4 +26,19 @@ func ModerationGetAccountTimeline(ctx context.Context, c lexutil.LexClient, did 
 	}
 
 	return &out, nil
+}
+
+// ModerationGetAccountTimeline_TimelineItem is a "timelineItem" in the tools.ozone.moderation.getAccountTimeline schema.
+type ModerationGetAccountTimeline_TimelineItem struct {
+	LexiconTypeID string                                              `json:"$type" cborgen:"$type,const=tools.ozone.moderation.getAccountTimeline#timelineItem"`
+	Day           string                                              `json:"day" cborgen:"day"`
+	Summary       []*ModerationGetAccountTimeline_TimelineItemSummary `json:"summary" cborgen:"summary"`
+}
+
+// ModerationGetAccountTimeline_TimelineItemSummary is a "timelineItemSummary" in the tools.ozone.moderation.getAccountTimeline schema.
+type ModerationGetAccountTimeline_TimelineItemSummary struct {
+	LexiconTypeID    string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.getAccountTimeline#timelineItemSummary"`
+	Count            int64  `json:"count" cborgen:"count"`
+	EventSubjectType string `json:"eventSubjectType" cborgen:"eventSubjectType"`
+	EventType        string `json:"eventType" cborgen:"eventType"`
 }

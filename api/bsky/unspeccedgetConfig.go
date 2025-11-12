@@ -10,12 +10,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// UnspeccedGetConfig_LiveNowConfig is a "liveNowConfig" in the app.bsky.unspecced.getConfig schema.
-type UnspeccedGetConfig_LiveNowConfig struct {
-	Did     string   `json:"did" cborgen:"did"`
-	Domains []string `json:"domains" cborgen:"domains"`
-}
-
 // UnspeccedGetConfig_Output is the output of a app.bsky.unspecced.getConfig call.
 type UnspeccedGetConfig_Output struct {
 	CheckEmailConfirmed *bool                               `json:"checkEmailConfirmed,omitempty" cborgen:"checkEmailConfirmed,omitempty"`
@@ -30,4 +24,11 @@ func UnspeccedGetConfig(ctx context.Context, c lexutil.LexClient) (*UnspeccedGet
 	}
 
 	return &out, nil
+}
+
+// UnspeccedGetConfig_LiveNowConfig is a "liveNowConfig" in the app.bsky.unspecced.getConfig schema.
+type UnspeccedGetConfig_LiveNowConfig struct {
+	LexiconTypeID string   `json:"$type" cborgen:"$type,const=app.bsky.unspecced.getConfig#liveNowConfig"`
+	Did           string   `json:"did" cborgen:"did"`
+	Domains       []string `json:"domains" cborgen:"domains"`
 }

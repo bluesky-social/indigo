@@ -19,10 +19,10 @@ func SyncGetRepo(ctx context.Context, c lexutil.LexClient, did string, since str
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
-	params["did"] = did
 	if since != "" {
 		params["since"] = since
 	}
+	params["did"] = did
 	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.sync.getRepo", params, nil, buf); err != nil {
 		return nil, err
 	}

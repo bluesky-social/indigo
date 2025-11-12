@@ -10,14 +10,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// ModerationGetActorMetadata_Metadata is a "metadata" in the chat.bsky.moderation.getActorMetadata schema.
-type ModerationGetActorMetadata_Metadata struct {
-	Convos           int64 `json:"convos" cborgen:"convos"`
-	ConvosStarted    int64 `json:"convosStarted" cborgen:"convosStarted"`
-	MessagesReceived int64 `json:"messagesReceived" cborgen:"messagesReceived"`
-	MessagesSent     int64 `json:"messagesSent" cborgen:"messagesSent"`
-}
-
 // ModerationGetActorMetadata_Output is the output of a chat.bsky.moderation.getActorMetadata call.
 type ModerationGetActorMetadata_Output struct {
 	All   *ModerationGetActorMetadata_Metadata `json:"all" cborgen:"all"`
@@ -36,4 +28,13 @@ func ModerationGetActorMetadata(ctx context.Context, c lexutil.LexClient, actor 
 	}
 
 	return &out, nil
+}
+
+// ModerationGetActorMetadata_Metadata is a "metadata" in the chat.bsky.moderation.getActorMetadata schema.
+type ModerationGetActorMetadata_Metadata struct {
+	LexiconTypeID    string `json:"$type" cborgen:"$type,const=chat.bsky.moderation.getActorMetadata#metadata"`
+	Convos           int64  `json:"convos" cborgen:"convos"`
+	ConvosStarted    int64  `json:"convosStarted" cborgen:"convosStarted"`
+	MessagesReceived int64  `json:"messagesReceived" cborgen:"messagesReceived"`
+	MessagesSent     int64  `json:"messagesSent" cborgen:"messagesSent"`
 }

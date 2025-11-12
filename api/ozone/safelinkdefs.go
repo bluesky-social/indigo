@@ -8,7 +8,8 @@ package ozone
 //
 // An event for URL safety decisions
 type SafelinkDefs_Event struct {
-	Action *string `json:"action" cborgen:"action"`
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=tools.ozone.safelink.defs#event"`
+	Action        *string `json:"action" cborgen:"action"`
 	// comment: Optional comment about the decision
 	Comment   *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	CreatedAt string  `json:"createdAt" cborgen:"createdAt"`
@@ -27,7 +28,8 @@ type SafelinkDefs_Event struct {
 //
 // Input for creating a URL safety rule
 type SafelinkDefs_UrlRule struct {
-	Action *string `json:"action" cborgen:"action"`
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=tools.ozone.safelink.defs#urlRule"`
+	Action        *string `json:"action" cborgen:"action"`
 	// comment: Optional comment about the decision
 	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	// createdAt: Timestamp when the rule was created

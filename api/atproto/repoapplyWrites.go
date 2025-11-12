@@ -12,39 +12,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// RepoApplyWrites_Create is a "create" in the com.atproto.repo.applyWrites schema.
-//
-// Operation which creates a new record.
-type RepoApplyWrites_Create struct {
-	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.repo.applyWrites#create"`
-	Collection    string `json:"collection" cborgen:"collection"`
-	// rkey: NOTE: maxLength is redundant with record-key format. Keeping it temporarily to ensure backwards compatibility.
-	Rkey  *string                     `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
-	Value *lexutil.LexiconTypeDecoder `json:"value" cborgen:"value"`
-}
-
-// RepoApplyWrites_CreateResult is a "createResult" in the com.atproto.repo.applyWrites schema.
-type RepoApplyWrites_CreateResult struct {
-	LexiconTypeID    string  `json:"$type" cborgen:"$type,const=com.atproto.repo.applyWrites#createResult"`
-	Cid              string  `json:"cid" cborgen:"cid"`
-	Uri              string  `json:"uri" cborgen:"uri"`
-	ValidationStatus *string `json:"validationStatus,omitempty" cborgen:"validationStatus,omitempty"`
-}
-
-// RepoApplyWrites_Delete is a "delete" in the com.atproto.repo.applyWrites schema.
-//
-// Operation which deletes an existing record.
-type RepoApplyWrites_Delete struct {
-	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.repo.applyWrites#delete"`
-	Collection    string `json:"collection" cborgen:"collection"`
-	Rkey          string `json:"rkey" cborgen:"rkey"`
-}
-
-// RepoApplyWrites_DeleteResult is a "deleteResult" in the com.atproto.repo.applyWrites schema.
-type RepoApplyWrites_DeleteResult struct {
-	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.repo.applyWrites#deleteResult"`
-}
-
 // RepoApplyWrites_Input is the input argument to a com.atproto.repo.applyWrites call.
 type RepoApplyWrites_Input struct {
 	// repo: The handle or DID of the repo (aka, current account).
@@ -148,6 +115,49 @@ func (t *RepoApplyWrites_Output_Results_Elem) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// RepoApplyWrites calls the XRPC method "com.atproto.repo.applyWrites".
+func RepoApplyWrites(ctx context.Context, c lexutil.LexClient, input *RepoApplyWrites_Input) (*RepoApplyWrites_Output, error) {
+	var out RepoApplyWrites_Output
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.repo.applyWrites", nil, input, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
+// RepoApplyWrites_Create is a "create" in the com.atproto.repo.applyWrites schema.
+//
+// Operation which creates a new record.
+type RepoApplyWrites_Create struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.repo.applyWrites#create"`
+	Collection    string `json:"collection" cborgen:"collection"`
+	// rkey: NOTE: maxLength is redundant with record-key format. Keeping it temporarily to ensure backwards compatibility.
+	Rkey  *string                     `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
+	Value *lexutil.LexiconTypeDecoder `json:"value" cborgen:"value"`
+}
+
+// RepoApplyWrites_CreateResult is a "createResult" in the com.atproto.repo.applyWrites schema.
+type RepoApplyWrites_CreateResult struct {
+	LexiconTypeID    string  `json:"$type" cborgen:"$type,const=com.atproto.repo.applyWrites#createResult"`
+	Cid              string  `json:"cid" cborgen:"cid"`
+	Uri              string  `json:"uri" cborgen:"uri"`
+	ValidationStatus *string `json:"validationStatus,omitempty" cborgen:"validationStatus,omitempty"`
+}
+
+// RepoApplyWrites_Delete is a "delete" in the com.atproto.repo.applyWrites schema.
+//
+// Operation which deletes an existing record.
+type RepoApplyWrites_Delete struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.repo.applyWrites#delete"`
+	Collection    string `json:"collection" cborgen:"collection"`
+	Rkey          string `json:"rkey" cborgen:"rkey"`
+}
+
+// RepoApplyWrites_DeleteResult is a "deleteResult" in the com.atproto.repo.applyWrites schema.
+type RepoApplyWrites_DeleteResult struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.repo.applyWrites#deleteResult"`
+}
+
 // RepoApplyWrites_Update is a "update" in the com.atproto.repo.applyWrites schema.
 //
 // Operation which updates an existing record.
@@ -164,14 +174,4 @@ type RepoApplyWrites_UpdateResult struct {
 	Cid              string  `json:"cid" cborgen:"cid"`
 	Uri              string  `json:"uri" cborgen:"uri"`
 	ValidationStatus *string `json:"validationStatus,omitempty" cborgen:"validationStatus,omitempty"`
-}
-
-// RepoApplyWrites calls the XRPC method "com.atproto.repo.applyWrites".
-func RepoApplyWrites(ctx context.Context, c lexutil.LexClient, input *RepoApplyWrites_Input) (*RepoApplyWrites_Output, error) {
-	var out RepoApplyWrites_Output
-	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.repo.applyWrites", nil, input, &out); err != nil {
-		return nil, err
-	}
-
-	return &out, nil
 }

@@ -40,6 +40,7 @@ type ModerationDefs_AccountHosting struct {
 //
 // Statistics about a particular account subject
 type ModerationDefs_AccountStats struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#accountStats"`
 	// appealCount: Total number of appeals against a moderation action on the account
 	AppealCount *int64 `json:"appealCount,omitempty" cborgen:"appealCount,omitempty"`
 	// escalateCount: Number of times the account was escalated
@@ -56,6 +57,7 @@ type ModerationDefs_AccountStats struct {
 //
 // Strike information for an account
 type ModerationDefs_AccountStrike struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#accountStrike"`
 	// activeStrikeCount: Current number of active strikes (excluding expired strikes)
 	ActiveStrikeCount *int64 `json:"activeStrikeCount,omitempty" cborgen:"activeStrikeCount,omitempty"`
 	// firstStrikeAt: Timestamp of the first strike received
@@ -100,12 +102,13 @@ type ModerationDefs_AgeAssuranceOverrideEvent struct {
 
 // ModerationDefs_BlobView is a "blobView" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_BlobView struct {
-	Cid        string                           `json:"cid" cborgen:"cid"`
-	CreatedAt  string                           `json:"createdAt" cborgen:"createdAt"`
-	Details    *ModerationDefs_BlobView_Details `json:"details,omitempty" cborgen:"details,omitempty"`
-	MimeType   string                           `json:"mimeType" cborgen:"mimeType"`
-	Moderation *ModerationDefs_Moderation       `json:"moderation,omitempty" cborgen:"moderation,omitempty"`
-	Size       int64                            `json:"size" cborgen:"size"`
+	LexiconTypeID string                           `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#blobView"`
+	Cid           string                           `json:"cid" cborgen:"cid"`
+	CreatedAt     string                           `json:"createdAt" cborgen:"createdAt"`
+	Details       *ModerationDefs_BlobView_Details `json:"details,omitempty" cborgen:"details,omitempty"`
+	MimeType      string                           `json:"mimeType" cborgen:"mimeType"`
+	Moderation    *ModerationDefs_Moderation       `json:"moderation,omitempty" cborgen:"moderation,omitempty"`
+	Size          int64                            `json:"size" cborgen:"size"`
 }
 
 type ModerationDefs_BlobView_Details struct {
@@ -352,6 +355,7 @@ type ModerationDefs_ModEventUnmuteReporter struct {
 
 // ModerationDefs_ModEventView is a "modEventView" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_ModEventView struct {
+	LexiconTypeID   string                               `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#modEventView"`
 	CreatedAt       string                               `json:"createdAt" cborgen:"createdAt"`
 	CreatedBy       string                               `json:"createdBy" cborgen:"createdBy"`
 	CreatorHandle   *string                              `json:"creatorHandle,omitempty" cborgen:"creatorHandle,omitempty"`
@@ -363,15 +367,270 @@ type ModerationDefs_ModEventView struct {
 	SubjectHandle   *string                              `json:"subjectHandle,omitempty" cborgen:"subjectHandle,omitempty"`
 }
 
+type ModerationDefs_ModEventView_Event struct {
+	ModerationDefs_ModEventTakedown              *ModerationDefs_ModEventTakedown
+	ModerationDefs_ModEventReverseTakedown       *ModerationDefs_ModEventReverseTakedown
+	ModerationDefs_ModEventComment               *ModerationDefs_ModEventComment
+	ModerationDefs_ModEventReport                *ModerationDefs_ModEventReport
+	ModerationDefs_ModEventLabel                 *ModerationDefs_ModEventLabel
+	ModerationDefs_ModEventAcknowledge           *ModerationDefs_ModEventAcknowledge
+	ModerationDefs_ModEventEscalate              *ModerationDefs_ModEventEscalate
+	ModerationDefs_ModEventMute                  *ModerationDefs_ModEventMute
+	ModerationDefs_ModEventUnmute                *ModerationDefs_ModEventUnmute
+	ModerationDefs_ModEventMuteReporter          *ModerationDefs_ModEventMuteReporter
+	ModerationDefs_ModEventUnmuteReporter        *ModerationDefs_ModEventUnmuteReporter
+	ModerationDefs_ModEventEmail                 *ModerationDefs_ModEventEmail
+	ModerationDefs_ModEventResolveAppeal         *ModerationDefs_ModEventResolveAppeal
+	ModerationDefs_ModEventDivert                *ModerationDefs_ModEventDivert
+	ModerationDefs_ModEventTag                   *ModerationDefs_ModEventTag
+	ModerationDefs_AccountEvent                  *ModerationDefs_AccountEvent
+	ModerationDefs_IdentityEvent                 *ModerationDefs_IdentityEvent
+	ModerationDefs_RecordEvent                   *ModerationDefs_RecordEvent
+	ModerationDefs_ModEventPriorityScore         *ModerationDefs_ModEventPriorityScore
+	ModerationDefs_AgeAssuranceEvent             *ModerationDefs_AgeAssuranceEvent
+	ModerationDefs_AgeAssuranceOverrideEvent     *ModerationDefs_AgeAssuranceOverrideEvent
+	ModerationDefs_RevokeAccountCredentialsEvent *ModerationDefs_RevokeAccountCredentialsEvent
+	ModerationDefs_ScheduleTakedownEvent         *ModerationDefs_ScheduleTakedownEvent
+	ModerationDefs_CancelScheduledTakedownEvent  *ModerationDefs_CancelScheduledTakedownEvent
+}
+
+func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
+	if t.ModerationDefs_ModEventTakedown != nil {
+		t.ModerationDefs_ModEventTakedown.LexiconTypeID = "tools.ozone.moderation.defs#modEventTakedown"
+		return json.Marshal(t.ModerationDefs_ModEventTakedown)
+	}
+	if t.ModerationDefs_ModEventReverseTakedown != nil {
+		t.ModerationDefs_ModEventReverseTakedown.LexiconTypeID = "tools.ozone.moderation.defs#modEventReverseTakedown"
+		return json.Marshal(t.ModerationDefs_ModEventReverseTakedown)
+	}
+	if t.ModerationDefs_ModEventComment != nil {
+		t.ModerationDefs_ModEventComment.LexiconTypeID = "tools.ozone.moderation.defs#modEventComment"
+		return json.Marshal(t.ModerationDefs_ModEventComment)
+	}
+	if t.ModerationDefs_ModEventReport != nil {
+		t.ModerationDefs_ModEventReport.LexiconTypeID = "tools.ozone.moderation.defs#modEventReport"
+		return json.Marshal(t.ModerationDefs_ModEventReport)
+	}
+	if t.ModerationDefs_ModEventLabel != nil {
+		t.ModerationDefs_ModEventLabel.LexiconTypeID = "tools.ozone.moderation.defs#modEventLabel"
+		return json.Marshal(t.ModerationDefs_ModEventLabel)
+	}
+	if t.ModerationDefs_ModEventAcknowledge != nil {
+		t.ModerationDefs_ModEventAcknowledge.LexiconTypeID = "tools.ozone.moderation.defs#modEventAcknowledge"
+		return json.Marshal(t.ModerationDefs_ModEventAcknowledge)
+	}
+	if t.ModerationDefs_ModEventEscalate != nil {
+		t.ModerationDefs_ModEventEscalate.LexiconTypeID = "tools.ozone.moderation.defs#modEventEscalate"
+		return json.Marshal(t.ModerationDefs_ModEventEscalate)
+	}
+	if t.ModerationDefs_ModEventMute != nil {
+		t.ModerationDefs_ModEventMute.LexiconTypeID = "tools.ozone.moderation.defs#modEventMute"
+		return json.Marshal(t.ModerationDefs_ModEventMute)
+	}
+	if t.ModerationDefs_ModEventUnmute != nil {
+		t.ModerationDefs_ModEventUnmute.LexiconTypeID = "tools.ozone.moderation.defs#modEventUnmute"
+		return json.Marshal(t.ModerationDefs_ModEventUnmute)
+	}
+	if t.ModerationDefs_ModEventMuteReporter != nil {
+		t.ModerationDefs_ModEventMuteReporter.LexiconTypeID = "tools.ozone.moderation.defs#modEventMuteReporter"
+		return json.Marshal(t.ModerationDefs_ModEventMuteReporter)
+	}
+	if t.ModerationDefs_ModEventUnmuteReporter != nil {
+		t.ModerationDefs_ModEventUnmuteReporter.LexiconTypeID = "tools.ozone.moderation.defs#modEventUnmuteReporter"
+		return json.Marshal(t.ModerationDefs_ModEventUnmuteReporter)
+	}
+	if t.ModerationDefs_ModEventEmail != nil {
+		t.ModerationDefs_ModEventEmail.LexiconTypeID = "tools.ozone.moderation.defs#modEventEmail"
+		return json.Marshal(t.ModerationDefs_ModEventEmail)
+	}
+	if t.ModerationDefs_ModEventResolveAppeal != nil {
+		t.ModerationDefs_ModEventResolveAppeal.LexiconTypeID = "tools.ozone.moderation.defs#modEventResolveAppeal"
+		return json.Marshal(t.ModerationDefs_ModEventResolveAppeal)
+	}
+	if t.ModerationDefs_ModEventDivert != nil {
+		t.ModerationDefs_ModEventDivert.LexiconTypeID = "tools.ozone.moderation.defs#modEventDivert"
+		return json.Marshal(t.ModerationDefs_ModEventDivert)
+	}
+	if t.ModerationDefs_ModEventTag != nil {
+		t.ModerationDefs_ModEventTag.LexiconTypeID = "tools.ozone.moderation.defs#modEventTag"
+		return json.Marshal(t.ModerationDefs_ModEventTag)
+	}
+	if t.ModerationDefs_AccountEvent != nil {
+		t.ModerationDefs_AccountEvent.LexiconTypeID = "tools.ozone.moderation.defs#accountEvent"
+		return json.Marshal(t.ModerationDefs_AccountEvent)
+	}
+	if t.ModerationDefs_IdentityEvent != nil {
+		t.ModerationDefs_IdentityEvent.LexiconTypeID = "tools.ozone.moderation.defs#identityEvent"
+		return json.Marshal(t.ModerationDefs_IdentityEvent)
+	}
+	if t.ModerationDefs_RecordEvent != nil {
+		t.ModerationDefs_RecordEvent.LexiconTypeID = "tools.ozone.moderation.defs#recordEvent"
+		return json.Marshal(t.ModerationDefs_RecordEvent)
+	}
+	if t.ModerationDefs_ModEventPriorityScore != nil {
+		t.ModerationDefs_ModEventPriorityScore.LexiconTypeID = "tools.ozone.moderation.defs#modEventPriorityScore"
+		return json.Marshal(t.ModerationDefs_ModEventPriorityScore)
+	}
+	if t.ModerationDefs_AgeAssuranceEvent != nil {
+		t.ModerationDefs_AgeAssuranceEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceEvent"
+		return json.Marshal(t.ModerationDefs_AgeAssuranceEvent)
+	}
+	if t.ModerationDefs_AgeAssuranceOverrideEvent != nil {
+		t.ModerationDefs_AgeAssuranceOverrideEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
+		return json.Marshal(t.ModerationDefs_AgeAssuranceOverrideEvent)
+	}
+	if t.ModerationDefs_RevokeAccountCredentialsEvent != nil {
+		t.ModerationDefs_RevokeAccountCredentialsEvent.LexiconTypeID = "tools.ozone.moderation.defs#revokeAccountCredentialsEvent"
+		return json.Marshal(t.ModerationDefs_RevokeAccountCredentialsEvent)
+	}
+	if t.ModerationDefs_ScheduleTakedownEvent != nil {
+		t.ModerationDefs_ScheduleTakedownEvent.LexiconTypeID = "tools.ozone.moderation.defs#scheduleTakedownEvent"
+		return json.Marshal(t.ModerationDefs_ScheduleTakedownEvent)
+	}
+	if t.ModerationDefs_CancelScheduledTakedownEvent != nil {
+		t.ModerationDefs_CancelScheduledTakedownEvent.LexiconTypeID = "tools.ozone.moderation.defs#cancelScheduledTakedownEvent"
+		return json.Marshal(t.ModerationDefs_CancelScheduledTakedownEvent)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "tools.ozone.moderation.defs#modEventTakedown":
+		t.ModerationDefs_ModEventTakedown = new(ModerationDefs_ModEventTakedown)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventTakedown)
+	case "tools.ozone.moderation.defs#modEventReverseTakedown":
+		t.ModerationDefs_ModEventReverseTakedown = new(ModerationDefs_ModEventReverseTakedown)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventReverseTakedown)
+	case "tools.ozone.moderation.defs#modEventComment":
+		t.ModerationDefs_ModEventComment = new(ModerationDefs_ModEventComment)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventComment)
+	case "tools.ozone.moderation.defs#modEventReport":
+		t.ModerationDefs_ModEventReport = new(ModerationDefs_ModEventReport)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventReport)
+	case "tools.ozone.moderation.defs#modEventLabel":
+		t.ModerationDefs_ModEventLabel = new(ModerationDefs_ModEventLabel)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventLabel)
+	case "tools.ozone.moderation.defs#modEventAcknowledge":
+		t.ModerationDefs_ModEventAcknowledge = new(ModerationDefs_ModEventAcknowledge)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventAcknowledge)
+	case "tools.ozone.moderation.defs#modEventEscalate":
+		t.ModerationDefs_ModEventEscalate = new(ModerationDefs_ModEventEscalate)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventEscalate)
+	case "tools.ozone.moderation.defs#modEventMute":
+		t.ModerationDefs_ModEventMute = new(ModerationDefs_ModEventMute)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventMute)
+	case "tools.ozone.moderation.defs#modEventUnmute":
+		t.ModerationDefs_ModEventUnmute = new(ModerationDefs_ModEventUnmute)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventUnmute)
+	case "tools.ozone.moderation.defs#modEventMuteReporter":
+		t.ModerationDefs_ModEventMuteReporter = new(ModerationDefs_ModEventMuteReporter)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventMuteReporter)
+	case "tools.ozone.moderation.defs#modEventUnmuteReporter":
+		t.ModerationDefs_ModEventUnmuteReporter = new(ModerationDefs_ModEventUnmuteReporter)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventUnmuteReporter)
+	case "tools.ozone.moderation.defs#modEventEmail":
+		t.ModerationDefs_ModEventEmail = new(ModerationDefs_ModEventEmail)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventEmail)
+	case "tools.ozone.moderation.defs#modEventResolveAppeal":
+		t.ModerationDefs_ModEventResolveAppeal = new(ModerationDefs_ModEventResolveAppeal)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventResolveAppeal)
+	case "tools.ozone.moderation.defs#modEventDivert":
+		t.ModerationDefs_ModEventDivert = new(ModerationDefs_ModEventDivert)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventDivert)
+	case "tools.ozone.moderation.defs#modEventTag":
+		t.ModerationDefs_ModEventTag = new(ModerationDefs_ModEventTag)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventTag)
+	case "tools.ozone.moderation.defs#accountEvent":
+		t.ModerationDefs_AccountEvent = new(ModerationDefs_AccountEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AccountEvent)
+	case "tools.ozone.moderation.defs#identityEvent":
+		t.ModerationDefs_IdentityEvent = new(ModerationDefs_IdentityEvent)
+		return json.Unmarshal(b, t.ModerationDefs_IdentityEvent)
+	case "tools.ozone.moderation.defs#recordEvent":
+		t.ModerationDefs_RecordEvent = new(ModerationDefs_RecordEvent)
+		return json.Unmarshal(b, t.ModerationDefs_RecordEvent)
+	case "tools.ozone.moderation.defs#modEventPriorityScore":
+		t.ModerationDefs_ModEventPriorityScore = new(ModerationDefs_ModEventPriorityScore)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventPriorityScore)
+	case "tools.ozone.moderation.defs#ageAssuranceEvent":
+		t.ModerationDefs_AgeAssuranceEvent = new(ModerationDefs_AgeAssuranceEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceEvent)
+	case "tools.ozone.moderation.defs#ageAssuranceOverrideEvent":
+		t.ModerationDefs_AgeAssuranceOverrideEvent = new(ModerationDefs_AgeAssuranceOverrideEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceOverrideEvent)
+	case "tools.ozone.moderation.defs#revokeAccountCredentialsEvent":
+		t.ModerationDefs_RevokeAccountCredentialsEvent = new(ModerationDefs_RevokeAccountCredentialsEvent)
+		return json.Unmarshal(b, t.ModerationDefs_RevokeAccountCredentialsEvent)
+	case "tools.ozone.moderation.defs#scheduleTakedownEvent":
+		t.ModerationDefs_ScheduleTakedownEvent = new(ModerationDefs_ScheduleTakedownEvent)
+		return json.Unmarshal(b, t.ModerationDefs_ScheduleTakedownEvent)
+	case "tools.ozone.moderation.defs#cancelScheduledTakedownEvent":
+		t.ModerationDefs_CancelScheduledTakedownEvent = new(ModerationDefs_CancelScheduledTakedownEvent)
+		return json.Unmarshal(b, t.ModerationDefs_CancelScheduledTakedownEvent)
+	default:
+		return nil
+	}
+}
+
+type ModerationDefs_ModEventView_Subject struct {
+	AdminDefs_RepoRef    *comatproto.AdminDefs_RepoRef
+	RepoStrongRef        *comatproto.RepoStrongRef
+	ConvoDefs_MessageRef *chatbsky.ConvoDefs_MessageRef
+}
+
+func (t *ModerationDefs_ModEventView_Subject) MarshalJSON() ([]byte, error) {
+	if t.AdminDefs_RepoRef != nil {
+		t.AdminDefs_RepoRef.LexiconTypeID = "com.atproto.admin.defs#repoRef"
+		return json.Marshal(t.AdminDefs_RepoRef)
+	}
+	if t.RepoStrongRef != nil {
+		t.RepoStrongRef.LexiconTypeID = "com.atproto.repo.strongRef"
+		return json.Marshal(t.RepoStrongRef)
+	}
+	if t.ConvoDefs_MessageRef != nil {
+		t.ConvoDefs_MessageRef.LexiconTypeID = "chat.bsky.convo.defs#messageRef"
+		return json.Marshal(t.ConvoDefs_MessageRef)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *ModerationDefs_ModEventView_Subject) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "com.atproto.admin.defs#repoRef":
+		t.AdminDefs_RepoRef = new(comatproto.AdminDefs_RepoRef)
+		return json.Unmarshal(b, t.AdminDefs_RepoRef)
+	case "com.atproto.repo.strongRef":
+		t.RepoStrongRef = new(comatproto.RepoStrongRef)
+		return json.Unmarshal(b, t.RepoStrongRef)
+	case "chat.bsky.convo.defs#messageRef":
+		t.ConvoDefs_MessageRef = new(chatbsky.ConvoDefs_MessageRef)
+		return json.Unmarshal(b, t.ConvoDefs_MessageRef)
+	default:
+		return nil
+	}
+}
+
 // ModerationDefs_ModEventViewDetail is a "modEventViewDetail" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_ModEventViewDetail struct {
-	CreatedAt    string                                     `json:"createdAt" cborgen:"createdAt"`
-	CreatedBy    string                                     `json:"createdBy" cborgen:"createdBy"`
-	Event        *ModerationDefs_ModEventViewDetail_Event   `json:"event" cborgen:"event"`
-	Id           int64                                      `json:"id" cborgen:"id"`
-	ModTool      *ModerationDefs_ModTool                    `json:"modTool,omitempty" cborgen:"modTool,omitempty"`
-	Subject      *ModerationDefs_ModEventViewDetail_Subject `json:"subject" cborgen:"subject"`
-	SubjectBlobs []*ModerationDefs_BlobView                 `json:"subjectBlobs" cborgen:"subjectBlobs"`
+	LexiconTypeID string                                     `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#modEventViewDetail"`
+	CreatedAt     string                                     `json:"createdAt" cborgen:"createdAt"`
+	CreatedBy     string                                     `json:"createdBy" cborgen:"createdBy"`
+	Event         *ModerationDefs_ModEventViewDetail_Event   `json:"event" cborgen:"event"`
+	Id            int64                                      `json:"id" cborgen:"id"`
+	ModTool       *ModerationDefs_ModTool                    `json:"modTool,omitempty" cborgen:"modTool,omitempty"`
+	Subject       *ModerationDefs_ModEventViewDetail_Subject `json:"subject" cborgen:"subject"`
+	SubjectBlobs  []*ModerationDefs_BlobView                 `json:"subjectBlobs" cborgen:"subjectBlobs"`
 }
 
 type ModerationDefs_ModEventViewDetail_Event struct {
@@ -636,264 +895,11 @@ func (t *ModerationDefs_ModEventViewDetail_Subject) UnmarshalJSON(b []byte) erro
 	}
 }
 
-type ModerationDefs_ModEventView_Event struct {
-	ModerationDefs_ModEventTakedown              *ModerationDefs_ModEventTakedown
-	ModerationDefs_ModEventReverseTakedown       *ModerationDefs_ModEventReverseTakedown
-	ModerationDefs_ModEventComment               *ModerationDefs_ModEventComment
-	ModerationDefs_ModEventReport                *ModerationDefs_ModEventReport
-	ModerationDefs_ModEventLabel                 *ModerationDefs_ModEventLabel
-	ModerationDefs_ModEventAcknowledge           *ModerationDefs_ModEventAcknowledge
-	ModerationDefs_ModEventEscalate              *ModerationDefs_ModEventEscalate
-	ModerationDefs_ModEventMute                  *ModerationDefs_ModEventMute
-	ModerationDefs_ModEventUnmute                *ModerationDefs_ModEventUnmute
-	ModerationDefs_ModEventMuteReporter          *ModerationDefs_ModEventMuteReporter
-	ModerationDefs_ModEventUnmuteReporter        *ModerationDefs_ModEventUnmuteReporter
-	ModerationDefs_ModEventEmail                 *ModerationDefs_ModEventEmail
-	ModerationDefs_ModEventResolveAppeal         *ModerationDefs_ModEventResolveAppeal
-	ModerationDefs_ModEventDivert                *ModerationDefs_ModEventDivert
-	ModerationDefs_ModEventTag                   *ModerationDefs_ModEventTag
-	ModerationDefs_AccountEvent                  *ModerationDefs_AccountEvent
-	ModerationDefs_IdentityEvent                 *ModerationDefs_IdentityEvent
-	ModerationDefs_RecordEvent                   *ModerationDefs_RecordEvent
-	ModerationDefs_ModEventPriorityScore         *ModerationDefs_ModEventPriorityScore
-	ModerationDefs_AgeAssuranceEvent             *ModerationDefs_AgeAssuranceEvent
-	ModerationDefs_AgeAssuranceOverrideEvent     *ModerationDefs_AgeAssuranceOverrideEvent
-	ModerationDefs_RevokeAccountCredentialsEvent *ModerationDefs_RevokeAccountCredentialsEvent
-	ModerationDefs_ScheduleTakedownEvent         *ModerationDefs_ScheduleTakedownEvent
-	ModerationDefs_CancelScheduledTakedownEvent  *ModerationDefs_CancelScheduledTakedownEvent
-}
-
-func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
-	if t.ModerationDefs_ModEventTakedown != nil {
-		t.ModerationDefs_ModEventTakedown.LexiconTypeID = "tools.ozone.moderation.defs#modEventTakedown"
-		return json.Marshal(t.ModerationDefs_ModEventTakedown)
-	}
-	if t.ModerationDefs_ModEventReverseTakedown != nil {
-		t.ModerationDefs_ModEventReverseTakedown.LexiconTypeID = "tools.ozone.moderation.defs#modEventReverseTakedown"
-		return json.Marshal(t.ModerationDefs_ModEventReverseTakedown)
-	}
-	if t.ModerationDefs_ModEventComment != nil {
-		t.ModerationDefs_ModEventComment.LexiconTypeID = "tools.ozone.moderation.defs#modEventComment"
-		return json.Marshal(t.ModerationDefs_ModEventComment)
-	}
-	if t.ModerationDefs_ModEventReport != nil {
-		t.ModerationDefs_ModEventReport.LexiconTypeID = "tools.ozone.moderation.defs#modEventReport"
-		return json.Marshal(t.ModerationDefs_ModEventReport)
-	}
-	if t.ModerationDefs_ModEventLabel != nil {
-		t.ModerationDefs_ModEventLabel.LexiconTypeID = "tools.ozone.moderation.defs#modEventLabel"
-		return json.Marshal(t.ModerationDefs_ModEventLabel)
-	}
-	if t.ModerationDefs_ModEventAcknowledge != nil {
-		t.ModerationDefs_ModEventAcknowledge.LexiconTypeID = "tools.ozone.moderation.defs#modEventAcknowledge"
-		return json.Marshal(t.ModerationDefs_ModEventAcknowledge)
-	}
-	if t.ModerationDefs_ModEventEscalate != nil {
-		t.ModerationDefs_ModEventEscalate.LexiconTypeID = "tools.ozone.moderation.defs#modEventEscalate"
-		return json.Marshal(t.ModerationDefs_ModEventEscalate)
-	}
-	if t.ModerationDefs_ModEventMute != nil {
-		t.ModerationDefs_ModEventMute.LexiconTypeID = "tools.ozone.moderation.defs#modEventMute"
-		return json.Marshal(t.ModerationDefs_ModEventMute)
-	}
-	if t.ModerationDefs_ModEventUnmute != nil {
-		t.ModerationDefs_ModEventUnmute.LexiconTypeID = "tools.ozone.moderation.defs#modEventUnmute"
-		return json.Marshal(t.ModerationDefs_ModEventUnmute)
-	}
-	if t.ModerationDefs_ModEventMuteReporter != nil {
-		t.ModerationDefs_ModEventMuteReporter.LexiconTypeID = "tools.ozone.moderation.defs#modEventMuteReporter"
-		return json.Marshal(t.ModerationDefs_ModEventMuteReporter)
-	}
-	if t.ModerationDefs_ModEventUnmuteReporter != nil {
-		t.ModerationDefs_ModEventUnmuteReporter.LexiconTypeID = "tools.ozone.moderation.defs#modEventUnmuteReporter"
-		return json.Marshal(t.ModerationDefs_ModEventUnmuteReporter)
-	}
-	if t.ModerationDefs_ModEventEmail != nil {
-		t.ModerationDefs_ModEventEmail.LexiconTypeID = "tools.ozone.moderation.defs#modEventEmail"
-		return json.Marshal(t.ModerationDefs_ModEventEmail)
-	}
-	if t.ModerationDefs_ModEventResolveAppeal != nil {
-		t.ModerationDefs_ModEventResolveAppeal.LexiconTypeID = "tools.ozone.moderation.defs#modEventResolveAppeal"
-		return json.Marshal(t.ModerationDefs_ModEventResolveAppeal)
-	}
-	if t.ModerationDefs_ModEventDivert != nil {
-		t.ModerationDefs_ModEventDivert.LexiconTypeID = "tools.ozone.moderation.defs#modEventDivert"
-		return json.Marshal(t.ModerationDefs_ModEventDivert)
-	}
-	if t.ModerationDefs_ModEventTag != nil {
-		t.ModerationDefs_ModEventTag.LexiconTypeID = "tools.ozone.moderation.defs#modEventTag"
-		return json.Marshal(t.ModerationDefs_ModEventTag)
-	}
-	if t.ModerationDefs_AccountEvent != nil {
-		t.ModerationDefs_AccountEvent.LexiconTypeID = "tools.ozone.moderation.defs#accountEvent"
-		return json.Marshal(t.ModerationDefs_AccountEvent)
-	}
-	if t.ModerationDefs_IdentityEvent != nil {
-		t.ModerationDefs_IdentityEvent.LexiconTypeID = "tools.ozone.moderation.defs#identityEvent"
-		return json.Marshal(t.ModerationDefs_IdentityEvent)
-	}
-	if t.ModerationDefs_RecordEvent != nil {
-		t.ModerationDefs_RecordEvent.LexiconTypeID = "tools.ozone.moderation.defs#recordEvent"
-		return json.Marshal(t.ModerationDefs_RecordEvent)
-	}
-	if t.ModerationDefs_ModEventPriorityScore != nil {
-		t.ModerationDefs_ModEventPriorityScore.LexiconTypeID = "tools.ozone.moderation.defs#modEventPriorityScore"
-		return json.Marshal(t.ModerationDefs_ModEventPriorityScore)
-	}
-	if t.ModerationDefs_AgeAssuranceEvent != nil {
-		t.ModerationDefs_AgeAssuranceEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceEvent"
-		return json.Marshal(t.ModerationDefs_AgeAssuranceEvent)
-	}
-	if t.ModerationDefs_AgeAssuranceOverrideEvent != nil {
-		t.ModerationDefs_AgeAssuranceOverrideEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
-		return json.Marshal(t.ModerationDefs_AgeAssuranceOverrideEvent)
-	}
-	if t.ModerationDefs_RevokeAccountCredentialsEvent != nil {
-		t.ModerationDefs_RevokeAccountCredentialsEvent.LexiconTypeID = "tools.ozone.moderation.defs#revokeAccountCredentialsEvent"
-		return json.Marshal(t.ModerationDefs_RevokeAccountCredentialsEvent)
-	}
-	if t.ModerationDefs_ScheduleTakedownEvent != nil {
-		t.ModerationDefs_ScheduleTakedownEvent.LexiconTypeID = "tools.ozone.moderation.defs#scheduleTakedownEvent"
-		return json.Marshal(t.ModerationDefs_ScheduleTakedownEvent)
-	}
-	if t.ModerationDefs_CancelScheduledTakedownEvent != nil {
-		t.ModerationDefs_CancelScheduledTakedownEvent.LexiconTypeID = "tools.ozone.moderation.defs#cancelScheduledTakedownEvent"
-		return json.Marshal(t.ModerationDefs_CancelScheduledTakedownEvent)
-	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
-}
-
-func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
-	typ, err := lexutil.TypeExtract(b)
-	if err != nil {
-		return err
-	}
-
-	switch typ {
-	case "tools.ozone.moderation.defs#modEventTakedown":
-		t.ModerationDefs_ModEventTakedown = new(ModerationDefs_ModEventTakedown)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventTakedown)
-	case "tools.ozone.moderation.defs#modEventReverseTakedown":
-		t.ModerationDefs_ModEventReverseTakedown = new(ModerationDefs_ModEventReverseTakedown)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventReverseTakedown)
-	case "tools.ozone.moderation.defs#modEventComment":
-		t.ModerationDefs_ModEventComment = new(ModerationDefs_ModEventComment)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventComment)
-	case "tools.ozone.moderation.defs#modEventReport":
-		t.ModerationDefs_ModEventReport = new(ModerationDefs_ModEventReport)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventReport)
-	case "tools.ozone.moderation.defs#modEventLabel":
-		t.ModerationDefs_ModEventLabel = new(ModerationDefs_ModEventLabel)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventLabel)
-	case "tools.ozone.moderation.defs#modEventAcknowledge":
-		t.ModerationDefs_ModEventAcknowledge = new(ModerationDefs_ModEventAcknowledge)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventAcknowledge)
-	case "tools.ozone.moderation.defs#modEventEscalate":
-		t.ModerationDefs_ModEventEscalate = new(ModerationDefs_ModEventEscalate)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventEscalate)
-	case "tools.ozone.moderation.defs#modEventMute":
-		t.ModerationDefs_ModEventMute = new(ModerationDefs_ModEventMute)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventMute)
-	case "tools.ozone.moderation.defs#modEventUnmute":
-		t.ModerationDefs_ModEventUnmute = new(ModerationDefs_ModEventUnmute)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventUnmute)
-	case "tools.ozone.moderation.defs#modEventMuteReporter":
-		t.ModerationDefs_ModEventMuteReporter = new(ModerationDefs_ModEventMuteReporter)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventMuteReporter)
-	case "tools.ozone.moderation.defs#modEventUnmuteReporter":
-		t.ModerationDefs_ModEventUnmuteReporter = new(ModerationDefs_ModEventUnmuteReporter)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventUnmuteReporter)
-	case "tools.ozone.moderation.defs#modEventEmail":
-		t.ModerationDefs_ModEventEmail = new(ModerationDefs_ModEventEmail)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventEmail)
-	case "tools.ozone.moderation.defs#modEventResolveAppeal":
-		t.ModerationDefs_ModEventResolveAppeal = new(ModerationDefs_ModEventResolveAppeal)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventResolveAppeal)
-	case "tools.ozone.moderation.defs#modEventDivert":
-		t.ModerationDefs_ModEventDivert = new(ModerationDefs_ModEventDivert)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventDivert)
-	case "tools.ozone.moderation.defs#modEventTag":
-		t.ModerationDefs_ModEventTag = new(ModerationDefs_ModEventTag)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventTag)
-	case "tools.ozone.moderation.defs#accountEvent":
-		t.ModerationDefs_AccountEvent = new(ModerationDefs_AccountEvent)
-		return json.Unmarshal(b, t.ModerationDefs_AccountEvent)
-	case "tools.ozone.moderation.defs#identityEvent":
-		t.ModerationDefs_IdentityEvent = new(ModerationDefs_IdentityEvent)
-		return json.Unmarshal(b, t.ModerationDefs_IdentityEvent)
-	case "tools.ozone.moderation.defs#recordEvent":
-		t.ModerationDefs_RecordEvent = new(ModerationDefs_RecordEvent)
-		return json.Unmarshal(b, t.ModerationDefs_RecordEvent)
-	case "tools.ozone.moderation.defs#modEventPriorityScore":
-		t.ModerationDefs_ModEventPriorityScore = new(ModerationDefs_ModEventPriorityScore)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventPriorityScore)
-	case "tools.ozone.moderation.defs#ageAssuranceEvent":
-		t.ModerationDefs_AgeAssuranceEvent = new(ModerationDefs_AgeAssuranceEvent)
-		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceEvent)
-	case "tools.ozone.moderation.defs#ageAssuranceOverrideEvent":
-		t.ModerationDefs_AgeAssuranceOverrideEvent = new(ModerationDefs_AgeAssuranceOverrideEvent)
-		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceOverrideEvent)
-	case "tools.ozone.moderation.defs#revokeAccountCredentialsEvent":
-		t.ModerationDefs_RevokeAccountCredentialsEvent = new(ModerationDefs_RevokeAccountCredentialsEvent)
-		return json.Unmarshal(b, t.ModerationDefs_RevokeAccountCredentialsEvent)
-	case "tools.ozone.moderation.defs#scheduleTakedownEvent":
-		t.ModerationDefs_ScheduleTakedownEvent = new(ModerationDefs_ScheduleTakedownEvent)
-		return json.Unmarshal(b, t.ModerationDefs_ScheduleTakedownEvent)
-	case "tools.ozone.moderation.defs#cancelScheduledTakedownEvent":
-		t.ModerationDefs_CancelScheduledTakedownEvent = new(ModerationDefs_CancelScheduledTakedownEvent)
-		return json.Unmarshal(b, t.ModerationDefs_CancelScheduledTakedownEvent)
-	default:
-		return nil
-	}
-}
-
-type ModerationDefs_ModEventView_Subject struct {
-	AdminDefs_RepoRef    *comatproto.AdminDefs_RepoRef
-	RepoStrongRef        *comatproto.RepoStrongRef
-	ConvoDefs_MessageRef *chatbsky.ConvoDefs_MessageRef
-}
-
-func (t *ModerationDefs_ModEventView_Subject) MarshalJSON() ([]byte, error) {
-	if t.AdminDefs_RepoRef != nil {
-		t.AdminDefs_RepoRef.LexiconTypeID = "com.atproto.admin.defs#repoRef"
-		return json.Marshal(t.AdminDefs_RepoRef)
-	}
-	if t.RepoStrongRef != nil {
-		t.RepoStrongRef.LexiconTypeID = "com.atproto.repo.strongRef"
-		return json.Marshal(t.RepoStrongRef)
-	}
-	if t.ConvoDefs_MessageRef != nil {
-		t.ConvoDefs_MessageRef.LexiconTypeID = "chat.bsky.convo.defs#messageRef"
-		return json.Marshal(t.ConvoDefs_MessageRef)
-	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
-}
-
-func (t *ModerationDefs_ModEventView_Subject) UnmarshalJSON(b []byte) error {
-	typ, err := lexutil.TypeExtract(b)
-	if err != nil {
-		return err
-	}
-
-	switch typ {
-	case "com.atproto.admin.defs#repoRef":
-		t.AdminDefs_RepoRef = new(comatproto.AdminDefs_RepoRef)
-		return json.Unmarshal(b, t.AdminDefs_RepoRef)
-	case "com.atproto.repo.strongRef":
-		t.RepoStrongRef = new(comatproto.RepoStrongRef)
-		return json.Unmarshal(b, t.RepoStrongRef)
-	case "chat.bsky.convo.defs#messageRef":
-		t.ConvoDefs_MessageRef = new(chatbsky.ConvoDefs_MessageRef)
-		return json.Unmarshal(b, t.ConvoDefs_MessageRef)
-	default:
-		return nil
-	}
-}
-
 // ModerationDefs_ModTool is a "modTool" in the tools.ozone.moderation.defs schema.
 //
 // Moderation tool information for tracing the source of the action
 type ModerationDefs_ModTool struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#modTool"`
 	// meta: Additional arbitrary metadata about the source
 	Meta *interface{} `json:"meta,omitempty" cborgen:"meta,omitempty"`
 	// name: Name/identifier of the source (e.g., 'automod', 'ozone/workspace')
@@ -902,11 +908,13 @@ type ModerationDefs_ModTool struct {
 
 // ModerationDefs_Moderation is a "moderation" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_Moderation struct {
+	LexiconTypeID string                            `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#moderation"`
 	SubjectStatus *ModerationDefs_SubjectStatusView `json:"subjectStatus,omitempty" cborgen:"subjectStatus,omitempty"`
 }
 
 // ModerationDefs_ModerationDetail is a "moderationDetail" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_ModerationDetail struct {
+	LexiconTypeID string                            `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#moderationDetail"`
 	SubjectStatus *ModerationDefs_SubjectStatusView `json:"subjectStatus,omitempty" cborgen:"subjectStatus,omitempty"`
 }
 
@@ -965,6 +973,7 @@ type ModerationDefs_RecordViewNotFound struct {
 //
 // Statistics about a set of record subject items
 type ModerationDefs_RecordsStats struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#recordsStats"`
 	// appealedCount: Number of items that were appealed at least once
 	AppealedCount *int64 `json:"appealedCount,omitempty" cborgen:"appealedCount,omitempty"`
 	// escalatedCount: Number of items that were escalated at least once
@@ -1026,6 +1035,7 @@ type ModerationDefs_RepoViewNotFound struct {
 
 // ModerationDefs_ReporterStats is a "reporterStats" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_ReporterStats struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#reporterStats"`
 	// accountReportCount: The total number of reports made by the user on accounts.
 	AccountReportCount int64  `json:"accountReportCount" cborgen:"accountReportCount"`
 	Did                string `json:"did" cborgen:"did"`
@@ -1069,6 +1079,7 @@ type ModerationDefs_ScheduleTakedownEvent struct {
 //
 // View of a scheduled moderation action
 type ModerationDefs_ScheduledActionView struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#scheduledActionView"`
 	// action: Type of action to be executed
 	Action string `json:"action" cborgen:"action"`
 	// createdAt: When the scheduled action was created
@@ -1103,6 +1114,7 @@ type ModerationDefs_ScheduledActionView struct {
 
 // ModerationDefs_SubjectStatusView is a "subjectStatusView" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_SubjectStatusView struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#subjectStatusView"`
 	// accountStats: Statistics related to the account subject
 	AccountStats *ModerationDefs_AccountStats `json:"accountStats,omitempty" cborgen:"accountStats,omitempty"`
 	// accountStrike: Strike information for the account (account-level only)
@@ -1223,12 +1235,32 @@ func (t *ModerationDefs_SubjectStatusView_Subject) UnmarshalJSON(b []byte) error
 //
 // Detailed view of a subject. For record subjects, the author's repo and profile will be returned.
 type ModerationDefs_SubjectView struct {
-	Profile *lexutil.LexiconTypeDecoder       `json:"profile,omitempty" cborgen:"profile,omitempty"`
-	Record  *ModerationDefs_RecordViewDetail  `json:"record,omitempty" cborgen:"record,omitempty"`
-	Repo    *ModerationDefs_RepoViewDetail    `json:"repo,omitempty" cborgen:"repo,omitempty"`
-	Status  *ModerationDefs_SubjectStatusView `json:"status,omitempty" cborgen:"status,omitempty"`
-	Subject string                            `json:"subject" cborgen:"subject"`
-	Type    *string                           `json:"type" cborgen:"type"`
+	LexiconTypeID string                              `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#subjectView"`
+	Profile       *ModerationDefs_SubjectView_Profile `json:"profile,omitempty" cborgen:"profile,omitempty"`
+	Record        *ModerationDefs_RecordViewDetail    `json:"record,omitempty" cborgen:"record,omitempty"`
+	Repo          *ModerationDefs_RepoViewDetail      `json:"repo,omitempty" cborgen:"repo,omitempty"`
+	Status        *ModerationDefs_SubjectStatusView   `json:"status,omitempty" cborgen:"status,omitempty"`
+	Subject       string                              `json:"subject" cborgen:"subject"`
+	Type          *string                             `json:"type" cborgen:"type"`
+}
+
+type ModerationDefs_SubjectView_Profile struct {
+}
+
+func (t *ModerationDefs_SubjectView_Profile) MarshalJSON() ([]byte, error) {
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *ModerationDefs_SubjectView_Profile) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	default:
+		return nil
+	}
 }
 
 // ModerationDefs_VideoDetails is a "videoDetails" in the tools.ozone.moderation.defs schema.

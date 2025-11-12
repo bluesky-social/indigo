@@ -21,8 +21,40 @@ type UnspeccedGetPostThreadV2_Output struct {
 	Threadgate *FeedDefs_ThreadgateView               `json:"threadgate,omitempty" cborgen:"threadgate,omitempty"`
 }
 
+// UnspeccedGetPostThreadV2 calls the XRPC method "app.bsky.unspecced.getPostThreadV2".
+//
+// above: Whether to include parents above the anchor.
+// anchor: Reference (AT-URI) to post record. This is the anchor post, and the thread will be built around it. It can be any post in the tree, not necessarily a root post.
+// below: How many levels of replies to include below the anchor.
+// branchingFactor: Maximum of replies to include at each level of the thread, except for the direct replies to the anchor, which are (NOTE: currently, during unspecced phase) all returned (NOTE: later they might be paginated).
+// sort: Sorting for the thread replies.
+func UnspeccedGetPostThreadV2(ctx context.Context, c lexutil.LexClient, above bool, anchor string, below int64, branchingFactor int64, sort string) (*UnspeccedGetPostThreadV2_Output, error) {
+	var out UnspeccedGetPostThreadV2_Output
+
+	params := map[string]interface{}{}
+	if above {
+		params["above"] = above
+	}
+	if below != 0 {
+		params["below"] = below
+	}
+	if branchingFactor != 0 {
+		params["branchingFactor"] = branchingFactor
+	}
+	if sort != "" {
+		params["sort"] = sort
+	}
+	params["anchor"] = anchor
+	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.getPostThreadV2", params, nil, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
 // UnspeccedGetPostThreadV2_ThreadItem is a "threadItem" in the app.bsky.unspecced.getPostThreadV2 schema.
 type UnspeccedGetPostThreadV2_ThreadItem struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.unspecced.getPostThreadV2#threadItem"`
 	// depth: The nesting level of this item in the thread. Depth 0 means the anchor item. Items above have negative depths, items below have positive depths.
 	Depth int64                                      `json:"depth" cborgen:"depth"`
 	Uri   string                                     `json:"uri" cborgen:"uri"`
@@ -78,39 +110,4 @@ func (t *UnspeccedGetPostThreadV2_ThreadItem_Value) UnmarshalJSON(b []byte) erro
 	default:
 		return nil
 	}
-}
-
-// UnspeccedGetPostThreadV2 calls the XRPC method "app.bsky.unspecced.getPostThreadV2".
-//
-// above: Whether to include parents above the anchor.
-// anchor: Reference (AT-URI) to post record. This is the anchor post, and the thread will be built around it. It can be any post in the tree, not necessarily a root post.
-// below: How many levels of replies to include below the anchor.
-// branchingFactor: Maximum of replies to include at each level of the thread, except for the direct replies to the anchor, which are (NOTE: currently, during unspecced phase) all returned (NOTE: later they might be paginated).
-// prioritizeFollowedUsers: Whether to prioritize posts from followed users. It only has effect when the user is authenticated.
-// sort: Sorting for the thread replies.
-func UnspeccedGetPostThreadV2(ctx context.Context, c lexutil.LexClient, above bool, anchor string, below int64, branchingFactor int64, prioritizeFollowedUsers bool, sort string) (*UnspeccedGetPostThreadV2_Output, error) {
-	var out UnspeccedGetPostThreadV2_Output
-
-	params := map[string]interface{}{}
-	if above {
-		params["above"] = above
-	}
-	params["anchor"] = anchor
-	if below != 0 {
-		params["below"] = below
-	}
-	if branchingFactor != 0 {
-		params["branchingFactor"] = branchingFactor
-	}
-	if prioritizeFollowedUsers {
-		params["prioritizeFollowedUsers"] = prioritizeFollowedUsers
-	}
-	if sort != "" {
-		params["sort"] = sort
-	}
-	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.getPostThreadV2", params, nil, &out); err != nil {
-		return nil, err
-	}
-
-	return &out, nil
 }

@@ -16,14 +16,6 @@ type GraphGetStarterPacksWithMembership_Output struct {
 	StarterPacksWithMembership []*GraphGetStarterPacksWithMembership_StarterPackWithMembership `json:"starterPacksWithMembership" cborgen:"starterPacksWithMembership"`
 }
 
-// GraphGetStarterPacksWithMembership_StarterPackWithMembership is a "starterPackWithMembership" in the app.bsky.graph.getStarterPacksWithMembership schema.
-//
-// A starter pack and an optional list item indicating membership of a target user to that starter pack.
-type GraphGetStarterPacksWithMembership_StarterPackWithMembership struct {
-	ListItem    *GraphDefs_ListItemView    `json:"listItem,omitempty" cborgen:"listItem,omitempty"`
-	StarterPack *GraphDefs_StarterPackView `json:"starterPack" cborgen:"starterPack"`
-}
-
 // GraphGetStarterPacksWithMembership calls the XRPC method "app.bsky.graph.getStarterPacksWithMembership".
 //
 // actor: The account (actor) to check for membership.
@@ -31,16 +23,25 @@ func GraphGetStarterPacksWithMembership(ctx context.Context, c lexutil.LexClient
 	var out GraphGetStarterPacksWithMembership_Output
 
 	params := map[string]interface{}{}
-	params["actor"] = actor
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
 	if limit != 0 {
 		params["limit"] = limit
 	}
+	params["actor"] = actor
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.graph.getStarterPacksWithMembership", params, nil, &out); err != nil {
 		return nil, err
 	}
 
 	return &out, nil
+}
+
+// GraphGetStarterPacksWithMembership_StarterPackWithMembership is a "starterPackWithMembership" in the app.bsky.graph.getStarterPacksWithMembership schema.
+//
+// A starter pack and an optional list item indicating membership of a target user to that starter pack.
+type GraphGetStarterPacksWithMembership_StarterPackWithMembership struct {
+	LexiconTypeID string                     `json:"$type" cborgen:"$type,const=app.bsky.graph.getStarterPacksWithMembership#starterPackWithMembership"`
+	ListItem      *GraphDefs_ListItemView    `json:"listItem,omitempty" cborgen:"listItem,omitempty"`
+	StarterPack   *GraphDefs_StarterPackView `json:"starterPack" cborgen:"starterPack"`
 }

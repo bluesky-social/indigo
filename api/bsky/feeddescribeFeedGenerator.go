@@ -10,17 +10,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// FeedDescribeFeedGenerator_Feed is a "feed" in the app.bsky.feed.describeFeedGenerator schema.
-type FeedDescribeFeedGenerator_Feed struct {
-	Uri string `json:"uri" cborgen:"uri"`
-}
-
-// FeedDescribeFeedGenerator_Links is a "links" in the app.bsky.feed.describeFeedGenerator schema.
-type FeedDescribeFeedGenerator_Links struct {
-	PrivacyPolicy  *string `json:"privacyPolicy,omitempty" cborgen:"privacyPolicy,omitempty"`
-	TermsOfService *string `json:"termsOfService,omitempty" cborgen:"termsOfService,omitempty"`
-}
-
 // FeedDescribeFeedGenerator_Output is the output of a app.bsky.feed.describeFeedGenerator call.
 type FeedDescribeFeedGenerator_Output struct {
 	Did   string                            `json:"did" cborgen:"did"`
@@ -36,4 +25,17 @@ func FeedDescribeFeedGenerator(ctx context.Context, c lexutil.LexClient) (*FeedD
 	}
 
 	return &out, nil
+}
+
+// FeedDescribeFeedGenerator_Feed is a "feed" in the app.bsky.feed.describeFeedGenerator schema.
+type FeedDescribeFeedGenerator_Feed struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.feed.describeFeedGenerator#feed"`
+	Uri           string `json:"uri" cborgen:"uri"`
+}
+
+// FeedDescribeFeedGenerator_Links is a "links" in the app.bsky.feed.describeFeedGenerator schema.
+type FeedDescribeFeedGenerator_Links struct {
+	LexiconTypeID  string  `json:"$type" cborgen:"$type,const=app.bsky.feed.describeFeedGenerator#links"`
+	PrivacyPolicy  *string `json:"privacyPolicy,omitempty" cborgen:"privacyPolicy,omitempty"`
+	TermsOfService *string `json:"termsOfService,omitempty" cborgen:"termsOfService,omitempty"`
 }

@@ -15,6 +15,7 @@ import (
 //
 // Verification data for the associated subject.
 type VerificationDefs_VerificationView struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.verification.defs#verificationView"`
 	// createdAt: Timestamp when the verification was created.
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 	// displayName: Display name of the subject the verification applies to at the moment of verifying, which might not be the same at the time of viewing. The verification is only valid if the current displayName matches the one at the time of verifying.
@@ -22,9 +23,9 @@ type VerificationDefs_VerificationView struct {
 	// handle: Handle of the subject the verification applies to at the moment of verifying, which might not be the same at the time of viewing. The verification is only valid if the current handle matches the one at the time of verifying.
 	Handle string `json:"handle" cborgen:"handle"`
 	// issuer: The user who issued this verification.
-	Issuer        string                                        `json:"issuer" cborgen:"issuer"`
-	IssuerProfile *lexutil.LexiconTypeDecoder                   `json:"issuerProfile,omitempty" cborgen:"issuerProfile,omitempty"`
-	IssuerRepo    *VerificationDefs_VerificationView_IssuerRepo `json:"issuerRepo,omitempty" cborgen:"issuerRepo,omitempty"`
+	Issuer        string                                           `json:"issuer" cborgen:"issuer"`
+	IssuerProfile *VerificationDefs_VerificationView_IssuerProfile `json:"issuerProfile,omitempty" cborgen:"issuerProfile,omitempty"`
+	IssuerRepo    *VerificationDefs_VerificationView_IssuerRepo    `json:"issuerRepo,omitempty" cborgen:"issuerRepo,omitempty"`
 	// revokeReason: Describes the reason for revocation, also indicating that the verification is no longer valid.
 	RevokeReason *string `json:"revokeReason,omitempty" cborgen:"revokeReason,omitempty"`
 	// revokedAt: Timestamp when the verification was revoked.
@@ -32,11 +33,30 @@ type VerificationDefs_VerificationView struct {
 	// revokedBy: The user who revoked this verification.
 	RevokedBy *string `json:"revokedBy,omitempty" cborgen:"revokedBy,omitempty"`
 	// subject: The subject of the verification.
-	Subject        string                                         `json:"subject" cborgen:"subject"`
-	SubjectProfile *lexutil.LexiconTypeDecoder                    `json:"subjectProfile,omitempty" cborgen:"subjectProfile,omitempty"`
-	SubjectRepo    *VerificationDefs_VerificationView_SubjectRepo `json:"subjectRepo,omitempty" cborgen:"subjectRepo,omitempty"`
+	Subject        string                                            `json:"subject" cborgen:"subject"`
+	SubjectProfile *VerificationDefs_VerificationView_SubjectProfile `json:"subjectProfile,omitempty" cborgen:"subjectProfile,omitempty"`
+	SubjectRepo    *VerificationDefs_VerificationView_SubjectRepo    `json:"subjectRepo,omitempty" cborgen:"subjectRepo,omitempty"`
 	// uri: The AT-URI of the verification record.
 	Uri string `json:"uri" cborgen:"uri"`
+}
+
+type VerificationDefs_VerificationView_IssuerProfile struct {
+}
+
+func (t *VerificationDefs_VerificationView_IssuerProfile) MarshalJSON() ([]byte, error) {
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *VerificationDefs_VerificationView_IssuerProfile) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	default:
+		return nil
+	}
 }
 
 type VerificationDefs_VerificationView_IssuerRepo struct {
@@ -69,6 +89,25 @@ func (t *VerificationDefs_VerificationView_IssuerRepo) UnmarshalJSON(b []byte) e
 	case "tools.ozone.moderation.defs#repoViewNotFound":
 		t.ModerationDefs_RepoViewNotFound = new(ModerationDefs_RepoViewNotFound)
 		return json.Unmarshal(b, t.ModerationDefs_RepoViewNotFound)
+	default:
+		return nil
+	}
+}
+
+type VerificationDefs_VerificationView_SubjectProfile struct {
+}
+
+func (t *VerificationDefs_VerificationView_SubjectProfile) MarshalJSON() ([]byte, error) {
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *VerificationDefs_VerificationView_SubjectProfile) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
 	default:
 		return nil
 	}

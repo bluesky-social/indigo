@@ -18,7 +18,6 @@ func init() {
 	lexutil.RegisterType("app.bsky.embed.recordWithMedia#main", &EmbedRecordWithMedia{})
 }
 
-// EmbedRecordWithMedia is a "main" in the app.bsky.embed.recordWithMedia schema.
 type EmbedRecordWithMedia struct {
 	LexiconTypeID string                      `json:"$type" cborgen:"$type,const=app.bsky.embed.recordWithMedia"`
 	Media         *EmbedRecordWithMedia_Media `json:"media" cborgen:"media"`

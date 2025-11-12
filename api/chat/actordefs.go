@@ -11,8 +11,9 @@ import (
 
 // ActorDefs_ProfileViewBasic is a "profileViewBasic" in the chat.bsky.actor.defs schema.
 type ActorDefs_ProfileViewBasic struct {
-	Associated *appbsky.ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
-	Avatar     *string                              `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	LexiconTypeID string                               `json:"$type" cborgen:"$type,const=chat.bsky.actor.defs#profileViewBasic"`
+	Associated    *appbsky.ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Avatar        *string                              `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	// chatDisabled: Set to true when the actor cannot actively participate in conversations
 	ChatDisabled *bool                                `json:"chatDisabled,omitempty" cborgen:"chatDisabled,omitempty"`
 	Did          string                               `json:"did" cborgen:"did"`

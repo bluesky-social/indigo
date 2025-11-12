@@ -14,20 +14,15 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
-// RichtextFacet is a "main" in the app.bsky.richtext.facet schema.
-//
-// Annotation of a sub-string within rich text.
-type RichtextFacet struct {
-	Features []*RichtextFacet_Features_Elem `json:"features" cborgen:"features"`
-	Index    *RichtextFacet_ByteSlice       `json:"index" cborgen:"index"`
+func init() {
+	lexutil.RegisterType("app.bsky.richtext.facet#main", &RichtextFacet{})
 }
 
-// RichtextFacet_ByteSlice is a "byteSlice" in the app.bsky.richtext.facet schema.
-//
-// Specifies the sub-string range a facet feature applies to. Start index is inclusive, end index is exclusive. Indices are zero-indexed, counting bytes of the UTF-8 encoded text. NOTE: some languages, like Javascript, use UTF-16 or Unicode codepoints for string slice indexing; in these languages, convert to byte arrays before working with facets.
-type RichtextFacet_ByteSlice struct {
-	ByteEnd   int64 `json:"byteEnd" cborgen:"byteEnd"`
-	ByteStart int64 `json:"byteStart" cborgen:"byteStart"`
+// Annotation of a sub-string within rich text.
+type RichtextFacet struct {
+	LexiconTypeID string                         `json:"$type" cborgen:"$type,const=app.bsky.richtext.facet"`
+	Features      []*RichtextFacet_Features_Elem `json:"features" cborgen:"features"`
+	Index         *RichtextFacet_ByteSlice       `json:"index" cborgen:"index"`
 }
 
 type RichtextFacet_Features_Elem struct {
@@ -110,6 +105,15 @@ func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
 	default:
 		return nil
 	}
+}
+
+// RichtextFacet_ByteSlice is a "byteSlice" in the app.bsky.richtext.facet schema.
+//
+// Specifies the sub-string range a facet feature applies to. Start index is inclusive, end index is exclusive. Indices are zero-indexed, counting bytes of the UTF-8 encoded text. NOTE: some languages, like Javascript, use UTF-16 or Unicode codepoints for string slice indexing; in these languages, convert to byte arrays before working with facets.
+type RichtextFacet_ByteSlice struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.richtext.facet#byteSlice"`
+	ByteEnd       int64  `json:"byteEnd" cborgen:"byteEnd"`
+	ByteStart     int64  `json:"byteStart" cborgen:"byteStart"`
 }
 
 // RichtextFacet_Link is a "link" in the app.bsky.richtext.facet schema.
