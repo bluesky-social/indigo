@@ -6,8 +6,11 @@ on:
       - bnewbold/automod
 env:
   REGISTRY: ghcr.io
-  # github.repository as <account>/<repo>
-  IMAGE_NAME: ${{ github.repository }}
+  # Creates a package as: ghcr.io/bluesky-social/hepa
+  #
+  # The image appears as part of indigio repository via the
+  # org.opencontainers.image.source label
+  IMAGE_NAME: hepa
 
 jobs:
   container-hepa-ghcr:
@@ -38,8 +41,10 @@ jobs:
         with:
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=true
           tags: |
-            type=sha,enable=true,priority=100,prefix=hepa:,suffix=,format=long
+            type=sha,enable=true,priority=100,suffix=,format=long
 
       - name: Build and push Docker image
         id: build-and-push

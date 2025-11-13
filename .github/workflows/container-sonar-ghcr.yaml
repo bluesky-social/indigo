@@ -5,8 +5,11 @@ env:
   USERNAME: ${{ github.actor }}
   PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 
-  # github.repository as <account>/<repo>
-  IMAGE_NAME: ${{ github.repository }}
+  # Creates a package as: ghcr.io/bluesky-social/sonar
+  #
+  # The image appears as part of indigio repository via the
+  # org.opencontainers.image.source label
+  IMAGE_NAME: sonar
 
 jobs:
   container-bigsky-ghcr:
@@ -37,8 +40,10 @@ jobs:
         with:
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=true
           tags: |
-            type=sha,enable=true,priority=100,prefix=sonar:,suffix=,format=long
+            type=sha,enable=true,priority=100,suffix=,format=long
 
       - name: Build and push Docker image
         id: build-and-push
