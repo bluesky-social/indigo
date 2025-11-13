@@ -17,6 +17,8 @@ Features and design decisions:
 
 This tool is useful for building applications that need to track specific accounts or collections without dealing with the complexity of repo verification and backfill orchestration.
 
+⚠️ This tool is still in beta and may have bugs. Please report any issues you encounter.
+
 ## Quick Start
 
 ```bash
