@@ -130,16 +130,16 @@ func run(args []string) error {
 			Usage:   "filter output records by collection (supports wildcards)",
 			EnvVars: []string{"NEXUS_COLLECTION_FILTERS"},
 		},
+		&cli.BoolFlag{
+			Name:    "outbox-only",
+			Usage:   "run in outbox-only mode (no firehose, resync, or enumeration)",
+			EnvVars: []string{"NEXUS_OUTBOX_ONLY"},
+		},
 		&cli.StringFlag{
 			Name:    "log-level",
 			Usage:   "log verbosity level (debug, info, warn, error)",
 			Value:   "info",
 			EnvVars: []string{"NEXUS_LOG_LEVEL", "LOG_LEVEL"},
-		},
-		&cli.BoolFlag{
-			Name:    "outbox-only",
-			Usage:   "run in outbox-only mode (no firehose, resync, or enumeration)",
-			EnvVars: []string{"NEXUS_OUTBOX_ONLY"},
 		},
 	}
 
@@ -153,7 +153,6 @@ func runNexus(cctx *cli.Context) error {
 		return err
 	}
 
-	ctx, cancel := context.WithCancel(cctx.Context)
 	logger := configLogger(cctx, os.Stdout)
 	slog.SetDefault(logger)
 
@@ -183,6 +182,8 @@ func runNexus(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
+	ctx, cancel := context.WithCancel(cctx.Context)
 
 	if !config.OutboxOnly {
 		if config.SignalCollection != "" {
