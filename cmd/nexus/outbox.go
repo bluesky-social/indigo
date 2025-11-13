@@ -78,11 +78,13 @@ func (o *Outbox) Run(ctx context.Context) {
 	go o.cache.run(ctx)
 
 	// Run multiple delivery workers for parallelism across DIDs
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 5; i++ {
 		go o.runDelivery(ctx)
 	}
 
-	go o.runBatchedDeletes(ctx)
+	for i := 0; i < 5; i++ {
+		go o.runBatchedDeletes(ctx)
+	}
 
 	<-ctx.Done()
 }
@@ -458,64 +460,103 @@ func NewEventCache(db *gorm.DB, logger *slog.Logger, batchSize int, pendingSize 
 }
 
 func (ec *EventCache) run(ctx context.Context) {
-	go ec.loadEvents(ctx)
-
-	// Run multiple processors for parallel JSON unmarshaling
-	for i := 0; i < 4; i++ {
-		go ec.processEvents(ctx)
-	}
-}
-
-func (ec *EventCache) loadEvents(ctx context.Context) {
-	var lastID uint
+	numLoaders := 10
+	lastID := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			var events []models.OutboxBuffer
-			if err := ec.db.Where("id > ?", lastID).
-				Order("id ASC").
-				Limit(ec.batchSize).
-				Find(&events).Error; err != nil {
+			lastPageID, err := ec.loadEvents(lastID, numLoaders)
+			if err != nil {
 				ec.logger.Error("failed to load events into cache", "error", err, "lastID", lastID)
-				time.Sleep(500 * time.Millisecond)
-				continue
 			}
-			if len(events) == 0 {
-				time.Sleep(500 * time.Millisecond)
-				continue
-			}
-			for _, evt := range events {
-				ec.dbEvtChan <- &evt
-			}
-			lastID = events[len(events)-1].ID
+			lastID = lastPageID
 		}
+
 	}
 }
 
-func (ec *EventCache) processEvents(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case evt := <-ec.dbEvtChan:
-			var outboxEvt OutboxEvt
-			if err := json.Unmarshal([]byte(evt.Data), &outboxEvt); err != nil {
-				ec.logger.Error("failed to unmarshal cached event", "error", err, "id", evt.ID)
-				continue
-			}
+func (ec *EventCache) loadEvents(startID int, numLoaders int) (int, error) {
+	results := make([]batchResult, numLoaders)
+	var wg sync.WaitGroup
+	wg.Add(numLoaders)
+	for i := 0; i < numLoaders; i++ {
+		loaderID := i
+		go func() {
+			defer wg.Done()
+			batchStartID := startID + loaderID*ec.batchSize
+			results[loaderID] = ec.loadEventBatch(batchStartID, batchStartID+ec.batchSize)
+		}()
+	}
+	wg.Wait()
 
-			outboxEvt.ID = evt.ID
+	for _, result := range results {
+		if result.err != nil {
+			return 0, result.err
+		}
+	}
 
-			ec.cacheMu.Lock()
-			ec.eventCache[evt.ID] = &outboxEvt
-			ec.cacheMu.Unlock()
+	lastID := lastIDForBatches(results)
+	// didn't load any events
+	if lastID == 0 {
+		time.Sleep(500 * time.Millisecond)
+		return startID, nil
+	}
 
-			// back pressure if pendingIDs channel is full
+	ec.cacheMu.Lock()
+	for _, result := range results {
+		for _, evt := range result.events {
+			ec.eventCache[evt.ID] = &evt
+		}
+	}
+	ec.cacheMu.Unlock()
+
+	for _, result := range results {
+		for _, evt := range result.events {
 			ec.pendingIDs <- evt.ID
 		}
 	}
+	return lastID, nil
+}
+
+func (ec *EventCache) loadEventBatch(startID int, endID int) batchResult {
+	var dbEvts []models.OutboxBuffer
+	err := ec.db.Where("id > ? AND id <= ?", startID, endID).
+		Order("id ASC").
+		Find(&dbEvts).Error
+	if err != nil {
+		return batchResult{err: err}
+	}
+
+	outboxEvts := make([]OutboxEvt, 0, len(dbEvts))
+
+	for _, evt := range dbEvts {
+		var outboxEvt OutboxEvt
+		if err := json.Unmarshal([]byte(evt.Data), &outboxEvt); err != nil {
+			return batchResult{err: err}
+		}
+		outboxEvt.ID = evt.ID
+		outboxEvts = append(outboxEvts, outboxEvt)
+	}
+
+	return batchResult{events: outboxEvts}
+}
+
+type batchResult struct {
+	events []OutboxEvt
+	err    error
+}
+
+func lastIDForBatches(batches []batchResult) int {
+	// Iterate backwards to find the last non-empty batch
+	for i := len(batches) - 1; i >= 0; i-- {
+		if len(batches[i].events) > 0 {
+			lastEvent := batches[i].events[len(batches[i].events)-1]
+			return int(lastEvent.ID)
+		}
+	}
+	return 0
 }
 
 func (ec *EventCache) GetEvent(id uint) (*OutboxEvt, bool) {
