@@ -143,13 +143,13 @@ func run(args []string) error {
 }
 
 func runNexus(cctx *cli.Context) error {
-	ctx, cancel := context.WithCancel(cctx.Context)
-	logger := configLogger(cctx, os.Stdout)
-	slog.SetDefault(logger)
-
 	if err := setupOTEL(cctx); err != nil {
 		return err
 	}
+
+	ctx, cancel := context.WithCancel(cctx.Context)
+	logger := configLogger(cctx, os.Stdout)
+	slog.SetDefault(logger)
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
