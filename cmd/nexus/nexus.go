@@ -51,6 +51,7 @@ type NexusConfig struct {
 	OutboxParallelism          int
 	FirehoseCursorSaveInterval time.Duration
 	RepoFetchTimeout           time.Duration
+	IdentityCacheSize          int
 	FullNetworkMode            bool
 	SignalCollection           string
 	DisableAcks                bool
@@ -69,7 +70,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		TryAuthoritativeDNS:   false,
 		SkipDNSDomainSuffixes: []string{".bsky.social"},
 	}
-	cdir := identity.NewCacheDirectory(&bdir, 2_000_000, time.Hour*24, time.Minute*2, time.Minute*5)
+	cdir := identity.NewCacheDirectory(&bdir, config.IdentityCacheSize, time.Hour*24, time.Minute*2, time.Minute*5)
 
 	var outboxMode OutboxMode
 	if config.WebhookURL != "" {
