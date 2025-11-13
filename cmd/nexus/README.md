@@ -17,12 +17,6 @@ Features and design decisions:
 
 This tool is useful for building applications that need to track specific accounts or collections without dealing with the complexity of repo verification and backfill orchestration.
 
-## Running Locally
-
-`go run ./cmd/nexus --disable-acks=true`
-
-By default, the service uses SQLite at `./nexus.db` and binds to port `:8080`.
-
 ## Quick Start
 
 ```bash
@@ -45,10 +39,10 @@ Each repo will be backfilled from its PDS, then live events will stream as they 
 
 - `GET /health`: returns `{"status":"ok"}`
 - `POST /add-repos`: add DIDs to track (triggers backfill of added repos)
-- `POST /remove-repos`: remove DIDs (stops sync, deletes data)
+- `POST /remove-repos`: remove DIDs (stops sync, deletes data. does not delete buffered events in outbox)
 - `GET /channel`: WebSocket endpoint to receive events
 
-Note: only one WebSocket client can connect at a time.
+If more than one client connects to the WebSocket, events will be transparently sharded across all connected clients.
 
 ## Configuration
 
@@ -59,6 +53,7 @@ Environment variables or CLI flags:
 - `NEXUS_BIND`: HTTP server address (default: `:8080`)
 - `NEXUS_FIREHOSE_PARALLELISM`: concurrent firehose event processors (default: `10`)
 - `NEXUS_RESYNC_PARALLELISM`: concurrent resync workers (default: `5`)
+- `NEXUS_OUTBOX_PARALLELISM`: concurrent outbox workers (default: `5`)
 - `NEXUS_CURSOR_SAVE_INTERVAL`: how often to save cursor (default: `5s`, set to `0` to disable)
 - `NEXUS_REPO_FETCH_TIMEOUT`: timeout for fetching repo CARs from PDS (Go duration syntax, e.g. `180s`)
 - `NEXUS_FULL_NETWORK_MODE`: track all repos on the network (default: `false`)
@@ -66,6 +61,7 @@ Environment variables or CLI flags:
 - `NEXUS_COLLECTION_FILTERS`: comma-separated collection filters, wildcards accepted (e.g., `app.bsky.feed.post,app.bsky.graph.*`)
 - `NEXUS_DISABLE_ACKS`: fire-and-forget mode, no client acks (default: `false`)
 - `NEXUS_WEBHOOK_URL`: webhook URL for event delivery (disables WebSocket mode)
+- `NEXUS_OUTBOX_ONLY`: run in outbox-only mode (no firehose, resync, or enumeration) (default: `false`)
 - `NEXUS_LOG_LEVEL`: log verbosity (`debug`, `info`, `warn`, `error`, default: `info`)
 
 ## Delivery Modes

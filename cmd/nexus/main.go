@@ -83,14 +83,14 @@ func run(args []string) error {
 		},
 		&cli.IntFlag{
 			Name:    "outbox-parallelism",
-			Usage:   "number of parallel outbox event loaders",
+			Usage:   "number of parallel outbox workers",
 			Value:   1,
 			EnvVars: []string{"NEXUS_OUTBOX_PARALLELISM"},
 		},
 		&cli.DurationFlag{
 			Name:    "cursor-save-interval",
 			Usage:   "how often to save firehose cursor",
-			Value:   0,
+			Value:   5 & time.Second,
 			EnvVars: []string{"NEXUS_CURSOR_SAVE_INTERVAL"},
 		},
 		&cli.DurationFlag{
