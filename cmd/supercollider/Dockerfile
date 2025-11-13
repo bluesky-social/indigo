@@ -27,3 +27,7 @@ COPY --from=build-env /supercollider /supercollider
 
 # Set the startup command to run the binary
 CMD ["/supercollider"]
+
+LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
+LABEL org.opencontainers.image.description="AT Proto (supercollider)"
+LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"
