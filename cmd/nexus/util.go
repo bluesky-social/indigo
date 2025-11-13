@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -40,6 +42,19 @@ func matchesCollection(collection string, filters []string) bool {
 		}
 	}
 
+	return false
+}
+
+func evtHasSignalCollection(evt *comatproto.SyncSubscribeRepos_Commit, signalColl string) bool {
+	for _, op := range evt.Ops {
+		collection, _, err := syntax.ParseRepoPath(op.Path)
+		if err != nil {
+			continue
+		}
+		if collection.String() == signalColl {
+			return true
+		}
+	}
 	return false
 }
 
