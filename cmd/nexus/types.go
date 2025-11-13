@@ -77,6 +77,13 @@ func (evt *OutboxEvt) DID() string {
 	return ""
 }
 
-type AckMessage struct {
-	ID uint `json:"id"`
+type WsReponseType string
+
+const (
+	WsResponseAck WsReponseType = "ack"
+)
+
+type WsResponse struct {
+	Type WsReponseType `json:"type"`
+	ID   uint          `json:"id"`
 }

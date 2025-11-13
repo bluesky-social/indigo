@@ -65,14 +65,13 @@ func (ns *NexusServer) handleChannelWebsocket(c echo.Context) error {
 
 	go func() {
 		for {
-			var msg AckMessage
+			var msg WsResponse
 			if err := ws.ReadJSON(&msg); err != nil {
 				close(disconnected)
 				return
 			}
 
-			// Process acks directly in websocket-ack mode
-			if ns.Outbox.mode == OutboxModeWebsocketAck {
+			if ns.Outbox.mode == OutboxModeWebsocketAck && msg.Type == WsResponseAck {
 				go ns.Outbox.AckEvent(msg.ID)
 			}
 		}
