@@ -81,6 +81,12 @@ func run(args []string) error {
 			Value:   5,
 			EnvVars: []string{"NEXUS_RESYNC_PARALLELISM"},
 		},
+		&cli.IntFlag{
+			Name:    "outbox-parallelism",
+			Usage:   "number of parallel outbox event loaders",
+			Value:   1,
+			EnvVars: []string{"NEXUS_OUTBOX_PARALLELISM"},
+		},
 		&cli.DurationFlag{
 			Name:    "cursor-save-interval",
 			Usage:   "how often to save firehose cursor",
@@ -148,6 +154,7 @@ func runNexus(cctx *cli.Context) error {
 		RelayUrl:                   cctx.String("relay-url"),
 		FirehoseParallelism:        cctx.Int("firehose-parallelism"),
 		ResyncParallelism:          cctx.Int("resync-parallelism"),
+		OutboxParallelism:          cctx.Int("outbox-parallelism"),
 		FirehoseCursorSaveInterval: cctx.Duration("cursor-save-interval"),
 		FullNetworkMode:            cctx.Bool("full-network-mode"),
 		SignalCollection:           cctx.String("signal-collection"),
