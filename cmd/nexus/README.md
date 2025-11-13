@@ -60,6 +60,7 @@ Environment variables or CLI flags:
 - `NEXUS_FIREHOSE_PARALLELISM`: concurrent firehose event processors (default: `10`)
 - `NEXUS_RESYNC_PARALLELISM`: concurrent resync workers (default: `5`)
 - `NEXUS_CURSOR_SAVE_INTERVAL`: how often to save cursor (default: `5s`, set to `0` to disable)
+- `NEXUS_REPO_FETCH_TIMEOUT`: timeout for fetching repo CARs from PDS (Go duration syntax, e.g. `180s`)
 - `NEXUS_FULL_NETWORK_MODE`: track all repos on the network (default: `false`)
 - `NEXUS_SIGNAL_COLLECTION`: track all repos with at least one record in this collection (e.g. `app.bsky.actor.profile`)
 - `NEXUS_COLLECTION_FILTERS`: comma-separated collection filters, wildcards accepted (e.g., `app.bsky.feed.post,app.bsky.graph.*`)
