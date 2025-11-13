@@ -50,6 +50,7 @@ type NexusConfig struct {
 	ResyncParallelism          int
 	OutboxParallelism          int
 	FirehoseCursorSaveInterval time.Duration
+	RepoFetchTimeout           time.Duration
 	FullNetworkMode            bool
 	SignalCollection           string
 	DisableAcks                bool
