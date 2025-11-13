@@ -36,35 +36,37 @@ type OutboxMessage struct {
 }
 
 type Outbox struct {
-	db         *gorm.DB
-	logger     *slog.Logger
-	events     chan *OutboxMessage
-	mode       OutboxMode
-	webhookURL string
-	httpClient *http.Client
+	db          *gorm.DB
+	logger      *slog.Logger
+	mode        OutboxMode
+	parallelism int
+	webhookURL  string
+	httpClient  *http.Client
 
 	cache *EventCache
 
 	didWorkers sync.Map // map[string]*DIDWorker
 
 	ackQueue chan uint
+	events   chan *OutboxMessage
 
 	ctx context.Context
 }
 
-func NewOutbox(db *gorm.DB, mode OutboxMode, webhookURL string) *Outbox {
+func NewOutbox(db *gorm.DB, mode OutboxMode, webhookURL string, parallelism int) *Outbox {
 	logger := slog.Default().With("system", "outbox")
 	return &Outbox{
-		db:         db,
-		logger:     slog.Default().With("system", "outbox"),
-		events:     make(chan *OutboxMessage, 10000),
-		mode:       mode,
-		webhookURL: webhookURL,
+		db:          db,
+		logger:      slog.Default().With("system", "outbox"),
+		events:      make(chan *OutboxMessage, parallelism*5000),
+		mode:        mode,
+		parallelism: parallelism,
+		webhookURL:  webhookURL,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		cache:    NewEventCache(db, logger, 1000, 1000000),
-		ackQueue: make(chan uint, 100000),
+		cache:    NewEventCache(db, logger, parallelism*5, 1000),
+		ackQueue: make(chan uint, parallelism*5000),
 	}
 }
 
@@ -78,11 +80,11 @@ func (o *Outbox) Run(ctx context.Context) {
 	go o.cache.run(ctx)
 
 	// Run multiple delivery workers for parallelism across DIDs
-	for i := 0; i < 5; i++ {
+	for i := 0; i < o.parallelism; i++ {
 		go o.runDelivery(ctx)
 	}
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < o.parallelism; i++ {
 		go o.runBatchedDeletes(ctx)
 	}
 
@@ -160,14 +162,7 @@ func (o *Outbox) AckEvent(eventID uint) {
 		o.cache.DeleteEvent(eventID)
 	}
 
-	select {
-	case o.ackQueue <- eventID:
-	default:
-		o.logger.Warn("ack queue full, deleting synchronously", "id", eventID)
-		if err := o.db.Delete(&models.OutboxBuffer{}, eventID).Error; err != nil {
-			o.logger.Error("failed to delete acked event", "error", err, "id", eventID)
-		}
-	}
+	o.ackQueue <- eventID
 }
 
 func (o *Outbox) sendWebhook(evt *OutboxEvt) {
@@ -439,35 +434,34 @@ type EventCache struct {
 	db     *gorm.DB
 	logger *slog.Logger
 
-	batchSize int
+	batchSize  int
+	numLoaders int
 
 	eventCache map[uint]*OutboxEvt
 	cacheMu    sync.RWMutex
 
 	pendingIDs chan uint
-	dbEvtChan  chan *models.OutboxBuffer // internal channel
 }
 
-func NewEventCache(db *gorm.DB, logger *slog.Logger, batchSize int, pendingSize int) *EventCache {
+func NewEventCache(db *gorm.DB, logger *slog.Logger, numLoaders int, batchSize int) *EventCache {
+	pendingSize := batchSize * numLoaders * 2
 	return &EventCache{
 		db:         db,
 		logger:     logger,
 		batchSize:  batchSize,
 		eventCache: make(map[uint]*OutboxEvt),
 		pendingIDs: make(chan uint, pendingSize),
-		dbEvtChan:  make(chan *models.OutboxBuffer, batchSize*2),
 	}
 }
 
 func (ec *EventCache) run(ctx context.Context) {
-	numLoaders := 10
 	lastID := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			lastPageID, err := ec.loadEvents(lastID, numLoaders)
+			lastPageID, err := ec.loadEvents(lastID)
 			if err != nil {
 				ec.logger.Error("failed to load events into cache", "error", err, "lastID", lastID)
 			}
@@ -477,11 +471,11 @@ func (ec *EventCache) run(ctx context.Context) {
 	}
 }
 
-func (ec *EventCache) loadEvents(startID int, numLoaders int) (int, error) {
-	results := make([]batchResult, numLoaders)
+func (ec *EventCache) loadEvents(startID int) (int, error) {
+	results := make([]batchResult, ec.numLoaders)
 	var wg sync.WaitGroup
-	wg.Add(numLoaders)
-	for i := 0; i < numLoaders; i++ {
+	wg.Add(ec.numLoaders)
+	for i := 0; i < ec.numLoaders; i++ {
 		loaderID := i
 		go func() {
 			defer wg.Done()
