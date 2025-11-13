@@ -124,9 +124,7 @@ func (ns *NexusServer) handleAddRepos(c echo.Context) error {
 
 	ns.logger.Info("added dids", "count", len(payload.DIDs))
 
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"count": len(payload.DIDs),
-	})
+	return c.NoContent(http.StatusOK)
 }
 
 func (ns *NexusServer) handleRemoveRepos(c echo.Context) error {
@@ -145,7 +143,5 @@ func (ns *NexusServer) handleRemoveRepos(c echo.Context) error {
 
 	ns.logger.Info("removed dids", "count", len(payload.DIDs))
 
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"count": len(payload.DIDs),
-	})
+	return c.NoContent(http.StatusOK)
 }
