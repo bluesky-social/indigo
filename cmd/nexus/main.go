@@ -99,6 +99,12 @@ func run(args []string) error {
 			Value:   30 * time.Second,
 			EnvVars: []string{"NEXUS_REPO_FETCH_TIMEOUT"},
 		},
+		&cli.IntFlag{
+			Name:    "identity-cache-size",
+			Usage:   "size of identity resolution cache",
+			Value:   2000000,
+			EnvVars: []string{"NEXUS_IDENTITY_CACHE_SIZE"},
+		},
 		&cli.BoolFlag{
 			Name:    "full-network-mode",
 			Usage:   "enumerate and sync all repos on the network",
@@ -163,6 +169,7 @@ func runNexus(cctx *cli.Context) error {
 		OutboxParallelism:          cctx.Int("outbox-parallelism"),
 		FirehoseCursorSaveInterval: cctx.Duration("cursor-save-interval"),
 		RepoFetchTimeout:           cctx.Duration("repo-fetch-timeout"),
+		IdentityCacheSize:          cctx.Int("identity-cache-size"),
 		FullNetworkMode:            cctx.Bool("full-network-mode"),
 		SignalCollection:           cctx.String("signal-collection"),
 		DisableAcks:                cctx.Bool("disable-acks"),
