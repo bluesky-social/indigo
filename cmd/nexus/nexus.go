@@ -48,6 +48,7 @@ type NexusConfig struct {
 	RelayUrl                   string
 	FirehoseParallelism        int
 	ResyncParallelism          int
+	OutboxParallelism          int
 	FirehoseCursorSaveInterval time.Duration
 	FullNetworkMode            bool
 	SignalCollection           string
@@ -85,7 +86,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		Dir:      &cdir,
 		RelayUrl: config.RelayUrl,
 
-		Outbox: NewOutbox(db, outboxMode, config.WebhookURL),
+		Outbox: NewOutbox(db, outboxMode, config.WebhookURL, config.OutboxParallelism),
 
 		FullNetworkMode:   config.FullNetworkMode,
 		CollectionFilters: config.CollectionFilters,
@@ -99,16 +100,6 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		db:     db,
 		logger: n.logger.With("component", "server"),
 		Outbox: n.Outbox,
-	}
-
-	firehoseParallelism := config.FirehoseParallelism
-	if firehoseParallelism == 0 {
-		firehoseParallelism = 10
-	}
-
-	cursorSaveInterval := config.FirehoseCursorSaveInterval
-	if cursorSaveInterval == 0 {
-		cursorSaveInterval = 5 * time.Second
 	}
 
 	n.EventProcessor = &EventProcessor{
@@ -139,7 +130,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	n.FirehoseConsumer = &FirehoseConsumer{
 		RelayUrl:    config.RelayUrl,
 		Logger:      n.logger.With("component", "firehose"),
-		Parallelism: firehoseParallelism,
+		Parallelism: config.FirehoseParallelism,
 		Callbacks:   rsc,
 		GetCursor:   n.EventProcessor.ReadLastCursor,
 	}
@@ -160,19 +151,11 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 // Run starts internal background workers for resync, cursor saving, and outbox delivery.
 func (n *Nexus) Run(ctx context.Context) {
 	if !n.config.OutboxOnly {
-		resyncParallelism := n.config.ResyncParallelism
-		if resyncParallelism == 0 {
-			resyncParallelism = 5
-		}
-		for i := 0; i < resyncParallelism; i++ {
+		for i := 0; i < n.config.ResyncParallelism; i++ {
 			go n.runResyncWorker(ctx, i)
 		}
 
-		cursorSaveInterval := n.config.FirehoseCursorSaveInterval
-		if cursorSaveInterval == 0 {
-			cursorSaveInterval = 5 * time.Second
-		}
-		go n.EventProcessor.RunCursorSaver(ctx, cursorSaveInterval)
+		go n.EventProcessor.RunCursorSaver(ctx, n.config.FirehoseCursorSaveInterval)
 	}
 
 	go n.Outbox.Run(ctx)
