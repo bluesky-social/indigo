@@ -29,6 +29,7 @@ type EventProcessor struct {
 	Outbox   *Outbox
 
 	FullNetworkMode   bool
+	SignalCollection  string
 	CollectionFilters []string
 
 	lastSeq atomic.Int64
@@ -45,13 +46,14 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 	if err != nil {
 		return err
 	} else if curr == nil {
-		if ep.FullNetworkMode {
+		shouldTrack := ep.FullNetworkMode || (ep.SignalCollection != "" && evtHasSignalCollection(evt, ep.SignalCollection))
+		if shouldTrack {
 			if err := ep.EnsureRepo(evt.Repo); err != nil {
 				ep.Logger.Error("failed to auto-track repo", "did", evt.Repo, "error", err)
 				return err
 			}
-			return nil
 		}
+		// even if we just tracked, we return here and just let the resync workers handle the rest
 		return nil
 	}
 

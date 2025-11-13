@@ -111,6 +111,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		RelayUrl:          config.RelayUrl,
 		Outbox:            n.Outbox,
 		FullNetworkMode:   config.FullNetworkMode,
+		SignalCollection:  config.SignalCollection,
 		CollectionFilters: config.CollectionFilters,
 	}
 
