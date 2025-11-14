@@ -16,12 +16,6 @@ type RepoListMissingBlobs_Output struct {
 	Cursor *string                            `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 }
 
-// RepoListMissingBlobs_RecordBlob is a "recordBlob" in the com.atproto.repo.listMissingBlobs schema.
-type RepoListMissingBlobs_RecordBlob struct {
-	Cid       string `json:"cid" cborgen:"cid"`
-	RecordUri string `json:"recordUri" cborgen:"recordUri"`
-}
-
 // RepoListMissingBlobs calls the XRPC method "com.atproto.repo.listMissingBlobs".
 func RepoListMissingBlobs(ctx context.Context, c lexutil.LexClient, cursor string, limit int64) (*RepoListMissingBlobs_Output, error) {
 	var out RepoListMissingBlobs_Output
@@ -38,4 +32,11 @@ func RepoListMissingBlobs(ctx context.Context, c lexutil.LexClient, cursor strin
 	}
 
 	return &out, nil
+}
+
+// RepoListMissingBlobs_RecordBlob is a "recordBlob" in the com.atproto.repo.listMissingBlobs schema.
+type RepoListMissingBlobs_RecordBlob struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.repo.listMissingBlobs#recordBlob"`
+	Cid           string `json:"cid" cborgen:"cid"`
+	RecordUri     string `json:"recordUri" cborgen:"recordUri"`
 }

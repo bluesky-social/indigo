@@ -10,6 +10,7 @@ import (
 
 // TeamDefs_Member is a "member" in the tools.ozone.team.defs schema.
 type TeamDefs_Member struct {
+	LexiconTypeID string                                 `json:"$type" cborgen:"$type,const=tools.ozone.team.defs#member"`
 	CreatedAt     *string                                `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
 	Did           string                                 `json:"did" cborgen:"did"`
 	Disabled      *bool                                  `json:"disabled,omitempty" cborgen:"disabled,omitempty"`

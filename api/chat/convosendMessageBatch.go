@@ -10,12 +10,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// ConvoSendMessageBatch_BatchItem is a "batchItem" in the chat.bsky.convo.sendMessageBatch schema.
-type ConvoSendMessageBatch_BatchItem struct {
-	ConvoId string                  `json:"convoId" cborgen:"convoId"`
-	Message *ConvoDefs_MessageInput `json:"message" cborgen:"message"`
-}
-
 // ConvoSendMessageBatch_Input is the input argument to a chat.bsky.convo.sendMessageBatch call.
 type ConvoSendMessageBatch_Input struct {
 	Items []*ConvoSendMessageBatch_BatchItem `json:"items" cborgen:"items"`
@@ -34,4 +28,11 @@ func ConvoSendMessageBatch(ctx context.Context, c lexutil.LexClient, input *Conv
 	}
 
 	return &out, nil
+}
+
+// ConvoSendMessageBatch_BatchItem is a "batchItem" in the chat.bsky.convo.sendMessageBatch schema.
+type ConvoSendMessageBatch_BatchItem struct {
+	LexiconTypeID string                  `json:"$type" cborgen:"$type,const=chat.bsky.convo.sendMessageBatch#batchItem"`
+	ConvoId       string                  `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_MessageInput `json:"message" cborgen:"message"`
 }

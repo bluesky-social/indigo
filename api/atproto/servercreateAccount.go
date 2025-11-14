@@ -29,7 +29,6 @@ type ServerCreateAccount_Input struct {
 }
 
 // ServerCreateAccount_Output is the output of a com.atproto.server.createAccount call.
-//
 // Account login session returned on successful account creation.
 type ServerCreateAccount_Output struct {
 	AccessJwt string `json:"accessJwt" cborgen:"accessJwt"`

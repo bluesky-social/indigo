@@ -12,7 +12,6 @@ func init() {
 	lexutil.RegisterType("com.atproto.repo.strongRef#main", &RepoStrongRef{})
 }
 
-// RepoStrongRef is a "main" in the com.atproto.repo.strongRef schema.
 type RepoStrongRef struct {
 	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,const=com.atproto.repo.strongRef,omitempty"`
 	Cid           string `json:"cid" cborgen:"cid"`

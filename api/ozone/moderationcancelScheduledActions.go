@@ -10,21 +10,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// ModerationCancelScheduledActions_CancellationResults is a "cancellationResults" in the tools.ozone.moderation.cancelScheduledActions schema.
-type ModerationCancelScheduledActions_CancellationResults struct {
-	// failed: DIDs for which cancellation failed with error details
-	Failed []*ModerationCancelScheduledActions_FailedCancellation `json:"failed" cborgen:"failed"`
-	// succeeded: DIDs for which all pending scheduled actions were successfully cancelled
-	Succeeded []string `json:"succeeded" cborgen:"succeeded"`
-}
-
-// ModerationCancelScheduledActions_FailedCancellation is a "failedCancellation" in the tools.ozone.moderation.cancelScheduledActions schema.
-type ModerationCancelScheduledActions_FailedCancellation struct {
-	Did       string  `json:"did" cborgen:"did"`
-	Error     string  `json:"error" cborgen:"error"`
-	ErrorCode *string `json:"errorCode,omitempty" cborgen:"errorCode,omitempty"`
-}
-
 // ModerationCancelScheduledActions_Input is the input argument to a tools.ozone.moderation.cancelScheduledActions call.
 type ModerationCancelScheduledActions_Input struct {
 	// comment: Optional comment describing the reason for cancellation
@@ -41,4 +26,21 @@ func ModerationCancelScheduledActions(ctx context.Context, c lexutil.LexClient, 
 	}
 
 	return &out, nil
+}
+
+// ModerationCancelScheduledActions_CancellationResults is a "cancellationResults" in the tools.ozone.moderation.cancelScheduledActions schema.
+type ModerationCancelScheduledActions_CancellationResults struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.cancelScheduledActions#cancellationResults"`
+	// failed: DIDs for which cancellation failed with error details
+	Failed []*ModerationCancelScheduledActions_FailedCancellation `json:"failed" cborgen:"failed"`
+	// succeeded: DIDs for which all pending scheduled actions were successfully cancelled
+	Succeeded []string `json:"succeeded" cborgen:"succeeded"`
+}
+
+// ModerationCancelScheduledActions_FailedCancellation is a "failedCancellation" in the tools.ozone.moderation.cancelScheduledActions schema.
+type ModerationCancelScheduledActions_FailedCancellation struct {
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=tools.ozone.moderation.cancelScheduledActions#failedCancellation"`
+	Did           string  `json:"did" cborgen:"did"`
+	Error         string  `json:"error" cborgen:"error"`
+	ErrorCode     *string `json:"errorCode,omitempty" cborgen:"errorCode,omitempty"`
 }

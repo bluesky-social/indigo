@@ -10,13 +10,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// ServerListAppPasswords_AppPassword is a "appPassword" in the com.atproto.server.listAppPasswords schema.
-type ServerListAppPasswords_AppPassword struct {
-	CreatedAt  string `json:"createdAt" cborgen:"createdAt"`
-	Name       string `json:"name" cborgen:"name"`
-	Privileged *bool  `json:"privileged,omitempty" cborgen:"privileged,omitempty"`
-}
-
 // ServerListAppPasswords_Output is the output of a com.atproto.server.listAppPasswords call.
 type ServerListAppPasswords_Output struct {
 	Passwords []*ServerListAppPasswords_AppPassword `json:"passwords" cborgen:"passwords"`
@@ -30,4 +23,12 @@ func ServerListAppPasswords(ctx context.Context, c lexutil.LexClient) (*ServerLi
 	}
 
 	return &out, nil
+}
+
+// ServerListAppPasswords_AppPassword is a "appPassword" in the com.atproto.server.listAppPasswords schema.
+type ServerListAppPasswords_AppPassword struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.server.listAppPasswords#appPassword"`
+	CreatedAt     string `json:"createdAt" cborgen:"createdAt"`
+	Name          string `json:"name" cborgen:"name"`
+	Privileged    *bool  `json:"privileged,omitempty" cborgen:"privileged,omitempty"`
 }

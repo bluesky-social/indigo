@@ -57,16 +57,6 @@ func (t *ModerationCreateReport_Input_Subject) UnmarshalJSON(b []byte) error {
 	}
 }
 
-// ModerationCreateReport_ModTool is a "modTool" in the com.atproto.moderation.createReport schema.
-//
-// Moderation tool information for tracing the source of the action
-type ModerationCreateReport_ModTool struct {
-	// meta: Additional arbitrary metadata about the source
-	Meta *interface{} `json:"meta,omitempty" cborgen:"meta,omitempty"`
-	// name: Name/identifier of the source (e.g., 'bsky-app/android', 'bsky-web/chrome')
-	Name string `json:"name" cborgen:"name"`
-}
-
 // ModerationCreateReport_Output is the output of a com.atproto.moderation.createReport call.
 type ModerationCreateReport_Output struct {
 	CreatedAt  string                                 `json:"createdAt" cborgen:"createdAt"`
@@ -120,4 +110,15 @@ func ModerationCreateReport(ctx context.Context, c lexutil.LexClient, input *Mod
 	}
 
 	return &out, nil
+}
+
+// ModerationCreateReport_ModTool is a "modTool" in the com.atproto.moderation.createReport schema.
+//
+// Moderation tool information for tracing the source of the action
+type ModerationCreateReport_ModTool struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.moderation.createReport#modTool"`
+	// meta: Additional arbitrary metadata about the source
+	Meta *interface{} `json:"meta,omitempty" cborgen:"meta,omitempty"`
+	// name: Name/identifier of the source (e.g., 'bsky-app/android', 'bsky-web/chrome')
+	Name string `json:"name" cborgen:"name"`
 }

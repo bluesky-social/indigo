@@ -21,13 +21,13 @@ func GraphGetActorStarterPacks(ctx context.Context, c lexutil.LexClient, actor s
 	var out GraphGetActorStarterPacks_Output
 
 	params := map[string]interface{}{}
-	params["actor"] = actor
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
 	if limit != 0 {
 		params["limit"] = limit
 	}
+	params["actor"] = actor
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.graph.getActorStarterPacks", params, nil, &out); err != nil {
 		return nil, err
 	}

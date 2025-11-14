@@ -10,12 +10,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// ServerCreateInviteCodes_AccountCodes is a "accountCodes" in the com.atproto.server.createInviteCodes schema.
-type ServerCreateInviteCodes_AccountCodes struct {
-	Account string   `json:"account" cborgen:"account"`
-	Codes   []string `json:"codes" cborgen:"codes"`
-}
-
 // ServerCreateInviteCodes_Input is the input argument to a com.atproto.server.createInviteCodes call.
 type ServerCreateInviteCodes_Input struct {
 	CodeCount   int64    `json:"codeCount" cborgen:"codeCount"`
@@ -36,4 +30,11 @@ func ServerCreateInviteCodes(ctx context.Context, c lexutil.LexClient, input *Se
 	}
 
 	return &out, nil
+}
+
+// ServerCreateInviteCodes_AccountCodes is a "accountCodes" in the com.atproto.server.createInviteCodes schema.
+type ServerCreateInviteCodes_AccountCodes struct {
+	LexiconTypeID string   `json:"$type" cborgen:"$type,const=com.atproto.server.createInviteCodes#accountCodes"`
+	Account       string   `json:"account" cborgen:"account"`
+	Codes         []string `json:"codes" cborgen:"codes"`
 }

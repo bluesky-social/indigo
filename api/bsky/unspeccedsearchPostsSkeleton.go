@@ -54,7 +54,6 @@ func UnspeccedSearchPostsSkeleton(ctx context.Context, c lexutil.LexClient, auth
 	if mentions != "" {
 		params["mentions"] = mentions
 	}
-	params["q"] = q
 	if since != "" {
 		params["since"] = since
 	}
@@ -73,6 +72,7 @@ func UnspeccedSearchPostsSkeleton(ctx context.Context, c lexutil.LexClient, auth
 	if viewer != "" {
 		params["viewer"] = viewer
 	}
+	params["q"] = q
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.searchPostsSkeleton", params, nil, &out); err != nil {
 		return nil, err
 	}

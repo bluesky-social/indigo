@@ -10,6 +10,7 @@ import (
 
 // SettingDefs_Option is a "option" in the tools.ozone.setting.defs schema.
 type SettingDefs_Option struct {
+	LexiconTypeID string                      `json:"$type" cborgen:"$type,const=tools.ozone.setting.defs#option"`
 	CreatedAt     *string                     `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
 	CreatedBy     string                      `json:"createdBy" cborgen:"createdBy"`
 	Description   *string                     `json:"description,omitempty" cborgen:"description,omitempty"`

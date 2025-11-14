@@ -24,13 +24,13 @@ func ServerGetServiceAuth(ctx context.Context, c lexutil.LexClient, aud string, 
 	var out ServerGetServiceAuth_Output
 
 	params := map[string]interface{}{}
-	params["aud"] = aud
 	if exp != 0 {
 		params["exp"] = exp
 	}
 	if lxm != "" {
 		params["lxm"] = lxm
 	}
+	params["aud"] = aud
 	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.server.getServiceAuth", params, nil, &out); err != nil {
 		return nil, err
 	}

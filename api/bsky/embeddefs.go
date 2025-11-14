@@ -8,6 +8,7 @@ package bsky
 //
 // width:height represents an aspect ratio. It may be approximate, and may not correspond to absolute dimensions in any given unit.
 type EmbedDefs_AspectRatio struct {
-	Height int64 `json:"height" cborgen:"height"`
-	Width  int64 `json:"width" cborgen:"width"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.embed.defs#aspectRatio"`
+	Height        int64  `json:"height" cborgen:"height"`
+	Width         int64  `json:"width" cborgen:"width"`
 }

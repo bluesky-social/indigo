@@ -10,14 +10,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// ServerCreateAppPassword_AppPassword is a "appPassword" in the com.atproto.server.createAppPassword schema.
-type ServerCreateAppPassword_AppPassword struct {
-	CreatedAt  string `json:"createdAt" cborgen:"createdAt"`
-	Name       string `json:"name" cborgen:"name"`
-	Password   string `json:"password" cborgen:"password"`
-	Privileged *bool  `json:"privileged,omitempty" cborgen:"privileged,omitempty"`
-}
-
 // ServerCreateAppPassword_Input is the input argument to a com.atproto.server.createAppPassword call.
 type ServerCreateAppPassword_Input struct {
 	// name: A short name for the App Password, to help distinguish them.
@@ -34,4 +26,13 @@ func ServerCreateAppPassword(ctx context.Context, c lexutil.LexClient, input *Se
 	}
 
 	return &out, nil
+}
+
+// ServerCreateAppPassword_AppPassword is a "appPassword" in the com.atproto.server.createAppPassword schema.
+type ServerCreateAppPassword_AppPassword struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.server.createAppPassword#appPassword"`
+	CreatedAt     string `json:"createdAt" cborgen:"createdAt"`
+	Name          string `json:"name" cborgen:"name"`
+	Password      string `json:"password" cborgen:"password"`
+	Privileged    *bool  `json:"privileged,omitempty" cborgen:"privileged,omitempty"`
 }
