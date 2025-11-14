@@ -28,3 +28,7 @@ COPY --from=build-env /sonar /sonar
 
 # Set the startup command to run the binary
 CMD ["/sonar"]
+
+LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
+LABEL org.opencontainers.image.description="AT Proto (sonar)"
+LABEL org.opencontainers.image.licenses=MIT

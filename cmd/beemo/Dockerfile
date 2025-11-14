@@ -32,4 +32,4 @@ CMD ["/beemo"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
 LABEL org.opencontainers.image.description="ATP ChatOps Bot (beemo)"
-LABEL org.opencontainers.image.licenses=MIT
+LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"
