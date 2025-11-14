@@ -449,6 +449,7 @@ func NewEventCache(db *gorm.DB, logger *slog.Logger, numLoaders int, batchSize i
 		db:         db,
 		logger:     logger,
 		batchSize:  batchSize,
+		numLoaders: numLoaders,
 		eventCache: make(map[uint]*OutboxEvt),
 		pendingIDs: make(chan uint, pendingSize),
 	}
