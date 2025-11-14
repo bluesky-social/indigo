@@ -90,7 +90,7 @@ func run(args []string) error {
 		&cli.DurationFlag{
 			Name:    "cursor-save-interval",
 			Usage:   "how often to save firehose cursor",
-			Value:   5 & time.Second,
+			Value:   5 * time.Second,
 			EnvVars: []string{"NEXUS_CURSOR_SAVE_INTERVAL"},
 		},
 		&cli.DurationFlag{
