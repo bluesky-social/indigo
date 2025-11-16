@@ -145,7 +145,10 @@ func (s *SchemaDef) setBase(base string) {
 			}
 		}
 		if v.Message != nil {
-			v.Message.Schema.setBase(base)
+			u := SchemaDef{Inner: v.Message.Schema}
+			u.setBase(base)
+			i := u.Inner.(SchemaUnion)
+			v.Message.Schema = i
 		}
 		s.Inner = v
 	case SchemaArray:
@@ -594,14 +597,11 @@ func (s *SchemaBody) CheckSchema() error {
 }
 
 type SchemaMessage struct {
-	Description *string   `json:"description,omitempty"`
-	Schema      SchemaDef `json:"schema"` // required; type:union only
+	Description *string     `json:"description,omitempty"`
+	Schema      SchemaUnion `json:"schema"` // required; type:union only
 }
 
 func (s *SchemaMessage) CheckSchema() error {
-	if _, ok := s.Schema.Inner.(SchemaUnion); !ok {
-		return fmt.Errorf("message must have schema type union")
-	}
 	return s.Schema.CheckSchema()
 }
 
