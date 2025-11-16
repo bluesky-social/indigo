@@ -10,5 +10,22 @@
         }
       }
     }
+  },
+  {
+    "name": "minimal record",
+    "lexicon": {
+      "lexicon": 1,
+      "id": "example.lexicon.record",
+      "defs": {
+        "main": {
+          "type": "record",
+          "key": "any",
+          "record": {
+            "type": "object",
+            "properties": {}
+          }
+        }
+      }
+    }
   }
 ]
