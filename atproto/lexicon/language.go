@@ -997,17 +997,7 @@ func (s *SchemaToken) CheckSchema() error {
 }
 
 func (s *SchemaToken) Validate(d any) error {
-	str, ok := d.(string)
-	if !ok {
-		return fmt.Errorf("expected a string for token, got: %s", reflect.TypeOf(d))
-	}
-	if s.FullName == "" {
-		return fmt.Errorf("token name was not populated at parse time")
-	}
-	if str != s.FullName {
-		return fmt.Errorf("token name did not match expected: %s", str)
-	}
-	return nil
+	return fmt.Errorf("token type does not validate against data")
 }
 
 type SchemaRef struct {

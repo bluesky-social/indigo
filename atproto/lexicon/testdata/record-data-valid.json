@@ -44,7 +44,10 @@
         "a": 1,
         "b": 2
       },
-      "ref": "example.lexicon.record#demoToken",
+      "ref": {
+        "a": 1,
+        "b": 2
+      },
       "union": {
         "$type": "example.lexicon.record#demoObject",
         "a": 1,
