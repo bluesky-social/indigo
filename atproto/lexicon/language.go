@@ -65,6 +65,44 @@ func (s *SchemaDef) CheckSchema() error {
 	}
 }
 
+// Checks if def is of "parimary" type
+func (s *SchemaDef) IsPrimary() bool {
+	switch s.Inner.(type) {
+	case SchemaRecord, SchemaQuery, SchemaProcedure, SchemaSubscription, SchemaPermissionSet:
+		return true
+	}
+	return false
+}
+
+func (s *SchemaDef) IsConcrete() bool {
+	switch s.Inner.(type) {
+	case SchemaNull, SchemaBoolean, SchemaInteger, SchemaString, SchemaBytes, SchemaCIDLink, SchemaBlob:
+		return true
+	}
+	return false
+}
+
+// Checks if type can be a top-level "named" definition
+func (s *SchemaDef) IsDefinable() bool {
+	switch s.Inner.(type) {
+	case SchemaUnknown, SchemaUnion, SchemaRef, SchemaParams, SchemaPermission:
+		return false
+	}
+	return true
+}
+
+// Checks if the type is allowed to be included in object fields.
+func (s *SchemaDef) IsFieldType() bool {
+	if s.IsConcrete() {
+		return true
+	}
+	switch s.Inner.(type) {
+	case SchemaArray, SchemaObject, SchemaRef, SchemaUnion, SchemaUnknown:
+		return true
+	}
+	return false
+}
+
 // Helper to recurse down the definition tree and set full references on any sub-schemas which need to embed that metadata
 func (s *SchemaDef) setBase(base string) {
 	switch v := s.Inner.(type) {
@@ -889,6 +927,9 @@ func (s *SchemaArray) CheckSchema() error {
 		(s.MaxLength != nil && *s.MaxLength < 0) {
 		return fmt.Errorf("array schema min or max below zero")
 	}
+	if !s.Items.IsFieldType() {
+		return fmt.Errorf("array schema elements not allowed type")
+	}
 	return s.Items.CheckSchema()
 }
 
@@ -920,6 +961,9 @@ func (s *SchemaObject) CheckSchema() error {
 		// TODO: more checks on field name?
 		if len(k) == 0 {
 			return fmt.Errorf("empty object schema field name not allowed")
+		}
+		if !def.IsFieldType() {
+			return fmt.Errorf("object schema property not an allowed type")
 		}
 		if err := def.CheckSchema(); err != nil {
 			return err

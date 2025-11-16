@@ -52,14 +52,13 @@ func (sf *SchemaFile) CheckSchema() error {
 	for frag, def := range sf.Defs {
 		if len(frag) == 0 || strings.Contains(frag, "#") || strings.Contains(frag, ".") {
 			// TODO: more validation here?
-			return fmt.Errorf("schema name invalid: %s", frag)
+			return fmt.Errorf("schema def name invalid: %s", frag)
 		}
-		// "A file can have at most one definition with one of the "primary" types. Primary types should always have the name main. It is possible for main to describe a non-primary type."
-		switch def.Inner.(type) {
-		case SchemaRecord, SchemaQuery, SchemaProcedure, SchemaSubscription, SchemaPermissionSet:
-			if frag != "main" {
-				return fmt.Errorf("record, query, procedure, and subscription types must be 'main', not: %s", frag)
-			}
+		if def.IsPrimary() && frag != "main" {
+			return fmt.Errorf("'primary' definition types can only have name 'main', not: %s", frag)
+		}
+		if !def.IsDefinable() {
+			return fmt.Errorf("schema type can not be used as a named definition: %s", frag)
 		}
 		if err := def.CheckSchema(); err != nil {
 			return err
