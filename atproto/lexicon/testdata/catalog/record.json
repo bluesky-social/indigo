@@ -8,6 +8,7 @@
       "key": "literal:demo",
       "description": "a record type with many field",
       "record": {
+        "type": "object",
         "required": [
           "integer"
         ],
