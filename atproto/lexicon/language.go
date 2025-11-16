@@ -352,6 +352,8 @@ func (s *SchemaRecord) CheckSchema() error {
 		return fmt.Errorf("expected 'record' schema")
 	}
 	switch s.Key {
+	case "":
+		return fmt.Errorf("record key specifier is required")
 	case "tid", "nsid", "any":
 		// pass
 	default:
