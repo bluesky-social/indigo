@@ -139,15 +139,10 @@ func (fl *FlatLexicon) flattenType(fd *FlatDef, tpath []string, def *lexicon.Sch
 	case lexicon.SchemaSubscription:
 		// v.Properties: same as above
 		if v.Message != nil {
-			switch vv := v.Message.Schema.Inner.(type) {
-			case lexicon.SchemaUnion:
-				for _, ref := range vv.Refs {
-					if !strings.HasPrefix(ref, "#") {
-						fl.ExternalRefs[strings.TrimSuffix(ref, "#main")] = true
-					}
+			for _, ref := range v.Message.Schema.Refs {
+				if !strings.HasPrefix(ref, "#") {
+					fl.ExternalRefs[strings.TrimSuffix(ref, "#main")] = true
 				}
-			default:
-				return fmt.Errorf("subscription with non-union message schema: %T", v.Message.Schema.Inner)
 			}
 		}
 		fl.Types = append(fl.Types, ft)
