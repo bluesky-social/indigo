@@ -1126,6 +1126,9 @@ func (s *SchemaUnion) CheckSchema() error {
 	if s.Type != "union" {
 		return fmt.Errorf("expected 'union' schema")
 	}
+	if len(s.Refs) == 0 && s.Closed != nil && *s.Closed {
+		return fmt.Errorf("closed empty unions are not allowed")
+	}
 	// TODO: uniqueness check on refs
 	for _, ref := range s.Refs {
 		// TODO: more validation of ref string?
