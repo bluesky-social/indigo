@@ -432,6 +432,7 @@ func (s *SchemaPermissionSet) CheckSchema() error {
 	return nil
 }
 
+// Because the 'action' field could be a string or array of strings, this schema type has custom JSON marshalling behavior.
 type SchemaPermission struct {
 	Type        string  `json:"type"` // "permission"
 	Description *string `json:"description,omitempty"`
@@ -439,10 +440,91 @@ type SchemaPermission struct {
 	Resource   string   `json:"resource"`
 	Accept     []string `json:"accept,omitempty"`
 	Collection []string `json:"collection,omitempty"`
-	Action     []string `json:"action,omitempty"`
 	LXM        []string `json:"lxm,omitempty"`
 	Audience   string   `json:"aud,omitempty"`
 	InheritAud bool     `json:"inheritAud,omitempty"`
+	Attribute  string   `json:"attr,omitempty"`
+
+	// could be a string or array of strings
+	Action []string `json:"-"`
+}
+
+type rawPermission struct {
+	Type        string  `json:"type"` // "permission"
+	Description *string `json:"description,omitempty"`
+
+	Resource   string   `json:"resource"`
+	Accept     []string `json:"accept,omitempty"`
+	Collection []string `json:"collection,omitempty"`
+	LXM        []string `json:"lxm,omitempty"`
+	Audience   string   `json:"aud,omitempty"`
+	InheritAud bool     `json:"inheritAud,omitempty"`
+	Attribute  string   `json:"attr,omitempty"`
+
+	// flexible type: could be string or array of strings
+	Action any `json:"action,omitempty"`
+}
+
+func (sp *SchemaPermission) UnmarshalJSON(data []byte) error {
+	var rp rawPermission
+	if err := json.Unmarshal(data, &rp); err != nil {
+		return err
+	}
+	sp.Type = rp.Type
+	sp.Description = rp.Description
+	sp.Resource = rp.Resource
+	sp.Accept = rp.Accept
+	sp.Collection = rp.Collection
+	sp.LXM = rp.LXM
+	sp.Audience = rp.Audience
+	sp.InheritAud = rp.InheritAud
+	sp.Attribute = rp.Attribute
+
+	if rp.Action != nil {
+		switch val := rp.Action.(type) {
+		case []string:
+			sp.Action = val
+		case []interface{}:
+			for _, elem := range val {
+				v, ok := elem.(string)
+				if ok {
+					sp.Action = append(sp.Action, v)
+				}
+			}
+		case string:
+			sp.Action = []string{val}
+		default:
+			return fmt.Errorf("unsupported 'action' field type: %T", rp.Action)
+		}
+	}
+	return nil
+}
+
+func (sp SchemaPermission) MarshalJSON() ([]byte, error) {
+	rp := rawPermission{
+		Type:        sp.Type,
+		Description: sp.Description,
+		Resource:    sp.Resource,
+		Accept:      sp.Accept,
+		Collection:  sp.Collection,
+		LXM:         sp.LXM,
+		Audience:    sp.Audience,
+		InheritAud:  sp.InheritAud,
+		Attribute:   sp.Attribute,
+		Action:      nil,
+	}
+
+	switch sp.Resource {
+	case "identity", "account":
+		if len(sp.Action) == 1 {
+			rp.Action = sp.Action[0]
+		}
+	case "repo":
+		if len(sp.Action) > 0 {
+			rp.Action = sp.Action
+		}
+	}
+	return json.Marshal(rp)
 }
 
 func (s *SchemaPermission) CheckSchema() error {
@@ -508,6 +590,40 @@ func (s *SchemaPermission) CheckSchema() error {
 			_, err := syntax.ParseDID(parts[0])
 			if err != nil {
 				return fmt.Errorf("rpc 'aud' must be a service ref: %w", err)
+			}
+		}
+	case "account":
+		switch s.Attribute {
+		case "":
+			return fmt.Errorf("account permission requires 'attr'")
+		case "email", "repo", "status":
+			// pass
+		default:
+			return fmt.Errorf("unsupported account permission 'attr': %s", s.Attribute)
+		}
+		if len(s.Action) > 0 {
+			switch s.Action[0] {
+			case "read", "manage":
+				// pass
+			default:
+				return fmt.Errorf("unsupported account permission 'action': %s", s.Action[0])
+			}
+		}
+	case "identity":
+		switch s.Attribute {
+		case "":
+			return fmt.Errorf("identity permission requires 'attr'")
+		case "*", "handle":
+			// pass
+		default:
+			return fmt.Errorf("unsupported identity permission 'attr': %s", s.Attribute)
+		}
+		if len(s.Action) > 0 {
+			switch s.Action[0] {
+			case "submit", "manage":
+				// pass
+			default:
+				return fmt.Errorf("unsupported identity permission 'action': %s", s.Action[0])
 			}
 		}
 	default:

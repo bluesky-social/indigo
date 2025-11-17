@@ -88,6 +88,28 @@
           "lxm": [
             "com.example.calendar.listEvents"
           ]
+        },
+        {
+          "type": "permission",
+          "resource": "account",
+          "attr": "email"
+        },
+        {
+          "type": "permission",
+          "resource": "account",
+          "attr": "repo",
+          "action": "manage"
+        },
+        {
+          "type": "permission",
+          "resource": "identity",
+          "attr": "*"
+        },
+        {
+          "type": "permission",
+          "resource": "identity",
+          "attr": "handle",
+          "action": "submit"
         }
       ]
     }

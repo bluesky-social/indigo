@@ -10,5 +10,60 @@
         }
       }
     }
+  },
+  {
+    "name": "permission action round-trip",
+    "lexicon": {
+      "lexicon": 1,
+      "id": "example.lexicon.perms",
+      "defs": {
+        "main": {
+          "type": "permission-set",
+          "title": "test case",
+          "permissions": [
+            {
+              "type": "permission",
+              "resource": "repo",
+              "collection": [
+                "com.example.calendar.event"
+              ],
+              "action": [
+                "delete",
+                "create"
+              ]
+            },
+            {
+              "type": "permission",
+              "resource": "repo",
+              "collection": [
+                "com.example.calendar.rsvp"
+              ]
+            },
+            {
+              "type": "permission",
+              "resource": "account",
+              "attr": "email"
+            },
+            {
+              "type": "permission",
+              "resource": "account",
+              "attr": "repo",
+              "action": "manage"
+            },
+            {
+              "type": "permission",
+              "resource": "identity",
+              "attr": "*"
+            },
+            {
+              "type": "permission",
+              "resource": "identity",
+              "attr": "handle",
+              "action": "submit"
+            }
+          ]
+        }
+      }
+    }
   }
 ]
