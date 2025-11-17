@@ -1051,11 +1051,11 @@ func (s *SchemaParams) CheckSchema() error {
 			return fmt.Errorf("empty object schema field name not allowed")
 		}
 		switch v := def.Inner.(type) {
-		case SchemaBoolean, SchemaInteger, SchemaString, SchemaUnknown:
+		case SchemaBoolean, SchemaInteger, SchemaString:
 			// pass
 		case SchemaArray:
 			switch v.Items.Inner.(type) {
-			case SchemaBoolean, SchemaInteger, SchemaString, SchemaUnknown:
+			case SchemaBoolean, SchemaInteger, SchemaString:
 				// pass
 			default:
 				return fmt.Errorf("params array item type must be boolean, integer, string, or unknown")
