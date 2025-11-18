@@ -29,5 +29,5 @@ COPY --from=build-env /supercollider /supercollider
 CMD ["/supercollider"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
-LABEL org.opencontainers.image.description="AT Proto (supercollider)"
+LABEL org.opencontainers.image.description="AT Proto firehose performance testing service"
 LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"
