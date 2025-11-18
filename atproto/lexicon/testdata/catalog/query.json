@@ -30,10 +30,6 @@
             "format": "handle",
             "description": "field of type string, format handle"
           },
-          "unknown": {
-            "type": "unknown",
-            "description": "field of type unknown"
-          },
           "array": {
             "type": "array",
             "description": "field of type array",
