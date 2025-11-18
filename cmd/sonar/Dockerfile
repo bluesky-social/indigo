@@ -30,5 +30,5 @@ COPY --from=build-env /sonar /sonar
 CMD ["/sonar"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
-LABEL org.opencontainers.image.description="AT Proto (sonar)"
+LABEL org.opencontainers.image.description="AT Proto firehose monitoring service"
 LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"
