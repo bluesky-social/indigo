@@ -1058,10 +1058,10 @@ func (s *SchemaParams) CheckSchema() error {
 			case SchemaBoolean, SchemaInteger, SchemaString:
 				// pass
 			default:
-				return fmt.Errorf("params array item type must be boolean, integer, string, or unknown")
+				return fmt.Errorf("params array item type must be boolean, integer, or string")
 			}
 		default:
-			return fmt.Errorf("params field type must be boolean, integer, string, or unknown")
+			return fmt.Errorf("params field type must be boolean, integer, string, or array")
 		}
 		if err := def.CheckSchema(); err != nil {
 			return err
