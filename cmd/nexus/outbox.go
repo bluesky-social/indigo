@@ -465,8 +465,9 @@ func (ec *EventCache) run(ctx context.Context) {
 			lastPageID, err := ec.loadEvents(lastID)
 			if err != nil {
 				ec.logger.Error("failed to load events into cache", "error", err, "lastID", lastID)
+			} else {
+				lastID = lastPageID
 			}
-			lastID = lastPageID
 		}
 
 	}
