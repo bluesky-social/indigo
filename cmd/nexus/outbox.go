@@ -502,6 +502,17 @@ func (ec *EventCache) loadEventsSerial(startID int) (int, int, error) {
 	if resultSize == 0 {
 		return startID, 0, nil
 	}
+
+	ec.cacheMu.Lock()
+	for _, evt := range outboxEvts {
+		ec.eventCache[evt.ID] = &evt
+	}
+	ec.cacheMu.Unlock()
+
+	for _, evt := range outboxEvts {
+		ec.pendingIDs <- evt.ID
+	}
+
 	return int(outboxEvts[resultSize-1].ID), resultSize, nil
 }
 
