@@ -456,7 +456,7 @@ func NewEventCache(db *gorm.DB, logger *slog.Logger, numLoaders int, batchSize i
 }
 
 func (ec *EventCache) run(ctx context.Context) {
-	lastID := 0
+	lastID := ec.getStartID()
 	for {
 		select {
 		case <-ctx.Done():
@@ -471,6 +471,20 @@ func (ec *EventCache) run(ctx context.Context) {
 		}
 
 	}
+}
+
+func (ec *EventCache) getStartID() int {
+	var result struct {
+		ID uint
+	}
+	err := ec.db.Model(&models.OutboxBuffer{}).
+		Select("MIN(id) as id").
+		Scan(&result).Error
+	if err != nil {
+		ec.logger.Error("failed to get start cursor", "error", err)
+		return 0
+	}
+	return int(result.ID - 1) // subtract 1 because we want to include the min id in the first page
 }
 
 func (ec *EventCache) loadEvents(startID int) (int, error) {
@@ -497,7 +511,7 @@ func (ec *EventCache) loadEvents(startID int) (int, error) {
 	// didn't load any events
 	if lastID == 0 {
 		time.Sleep(500 * time.Millisecond)
-		return startID, nil
+		return max(startID, ec.getStartID()), nil
 	}
 
 	ec.cacheMu.Lock()
