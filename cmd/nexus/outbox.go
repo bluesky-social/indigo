@@ -491,7 +491,7 @@ func (ec *EventCache) run(ctx context.Context) {
 
 func (ec *EventCache) loadEventsSerial(startID int) (int, int, error) {
 	dbEvts := make([]models.OutboxBuffer, 0, ec.batchSize)
-	if err := ec.db.Raw("SELECT * FROM outbox_buffers WHERE id > ? ORDER BY id ASC", startID).Scan(&dbEvts).Error; err != nil {
+	if err := ec.db.Raw("SELECT * FROM outbox_buffers WHERE id > ? ORDER BY id ASC LIMIT ?", startID, ec.batchSize).Scan(&dbEvts).Error; err != nil {
 		return 0, 0, err
 	}
 
