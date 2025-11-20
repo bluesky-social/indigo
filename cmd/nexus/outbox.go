@@ -545,7 +545,6 @@ func (ec *EventCache) loadEventsParallel(startID int) (int, int, error) {
 	resultsSize := batchesSize(results)
 	// didn't load any events
 	if resultsSize == 0 {
-		time.Sleep(500 * time.Millisecond)
 		return startID, 0, nil
 	}
 
