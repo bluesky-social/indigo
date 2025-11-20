@@ -480,17 +480,22 @@ func (ec *EventCache) run(ctx context.Context) {
 				lastID = lastPageID
 				loadParallel = resultSize > (ec.batchSize)/2
 			}
+
+			if resultSize == 0 {
+				ec.logger.Info("no events back, sleeping for a second")
+				time.Sleep(time.Second)
+			}
 		}
 	}
 }
 
 func (ec *EventCache) loadEventsSerial(startID int) (int, int, error) {
-	var dbEvts []models.OutboxBuffer
-	err := ec.db.Where("id > ?", startID).
-		Order("id ASC").
-		Limit(ec.batchSize).
-		Find(&dbEvts).Error
-	if err != nil {
+	dbEvts := make([]models.OutboxBuffer, 0, ec.batchSize)
+	if err := ec.db.Raw(
+		"SELECT * FROM outbox_buffers WHERE id > ? ORDER BY id ASC LIMIT ?",
+		startID,
+		ec.batchSize,
+	).Scan(&dbEvts).Error; err != nil {
 		return 0, 0, err
 	}
 
@@ -504,13 +509,14 @@ func (ec *EventCache) loadEventsSerial(startID int) (int, int, error) {
 	}
 
 	ec.cacheMu.Lock()
-	for _, evt := range outboxEvts {
+	for i := range outboxEvts {
+		evt := outboxEvts[i] // Create heap copy
 		ec.eventCache[evt.ID] = &evt
 	}
 	ec.cacheMu.Unlock()
 
-	for _, evt := range outboxEvts {
-		ec.pendingIDs <- evt.ID
+	for i := range outboxEvts {
+		ec.pendingIDs <- outboxEvts[i].ID
 	}
 
 	return int(outboxEvts[resultSize-1].ID), resultSize, nil
@@ -546,7 +552,8 @@ func (ec *EventCache) loadEventsParallel(startID int) (int, int, error) {
 	ec.cacheMu.Lock()
 	for _, result := range results {
 		for _, evt := range result.events {
-			ec.eventCache[evt.ID] = &evt
+			evtCopy := evt // Create heap copy to avoid storing address of loop variable
+			ec.eventCache[evt.ID] = &evtCopy
 		}
 	}
 	ec.cacheMu.Unlock()
@@ -560,10 +567,12 @@ func (ec *EventCache) loadEventsParallel(startID int) (int, int, error) {
 }
 
 func (ec *EventCache) loadEventBatch(startID int, endID int) batchResult {
-	var dbEvts []models.OutboxBuffer
-	err := ec.db.Where("id > ? AND id <= ?", startID, endID).
-		Order("id ASC").
-		Find(&dbEvts).Error
+	dbEvts := make([]models.OutboxBuffer, 0, (endID-startID)+1)
+	err := ec.db.Raw(
+		"SELECT * FROM outbox_buffers WHERE id > ? AND id <= ? ORDER BY id ASC",
+		startID,
+		endID,
+	).Scan(&dbEvts).Error
 	if err != nil {
 		return batchResult{err: err}
 	}
