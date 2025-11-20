@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -32,7 +34,14 @@ type EventProcessor struct {
 	SignalCollection  string
 	CollectionFilters []string
 
+	repoStateCache *lru.TwoQueueCache[string, *cachedRepoState]
+
 	lastSeq atomic.Int64
+}
+
+type cachedRepoState struct {
+	repo *models.Repo
+	lk   sync.Mutex
 }
 
 // ProcessCommit validates and applies a commit event from the firehose.
@@ -104,7 +113,7 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 	}
 
 	if err := ep.DB.Transaction(func(tx *gorm.DB) error {
-		return applyCommit(tx, commit)
+		return ep.applyCommit(tx, commit)
 	}); err != nil {
 		ep.Logger.Error("failed to update repo state", "did", commit.Did, "rev", commit.Rev, "error", err)
 		return err
@@ -282,6 +291,14 @@ func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error
 		return err
 	}
 
+	// Update cached handle
+	rs, ok := ep.repoStateCache.Get(did)
+	if ok {
+		rs.lk.Lock()
+		rs.repo.Handle = handleStr
+		rs.lk.Unlock()
+	}
+
 	return nil
 }
 
@@ -325,7 +342,7 @@ func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.Sy
 
 	if updateTo == models.AccountStatusDeleted {
 		if err := ep.DB.Transaction(func(tx *gorm.DB) error {
-			if err := deleteRepo(tx, evt.Did); err != nil {
+			if err := ep.deleteRepo(tx, evt.Did); err != nil {
 				return err
 			}
 			return persistUserEvt(tx, userEvt)
@@ -344,6 +361,14 @@ func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.Sy
 		}); err != nil {
 			ep.Logger.Error("failed to update repo status", "did", evt.Did, "status", updateTo, "error", err)
 			return err
+		}
+
+		// Update cached status
+		rs, ok := ep.repoStateCache.Get(evt.Did)
+		if ok {
+			rs.lk.Lock()
+			rs.repo.Status = updateTo
+			rs.lk.Unlock()
 		}
 	}
 
@@ -380,7 +405,7 @@ func (ep *EventProcessor) drainResyncBuffer(ctx context.Context, did string) err
 		}
 
 		if err := ep.DB.Transaction(func(tx *gorm.DB) error {
-			if err := applyCommit(tx, &commit); err != nil {
+			if err := ep.applyCommit(tx, &commit); err != nil {
 				return err
 			}
 			return tx.Delete(&models.ResyncBuffer{}, "id = ?", evt.ID).Error
@@ -395,7 +420,7 @@ func (ep *EventProcessor) drainResyncBuffer(ctx context.Context, did string) err
 	return nil
 }
 
-func applyCommit(tx *gorm.DB, commit *Commit) error {
+func (ep *EventProcessor) applyCommit(tx *gorm.DB, commit *Commit) error {
 	if err := tx.Model(&models.Repo{}).
 		Where("did = ?", commit.Did).
 		Updates(map[string]interface{}{
@@ -451,7 +476,20 @@ func applyCommit(tx *gorm.DB, commit *Commit) error {
 		})
 	}
 
-	return batchInsertOutboxEvents(tx, outboxBatch)
+	if err := batchInsertOutboxEvents(tx, outboxBatch); err != nil {
+		return err
+	}
+
+	// Update the cached repo state with the new rev and prev_data
+	rs, ok := ep.repoStateCache.Get(commit.Did)
+	if ok {
+		rs.lk.Lock()
+		rs.repo.Rev = commit.Rev
+		rs.repo.PrevData = commit.DataCid
+		rs.lk.Unlock()
+	}
+
+	return nil
 }
 
 func batchInsertOutboxEvents(tx *gorm.DB, events []*models.OutboxBuffer) error {
@@ -461,14 +499,20 @@ func batchInsertOutboxEvents(tx *gorm.DB, events []*models.OutboxBuffer) error {
 	return tx.CreateInBatches(events, 100).Error
 }
 
-func deleteRepo(tx *gorm.DB, did string) error {
+func (ep *EventProcessor) deleteRepo(tx *gorm.DB, did string) error {
 	if err := tx.Delete(&models.RepoRecord{}, "did = ?", did).Error; err != nil {
 		return err
 	}
 	if err := tx.Delete(&models.ResyncBuffer{}, "did = ?", did).Error; err != nil {
 		return err
 	}
-	return tx.Delete(&models.Repo{}, "did = ?", did).Error
+	if err := tx.Delete(&models.Repo{}, "did = ?", did).Error; err != nil {
+		return err
+	}
+
+	// Remove from cache
+	ep.repoStateCache.Remove(did)
+	return nil
 }
 
 func persistUserEvt(tx *gorm.DB, evt *UserEvt) error {
@@ -529,6 +573,11 @@ func (ep *EventProcessor) ReadLastCursor(ctx context.Context, relayUrl string) (
 }
 
 func (ep *EventProcessor) GetRepoState(did string) (*models.Repo, error) {
+	rs, ok := ep.repoStateCache.Get(did)
+	if ok {
+		return rs.repo, nil
+	}
+
 	var r models.Repo
 	if err := ep.DB.First(&r, "did = ?", did).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
@@ -536,13 +585,36 @@ func (ep *EventProcessor) GetRepoState(did string) (*models.Repo, error) {
 		}
 		return nil, nil
 	}
+
+	ep.repoStateCache.Add(did, &cachedRepoState{
+		repo: &r,
+	})
 	return &r, nil
 }
 
 func (ep *EventProcessor) UpdateRepoState(did string, state models.RepoState) error {
-	return ep.DB.Model(&models.Repo{}).
+	if err := ep.DB.Model(&models.Repo{}).
 		Where("did = ?", did).
-		Update("state", state).Error
+		Update("state", state).Error; err != nil {
+		return err
+	}
+	rs, ok := ep.repoStateCache.Get(did)
+	if !ok {
+		r, err := ep.GetRepoState(did)
+		if err != nil {
+			return err
+		}
+
+		rs = &cachedRepoState{
+			repo: r,
+		}
+	}
+
+	rs.lk.Lock()
+	rs.repo.State = state
+	rs.lk.Unlock()
+
+	return nil
 }
 
 // EnsureRepo creates or updates a repository record in the database.

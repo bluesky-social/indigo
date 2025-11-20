@@ -13,10 +13,11 @@ import (
 )
 
 type NexusServer struct {
-	db     *gorm.DB
-	echo   *echo.Echo
-	logger *slog.Logger
-	Outbox *Outbox
+	db             *gorm.DB
+	echo           *echo.Echo
+	logger         *slog.Logger
+	Outbox         *Outbox
+	EventProcessor *EventProcessor
 }
 
 func (ns *NexusServer) Start(address string) error {
@@ -134,7 +135,9 @@ func (ns *NexusServer) handleRemoveRepos(c echo.Context) error {
 	}
 
 	for _, did := range payload.DIDs {
-		err := deleteRepo(ns.db, did)
+		err := ns.db.Transaction(func(tx *gorm.DB) error {
+			return ns.EventProcessor.deleteRepo(tx, did)
+		})
 		if err != nil {
 			ns.logger.Error("failed to delete repo", "error", err)
 			return echo.NewHTTPError(http.StatusInternalServerError)

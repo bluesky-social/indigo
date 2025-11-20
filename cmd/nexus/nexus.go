@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"github.com/bluesky-social/indigo/events"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -98,10 +99,9 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		pdsBackoff: make(map[string]time.Time),
 	}
 
-	n.Server = &NexusServer{
-		db:     db,
-		logger: n.logger.With("component", "server"),
-		Outbox: n.Outbox,
+	repoStateCache, err := lru.New2Q[string, *cachedRepoState](10000)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create repo state cache: %w", err)
 	}
 
 	n.EventProcessor = &EventProcessor{
@@ -113,6 +113,14 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		FullNetworkMode:   config.FullNetworkMode,
 		SignalCollection:  config.SignalCollection,
 		CollectionFilters: config.CollectionFilters,
+		repoStateCache:    repoStateCache,
+	}
+
+	n.Server = &NexusServer{
+		db:             db,
+		logger:         n.logger.With("component", "server"),
+		Outbox:         n.Outbox,
+		EventProcessor: n.EventProcessor,
 	}
 
 	rsc := &events.RepoStreamCallbacks{
