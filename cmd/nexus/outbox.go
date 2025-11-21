@@ -434,8 +434,9 @@ type EventCache struct {
 	db     *gorm.DB
 	logger *slog.Logger
 
-	batchSize  int
-	numLoaders int
+	batchSize    int
+	numLoaders   int
+	maxCacheSize int
 
 	eventCache map[uint]*OutboxEvt
 	cacheMu    sync.RWMutex
@@ -445,13 +446,15 @@ type EventCache struct {
 
 func NewEventCache(db *gorm.DB, logger *slog.Logger, numLoaders int, batchSize int) *EventCache {
 	pendingSize := batchSize * numLoaders * 2
+	maxCacheSize := batchSize * numLoaders * 20
 	return &EventCache{
-		db:         db,
-		logger:     logger,
-		batchSize:  batchSize,
-		numLoaders: numLoaders,
-		eventCache: make(map[uint]*OutboxEvt),
-		pendingIDs: make(chan uint, pendingSize),
+		db:           db,
+		logger:       logger,
+		batchSize:    batchSize,
+		numLoaders:   numLoaders,
+		maxCacheSize: maxCacheSize,
+		eventCache:   make(map[uint]*OutboxEvt),
+		pendingIDs:   make(chan uint, pendingSize),
 	}
 }
 
@@ -466,6 +469,10 @@ func (ec *EventCache) run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
+			if len(ec.eventCache) >= ec.maxCacheSize {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
 			// if we're in a densely populated section of the table, we can take advantage of that and load chunks of IDs in parallel
 			// if it's sparsely populated, then we just need to load one page at a time
 			// switch between the two by comparing the result size to the expected batch size
