@@ -158,8 +158,6 @@ func (o *Outbox) AckEvent(eventID uint) {
 			worker := val.(*DIDWorker)
 			worker.ackEvent(eventID)
 		}
-
-		o.cache.DeleteEvent(eventID)
 	}
 
 	o.ackQueue <- eventID
@@ -236,6 +234,8 @@ func (o *Outbox) flushDeleteBatch(ids []uint) {
 	if len(ids) == 0 {
 		return
 	}
+
+	o.cache.DeleteEvents(ids)
 
 	if err := o.db.Delete(&models.OutboxBuffer{}, ids).Error; err != nil {
 		o.logger.Error("failed to delete batch of acked events", "error", err, "count", len(ids))
@@ -625,8 +625,10 @@ func (ec *EventCache) GetEvent(id uint) (*OutboxEvt, bool) {
 	return evt, exists
 }
 
-func (ec *EventCache) DeleteEvent(id uint) {
+func (ec *EventCache) DeleteEvents(ids []uint) {
 	ec.cacheMu.Lock()
 	defer ec.cacheMu.Unlock()
-	delete(ec.eventCache, id)
+	for _, id := range ids {
+		delete(ec.eventCache, id)
+	}
 }
