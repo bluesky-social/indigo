@@ -23,12 +23,13 @@ import (
 // Historical events can be sent concurrently with each other (no ordering
 // between them), but cannot be sent while a live event is in-flight.
 //
-// Example sequence: H1, H2, L1, H3, H4, L2, H5
+// Example sequence: H1, H2, L1, L2, H3, H4, L2, H5
 //   - H1 and H2 sent concurrently
 //   - Wait for H1 and H2 to complete, then send L1 (alone)
-//   - Wait for L1 to complete, then send H3 and H4 concurrently
-//   - Wait for H3 and H4 to complete, then send L2 (alone)
-//   - Wait for L2 to complete, then send H5
+//   - Wait for L1 to complete, then send L2 (alone)
+//   - Wait for L2 to complete, then send H3 and H4 concurrently
+//   - Wait for H3 and H4 to complete, then send L3 (alone)
+//   - Wait for L3 to complete, then send H5
 
 type OutboxMessage struct {
 	ID   uint
