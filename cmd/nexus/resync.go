@@ -211,6 +211,7 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 		evt := &RecordEvt{
 			Live:       false,
 			Did:        did,
+			Rev:        rev,
 			Collection: collStr,
 			Rkey:       rkeyStr,
 			Action:     action,
