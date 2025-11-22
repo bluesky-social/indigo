@@ -7,6 +7,7 @@ import (
 
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type EventManager struct {
@@ -21,6 +22,108 @@ type EventManager struct {
 type CacheEntry struct {
 	Event []byte
 	Did   string
+}
+
+func (em *EventManager) AddCommit(commit *Commit, resyncBufferID *uint) error {
+	toPut := make([]*models.RepoRecord, 0, len(commit.Ops))
+	toDel := make([]*models.RepoRecord, 0)
+	dbEvts := make([]*models.OutboxBuffer, 0, len(commit.Ops))
+	cacheEntries := make(map[uint]CacheEntry, len(commit.Ops))
+
+	for _, op := range commit.Ops {
+		if op.Action == "delete" {
+			toDel = append(toDel, &models.RepoRecord{
+				Did:        commit.Did,
+				Collection: op.Collection,
+				Rkey:       op.Rkey,
+			})
+		} else {
+			toPut = append(toPut, &models.RepoRecord{
+				Did:        commit.Did,
+				Collection: op.Collection,
+				Rkey:       op.Rkey,
+				Cid:        op.Cid,
+			})
+		}
+
+		evtID := uint(em.nextID.Add(1))
+		jsonData, err := json.Marshal(&OutboxEvt{
+			ID:   evtID,
+			Type: "record",
+			RecordEvt: &RecordEvt{
+				Live:       true,
+				Did:        commit.Did,
+				Rev:        commit.Rev,
+				Collection: op.Collection,
+				Rkey:       op.Rkey,
+				Action:     op.Action,
+				Record:     op.Record,
+				Cid:        op.Cid,
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		dbEvts = append(dbEvts, &models.OutboxBuffer{
+			ID:   evtID,
+			Live: true,
+			Data: string(jsonData),
+		})
+
+		cacheEntries[evtID] = CacheEntry{
+			Event: jsonData,
+			Did:   commit.Did,
+		}
+	}
+
+	err := em.DB.Transaction(func(tx *gorm.DB) error {
+		if resyncBufferID != nil {
+			if err := tx.Delete(&models.ResyncBuffer{}, "id = ?", resyncBufferID).Error; err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Model(&models.Repo{}).
+			Where("did = ?", commit.Did).
+			Updates(map[string]interface{}{
+				"rev":       commit.Rev,
+				"prev_data": commit.DataCid,
+			}).Error; err != nil {
+			return err
+		}
+
+		if len(toDel) > 0 {
+			for _, op := range toDel {
+				if err := tx.Delete(&models.RepoRecord{}, "did = ? AND collection = ? AND rkey = ?",
+					op.Did, op.Collection, op.Rkey).Error; err != nil {
+					return err
+				}
+			}
+		}
+
+		if len(toPut) > 0 {
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "did"}, {Name: "collection"}, {Name: "rkey"}},
+				DoUpdates: clause.AssignmentColumns([]string{"cid"}),
+			}).CreateInBatches(toPut, 100).Error; err != nil {
+				return err
+			}
+		}
+
+		if len(dbEvts) > 0 {
+			if err := tx.CreateInBatches(dbEvts, 100).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	em.AddCacheEntries(cacheEntries)
+	return nil
 }
 
 func (em *EventManager) AddOutboxEvents(evts []OutboxEvt, live bool) error {
