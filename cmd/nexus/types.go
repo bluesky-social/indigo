@@ -25,23 +25,6 @@ type CommitOp struct {
 	Cid        string                 `json:"cid,omitempty"`
 }
 
-func (c *Commit) ToEvts() []*RecordEvt {
-	var evts []*RecordEvt
-	for _, op := range c.Ops {
-		evts = append(evts, &RecordEvt{
-			Live:       true,
-			Did:        c.Did,
-			Rev:        c.Rev,
-			Collection: op.Collection,
-			Rkey:       op.Rkey,
-			Action:     op.Action,
-			Record:     op.Record,
-			Cid:        op.Cid,
-		})
-	}
-	return evts
-}
-
 type RecordEvt struct {
 	Live       bool                   `json:"live"`
 	Did        string                 `json:"did"`

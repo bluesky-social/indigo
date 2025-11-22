@@ -16,17 +16,17 @@ import (
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 var tracer = otel.Tracer("nexus")
 
 type EventProcessor struct {
-	Logger   *slog.Logger
-	DB       *gorm.DB
-	Dir      identity.Directory
-	RelayUrl string
-	Outbox   *Outbox
+	Logger       *slog.Logger
+	DB           *gorm.DB
+	Dir          identity.Directory
+	RelayUrl     string
+	Outbox       *Outbox
+	EventManager *EventManager
 
 	FullNetworkMode   bool
 	SignalCollection  string
@@ -103,9 +103,7 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 		}
 	}
 
-	if err := ep.DB.Transaction(func(tx *gorm.DB) error {
-		return applyCommit(tx, commit)
-	}); err != nil {
+	if err := ep.EventManager.AddCommit(commit, nil); err != nil {
 		ep.Logger.Error("failed to update repo state", "did", commit.Did, "rev", commit.Rev, "error", err)
 		return err
 	}
@@ -379,86 +377,14 @@ func (ep *EventProcessor) drainResyncBuffer(ctx context.Context, did string) err
 			return fmt.Errorf("failed to unmarshal buffered event: %w", err)
 		}
 
-		if err := ep.DB.Transaction(func(tx *gorm.DB) error {
-			if err := applyCommit(tx, &commit); err != nil {
-				return err
-			}
-			return tx.Delete(&models.ResyncBuffer{}, "id = ?", evt.ID).Error
-		}); err != nil {
+		if err := ep.EventManager.AddCommit(&commit, &evt.ID); err != nil {
 			ep.Logger.Error("failed to process buffered commit", "did", commit.Did, "rev", commit.Rev, "error", err)
 			return err
 		}
-
 	}
 
 	ep.Logger.Info("processed buffered resync events", "did", did, "count", len(bufferedEvts))
 	return nil
-}
-
-func applyCommit(tx *gorm.DB, commit *Commit) error {
-	if err := tx.Model(&models.Repo{}).
-		Where("did = ?", commit.Did).
-		Updates(map[string]interface{}{
-			"rev":       commit.Rev,
-			"prev_data": commit.DataCid,
-		}).Error; err != nil {
-		return err
-	}
-
-	var toPut []*models.RepoRecord
-	var outboxBatch []*models.OutboxBuffer
-
-	for _, op := range commit.Ops {
-		if op.Action == "delete" {
-			if err := tx.Delete(&models.RepoRecord{}, "did = ? AND collection = ? AND rkey = ?",
-				commit.Did, op.Collection, op.Rkey).Error; err != nil {
-				return err
-			}
-		} else {
-			toPut = append(toPut, &models.RepoRecord{
-				Did:        commit.Did,
-				Collection: op.Collection,
-				Rkey:       op.Rkey,
-				Cid:        op.Cid,
-			})
-		}
-	}
-
-	if len(toPut) > 0 {
-		if err := tx.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "did"}, {Name: "collection"}, {Name: "rkey"}},
-			DoUpdates: clause.AssignmentColumns([]string{"cid"}),
-		}).CreateInBatches(toPut, 100).Error; err != nil {
-			return err
-		}
-	}
-
-	for _, evt := range commit.ToEvts() {
-		// in the case of invalid record CBOR
-		if evt.Record == nil && evt.Action != "delete" {
-			continue
-		}
-		jsonData, err := json.Marshal(&OutboxEvt{
-			Type:      "record",
-			RecordEvt: evt,
-		})
-		if err != nil {
-			return err
-		}
-		outboxBatch = append(outboxBatch, &models.OutboxBuffer{
-			Live: evt.Live,
-			Data: string(jsonData),
-		})
-	}
-
-	return batchInsertOutboxEvents(tx, outboxBatch)
-}
-
-func batchInsertOutboxEvents(tx *gorm.DB, events []*models.OutboxBuffer) error {
-	if len(events) == 0 {
-		return nil
-	}
-	return tx.CreateInBatches(events, 100).Error
 }
 
 func deleteRepo(tx *gorm.DB, did string) error {
