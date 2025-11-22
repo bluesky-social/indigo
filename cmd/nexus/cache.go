@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type EventThing struct {
+type EventManager struct {
 	DB *gorm.DB
 
 	nextID atomic.Uint64
@@ -23,7 +23,7 @@ type CacheEntry struct {
 	Did   string
 }
 
-func (em *EventThing) AddOutboxEvents(evts []OutboxEvt, live bool) error {
+func (em *EventManager) AddOutboxEvents(evts []OutboxEvt, live bool) error {
 	entries, err := em.AddOutboxEventsTxOnly(em.DB, evts, live)
 	if err != nil {
 		return err
@@ -32,7 +32,7 @@ func (em *EventThing) AddOutboxEvents(evts []OutboxEvt, live bool) error {
 	return nil
 }
 
-func (em *EventThing) AddOutboxEventsTxOnly(tx *gorm.DB, evts []OutboxEvt, live bool) (map[uint]CacheEntry, error) {
+func (em *EventManager) AddOutboxEventsTxOnly(tx *gorm.DB, evts []OutboxEvt, live bool) (map[uint]CacheEntry, error) {
 	dbEvts := make([]*models.OutboxBuffer, 0, len(evts))
 	cacheEntries := make(map[uint]CacheEntry, len(evts))
 
@@ -67,7 +67,7 @@ func (em *EventThing) AddOutboxEventsTxOnly(tx *gorm.DB, evts []OutboxEvt, live 
 	return cacheEntries, nil
 }
 
-func (em *EventThing) AddCacheEntries(entries map[uint]CacheEntry) {
+func (em *EventManager) AddCacheEntries(entries map[uint]CacheEntry) {
 	em.cacheMu.Lock()
 	for id, entry := range entries {
 		entryCopy := entry // Create heap copy
@@ -76,7 +76,7 @@ func (em *EventThing) AddCacheEntries(entries map[uint]CacheEntry) {
 	em.cacheMu.Unlock()
 }
 
-func (em *EventThing) DeleteEvents(ids []uint) error {
+func (em *EventManager) DeleteEvents(ids []uint) error {
 	if len(ids) == 0 {
 		return nil
 	}
