@@ -85,8 +85,18 @@ type ModerationScheduleAction_Takedown struct {
 	Comment                    *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	// durationInHours: Indicates how long the takedown should be in effect before automatically expiring.
 	DurationInHours *int64 `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
+	// emailContent: Email content to be sent to the user upon takedown.
+	EmailContent *string `json:"emailContent,omitempty" cborgen:"emailContent,omitempty"`
+	// emailSubject: Subject of the email to be sent to the user upon takedown.
+	EmailSubject *string `json:"emailSubject,omitempty" cborgen:"emailSubject,omitempty"`
 	// policies: Names/Keywords of the policies that drove the decision.
 	Policies []string `json:"policies,omitempty" cborgen:"policies,omitempty"`
+	// severityLevel: Severity level of the violation (e.g., 'sev-0', 'sev-1', 'sev-2', etc.).
+	SeverityLevel *string `json:"severityLevel,omitempty" cborgen:"severityLevel,omitempty"`
+	// strikeCount: Number of strikes to assign to the user when takedown is applied.
+	StrikeCount *int64 `json:"strikeCount,omitempty" cborgen:"strikeCount,omitempty"`
+	// strikeExpiresAt: When the strike should expire. If not provided, the strike never expires.
+	StrikeExpiresAt *string `json:"strikeExpiresAt,omitempty" cborgen:"strikeExpiresAt,omitempty"`
 }
 
 // ModerationScheduleAction calls the XRPC method "tools.ozone.moderation.scheduleAction".

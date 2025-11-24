@@ -56,15 +56,11 @@ func (t *UnspeccedGetPostThreadOtherV2_ThreadItem_Value) UnmarshalJSON(b []byte)
 // UnspeccedGetPostThreadOtherV2 calls the XRPC method "app.bsky.unspecced.getPostThreadOtherV2".
 //
 // anchor: Reference (AT-URI) to post record. This is the anchor post.
-// prioritizeFollowedUsers: Whether to prioritize posts from followed users. It only has effect when the user is authenticated.
-func UnspeccedGetPostThreadOtherV2(ctx context.Context, c lexutil.LexClient, anchor string, prioritizeFollowedUsers bool) (*UnspeccedGetPostThreadOtherV2_Output, error) {
+func UnspeccedGetPostThreadOtherV2(ctx context.Context, c lexutil.LexClient, anchor string) (*UnspeccedGetPostThreadOtherV2_Output, error) {
 	var out UnspeccedGetPostThreadOtherV2_Output
 
 	params := map[string]interface{}{}
 	params["anchor"] = anchor
-	if prioritizeFollowedUsers {
-		params["prioritizeFollowedUsers"] = prioritizeFollowedUsers
-	}
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.getPostThreadOtherV2", params, nil, &out); err != nil {
 		return nil, err
 	}

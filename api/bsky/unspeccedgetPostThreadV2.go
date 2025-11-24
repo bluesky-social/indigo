@@ -86,9 +86,8 @@ func (t *UnspeccedGetPostThreadV2_ThreadItem_Value) UnmarshalJSON(b []byte) erro
 // anchor: Reference (AT-URI) to post record. This is the anchor post, and the thread will be built around it. It can be any post in the tree, not necessarily a root post.
 // below: How many levels of replies to include below the anchor.
 // branchingFactor: Maximum of replies to include at each level of the thread, except for the direct replies to the anchor, which are (NOTE: currently, during unspecced phase) all returned (NOTE: later they might be paginated).
-// prioritizeFollowedUsers: Whether to prioritize posts from followed users. It only has effect when the user is authenticated.
 // sort: Sorting for the thread replies.
-func UnspeccedGetPostThreadV2(ctx context.Context, c lexutil.LexClient, above bool, anchor string, below int64, branchingFactor int64, prioritizeFollowedUsers bool, sort string) (*UnspeccedGetPostThreadV2_Output, error) {
+func UnspeccedGetPostThreadV2(ctx context.Context, c lexutil.LexClient, above bool, anchor string, below int64, branchingFactor int64, sort string) (*UnspeccedGetPostThreadV2_Output, error) {
 	var out UnspeccedGetPostThreadV2_Output
 
 	params := map[string]interface{}{}
@@ -101,9 +100,6 @@ func UnspeccedGetPostThreadV2(ctx context.Context, c lexutil.LexClient, above bo
 	}
 	if branchingFactor != 0 {
 		params["branchingFactor"] = branchingFactor
-	}
-	if prioritizeFollowedUsers {
-		params["prioritizeFollowedUsers"] = prioritizeFollowedUsers
 	}
 	if sort != "" {
 		params["sort"] = sort
