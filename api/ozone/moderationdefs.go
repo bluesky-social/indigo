@@ -205,6 +205,8 @@ type ModerationDefs_ModEventEmail struct {
 	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	// content: The content of the email sent to the user.
 	Content *string `json:"content,omitempty" cborgen:"content,omitempty"`
+	// isDelivered: Indicates whether the email was successfully delivered to the user's inbox.
+	IsDelivered *bool `json:"isDelivered,omitempty" cborgen:"isDelivered,omitempty"`
 	// policies: Names/Keywords of the policies that necessitated the email.
 	Policies []string `json:"policies,omitempty" cborgen:"policies,omitempty"`
 	// severityLevel: Severity level of the violation. Normally 'sev-1' that adds strike on repeat offense
@@ -330,6 +332,8 @@ type ModerationDefs_ModEventTakedown struct {
 	StrikeCount *int64 `json:"strikeCount,omitempty" cborgen:"strikeCount,omitempty"`
 	// strikeExpiresAt: When the strike should expire. If not provided, the strike never expires.
 	StrikeExpiresAt *string `json:"strikeExpiresAt,omitempty" cborgen:"strikeExpiresAt,omitempty"`
+	// targetServices: List of services where the takedown should be applied. If empty or not provided, takedown is applied on all configured services.
+	TargetServices []string `json:"targetServices,omitempty" cborgen:"targetServices,omitempty"`
 }
 
 // ModerationDefs_ModEventUnmute is a "modEventUnmute" in the tools.ozone.moderation.defs schema.

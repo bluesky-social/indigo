@@ -505,8 +505,6 @@ func (t *ActorDefs_StatusView_Embed) UnmarshalJSON(b []byte) error {
 // ActorDefs_ThreadViewPref is a "threadViewPref" in the app.bsky.actor.defs schema.
 type ActorDefs_ThreadViewPref struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#threadViewPref"`
-	// prioritizeFollowedUsers: Show followed users at the top of all replies.
-	PrioritizeFollowedUsers *bool `json:"prioritizeFollowedUsers,omitempty" cborgen:"prioritizeFollowedUsers,omitempty"`
 	// sort: Sorting mode for threads.
 	Sort *string `json:"sort,omitempty" cborgen:"sort,omitempty"`
 }
