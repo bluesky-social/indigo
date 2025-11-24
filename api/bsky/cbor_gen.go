@@ -2021,9 +2021,33 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 4
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if t.Via == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
+	}
+
+	// t.Via (atproto.RepoStrongRef) (struct)
+	if t.Via != nil {
+
+		if len("via") > 1000000 {
+			return xerrors.Errorf("Value in field \"via\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("via"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("via")); err != nil {
+			return err
+		}
+
+		if err := t.Via.MarshalCBOR(cw); err != nil {
+			return err
+		}
 	}
 
 	// t.LexiconTypeID (string) (string)
@@ -2134,7 +2158,27 @@ func (t *GraphFollow) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch string(nameBuf[:nameLen]) {
-		// t.LexiconTypeID (string) (string)
+		// t.Via (atproto.RepoStrongRef) (struct)
+		case "via":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Via = new(atproto.RepoStrongRef)
+					if err := t.Via.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Via pointer: %w", err)
+					}
+				}
+
+			}
+			// t.LexiconTypeID (string) (string)
 		case "$type":
 
 			{
