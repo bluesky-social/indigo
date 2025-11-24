@@ -65,6 +65,44 @@ func (s *SchemaDef) CheckSchema() error {
 	}
 }
 
+// Checks if def is of "parimary" type
+func (s *SchemaDef) IsPrimary() bool {
+	switch s.Inner.(type) {
+	case SchemaRecord, SchemaQuery, SchemaProcedure, SchemaSubscription, SchemaPermissionSet:
+		return true
+	}
+	return false
+}
+
+func (s *SchemaDef) IsConcrete() bool {
+	switch s.Inner.(type) {
+	case SchemaNull, SchemaBoolean, SchemaInteger, SchemaString, SchemaBytes, SchemaCIDLink, SchemaBlob:
+		return true
+	}
+	return false
+}
+
+// Checks if type can be a top-level "named" definition
+func (s *SchemaDef) IsDefinable() bool {
+	switch s.Inner.(type) {
+	case SchemaUnknown, SchemaUnion, SchemaRef, SchemaParams, SchemaPermission:
+		return false
+	}
+	return true
+}
+
+// Checks if the type is allowed to be included in object fields.
+func (s *SchemaDef) IsFieldType() bool {
+	if s.IsConcrete() {
+		return true
+	}
+	switch s.Inner.(type) {
+	case SchemaArray, SchemaObject, SchemaRef, SchemaUnion, SchemaUnknown:
+		return true
+	}
+	return false
+}
+
 // Helper to recurse down the definition tree and set full references on any sub-schemas which need to embed that metadata
 func (s *SchemaDef) setBase(base string) {
 	switch v := s.Inner.(type) {
@@ -107,7 +145,10 @@ func (s *SchemaDef) setBase(base string) {
 			}
 		}
 		if v.Message != nil {
-			v.Message.Schema.setBase(base)
+			u := SchemaDef{Inner: v.Message.Schema}
+			u.setBase(base)
+			i := u.Inner.(SchemaUnion)
+			v.Message.Schema = i
 		}
 		s.Inner = v
 	case SchemaArray:
@@ -310,7 +351,12 @@ type SchemaRecord struct {
 }
 
 func (s *SchemaRecord) CheckSchema() error {
+	if s.Type != "record" {
+		return fmt.Errorf("expected 'record' schema")
+	}
 	switch s.Key {
+	case "":
+		return fmt.Errorf("record key specifier is required")
 	case "tid", "nsid", "any":
 		// pass
 	default:
@@ -330,6 +376,9 @@ type SchemaQuery struct {
 }
 
 func (s *SchemaQuery) CheckSchema() error {
+	if s.Type != "query" {
+		return fmt.Errorf("expected 'query' schema")
+	}
 	if s.Output != nil {
 		if err := s.Output.CheckSchema(); err != nil {
 			return err
@@ -358,6 +407,9 @@ type SchemaProcedure struct {
 }
 
 func (s *SchemaProcedure) CheckSchema() error {
+	if s.Type != "procedure" {
+		return fmt.Errorf("expected 'procedure' schema")
+	}
 	if s.Input != nil {
 		if err := s.Input.CheckSchema(); err != nil {
 			return err
@@ -389,6 +441,9 @@ type SchemaSubscription struct {
 }
 
 func (s *SchemaSubscription) CheckSchema() error {
+	if s.Type != "subscription" {
+		return fmt.Errorf("expected 'subscription' schema")
+	}
 	if s.Message != nil {
 		if err := s.Message.CheckSchema(); err != nil {
 			return err
@@ -404,6 +459,7 @@ func (s *SchemaSubscription) CheckSchema() error {
 
 type SchemaPermissionSet struct {
 	Type        string             `json:"type"` // "permission-set"
+	Description *string            `json:"description,omitempty"`
 	Title       *string            `json:"title,omitempty"`
 	TitleLangs  map[string]string  `json:"title:langs,omitempty"`
 	Detail      *string            `json:"detail,omitempty"`
@@ -412,6 +468,9 @@ type SchemaPermissionSet struct {
 }
 
 func (s *SchemaPermissionSet) CheckSchema() error {
+	if s.Type != "permission-set" {
+		return fmt.Errorf("expected 'permission-set' schema")
+	}
 	for lang, _ := range s.TitleLangs {
 		_, err := syntax.ParseLanguage(lang)
 		if err != nil {
@@ -447,7 +506,7 @@ type SchemaPermission struct {
 
 func (s *SchemaPermission) CheckSchema() error {
 	if s.Type != "permission" {
-		return fmt.Errorf("expected 'permission'")
+		return fmt.Errorf("expected 'permission' schema")
 	}
 	switch s.Resource {
 	case "blob":
@@ -467,7 +526,7 @@ func (s *SchemaPermission) CheckSchema() error {
 		}
 		for _, coll := range s.Collection {
 			if coll == "*" {
-				continue
+				return fmt.Errorf("repo permission does not support wildcard when in permission set")
 			}
 			_, err := syntax.ParseNSID(coll)
 			if err != nil {
@@ -510,6 +569,8 @@ func (s *SchemaPermission) CheckSchema() error {
 				return fmt.Errorf("rpc 'aud' must be a service ref: %w", err)
 			}
 		}
+	case "account", "identity":
+		return fmt.Errorf("%s permission not allowed in permission sets", s.Resource)
 	default:
 		return fmt.Errorf("unsupported permission resource: %s", s.Resource)
 	}
@@ -539,14 +600,11 @@ func (s *SchemaBody) CheckSchema() error {
 }
 
 type SchemaMessage struct {
-	Description *string   `json:"description,omitempty"`
-	Schema      SchemaDef `json:"schema"` // required; type:union only
+	Description *string     `json:"description,omitempty"`
+	Schema      SchemaUnion `json:"schema"` // required; type:union only
 }
 
 func (s *SchemaMessage) CheckSchema() error {
-	if _, ok := s.Schema.Inner.(SchemaUnion); !ok {
-		return fmt.Errorf("message must have schema type union")
-	}
 	return s.Schema.CheckSchema()
 }
 
@@ -579,6 +637,9 @@ type SchemaNull struct {
 }
 
 func (s *SchemaNull) CheckSchema() error {
+	if s.Type != "null" {
+		return fmt.Errorf("expected 'null' schema")
+	}
 	return nil
 }
 
@@ -590,13 +651,16 @@ func (s *SchemaNull) Validate(d any) error {
 }
 
 type SchemaBoolean struct {
-	Type        string  `json:"type"` // "bool"
+	Type        string  `json:"type"` // "boolean"
 	Description *string `json:"description,omitempty"`
 	Default     *bool   `json:"default,omitempty"`
 	Const       *bool   `json:"const,omitempty"`
 }
 
 func (s *SchemaBoolean) CheckSchema() error {
+	if s.Type != "boolean" {
+		return fmt.Errorf("expected 'boolean' schema")
+	}
 	if s.Default != nil && s.Const != nil {
 		return fmt.Errorf("schema can't have both 'default' and 'const'")
 	}
@@ -625,6 +689,9 @@ type SchemaInteger struct {
 }
 
 func (s *SchemaInteger) CheckSchema() error {
+	if s.Type != "integer" {
+		return fmt.Errorf("expected 'integer' schema")
+	}
 	// TODO: enforce min/max against enum, default, const
 	if s.Default != nil && s.Const != nil {
 		return fmt.Errorf("schema can't have both 'default' and 'const'")
@@ -677,6 +744,9 @@ type SchemaString struct {
 }
 
 func (s *SchemaString) CheckSchema() error {
+	if s.Type != "string" {
+		return fmt.Errorf("expected 'string' schema")
+	}
 	// TODO: enforce min/max against enum, default, const
 	if s.Default != nil && s.Const != nil {
 		return fmt.Errorf("schema can't have both 'default' and 'const'")
@@ -799,6 +869,9 @@ type SchemaBytes struct {
 }
 
 func (s *SchemaBytes) CheckSchema() error {
+	if s.Type != "bytes" {
+		return fmt.Errorf("expected 'bytes' schema")
+	}
 	if s.MinLength != nil && s.MaxLength != nil && *s.MaxLength < *s.MinLength {
 		return fmt.Errorf("schema max < min")
 	}
@@ -826,6 +899,9 @@ type SchemaCIDLink struct {
 }
 
 func (s *SchemaCIDLink) CheckSchema() error {
+	if s.Type != "cid-link" {
+		return fmt.Errorf("expected 'cid-link' schema")
+	}
 	return nil
 }
 
@@ -846,12 +922,18 @@ type SchemaArray struct {
 }
 
 func (s *SchemaArray) CheckSchema() error {
+	if s.Type != "array" {
+		return fmt.Errorf("expected 'array' schema")
+	}
 	if s.MinLength != nil && s.MaxLength != nil && *s.MaxLength < *s.MinLength {
 		return fmt.Errorf("schema max < min")
 	}
 	if (s.MinLength != nil && *s.MinLength < 0) ||
 		(s.MaxLength != nil && *s.MaxLength < 0) {
 		return fmt.Errorf("array schema min or max below zero")
+	}
+	if !s.Items.IsFieldType() {
+		return fmt.Errorf("array schema elements not allowed type")
 	}
 	return s.Items.CheckSchema()
 }
@@ -865,6 +947,9 @@ type SchemaObject struct {
 }
 
 func (s *SchemaObject) CheckSchema() error {
+	if s.Type != "object" {
+		return fmt.Errorf("expected 'object' schema")
+	}
 	// TODO: check for set intersection between required and nullable
 	// TODO: check for set uniqueness of required and nullable
 	for _, k := range s.Required {
@@ -881,6 +966,9 @@ func (s *SchemaObject) CheckSchema() error {
 		// TODO: more checks on field name?
 		if len(k) == 0 {
 			return fmt.Errorf("empty object schema field name not allowed")
+		}
+		if !def.IsFieldType() {
+			return fmt.Errorf("object schema property not an allowed type")
 		}
 		if err := def.CheckSchema(); err != nil {
 			return err
@@ -907,6 +995,9 @@ type SchemaBlob struct {
 }
 
 func (s *SchemaBlob) CheckSchema() error {
+	if s.Type != "blob" {
+		return fmt.Errorf("expected 'blob' schema")
+	}
 	// TODO: validate Accept (mimetypes)?
 	if s.MaxSize != nil && *s.MaxSize <= 0 {
 		return fmt.Errorf("blob max size less or equal to zero")
@@ -949,7 +1040,7 @@ type SchemaParams struct {
 
 func (s *SchemaParams) CheckSchema() error {
 	if s.Type != "params" {
-		return fmt.Errorf("expected 'params'")
+		return fmt.Errorf("expected 'params' schema")
 	}
 	// TODO: check for set uniqueness of required
 	for _, k := range s.Required {
@@ -963,17 +1054,17 @@ func (s *SchemaParams) CheckSchema() error {
 			return fmt.Errorf("empty object schema field name not allowed")
 		}
 		switch v := def.Inner.(type) {
-		case SchemaBoolean, SchemaInteger, SchemaString, SchemaUnknown:
+		case SchemaBoolean, SchemaInteger, SchemaString:
 			// pass
 		case SchemaArray:
 			switch v.Items.Inner.(type) {
-			case SchemaBoolean, SchemaInteger, SchemaString, SchemaUnknown:
+			case SchemaBoolean, SchemaInteger, SchemaString:
 				// pass
 			default:
-				return fmt.Errorf("params array item type must be boolean, integer, string, or unknown")
+				return fmt.Errorf("params array item type must be boolean, integer, or string")
 			}
 		default:
-			return fmt.Errorf("params field type must be boolean, integer, string, or unknown")
+			return fmt.Errorf("params field type must be boolean, integer, string, or array")
 		}
 		if err := def.CheckSchema(); err != nil {
 			return err
@@ -990,6 +1081,9 @@ type SchemaToken struct {
 }
 
 func (s *SchemaToken) CheckSchema() error {
+	if s.Type != "token" {
+		return fmt.Errorf("expected 'token' schema")
+	}
 	if s.FullName == "" {
 		return fmt.Errorf("expected fully-qualified token name")
 	}
@@ -997,17 +1091,7 @@ func (s *SchemaToken) CheckSchema() error {
 }
 
 func (s *SchemaToken) Validate(d any) error {
-	str, ok := d.(string)
-	if !ok {
-		return fmt.Errorf("expected a string for token, got: %s", reflect.TypeOf(d))
-	}
-	if s.FullName == "" {
-		return fmt.Errorf("token name was not populated at parse time")
-	}
-	if str != s.FullName {
-		return fmt.Errorf("token name did not match expected: %s", str)
-	}
-	return nil
+	return fmt.Errorf("token type does not validate against data")
 }
 
 type SchemaRef struct {
@@ -1019,6 +1103,9 @@ type SchemaRef struct {
 }
 
 func (s *SchemaRef) CheckSchema() error {
+	if s.Type != "ref" {
+		return fmt.Errorf("expected 'ref' schema")
+	}
 	// TODO: more validation of ref string?
 	if len(s.Ref) == 0 {
 		return fmt.Errorf("empty schema ref")
@@ -1039,6 +1126,12 @@ type SchemaUnion struct {
 }
 
 func (s *SchemaUnion) CheckSchema() error {
+	if s.Type != "union" {
+		return fmt.Errorf("expected 'union' schema")
+	}
+	if len(s.Refs) == 0 && s.Closed != nil && *s.Closed {
+		return fmt.Errorf("closed empty unions are not allowed")
+	}
 	// TODO: uniqueness check on refs
 	for _, ref := range s.Refs {
 		// TODO: more validation of ref string?
@@ -1058,6 +1151,9 @@ type SchemaUnknown struct {
 }
 
 func (s *SchemaUnknown) CheckSchema() error {
+	if s.Type != "unknown" {
+		return fmt.Errorf("expected 'unknown' schema")
+	}
 	return nil
 }
 

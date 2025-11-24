@@ -22,5 +22,66 @@
         }
       }
     }
+  },
+  {
+    "name": "defined unknown",
+    "lexicon": {
+      "lexicon": 1,
+      "id": "example.lexicon",
+      "defs": {
+        "demo": {
+          "type": "unknown"
+        }
+      }
+    }
+  },
+  {
+    "name": "defined ref",
+    "lexicon": {
+      "lexicon": 1,
+      "id": "example.lexicon",
+      "defs": {
+        "demo": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef"
+        }
+      }
+    }
+  },
+  {
+    "name": "non-main primary",
+    "lexicon": {
+      "lexicon": 1,
+      "id": "example.lexicon",
+      "defs": {
+        "demo": {
+          "type": "record",
+          "key": "any",
+          "record": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "record missing type object",
+    "lexicon": {
+      "lexicon": 1,
+      "id": "example.lexicon",
+      "defs": {
+        "main": {
+          "type": "record",
+          "key": "any",
+          "record": {
+            "properties": {
+              "b": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    }
   }
 ]

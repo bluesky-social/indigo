@@ -8,6 +8,7 @@
       "key": "literal:demo",
       "description": "a record type with many field",
       "record": {
+        "type": "object",
         "required": [
           "integer"
         ],
@@ -73,7 +74,7 @@
           "ref": {
             "type": "ref",
             "description": "field of type ref",
-            "ref": "example.lexicon.record#demoToken"
+            "ref": "example.lexicon.record#demoObject"
           },
           "union": {
             "type": "union",
