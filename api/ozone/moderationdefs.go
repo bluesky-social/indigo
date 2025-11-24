@@ -70,20 +70,25 @@ type ModerationDefs_AccountStrike struct {
 //
 // Age assurance info coming directly from users. Only works on DID subjects.
 type ModerationDefs_AgeAssuranceEvent struct {
-	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#ageAssuranceEvent"`
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#ageAssuranceEvent"`
+	Access        *string `json:"access,omitempty" cborgen:"access,omitempty"`
 	// attemptId: The unique identifier for this instance of the age assurance flow, in UUID format.
 	AttemptId string `json:"attemptId" cborgen:"attemptId"`
 	// completeIp: The IP address used when completing the AA flow.
 	CompleteIp *string `json:"completeIp,omitempty" cborgen:"completeIp,omitempty"`
 	// completeUa: The user agent used when completing the AA flow.
 	CompleteUa *string `json:"completeUa,omitempty" cborgen:"completeUa,omitempty"`
+	// countryCode: The ISO 3166-1 alpha-2 country code provided when beginning the Age Assurance flow.
+	CountryCode *string `json:"countryCode,omitempty" cborgen:"countryCode,omitempty"`
 	// createdAt: The date and time of this write operation.
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 	// initIp: The IP address used when initiating the AA flow.
 	InitIp *string `json:"initIp,omitempty" cborgen:"initIp,omitempty"`
 	// initUa: The user agent used when initiating the AA flow.
 	InitUa *string `json:"initUa,omitempty" cborgen:"initUa,omitempty"`
-	// status: The status of the age assurance process.
+	// regionCode: The ISO 3166-2 region code provided when beginning the Age Assurance flow.
+	RegionCode *string `json:"regionCode,omitempty" cborgen:"regionCode,omitempty"`
+	// status: The status of the Age Assurance process.
 	Status string `json:"status" cborgen:"status"`
 }
 
@@ -91,7 +96,8 @@ type ModerationDefs_AgeAssuranceEvent struct {
 //
 // Age assurance status override by moderators. Only works on DID subjects.
 type ModerationDefs_AgeAssuranceOverrideEvent struct {
-	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#ageAssuranceOverrideEvent"`
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#ageAssuranceOverrideEvent"`
+	Access        *string `json:"access,omitempty" cborgen:"access,omitempty"`
 	// comment: Comment describing the reason for the override.
 	Comment string `json:"comment" cborgen:"comment"`
 	// status: The status to be set for the user decided by a moderator, overriding whatever value the user had previously. Use reset to default to original state.
