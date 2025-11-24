@@ -568,6 +568,8 @@ func (s *SchemaPermission) CheckSchema() error {
 				return fmt.Errorf("rpc 'aud' must be a service ref: %w", err)
 			}
 		}
+	case "account", "identity":
+		return fmt.Errorf("%s permission not allowed in permission sets", s.Resource)
 	default:
 		return fmt.Errorf("unsupported permission resource: %s", s.Resource)
 	}
