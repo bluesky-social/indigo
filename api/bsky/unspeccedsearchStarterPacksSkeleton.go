@@ -33,10 +33,10 @@ func UnspeccedSearchStarterPacksSkeleton(ctx context.Context, c lexutil.LexClien
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	params["q"] = q
 	if viewer != "" {
 		params["viewer"] = viewer
 	}
+	params["q"] = q
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.searchStarterPacksSkeleton", params, nil, &out); err != nil {
 		return nil, err
 	}

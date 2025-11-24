@@ -61,10 +61,10 @@ func GraphGetRelationships(ctx context.Context, c lexutil.LexClient, actor strin
 	var out GraphGetRelationships_Output
 
 	params := map[string]interface{}{}
-	params["actor"] = actor
 	if len(others) != 0 {
 		params["others"] = others
 	}
+	params["actor"] = actor
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.graph.getRelationships", params, nil, &out); err != nil {
 		return nil, err
 	}

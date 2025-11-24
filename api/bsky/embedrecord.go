@@ -16,7 +16,6 @@ func init() {
 	lexutil.RegisterType("app.bsky.embed.record#main", &EmbedRecord{})
 }
 
-// EmbedRecord is a "main" in the app.bsky.embed.record schema.
 type EmbedRecord struct {
 	LexiconTypeID string                    `json:"$type" cborgen:"$type,const=app.bsky.embed.record"`
 	Record        *comatproto.RepoStrongRef `json:"record" cborgen:"record"`
@@ -26,6 +25,89 @@ type EmbedRecord struct {
 type EmbedRecord_View struct {
 	LexiconTypeID string                   `json:"$type" cborgen:"$type,const=app.bsky.embed.record#view"`
 	Record        *EmbedRecord_View_Record `json:"record" cborgen:"record"`
+}
+
+type EmbedRecord_View_Record struct {
+	EmbedRecord_ViewRecord         *EmbedRecord_ViewRecord
+	EmbedRecord_ViewNotFound       *EmbedRecord_ViewNotFound
+	EmbedRecord_ViewBlocked        *EmbedRecord_ViewBlocked
+	EmbedRecord_ViewDetached       *EmbedRecord_ViewDetached
+	FeedDefs_GeneratorView         *FeedDefs_GeneratorView
+	GraphDefs_ListView             *GraphDefs_ListView
+	LabelerDefs_LabelerView        *LabelerDefs_LabelerView
+	GraphDefs_StarterPackViewBasic *GraphDefs_StarterPackViewBasic
+}
+
+func (t *EmbedRecord_View_Record) MarshalJSON() ([]byte, error) {
+	if t.EmbedRecord_ViewRecord != nil {
+		t.EmbedRecord_ViewRecord.LexiconTypeID = "app.bsky.embed.record#viewRecord"
+		return json.Marshal(t.EmbedRecord_ViewRecord)
+	}
+	if t.EmbedRecord_ViewNotFound != nil {
+		t.EmbedRecord_ViewNotFound.LexiconTypeID = "app.bsky.embed.record#viewNotFound"
+		return json.Marshal(t.EmbedRecord_ViewNotFound)
+	}
+	if t.EmbedRecord_ViewBlocked != nil {
+		t.EmbedRecord_ViewBlocked.LexiconTypeID = "app.bsky.embed.record#viewBlocked"
+		return json.Marshal(t.EmbedRecord_ViewBlocked)
+	}
+	if t.EmbedRecord_ViewDetached != nil {
+		t.EmbedRecord_ViewDetached.LexiconTypeID = "app.bsky.embed.record#viewDetached"
+		return json.Marshal(t.EmbedRecord_ViewDetached)
+	}
+	if t.FeedDefs_GeneratorView != nil {
+		t.FeedDefs_GeneratorView.LexiconTypeID = "app.bsky.feed.defs#generatorView"
+		return json.Marshal(t.FeedDefs_GeneratorView)
+	}
+	if t.GraphDefs_ListView != nil {
+		t.GraphDefs_ListView.LexiconTypeID = "app.bsky.graph.defs#listView"
+		return json.Marshal(t.GraphDefs_ListView)
+	}
+	if t.LabelerDefs_LabelerView != nil {
+		t.LabelerDefs_LabelerView.LexiconTypeID = "app.bsky.labeler.defs#labelerView"
+		return json.Marshal(t.LabelerDefs_LabelerView)
+	}
+	if t.GraphDefs_StarterPackViewBasic != nil {
+		t.GraphDefs_StarterPackViewBasic.LexiconTypeID = "app.bsky.graph.defs#starterPackViewBasic"
+		return json.Marshal(t.GraphDefs_StarterPackViewBasic)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *EmbedRecord_View_Record) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "app.bsky.embed.record#viewRecord":
+		t.EmbedRecord_ViewRecord = new(EmbedRecord_ViewRecord)
+		return json.Unmarshal(b, t.EmbedRecord_ViewRecord)
+	case "app.bsky.embed.record#viewNotFound":
+		t.EmbedRecord_ViewNotFound = new(EmbedRecord_ViewNotFound)
+		return json.Unmarshal(b, t.EmbedRecord_ViewNotFound)
+	case "app.bsky.embed.record#viewBlocked":
+		t.EmbedRecord_ViewBlocked = new(EmbedRecord_ViewBlocked)
+		return json.Unmarshal(b, t.EmbedRecord_ViewBlocked)
+	case "app.bsky.embed.record#viewDetached":
+		t.EmbedRecord_ViewDetached = new(EmbedRecord_ViewDetached)
+		return json.Unmarshal(b, t.EmbedRecord_ViewDetached)
+	case "app.bsky.feed.defs#generatorView":
+		t.FeedDefs_GeneratorView = new(FeedDefs_GeneratorView)
+		return json.Unmarshal(b, t.FeedDefs_GeneratorView)
+	case "app.bsky.graph.defs#listView":
+		t.GraphDefs_ListView = new(GraphDefs_ListView)
+		return json.Unmarshal(b, t.GraphDefs_ListView)
+	case "app.bsky.labeler.defs#labelerView":
+		t.LabelerDefs_LabelerView = new(LabelerDefs_LabelerView)
+		return json.Unmarshal(b, t.LabelerDefs_LabelerView)
+	case "app.bsky.graph.defs#starterPackViewBasic":
+		t.GraphDefs_StarterPackViewBasic = new(GraphDefs_StarterPackViewBasic)
+		return json.Unmarshal(b, t.GraphDefs_StarterPackViewBasic)
+	default:
+		return nil
+	}
 }
 
 // EmbedRecord_ViewBlocked is a "viewBlocked" in the app.bsky.embed.record schema.
@@ -121,89 +203,6 @@ func (t *EmbedRecord_ViewRecord_Embeds_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.recordWithMedia#view":
 		t.EmbedRecordWithMedia_View = new(EmbedRecordWithMedia_View)
 		return json.Unmarshal(b, t.EmbedRecordWithMedia_View)
-	default:
-		return nil
-	}
-}
-
-type EmbedRecord_View_Record struct {
-	EmbedRecord_ViewRecord         *EmbedRecord_ViewRecord
-	EmbedRecord_ViewNotFound       *EmbedRecord_ViewNotFound
-	EmbedRecord_ViewBlocked        *EmbedRecord_ViewBlocked
-	EmbedRecord_ViewDetached       *EmbedRecord_ViewDetached
-	FeedDefs_GeneratorView         *FeedDefs_GeneratorView
-	GraphDefs_ListView             *GraphDefs_ListView
-	LabelerDefs_LabelerView        *LabelerDefs_LabelerView
-	GraphDefs_StarterPackViewBasic *GraphDefs_StarterPackViewBasic
-}
-
-func (t *EmbedRecord_View_Record) MarshalJSON() ([]byte, error) {
-	if t.EmbedRecord_ViewRecord != nil {
-		t.EmbedRecord_ViewRecord.LexiconTypeID = "app.bsky.embed.record#viewRecord"
-		return json.Marshal(t.EmbedRecord_ViewRecord)
-	}
-	if t.EmbedRecord_ViewNotFound != nil {
-		t.EmbedRecord_ViewNotFound.LexiconTypeID = "app.bsky.embed.record#viewNotFound"
-		return json.Marshal(t.EmbedRecord_ViewNotFound)
-	}
-	if t.EmbedRecord_ViewBlocked != nil {
-		t.EmbedRecord_ViewBlocked.LexiconTypeID = "app.bsky.embed.record#viewBlocked"
-		return json.Marshal(t.EmbedRecord_ViewBlocked)
-	}
-	if t.EmbedRecord_ViewDetached != nil {
-		t.EmbedRecord_ViewDetached.LexiconTypeID = "app.bsky.embed.record#viewDetached"
-		return json.Marshal(t.EmbedRecord_ViewDetached)
-	}
-	if t.FeedDefs_GeneratorView != nil {
-		t.FeedDefs_GeneratorView.LexiconTypeID = "app.bsky.feed.defs#generatorView"
-		return json.Marshal(t.FeedDefs_GeneratorView)
-	}
-	if t.GraphDefs_ListView != nil {
-		t.GraphDefs_ListView.LexiconTypeID = "app.bsky.graph.defs#listView"
-		return json.Marshal(t.GraphDefs_ListView)
-	}
-	if t.LabelerDefs_LabelerView != nil {
-		t.LabelerDefs_LabelerView.LexiconTypeID = "app.bsky.labeler.defs#labelerView"
-		return json.Marshal(t.LabelerDefs_LabelerView)
-	}
-	if t.GraphDefs_StarterPackViewBasic != nil {
-		t.GraphDefs_StarterPackViewBasic.LexiconTypeID = "app.bsky.graph.defs#starterPackViewBasic"
-		return json.Marshal(t.GraphDefs_StarterPackViewBasic)
-	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
-}
-
-func (t *EmbedRecord_View_Record) UnmarshalJSON(b []byte) error {
-	typ, err := lexutil.TypeExtract(b)
-	if err != nil {
-		return err
-	}
-
-	switch typ {
-	case "app.bsky.embed.record#viewRecord":
-		t.EmbedRecord_ViewRecord = new(EmbedRecord_ViewRecord)
-		return json.Unmarshal(b, t.EmbedRecord_ViewRecord)
-	case "app.bsky.embed.record#viewNotFound":
-		t.EmbedRecord_ViewNotFound = new(EmbedRecord_ViewNotFound)
-		return json.Unmarshal(b, t.EmbedRecord_ViewNotFound)
-	case "app.bsky.embed.record#viewBlocked":
-		t.EmbedRecord_ViewBlocked = new(EmbedRecord_ViewBlocked)
-		return json.Unmarshal(b, t.EmbedRecord_ViewBlocked)
-	case "app.bsky.embed.record#viewDetached":
-		t.EmbedRecord_ViewDetached = new(EmbedRecord_ViewDetached)
-		return json.Unmarshal(b, t.EmbedRecord_ViewDetached)
-	case "app.bsky.feed.defs#generatorView":
-		t.FeedDefs_GeneratorView = new(FeedDefs_GeneratorView)
-		return json.Unmarshal(b, t.FeedDefs_GeneratorView)
-	case "app.bsky.graph.defs#listView":
-		t.GraphDefs_ListView = new(GraphDefs_ListView)
-		return json.Unmarshal(b, t.GraphDefs_ListView)
-	case "app.bsky.labeler.defs#labelerView":
-		t.LabelerDefs_LabelerView = new(LabelerDefs_LabelerView)
-		return json.Unmarshal(b, t.LabelerDefs_LabelerView)
-	case "app.bsky.graph.defs#starterPackViewBasic":
-		t.GraphDefs_StarterPackViewBasic = new(GraphDefs_StarterPackViewBasic)
-		return json.Unmarshal(b, t.GraphDefs_StarterPackViewBasic)
 	default:
 		return nil
 	}

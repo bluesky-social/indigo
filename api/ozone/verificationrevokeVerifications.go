@@ -26,16 +26,6 @@ type VerificationRevokeVerifications_Output struct {
 	RevokedVerifications []string `json:"revokedVerifications" cborgen:"revokedVerifications"`
 }
 
-// VerificationRevokeVerifications_RevokeError is a "revokeError" in the tools.ozone.verification.revokeVerifications schema.
-//
-// Error object for failed revocations
-type VerificationRevokeVerifications_RevokeError struct {
-	// error: Description of the error that occurred during revocation.
-	Error string `json:"error" cborgen:"error"`
-	// uri: The AT-URI of the verification record that failed to revoke.
-	Uri string `json:"uri" cborgen:"uri"`
-}
-
 // VerificationRevokeVerifications calls the XRPC method "tools.ozone.verification.revokeVerifications".
 func VerificationRevokeVerifications(ctx context.Context, c lexutil.LexClient, input *VerificationRevokeVerifications_Input) (*VerificationRevokeVerifications_Output, error) {
 	var out VerificationRevokeVerifications_Output
@@ -44,4 +34,15 @@ func VerificationRevokeVerifications(ctx context.Context, c lexutil.LexClient, i
 	}
 
 	return &out, nil
+}
+
+// VerificationRevokeVerifications_RevokeError is a "revokeError" in the tools.ozone.verification.revokeVerifications schema.
+//
+// Error object for failed revocations
+type VerificationRevokeVerifications_RevokeError struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.verification.revokeVerifications#revokeError"`
+	// error: Description of the error that occurred during revocation.
+	Error string `json:"error" cborgen:"error"`
+	// uri: The AT-URI of the verification record that failed to revoke.
+	Uri string `json:"uri" cborgen:"uri"`
 }

@@ -6,6 +6,7 @@ package atproto
 
 // RepoDefs_CommitMeta is a "commitMeta" in the com.atproto.repo.defs schema.
 type RepoDefs_CommitMeta struct {
-	Cid string `json:"cid" cborgen:"cid"`
-	Rev string `json:"rev" cborgen:"rev"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.repo.defs#commitMeta"`
+	Cid           string `json:"cid" cborgen:"cid"`
+	Rev           string `json:"rev" cborgen:"rev"`
 }

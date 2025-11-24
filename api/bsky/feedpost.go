@@ -149,16 +149,6 @@ func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
 	}
 }
 
-// FeedPost_Entity is a "entity" in the app.bsky.feed.post schema.
-//
-// Deprecated: use facets instead.
-type FeedPost_Entity struct {
-	Index *FeedPost_TextSlice `json:"index" cborgen:"index"`
-	// type: Expected values are 'mention' and 'link'.
-	Type  string `json:"type" cborgen:"type"`
-	Value string `json:"value" cborgen:"value"`
-}
-
 // Self-label values for this post. Effectively content warnings.
 type FeedPost_Labels struct {
 	LabelDefs_SelfLabels *comatproto.LabelDefs_SelfLabels
@@ -214,16 +204,29 @@ func (t *FeedPost_Labels) UnmarshalCBOR(r io.Reader) error {
 	}
 }
 
+// FeedPost_Entity is a "entity" in the app.bsky.feed.post schema.
+//
+// Deprecated: use facets instead.
+type FeedPost_Entity struct {
+	LexiconTypeID string              `json:"$type" cborgen:"$type,const=app.bsky.feed.post#entity"`
+	Index         *FeedPost_TextSlice `json:"index" cborgen:"index"`
+	// type: Expected values are 'mention' and 'link'.
+	Type  string `json:"type" cborgen:"type"`
+	Value string `json:"value" cborgen:"value"`
+}
+
 // FeedPost_ReplyRef is a "replyRef" in the app.bsky.feed.post schema.
 type FeedPost_ReplyRef struct {
-	Parent *comatproto.RepoStrongRef `json:"parent" cborgen:"parent"`
-	Root   *comatproto.RepoStrongRef `json:"root" cborgen:"root"`
+	LexiconTypeID string                    `json:"$type" cborgen:"$type,const=app.bsky.feed.post#replyRef"`
+	Parent        *comatproto.RepoStrongRef `json:"parent" cborgen:"parent"`
+	Root          *comatproto.RepoStrongRef `json:"root" cborgen:"root"`
 }
 
 // FeedPost_TextSlice is a "textSlice" in the app.bsky.feed.post schema.
 //
 // Deprecated. Use app.bsky.richtext instead -- A text segment. Start is inclusive, end is exclusive. Indices are for utf16-encoded strings.
 type FeedPost_TextSlice struct {
-	End   int64 `json:"end" cborgen:"end"`
-	Start int64 `json:"start" cborgen:"start"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.feed.post#textSlice"`
+	End           int64  `json:"end" cborgen:"end"`
+	Start         int64  `json:"start" cborgen:"start"`
 }

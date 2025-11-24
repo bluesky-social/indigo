@@ -58,13 +58,13 @@ func ConvoGetMessages(ctx context.Context, c lexutil.LexClient, convoId string, 
 	var out ConvoGetMessages_Output
 
 	params := map[string]interface{}{}
-	params["convoId"] = convoId
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
 	if limit != 0 {
 		params["limit"] = limit
 	}
+	params["convoId"] = convoId
 	if err := c.LexDo(ctx, lexutil.Query, "", "chat.bsky.convo.getMessages", params, nil, &out); err != nil {
 		return nil, err
 	}

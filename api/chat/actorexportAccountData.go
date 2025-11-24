@@ -14,6 +14,7 @@ import (
 // ActorExportAccountData calls the XRPC method "chat.bsky.actor.exportAccountData".
 func ActorExportAccountData(ctx context.Context, c lexutil.LexClient) ([]byte, error) {
 	buf := new(bytes.Buffer)
+
 	if err := c.LexDo(ctx, lexutil.Query, "", "chat.bsky.actor.exportAccountData", nil, nil, buf); err != nil {
 		return nil, err
 	}

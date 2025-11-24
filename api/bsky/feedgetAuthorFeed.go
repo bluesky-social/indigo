@@ -23,7 +23,6 @@ func FeedGetAuthorFeed(ctx context.Context, c lexutil.LexClient, actor string, c
 	var out FeedGetAuthorFeed_Output
 
 	params := map[string]interface{}{}
-	params["actor"] = actor
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
@@ -36,6 +35,7 @@ func FeedGetAuthorFeed(ctx context.Context, c lexutil.LexClient, actor string, c
 	if limit != 0 {
 		params["limit"] = limit
 	}
+	params["actor"] = actor
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.feed.getAuthorFeed", params, nil, &out); err != nil {
 		return nil, err
 	}

@@ -10,16 +10,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// VerificationGrantVerifications_GrantError is a "grantError" in the tools.ozone.verification.grantVerifications schema.
-//
-// Error object for failed verifications.
-type VerificationGrantVerifications_GrantError struct {
-	// error: Error message describing the reason for failure.
-	Error string `json:"error" cborgen:"error"`
-	// subject: The did of the subject being verified
-	Subject string `json:"subject" cborgen:"subject"`
-}
-
 // VerificationGrantVerifications_Input is the input argument to a tools.ozone.verification.grantVerifications call.
 type VerificationGrantVerifications_Input struct {
 	// verifications: Array of verification requests to process
@@ -32,18 +22,6 @@ type VerificationGrantVerifications_Output struct {
 	Verifications       []*VerificationDefs_VerificationView         `json:"verifications" cborgen:"verifications"`
 }
 
-// VerificationGrantVerifications_VerificationInput is the input argument to a tools.ozone.verification.grantVerifications call.
-type VerificationGrantVerifications_VerificationInput struct {
-	// createdAt: Timestamp for verification record. Defaults to current time when not specified.
-	CreatedAt *string `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
-	// displayName: Display name of the subject the verification applies to at the moment of verifying.
-	DisplayName string `json:"displayName" cborgen:"displayName"`
-	// handle: Handle of the subject the verification applies to at the moment of verifying.
-	Handle string `json:"handle" cborgen:"handle"`
-	// subject: The did of the subject being verified
-	Subject string `json:"subject" cborgen:"subject"`
-}
-
 // VerificationGrantVerifications calls the XRPC method "tools.ozone.verification.grantVerifications".
 func VerificationGrantVerifications(ctx context.Context, c lexutil.LexClient, input *VerificationGrantVerifications_Input) (*VerificationGrantVerifications_Output, error) {
 	var out VerificationGrantVerifications_Output
@@ -52,4 +30,28 @@ func VerificationGrantVerifications(ctx context.Context, c lexutil.LexClient, in
 	}
 
 	return &out, nil
+}
+
+// VerificationGrantVerifications_GrantError is a "grantError" in the tools.ozone.verification.grantVerifications schema.
+//
+// Error object for failed verifications.
+type VerificationGrantVerifications_GrantError struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.verification.grantVerifications#grantError"`
+	// error: Error message describing the reason for failure.
+	Error string `json:"error" cborgen:"error"`
+	// subject: The did of the subject being verified
+	Subject string `json:"subject" cborgen:"subject"`
+}
+
+// VerificationGrantVerifications_VerificationInput is a "verificationInput" in the tools.ozone.verification.grantVerifications schema.
+type VerificationGrantVerifications_VerificationInput struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.verification.grantVerifications#verificationInput"`
+	// createdAt: Timestamp for verification record. Defaults to current time when not specified.
+	CreatedAt *string `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	// displayName: Display name of the subject the verification applies to at the moment of verifying.
+	DisplayName string `json:"displayName" cborgen:"displayName"`
+	// handle: Handle of the subject the verification applies to at the moment of verifying.
+	Handle string `json:"handle" cborgen:"handle"`
+	// subject: The did of the subject being verified
+	Subject string `json:"subject" cborgen:"subject"`
 }

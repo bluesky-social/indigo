@@ -27,7 +27,7 @@ type SyncSubscribeRepos_Account struct {
 type SyncSubscribeRepos_Commit struct {
 	Blobs []lexutil.LexLink `json:"blobs" cborgen:"blobs"`
 	// blocks: CAR file containing relevant blocks, as a diff since the previous repo state. The commit must be included as a block, and the commit block CID must be the first entry in the CAR header 'roots' list.
-	Blocks lexutil.LexBytes `json:"blocks,omitempty" cborgen:"blocks,omitempty"`
+	Blocks lexutil.LexBytes `json:"blocks" cborgen:"blocks"`
 	// commit: Repo commit object CID.
 	Commit lexutil.LexLink              `json:"commit" cborgen:"commit"`
 	Ops    []*SyncSubscribeRepos_RepoOp `json:"ops" cborgen:"ops"`
@@ -42,7 +42,7 @@ type SyncSubscribeRepos_Commit struct {
 	// seq: The stream sequence number of this message.
 	Seq int64 `json:"seq" cborgen:"seq"`
 	// since: The rev of the last emitted commit from this repo (if any).
-	Since *string `json:"since" cborgen:"since"`
+	Since *string `json:"since,omitempty" cborgen:"since,omitempty"`
 	// time: Timestamp of when this message was originally broadcast.
 	Time string `json:"time" cborgen:"time"`
 	// tooBig: DEPRECATED -- replaced by #sync event and data limits. Indicates that this commit contained too many ops, or data size was too large. Consumers will need to make a separate request to get missing data.
@@ -72,7 +72,7 @@ type SyncSubscribeRepos_Info struct {
 type SyncSubscribeRepos_RepoOp struct {
 	Action string `json:"action" cborgen:"action"`
 	// cid: For creates and updates, the new record CID. For deletions, null.
-	Cid  *lexutil.LexLink `json:"cid" cborgen:"cid"`
+	Cid  *lexutil.LexLink `json:"cid,omitempty" cborgen:"cid,omitempty"`
 	Path string           `json:"path" cborgen:"path"`
 	// prev: For updates and deletes, the previous record CID (required for inductive firehose). For creations, field should not be defined.
 	Prev *lexutil.LexLink `json:"prev,omitempty" cborgen:"prev,omitempty"`
@@ -83,7 +83,7 @@ type SyncSubscribeRepos_RepoOp struct {
 // Updates the repo to a new state, without necessarily including that state on the firehose. Used to recover from broken commit streams, data loss incidents, or in situations where upstream host does not know recent state of the repository.
 type SyncSubscribeRepos_Sync struct {
 	// blocks: CAR file containing the commit, as a block. The CAR header must include the commit block CID as the first 'root'.
-	Blocks lexutil.LexBytes `json:"blocks,omitempty" cborgen:"blocks,omitempty"`
+	Blocks lexutil.LexBytes `json:"blocks" cborgen:"blocks"`
 	// did: The account this repo event corresponds to. Must match that in the commit object.
 	Did string `json:"did" cborgen:"did"`
 	// rev: The rev of the commit. This value must match that in the commit object.

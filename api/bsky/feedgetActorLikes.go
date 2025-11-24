@@ -21,13 +21,13 @@ func FeedGetActorLikes(ctx context.Context, c lexutil.LexClient, actor string, c
 	var out FeedGetActorLikes_Output
 
 	params := map[string]interface{}{}
-	params["actor"] = actor
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
 	if limit != 0 {
 		params["limit"] = limit
 	}
+	params["actor"] = actor
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.feed.getActorLikes", params, nil, &out); err != nil {
 		return nil, err
 	}

@@ -14,14 +14,15 @@ import (
 
 // ConvoDefs_ConvoView is a "convoView" in the chat.bsky.convo.defs schema.
 type ConvoDefs_ConvoView struct {
-	Id           string                            `json:"id" cborgen:"id"`
-	LastMessage  *ConvoDefs_ConvoView_LastMessage  `json:"lastMessage,omitempty" cborgen:"lastMessage,omitempty"`
-	LastReaction *ConvoDefs_ConvoView_LastReaction `json:"lastReaction,omitempty" cborgen:"lastReaction,omitempty"`
-	Members      []*ActorDefs_ProfileViewBasic     `json:"members" cborgen:"members"`
-	Muted        bool                              `json:"muted" cborgen:"muted"`
-	Rev          string                            `json:"rev" cborgen:"rev"`
-	Status       *string                           `json:"status,omitempty" cborgen:"status,omitempty"`
-	UnreadCount  int64                             `json:"unreadCount" cborgen:"unreadCount"`
+	LexiconTypeID string                            `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#convoView"`
+	Id            string                            `json:"id" cborgen:"id"`
+	LastMessage   *ConvoDefs_ConvoView_LastMessage  `json:"lastMessage,omitempty" cborgen:"lastMessage,omitempty"`
+	LastReaction  *ConvoDefs_ConvoView_LastReaction `json:"lastReaction,omitempty" cborgen:"lastReaction,omitempty"`
+	Members       []*ActorDefs_ProfileViewBasic     `json:"members" cborgen:"members"`
+	Muted         bool                              `json:"muted" cborgen:"muted"`
+	Rev           string                            `json:"rev" cborgen:"rev"`
+	Status        *string                           `json:"status,omitempty" cborgen:"status,omitempty"`
+	UnreadCount   int64                             `json:"unreadCount" cborgen:"unreadCount"`
 }
 
 type ConvoDefs_ConvoView_LastMessage struct {
@@ -354,9 +355,10 @@ type ConvoDefs_MessageAndReactionView struct {
 	Reaction      *ConvoDefs_ReactionView `json:"reaction" cborgen:"reaction"`
 }
 
-// ConvoDefs_MessageInput is the input argument to a chat.bsky.convo.defs call.
+// ConvoDefs_MessageInput is a "messageInput" in the chat.bsky.convo.defs schema.
 type ConvoDefs_MessageInput struct {
-	Embed *ConvoDefs_MessageInput_Embed `json:"embed,omitempty" cborgen:"embed,omitempty"`
+	LexiconTypeID string                        `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#messageInput"`
+	Embed         *ConvoDefs_MessageInput_Embed `json:"embed,omitempty" cborgen:"embed,omitempty"`
 	// facets: Annotations of text (mentions, URLs, hashtags, etc)
 	Facets []*appbsky.RichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
 	Text   string                   `json:"text" cborgen:"text"`
@@ -412,11 +414,6 @@ type ConvoDefs_MessageView struct {
 	Text      string                       `json:"text" cborgen:"text"`
 }
 
-// ConvoDefs_MessageViewSender is a "messageViewSender" in the chat.bsky.convo.defs schema.
-type ConvoDefs_MessageViewSender struct {
-	Did string `json:"did" cborgen:"did"`
-}
-
 type ConvoDefs_MessageView_Embed struct {
 	EmbedRecord_View *appbsky.EmbedRecord_View
 }
@@ -444,14 +441,22 @@ func (t *ConvoDefs_MessageView_Embed) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// ConvoDefs_MessageViewSender is a "messageViewSender" in the chat.bsky.convo.defs schema.
+type ConvoDefs_MessageViewSender struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#messageViewSender"`
+	Did           string `json:"did" cborgen:"did"`
+}
+
 // ConvoDefs_ReactionView is a "reactionView" in the chat.bsky.convo.defs schema.
 type ConvoDefs_ReactionView struct {
-	CreatedAt string                        `json:"createdAt" cborgen:"createdAt"`
-	Sender    *ConvoDefs_ReactionViewSender `json:"sender" cborgen:"sender"`
-	Value     string                        `json:"value" cborgen:"value"`
+	LexiconTypeID string                        `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#reactionView"`
+	CreatedAt     string                        `json:"createdAt" cborgen:"createdAt"`
+	Sender        *ConvoDefs_ReactionViewSender `json:"sender" cborgen:"sender"`
+	Value         string                        `json:"value" cborgen:"value"`
 }
 
 // ConvoDefs_ReactionViewSender is a "reactionViewSender" in the chat.bsky.convo.defs schema.
 type ConvoDefs_ReactionViewSender struct {
-	Did string `json:"did" cborgen:"did"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#reactionViewSender"`
+	Did           string `json:"did" cborgen:"did"`
 }

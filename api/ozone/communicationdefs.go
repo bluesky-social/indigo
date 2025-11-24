@@ -6,6 +6,7 @@ package ozone
 
 // CommunicationDefs_TemplateView is a "templateView" in the tools.ozone.communication.defs schema.
 type CommunicationDefs_TemplateView struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.communication.defs#templateView"`
 	// contentMarkdown: Subject of the message, used in emails.
 	ContentMarkdown string `json:"contentMarkdown" cborgen:"contentMarkdown"`
 	CreatedAt       string `json:"createdAt" cborgen:"createdAt"`

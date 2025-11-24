@@ -28,10 +28,10 @@ func FeedGetFeedSkeleton(ctx context.Context, c lexutil.LexClient, cursor string
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
-	params["feed"] = feed
 	if limit != 0 {
 		params["limit"] = limit
 	}
+	params["feed"] = feed
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.feed.getFeedSkeleton", params, nil, &out); err != nil {
 		return nil, err
 	}

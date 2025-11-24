@@ -16,13 +16,6 @@ type RepoListRecords_Output struct {
 	Records []*RepoListRecords_Record `json:"records" cborgen:"records"`
 }
 
-// RepoListRecords_Record is a "record" in the com.atproto.repo.listRecords schema.
-type RepoListRecords_Record struct {
-	Cid   string                      `json:"cid" cborgen:"cid"`
-	Uri   string                      `json:"uri" cborgen:"uri"`
-	Value *lexutil.LexiconTypeDecoder `json:"value" cborgen:"value"`
-}
-
 // RepoListRecords calls the XRPC method "com.atproto.repo.listRecords".
 //
 // collection: The NSID of the record type.
@@ -33,20 +26,28 @@ func RepoListRecords(ctx context.Context, c lexutil.LexClient, collection string
 	var out RepoListRecords_Output
 
 	params := map[string]interface{}{}
-	params["collection"] = collection
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	params["repo"] = repo
 	if reverse {
 		params["reverse"] = reverse
 	}
+	params["collection"] = collection
+	params["repo"] = repo
 	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.repo.listRecords", params, nil, &out); err != nil {
 		return nil, err
 	}
 
 	return &out, nil
+}
+
+// RepoListRecords_Record is a "record" in the com.atproto.repo.listRecords schema.
+type RepoListRecords_Record struct {
+	LexiconTypeID string                      `json:"$type" cborgen:"$type,const=com.atproto.repo.listRecords#record"`
+	Cid           string                      `json:"cid" cborgen:"cid"`
+	Uri           string                      `json:"uri" cborgen:"uri"`
+	Value         *lexutil.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }

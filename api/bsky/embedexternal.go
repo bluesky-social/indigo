@@ -12,8 +12,6 @@ func init() {
 	lexutil.RegisterType("app.bsky.embed.external#main", &EmbedExternal{})
 }
 
-// EmbedExternal is a "main" in the app.bsky.embed.external schema.
-//
 // A representation of some externally linked content (eg, a URL and 'card'), embedded in a Bluesky record (eg, a post).
 type EmbedExternal struct {
 	LexiconTypeID string                  `json:"$type" cborgen:"$type,const=app.bsky.embed.external"`
@@ -22,10 +20,11 @@ type EmbedExternal struct {
 
 // EmbedExternal_External is a "external" in the app.bsky.embed.external schema.
 type EmbedExternal_External struct {
-	Description string           `json:"description" cborgen:"description"`
-	Thumb       *lexutil.LexBlob `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
-	Title       string           `json:"title" cborgen:"title"`
-	Uri         string           `json:"uri" cborgen:"uri"`
+	LexiconTypeID string           `json:"$type" cborgen:"$type,const=app.bsky.embed.external#external"`
+	Description   string           `json:"description" cborgen:"description"`
+	Thumb         *lexutil.LexBlob `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
+	Title         string           `json:"title" cborgen:"title"`
+	Uri           string           `json:"uri" cborgen:"uri"`
 }
 
 // EmbedExternal_View is a "view" in the app.bsky.embed.external schema.
@@ -36,8 +35,9 @@ type EmbedExternal_View struct {
 
 // EmbedExternal_ViewExternal is a "viewExternal" in the app.bsky.embed.external schema.
 type EmbedExternal_ViewExternal struct {
-	Description string  `json:"description" cborgen:"description"`
-	Thumb       *string `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
-	Title       string  `json:"title" cborgen:"title"`
-	Uri         string  `json:"uri" cborgen:"uri"`
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=app.bsky.embed.external#viewExternal"`
+	Description   string  `json:"description" cborgen:"description"`
+	Thumb         *string `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
+	Title         string  `json:"title" cborgen:"title"`
+	Uri           string  `json:"uri" cborgen:"uri"`
 }

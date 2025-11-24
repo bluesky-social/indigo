@@ -34,13 +34,13 @@ func UnspeccedSearchActorsSkeleton(ctx context.Context, c lexutil.LexClient, cur
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	params["q"] = q
 	if typeahead {
 		params["typeahead"] = typeahead
 	}
 	if viewer != "" {
 		params["viewer"] = viewer
 	}
+	params["q"] = q
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.unspecced.searchActorsSkeleton", params, nil, &out); err != nil {
 		return nil, err
 	}

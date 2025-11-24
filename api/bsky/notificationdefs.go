@@ -6,31 +6,36 @@ package bsky
 
 // NotificationDefs_ActivitySubscription is a "activitySubscription" in the app.bsky.notification.defs schema.
 type NotificationDefs_ActivitySubscription struct {
-	Post  bool `json:"post" cborgen:"post"`
-	Reply bool `json:"reply" cborgen:"reply"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.notification.defs#activitySubscription"`
+	Post          bool   `json:"post" cborgen:"post"`
+	Reply         bool   `json:"reply" cborgen:"reply"`
 }
 
 // NotificationDefs_ChatPreference is a "chatPreference" in the app.bsky.notification.defs schema.
 type NotificationDefs_ChatPreference struct {
-	Include string `json:"include" cborgen:"include"`
-	Push    bool   `json:"push" cborgen:"push"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.notification.defs#chatPreference"`
+	Include       string `json:"include" cborgen:"include"`
+	Push          bool   `json:"push" cborgen:"push"`
 }
 
 // NotificationDefs_FilterablePreference is a "filterablePreference" in the app.bsky.notification.defs schema.
 type NotificationDefs_FilterablePreference struct {
-	Include string `json:"include" cborgen:"include"`
-	List    bool   `json:"list" cborgen:"list"`
-	Push    bool   `json:"push" cborgen:"push"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.notification.defs#filterablePreference"`
+	Include       string `json:"include" cborgen:"include"`
+	List          bool   `json:"list" cborgen:"list"`
+	Push          bool   `json:"push" cborgen:"push"`
 }
 
 // NotificationDefs_Preference is a "preference" in the app.bsky.notification.defs schema.
 type NotificationDefs_Preference struct {
-	List bool `json:"list" cborgen:"list"`
-	Push bool `json:"push" cborgen:"push"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.notification.defs#preference"`
+	List          bool   `json:"list" cborgen:"list"`
+	Push          bool   `json:"push" cborgen:"push"`
 }
 
 // NotificationDefs_Preferences is a "preferences" in the app.bsky.notification.defs schema.
 type NotificationDefs_Preferences struct {
+	LexiconTypeID     string                                 `json:"$type" cborgen:"$type,const=app.bsky.notification.defs#preferences"`
 	Chat              *NotificationDefs_ChatPreference       `json:"chat" cborgen:"chat"`
 	Follow            *NotificationDefs_FilterablePreference `json:"follow" cborgen:"follow"`
 	Like              *NotificationDefs_FilterablePreference `json:"like" cborgen:"like"`
@@ -48,12 +53,14 @@ type NotificationDefs_Preferences struct {
 
 // NotificationDefs_RecordDeleted is a "recordDeleted" in the app.bsky.notification.defs schema.
 type NotificationDefs_RecordDeleted struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.notification.defs#recordDeleted"`
 }
 
 // NotificationDefs_SubjectActivitySubscription is a "subjectActivitySubscription" in the app.bsky.notification.defs schema.
 //
 // Object used to store activity subscription data in stash.
 type NotificationDefs_SubjectActivitySubscription struct {
+	LexiconTypeID        string                                 `json:"$type" cborgen:"$type,const=app.bsky.notification.defs#subjectActivitySubscription"`
 	ActivitySubscription *NotificationDefs_ActivitySubscription `json:"activitySubscription" cborgen:"activitySubscription"`
 	Subject              string                                 `json:"subject" cborgen:"subject"`
 }

@@ -10,6 +10,7 @@ import (
 
 // AdminDefs_AccountView is a "accountView" in the com.atproto.admin.defs schema.
 type AdminDefs_AccountView struct {
+	LexiconTypeID    string                        `json:"$type" cborgen:"$type,const=com.atproto.admin.defs#accountView"`
 	DeactivatedAt    *string                       `json:"deactivatedAt,omitempty" cborgen:"deactivatedAt,omitempty"`
 	Did              string                        `json:"did" cborgen:"did"`
 	Email            *string                       `json:"email,omitempty" cborgen:"email,omitempty"`
@@ -40,12 +41,14 @@ type AdminDefs_RepoRef struct {
 
 // AdminDefs_StatusAttr is a "statusAttr" in the com.atproto.admin.defs schema.
 type AdminDefs_StatusAttr struct {
-	Applied bool    `json:"applied" cborgen:"applied"`
-	Ref     *string `json:"ref,omitempty" cborgen:"ref,omitempty"`
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=com.atproto.admin.defs#statusAttr"`
+	Applied       bool    `json:"applied" cborgen:"applied"`
+	Ref           *string `json:"ref,omitempty" cborgen:"ref,omitempty"`
 }
 
 // AdminDefs_ThreatSignature is a "threatSignature" in the com.atproto.admin.defs schema.
 type AdminDefs_ThreatSignature struct {
-	Property string `json:"property" cborgen:"property"`
-	Value    string `json:"value" cborgen:"value"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.admin.defs#threatSignature"`
+	Property      string `json:"property" cborgen:"property"`
+	Value         string `json:"value" cborgen:"value"`
 }

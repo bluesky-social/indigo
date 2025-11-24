@@ -6,7 +6,8 @@ package atproto
 
 // IdentityDefs_IdentityInfo is a "identityInfo" in the com.atproto.identity.defs schema.
 type IdentityDefs_IdentityInfo struct {
-	Did string `json:"did" cborgen:"did"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.identity.defs#identityInfo"`
+	Did           string `json:"did" cborgen:"did"`
 	// didDoc: The complete DID document for the identity.
 	DidDoc interface{} `json:"didDoc" cborgen:"didDoc"`
 	// handle: The validated handle of the account; or 'handle.invalid' if the handle did not bi-directionally match the DID document.

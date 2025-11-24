@@ -22,7 +22,8 @@ type ActorDefs_AdultContentPref struct {
 //
 // If set, an active progress guide. Once completed, can be set to undefined. Should have unspecced fields tracking progress.
 type ActorDefs_BskyAppProgressGuide struct {
-	Guide string `json:"guide" cborgen:"guide"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#bskyAppProgressGuide"`
+	Guide         string `json:"guide" cborgen:"guide"`
 }
 
 // ActorDefs_BskyAppStatePref is a "bskyAppStatePref" in the app.bsky.actor.defs schema.
@@ -81,13 +82,15 @@ type ActorDefs_InterestsPref struct {
 //
 // The subject's followers whom you also follow
 type ActorDefs_KnownFollowers struct {
-	Count     int64                         `json:"count" cborgen:"count"`
-	Followers []*ActorDefs_ProfileViewBasic `json:"followers" cborgen:"followers"`
+	LexiconTypeID string                        `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#knownFollowers"`
+	Count         int64                         `json:"count" cborgen:"count"`
+	Followers     []*ActorDefs_ProfileViewBasic `json:"followers" cborgen:"followers"`
 }
 
 // ActorDefs_LabelerPrefItem is a "labelerPrefItem" in the app.bsky.actor.defs schema.
 type ActorDefs_LabelerPrefItem struct {
-	Did string `json:"did" cborgen:"did"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#labelerPrefItem"`
+	Did           string `json:"did" cborgen:"did"`
 }
 
 // ActorDefs_LabelersPref is a "labelersPref" in the app.bsky.actor.defs schema.
@@ -100,6 +103,7 @@ type ActorDefs_LabelersPref struct {
 //
 // A word that the account owner has muted.
 type ActorDefs_MutedWord struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#mutedWord"`
 	// actorTarget: Groups of users to apply the muted word to. If undefined, applies to all users.
 	ActorTarget *string `json:"actorTarget,omitempty" cborgen:"actorTarget,omitempty"`
 	// expiresAt: The date and time at which the muted word will expire and no longer be applied.
@@ -122,7 +126,8 @@ type ActorDefs_MutedWordsPref struct {
 //
 // A new user experiences (NUX) storage object
 type ActorDefs_Nux struct {
-	Completed bool `json:"completed" cborgen:"completed"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#nux"`
+	Completed     bool   `json:"completed" cborgen:"completed"`
 	// data: Arbitrary data for the NUX. The structure is defined by the NUX itself. Limited to 300 characters.
 	Data *string `json:"data,omitempty" cborgen:"data,omitempty"`
 	// expiresAt: The date and time at which the NUX will expire and should be considered completed.
@@ -226,7 +231,7 @@ func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) Unmars
 	}
 }
 
-type ActorDefs_Preferences_Elem struct {
+type ActorDefs_Preferences struct {
 	ActorDefs_AdultContentPref            *ActorDefs_AdultContentPref
 	ActorDefs_ContentLabelPref            *ActorDefs_ContentLabelPref
 	ActorDefs_SavedFeedsPref              *ActorDefs_SavedFeedsPref
@@ -243,7 +248,7 @@ type ActorDefs_Preferences_Elem struct {
 	ActorDefs_VerificationPrefs           *ActorDefs_VerificationPrefs
 }
 
-func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
+func (t *ActorDefs_Preferences) MarshalJSON() ([]byte, error) {
 	if t.ActorDefs_AdultContentPref != nil {
 		t.ActorDefs_AdultContentPref.LexiconTypeID = "app.bsky.actor.defs#adultContentPref"
 		return json.Marshal(t.ActorDefs_AdultContentPref)
@@ -303,7 +308,7 @@ func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
 
-func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
+func (t *ActorDefs_Preferences) UnmarshalJSON(b []byte) error {
 	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
@@ -359,6 +364,7 @@ func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
 
 // ActorDefs_ProfileAssociated is a "profileAssociated" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileAssociated struct {
+	LexiconTypeID        string                                           `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#profileAssociated"`
 	ActivitySubscription *ActorDefs_ProfileAssociatedActivitySubscription `json:"activitySubscription,omitempty" cborgen:"activitySubscription,omitempty"`
 	Chat                 *ActorDefs_ProfileAssociatedChat                 `json:"chat,omitempty" cborgen:"chat,omitempty"`
 	Feedgens             *int64                                           `json:"feedgens,omitempty" cborgen:"feedgens,omitempty"`
@@ -369,19 +375,22 @@ type ActorDefs_ProfileAssociated struct {
 
 // ActorDefs_ProfileAssociatedActivitySubscription is a "profileAssociatedActivitySubscription" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileAssociatedActivitySubscription struct {
+	LexiconTypeID      string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#profileAssociatedActivitySubscription"`
 	AllowSubscriptions string `json:"allowSubscriptions" cborgen:"allowSubscriptions"`
 }
 
 // ActorDefs_ProfileAssociatedChat is a "profileAssociatedChat" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileAssociatedChat struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#profileAssociatedChat"`
 	AllowIncoming string `json:"allowIncoming" cborgen:"allowIncoming"`
 }
 
 // ActorDefs_ProfileView is a "profileView" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileView struct {
-	Associated *ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
-	Avatar     *string                      `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	CreatedAt  *string                      `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	LexiconTypeID string                       `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#profileView"`
+	Associated    *ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Avatar        *string                      `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	CreatedAt     *string                      `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
 	// debug: Debug information for internal development
 	Debug        *interface{}                  `json:"debug,omitempty" cborgen:"debug,omitempty"`
 	Description  *string                       `json:"description,omitempty" cborgen:"description,omitempty"`
@@ -398,9 +407,10 @@ type ActorDefs_ProfileView struct {
 
 // ActorDefs_ProfileViewBasic is a "profileViewBasic" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileViewBasic struct {
-	Associated *ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
-	Avatar     *string                      `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	CreatedAt  *string                      `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	LexiconTypeID string                       `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#profileViewBasic"`
+	Associated    *ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Avatar        *string                      `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	CreatedAt     *string                      `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
 	// debug: Debug information for internal development
 	Debug        *interface{}                  `json:"debug,omitempty" cborgen:"debug,omitempty"`
 	Did          string                        `json:"did" cborgen:"did"`
@@ -415,10 +425,11 @@ type ActorDefs_ProfileViewBasic struct {
 
 // ActorDefs_ProfileViewDetailed is a "profileViewDetailed" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileViewDetailed struct {
-	Associated *ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
-	Avatar     *string                      `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	Banner     *string                      `json:"banner,omitempty" cborgen:"banner,omitempty"`
-	CreatedAt  *string                      `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	LexiconTypeID string                       `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#profileViewDetailed"`
+	Associated    *ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Avatar        *string                      `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	Banner        *string                      `json:"banner,omitempty" cborgen:"banner,omitempty"`
+	CreatedAt     *string                      `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
 	// debug: Debug information for internal development
 	Debug                *interface{}                    `json:"debug,omitempty" cborgen:"debug,omitempty"`
 	Description          *string                         `json:"description,omitempty" cborgen:"description,omitempty"`
@@ -441,10 +452,11 @@ type ActorDefs_ProfileViewDetailed struct {
 
 // ActorDefs_SavedFeed is a "savedFeed" in the app.bsky.actor.defs schema.
 type ActorDefs_SavedFeed struct {
-	Id     string `json:"id" cborgen:"id"`
-	Pinned bool   `json:"pinned" cborgen:"pinned"`
-	Type   string `json:"type" cborgen:"type"`
-	Value  string `json:"value" cborgen:"value"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#savedFeed"`
+	Id            string `json:"id" cborgen:"id"`
+	Pinned        bool   `json:"pinned" cborgen:"pinned"`
+	Type          string `json:"type" cborgen:"type"`
+	Value         string `json:"value" cborgen:"value"`
 }
 
 // ActorDefs_SavedFeedsPref is a "savedFeedsPref" in the app.bsky.actor.defs schema.
@@ -463,6 +475,7 @@ type ActorDefs_SavedFeedsPrefV2 struct {
 
 // ActorDefs_StatusView is a "statusView" in the app.bsky.actor.defs schema.
 type ActorDefs_StatusView struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#statusView"`
 	// embed: An optional embed associated with the status.
 	Embed *ActorDefs_StatusView_Embed `json:"embed,omitempty" cborgen:"embed,omitempty"`
 	// expiresAt: The date when this status will expire. The application might choose to no longer return the status after expiration.
@@ -505,8 +518,6 @@ func (t *ActorDefs_StatusView_Embed) UnmarshalJSON(b []byte) error {
 // ActorDefs_ThreadViewPref is a "threadViewPref" in the app.bsky.actor.defs schema.
 type ActorDefs_ThreadViewPref struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#threadViewPref"`
-	// prioritizeFollowedUsers: Show followed users at the top of all replies.
-	PrioritizeFollowedUsers *bool `json:"prioritizeFollowedUsers,omitempty" cborgen:"prioritizeFollowedUsers,omitempty"`
 	// sort: Sorting mode for threads.
 	Sort *string `json:"sort,omitempty" cborgen:"sort,omitempty"`
 }
@@ -524,6 +535,7 @@ type ActorDefs_VerificationPrefs struct {
 //
 // Represents the verification information about the user this object is attached to.
 type ActorDefs_VerificationState struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#verificationState"`
 	// trustedVerifierStatus: The user's status as a trusted verifier.
 	TrustedVerifierStatus string `json:"trustedVerifierStatus" cborgen:"trustedVerifierStatus"`
 	// verifications: All verifications issued by trusted verifiers on behalf of this user. Verifications by untrusted verifiers are not included.
@@ -536,6 +548,7 @@ type ActorDefs_VerificationState struct {
 //
 // An individual verification for an associated subject.
 type ActorDefs_VerificationView struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#verificationView"`
 	// createdAt: Timestamp when the verification was created.
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 	// isValid: True if the verification passes validation, otherwise false.
@@ -550,6 +563,7 @@ type ActorDefs_VerificationView struct {
 //
 // Metadata about the requesting account's relationship with the subject account. Only has meaningful content for authed requests.
 type ActorDefs_ViewerState struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#viewerState"`
 	// activitySubscription: This property is present only in selected cases, as an optimization.
 	ActivitySubscription *NotificationDefs_ActivitySubscription `json:"activitySubscription,omitempty" cborgen:"activitySubscription,omitempty"`
 	BlockedBy            *bool                                  `json:"blockedBy,omitempty" cborgen:"blockedBy,omitempty"`

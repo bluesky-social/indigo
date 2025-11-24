@@ -16,11 +16,6 @@ type SyncListReposByCollection_Output struct {
 	Repos  []*SyncListReposByCollection_Repo `json:"repos" cborgen:"repos"`
 }
 
-// SyncListReposByCollection_Repo is a "repo" in the com.atproto.sync.listReposByCollection schema.
-type SyncListReposByCollection_Repo struct {
-	Did string `json:"did" cborgen:"did"`
-}
-
 // SyncListReposByCollection calls the XRPC method "com.atproto.sync.listReposByCollection".
 //
 // limit: Maximum size of response set. Recommend setting a large maximum (1000+) when enumerating large DID lists.
@@ -28,16 +23,22 @@ func SyncListReposByCollection(ctx context.Context, c lexutil.LexClient, collect
 	var out SyncListReposByCollection_Output
 
 	params := map[string]interface{}{}
-	params["collection"] = collection
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
 	if limit != 0 {
 		params["limit"] = limit
 	}
+	params["collection"] = collection
 	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.sync.listReposByCollection", params, nil, &out); err != nil {
 		return nil, err
 	}
 
 	return &out, nil
+}
+
+// SyncListReposByCollection_Repo is a "repo" in the com.atproto.sync.listReposByCollection schema.
+type SyncListReposByCollection_Repo struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.sync.listReposByCollection#repo"`
+	Did           string `json:"did" cborgen:"did"`
 }

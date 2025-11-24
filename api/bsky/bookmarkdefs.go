@@ -16,14 +16,16 @@ import (
 //
 // Object used to store bookmark data in stash.
 type BookmarkDefs_Bookmark struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.bookmark.defs#bookmark"`
 	// subject: A strong ref to the record to be bookmarked. Currently, only `app.bsky.feed.post` records are supported.
 	Subject *comatproto.RepoStrongRef `json:"subject" cborgen:"subject"`
 }
 
 // BookmarkDefs_BookmarkView is a "bookmarkView" in the app.bsky.bookmark.defs schema.
 type BookmarkDefs_BookmarkView struct {
-	CreatedAt *string                         `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
-	Item      *BookmarkDefs_BookmarkView_Item `json:"item" cborgen:"item"`
+	LexiconTypeID string                          `json:"$type" cborgen:"$type,const=app.bsky.bookmark.defs#bookmarkView"`
+	CreatedAt     *string                         `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	Item          *BookmarkDefs_BookmarkView_Item `json:"item" cborgen:"item"`
 	// subject: A strong ref to the bookmarked record.
 	Subject *comatproto.RepoStrongRef `json:"subject" cborgen:"subject"`
 }

@@ -12,13 +12,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// ModerationScheduleAction_FailedScheduling is a "failedScheduling" in the tools.ozone.moderation.scheduleAction schema.
-type ModerationScheduleAction_FailedScheduling struct {
-	Error     string  `json:"error" cborgen:"error"`
-	ErrorCode *string `json:"errorCode,omitempty" cborgen:"errorCode,omitempty"`
-	Subject   string  `json:"subject" cborgen:"subject"`
-}
-
 // ModerationScheduleAction_Input is the input argument to a tools.ozone.moderation.scheduleAction call.
 type ModerationScheduleAction_Input struct {
 	Action    *ModerationScheduleAction_Input_Action `json:"action" cborgen:"action"`
@@ -57,16 +50,36 @@ func (t *ModerationScheduleAction_Input_Action) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// ModerationScheduleAction calls the XRPC method "tools.ozone.moderation.scheduleAction".
+func ModerationScheduleAction(ctx context.Context, c lexutil.LexClient, input *ModerationScheduleAction_Input) (*ModerationScheduleAction_ScheduledActionResults, error) {
+	var out ModerationScheduleAction_ScheduledActionResults
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.moderation.scheduleAction", nil, input, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
+// ModerationScheduleAction_FailedScheduling is a "failedScheduling" in the tools.ozone.moderation.scheduleAction schema.
+type ModerationScheduleAction_FailedScheduling struct {
+	LexiconTypeID string  `json:"$type" cborgen:"$type,const=tools.ozone.moderation.scheduleAction#failedScheduling"`
+	Error         string  `json:"error" cborgen:"error"`
+	ErrorCode     *string `json:"errorCode,omitempty" cborgen:"errorCode,omitempty"`
+	Subject       string  `json:"subject" cborgen:"subject"`
+}
+
 // ModerationScheduleAction_ScheduledActionResults is a "scheduledActionResults" in the tools.ozone.moderation.scheduleAction schema.
 type ModerationScheduleAction_ScheduledActionResults struct {
-	Failed    []*ModerationScheduleAction_FailedScheduling `json:"failed" cborgen:"failed"`
-	Succeeded []string                                     `json:"succeeded" cborgen:"succeeded"`
+	LexiconTypeID string                                       `json:"$type" cborgen:"$type,const=tools.ozone.moderation.scheduleAction#scheduledActionResults"`
+	Failed        []*ModerationScheduleAction_FailedScheduling `json:"failed" cborgen:"failed"`
+	Succeeded     []string                                     `json:"succeeded" cborgen:"succeeded"`
 }
 
 // ModerationScheduleAction_SchedulingConfig is a "schedulingConfig" in the tools.ozone.moderation.scheduleAction schema.
 //
 // Configuration for when the action should be executed
 type ModerationScheduleAction_SchedulingConfig struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.scheduleAction#schedulingConfig"`
 	// executeAfter: Earliest time to execute the action (for randomized scheduling)
 	ExecuteAfter *string `json:"executeAfter,omitempty" cborgen:"executeAfter,omitempty"`
 	// executeAt: Exact time to execute the action
@@ -87,14 +100,4 @@ type ModerationScheduleAction_Takedown struct {
 	DurationInHours *int64 `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 	// policies: Names/Keywords of the policies that drove the decision.
 	Policies []string `json:"policies,omitempty" cborgen:"policies,omitempty"`
-}
-
-// ModerationScheduleAction calls the XRPC method "tools.ozone.moderation.scheduleAction".
-func ModerationScheduleAction(ctx context.Context, c lexutil.LexClient, input *ModerationScheduleAction_Input) (*ModerationScheduleAction_ScheduledActionResults, error) {
-	var out ModerationScheduleAction_ScheduledActionResults
-	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "tools.ozone.moderation.scheduleAction", nil, input, &out); err != nil {
-		return nil, err
-	}
-
-	return &out, nil
 }

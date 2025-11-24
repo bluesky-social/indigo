@@ -12,7 +12,7 @@ import (
 
 // ActorPutPreferences_Input is the input argument to a app.bsky.actor.putPreferences call.
 type ActorPutPreferences_Input struct {
-	Preferences []ActorDefs_Preferences_Elem `json:"preferences" cborgen:"preferences"`
+	Preferences *ActorDefs_Preferences `json:"preferences" cborgen:"preferences"`
 }
 
 // ActorPutPreferences calls the XRPC method "app.bsky.actor.putPreferences".

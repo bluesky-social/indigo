@@ -10,13 +10,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// FeedGetLikes_Like is a "like" in the app.bsky.feed.getLikes schema.
-type FeedGetLikes_Like struct {
-	Actor     *ActorDefs_ProfileView `json:"actor" cborgen:"actor"`
-	CreatedAt string                 `json:"createdAt" cborgen:"createdAt"`
-	IndexedAt string                 `json:"indexedAt" cborgen:"indexedAt"`
-}
-
 // FeedGetLikes_Output is the output of a app.bsky.feed.getLikes call.
 type FeedGetLikes_Output struct {
 	Cid    *string              `json:"cid,omitempty" cborgen:"cid,omitempty"`
@@ -48,4 +41,12 @@ func FeedGetLikes(ctx context.Context, c lexutil.LexClient, cid string, cursor s
 	}
 
 	return &out, nil
+}
+
+// FeedGetLikes_Like is a "like" in the app.bsky.feed.getLikes schema.
+type FeedGetLikes_Like struct {
+	LexiconTypeID string                 `json:"$type" cborgen:"$type,const=app.bsky.feed.getLikes#like"`
+	Actor         *ActorDefs_ProfileView `json:"actor" cborgen:"actor"`
+	CreatedAt     string                 `json:"createdAt" cborgen:"createdAt"`
+	IndexedAt     string                 `json:"indexedAt" cborgen:"indexedAt"`
 }

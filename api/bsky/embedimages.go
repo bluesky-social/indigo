@@ -12,7 +12,6 @@ func init() {
 	lexutil.RegisterType("app.bsky.embed.images#main", &EmbedImages{})
 }
 
-// EmbedImages is a "main" in the app.bsky.embed.images schema.
 type EmbedImages struct {
 	LexiconTypeID string               `json:"$type" cborgen:"$type,const=app.bsky.embed.images"`
 	Images        []*EmbedImages_Image `json:"images" cborgen:"images"`
@@ -20,6 +19,7 @@ type EmbedImages struct {
 
 // EmbedImages_Image is a "image" in the app.bsky.embed.images schema.
 type EmbedImages_Image struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.embed.images#image"`
 	// alt: Alt text description of the image, for accessibility.
 	Alt         string                 `json:"alt" cborgen:"alt"`
 	AspectRatio *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`
@@ -34,6 +34,7 @@ type EmbedImages_View struct {
 
 // EmbedImages_ViewImage is a "viewImage" in the app.bsky.embed.images schema.
 type EmbedImages_ViewImage struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.embed.images#viewImage"`
 	// alt: Alt text description of the image, for accessibility.
 	Alt         string                 `json:"alt" cborgen:"alt"`
 	AspectRatio *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`

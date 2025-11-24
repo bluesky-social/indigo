@@ -10,16 +10,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// SyncListHosts_Host is a "host" in the com.atproto.sync.listHosts schema.
-type SyncListHosts_Host struct {
-	AccountCount *int64 `json:"accountCount,omitempty" cborgen:"accountCount,omitempty"`
-	// hostname: hostname of server; not a URL (no scheme)
-	Hostname string `json:"hostname" cborgen:"hostname"`
-	// seq: Recent repo stream event sequence number. May be delayed from actual stream processing (eg, persisted cursor not in-memory cursor).
-	Seq    *int64  `json:"seq,omitempty" cborgen:"seq,omitempty"`
-	Status *string `json:"status,omitempty" cborgen:"status,omitempty"`
-}
-
 // SyncListHosts_Output is the output of a com.atproto.sync.listHosts call.
 type SyncListHosts_Output struct {
 	Cursor *string `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
@@ -43,4 +33,15 @@ func SyncListHosts(ctx context.Context, c lexutil.LexClient, cursor string, limi
 	}
 
 	return &out, nil
+}
+
+// SyncListHosts_Host is a "host" in the com.atproto.sync.listHosts schema.
+type SyncListHosts_Host struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.sync.listHosts#host"`
+	AccountCount  *int64 `json:"accountCount,omitempty" cborgen:"accountCount,omitempty"`
+	// hostname: hostname of server; not a URL (no scheme)
+	Hostname string `json:"hostname" cborgen:"hostname"`
+	// seq: Recent repo stream event sequence number. May be delayed from actual stream processing (eg, persisted cursor not in-memory cursor).
+	Seq    *int64  `json:"seq,omitempty" cborgen:"seq,omitempty"`
+	Status *string `json:"status,omitempty" cborgen:"status,omitempty"`
 }

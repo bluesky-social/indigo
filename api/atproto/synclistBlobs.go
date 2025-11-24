@@ -27,13 +27,13 @@ func SyncListBlobs(ctx context.Context, c lexutil.LexClient, cursor string, did 
 	if cursor != "" {
 		params["cursor"] = cursor
 	}
-	params["did"] = did
 	if limit != 0 {
 		params["limit"] = limit
 	}
 	if since != "" {
 		params["since"] = since
 	}
+	params["did"] = did
 	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.sync.listBlobs", params, nil, &out); err != nil {
 		return nil, err
 	}
