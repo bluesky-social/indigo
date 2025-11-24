@@ -2,6 +2,7 @@ package lexicon
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -91,5 +92,14 @@ func testLexiconFixtureInvalid(t *testing.T, fixture LexiconFixture) {
 
 	var schema SchemaFile
 	err := json.Unmarshal(fixture.Lexicon, &schema)
+	if err == nil {
+		err = schema.FinishParse()
+	}
+	if err == nil {
+		err = schema.CheckSchema()
+	}
+	if err == nil {
+		fmt.Println(fixture.Name)
+	}
 	assert.Error(err)
 }
