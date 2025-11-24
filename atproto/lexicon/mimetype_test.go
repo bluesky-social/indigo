@@ -11,6 +11,7 @@ func TestAcceptableMimeType(t *testing.T) {
 
 	assert.True(acceptableMimeType("image/*", "image/png"))
 	assert.True(acceptableMimeType("text/plain", "text/plain"))
+	assert.True(acceptableMimeType("*/*", "text/plain"))
 
 	assert.False(acceptableMimeType("image/*", "text/plain"))
 	assert.False(acceptableMimeType("text/plain", "image/png"))
