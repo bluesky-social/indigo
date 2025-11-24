@@ -459,6 +459,7 @@ func (s *SchemaSubscription) CheckSchema() error {
 
 type SchemaPermissionSet struct {
 	Type        string             `json:"type"` // "permission-set"
+	Description *string            `json:"description,omitempty"`
 	Title       *string            `json:"title,omitempty"`
 	TitleLangs  map[string]string  `json:"title:langs,omitempty"`
 	Detail      *string            `json:"detail,omitempty"`
@@ -525,7 +526,7 @@ func (s *SchemaPermission) CheckSchema() error {
 		}
 		for _, coll := range s.Collection {
 			if coll == "*" {
-				continue
+				return fmt.Errorf("repo permission does not support wildcard when in permission set")
 			}
 			_, err := syntax.ParseNSID(coll)
 			if err != nil {
