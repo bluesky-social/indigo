@@ -246,6 +246,7 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 		evtBatch = append(evtBatch, evt)
 
 		if len(evtBatch) >= batchSize {
+			r.events.WaitForReady(ctx)
 			if err := r.events.AddRecordEvents(evtBatch, false, func(tx *gorm.DB) error {
 				return nil
 			}); err != nil {
