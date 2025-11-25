@@ -44,7 +44,8 @@ type Outbox struct {
 	webhookURL  string
 	httpClient  *http.Client
 
-	cache *EventCache
+	cache      *EventCache
+	eventsMngr *EventManager
 
 	didWorkers sync.Map // map[string]*DIDWorker
 
@@ -54,7 +55,7 @@ type Outbox struct {
 	ctx context.Context
 }
 
-func NewOutbox(db *gorm.DB, mode OutboxMode, webhookURL string, parallelism int) *Outbox {
+func NewOutbox(db *gorm.DB, eventsMngr *EventManager, mode OutboxMode, webhookURL string, parallelism int) *Outbox {
 	logger := slog.Default().With("system", "outbox")
 	return &Outbox{
 		db:          db,
@@ -66,8 +67,9 @@ func NewOutbox(db *gorm.DB, mode OutboxMode, webhookURL string, parallelism int)
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		cache:    NewEventCache(db, logger, parallelism*5, 1000),
-		ackQueue: make(chan uint, parallelism*5000),
+		cache:      NewEventCache(db, logger, parallelism*5, 1000),
+		eventsMngr: eventsMngr,
+		ackQueue:   make(chan uint, parallelism*5000),
 	}
 }
 
