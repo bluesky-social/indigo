@@ -32,8 +32,6 @@ func (s *SchemaDef) CheckSchema() error {
 		return v.CheckSchema()
 	case SchemaPermission:
 		return v.CheckSchema()
-	case SchemaNull:
-		return v.CheckSchema()
 	case SchemaBoolean:
 		return v.CheckSchema()
 	case SchemaInteger:
@@ -76,7 +74,7 @@ func (s *SchemaDef) IsPrimary() bool {
 
 func (s *SchemaDef) IsConcrete() bool {
 	switch s.Inner.(type) {
-	case SchemaNull, SchemaBoolean, SchemaInteger, SchemaString, SchemaBytes, SchemaCIDLink, SchemaBlob:
+	case SchemaBoolean, SchemaInteger, SchemaString, SchemaBytes, SchemaCIDLink, SchemaBlob:
 		return true
 	}
 	return false
@@ -235,13 +233,6 @@ func (s *SchemaDef) UnmarshalJSON(b []byte) error {
 		return nil
 	case "permission":
 		v := new(SchemaPermission)
-		if err = json.Unmarshal(b, v); err != nil {
-			return err
-		}
-		s.Inner = *v
-		return nil
-	case "null":
-		v := new(SchemaNull)
 		if err = json.Unmarshal(b, v); err != nil {
 			return err
 		}
@@ -627,25 +618,6 @@ func (s *SchemaError) Validate(d any) error {
 	}
 	if n != s.Name {
 		return fmt.Errorf("error type mis-match: %s", n)
-	}
-	return nil
-}
-
-type SchemaNull struct {
-	Type        string  `json:"type"` // "null"
-	Description *string `json:"description,omitempty"`
-}
-
-func (s *SchemaNull) CheckSchema() error {
-	if s.Type != "null" {
-		return fmt.Errorf("expected 'null' schema")
-	}
-	return nil
-}
-
-func (s *SchemaNull) Validate(d any) error {
-	if d != nil {
-		return fmt.Errorf("expected null data, got: %s", reflect.TypeOf(d))
 	}
 	return nil
 }

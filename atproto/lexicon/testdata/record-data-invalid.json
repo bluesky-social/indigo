@@ -7,15 +7,6 @@
     }
   },
   {
-    "name": "invalid null field",
-    "rkey": "demo",
-    "data": {
-      "$type": "example.lexicon.record",
-      "integer": 1,
-      "null": true
-    }
-  },
-  {
     "name": "invalid boolean field",
     "rkey": "demo",
     "data": {
