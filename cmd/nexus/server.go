@@ -82,11 +82,11 @@ func (ns *NexusServer) handleChannelWebsocket(c echo.Context) error {
 		case <-disconnected:
 			ns.logger.Info("websocket disconnected")
 			return nil
-		case msg, ok := <-ns.Outbox.events:
+		case msg, ok := <-ns.Outbox.outgoing:
 			if !ok {
 				return nil
 			}
-			if err := ws.WriteMessage(websocket.TextMessage, msg.JSON); err != nil {
+			if err := ws.WriteMessage(websocket.TextMessage, msg.Event); err != nil {
 				ns.logger.Info("websocket write error", "error", err)
 				return nil
 			}

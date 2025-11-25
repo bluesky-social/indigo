@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -30,11 +29,6 @@ import (
 //   - Wait for H3 and H4 to complete, then send L3 (alone)
 //   - Wait for L3 to complete, then send H5
 
-type OutboxMessage struct {
-	ID   uint
-	JSON []byte
-}
-
 type Outbox struct {
 	db          *gorm.DB
 	logger      *slog.Logger
@@ -43,31 +37,29 @@ type Outbox struct {
 	webhookURL  string
 	httpClient  *http.Client
 
-	eventsMngr *EventManager
+	events *EventManager
 
 	didWorkers sync.Map // map[string]*DIDWorker
 
-	ackQueue chan uint
-	events   chan *OutboxMessage
+	acks     chan uint
+	outgoing chan *OutboxEvt
 
 	ctx context.Context
 }
 
 func NewOutbox(db *gorm.DB, eventsMngr *EventManager, mode OutboxMode, webhookURL string, parallelism int) *Outbox {
-	// logger := slog.Default().With("system", "outbox")
 	return &Outbox{
 		db:          db,
 		logger:      slog.Default().With("system", "outbox"),
-		events:      make(chan *OutboxMessage, parallelism*5000),
 		mode:        mode,
 		parallelism: parallelism,
 		webhookURL:  webhookURL,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		// cache:      NewEventCache(db, logger, parallelism*5, 1000),
-		eventsMngr: eventsMngr,
-		ackQueue:   make(chan uint, parallelism*5000),
+		events:   eventsMngr,
+		acks:     make(chan uint, parallelism*5000),
+		outgoing: make(chan *OutboxEvt, parallelism*5000),
 	}
 }
 
@@ -97,14 +89,14 @@ func (o *Outbox) runDelivery(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case eventID := <-o.eventsMngr.pendingIDs:
+		case eventID := <-o.events.pendingIDs:
 			o.deliverEvent(eventID)
 		}
 	}
 }
 
 func (o *Outbox) deliverEvent(eventID uint) {
-	evt, exists := o.eventsMngr.GetEvent(eventID)
+	evt, exists := o.events.GetEvent(eventID)
 	if !exists {
 		// Event was already acked/removed
 		return
@@ -130,16 +122,7 @@ func (o *Outbox) deliverEvent(eventID uint) {
 func (o *Outbox) sendEvent(evt *OutboxEvt) {
 	switch o.mode {
 	case OutboxModeFireAndForget, OutboxModeWebsocketAck:
-		// Marshal to JSON before outputting to avoid marshaling serially
-		jsonBytes, err := json.Marshal(evt)
-		if err != nil {
-			o.logger.Error("failed to marshal event to JSON", "error", err, "id", evt.ID)
-			return
-		}
-		o.events <- &OutboxMessage{
-			ID:   evt.ID,
-			JSON: jsonBytes,
-		}
+		o.outgoing <- evt
 	case OutboxModeWebhook:
 		go o.sendWebhook(evt)
 	}
@@ -147,7 +130,7 @@ func (o *Outbox) sendEvent(evt *OutboxEvt) {
 
 // AckEvent marks an event as delivered and queues it for deletion.
 func (o *Outbox) AckEvent(eventID uint) {
-	evt, exists := o.eventsMngr.GetEvent(eventID)
+	evt, exists := o.events.GetEvent(eventID)
 
 	if exists {
 		if val, ok := o.didWorkers.Load(evt.Did); ok {
@@ -156,7 +139,7 @@ func (o *Outbox) AckEvent(eventID uint) {
 		}
 	}
 
-	o.ackQueue <- eventID
+	o.acks <- eventID
 }
 
 func (o *Outbox) sendWebhook(evt *OutboxEvt) {
@@ -206,17 +189,17 @@ func (o *Outbox) runBatchedDeletes(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case id := <-o.ackQueue:
+		case id := <-o.acks:
 			batch = append(batch, id)
 			if len(batch) >= 1000 {
-				if err := o.eventsMngr.DeleteEvents(batch); err != nil {
+				if err := o.events.DeleteEvents(batch); err != nil {
 					o.logger.Error("failed to delete batch of acked events", "error", err, "count", len(batch))
 				}
 				batch = nil
 			}
 		case <-ticker.C:
 			if len(batch) > 0 {
-				if err := o.eventsMngr.DeleteEvents(batch); err != nil {
+				if err := o.events.DeleteEvents(batch); err != nil {
 					o.logger.Error("failed to delete batch of acked events", "error", err, "count", len(batch))
 				}
 				batch = nil
@@ -251,7 +234,7 @@ func (o *Outbox) retryTimedOutEvents() {
 	for _, worker := range workers {
 		timedOutIDs := worker.timedOutEvents()
 		for _, id := range timedOutIDs {
-			evt, exists := o.eventsMngr.GetEvent(id)
+			evt, exists := o.events.GetEvent(id)
 			if exists {
 				o.logger.Info("retrying timed out event", "id", id)
 				o.sendEvent(evt)
@@ -323,7 +306,7 @@ func (w *DIDWorker) processPendingEvts() {
 		eventID := w.pendingEvts[0]
 		w.mu.Unlock()
 
-		evt, exists := w.outbox.eventsMngr.GetEvent(eventID)
+		evt, exists := w.outbox.events.GetEvent(eventID)
 		if !exists {
 			// Event was already acked/removed, skip it
 			w.mu.Lock()
