@@ -1,8 +1,8 @@
 module github.com/bluesky-social/indigo
 
-go 1.24
+go 1.25
 
-toolchain go1.24.1
+toolchain go1.25.1
 
 require (
 	github.com/PuerkitoBio/purell v1.2.1
