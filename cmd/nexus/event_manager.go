@@ -44,6 +44,21 @@ func (em *EventManager) IsReady() bool {
 	return em.finishedLoading && len(em.cache) < em.cacheSize
 }
 
+func (em *EventManager) WaitForReady(ctx context.Context) {
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if em.IsReady() {
+				return
+			}
+		}
+	}
+}
+
 func (em *EventManager) GetEvent(id uint) (*OutboxEvt, bool) {
 	em.cacheLk.RLock()
 	defer em.cacheLk.RUnlock()

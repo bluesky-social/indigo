@@ -48,10 +48,7 @@ func (r *Resyncer) runResyncWorker(ctx context.Context, workerID int) {
 	logger := r.logger.With("worker", workerID)
 
 	for {
-		if !r.events.IsReady() {
-			time.Sleep(100 * time.Millisecond)
-			continue
-		}
+		r.events.WaitForReady(ctx)
 		did, found, err := r.claimResyncJob(ctx)
 		if err != nil {
 			logger.Error("failed to claim resync job", "error", err)
