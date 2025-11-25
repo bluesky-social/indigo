@@ -28,6 +28,12 @@ func (rm *RepoManager) GetRepoState(did string) (*models.Repo, error) {
 	return &r, nil
 }
 
+func (rm *RepoManager) UpdateRepoState(did string, state models.RepoState) error {
+	return rm.db.Model(&models.Repo{}).
+		Where("did = ?", did).
+		Update("state", state).Error
+}
+
 // RefreshIdentity fetches the latest identity information for a DID.
 func (rm *RepoManager) RefreshIdentity(ctx context.Context, did string) error {
 	ctx, span := tracer.Start(ctx, "RefreshIdentity")
