@@ -538,15 +538,7 @@ func (s *SchemaPermission) CheckSchema() error {
 			return fmt.Errorf("rpc permission must have eith 'aud' or 'inheritAud' defined")
 		}
 		if s.Audience != "" && s.Audience != "*" {
-			// TODO: helper for service refs
-			parts := strings.SplitN(s.Audience, "#", 3)
-			if len(parts) != 2 || parts[1] == "" {
-				return fmt.Errorf("rpc 'aud' must be a service ref")
-			}
-			_, err := syntax.ParseDID(parts[0])
-			if err != nil {
-				return fmt.Errorf("rpc 'aud' must be a service ref: %w", err)
-			}
+			return fmt.Errorf("rpc permission 'aud' can't have service DID in permission set")
 		}
 	case "blob", "account", "identity":
 		return fmt.Errorf("%s permission not allowed in permission sets", s.Resource)
