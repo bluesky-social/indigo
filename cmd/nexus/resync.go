@@ -219,7 +219,7 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 		evtBatch = append(evtBatch, evt)
 
 		if len(evtBatch) >= batchSize {
-			if err := n.Events.AddRecordEvents(evtBatch, func(tx *gorm.DB) error {
+			if err := n.Events.AddRecordEvents(evtBatch, false, func(tx *gorm.DB) error {
 				return nil
 			}); err != nil {
 				n.logger.Error("failed to flush batch", "error", err, "did", did)
@@ -235,7 +235,7 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 		return false, fmt.Errorf("failed to iterate repo: %w", err)
 	}
 
-	if err := n.Events.AddRecordEvents(evtBatch, func(tx *gorm.DB) error {
+	if err := n.Events.AddRecordEvents(evtBatch, false, func(tx *gorm.DB) error {
 		return nil
 	}); err != nil {
 		return false, fmt.Errorf("failed to flush final batch: %w", err)

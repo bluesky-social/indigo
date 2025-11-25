@@ -1,6 +1,10 @@
 package main
 
-import "github.com/bluesky-social/indigo/cmd/nexus/models"
+import (
+	"encoding/json"
+
+	"github.com/bluesky-social/indigo/cmd/nexus/models"
+)
 
 type OutboxMode string
 
@@ -36,6 +40,14 @@ type RecordEvt struct {
 	Cid        string                 `json:"cid,omitempty"`
 }
 
+func (e *RecordEvt) MarshalJSON(id uint) ([]byte, error) {
+	return json.Marshal(MarshallableEvt{
+		ID:        id,
+		Type:      "record",
+		RecordEvt: e,
+	})
+}
+
 type UserEvt struct {
 	Did      string               `json:"did"`
 	Handle   string               `json:"handle"`
@@ -43,21 +55,26 @@ type UserEvt struct {
 	Status   models.AccountStatus `json:"status"`
 }
 
-type OutboxEvt struct {
+func (e *UserEvt) MarshalJSON(id uint) ([]byte, error) {
+	return json.Marshal(MarshallableEvt{
+		ID:      id,
+		Type:    "user",
+		UserEvt: e,
+	})
+}
+
+type MarshallableEvt struct {
 	ID        uint       `json:"id"`
 	Type      string     `json:"type"`
 	RecordEvt *RecordEvt `json:"record,omitempty"`
 	UserEvt   *UserEvt   `json:"user,omitempty"`
 }
 
-func (evt *OutboxEvt) DID() string {
-	if evt.RecordEvt != nil {
-		return evt.RecordEvt.Did
-	}
-	if evt.UserEvt != nil {
-		return evt.UserEvt.Did
-	}
-	return ""
+type OutboxEvt struct {
+	ID    uint
+	Did   string
+	Live  bool
+	Event []byte
 }
 
 type WsReponseType string

@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"gorm.io/gorm"
 )
 
@@ -44,7 +43,6 @@ type Outbox struct {
 	webhookURL  string
 	httpClient  *http.Client
 
-	cache      *EventCache
 	eventsMngr *EventManager
 
 	didWorkers sync.Map // map[string]*DIDWorker
@@ -56,7 +54,7 @@ type Outbox struct {
 }
 
 func NewOutbox(db *gorm.DB, eventsMngr *EventManager, mode OutboxMode, webhookURL string, parallelism int) *Outbox {
-	logger := slog.Default().With("system", "outbox")
+	// logger := slog.Default().With("system", "outbox")
 	return &Outbox{
 		db:          db,
 		logger:      slog.Default().With("system", "outbox"),
@@ -67,7 +65,7 @@ func NewOutbox(db *gorm.DB, eventsMngr *EventManager, mode OutboxMode, webhookUR
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		cache:      NewEventCache(db, logger, parallelism*5, 1000),
+		// cache:      NewEventCache(db, logger, parallelism*5, 1000),
 		eventsMngr: eventsMngr,
 		ackQueue:   make(chan uint, parallelism*5000),
 	}
@@ -80,7 +78,6 @@ func (o *Outbox) Run(ctx context.Context) {
 	if o.mode == OutboxModeWebsocketAck {
 		go o.checkTimeouts(ctx)
 	}
-	go o.cache.run(ctx)
 
 	// Run multiple delivery workers for parallelism across DIDs
 	for i := 0; i < o.parallelism; i++ {
@@ -100,36 +97,34 @@ func (o *Outbox) runDelivery(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case eventID := <-o.cache.pendingIDs:
+		case eventID := <-o.eventsMngr.pendingIDs:
 			o.deliverEvent(eventID)
 		}
 	}
 }
 
 func (o *Outbox) deliverEvent(eventID uint) {
-	outboxEvt, exists := o.cache.GetEvent(eventID)
+	evt, exists := o.eventsMngr.GetEvent(eventID)
 	if !exists {
 		// Event was already acked/removed
 		return
 	}
 
-	did := outboxEvt.DID()
-
-	if val, ok := o.didWorkers.Load(did); ok {
+	if val, ok := o.didWorkers.Load(evt.Did); ok {
 		worker := val.(*DIDWorker)
-		worker.addEvent(outboxEvt)
+		worker.addEvent(evt)
 		return
 	}
 
 	worker := &DIDWorker{
-		did:            did,
+		did:            evt.Did,
 		notifChan:      make(chan struct{}, 1),
 		inFlightSentAt: make(map[uint]time.Time),
 		outbox:         o,
 		ctx:            o.ctx,
 	}
-	actual, _ := o.didWorkers.LoadOrStore(did, worker)
-	actual.(*DIDWorker).addEvent(outboxEvt)
+	actual, _ := o.didWorkers.LoadOrStore(evt.Did, worker)
+	actual.(*DIDWorker).addEvent(evt)
 }
 
 func (o *Outbox) sendEvent(evt *OutboxEvt) {
@@ -152,12 +147,10 @@ func (o *Outbox) sendEvent(evt *OutboxEvt) {
 
 // AckEvent marks an event as delivered and queues it for deletion.
 func (o *Outbox) AckEvent(eventID uint) {
-	outboxEvt, exists := o.cache.GetEvent(eventID)
+	evt, exists := o.eventsMngr.GetEvent(eventID)
 
 	if exists {
-		did := outboxEvt.DID()
-
-		if val, ok := o.didWorkers.Load(did); ok {
+		if val, ok := o.didWorkers.Load(evt.Did); ok {
 			worker := val.(*DIDWorker)
 			worker.ackEvent(eventID)
 		}
@@ -182,12 +175,7 @@ func (o *Outbox) sendWebhook(evt *OutboxEvt) {
 }
 
 func (o *Outbox) postWebhook(evt *OutboxEvt) error {
-	body, err := json.Marshal(evt)
-	if err != nil {
-		return fmt.Errorf("failed to marshal event: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", o.webhookURL, bytes.NewReader(body))
+	req, err := http.NewRequest("POST", o.webhookURL, bytes.NewReader(evt.Event))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -221,27 +209,19 @@ func (o *Outbox) runBatchedDeletes(ctx context.Context) {
 		case id := <-o.ackQueue:
 			batch = append(batch, id)
 			if len(batch) >= 1000 {
-				o.flushDeleteBatch(batch)
+				if err := o.eventsMngr.DeleteEvents(batch); err != nil {
+					o.logger.Error("failed to delete batch of acked events", "error", err, "count", len(batch))
+				}
 				batch = nil
 			}
 		case <-ticker.C:
 			if len(batch) > 0 {
-				o.flushDeleteBatch(batch)
+				if err := o.eventsMngr.DeleteEvents(batch); err != nil {
+					o.logger.Error("failed to delete batch of acked events", "error", err, "count", len(batch))
+				}
 				batch = nil
 			}
 		}
-	}
-}
-
-func (o *Outbox) flushDeleteBatch(ids []uint) {
-	if len(ids) == 0 {
-		return
-	}
-
-	o.cache.DeleteEvents(ids)
-
-	if err := o.db.Delete(&models.OutboxBuffer{}, ids).Error; err != nil {
-		o.logger.Error("failed to delete batch of acked events", "error", err, "count", len(ids))
 	}
 }
 
@@ -271,7 +251,7 @@ func (o *Outbox) retryTimedOutEvents() {
 	for _, worker := range workers {
 		timedOutIDs := worker.timedOutEvents()
 		for _, id := range timedOutIDs {
-			evt, exists := o.cache.GetEvent(id)
+			evt, exists := o.eventsMngr.GetEvent(id)
 			if exists {
 				o.logger.Info("retrying timed out event", "id", id)
 				o.sendEvent(evt)
@@ -343,8 +323,7 @@ func (w *DIDWorker) processPendingEvts() {
 		eventID := w.pendingEvts[0]
 		w.mu.Unlock()
 
-		outboxEvt, exists := w.outbox.cache.GetEvent(eventID)
-
+		evt, exists := w.outbox.eventsMngr.GetEvent(eventID)
 		if !exists {
 			// Event was already acked/removed, skip it
 			w.mu.Lock()
@@ -353,10 +332,8 @@ func (w *DIDWorker) processPendingEvts() {
 			continue
 		}
 
-		isLive := outboxEvt.RecordEvt != nil && outboxEvt.RecordEvt.Live
-
 		w.mu.Lock()
-		if isLive {
+		if evt.Live {
 			hasInFlight := len(w.inFlightSentAt) > 0
 			// live event - must wait for all in-flight to clear
 			if hasInFlight {
@@ -370,8 +347,8 @@ func (w *DIDWorker) processPendingEvts() {
 		w.inFlightSentAt[eventID] = time.Now()
 		w.mu.Unlock()
 
-		w.outbox.sendEvent(outboxEvt)
-		if isLive {
+		w.outbox.sendEvent(evt)
+		if evt.Live {
 			return // not going to be able to send anymore in this loop so return for now
 		}
 	}
@@ -431,214 +408,4 @@ func (w *DIDWorker) timedOutEvents() []uint {
 	}
 
 	return timedOut
-}
-
-type EventCache struct {
-	db     *gorm.DB
-	logger *slog.Logger
-
-	batchSize    int
-	numLoaders   int
-	maxCacheSize int
-
-	eventCache map[uint]*OutboxEvt
-	cacheMu    sync.RWMutex
-
-	pendingIDs chan uint
-}
-
-func NewEventCache(db *gorm.DB, logger *slog.Logger, numLoaders int, batchSize int) *EventCache {
-	pendingSize := batchSize * numLoaders * 2
-	maxCacheSize := batchSize * numLoaders * 20
-	return &EventCache{
-		db:           db,
-		logger:       logger,
-		batchSize:    batchSize,
-		numLoaders:   numLoaders,
-		maxCacheSize: maxCacheSize,
-		eventCache:   make(map[uint]*OutboxEvt),
-		pendingIDs:   make(chan uint, pendingSize),
-	}
-}
-
-func (ec *EventCache) run(ctx context.Context) {
-	lastID := 0
-	loadParallel := false
-	var lastPageID int
-	var resultSize int
-	var err error
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			if len(ec.eventCache) >= ec.maxCacheSize {
-				time.Sleep(10 * time.Millisecond)
-				continue
-			}
-			// if we're in a densely populated section of the table, we can take advantage of that and load chunks of IDs in parallel
-			// if it's sparsely populated, then we just need to load one page at a time
-			// switch between the two by comparing the result size to the expected batch size
-			if loadParallel {
-				lastPageID, resultSize, err = ec.loadEventsParallel(lastID)
-			} else {
-				lastPageID, resultSize, err = ec.loadEventsSerial(lastID)
-			}
-			if err != nil {
-				ec.logger.Error("failed to load events into cache", "error", err, "lastID", lastID)
-			} else {
-				lastID = lastPageID
-				loadParallel = resultSize > (ec.batchSize)/2
-			}
-
-			if resultSize == 0 {
-				ec.logger.Info("no events back, sleeping for a second")
-				time.Sleep(time.Second)
-			}
-		}
-	}
-}
-
-func (ec *EventCache) loadEventsSerial(startID int) (int, int, error) {
-	dbEvts := make([]models.OutboxBuffer, 0, ec.batchSize)
-	if err := ec.db.Raw(
-		"SELECT * FROM outbox_buffers WHERE id > ? ORDER BY id ASC LIMIT ?",
-		startID,
-		ec.batchSize,
-	).Scan(&dbEvts).Error; err != nil {
-		return 0, 0, err
-	}
-
-	outboxEvts, err := parseOutboxEvents(dbEvts)
-	if err != nil {
-		return 0, 0, err
-	}
-	resultSize := len(outboxEvts)
-	if resultSize == 0 {
-		return startID, 0, nil
-	}
-
-	ec.cacheMu.Lock()
-	for i := range outboxEvts {
-		evt := outboxEvts[i] // Create heap copy
-		ec.eventCache[evt.ID] = &evt
-	}
-	ec.cacheMu.Unlock()
-
-	for i := range outboxEvts {
-		ec.pendingIDs <- outboxEvts[i].ID
-	}
-
-	return int(outboxEvts[resultSize-1].ID), resultSize, nil
-}
-
-func (ec *EventCache) loadEventsParallel(startID int) (int, int, error) {
-	results := make([]batchResult, ec.numLoaders)
-	var wg sync.WaitGroup
-	wg.Add(ec.numLoaders)
-	for i := 0; i < ec.numLoaders; i++ {
-		loaderID := i
-		go func() {
-			defer wg.Done()
-			batchStartID := startID + loaderID*ec.batchSize
-			results[loaderID] = ec.loadEventBatch(batchStartID, batchStartID+ec.batchSize)
-		}()
-	}
-	wg.Wait()
-
-	for _, result := range results {
-		if result.err != nil {
-			return 0, 0, result.err
-		}
-	}
-
-	resultsSize := batchesSize(results)
-	// didn't load any events
-	if resultsSize == 0 {
-		return startID, 0, nil
-	}
-
-	ec.cacheMu.Lock()
-	for _, result := range results {
-		for _, evt := range result.events {
-			evtCopy := evt // Create heap copy to avoid storing address of loop variable
-			ec.eventCache[evt.ID] = &evtCopy
-		}
-	}
-	ec.cacheMu.Unlock()
-
-	for _, result := range results {
-		for _, evt := range result.events {
-			ec.pendingIDs <- evt.ID
-		}
-	}
-	return lastIDForBatches(results), resultsSize, nil
-}
-
-func (ec *EventCache) loadEventBatch(startID int, endID int) batchResult {
-	dbEvts := make([]models.OutboxBuffer, 0, (endID-startID)+1)
-	err := ec.db.Raw(
-		"SELECT * FROM outbox_buffers WHERE id > ? AND id <= ? ORDER BY id ASC",
-		startID,
-		endID,
-	).Scan(&dbEvts).Error
-	if err != nil {
-		return batchResult{err: err}
-	}
-	outboxEvts, err := parseOutboxEvents(dbEvts)
-	return batchResult{events: outboxEvts, err: err}
-}
-
-func parseOutboxEvents(dbEvts []models.OutboxBuffer) ([]OutboxEvt, error) {
-	outboxEvts := make([]OutboxEvt, 0, len(dbEvts))
-
-	for _, evt := range dbEvts {
-		var outboxEvt OutboxEvt
-		if err := json.Unmarshal([]byte(evt.Data), &outboxEvt); err != nil {
-			return nil, err
-		}
-		outboxEvt.ID = evt.ID
-		outboxEvts = append(outboxEvts, outboxEvt)
-	}
-
-	return outboxEvts, nil
-}
-
-type batchResult struct {
-	events []OutboxEvt
-	err    error
-}
-
-func batchesSize(batches []batchResult) int {
-	size := 0
-	for _, batch := range batches {
-		size += len(batch.events)
-	}
-	return size
-}
-
-func lastIDForBatches(batches []batchResult) int {
-	// Iterate backwards to find the last non-empty batch
-	for i := len(batches) - 1; i >= 0; i-- {
-		if len(batches[i].events) > 0 {
-			lastEvent := batches[i].events[len(batches[i].events)-1]
-			return int(lastEvent.ID)
-		}
-	}
-	return 0
-}
-
-func (ec *EventCache) GetEvent(id uint) (*OutboxEvt, bool) {
-	ec.cacheMu.RLock()
-	defer ec.cacheMu.RUnlock()
-	evt, exists := ec.eventCache[id]
-	return evt, exists
-}
-
-func (ec *EventCache) DeleteEvents(ids []uint) {
-	ec.cacheMu.Lock()
-	defer ec.cacheMu.Unlock()
-	for _, id := range ids {
-		delete(ec.eventCache, id)
-	}
 }
