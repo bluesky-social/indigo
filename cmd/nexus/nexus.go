@@ -71,7 +71,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		db:         db,
 		cacheSize:  config.EventCacheSize,
 		cache:      make(map[uint]*OutboxEvt),
-		pendingIDs: make(chan uint, config.EventCacheSize*2), // give us some buffer room in channel since we can overshoot
+		pendingIDs: make(chan uint, config.EventCacheSize*10), // give us some buffer room in channel since we can overshoot
 	}
 
 	repoMngr := &RepoManager{
