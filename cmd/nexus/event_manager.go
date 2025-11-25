@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"log/slog"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"gorm.io/gorm"
@@ -11,20 +14,105 @@ import (
 )
 
 type EventManager struct {
-	DB *gorm.DB
+	logger *slog.Logger
+	db     *gorm.DB
 
 	nextID atomic.Uint64
 
 	eventCache map[uint]*CacheEntry
 	cacheMu    sync.RWMutex
+
+	pendingIDs chan uint
 }
 
 type CacheEntry struct {
 	Event []byte
 	Did   string
+	Live  bool
 }
 
 type DBCallback = func(tx *gorm.DB) error
+
+func (em *EventManager) GetEvent(id uint) (*CacheEntry, bool) {
+	em.cacheMu.RLock()
+	defer em.cacheMu.RUnlock()
+	evt, exists := em.eventCache[id]
+	return evt, exists
+}
+
+func (em *EventManager) DeleteEvents(ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	if err := em.db.Delete(&models.OutboxBuffer{}, ids).Error; err != nil {
+		return err
+	}
+
+	em.cacheMu.Lock()
+	defer em.cacheMu.Unlock()
+	for _, id := range ids {
+		delete(em.eventCache, id)
+	}
+	return nil
+}
+
+func (em *EventManager) LoadEvents(ctx context.Context) {
+	lastID := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			lastPageID, err := em.loadEventPage(lastID)
+			if err != nil {
+				em.logger.Error("failed to load events into cache", "error", err, "lastID", lastID)
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
+			// finished loading events
+			if lastPageID == lastID {
+				return
+			}
+			lastID = lastPageID
+		}
+	}
+}
+
+func (em *EventManager) loadEventPage(lastID int) (int, error) {
+	batchSize := 1000
+	dbEvts := make([]models.OutboxBuffer, 0, batchSize)
+	if err := em.db.Raw(
+		"SELECT * FROM outbox_buffers WHERE id > ? ORDER BY id ASC LIMIT ?",
+		lastID,
+		batchSize,
+	).Scan(&dbEvts).Error; err != nil {
+		return 0, err
+	}
+
+	resultSize := len(dbEvts)
+	if resultSize == 0 {
+		return lastID, nil
+	}
+
+	em.cacheMu.Lock()
+	for i := range dbEvts {
+		entry := &CacheEntry{
+			Event: []byte(dbEvts[i].Data),
+			Did:   dbEvts[i].Did,
+			Live:  dbEvts[i].Live,
+		}
+		evtId := dbEvts[i].ID
+		em.eventCache[evtId] = entry
+	}
+	em.cacheMu.Unlock()
+
+	for i := range dbEvts {
+		em.pendingIDs <- dbEvts[i].ID
+	}
+
+	return int(dbEvts[resultSize-1].ID), nil
+}
 
 func (em *EventManager) AddCommit(commit *Commit, dbCallback DBCallback) error {
 	evts := make([]*RecordEvt, 0, len(commit.Ops))
@@ -101,7 +189,7 @@ func (em *EventManager) AddRecordEvents(evts []*RecordEvt, dbCallback DBCallback
 		}
 	}
 
-	err := em.DB.Transaction(func(tx *gorm.DB) error {
+	err := em.db.Transaction(func(tx *gorm.DB) error {
 		if err := dbCallback(tx); err != nil {
 			return err
 		}
@@ -149,7 +237,7 @@ func (em *EventManager) AddUserEvent(evt *UserEvt, dbCallback DBCallback) error 
 	if err != nil {
 		return err
 	}
-	if err := em.DB.Transaction(func(tx *gorm.DB) error {
+	if err := em.db.Transaction(func(tx *gorm.DB) error {
 		if err := dbCallback(tx); err != nil {
 			return err
 		}
@@ -166,50 +254,51 @@ func (em *EventManager) AddUserEvent(evt *UserEvt, dbCallback DBCallback) error 
 	return nil
 }
 
-func (em *EventManager) AddOutboxEvents(evts []OutboxEvt, live bool) error {
-	entries, err := em.AddOutboxEventsTxOnly(em.DB, evts, live)
-	if err != nil {
-		return err
-	}
-	em.AddCacheEntries(entries)
-	return nil
-}
+// func (em *EventManager) AddOutboxEvents(evts []OutboxEvt, live bool) error {
+// 	entries, err := em.AddOutboxEventsTxOnly(em.db, evts, live)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	em.AddCacheEntries(entries)
+// 	return nil
+// }
 
-func (em *EventManager) AddOutboxEventsTxOnly(tx *gorm.DB, evts []OutboxEvt, live bool) (map[uint]CacheEntry, error) {
-	dbEvts := make([]*models.OutboxBuffer, 0, len(evts))
-	cacheEntries := make(map[uint]CacheEntry, len(evts))
+// func (em *EventManager) AddOutboxEventsTxOnly(tx *gorm.DB, evts []OutboxEvt, live bool) (map[uint]CacheEntry, error) {
+// 	dbEvts := make([]*models.OutboxBuffer, 0, len(evts))
+// 	cacheEntries := make(map[uint]CacheEntry, len(evts))
 
-	if len(evts) == 0 {
-		return cacheEntries, nil
-	}
+// 	if len(evts) == 0 {
+// 		return cacheEntries, nil
+// 	}
 
-	for _, evt := range evts {
-		evtID := uint(em.nextID.Add(1))
+// 	for _, evt := range evts {
+// 		evtID := uint(em.nextID.Add(1))
 
-		jsonData, err := json.Marshal(&evt)
-		if err != nil {
-			return nil, err
-		}
+// 		jsonData, err := json.Marshal(&evt)
+// 		if err != nil {
+// 			return nil, err
+// 		}
 
-		dbEvts = append(dbEvts, &models.OutboxBuffer{
-			ID:   evtID,
-			Live: live,
-			Data: string(jsonData),
-		})
+// 		dbEvts = append(dbEvts, &models.OutboxBuffer{
+// 			ID:   evtID,
+// 			Live: live,
+// 			Data: string(jsonData),
+// 		})
 
-		cacheEntries[evtID] = CacheEntry{
-			Event: jsonData,
-			Did:   evt.DID(),
-		}
-	}
+// 		cacheEntries[evtID] = CacheEntry{
+// 			Event: jsonData,
+// 			Did:   evt.DID(),
+// 		}
+// 	}
 
-	if err := tx.CreateInBatches(dbEvts, 100).Error; err != nil {
-		return nil, err
-	}
+// 	if err := tx.CreateInBatches(dbEvts, 100).Error; err != nil {
+// 		return nil, err
+// 	}
 
-	return cacheEntries, nil
-}
+// 	return cacheEntries, nil
+// }
 
+// @TODO just pull these into the above funcions
 func (em *EventManager) AddCacheEntry(id uint, entry *CacheEntry) {
 	em.cacheMu.Lock()
 	em.eventCache[id] = entry
@@ -223,21 +312,4 @@ func (em *EventManager) AddCacheEntries(entries map[uint]CacheEntry) {
 		em.eventCache[id] = &entryCopy
 	}
 	em.cacheMu.Unlock()
-}
-
-func (em *EventManager) DeleteEvents(ids []uint) error {
-	if len(ids) == 0 {
-		return nil
-	}
-
-	if err := em.DB.Delete(&models.OutboxBuffer{}, ids).Error; err != nil {
-		return err
-	}
-
-	em.cacheMu.Lock()
-	defer em.cacheMu.Unlock()
-	for _, id := range ids {
-		delete(em.eventCache, id)
-	}
-	return nil
 }

@@ -21,12 +21,11 @@ import (
 var tracer = otel.Tracer("nexus")
 
 type EventProcessor struct {
-	Logger       *slog.Logger
-	DB           *gorm.DB
-	Dir          identity.Directory
-	RelayUrl     string
-	Outbox       *Outbox
-	EventManager *EventManager
+	Logger   *slog.Logger
+	DB       *gorm.DB
+	Dir      identity.Directory
+	RelayUrl string
+	Events   *EventManager
 
 	FullNetworkMode   bool
 	SignalCollection  string
@@ -103,7 +102,7 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 		}
 	}
 
-	if err := ep.EventManager.AddCommit(commit, func(tx *gorm.DB) error {
+	if err := ep.Events.AddCommit(commit, func(tx *gorm.DB) error {
 		return nil
 	}); err != nil {
 		ep.Logger.Error("failed to update repo state", "did", commit.Did, "rev", commit.Rev, "error", err)
@@ -268,7 +267,7 @@ func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error
 		IsActive: curr.Status == models.AccountStatusActive,
 		Status:   curr.Status,
 	}
-	if err := ep.EventManager.AddUserEvent(userEvt, func(tx *gorm.DB) error {
+	if err := ep.Events.AddUserEvent(userEvt, func(tx *gorm.DB) error {
 		return tx.Model(&models.Repo{}).
 			Where("did = ?", did).
 			Update("handle", handleStr).Error
@@ -319,14 +318,14 @@ func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.Sy
 	}
 
 	if updateTo == models.AccountStatusDeleted {
-		if err := ep.EventManager.AddUserEvent(userEvt, func(tx *gorm.DB) error {
+		if err := ep.Events.AddUserEvent(userEvt, func(tx *gorm.DB) error {
 			return deleteRepo(tx, evt.Did)
 		}); err != nil {
 			ep.Logger.Error("failed to delete repo", "did", evt.Did, "error", err)
 			return err
 		}
 	} else {
-		if err := ep.EventManager.AddUserEvent(userEvt, func(tx *gorm.DB) error {
+		if err := ep.Events.AddUserEvent(userEvt, func(tx *gorm.DB) error {
 			return tx.Model(&models.Repo{}).
 				Where("did = ?", evt.Did).
 				Update("status", updateTo).Error
@@ -368,7 +367,7 @@ func (ep *EventProcessor) drainResyncBuffer(ctx context.Context, did string) err
 			return fmt.Errorf("failed to unmarshal buffered event: %w", err)
 		}
 
-		if err := ep.EventManager.AddCommit(&commit, func(tx *gorm.DB) error {
+		if err := ep.Events.AddCommit(&commit, func(tx *gorm.DB) error {
 			return tx.Delete(&models.ResyncBuffer{}, "id = ?", evt.ID).Error
 		}); err != nil {
 			ep.Logger.Error("failed to process buffered commit", "did", commit.Did, "rev", commit.Rev, "error", err)

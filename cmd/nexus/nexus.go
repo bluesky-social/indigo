@@ -30,7 +30,7 @@ type Nexus struct {
 
 	FirehoseConsumer *FirehoseConsumer
 	EventProcessor   *EventProcessor
-	EventManager     *EventManager
+	Events           *EventManager
 	Crawler          *Crawler
 
 	FullNetworkMode   bool
@@ -82,6 +82,10 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		outboxMode = OutboxModeWebsocketAck
 	}
 
+	evtManager := &EventManager{
+		db: db,
+	}
+
 	n := &Nexus{
 		db:     db,
 		logger: slog.Default().With("system", "nexus"),
@@ -89,7 +93,8 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		Dir:      &cdir,
 		RelayUrl: config.RelayUrl,
 
-		Outbox: NewOutbox(db, outboxMode, config.WebhookURL, config.OutboxParallelism),
+		Outbox: NewOutbox(db, evtManager, outboxMode, config.WebhookURL, config.OutboxParallelism),
+		Events: evtManager,
 
 		FullNetworkMode:   config.FullNetworkMode,
 		CollectionFilters: config.CollectionFilters,
@@ -110,7 +115,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		DB:                db,
 		Dir:               n.Dir,
 		RelayUrl:          config.RelayUrl,
-		Outbox:            n.Outbox,
+		Events:            evtManager,
 		FullNetworkMode:   config.FullNetworkMode,
 		SignalCollection:  config.SignalCollection,
 		CollectionFilters: config.CollectionFilters,
