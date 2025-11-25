@@ -52,34 +52,26 @@
         {
           "type": "permission",
           "resource": "rpc",
-          "aud": "did:web:example.com#foo",
           "lxm": [
             "com.example.calendar.listEvents"
-          ]
+          ],
+          "aud": "*"
         },
         {
           "type": "permission",
           "resource": "rpc",
-          "aud": "did:web:example.com#bar",
           "lxm": [
             "*"
-          ]
+          ],
+          "inheritAud": true
         },
         {
           "type": "permission",
           "resource": "rpc",
-          "inheritAud": true,
           "lxm": [
             "com.example.calendar.listEvents"
-          ]
-        },
-        {
-          "type": "permission",
-          "resource": "rpc",
-          "aud": "*",
-          "lxm": [
-            "com.example.calendar.listEvents"
-          ]
+          ],
+          "inheritAud": true
         }
       ]
     }
