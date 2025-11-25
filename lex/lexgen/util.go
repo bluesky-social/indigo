@@ -25,8 +25,6 @@ func defType(sd *lexicon.SchemaDef) (string, error) {
 		return "permission-set", nil
 	case lexicon.SchemaPermission:
 		return "permission", nil
-	case lexicon.SchemaNull:
-		return "null", nil
 	case lexicon.SchemaBoolean:
 		return "boolean", nil
 	case lexicon.SchemaInteger:
@@ -71,10 +69,8 @@ func defDescription(sd *lexicon.SchemaDef) string {
 	case lexicon.SchemaSubscription:
 		desc = v.Description
 	case lexicon.SchemaPermissionSet:
-		// TODO: extract *some* description?
-	case lexicon.SchemaPermission:
 		desc = v.Description
-	case lexicon.SchemaNull:
+	case lexicon.SchemaPermission:
 		desc = v.Description
 	case lexicon.SchemaBoolean:
 		desc = v.Description
