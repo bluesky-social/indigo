@@ -18,6 +18,9 @@ type EventManager struct {
 
 	nextID atomic.Uint64
 
+	cacheSize       int
+	finishedLoading bool
+
 	cache   map[uint]*OutboxEvt
 	cacheLk sync.RWMutex
 
@@ -25,6 +28,10 @@ type EventManager struct {
 }
 
 type DBCallback = func(tx *gorm.DB) error
+
+func (em *EventManager) IsReady() bool {
+	return em.finishedLoading && len(em.cache) < em.cacheSize
+}
 
 func (em *EventManager) GetEvent(id uint) (*OutboxEvt, bool) {
 	em.cacheLk.RLock()
@@ -63,8 +70,8 @@ func (em *EventManager) LoadEvents(ctx context.Context) {
 				time.Sleep(500 * time.Millisecond)
 				continue
 			}
-			// finished loading events
 			if lastPageID == lastID {
+				em.finishedLoading = true
 				return
 			}
 			lastID = lastPageID

@@ -53,6 +53,7 @@ type NexusConfig struct {
 	FirehoseCursorSaveInterval time.Duration
 	RepoFetchTimeout           time.Duration
 	IdentityCacheSize          int
+	EventCacheSize             int
 	FullNetworkMode            bool
 	SignalCollection           string
 	DisableAcks                bool
@@ -83,7 +84,12 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	}
 
 	evtManager := &EventManager{
-		db: db,
+		// @TODO fix logger
+		logger:     slog.Default().With("system", "nexus"),
+		db:         db,
+		cacheSize:  config.EventCacheSize,
+		pendingIDs: make(chan uint, config.EventCacheSize*2),
+		cache:      make(map[uint]*OutboxEvt),
 	}
 
 	n := &Nexus{
@@ -159,6 +165,8 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 
 // Run starts internal background workers for resync, cursor saving, and outbox delivery.
 func (n *Nexus) Run(ctx context.Context) {
+	go n.Events.LoadEvents(ctx)
+
 	if !n.config.OutboxOnly {
 		for i := 0; i < n.config.ResyncParallelism; i++ {
 			go n.runResyncWorker(ctx, i)

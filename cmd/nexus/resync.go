@@ -22,15 +22,19 @@ func (n *Nexus) runResyncWorker(ctx context.Context, workerID int) {
 	logger := n.logger.With("worker", workerID)
 
 	for {
+		if !n.Events.IsReady() {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
 		did, found, err := n.claimResyncJob(ctx)
 		if err != nil {
 			logger.Error("failed to claim resync job", "error", err)
-			time.Sleep(3 * time.Second)
+			time.Sleep(time.Second)
 			continue
 		}
 
 		if !found {
-			time.Sleep(3 * time.Second)
+			time.Sleep(time.Second)
 			continue
 		}
 
