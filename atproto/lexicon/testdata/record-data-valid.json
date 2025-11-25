@@ -12,7 +12,6 @@
     "rkey": "demo",
     "data": {
       "$type": "example.lexicon.record",
-      "null": null,
       "boolean": true,
       "integer": 3,
       "string": "blah",

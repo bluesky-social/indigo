@@ -32,8 +32,6 @@ func (s *SchemaDef) CheckSchema() error {
 		return v.CheckSchema()
 	case SchemaPermission:
 		return v.CheckSchema()
-	case SchemaNull:
-		return v.CheckSchema()
 	case SchemaBoolean:
 		return v.CheckSchema()
 	case SchemaInteger:
@@ -76,7 +74,7 @@ func (s *SchemaDef) IsPrimary() bool {
 
 func (s *SchemaDef) IsConcrete() bool {
 	switch s.Inner.(type) {
-	case SchemaNull, SchemaBoolean, SchemaInteger, SchemaString, SchemaBytes, SchemaCIDLink, SchemaBlob:
+	case SchemaBoolean, SchemaInteger, SchemaString, SchemaBytes, SchemaCIDLink, SchemaBlob:
 		return true
 	}
 	return false
@@ -235,13 +233,6 @@ func (s *SchemaDef) UnmarshalJSON(b []byte) error {
 		return nil
 	case "permission":
 		v := new(SchemaPermission)
-		if err = json.Unmarshal(b, v); err != nil {
-			return err
-		}
-		s.Inner = *v
-		return nil
-	case "null":
-		v := new(SchemaNull)
 		if err = json.Unmarshal(b, v); err != nil {
 			return err
 		}
@@ -496,7 +487,6 @@ type SchemaPermission struct {
 	Description *string `json:"description,omitempty"`
 
 	Resource   string   `json:"resource"`
-	Accept     []string `json:"accept,omitempty"`
 	Collection []string `json:"collection,omitempty"`
 	Action     []string `json:"action,omitempty"`
 	LXM        []string `json:"lxm,omitempty"`
@@ -509,17 +499,6 @@ func (s *SchemaPermission) CheckSchema() error {
 		return fmt.Errorf("expected 'permission' schema")
 	}
 	switch s.Resource {
-	case "blob":
-		if len(s.Accept) == 0 {
-			return fmt.Errorf("blob permission requires 'accept'")
-		}
-		for _, acc := range s.Accept {
-			// TODO: more complete MIME pattern parsing
-			parts := strings.SplitN(acc, "/", 3)
-			if len(parts) != 2 || parts[0] == "*" || parts[0] == "" || parts[1] == "" {
-				return fmt.Errorf("invalid blob 'accept' pattern: %s", acc)
-			}
-		}
 	case "repo":
 		if len(s.Collection) == 0 {
 			return fmt.Errorf("repo permission requires 'collection'")
@@ -535,7 +514,7 @@ func (s *SchemaPermission) CheckSchema() error {
 		}
 		for _, act := range s.Action {
 			if act != "create" && act != "update" && act != "delete" {
-				return fmt.Errorf("unsupported repo action: %s", act)
+				return fmt.Errorf("repo permission unsupported action: %s", act)
 			}
 		}
 	case "rpc":
@@ -546,7 +525,7 @@ func (s *SchemaPermission) CheckSchema() error {
 			if lxm == "*" {
 				if s.Audience == "*" {
 					// TODO: is this necessary here?
-					return fmt.Errorf("can't have both 'lxm' and 'aud' be '*'")
+					return fmt.Errorf("rpc permission can't have both 'lxm' and 'aud' be '*'")
 				}
 				continue
 			}
@@ -559,17 +538,9 @@ func (s *SchemaPermission) CheckSchema() error {
 			return fmt.Errorf("rpc permission must have eith 'aud' or 'inheritAud' defined")
 		}
 		if s.Audience != "" && s.Audience != "*" {
-			// TODO: helper for service refs
-			parts := strings.SplitN(s.Audience, "#", 3)
-			if len(parts) != 2 || parts[1] == "" {
-				return fmt.Errorf("rpc 'aud' must be a service ref")
-			}
-			_, err := syntax.ParseDID(parts[0])
-			if err != nil {
-				return fmt.Errorf("rpc 'aud' must be a service ref: %w", err)
-			}
+			return fmt.Errorf("rpc permission 'aud' can't have service DID in permission set")
 		}
-	case "account", "identity":
+	case "blob", "account", "identity":
 		return fmt.Errorf("%s permission not allowed in permission sets", s.Resource)
 	default:
 		return fmt.Errorf("unsupported permission resource: %s", s.Resource)
@@ -627,25 +598,6 @@ func (s *SchemaError) Validate(d any) error {
 	}
 	if n != s.Name {
 		return fmt.Errorf("error type mis-match: %s", n)
-	}
-	return nil
-}
-
-type SchemaNull struct {
-	Type        string  `json:"type"` // "null"
-	Description *string `json:"description,omitempty"`
-}
-
-func (s *SchemaNull) CheckSchema() error {
-	if s.Type != "null" {
-		return fmt.Errorf("expected 'null' schema")
-	}
-	return nil
-}
-
-func (s *SchemaNull) Validate(d any) error {
-	if d != nil {
-		return fmt.Errorf("expected null data, got: %s", reflect.TypeOf(d))
 	}
 	return nil
 }

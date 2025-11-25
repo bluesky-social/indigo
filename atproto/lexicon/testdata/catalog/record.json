@@ -16,10 +16,6 @@
           "nullableString"
         ],
         "properties": {
-          "null": {
-            "type": "null",
-            "description": "field of type null"
-          },
           "boolean": {
             "type": "boolean",
             "description": "field of type boolean"
@@ -61,7 +57,7 @@
           },
           "object": {
             "type": "object",
-            "description": "field of type null",
+            "description": "field of type object",
             "properties": {
               "a": {
                 "type": "integer"
