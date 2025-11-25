@@ -237,9 +237,23 @@ func (r *Relay) UpdateAccountLocalStatus(ctx context.Context, did syntax.DID, st
 
 // Returns the of active accounts (based on local and upstream status). The sort order is by UID, ascending.
 func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*models.Account, error) {
-
 	accounts := []*models.Account{}
 	if err := r.db.WithContext(ctx).Model(&models.Account{}).Where("uid > ? AND status = 'active' AND upstream_status = 'active'", cursor).Order("uid").Limit(limit).Find(&accounts).Error; err != nil {
+		return nil, err
+	}
+	return accounts, nil
+}
+func (r *Relay) ListAccountsDetailed(ctx context.Context, cursor int64, limit int) ([]*models.AccountDetailed, error) {
+	accounts := []*models.AccountDetailed{}
+	if err := r.db.WithContext(ctx).Raw(`
+		SELECT account.uid, account.did, account.host_id, account.status, account.upstream_status,
+		       account_repo.rev, account_repo.commit_cid, account_repo.commit_data_cid
+		FROM account
+		INNER JOIN account_repo ON account.uid = account_repo.uid
+		WHERE account.uid > ? AND account.status = 'active' AND account.upstream_status = 'active'
+		ORDER BY account.uid
+		LIMIT ?
+	`, cursor, limit).Scan(&accounts).Error; err != nil {
 		return nil, err
 	}
 	return accounts, nil
