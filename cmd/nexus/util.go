@@ -65,3 +65,13 @@ func isRateLimitError(err error) bool {
 	}
 	return false
 }
+
+func parseOutboxMode(webhookURL string, disableAcks bool) OutboxMode {
+	if webhookURL != "" {
+		return OutboxModeWebhook
+	} else if disableAcks {
+		return OutboxModeFireAndForget
+	} else {
+		return OutboxModeWebsocketAck
+	}
+}

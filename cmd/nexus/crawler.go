@@ -15,9 +15,9 @@ import (
 )
 
 type Crawler struct {
-	DB       *gorm.DB
-	Logger   *slog.Logger
-	RelayUrl string
+	db       *gorm.DB
+	logger   *slog.Logger
+	relayUrl string
 }
 
 // EnumerateNetwork discovers and tracks all repositories on the network.
@@ -30,7 +30,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 		return err
 	}
 
-	client := atclient.NewAPIClient(c.RelayUrl)
+	client := atclient.NewAPIClient(c.relayUrl)
 	client.Client = &http.Client{
 		Timeout: 30 * time.Second,
 	}
@@ -63,33 +63,33 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 			break
 		}
 
-		if err := c.DB.Save(&repos).Error; err != nil {
-			c.Logger.Error("failed to save repos batch", "error", err, "count", len(repos))
+		if err := c.db.Save(&repos).Error; err != nil {
+			c.logger.Error("failed to save repos batch", "error", err, "count", len(repos))
 			return err
 		}
 
-		c.Logger.Info("enumerated repos batch", "count", len(repos))
+		c.logger.Info("enumerated repos batch", "count", len(repos))
 
 		if repoList.Cursor == nil || *repoList.Cursor == "" {
 			break
 		}
 		cursor = *repoList.Cursor
 
-		if err := c.DB.Save(&models.ListReposCursor{
-			Url:    c.RelayUrl,
+		if err := c.db.Save(&models.ListReposCursor{
+			Url:    c.relayUrl,
 			Cursor: cursor,
 		}).Error; err != nil {
-			c.Logger.Error("failed to save list repos cursor", "error", err)
+			c.logger.Error("failed to save list repos cursor", "error", err)
 		}
 	}
 
-	c.Logger.Info("network enumeration complete")
+	c.logger.Info("network enumeration complete")
 	return nil
 }
 
 func (c *Crawler) getListReposCursor(ctx context.Context) (string, error) {
 	var dbCursor models.ListReposCursor
-	err := c.DB.Where("url = ?", c.RelayUrl).First(&dbCursor).Error
+	err := c.db.Where("url = ?", c.relayUrl).First(&dbCursor).Error
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return "", fmt.Errorf("failed to read list repos cursor: %w", err)
@@ -110,7 +110,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 		return err
 	}
 
-	client := atclient.NewAPIClient(c.RelayUrl)
+	client := atclient.NewAPIClient(c.relayUrl)
 	client.Client = &http.Client{
 		Timeout: 30 * time.Second,
 	}
@@ -140,34 +140,34 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 			break
 		}
 
-		if err := c.DB.Save(&repos).Error; err != nil {
-			c.Logger.Error("failed to save repos batch", "error", err, "collection", collection, "count", len(repos))
+		if err := c.db.Save(&repos).Error; err != nil {
+			c.logger.Error("failed to save repos batch", "error", err, "collection", collection, "count", len(repos))
 			return err
 		}
 
-		c.Logger.Info("enumerated repos by collection batch", "collection", collection, "count", len(repos))
+		c.logger.Info("enumerated repos by collection batch", "collection", collection, "count", len(repos))
 
 		if repoList.Cursor == nil || *repoList.Cursor == "" {
 			break
 		}
 		cursor = *repoList.Cursor
 
-		if err := c.DB.Save(&models.CollectionCursor{
-			Url:        c.RelayUrl,
+		if err := c.db.Save(&models.CollectionCursor{
+			Url:        c.relayUrl,
 			Collection: collection,
 			Cursor:     cursor,
 		}).Error; err != nil {
-			c.Logger.Error("failed to save collection cursor", "error", err)
+			c.logger.Error("failed to save collection cursor", "error", err)
 		}
 	}
 
-	c.Logger.Info("collection enumeration complete", "collection", collection)
+	c.logger.Info("collection enumeration complete", "collection", collection)
 	return nil
 }
 
 func (c *Crawler) getCollectionCursor(ctx context.Context, collection string) (string, error) {
 	var dbCursor models.CollectionCursor
-	err := c.DB.Where("url = ? AND collection = ?", c.RelayUrl, collection).First(&dbCursor).Error
+	err := c.db.Where("url = ? AND collection = ?", c.relayUrl, collection).First(&dbCursor).Error
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return "", fmt.Errorf("failed to read collection cursor: %w", err)

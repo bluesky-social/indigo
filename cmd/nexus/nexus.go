@@ -4,13 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
-	"github.com/bluesky-social/indigo/events"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -21,22 +20,15 @@ type Nexus struct {
 	db     *gorm.DB
 	logger *slog.Logger
 
-	Dir      identity.Directory
-	RelayUrl string
+	Firehose     *FirehoseProcessor
+	Events       *EventManager
+	Repos        *RepoManager
+	Resyncer     *Resyncer
+	ResyncBuffer *ResyncBuffer
+	Crawler      *Crawler
 
 	Server *NexusServer
 	Outbox *Outbox
-
-	FirehoseConsumer *FirehoseConsumer
-	EventProcessor   *FirehoseProcessor
-	Events           *EventManager
-	Repos            *RepoManager
-	Resyncer         *Resyncer
-	ResyncBuffer     *ResyncBuffer
-	Crawler          *Crawler
-
-	FullNetworkMode   bool
-	CollectionFilters []string
 
 	config NexusConfig
 }
@@ -72,100 +64,93 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	}
 	cdir := identity.NewCacheDirectory(&bdir, config.IdentityCacheSize, time.Hour*24, time.Minute*2, time.Minute*5)
 
-	evtManager := NewEventManager(db, config.EventCacheSize)
+	logger := slog.Default().With("system", "nexus")
 
-	var outboxMode OutboxMode
-	if config.WebhookURL != "" {
-		outboxMode = OutboxModeWebhook
-	} else if config.DisableAcks {
-		outboxMode = OutboxModeFireAndForget
-	} else {
-		outboxMode = OutboxModeWebsocketAck
+	evtMngr := &EventManager{
+		logger:     logger.With("component", "event_manager"),
+		db:         db,
+		cacheSize:  config.EventCacheSize,
+		cache:      make(map[uint]*OutboxEvt),
+		pendingIDs: make(chan uint, config.EventCacheSize*2), // give us some buffer room in channel since we can overshoot
 	}
-	outbox := NewOutbox(evtManager, outboxMode, config.WebhookURL, config.OutboxParallelism)
+
+	repoMngr := &RepoManager{
+		logger: logger.With("component", "server"),
+		db:     db,
+		IdDir:  &cdir,
+		events: evtMngr,
+	}
+
+	resyncBuffer := &ResyncBuffer{
+		db:     db,
+		events: evtMngr,
+	}
+
+	resyncer := &Resyncer{
+		logger:            logger.With("component", "resyncer"),
+		db:                db,
+		events:            evtMngr,
+		repos:             repoMngr,
+		resyncBuffer:      resyncBuffer,
+		repoFetchTimeout:  config.RepoFetchTimeout,
+		collectionFilters: config.CollectionFilters,
+		parallelism:       config.ResyncParallelism,
+		pdsBackoff:        make(map[string]time.Time),
+	}
+
+	firehose := &FirehoseProcessor{
+		logger:             logger.With("component", "firehose"),
+		db:                 db,
+		events:             evtMngr,
+		repos:              repoMngr,
+		resyncBuffer:       resyncBuffer,
+		relayUrl:           config.RelayUrl,
+		fullNetworkMode:    config.FullNetworkMode,
+		signalCollection:   config.SignalCollection,
+		collectionFilters:  config.CollectionFilters,
+		parallelism:        config.FirehoseParallelism,
+		cursorSaveInterval: config.FirehoseCursorSaveInterval,
+	}
+
+	crawler := &Crawler{
+		logger:   logger.With("component", "crawler"),
+		db:       db,
+		relayUrl: config.RelayUrl,
+	}
+
+	outbox := &Outbox{
+		logger:      logger.With("component", "outbox"),
+		mode:        parseOutboxMode(config.WebhookURL, config.DisableAcks),
+		parallelism: config.OutboxParallelism,
+		webhookURL:  config.WebhookURL,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+		events:   evtMngr,
+		acks:     make(chan uint, config.OutboxParallelism*10000),
+		outgoing: make(chan *OutboxEvt, config.OutboxParallelism*10000),
+	}
+
+	server := &NexusServer{
+		logger: logger.With("component", "server"),
+		db:     db,
+		outbox: outbox,
+	}
 
 	n := &Nexus{
 		db:     db,
 		logger: slog.Default().With("system", "nexus"),
 
-		Dir:      &cdir,
-		RelayUrl: config.RelayUrl,
-
-		Outbox: outbox,
-		Events: evtManager,
-		ResyncBuffer: &ResyncBuffer{
-			db:     db,
-			events: evtManager,
-		},
-
-		FullNetworkMode:   config.FullNetworkMode,
-		CollectionFilters: config.CollectionFilters,
+		Firehose:     firehose,
+		Events:       evtMngr,
+		Repos:        repoMngr,
+		Resyncer:     resyncer,
+		ResyncBuffer: resyncBuffer,
+		Crawler:      crawler,
+		Server:       server,
+		Outbox:       outbox,
 
 		config: config,
-	}
-
-	n.Repos = &RepoManager{
-		logger: n.logger.With("component", "server"),
-		db:     db,
-		IdDir:  n.Dir,
-		events: n.Events,
-	}
-
-	n.Resyncer = &Resyncer{
-		logger:            n.logger.With("component", "resyncer"),
-		db:                db,
-		events:            n.Events,
-		repos:             n.Repos,
-		resyncBuffer:      n.ResyncBuffer,
-		repoFetchTimeout:  n.config.RepoFetchTimeout,
-		collectionFilters: n.config.CollectionFilters,
-		parallelism:       n.config.ResyncParallelism,
-		pdsBackoff:        make(map[string]time.Time),
-	}
-
-	n.EventProcessor = &FirehoseProcessor{
-		Logger:            n.logger.With("component", "processor"),
-		DB:                db,
-		RelayUrl:          config.RelayUrl,
-		Events:            evtManager,
-		FullNetworkMode:   config.FullNetworkMode,
-		SignalCollection:  config.SignalCollection,
-		CollectionFilters: config.CollectionFilters,
-	}
-
-	rsc := &events.RepoStreamCallbacks{
-		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
-			return n.EventProcessor.ProcessCommit(context.Background(), evt)
-		},
-		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
-			return n.EventProcessor.ProcessSync(context.Background(), evt)
-		},
-		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
-			return n.EventProcessor.ProcessIdentity(context.Background(), evt)
-		},
-		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
-			return n.EventProcessor.ProcessAccount(context.Background(), evt)
-		},
-	}
-
-	n.FirehoseConsumer = &FirehoseConsumer{
-		RelayUrl:    config.RelayUrl,
-		Logger:      n.logger.With("component", "firehose"),
-		Parallelism: config.FirehoseParallelism,
-		Callbacks:   rsc,
-		GetCursor:   n.EventProcessor.ReadLastCursor,
-	}
-
-	n.Crawler = &Crawler{
-		Logger:   n.logger.With("component", "crawler"),
-		DB:       db,
-		RelayUrl: config.RelayUrl,
-	}
-
-	n.Server = &NexusServer{
-		logger: n.logger.With("component", "server"),
-		db:     db,
-		Outbox: n.Outbox,
 	}
 
 	if err := n.Resyncer.resetPartiallyResynced(); err != nil {
@@ -181,7 +166,6 @@ func (n *Nexus) Run(ctx context.Context) {
 
 	if !n.config.OutboxOnly {
 		go n.Resyncer.run(ctx)
-		go n.EventProcessor.RunCursorSaver(ctx, n.config.FirehoseCursorSaveInterval)
 	}
 
 	go n.Outbox.Run(ctx)

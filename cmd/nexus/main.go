@@ -213,7 +213,7 @@ func runNexus(cctx *cli.Context) error {
 	if !config.OutboxOnly {
 		go func() {
 			logger.Info("starting firehose consumer")
-			if err := nexus.FirehoseConsumer.Run(ctx); err != nil {
+			if err := nexus.Firehose.Run(ctx); err != nil {
 				svcErr <- err
 			}
 		}()

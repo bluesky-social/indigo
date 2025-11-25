@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"net/url"
 	"sync/atomic"
 	"time"
 
@@ -12,6 +14,9 @@ import (
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
+	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/schedulers/parallel"
+	"github.com/gorilla/websocket"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
@@ -19,18 +24,26 @@ import (
 var tracer = otel.Tracer("nexus")
 
 type FirehoseProcessor struct {
-	Logger       *slog.Logger
-	DB           *gorm.DB
-	RelayUrl     string
-	Events       *EventManager
+	logger *slog.Logger
+	db     *gorm.DB
+
+	events       *EventManager
 	repos        *RepoManager
 	resyncBuffer *ResyncBuffer
 
-	FullNetworkMode   bool
-	SignalCollection  string
-	CollectionFilters []string
+	relayUrl           string
+	fullNetworkMode    bool
+	signalCollection   string
+	collectionFilters  []string
+	parallelism        int
+	cursorSaveInterval time.Duration
 
 	lastSeq atomic.Int64
+}
+
+func (fp *FirehoseProcessor) Run(ctx context.Context) error {
+	go fp.RunCursorSaver(ctx)
+	return fp.runConsumer(ctx)
 }
 
 // ProcessCommit validates and applies a commit event from the firehose.
@@ -44,10 +57,10 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 	if err != nil {
 		return err
 	} else if curr == nil {
-		shouldTrack := fp.FullNetworkMode || (fp.SignalCollection != "" && evtHasSignalCollection(evt, fp.SignalCollection))
+		shouldTrack := fp.fullNetworkMode || (fp.signalCollection != "" && evtHasSignalCollection(evt, fp.signalCollection))
 		if shouldTrack {
 			if err := fp.repos.EnsureRepo(evt.Repo); err != nil {
-				fp.Logger.Error("failed to auto-track repo", "did", evt.Repo, "error", err)
+				fp.logger.Error("failed to auto-track repo", "did", evt.Repo, "error", err)
 				return err
 			}
 		}
@@ -60,17 +73,17 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 	}
 
 	if curr.Rev != "" && evt.Rev <= curr.Rev {
-		fp.Logger.Debug("skipping replayed event", "did", evt.Repo, "eventRev", evt.Rev, "currentRev", curr.Rev)
+		fp.logger.Debug("skipping replayed event", "did", evt.Repo, "eventRev", evt.Rev, "currentRev", curr.Rev)
 		return nil
 	}
 
 	if evt.PrevData == nil {
-		fp.Logger.Debug("legacy commit event, skipping prev data check", "did", evt.Repo, "rev", evt.Rev)
+		fp.logger.Debug("legacy commit event, skipping prev data check", "did", evt.Repo, "rev", evt.Rev)
 	} else if evt.PrevData.String() != curr.PrevData {
-		fp.Logger.Warn("repo state desynced", "did", evt.Repo, "rev", evt.Rev)
+		fp.logger.Warn("repo state desynced", "did", evt.Repo, "rev", evt.Rev)
 		// gets picked up by resync workers
-		if err := fp.UpdateRepoState(evt.Repo, models.RepoStateDesynced); err != nil {
-			fp.Logger.Error("failed to update repo state to desynced", "did", evt.Repo, "error", err)
+		if err := fp.repos.UpdateRepoState(evt.Repo, models.RepoStateDesynced); err != nil {
+			fp.logger.Error("failed to update repo state to desynced", "did", evt.Repo, "error", err)
 			return err
 		}
 		return nil
@@ -78,14 +91,14 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 
 	commit, err := fp.validateCommit(ctx, evt)
 	if err != nil {
-		fp.Logger.Error("failed to parse operations", "did", evt.Repo, "error", err)
+		fp.logger.Error("failed to parse operations", "did", evt.Repo, "error", err)
 		return err
 	}
 
 	// filter ops to only matching collections after validation (since all ops are necessary for commit validation)
 	filteredOps := []CommitOp{}
 	for _, op := range commit.Ops {
-		if matchesCollection(op.Collection, fp.CollectionFilters) {
+		if matchesCollection(op.Collection, fp.collectionFilters) {
 			filteredOps = append(filteredOps, op)
 		}
 	}
@@ -96,15 +109,15 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 
 	if curr.State == models.RepoStateResyncing {
 		if err := fp.resyncBuffer.add(commit); err != nil {
-			fp.Logger.Error("failed to buffer commit", "did", evt.Repo, "error", err)
+			fp.logger.Error("failed to buffer commit", "did", evt.Repo, "error", err)
 			return err
 		}
 	}
 
-	if err := fp.Events.AddCommit(commit, func(tx *gorm.DB) error {
+	if err := fp.events.AddCommit(commit, func(tx *gorm.DB) error {
 		return nil
 	}); err != nil {
-		fp.Logger.Error("failed to update repo state", "did", commit.Did, "rev", commit.Rev, "error", err)
+		fp.logger.Error("failed to update repo state", "did", commit.Did, "rev", commit.Rev, "error", err)
 		return err
 	}
 
@@ -143,7 +156,7 @@ func (fp *FirehoseProcessor) validateCommit(ctx context.Context, evt *comatproto
 
 			recBytes, _, err := r.GetRecordBytes(ctx, collection, rkey)
 			if err != nil {
-				fp.Logger.Error("failed to get record bytes", "did", evt.Repo, "path", op.Path, "error", err)
+				fp.logger.Error("failed to get record bytes", "did", evt.Repo, "path", op.Path, "error", err)
 				continue
 			}
 
@@ -151,7 +164,7 @@ func (fp *FirehoseProcessor) validateCommit(ctx context.Context, evt *comatproto
 			if err != nil {
 				// do not skip here
 				// we end up storing the CID but not passing the record along in the outbox
-				fp.Logger.Error("failed to unmarshal record", "did", evt.Repo, "path", op.Path, "error", err)
+				fp.logger.Error("failed to unmarshal record", "did", evt.Repo, "path", op.Path, "error", err)
 			}
 			parsed.Record = record
 		}
@@ -185,9 +198,9 @@ func (fp *FirehoseProcessor) ProcessSync(ctx context.Context, evt *comatproto.Sy
 	if err != nil {
 		return err
 	} else if curr == nil {
-		if fp.FullNetworkMode {
+		if fp.fullNetworkMode {
 			if err := fp.repos.EnsureRepo(evt.Did); err != nil {
-				fp.Logger.Error("failed to auto-track repo", "did", evt.Did, "error", err)
+				fp.logger.Error("failed to auto-track repo", "did", evt.Did, "error", err)
 				return err
 			}
 			return nil
@@ -205,17 +218,17 @@ func (fp *FirehoseProcessor) ProcessSync(ctx context.Context, evt *comatproto.Sy
 	}
 
 	if curr.Rev != "" && commit.Rev <= curr.Rev {
-		fp.Logger.Debug("skipping replayed event", "did", commit.DID, "eventRev", commit.Rev, "currentRev", curr.Rev)
+		fp.logger.Debug("skipping replayed event", "did", commit.DID, "eventRev", commit.Rev, "currentRev", curr.Rev)
 		return nil
 	}
 
 	if curr.PrevData == commit.Data.String() {
-		fp.Logger.Debug("skipping noop sync event", "did", commit.DID, "rev", commit.Rev)
+		fp.logger.Debug("skipping noop sync event", "did", commit.DID, "rev", commit.Rev)
 		return nil
 	}
 
-	if err := fp.UpdateRepoState(commit.DID, models.RepoStateDesynced); err != nil {
-		fp.Logger.Error("failed to update repo state to desynced", "did", commit.DID, "error", err)
+	if err := fp.repos.UpdateRepoState(commit.DID, models.RepoStateDesynced); err != nil {
+		fp.logger.Error("failed to update repo state to desynced", "did", commit.DID, "error", err)
 		return err
 	}
 
@@ -229,7 +242,7 @@ func (fp *FirehoseProcessor) ProcessIdentity(ctx context.Context, evt *comatprot
 	if err != nil {
 		return err
 	} else if curr == nil {
-		if fp.FullNetworkMode {
+		if fp.fullNetworkMode {
 			if err := fp.repos.EnsureRepo(evt.Did); err != nil {
 				return err
 			}
@@ -248,9 +261,9 @@ func (fp *FirehoseProcessor) ProcessAccount(ctx context.Context, evt *comatproto
 	if err != nil {
 		return err
 	} else if curr == nil {
-		if fp.FullNetworkMode && evt.Active {
+		if fp.fullNetworkMode && evt.Active {
 			if err := fp.repos.EnsureRepo(evt.Did); err != nil {
-				fp.Logger.Error("failed to auto-track repo", "did", evt.Did, "error", err)
+				fp.logger.Error("failed to auto-track repo", "did", evt.Did, "error", err)
 				return err
 			}
 			return nil
@@ -280,19 +293,19 @@ func (fp *FirehoseProcessor) ProcessAccount(ctx context.Context, evt *comatproto
 	}
 
 	if updateTo == models.AccountStatusDeleted {
-		if err := fp.Events.AddUserEvent(userEvt, func(tx *gorm.DB) error {
+		if err := fp.events.AddUserEvent(userEvt, func(tx *gorm.DB) error {
 			return deleteRepo(tx, evt.Did)
 		}); err != nil {
-			fp.Logger.Error("failed to delete repo", "did", evt.Did, "error", err)
+			fp.logger.Error("failed to delete repo", "did", evt.Did, "error", err)
 			return err
 		}
 	} else {
-		if err := fp.Events.AddUserEvent(userEvt, func(tx *gorm.DB) error {
+		if err := fp.events.AddUserEvent(userEvt, func(tx *gorm.DB) error {
 			return tx.Model(&models.Repo{}).
 				Where("did = ?", evt.Did).
 				Update("status", updateTo).Error
 		}); err != nil {
-			fp.Logger.Error("failed to update repo status", "did", evt.Did, "status", updateTo, "error", err)
+			fp.logger.Error("failed to update repo status", "did", evt.Did, "status", updateTo, "error", err)
 			return err
 		}
 	}
@@ -306,37 +319,37 @@ func (fp *FirehoseProcessor) saveCursor(ctx context.Context) error {
 		return nil
 	}
 
-	return fp.DB.Save(&models.FirehoseCursor{
-		Url:    fp.RelayUrl,
+	return fp.db.Save(&models.FirehoseCursor{
+		Url:    fp.relayUrl,
 		Cursor: seq,
 	}).Error
 }
 
 // RunCursorSaver periodically saves the firehose cursor to the database.
-func (fp *FirehoseProcessor) RunCursorSaver(ctx context.Context, interval time.Duration) {
-	ticker := time.NewTicker(interval)
+func (fp *FirehoseProcessor) RunCursorSaver(ctx context.Context) {
+	ticker := time.NewTicker(fp.cursorSaveInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			if err := fp.saveCursor(ctx); err != nil {
-				fp.Logger.Error("failed to save cursor on shutdown", "error", err, "relayUrl", fp.RelayUrl)
+				fp.logger.Error("failed to save cursor on shutdown", "error", err, "relayUrl", fp.relayUrl)
 			}
 			return
 		case <-ticker.C:
 			if err := fp.saveCursor(ctx); err != nil {
-				fp.Logger.Error("failed to save cursor", "error", err, "relayUrl", fp.RelayUrl)
+				fp.logger.Error("failed to save cursor", "error", err, "relayUrl", fp.relayUrl)
 			}
 		}
 	}
 }
 
-func (fp *FirehoseProcessor) ReadLastCursor(ctx context.Context, relayUrl string) (int64, error) {
+func (fp *FirehoseProcessor) GetCursor(ctx context.Context) (int64, error) {
 	var cursor models.FirehoseCursor
-	if err := fp.DB.Where("url = ?", relayUrl).First(&cursor).Error; err != nil {
+	if err := fp.db.Where("url = ?", fp.relayUrl).First(&cursor).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			fp.Logger.Info("no pre-existing cursor in database", "relayUrl", relayUrl)
+			fp.logger.Info("no pre-existing cursor in database", "relayUrl", fp.relayUrl)
 			return 0, nil
 		}
 		return 0, err
@@ -344,8 +357,76 @@ func (fp *FirehoseProcessor) ReadLastCursor(ctx context.Context, relayUrl string
 	return cursor.Cursor, nil
 }
 
-func (fp *FirehoseProcessor) UpdateRepoState(did string, state models.RepoState) error {
-	return fp.DB.Model(&models.Repo{}).
-		Where("did = ?", did).
-		Update("state", state).Error
+// Connects to the firehose and processes events until context cancellation
+// On error, restarts the connection
+func (fp *FirehoseProcessor) runConsumer(ctx context.Context) error {
+	u, err := url.Parse(fp.relayUrl)
+	if err != nil {
+		return fmt.Errorf("invalid relay URL: %w", err)
+	}
+	switch u.Scheme {
+	case "http":
+		u.Scheme = "ws"
+	case "https":
+		u.Scheme = "wss"
+	}
+	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
+
+	rsc := &events.RepoStreamCallbacks{
+		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+			return fp.ProcessCommit(context.Background(), evt)
+		},
+		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
+			return fp.ProcessSync(context.Background(), evt)
+		},
+		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
+			return fp.ProcessIdentity(context.Background(), evt)
+		},
+		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
+			return fp.ProcessAccount(context.Background(), evt)
+		},
+	}
+
+	var retries int
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		cursor, err := fp.GetCursor(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to read cursor: %w", err)
+		}
+
+		if cursor > 0 {
+			u.RawQuery = fmt.Sprintf("cursor=%d", cursor)
+		}
+		urlStr := u.String()
+
+		fp.logger.Info("connecting to firehose", "url", urlStr, "cursor", cursor, "retries", retries)
+
+		dialer := websocket.DefaultDialer
+		con, _, err := dialer.DialContext(ctx, urlStr, http.Header{})
+		if err != nil {
+			fp.logger.Warn("dialing failed", "error", err, "retries", retries)
+			time.Sleep(backoff(retries, 10))
+			retries++
+			continue
+		}
+
+		fp.logger.Info("connected to firehose")
+		retries = 0
+
+		scheduler := parallel.NewScheduler(
+			fp.parallelism,
+			100,
+			fp.relayUrl,
+			rsc.EventHandler,
+		)
+		if err := events.HandleRepoStream(ctx, con, scheduler, nil); err != nil {
+			fp.logger.Warn("firehose connection failed", "error", err)
+		}
+	}
 }

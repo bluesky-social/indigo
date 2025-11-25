@@ -16,7 +16,7 @@ type NexusServer struct {
 	db     *gorm.DB
 	echo   *echo.Echo
 	logger *slog.Logger
-	Outbox *Outbox
+	outbox *Outbox
 }
 
 func (ns *NexusServer) Start(address string) error {
@@ -48,7 +48,7 @@ var wsUpgrader = websocket.Upgrader{
 }
 
 func (ns *NexusServer) handleChannelWebsocket(c echo.Context) error {
-	if ns.Outbox.mode == OutboxModeWebhook {
+	if ns.outbox.mode == OutboxModeWebhook {
 		return echo.NewHTTPError(http.StatusBadRequest, "websocket not available in webhook mode")
 	}
 
@@ -71,8 +71,8 @@ func (ns *NexusServer) handleChannelWebsocket(c echo.Context) error {
 				return
 			}
 
-			if ns.Outbox.mode == OutboxModeWebsocketAck && msg.Type == WsResponseAck {
-				go ns.Outbox.AckEvent(msg.ID)
+			if ns.outbox.mode == OutboxModeWebsocketAck && msg.Type == WsResponseAck {
+				go ns.outbox.AckEvent(msg.ID)
 			}
 		}
 	}()
@@ -82,7 +82,7 @@ func (ns *NexusServer) handleChannelWebsocket(c echo.Context) error {
 		case <-disconnected:
 			ns.logger.Info("websocket disconnected")
 			return nil
-		case msg, ok := <-ns.Outbox.outgoing:
+		case msg, ok := <-ns.outbox.outgoing:
 			if !ok {
 				return nil
 			}
@@ -92,8 +92,8 @@ func (ns *NexusServer) handleChannelWebsocket(c echo.Context) error {
 			}
 			// In fire-and-forget mode, ack immediately after write succeeds
 			// In websocket-ack mode, wait for client to send ack and handle in read loop
-			if ns.Outbox.mode == OutboxModeFireAndForget {
-				go ns.Outbox.AckEvent(msg.ID)
+			if ns.outbox.mode == OutboxModeFireAndForget {
+				go ns.outbox.AckEvent(msg.ID)
 			}
 		}
 	}
