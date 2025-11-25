@@ -108,7 +108,7 @@ func run(args []string) error {
 		&cli.IntFlag{
 			Name:    "event-cache-size",
 			Usage:   "rough size of event cache",
-			Value:   1000000,
+			Value:   100000,
 			EnvVars: []string{"NEXUS_EVENT_CACHE_SIZE"},
 		},
 		&cli.BoolFlag{
