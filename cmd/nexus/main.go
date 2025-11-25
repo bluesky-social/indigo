@@ -105,6 +105,12 @@ func run(args []string) error {
 			Value:   2000000,
 			EnvVars: []string{"NEXUS_IDENTITY_CACHE_SIZE"},
 		},
+		&cli.IntFlag{
+			Name:    "event-cache-size",
+			Usage:   "rough size of event cache",
+			Value:   1000000,
+			EnvVars: []string{"NEXUS_EVENT_CACHE_SIZE"},
+		},
 		&cli.BoolFlag{
 			Name:    "full-network-mode",
 			Usage:   "enumerate and sync all repos on the network",
@@ -169,6 +175,7 @@ func runNexus(cctx *cli.Context) error {
 		FirehoseCursorSaveInterval: cctx.Duration("cursor-save-interval"),
 		RepoFetchTimeout:           cctx.Duration("repo-fetch-timeout"),
 		IdentityCacheSize:          cctx.Int("identity-cache-size"),
+		EventCacheSize:             cctx.Int("event-cache-size"),
 		FullNetworkMode:            cctx.Bool("full-network-mode"),
 		SignalCollection:           cctx.String("signal-collection"),
 		DisableAcks:                cctx.Bool("disable-acks"),
