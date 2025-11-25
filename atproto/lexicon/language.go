@@ -487,7 +487,6 @@ type SchemaPermission struct {
 	Description *string `json:"description,omitempty"`
 
 	Resource   string   `json:"resource"`
-	Accept     []string `json:"accept,omitempty"`
 	Collection []string `json:"collection,omitempty"`
 	Action     []string `json:"action,omitempty"`
 	LXM        []string `json:"lxm,omitempty"`
@@ -500,17 +499,6 @@ func (s *SchemaPermission) CheckSchema() error {
 		return fmt.Errorf("expected 'permission' schema")
 	}
 	switch s.Resource {
-	case "blob":
-		if len(s.Accept) == 0 {
-			return fmt.Errorf("blob permission requires 'accept'")
-		}
-		for _, acc := range s.Accept {
-			// TODO: more complete MIME pattern parsing
-			parts := strings.SplitN(acc, "/", 3)
-			if len(parts) != 2 || parts[0] == "*" || parts[0] == "" || parts[1] == "" {
-				return fmt.Errorf("invalid blob 'accept' pattern: %s", acc)
-			}
-		}
 	case "repo":
 		if len(s.Collection) == 0 {
 			return fmt.Errorf("repo permission requires 'collection'")
@@ -560,7 +548,7 @@ func (s *SchemaPermission) CheckSchema() error {
 				return fmt.Errorf("rpc 'aud' must be a service ref: %w", err)
 			}
 		}
-	case "account", "identity":
+	case "blob", "account", "identity":
 		return fmt.Errorf("%s permission not allowed in permission sets", s.Resource)
 	default:
 		return fmt.Errorf("unsupported permission resource: %s", s.Resource)
