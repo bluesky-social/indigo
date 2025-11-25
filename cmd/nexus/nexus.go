@@ -30,6 +30,7 @@ type Nexus struct {
 
 	FirehoseConsumer *FirehoseConsumer
 	EventProcessor   *EventProcessor
+	EventManager     *EventManager
 	Crawler          *Crawler
 
 	FullNetworkMode   bool

@@ -103,7 +103,9 @@ func (ep *EventProcessor) ProcessCommit(ctx context.Context, evt *comatproto.Syn
 		}
 	}
 
-	if err := ep.EventManager.AddCommit(commit, nil); err != nil {
+	if err := ep.EventManager.AddCommit(commit, func(tx *gorm.DB) error {
+		return nil
+	}); err != nil {
 		ep.Logger.Error("failed to update repo state", "did", commit.Did, "rev", commit.Rev, "error", err)
 		return err
 	}
@@ -266,15 +268,10 @@ func (ep *EventProcessor) RefreshIdentity(ctx context.Context, did string) error
 		IsActive: curr.Status == models.AccountStatusActive,
 		Status:   curr.Status,
 	}
-
-	if err := ep.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.Repo{}).
+	if err := ep.EventManager.AddUserEvent(userEvt, func(tx *gorm.DB) error {
+		return tx.Model(&models.Repo{}).
 			Where("did = ?", did).
-			Update("handle", handleStr).Error; err != nil {
-			return err
-		}
-
-		return persistUserEvt(tx, userEvt)
+			Update("handle", handleStr).Error
 	}); err != nil {
 		ep.Logger.Error("failed to update handle", "did", did, "handle", handleStr, "error", err)
 		return err
@@ -322,23 +319,17 @@ func (ep *EventProcessor) ProcessAccount(ctx context.Context, evt *comatproto.Sy
 	}
 
 	if updateTo == models.AccountStatusDeleted {
-		if err := ep.DB.Transaction(func(tx *gorm.DB) error {
-			if err := deleteRepo(tx, evt.Did); err != nil {
-				return err
-			}
-			return persistUserEvt(tx, userEvt)
+		if err := ep.EventManager.AddUserEvent(userEvt, func(tx *gorm.DB) error {
+			return deleteRepo(tx, evt.Did)
 		}); err != nil {
 			ep.Logger.Error("failed to delete repo", "did", evt.Did, "error", err)
 			return err
 		}
 	} else {
-		if err := ep.DB.Transaction(func(tx *gorm.DB) error {
-			if err := tx.Model(&models.Repo{}).
+		if err := ep.EventManager.AddUserEvent(userEvt, func(tx *gorm.DB) error {
+			return tx.Model(&models.Repo{}).
 				Where("did = ?", evt.Did).
-				Update("status", updateTo).Error; err != nil {
-				return err
-			}
-			return persistUserEvt(tx, userEvt)
+				Update("status", updateTo).Error
 		}); err != nil {
 			ep.Logger.Error("failed to update repo status", "did", evt.Did, "status", updateTo, "error", err)
 			return err
@@ -377,7 +368,9 @@ func (ep *EventProcessor) drainResyncBuffer(ctx context.Context, did string) err
 			return fmt.Errorf("failed to unmarshal buffered event: %w", err)
 		}
 
-		if err := ep.EventManager.AddCommit(&commit, &evt.ID); err != nil {
+		if err := ep.EventManager.AddCommit(&commit, func(tx *gorm.DB) error {
+			return tx.Delete(&models.ResyncBuffer{}, "id = ?", evt.ID).Error
+		}); err != nil {
 			ep.Logger.Error("failed to process buffered commit", "did", commit.Did, "rev", commit.Rev, "error", err)
 			return err
 		}
@@ -385,29 +378,6 @@ func (ep *EventProcessor) drainResyncBuffer(ctx context.Context, did string) err
 
 	ep.Logger.Info("processed buffered resync events", "did", did, "count", len(bufferedEvts))
 	return nil
-}
-
-func deleteRepo(tx *gorm.DB, did string) error {
-	if err := tx.Delete(&models.RepoRecord{}, "did = ?", did).Error; err != nil {
-		return err
-	}
-	if err := tx.Delete(&models.ResyncBuffer{}, "did = ?", did).Error; err != nil {
-		return err
-	}
-	return tx.Delete(&models.Repo{}, "did = ?", did).Error
-}
-
-func persistUserEvt(tx *gorm.DB, evt *UserEvt) error {
-	jsonData, err := json.Marshal(&OutboxEvt{
-		Type:    "user",
-		UserEvt: evt,
-	})
-	if err != nil {
-		return err
-	}
-	return tx.Create(&models.OutboxBuffer{
-		Data: string(jsonData),
-	}).Error
 }
 
 func (ep *EventProcessor) saveCursor(ctx context.Context) error {

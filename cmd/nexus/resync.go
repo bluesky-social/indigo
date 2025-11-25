@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -17,7 +16,6 @@ import (
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 func (n *Nexus) runResyncWorker(ctx context.Context, workerID int) {
@@ -160,7 +158,7 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 	}
 	n.logger.Info("pre-loaded existing records", "did", did, "count", len(existingCids))
 
-	var evtBatch []*RecordEvt
+	evtBatch := make([]*RecordEvt, 0, batchSize)
 
 	err = r.MST.Walk(func(recPathBytes []byte, recCid cid.Cid) error {
 		select {
@@ -221,7 +219,9 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 		evtBatch = append(evtBatch, evt)
 
 		if len(evtBatch) >= batchSize {
-			if err := n.writeBatch(evtBatch); err != nil {
+			if err := n.EventManager.AddRecordEvents(evtBatch, func(tx *gorm.DB) error {
+				return nil
+			}); err != nil {
 				n.logger.Error("failed to flush batch", "error", err, "did", did)
 				return err
 			}
@@ -235,7 +235,9 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 		return false, fmt.Errorf("failed to iterate repo: %w", err)
 	}
 
-	if err := n.writeBatch(evtBatch); err != nil {
+	if err := n.EventManager.AddRecordEvents(evtBatch, func(tx *gorm.DB) error {
+		return nil
+	}); err != nil {
 		return false, fmt.Errorf("failed to flush final batch: %w", err)
 	}
 
@@ -254,52 +256,6 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 
 	n.logger.Info("resync repo complete", "did", did, "rev", rev)
 	return true, nil
-}
-
-func (n *Nexus) writeBatch(evtBatch []*RecordEvt) error {
-	if len(evtBatch) == 0 {
-		return nil
-	}
-
-	var recordBatch []*models.RepoRecord
-	var outboxBatch []*models.OutboxBuffer
-
-	for _, evt := range evtBatch {
-		recordBatch = append(recordBatch, &models.RepoRecord{
-			Did:        evt.Did,
-			Collection: evt.Collection,
-			Rkey:       evt.Rkey,
-			Cid:        evt.Cid,
-		})
-
-		// in the case of invalid record CBOR
-		if evt.Record == nil && evt.Action != "delete" {
-			continue
-		}
-
-		jsonData, err := json.Marshal(&OutboxEvt{
-			Type:      "record",
-			RecordEvt: evt,
-		})
-		if err != nil {
-			return err
-		}
-		outboxBatch = append(outboxBatch, &models.OutboxBuffer{
-			Live: evt.Live,
-			Data: string(jsonData),
-		})
-	}
-
-	return n.db.Transaction(func(tx *gorm.DB) error {
-		if len(recordBatch) > 0 {
-			if err := tx.Clauses(clause.OnConflict{
-				UpdateAll: true,
-			}).CreateInBatches(recordBatch, 100).Error; err != nil {
-				return err
-			}
-		}
-		return batchInsertOutboxEvents(tx, outboxBatch)
-	})
 }
 
 func (n *Nexus) handleResyncError(did string, err error) error {

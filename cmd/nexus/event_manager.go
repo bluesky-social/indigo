@@ -24,42 +24,66 @@ type CacheEntry struct {
 	Did   string
 }
 
-func (em *EventManager) AddCommit(commit *Commit, resyncBufferID *uint) error {
-	toPut := make([]*models.RepoRecord, 0, len(commit.Ops))
-	toDel := make([]*models.RepoRecord, 0)
-	dbEvts := make([]*models.OutboxBuffer, 0, len(commit.Ops))
-	cacheEntries := make(map[uint]CacheEntry, len(commit.Ops))
+type DBCallback = func(tx *gorm.DB) error
+
+func (em *EventManager) AddCommit(commit *Commit, dbCallback DBCallback) error {
+	evts := make([]*RecordEvt, 0, len(commit.Ops))
 
 	for _, op := range commit.Ops {
-		if op.Action == "delete" {
+		evt := &RecordEvt{
+			Live:       true,
+			Did:        commit.Did,
+			Rev:        commit.Rev,
+			Collection: op.Collection,
+			Rkey:       op.Rkey,
+			Action:     op.Action,
+			Record:     op.Record,
+			Cid:        op.Cid,
+		}
+		evts = append(evts, evt)
+	}
+
+	return em.AddRecordEvents(evts, func(tx *gorm.DB) error {
+		if err := dbCallback(tx); err != nil {
+			return err
+		}
+
+		return tx.Model(&models.Repo{}).
+			Where("did = ?", commit.Did).
+			Updates(map[string]interface{}{
+				"rev":       commit.Rev,
+				"prev_data": commit.DataCid,
+			}).Error
+	})
+}
+
+func (em *EventManager) AddRecordEvents(evts []*RecordEvt, dbCallback DBCallback) error {
+	toPut := make([]*models.RepoRecord, 0, len(evts))
+	toDel := make([]*models.RepoRecord, 0)
+	dbEvts := make([]*models.OutboxBuffer, 0, len(evts))
+	cacheEntries := make(map[uint]CacheEntry, len(evts))
+
+	for _, evt := range evts {
+		if evt.Action == "delete" {
 			toDel = append(toDel, &models.RepoRecord{
-				Did:        commit.Did,
-				Collection: op.Collection,
-				Rkey:       op.Rkey,
+				Did:        evt.Did,
+				Collection: evt.Collection,
+				Rkey:       evt.Rkey,
 			})
 		} else {
 			toPut = append(toPut, &models.RepoRecord{
-				Did:        commit.Did,
-				Collection: op.Collection,
-				Rkey:       op.Rkey,
-				Cid:        op.Cid,
+				Did:        evt.Did,
+				Collection: evt.Collection,
+				Rkey:       evt.Rkey,
+				Cid:        evt.Cid,
 			})
 		}
 
 		evtID := uint(em.nextID.Add(1))
 		jsonData, err := json.Marshal(&OutboxEvt{
-			ID:   evtID,
-			Type: "record",
-			RecordEvt: &RecordEvt{
-				Live:       true,
-				Did:        commit.Did,
-				Rev:        commit.Rev,
-				Collection: op.Collection,
-				Rkey:       op.Rkey,
-				Action:     op.Action,
-				Record:     op.Record,
-				Cid:        op.Cid,
-			},
+			ID:        evtID,
+			Type:      "record",
+			RecordEvt: evt,
 		})
 		if err != nil {
 			return err
@@ -73,23 +97,12 @@ func (em *EventManager) AddCommit(commit *Commit, resyncBufferID *uint) error {
 
 		cacheEntries[evtID] = CacheEntry{
 			Event: jsonData,
-			Did:   commit.Did,
+			Did:   evt.Did,
 		}
 	}
 
 	err := em.DB.Transaction(func(tx *gorm.DB) error {
-		if resyncBufferID != nil {
-			if err := tx.Delete(&models.ResyncBuffer{}, "id = ?", resyncBufferID).Error; err != nil {
-				return err
-			}
-		}
-
-		if err := tx.Model(&models.Repo{}).
-			Where("did = ?", commit.Did).
-			Updates(map[string]interface{}{
-				"rev":       commit.Rev,
-				"prev_data": commit.DataCid,
-			}).Error; err != nil {
+		if err := dbCallback(tx); err != nil {
 			return err
 		}
 
@@ -123,6 +136,33 @@ func (em *EventManager) AddCommit(commit *Commit, resyncBufferID *uint) error {
 	}
 
 	em.AddCacheEntries(cacheEntries)
+	return nil
+}
+
+func (em *EventManager) AddUserEvent(evt *UserEvt, dbCallback DBCallback) error {
+	evtID := uint(em.nextID.Add(1))
+	jsonData, err := json.Marshal(&OutboxEvt{
+		ID:      evtID,
+		Type:    "user",
+		UserEvt: evt,
+	})
+	if err != nil {
+		return err
+	}
+	if err := em.DB.Transaction(func(tx *gorm.DB) error {
+		if err := dbCallback(tx); err != nil {
+			return err
+		}
+		return tx.Create(&models.OutboxBuffer{
+			Data: string(jsonData),
+		}).Error
+	}); err != nil {
+		return err
+	}
+	em.AddCacheEntry(evtID, &CacheEntry{
+		Event: jsonData,
+		Did:   evt.Did,
+	})
 	return nil
 }
 
@@ -168,6 +208,12 @@ func (em *EventManager) AddOutboxEventsTxOnly(tx *gorm.DB, evts []OutboxEvt, liv
 	}
 
 	return cacheEntries, nil
+}
+
+func (em *EventManager) AddCacheEntry(id uint, entry *CacheEntry) {
+	em.cacheMu.Lock()
+	em.eventCache[id] = entry
+	em.cacheMu.Unlock()
 }
 
 func (em *EventManager) AddCacheEntries(entries map[uint]CacheEntry) {
