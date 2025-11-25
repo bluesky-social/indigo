@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -29,18 +28,17 @@ type Nexus struct {
 	Outbox *Outbox
 
 	FirehoseConsumer *FirehoseConsumer
-	EventProcessor   *EventProcessor
+	EventProcessor   *FirehoseProcessor
 	Events           *EventManager
+	Repos            *RepoManager
+	Resyncer         *Resyncer
+	ResyncBuffer     *ResyncBuffer
 	Crawler          *Crawler
 
 	FullNetworkMode   bool
 	CollectionFilters []string
 
 	config NexusConfig
-
-	claimJobMu   sync.Mutex
-	pdsBackoff   map[string]time.Time
-	pdsBackoffMu sync.RWMutex
 }
 
 type NexusConfig struct {
@@ -74,6 +72,8 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	}
 	cdir := identity.NewCacheDirectory(&bdir, config.IdentityCacheSize, time.Hour*24, time.Minute*2, time.Minute*5)
 
+	evtManager := NewEventManager(db, config.EventCacheSize)
+
 	var outboxMode OutboxMode
 	if config.WebhookURL != "" {
 		outboxMode = OutboxModeWebhook
@@ -82,15 +82,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	} else {
 		outboxMode = OutboxModeWebsocketAck
 	}
-
-	evtManager := &EventManager{
-		// @TODO fix logger
-		logger:     slog.Default().With("system", "nexus"),
-		db:         db,
-		cacheSize:  config.EventCacheSize,
-		pendingIDs: make(chan uint, config.EventCacheSize*2),
-		cache:      make(map[uint]*OutboxEvt),
-	}
+	outbox := NewOutbox(evtManager, outboxMode, config.WebhookURL, config.OutboxParallelism)
 
 	n := &Nexus{
 		db:     db,
@@ -99,27 +91,41 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		Dir:      &cdir,
 		RelayUrl: config.RelayUrl,
 
-		Outbox: NewOutbox(db, evtManager, outboxMode, config.WebhookURL, config.OutboxParallelism),
+		Outbox: outbox,
 		Events: evtManager,
+		ResyncBuffer: &ResyncBuffer{
+			db:     db,
+			events: evtManager,
+		},
 
 		FullNetworkMode:   config.FullNetworkMode,
 		CollectionFilters: config.CollectionFilters,
 
 		config: config,
-
-		pdsBackoff: make(map[string]time.Time),
 	}
 
-	n.Server = &NexusServer{
-		db:     db,
+	n.Repos = &RepoManager{
 		logger: n.logger.With("component", "server"),
-		Outbox: n.Outbox,
+		db:     db,
+		IdDir:  n.Dir,
+		events: n.Events,
 	}
 
-	n.EventProcessor = &EventProcessor{
+	n.Resyncer = &Resyncer{
+		logger:            n.logger.With("component", "resyncer"),
+		db:                db,
+		events:            n.Events,
+		repos:             n.Repos,
+		resyncBuffer:      n.ResyncBuffer,
+		repoFetchTimeout:  n.config.RepoFetchTimeout,
+		collectionFilters: n.config.CollectionFilters,
+		parallelism:       n.config.ResyncParallelism,
+		pdsBackoff:        make(map[string]time.Time),
+	}
+
+	n.EventProcessor = &FirehoseProcessor{
 		Logger:            n.logger.With("component", "processor"),
 		DB:                db,
-		Dir:               n.Dir,
 		RelayUrl:          config.RelayUrl,
 		Events:            evtManager,
 		FullNetworkMode:   config.FullNetworkMode,
@@ -156,7 +162,13 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		RelayUrl: config.RelayUrl,
 	}
 
-	if err := n.resetPartiallyResynced(); err != nil {
+	n.Server = &NexusServer{
+		logger: n.logger.With("component", "server"),
+		db:     db,
+		Outbox: n.Outbox,
+	}
+
+	if err := n.Resyncer.resetPartiallyResynced(); err != nil {
 		return nil, err
 	}
 
@@ -168,10 +180,7 @@ func (n *Nexus) Run(ctx context.Context) {
 	go n.Events.LoadEvents(ctx)
 
 	if !n.config.OutboxOnly {
-		for i := 0; i < n.config.ResyncParallelism; i++ {
-			go n.runResyncWorker(ctx, i)
-		}
-
+		go n.Resyncer.run(ctx)
 		go n.EventProcessor.RunCursorSaver(ctx, n.config.FirehoseCursorSaveInterval)
 	}
 

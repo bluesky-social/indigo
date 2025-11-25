@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/atdata"
-	"github.com/bluesky-social/indigo/atproto/repo"
+	repolib "github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/nexus/models"
 	"github.com/ipfs/go-cid"
@@ -18,15 +20,39 @@ import (
 	"gorm.io/gorm"
 )
 
-func (n *Nexus) runResyncWorker(ctx context.Context, workerID int) {
-	logger := n.logger.With("worker", workerID)
+type Resyncer struct {
+	logger *slog.Logger
+	db     *gorm.DB
+
+	events       *EventManager
+	repos        *RepoManager
+	resyncBuffer *ResyncBuffer
+
+	claimJobMu sync.Mutex
+
+	repoFetchTimeout  time.Duration
+	collectionFilters []string
+	parallelism       int
+
+	pdsBackoff   map[string]time.Time
+	pdsBackoffMu sync.RWMutex
+}
+
+func (r *Resyncer) run(ctx context.Context) {
+	for i := 0; i < r.parallelism; i++ {
+		go r.runResyncWorker(ctx, i)
+	}
+}
+
+func (r *Resyncer) runResyncWorker(ctx context.Context, workerID int) {
+	logger := r.logger.With("worker", workerID)
 
 	for {
-		if !n.Events.IsReady() {
+		if !r.events.IsReady() {
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
-		did, found, err := n.claimResyncJob(ctx)
+		did, found, err := r.claimResyncJob(ctx)
 		if err != nil {
 			logger.Error("failed to claim resync job", "error", err)
 			time.Sleep(time.Second)
@@ -39,19 +65,19 @@ func (n *Nexus) runResyncWorker(ctx context.Context, workerID int) {
 		}
 
 		logger.Info("processing resync", "did", did)
-		err = n.resyncDid(ctx, did)
+		err = r.resyncDid(ctx, did)
 		if err != nil {
 			logger.Error("resync failed", "did", did, "error", err)
 		}
 	}
 }
 
-func (n *Nexus) claimResyncJob(ctx context.Context) (string, bool, error) {
-	n.claimJobMu.Lock()
-	defer n.claimJobMu.Unlock()
+func (r *Resyncer) claimResyncJob(ctx context.Context) (string, bool, error) {
+	r.claimJobMu.Lock()
+	defer r.claimJobMu.Unlock()
 
 	var did string
-	result := n.db.Raw(`
+	result := r.db.Raw(`
 		UPDATE repos
 		SET state = ?
 		WHERE did = (
@@ -70,25 +96,25 @@ func (n *Nexus) claimResyncJob(ctx context.Context) (string, bool, error) {
 	return did, true, nil
 }
 
-func (n *Nexus) resyncDid(ctx context.Context, did string) error {
+func (r *Resyncer) resyncDid(ctx context.Context, did string) error {
 	ctx, span := tracer.Start(ctx, "resyncDid")
 	span.SetAttributes(attribute.String("did", did))
 	defer span.End()
 
-	n.logger.Info("starting resync", "did", did)
+	r.logger.Info("starting resync", "did", did)
 
-	err := n.EventProcessor.RefreshIdentity(ctx, did)
+	err := r.repos.RefreshIdentity(ctx, did)
 	if err != nil {
-		n.logger.Info("failed to refresh identity", "did", did, "error", err)
+		r.logger.Info("failed to refresh identity", "did", did, "error", err)
 	}
 
-	success, err := n.doResync(ctx, did)
+	success, err := r.doResync(ctx, did)
 	if !success {
-		return n.handleResyncError(did, err)
+		return r.handleResyncError(did, err)
 	}
 
-	if err := n.EventProcessor.drainResyncBuffer(ctx, did); err != nil {
-		n.logger.Error("failed to drain resync buffer events", "did", did, "error", err)
+	if err := r.resyncBuffer.drain(ctx, did); err != nil {
+		r.logger.Error("failed to drain resync buffer events", "did", did, "error", err)
 	}
 
 	return nil
@@ -96,12 +122,12 @@ func (n *Nexus) resyncDid(ctx context.Context, did string) error {
 
 const batchSize = 100
 
-func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
+func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 	ctx, span := tracer.Start(ctx, "doResync")
 	span.SetAttributes(attribute.String("did", did))
 	defer span.End()
 
-	ident, err := n.Dir.LookupDID(ctx, syntax.DID(did))
+	ident, err := r.repos.IdDir.LookupDID(ctx, syntax.DID(did))
 	if err != nil {
 		return false, fmt.Errorf("failed to resolve DID: %w", err)
 	}
@@ -111,17 +137,17 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 		return false, fmt.Errorf("no PDS endpoint for DID: %s", did)
 	}
 
-	n.pdsBackoffMu.RLock()
-	backoffUntil, inBackoff := n.pdsBackoff[pdsURL]
-	n.pdsBackoffMu.RUnlock()
+	r.pdsBackoffMu.RLock()
+	backoffUntil, inBackoff := r.pdsBackoff[pdsURL]
+	r.pdsBackoffMu.RUnlock()
 	if inBackoff && time.Now().Before(backoffUntil) {
 		return false, nil
 	}
 
-	n.logger.Info("fetching repo from PDS", "did", did, "pds", pdsURL)
+	r.logger.Info("fetching repo from PDS", "did", did, "pds", pdsURL)
 
 	client := atclient.NewAPIClient(pdsURL)
-	timeout := n.config.RepoFetchTimeout
+	timeout := r.repoFetchTimeout
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
@@ -132,26 +158,26 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 	repoBytes, err := comatproto.SyncGetRepo(ctx, client, did, "")
 	if err != nil {
 		if isRateLimitError(err) {
-			n.pdsBackoffMu.Lock()
-			n.pdsBackoff[pdsURL] = time.Now().Add(10 * time.Second)
-			n.pdsBackoffMu.Unlock()
+			r.pdsBackoffMu.Lock()
+			r.pdsBackoff[pdsURL] = time.Now().Add(10 * time.Second)
+			r.pdsBackoffMu.Unlock()
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to get repo: %w", err)
 	}
 
-	n.logger.Info("parsing repo CAR", "did", did, "size", len(repoBytes))
+	r.logger.Info("parsing repo CAR", "did", did, "size", len(repoBytes))
 
-	commit, r, err := repo.LoadRepoFromCAR(ctx, bytes.NewReader(repoBytes))
+	commit, repo, err := repolib.LoadRepoFromCAR(ctx, bytes.NewReader(repoBytes))
 	if err != nil {
 		return false, fmt.Errorf("failed to read repo from CAR: %w", err)
 	}
 
 	rev := commit.Rev
-	n.logger.Info("iterating repo records", "did", did, "rev", rev)
+	r.logger.Info("iterating repo records", "did", did, "rev", rev)
 
 	var existingRecords []models.RepoRecord
-	if err := n.db.Find(&existingRecords, "did = ?", did).Error; err != nil {
+	if err := r.db.Find(&existingRecords, "did = ?", did).Error; err != nil {
 		return false, fmt.Errorf("failed to load existing records: %w", err)
 	}
 
@@ -160,11 +186,11 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 		key := rec.Collection + "/" + rec.Rkey
 		existingCids[key] = rec.Cid
 	}
-	n.logger.Info("pre-loaded existing records", "did", did, "count", len(existingCids))
+	r.logger.Info("pre-loaded existing records", "did", did, "count", len(existingCids))
 
 	evtBatch := make([]*RecordEvt, 0, batchSize)
 
-	err = r.MST.Walk(func(recPathBytes []byte, recCid cid.Cid) error {
+	err = repo.MST.Walk(func(recPathBytes []byte, recCid cid.Cid) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -174,7 +200,7 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 		recPath := string(recPathBytes)
 		collection, rkey, err := syntax.ParseRepoPath(recPath)
 		if err != nil {
-			n.logger.Error("invalid record path", "path", recPath, "error", err)
+			r.logger.Error("invalid record path", "path", recPath, "error", err)
 			return nil
 		}
 
@@ -183,7 +209,7 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 		cidStr := recCid.String()
 
 		// Filter collections - only process if matches filters
-		if !matchesCollection(collStr, n.EventProcessor.CollectionFilters) {
+		if !matchesCollection(collStr, r.collectionFilters) {
 			return nil
 		}
 
@@ -197,9 +223,9 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 			action = "update"
 		}
 
-		blk, err := r.RecordStore.Get(ctx, recCid)
+		blk, err := repo.RecordStore.Get(ctx, recCid)
 		if err != nil {
-			n.logger.Error("failed to get block", "path", recPath, "error", err)
+			r.logger.Error("failed to get block", "path", recPath, "error", err)
 			return nil
 		}
 
@@ -207,7 +233,7 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 		if err != nil {
 			// do not fail here
 			// we end up storing the CID but not passing the record along in the outbox
-			n.logger.Error("failed to unmarshal record", "did", did, "path", recPath, "error", err)
+			r.logger.Error("failed to unmarshal record", "did", did, "path", recPath, "error", err)
 		}
 
 		evt := &RecordEvt{
@@ -223,10 +249,10 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 		evtBatch = append(evtBatch, evt)
 
 		if len(evtBatch) >= batchSize {
-			if err := n.Events.AddRecordEvents(evtBatch, false, func(tx *gorm.DB) error {
+			if err := r.events.AddRecordEvents(evtBatch, false, func(tx *gorm.DB) error {
 				return nil
 			}); err != nil {
-				n.logger.Error("failed to flush batch", "error", err, "did", did)
+				r.logger.Error("failed to flush batch", "error", err, "did", did)
 				return err
 			}
 			evtBatch = evtBatch[:0]
@@ -239,13 +265,13 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 		return false, fmt.Errorf("failed to iterate repo: %w", err)
 	}
 
-	if err := n.Events.AddRecordEvents(evtBatch, false, func(tx *gorm.DB) error {
+	if err := r.events.AddRecordEvents(evtBatch, false, func(tx *gorm.DB) error {
 		return nil
 	}); err != nil {
 		return false, fmt.Errorf("failed to flush final batch: %w", err)
 	}
 
-	if err := n.db.Model(&models.Repo{}).
+	if err := r.db.Model(&models.Repo{}).
 		Where("did = ?", did).
 		Updates(map[string]interface{}{
 			"state":       models.RepoStateActive,
@@ -258,11 +284,11 @@ func (n *Nexus) doResync(ctx context.Context, did string) (bool, error) {
 		return false, fmt.Errorf("failed to update repo state to active %w", err)
 	}
 
-	n.logger.Info("resync repo complete", "did", did, "rev", rev)
+	r.logger.Info("resync repo complete", "did", did, "rev", rev)
 	return true, nil
 }
 
-func (n *Nexus) handleResyncError(did string, err error) error {
+func (r *Resyncer) handleResyncError(did string, err error) error {
 	var state models.RepoState
 	var errMsg string
 	if err == nil {
@@ -273,7 +299,7 @@ func (n *Nexus) handleResyncError(did string, err error) error {
 		errMsg = err.Error()
 	}
 
-	repo, err := n.EventProcessor.GetRepoState(did)
+	repo, err := r.repos.GetRepoState(did)
 	if err != nil {
 		return err
 	}
@@ -281,7 +307,7 @@ func (n *Nexus) handleResyncError(did string, err error) error {
 	// start a 1 min & go up to 1 hr between retries
 	retryAfter := time.Now().Add(backoff(repo.RetryCount, 60))
 
-	dbErr := n.db.Model(&models.Repo{}).
+	dbErr := r.db.Model(&models.Repo{}).
 		Where("did = ?", did).
 		Updates(map[string]interface{}{
 			"state":       state,
@@ -297,8 +323,8 @@ func (n *Nexus) handleResyncError(did string, err error) error {
 
 }
 
-func (n *Nexus) resetPartiallyResynced() error {
-	return n.db.Model(&models.Repo{}).
+func (r *Resyncer) resetPartiallyResynced() error {
+	return r.db.Model(&models.Repo{}).
 		Where("state = ?", models.RepoStateResyncing).
 		Update("state", models.RepoStateDesynced).Error
 }

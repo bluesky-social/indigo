@@ -29,6 +29,17 @@ type EventManager struct {
 
 type DBCallback = func(tx *gorm.DB) error
 
+func NewEventManager(db *gorm.DB, cacheSize int) *EventManager {
+	return &EventManager{
+		logger:          slog.Default().With("system", "event_manager"),
+		db:              db,
+		cacheSize:       cacheSize,
+		cache:           make(map[uint]*OutboxEvt),
+		pendingIDs:      make(chan uint, cacheSize*2), // give us some buffer room in channel since we can overshoot
+		finishedLoading: false,
+	}
+}
+
 func (em *EventManager) IsReady() bool {
 	return em.finishedLoading && len(em.cache) < em.cacheSize
 }
