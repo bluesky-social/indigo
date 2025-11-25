@@ -29,22 +29,18 @@ type EventManager struct {
 
 type DBCallback = func(tx *gorm.DB) error
 
-func NewEventManager(db *gorm.DB, cacheSize int) *EventManager {
-	return &EventManager{
-		logger:          slog.Default().With("system", "event_manager"),
-		db:              db,
-		cacheSize:       cacheSize,
-		cache:           make(map[uint]*OutboxEvt),
-		pendingIDs:      make(chan uint, cacheSize*2), // give us some buffer room in channel since we can overshoot
-		finishedLoading: false,
-	}
+func (em *EventManager) IsFull() bool {
+	return len(em.cache) >= em.cacheSize
 }
 
 func (em *EventManager) IsReady() bool {
-	return em.finishedLoading && len(em.cache) < em.cacheSize
+	return em.finishedLoading && !em.IsFull()
 }
 
 func (em *EventManager) WaitForReady(ctx context.Context) {
+	if em.IsReady() {
+		return
+	}
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -90,6 +86,11 @@ func (em *EventManager) LoadEvents(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
+			if em.IsFull() {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
+
 			lastPageID, err := em.loadEventPage(lastID)
 			if err != nil {
 				em.logger.Error("failed to load events into cache", "error", err, "lastID", lastID)

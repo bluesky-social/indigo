@@ -71,7 +71,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		db:         db,
 		cacheSize:  config.EventCacheSize,
 		cache:      make(map[uint]*OutboxEvt),
-		pendingIDs: make(chan uint, config.EventCacheSize*10), // give us some buffer room in channel since we can overshoot
+		pendingIDs: make(chan uint, config.EventCacheSize*2), // give us some buffer room in channel since we can overshoot
 	}
 
 	repoMngr := &RepoManager{
@@ -163,6 +163,13 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 // Run starts internal background workers for resync, cursor saving, and outbox delivery.
 func (n *Nexus) Run(ctx context.Context) {
 	go n.Events.LoadEvents(ctx)
+
+	go func() {
+		for {
+			n.Events.logger.Info("cache stat", "size", len(n.Events.cache))
+			time.Sleep(time.Second)
+		}
+	}()
 
 	if !n.config.OutboxOnly {
 		go n.Resyncer.run(ctx)

@@ -44,21 +44,6 @@ type Outbox struct {
 	ctx context.Context
 }
 
-func NewOutbox(eventsMngr *EventManager, mode OutboxMode, webhookURL string, parallelism int) *Outbox {
-	return &Outbox{
-		logger:      slog.Default().With("system", "outbox"),
-		mode:        mode,
-		parallelism: parallelism,
-		webhookURL:  webhookURL,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-		events:   eventsMngr,
-		acks:     make(chan uint, parallelism*10000),
-		outgoing: make(chan *OutboxEvt, parallelism*10000),
-	}
-}
-
 // Run starts the outbox workers for event delivery and cleanup.
 func (o *Outbox) Run(ctx context.Context) {
 	o.ctx = ctx
