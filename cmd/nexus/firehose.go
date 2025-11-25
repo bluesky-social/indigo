@@ -27,9 +27,8 @@ type FirehoseProcessor struct {
 	logger *slog.Logger
 	db     *gorm.DB
 
-	events       *EventManager
-	repos        *RepoManager
-	resyncBuffer *ResyncBuffer
+	events *EventManager
+	repos  *RepoManager
 
 	relayUrl           string
 	fullNetworkMode    bool
@@ -110,7 +109,7 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 	commit.Ops = filteredOps
 
 	if curr.State == models.RepoStateResyncing {
-		if err := fp.resyncBuffer.add(commit); err != nil {
+		if err := fp.events.addToResyncBuffer(commit); err != nil {
 			fp.logger.Error("failed to buffer commit", "did", evt.Repo, "error", err)
 			return err
 		}

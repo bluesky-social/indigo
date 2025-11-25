@@ -24,9 +24,8 @@ type Resyncer struct {
 	logger *slog.Logger
 	db     *gorm.DB
 
-	events       *EventManager
-	repos        *RepoManager
-	resyncBuffer *ResyncBuffer
+	events *EventManager
+	repos  *RepoManager
 
 	claimJobMu sync.Mutex
 
@@ -110,7 +109,7 @@ func (r *Resyncer) resyncDid(ctx context.Context, did string) error {
 		return r.handleResyncError(did, err)
 	}
 
-	if err := r.resyncBuffer.drain(ctx, did); err != nil {
+	if err := r.events.drainResyncBuffer(ctx, did); err != nil {
 		r.logger.Error("failed to drain resync buffer events", "did", did, "error", err)
 	}
 

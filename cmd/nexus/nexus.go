@@ -20,12 +20,11 @@ type Nexus struct {
 	db     *gorm.DB
 	logger *slog.Logger
 
-	Firehose     *FirehoseProcessor
-	Events       *EventManager
-	Repos        *RepoManager
-	Resyncer     *Resyncer
-	ResyncBuffer *ResyncBuffer
-	Crawler      *Crawler
+	Firehose *FirehoseProcessor
+	Events   *EventManager
+	Repos    *RepoManager
+	Resyncer *Resyncer
+	Crawler  *Crawler
 
 	Server *NexusServer
 	Outbox *Outbox
@@ -81,17 +80,11 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		events: evtMngr,
 	}
 
-	resyncBuffer := &ResyncBuffer{
-		db:     db,
-		events: evtMngr,
-	}
-
 	resyncer := &Resyncer{
 		logger:            logger.With("component", "resyncer"),
 		db:                db,
 		events:            evtMngr,
 		repos:             repoMngr,
-		resyncBuffer:      resyncBuffer,
 		repoFetchTimeout:  config.RepoFetchTimeout,
 		collectionFilters: config.CollectionFilters,
 		parallelism:       config.ResyncParallelism,
@@ -103,7 +96,6 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		db:                 db,
 		events:             evtMngr,
 		repos:              repoMngr,
-		resyncBuffer:       resyncBuffer,
 		relayUrl:           config.RelayUrl,
 		fullNetworkMode:    config.FullNetworkMode,
 		signalCollection:   config.SignalCollection,
@@ -141,14 +133,13 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		db:     db,
 		logger: slog.Default().With("system", "nexus"),
 
-		Firehose:     firehose,
-		Events:       evtMngr,
-		Repos:        repoMngr,
-		Resyncer:     resyncer,
-		ResyncBuffer: resyncBuffer,
-		Crawler:      crawler,
-		Server:       server,
-		Outbox:       outbox,
+		Firehose: firehose,
+		Events:   evtMngr,
+		Repos:    repoMngr,
+		Resyncer: resyncer,
+		Crawler:  crawler,
+		Server:   server,
+		Outbox:   outbox,
 
 		config: config,
 	}
