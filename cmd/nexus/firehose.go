@@ -42,6 +42,8 @@ type FirehoseProcessor struct {
 }
 
 func (fp *FirehoseProcessor) Run(ctx context.Context) error {
+	fp.events.WaitForReady(ctx)
+
 	go fp.RunCursorSaver(ctx)
 	return fp.runConsumer(ctx)
 }
