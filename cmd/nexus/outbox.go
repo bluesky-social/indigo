@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // Ordering guarantees for events belonging to the same DID:
@@ -30,7 +28,6 @@ import (
 //   - Wait for L3 to complete, then send H5
 
 type Outbox struct {
-	db          *gorm.DB
 	logger      *slog.Logger
 	mode        OutboxMode
 	parallelism int
@@ -47,9 +44,8 @@ type Outbox struct {
 	ctx context.Context
 }
 
-func NewOutbox(db *gorm.DB, eventsMngr *EventManager, mode OutboxMode, webhookURL string, parallelism int) *Outbox {
+func NewOutbox(eventsMngr *EventManager, mode OutboxMode, webhookURL string, parallelism int) *Outbox {
 	return &Outbox{
-		db:          db,
 		logger:      slog.Default().With("system", "outbox"),
 		mode:        mode,
 		parallelism: parallelism,
@@ -58,8 +54,8 @@ func NewOutbox(db *gorm.DB, eventsMngr *EventManager, mode OutboxMode, webhookUR
 			Timeout: 30 * time.Second,
 		},
 		events:   eventsMngr,
-		acks:     make(chan uint, parallelism*5000),
-		outgoing: make(chan *OutboxEvt, parallelism*5000),
+		acks:     make(chan uint, parallelism*10000),
+		outgoing: make(chan *OutboxEvt, parallelism*10000),
 	}
 }
 
@@ -71,7 +67,6 @@ func (o *Outbox) Run(ctx context.Context) {
 		go o.checkTimeouts(ctx)
 	}
 
-	// Run multiple delivery workers for parallelism across DIDs
 	for i := 0; i < o.parallelism; i++ {
 		go o.runDelivery(ctx)
 	}
