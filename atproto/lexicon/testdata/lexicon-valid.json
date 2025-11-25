@@ -67,11 +67,6 @@
               "resource": "rpc",
               "lxm": ["example.lexicon.endpointTwo"],
               "inheritAud": true
-            },
-            {
-              "type": "permission",
-              "resource": "blob",
-              "accept": ["*/*"]
             }
           ]
         }
