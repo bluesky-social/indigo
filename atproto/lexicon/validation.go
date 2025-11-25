@@ -57,8 +57,6 @@ func validateRecordConfig(cat Catalog, recordData any, ref string, flags Validat
 
 func validateData(cat Catalog, def any, d any, flags ValidateFlags) error {
 	switch v := def.(type) {
-	case SchemaNull:
-		return v.Validate(d)
 	case SchemaBoolean:
 		return v.Validate(d)
 	case SchemaInteger:
