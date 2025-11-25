@@ -172,7 +172,7 @@ func (fl *FlatLexicon) flattenType(fd *FlatDef, tpath []string, def *lexicon.Sch
 		}
 		// don't emit the array itself
 		return nil
-	case lexicon.SchemaString, lexicon.SchemaNull, lexicon.SchemaInteger, lexicon.SchemaBoolean, lexicon.SchemaUnknown, lexicon.SchemaBytes:
+	case lexicon.SchemaString, lexicon.SchemaInteger, lexicon.SchemaBoolean, lexicon.SchemaUnknown, lexicon.SchemaBytes:
 		// don't emit
 		// NOTE: might want to emit some string "knownValue" lists in the future?
 	case lexicon.SchemaCIDLink, lexicon.SchemaBlob:
@@ -203,7 +203,7 @@ func (fl *FlatLexicon) flattenObject(fd *FlatDef, tpath []string, obj *lexicon.S
 		tp := slices.Clone(tpath)
 		tp = append(tp, fname)
 		switch v := field.Inner.(type) {
-		case lexicon.SchemaNull, lexicon.SchemaBoolean, lexicon.SchemaInteger, lexicon.SchemaString, lexicon.SchemaBytes:
+		case lexicon.SchemaBoolean, lexicon.SchemaInteger, lexicon.SchemaString, lexicon.SchemaBytes:
 			// no-op
 		case lexicon.SchemaCIDLink, lexicon.SchemaBlob, lexicon.SchemaUnknown:
 			// no-op, but maybe set a flag on def?

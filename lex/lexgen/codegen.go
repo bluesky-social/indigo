@@ -184,9 +184,6 @@ func (gen *CodeGenerator) fieldType(fname string, def *lexicon.SchemaDef, option
 	// NOTE: SchemaObject and SchemaUnion should be handled outside this function; as well as arrays of those types also count
 	// TODO: another pass to check for type completeness
 	switch v := def.Inner.(type) {
-	case lexicon.SchemaNull:
-		// NOTE: using "any" as a generic 'nil' type
-		return "any", nil
 	case lexicon.SchemaBoolean:
 		if optional {
 			return "*bool", nil
