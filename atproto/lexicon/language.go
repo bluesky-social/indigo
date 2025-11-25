@@ -514,7 +514,7 @@ func (s *SchemaPermission) CheckSchema() error {
 		}
 		for _, act := range s.Action {
 			if act != "create" && act != "update" && act != "delete" {
-				return fmt.Errorf("unsupported repo action: %s", act)
+				return fmt.Errorf("repo permission unsupported action: %s", act)
 			}
 		}
 	case "rpc":
@@ -525,7 +525,7 @@ func (s *SchemaPermission) CheckSchema() error {
 			if lxm == "*" {
 				if s.Audience == "*" {
 					// TODO: is this necessary here?
-					return fmt.Errorf("can't have both 'lxm' and 'aud' be '*'")
+					return fmt.Errorf("rpc permission can't have both 'lxm' and 'aud' be '*'")
 				}
 				continue
 			}
