@@ -33,7 +33,7 @@ func setupOTEL(cctx *cli.Context) error {
 			tracesdk.WithBatcher(exp),
 			tracesdk.WithResource(resource.NewWithAttributes(
 				semconv.SchemaURL,
-				semconv.ServiceNameKey.String("nexus"),
+				semconv.ServiceNameKey.String("tap"),
 				attribute.String("env", env),
 				attribute.String("environment", env),
 				attribute.Int64("ID", 1),
@@ -71,7 +71,7 @@ func setupOTEL(cctx *cli.Context) error {
 			tracesdk.WithBatcher(exp),
 			tracesdk.WithResource(resource.NewWithAttributes(
 				semconv.SchemaURL,
-				semconv.ServiceNameKey.String("nexus"),
+				semconv.ServiceNameKey.String("tap"),
 				attribute.String("env", env),
 				attribute.String("environment", env),
 				attribute.Int64("ID", 1),

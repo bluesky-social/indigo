@@ -23,7 +23,7 @@ func main() {
 
 func run(args []string) error {
 	app := cli.App{
-		Name:    "nexus",
+		Name:    "tap",
 		Usage:   "atproto sync service",
 		Version: versioninfo.Short(),
 	}
@@ -33,7 +33,7 @@ func run(args []string) error {
 			Name:    "env",
 			Usage:   "environment name for observability",
 			Value:   "dev",
-			EnvVars: []string{"NEXUS_ENV"},
+			EnvVars: []string{"TAP_ENV"},
 		},
 		&cli.BoolFlag{
 			Name: "enable-jaeger-tracing",
@@ -48,113 +48,113 @@ func run(args []string) error {
 		&cli.StringFlag{
 			Name:    "database-url",
 			Usage:   "database connection string (sqlite://path or postgres://...)",
-			Value:   "sqlite://./nexus.db",
-			EnvVars: []string{"NEXUS_DATABASE_URL"},
+			Value:   "sqlite://./tap.db",
+			EnvVars: []string{"TAP_DATABASE_URL"},
 		},
 		&cli.IntFlag{
 			Name:    "db-max-conns",
 			Usage:   "maximum number of database connections",
 			Value:   32,
-			EnvVars: []string{"NEXUS_DB_MAX_CONNS"},
+			EnvVars: []string{"TAP_DB_MAX_CONNS"},
 		},
 		&cli.StringFlag{
 			Name:    "relay-url",
 			Usage:   "AT Protocol relay URL",
 			Value:   "https://relay1.us-east.bsky.network",
-			EnvVars: []string{"NEXUS_RELAY_URL"},
+			EnvVars: []string{"TAP_RELAY_URL"},
 		},
 		&cli.StringFlag{
 			Name:    "bind",
 			Usage:   "address and port to listen on for HTTP APIs",
 			Value:   ":8080",
-			EnvVars: []string{"NEXUS_BIND"},
+			EnvVars: []string{"TAP_BIND"},
 		},
 		&cli.IntFlag{
 			Name:    "firehose-parallelism",
 			Usage:   "number of parallel firehose event processors",
 			Value:   10,
-			EnvVars: []string{"NEXUS_FIREHOSE_PARALLELISM"},
+			EnvVars: []string{"TAP_FIREHOSE_PARALLELISM"},
 		},
 		&cli.IntFlag{
 			Name:    "resync-parallelism",
 			Usage:   "number of parallel resync workers",
 			Value:   5,
-			EnvVars: []string{"NEXUS_RESYNC_PARALLELISM"},
+			EnvVars: []string{"TAP_RESYNC_PARALLELISM"},
 		},
 		&cli.IntFlag{
 			Name:    "outbox-parallelism",
 			Usage:   "number of parallel outbox workers",
 			Value:   1,
-			EnvVars: []string{"NEXUS_OUTBOX_PARALLELISM"},
+			EnvVars: []string{"TAP_OUTBOX_PARALLELISM"},
 		},
 		&cli.DurationFlag{
 			Name:    "cursor-save-interval",
 			Usage:   "how often to save firehose cursor",
 			Value:   1 * time.Second,
-			EnvVars: []string{"NEXUS_CURSOR_SAVE_INTERVAL"},
+			EnvVars: []string{"TAP_CURSOR_SAVE_INTERVAL"},
 		},
 		&cli.DurationFlag{
 			Name:    "repo-fetch-timeout",
 			Usage:   "timeout when fetching repo CARs from PDS (e.g. 180s for slow hosts)",
 			Value:   30 * time.Second,
-			EnvVars: []string{"NEXUS_REPO_FETCH_TIMEOUT"},
+			EnvVars: []string{"TAP_REPO_FETCH_TIMEOUT"},
 		},
 		&cli.IntFlag{
 			Name:    "identity-cache-size",
 			Usage:   "size of identity resolution cache",
 			Value:   2000000,
-			EnvVars: []string{"NEXUS_IDENTITY_CACHE_SIZE"},
+			EnvVars: []string{"TAP_IDENTITY_CACHE_SIZE"},
 		},
 		&cli.IntFlag{
 			Name:    "event-cache-size",
 			Usage:   "rough size of event cache",
 			Value:   100000,
-			EnvVars: []string{"NEXUS_EVENT_CACHE_SIZE"},
+			EnvVars: []string{"TAP_EVENT_CACHE_SIZE"},
 		},
 		&cli.BoolFlag{
 			Name:    "full-network-mode",
 			Usage:   "enumerate and sync all repos on the network",
-			EnvVars: []string{"NEXUS_FULL_NETWORK_MODE"},
+			EnvVars: []string{"TAP_FULL_NETWORK_MODE"},
 		},
 		&cli.StringFlag{
 			Name:    "signal-collection",
 			Usage:   "enumerate repos by collection (exact NSID)",
-			EnvVars: []string{"NEXUS_SIGNAL_COLLECTION"},
+			EnvVars: []string{"TAP_SIGNAL_COLLECTION"},
 		},
 		&cli.BoolFlag{
 			Name:    "disable-acks",
 			Usage:   "disable client acknowledgments (fire-and-forget mode)",
-			EnvVars: []string{"NEXUS_DISABLE_ACKS"},
+			EnvVars: []string{"TAP_DISABLE_ACKS"},
 		},
 		&cli.StringFlag{
 			Name:    "webhook-url",
 			Usage:   "webhook URL for event delivery (instead of WebSocket)",
-			EnvVars: []string{"NEXUS_WEBHOOK_URL"},
+			EnvVars: []string{"TAP_WEBHOOK_URL"},
 		},
 		&cli.StringSliceFlag{
 			Name:    "collection-filters",
 			Usage:   "filter output records by collection (supports wildcards)",
-			EnvVars: []string{"NEXUS_COLLECTION_FILTERS"},
+			EnvVars: []string{"TAP_COLLECTION_FILTERS"},
 		},
 		&cli.BoolFlag{
 			Name:    "outbox-only",
 			Usage:   "run in outbox-only mode (no firehose, resync, or enumeration)",
-			EnvVars: []string{"NEXUS_OUTBOX_ONLY"},
+			EnvVars: []string{"TAP_OUTBOX_ONLY"},
 		},
 		&cli.StringFlag{
 			Name:    "log-level",
 			Usage:   "log verbosity level (debug, info, warn, error)",
 			Value:   "info",
-			EnvVars: []string{"NEXUS_LOG_LEVEL", "LOG_LEVEL"},
+			EnvVars: []string{"TAP_LOG_LEVEL", "LOG_LEVEL"},
 		},
 	}
 
-	app.Action = runNexus
+	app.Action = runTap
 
 	return app.Run(args)
 }
 
-func runNexus(cctx *cli.Context) error {
+func runTap(cctx *cli.Context) error {
 	if err := setupOTEL(cctx); err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func runNexus(cctx *cli.Context) error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
-	config := NexusConfig{
+	config := TapConfig{
 		DatabaseURL:                cctx.String("database-url"),
 		DBMaxConns:                 cctx.Int("db-max-conns"),
 		RelayUrl:                   cctx.String("relay-url"),
@@ -184,8 +184,8 @@ func runNexus(cctx *cli.Context) error {
 		OutboxOnly:                 cctx.Bool("outbox-only"),
 	}
 
-	logger.Info("creating nexus service")
-	nexus, err := NewNexus(config)
+	logger.Info("creating tap service")
+	tap, err := NewTap(config)
 	if err != nil {
 		return err
 	}
@@ -195,13 +195,13 @@ func runNexus(cctx *cli.Context) error {
 	if !config.OutboxOnly {
 		if config.SignalCollection != "" {
 			go func() {
-				if err := nexus.Crawler.EnumerateNetworkByCollection(ctx, config.SignalCollection); err != nil {
+				if err := tap.Crawler.EnumerateNetworkByCollection(ctx, config.SignalCollection); err != nil {
 					logger.Error("collection enumeration failed", "error", err, "collection", config.SignalCollection)
 				}
 			}()
 		} else if config.FullNetworkMode {
 			go func() {
-				if err := nexus.Crawler.EnumerateNetwork(ctx); err != nil {
+				if err := tap.Crawler.EnumerateNetwork(ctx); err != nil {
 					logger.Error("network enumeration failed", "error", err)
 				}
 			}()
@@ -213,17 +213,17 @@ func runNexus(cctx *cli.Context) error {
 	if !config.OutboxOnly {
 		go func() {
 			logger.Info("starting firehose consumer")
-			if err := nexus.Firehose.Run(ctx); err != nil {
+			if err := tap.Firehose.Run(ctx); err != nil {
 				svcErr <- err
 			}
 		}()
 	}
 
-	go nexus.Run(ctx)
+	go tap.Run(ctx)
 
 	go func() {
 		logger.Info("starting HTTP server", "addr", cctx.String("bind"))
-		if err := nexus.Server.Start(cctx.String("bind")); err != nil {
+		if err := tap.Server.Start(cctx.String("bind")); err != nil {
 			svcErr <- err
 		}
 	}()
@@ -244,12 +244,12 @@ func runNexus(cctx *cli.Context) error {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
-	if err := nexus.Server.Shutdown(shutdownCtx); err != nil {
+	if err := tap.Server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("error during shutdown", "error", err)
 		return err
 	}
 
-	if err := nexus.CloseDb(shutdownCtx); err != nil {
+	if err := tap.CloseDb(shutdownCtx); err != nil {
 		return err
 	}
 

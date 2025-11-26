@@ -6,36 +6,36 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/bluesky-social/indigo/cmd/nexus/models"
+	"github.com/bluesky-social/indigo/cmd/tap/models"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
 
-type NexusServer struct {
+type TapServer struct {
 	db     *gorm.DB
 	echo   *echo.Echo
 	logger *slog.Logger
 	outbox *Outbox
 }
 
-func (ns *NexusServer) Start(address string) error {
-	ns.echo = echo.New()
-	ns.echo.HideBanner = true
-	ns.echo.GET("/health", ns.handleHealthcheck)
-	ns.echo.GET("/channel", ns.handleChannelWebsocket)
-	ns.echo.POST("/add-repos", ns.handleAddRepos)
-	ns.echo.POST("/remove-repos", ns.handleRemoveRepos)
-	ns.echo.Any("/debug/pprof/*", echo.WrapHandler(http.DefaultServeMux))
-	return ns.echo.Start(address)
+func (ts *TapServer) Start(address string) error {
+	ts.echo = echo.New()
+	ts.echo.HideBanner = true
+	ts.echo.GET("/health", ts.handleHealthcheck)
+	ts.echo.GET("/channel", ts.handleChannelWebsocket)
+	ts.echo.POST("/add-repos", ts.handleAddRepos)
+	ts.echo.POST("/remove-repos", ts.handleRemoveRepos)
+	ts.echo.Any("/debug/pprof/*", echo.WrapHandler(http.DefaultServeMux))
+	return ts.echo.Start(address)
 }
 
 // Shutdown gracefully shuts down the HTTP server.
-func (ns *NexusServer) Shutdown(ctx context.Context) error {
-	return ns.echo.Shutdown(ctx)
+func (ts *TapServer) Shutdown(ctx context.Context) error {
+	return ts.echo.Shutdown(ctx)
 }
 
-func (ns *NexusServer) handleHealthcheck(c echo.Context) error {
+func (ts *TapServer) handleHealthcheck(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{
 		"status": "ok",
 	})
@@ -47,8 +47,8 @@ var wsUpgrader = websocket.Upgrader{
 	},
 }
 
-func (ns *NexusServer) handleChannelWebsocket(c echo.Context) error {
-	if ns.outbox.mode == OutboxModeWebhook {
+func (ts *TapServer) handleChannelWebsocket(c echo.Context) error {
+	if ts.outbox.mode == OutboxModeWebhook {
 		return echo.NewHTTPError(http.StatusBadRequest, "websocket not available in webhook mode")
 	}
 
@@ -58,7 +58,7 @@ func (ns *NexusServer) handleChannelWebsocket(c echo.Context) error {
 	}
 	defer ws.Close()
 
-	ns.logger.Info("websocket connected")
+	ts.logger.Info("websocket connected")
 
 	// read loop to detect disconnects and handle acks in websocket-ack mode
 	disconnected := make(chan struct{})
@@ -71,8 +71,8 @@ func (ns *NexusServer) handleChannelWebsocket(c echo.Context) error {
 				return
 			}
 
-			if ns.outbox.mode == OutboxModeWebsocketAck && msg.Type == WsResponseAck {
-				go ns.outbox.AckEvent(msg.ID)
+			if ts.outbox.mode == OutboxModeWebsocketAck && msg.Type == WsResponseAck {
+				go ts.outbox.AckEvent(msg.ID)
 			}
 		}
 	}()
@@ -80,20 +80,20 @@ func (ns *NexusServer) handleChannelWebsocket(c echo.Context) error {
 	for {
 		select {
 		case <-disconnected:
-			ns.logger.Info("websocket disconnected")
+			ts.logger.Info("websocket disconnected")
 			return nil
-		case msg, ok := <-ns.outbox.outgoing:
+		case msg, ok := <-ts.outbox.outgoing:
 			if !ok {
 				return nil
 			}
 			if err := ws.WriteMessage(websocket.TextMessage, msg.Event); err != nil {
-				ns.logger.Info("websocket write error", "error", err)
+				ts.logger.Info("websocket write error", "error", err)
 				return nil
 			}
 			// In fire-and-forget mode, ack immediately after write succeeds
 			// In websocket-ack mode, wait for client to send ack and handle in read loop
-			if ns.outbox.mode == OutboxModeFireAndForget {
-				go ns.outbox.AckEvent(msg.ID)
+			if ts.outbox.mode == OutboxModeFireAndForget {
+				go ts.outbox.AckEvent(msg.ID)
 			}
 		}
 	}
@@ -103,7 +103,7 @@ type DidPayload struct {
 	DIDs []string `json:"dids"`
 }
 
-func (ns *NexusServer) handleAddRepos(c echo.Context) error {
+func (ts *TapServer) handleAddRepos(c echo.Context) error {
 	var payload DidPayload
 	if err := c.Bind(&payload); err != nil {
 		return err
@@ -117,31 +117,31 @@ func (ns *NexusServer) handleAddRepos(c echo.Context) error {
 		}
 	}
 
-	if err := ns.db.Save(&dids).Error; err != nil {
-		ns.logger.Error("failed to upsert dids", "error", err)
+	if err := ts.db.Save(&dids).Error; err != nil {
+		ts.logger.Error("failed to upsert dids", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	ns.logger.Info("added dids", "count", len(payload.DIDs))
+	ts.logger.Info("added dids", "count", len(payload.DIDs))
 
 	return c.NoContent(http.StatusOK)
 }
 
-func (ns *NexusServer) handleRemoveRepos(c echo.Context) error {
+func (ts *TapServer) handleRemoveRepos(c echo.Context) error {
 	var payload DidPayload
 	if err := c.Bind(&payload); err != nil {
 		return err
 	}
 
 	for _, did := range payload.DIDs {
-		err := deleteRepo(ns.db, did)
+		err := deleteRepo(ts.db, did)
 		if err != nil {
-			ns.logger.Error("failed to delete repo", "error", err)
+			ts.logger.Error("failed to delete repo", "error", err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 	}
 
-	ns.logger.Info("removed dids", "count", len(payload.DIDs))
+	ts.logger.Info("removed dids", "count", len(payload.DIDs))
 
 	return c.NoContent(http.StatusOK)
 }

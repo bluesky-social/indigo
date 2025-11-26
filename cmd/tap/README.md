@@ -1,9 +1,9 @@
-`nexus`: atproto sync utility
+`tap`: atproto sync utility
 ========================================
 
-Nexus is a single-tenant service that subscribes to an atproto relay and outputs filtered, verified events for a subset of repos.
+Tap is a single-tenant service that subscribes to an atproto relay and outputs filtered, verified events for a subset of repos.
 
-Nexus simplifies firehose consumption by handling verification, backfill, and filtering. Your application connects to nexus and receives simple JSON events for only the repos and collections you care about. Historical data for configured repos is automatically fetched from PDSs and delivered before live events begin.
+Tap simplifies firehose consumption by handling verification, backfill, and filtering. Your application connects to tap and receives simple JSON events for only the repos and collections you care about. Historical data for configured repos is automatically fetched from PDSs and delivered before live events begin.
 
 Features and design decisions:
 
@@ -22,9 +22,9 @@ This tool is useful for building applications that need to track specific accoun
 ## Quick Start
 
 ```bash
-# Run nexus
-go run ./cmd/nexus --disable-acks=true
-# By default, the service uses SQLite at `./nexus.db` and binds to port `:8080`.
+# Run tap
+go run ./cmd/tap --disable-acks=true
+# By default, the service uses SQLite at `./tap.db` and binds to port `:8080`.
 
 # In a separate terminal, connect to receive events:
 websocat ws://localhost:8080/channel
@@ -50,42 +50,42 @@ If more than one client connects to the WebSocket, events will be transparently 
 
 Environment variables or CLI flags:
 
-- `NEXUS_DB_PATH`: path to SQLite database file (default: `./nexus.db`)
-- `NEXUS_RELAY_URL`: atproto relay URL (default: `https://relay1.us-east.bsky.network`)
-- `NEXUS_BIND`: HTTP server address (default: `:8080`)
-- `NEXUS_FIREHOSE_PARALLELISM`: concurrent firehose event processors (default: `10`)
-- `NEXUS_RESYNC_PARALLELISM`: concurrent resync workers (default: `5`)
-- `NEXUS_OUTBOX_PARALLELISM`: concurrent outbox workers (default: `5`)
-- `NEXUS_CURSOR_SAVE_INTERVAL`: how often to save cursor (default: `5s`, set to `0` to disable)
-- `NEXUS_REPO_FETCH_TIMEOUT`: timeout for fetching repo CARs from PDS (Go duration syntax, e.g. `180s`)
-- `NEXUS_FULL_NETWORK_MODE`: track all repos on the network (default: `false`)
-- `NEXUS_SIGNAL_COLLECTION`: track all repos with at least one record in this collection (e.g. `app.bsky.actor.profile`)
-- `NEXUS_COLLECTION_FILTERS`: comma-separated collection filters, wildcards accepted (e.g., `app.bsky.feed.post,app.bsky.graph.*`)
-- `NEXUS_DISABLE_ACKS`: fire-and-forget mode, no client acks (default: `false`)
-- `NEXUS_WEBHOOK_URL`: webhook URL for event delivery (disables WebSocket mode)
-- `NEXUS_OUTBOX_ONLY`: run in outbox-only mode (no firehose, resync, or enumeration) (default: `false`)
-- `NEXUS_LOG_LEVEL`: log verbosity (`debug`, `info`, `warn`, `error`, default: `info`)
+- `TAP_DB_PATH`: path to SQLite database file (default: `./tap.db`)
+- `TAP_RELAY_URL`: atproto relay URL (default: `https://relay1.us-east.bsky.network`)
+- `TAP_BIND`: HTTP server address (default: `:8080`)
+- `TAP_FIREHOSE_PARALLELISM`: concurrent firehose event processors (default: `10`)
+- `TAP_RESYNC_PARALLELISM`: concurrent resync workers (default: `5`)
+- `TAP_OUTBOX_PARALLELISM`: concurrent outbox workers (default: `5`)
+- `TAP_CURSOR_SAVE_INTERVAL`: how often to save cursor (default: `5s`, set to `0` to disable)
+- `TAP_REPO_FETCH_TIMEOUT`: timeout for fetching repo CARs from PDS (Go duration syntax, e.g. `180s`)
+- `TAP_FULL_NETWORK_MODE`: track all repos on the network (default: `false`)
+- `TAP_SIGNAL_COLLECTION`: track all repos with at least one record in this collection (e.g. `app.bsky.actor.profile`)
+- `TAP_COLLECTION_FILTERS`: comma-separated collection filters, wildcards accepted (e.g., `app.bsky.feed.post,app.bsky.graph.*`)
+- `TAP_DISABLE_ACKS`: fire-and-forget mode, no client acks (default: `false`)
+- `TAP_WEBHOOK_URL`: webhook URL for event delivery (disables WebSocket mode)
+- `TAP_OUTBOX_ONLY`: run in outbox-only mode (no firehose, resync, or enumeration) (default: `false`)
+- `TAP_LOG_LEVEL`: log verbosity (`debug`, `info`, `warn`, `error`, default: `info`)
 
 ## Delivery Modes
 
-Nexus supports three delivery modes:
+Tap supports three delivery modes:
 
 **WebSocket with acks** (default): Client sends acks each event once it has been processed/persisted. Ensures that no data is lost and client does not need to handle cursors. It's recommended to use a client library such as (@TODO) when using this mode.
 
-**Fire-and-forget**: Set `NEXUS_DISABLE_ACKS=true`. Events are sent and considered "acked" once the client receives them. Simpler but may result in data loss. Recommended for testing purposes or when data integrity is not critical.
+**Fire-and-forget**: Set `TAP_DISABLE_ACKS=true`. Events are sent and considered "acked" once the client receives them. Simpler but may result in data loss. Recommended for testing purposes or when data integrity is not critical.
 
-**Webhook**: Set `NEXUS_WEBHOOK_URL=http://...`. Events are POSTed as JSON. Events considered "acked" once the webhook responds with a 200. Recommended for lower throughput serverless environments.
+**Webhook**: Set `TAP_WEBHOOK_URL=http://...`. Events are POSTed as JSON. Events considered "acked" once the webhook responds with a 200. Recommended for lower throughput serverless environments.
 
 
 ## Network Boundary Modes
 
-Nexus syncs a subset of repos in the network. It can operate in three modes for determining this network boundary.
+Tap syncs a subset of repos in the network. It can operate in three modes for determining this network boundary.
 
-**Dynamically Configured** (default):  Nexus starts out tracking no repos. Specific repos can then by added via `/add-repos` and removed via `/remove-repos`.
+**Dynamically Configured** (default):  Tap starts out tracking no repos. Specific repos can then by added via `/add-repos` and removed via `/remove-repos`.
 
-**Collection Signal**: Set `NEXUS_SIGNAL_COLLECTION=com.example.nsid`. Track all repos that have at least one record in the specified collection. Many applications create a "declaration" or "profile" in a repo when that repo uses that application
+**Collection Signal**: Set `TAP_SIGNAL_COLLECTION=com.example.nsid`. Track all repos that have at least one record in the specified collection. Many applications create a "declaration" or "profile" in a repo when that repo uses that application
 
-**Full Network**: Set `NEXUS_FULL_NETWORK_MODE=true`. Enumerates and tracks all findable repos on the entire network. Resource-intensive and takes days/weeks to complete backfill.
+**Full Network**: Set `TAP_FULL_NETWORK_MODE=true`. Enumerates and tracks all findable repos on the entire network. Resource-intensive and takes days/weeks to complete backfill.
 
 ## Event Format
 
@@ -132,7 +132,7 @@ Events are delivered as JSON:
 
 When a repo is added (via `/add-repos`, full network mode, or collection discovery):
 
-1. **Historical backfill**: Nexus fetches the full repo from the account's PDS using `com.atproto.sync.getRepo`
+1. **Historical backfill**: Tap fetches the full repo from the account's PDS using `com.atproto.sync.getRepo`
 2. **Live event buffering**: Any firehose events for this repo during backfill are held in memory
 3. **Ordering guarantee**: Historical events (marked `live: false`) are delivered first
 4. **Cutover**: After historical events complete, buffered live events are drained
@@ -142,9 +142,9 @@ This ensures your application receives a complete, ordered view of each repo wit
 
 ### Per-Repo Ordering Rules
 
-Nexus offloads cursor management and takes care of delivery guarantees. Events are delivered *at least once*. Events may be delivered more than once if Nexus crashes and restarts before receiving an ack for a given event or if the event times out before being acked (default 10s).
+Tap offloads cursor management and takes care of delivery guarantees. Events are delivered *at least once*. Events may be delivered more than once if Tap crashes and restarts before receiving an ack for a given event or if the event times out before being acked (default 10s).
 
-There is no global ordering of events across repos. However Nexus will ensure ordering within each repo and will avoid sending the next event until the previous event has completed processing.
+There is no global ordering of events across repos. However Tap will ensure ordering within each repo and will avoid sending the next event until the previous event has completed processing.
 
 Events for the same repo are delivered with strict ordering:
 
@@ -164,13 +164,13 @@ This ensures live events act as ordering checkpoints while allowing historical b
 
 Collection filters use wildcards but only at the period breaks in NSIDs. For example:
 
-`NEXUS_COLLECTION_FILTERS=app.bsky.feed.post,app.bsky.graph.*`
+`TAP_COLLECTION_FILTERS=app.bsky.feed.post,app.bsky.graph.*`
 
 Filters apply to record events only. User events are always delivered for tracked repos.
 
 ## Operations
 
-Nexus logs to stdout in JSON format. The firehose consumer automatically reconnects with exponential backoff on relay failures. Cursor position is saved periodically (default 5 seconds) and restored on restart.
+Tap logs to stdout in JSON format. The firehose consumer automatically reconnects with exponential backoff on relay failures. Cursor position is saved periodically (default 5 seconds) and restored on restart.
 
 SQLite is tuned for high write throughput: WAL mode, 10-second busy timeout, `synchronous=NORMAL`, 64MB cache, batched deletes. The outbox buffers up to 1M pending events in memory.
 

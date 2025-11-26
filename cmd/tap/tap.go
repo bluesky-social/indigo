@@ -9,14 +9,14 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/cmd/nexus/models"
+	"github.com/bluesky-social/indigo/cmd/tap/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-type Nexus struct {
+type Tap struct {
 	db     *gorm.DB
 	logger *slog.Logger
 
@@ -26,13 +26,13 @@ type Nexus struct {
 	Resyncer *Resyncer
 	Crawler  *Crawler
 
-	Server *NexusServer
+	Server *TapServer
 	Outbox *Outbox
 
-	config NexusConfig
+	config TapConfig
 }
 
-type NexusConfig struct {
+type TapConfig struct {
 	DatabaseURL                string
 	DBMaxConns                 int
 	RelayUrl                   string
@@ -51,7 +51,7 @@ type NexusConfig struct {
 	OutboxOnly                 bool
 }
 
-func NewNexus(config NexusConfig) (*Nexus, error) {
+func NewTap(config TapConfig) (*Tap, error) {
 	db, err := SetupDatabase(config.DatabaseURL, config.DBMaxConns)
 	if err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 	}
 	cdir := identity.NewCacheDirectory(&bdir, config.IdentityCacheSize, time.Hour*24, time.Minute*2, time.Minute*5)
 
-	logger := slog.Default().With("system", "nexus")
+	logger := slog.Default().With("system", "tap")
 
 	evtMngr := &EventManager{
 		logger:     logger.With("component", "event_manager"),
@@ -123,15 +123,15 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		outgoing: make(chan *OutboxEvt, config.OutboxParallelism*10000),
 	}
 
-	server := &NexusServer{
+	server := &TapServer{
 		logger: logger.With("component", "server"),
 		db:     db,
 		outbox: outbox,
 	}
 
-	n := &Nexus{
+	t := &Tap{
 		db:     db,
-		logger: slog.Default().With("system", "nexus"),
+		logger: slog.Default().With("system", "tap"),
 
 		Firehose: firehose,
 		Events:   evtMngr,
@@ -144,42 +144,42 @@ func NewNexus(config NexusConfig) (*Nexus, error) {
 		config: config,
 	}
 
-	if err := n.Resyncer.resetPartiallyResynced(); err != nil {
+	if err := t.Resyncer.resetPartiallyResynced(); err != nil {
 		return nil, err
 	}
 
-	return n, nil
+	return t, nil
 }
 
 // Run starts internal background workers for resync, cursor saving, and outbox delivery.
-func (n *Nexus) Run(ctx context.Context) {
-	go n.Events.LoadEvents(ctx)
+func (t *Tap) Run(ctx context.Context) {
+	go t.Events.LoadEvents(ctx)
 
 	go func() {
 		for {
-			n.Events.logger.Info("cache stat", "size", len(n.Events.cache))
+			t.Events.logger.Info("cache stat", "size", len(t.Events.cache))
 			time.Sleep(time.Second)
 		}
 	}()
 
-	if !n.config.OutboxOnly {
-		go n.Resyncer.run(ctx)
+	if !t.config.OutboxOnly {
+		go t.Resyncer.run(ctx)
 	}
 
-	go n.Outbox.Run(ctx)
+	go t.Outbox.Run(ctx)
 }
 
-func (n *Nexus) CloseDb(ctx context.Context) error {
-	n.logger.Info("shutting down nexus")
+func (t *Tap) CloseDb(ctx context.Context) error {
+	t.logger.Info("shutting down tap")
 
-	sqlDB, err := n.db.DB()
+	sqlDB, err := t.db.DB()
 	if err != nil {
-		n.logger.Error("error getting sql db", "error", err)
+		t.logger.Error("error getting sql db", "error", err)
 		return err
 	}
 
 	if err := sqlDB.Close(); err != nil {
-		n.logger.Error("error closing sqlite db", "error", err)
+		t.logger.Error("error closing sqlite db", "error", err)
 		return err
 	}
 
