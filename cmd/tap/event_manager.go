@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bluesky-social/indigo/cmd/nexus/models"
+	"github.com/bluesky-social/indigo/cmd/tap/models"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

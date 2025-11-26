@@ -13,7 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/nexus/models"
+	"github.com/bluesky-social/indigo/cmd/tap/models"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
 	"github.com/gorilla/websocket"
@@ -21,7 +21,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var tracer = otel.Tracer("nexus")
+var tracer = otel.Tracer("tap")
 
 type FirehoseProcessor struct {
 	logger *slog.Logger

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/bluesky-social/indigo/cmd/nexus/models"
+	"github.com/bluesky-social/indigo/cmd/tap/models"
 	"gorm.io/gorm"
 )
 

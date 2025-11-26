@@ -14,7 +14,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	repolib "github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/nexus/models"
+	"github.com/bluesky-social/indigo/cmd/tap/models"
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"

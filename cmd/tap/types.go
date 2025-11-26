@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 
-	"github.com/bluesky-social/indigo/cmd/nexus/models"
+	"github.com/bluesky-social/indigo/cmd/tap/models"
 )
 
 type OutboxMode string
