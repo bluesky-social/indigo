@@ -130,7 +130,7 @@ func (s *Service) handleComAtprotoSyncGetHostStatus(c echo.Context, hostname str
 func (s *Service) handleComAtprotoSyncListRepos(c echo.Context, cursor int64, limit int) (*comatproto.SyncListRepos_Output, error) {
 	ctx := c.Request().Context()
 
-	accounts, err := s.relay.ListAccounts(ctx, cursor, limit)
+	accounts, err := s.relay.ListAccountsDetailed(ctx, cursor, limit)
 	if err != nil {
 		s.logger.Error("failed to query accounts", "err", err)
 		return nil, c.JSON(http.StatusInternalServerError, xrpc.XRPCError{ErrStr: "DatabaseError", Message: "failed to list accounts (repos)"})
@@ -147,30 +147,12 @@ func (s *Service) handleComAtprotoSyncListRepos(c echo.Context, cursor int64, li
 		Repos: make([]*comatproto.SyncListRepos_Repo, len(accounts)),
 	}
 
-	// Fetch the repo roots for each user
-	// TODO: would be much more efficient to do a join and have Relay.ListAccounts return these repos with the account info
 	for i, acc := range accounts {
-		repo, err := s.relay.GetAccountRepo(ctx, acc.UID)
-		if err != nil && !errors.Is(err, relay.ErrAccountRepoNotFound) {
-			s.logger.Error("failed to get repo root", "err", err, "did", acc.DID)
-			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get repo root for (%s): %v", acc.DID, err.Error()))
-		}
-		// note: repo can be nil beyond this point!
-
-		// TODO: empty strings here may not be spec-compliant
-		// need to determine correct handling when there is no account_repo entry
-		// see https://github.com/bluesky-social/indigo/issues/1143
-		var cid, rev string
-		if repo != nil {
-			cid = repo.CommitCID
-			rev = repo.Rev
-		}
-
 		active := acc.IsActive()
 		resp.Repos[i] = &comatproto.SyncListRepos_Repo{
 			Did:    acc.DID,
-			Head:   cid,
-			Rev:    rev,
+			Head:   acc.CommitCID,
+			Rev:    acc.Rev,
 			Active: &active,
 			Status: acc.StatusField(),
 		}
