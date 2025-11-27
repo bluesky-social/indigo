@@ -60,7 +60,7 @@ func (gen *CodeGenerator) WriteLexicon() error {
 	fmt.Fprint(gen.Out, ")\n\n")
 
 	for _, ft := range gen.Lex.Types {
-		slog.Info("generating type", "nsid", gen.Lex.NSID, "def", ft.DefName, "path", ft.Path, "type", ft.Type)
+		slog.Debug("generating type", "nsid", gen.Lex.NSID, "def", ft.DefName, "path", ft.Path, "type", ft.Type)
 		if err := gen.WriteType(&ft); err != nil {
 			return err
 		}
