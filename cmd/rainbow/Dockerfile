@@ -1,4 +1,4 @@
-FROM golang:1.24-bullseye AS build-env
+FROM golang:1.25-bookworm AS build-env
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
@@ -21,7 +21,7 @@ RUN go build \
     -o /rainbow-bin \
     ./cmd/rainbow
 
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND="noninteractive"
 ENV TZ=Etc/UTC
