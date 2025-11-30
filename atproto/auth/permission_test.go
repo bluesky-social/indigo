@@ -44,7 +44,7 @@ type GenericExample struct {
 
 func TestGenericGenericScopesValid(t *testing.T) {
 	assert := assert.New(t)
-	file, err := os.Open("testdata/generic_scopes.json")
+	file, err := os.Open("testdata/generic_scopes_valid.json")
 	if err != nil {
 		assert.NoError(err)
 		t.Fail()
