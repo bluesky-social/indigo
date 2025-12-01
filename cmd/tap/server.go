@@ -6,6 +6,8 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/tap/models"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
@@ -18,6 +20,7 @@ type TapServer struct {
 	logger     *slog.Logger
 	outbox     *Outbox
 	adminToken string
+	idDir      identity.Directory
 }
 
 func (ts *TapServer) Start(address string) error {
@@ -33,6 +36,7 @@ func (ts *TapServer) Start(address string) error {
 	ts.echo.GET("/channel", ts.handleChannelWebsocket)
 	ts.echo.POST("/add-repos", ts.handleAddRepos)
 	ts.echo.POST("/remove-repos", ts.handleRemoveRepos)
+	ts.echo.GET("/resolve/:did", ts.handleResolveDID)
 	ts.echo.Any("/debug/pprof/*", echo.WrapHandler(http.DefaultServeMux))
 	return ts.echo.Start(address)
 }
@@ -172,4 +176,23 @@ func (ts *TapServer) handleRemoveRepos(c echo.Context) error {
 	ts.logger.Info("removed dids", "count", len(payload.DIDs))
 
 	return c.NoContent(http.StatusOK)
+}
+
+func (ts *TapServer) handleResolveDID(c echo.Context) error {
+	didParam := c.Param("did")
+
+	did, err := syntax.ParseDID(didParam)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "improperly formatted DID")
+	}
+
+	ident, err := ts.idDir.LookupDID(c.Request().Context(), did)
+	if err != nil {
+		if err == identity.ErrDIDNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "DID not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to resolve DID")
+	}
+
+	return c.JSON(http.StatusOK, ident.DIDDocument())
 }

@@ -129,6 +129,7 @@ func NewTap(config TapConfig) (*Tap, error) {
 		db:         db,
 		outbox:     outbox,
 		adminToken: config.AdminToken,
+		idDir:      repoMngr.IdDir,
 	}
 
 	t := &Tap{
