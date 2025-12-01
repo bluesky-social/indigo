@@ -13,21 +13,49 @@ import (
 )
 
 type TapServer struct {
-	db     *gorm.DB
-	echo   *echo.Echo
-	logger *slog.Logger
-	outbox *Outbox
+	db         *gorm.DB
+	echo       *echo.Echo
+	logger     *slog.Logger
+	outbox     *Outbox
+	adminToken string
 }
 
 func (ts *TapServer) Start(address string) error {
 	ts.echo = echo.New()
 	ts.echo.HideBanner = true
+
+	// Apply admin token middleware if configured
+	if ts.adminToken != "" {
+		ts.echo.Use(ts.adminAuthMiddleware)
+	}
+
 	ts.echo.GET("/health", ts.handleHealthcheck)
 	ts.echo.GET("/channel", ts.handleChannelWebsocket)
 	ts.echo.POST("/add-repos", ts.handleAddRepos)
 	ts.echo.POST("/remove-repos", ts.handleRemoveRepos)
 	ts.echo.Any("/debug/pprof/*", echo.WrapHandler(http.DefaultServeMux))
 	return ts.echo.Start(address)
+}
+
+func (ts *TapServer) adminAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		token := c.Request().Header.Get("Authorization")
+		if token == "" {
+			return echo.NewHTTPError(http.StatusUnauthorized, "missing authorization header")
+		}
+
+		// Support "Bearer <token>" format
+		const bearerPrefix = "Bearer "
+		if len(token) > len(bearerPrefix) && token[:len(bearerPrefix)] == bearerPrefix {
+			token = token[len(bearerPrefix):]
+		}
+
+		if token != ts.adminToken {
+			return echo.NewHTTPError(http.StatusUnauthorized, "invalid admin token")
+		}
+
+		return next(c)
+	}
 }
 
 // Shutdown gracefully shuts down the HTTP server.

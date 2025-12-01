@@ -147,6 +147,11 @@ func run(args []string) error {
 			Value:   "info",
 			EnvVars: []string{"TAP_LOG_LEVEL", "LOG_LEVEL"},
 		},
+		&cli.StringFlag{
+			Name:    "admin-token",
+			Usage:   "admin token required for all API requests (if set)",
+			EnvVars: []string{"TAP_ADMIN_TOKEN"},
+		},
 	}
 
 	app.Action = runTap
@@ -182,6 +187,7 @@ func runTap(cctx *cli.Context) error {
 		WebhookURL:                 cctx.String("webhook-url"),
 		CollectionFilters:          cctx.StringSlice("collection-filters"),
 		OutboxOnly:                 cctx.Bool("outbox-only"),
+		AdminToken:                 cctx.String("admin-token"),
 	}
 
 	logger.Info("creating tap service")
