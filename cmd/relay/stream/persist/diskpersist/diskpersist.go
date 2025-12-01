@@ -216,6 +216,7 @@ func (dp *DiskPersistence) resumeLog() error {
 
 	dp.curSeq = seq
 	dp.logfi = fi
+	currentSeqGuage.Set(float64(dp.curSeq))
 
 	return nil
 }
@@ -240,6 +241,7 @@ func (dp *DiskPersistence) initLogFile() error {
 
 	dp.logfi = fi
 	dp.curSeq = dp.initialSeq
+	currentSeqGuage.Set(float64(dp.curSeq))
 	return nil
 }
 
@@ -425,6 +427,11 @@ var filesGarbageCollected = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "Number of files collected during garbage collection",
 }, []string{})
 
+var currentSeqGuage = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "disk_persister_current_seq",
+	Help: "Current sequence number to be used for next persisted event",
+})
+
 func (dp *DiskPersistence) garbageCollect(ctx context.Context) []error {
 	garbageCollectionsExecuted.WithLabelValues().Inc()
 
@@ -486,6 +493,7 @@ func (dp *DiskPersistence) garbageCollect(ctx context.Context) []error {
 func (dp *DiskPersistence) doPersist(ctx context.Context, pjob persistJob) error {
 	seq := dp.curSeq
 	dp.curSeq++
+	currentSeqGuage.Set(float64(dp.curSeq))
 
 	// Set sequence number in event header
 	// the rest of the header is set in DiskPersistence.Persist()
