@@ -6,11 +6,11 @@ import (
 	"fmt"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/relay/relay"
 	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/urfave/cli/v3"
 )
@@ -64,9 +64,7 @@ func runPullHosts(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("unexpected arguments")
 	}
 
-	client := xrpc.Client{
-		Host: cmd.String("relay-host"),
-	}
+	client := atclient.NewAPIClient(cmd.String("relay-host"))
 
 	skipHostChecks := cmd.Bool("skip-host-checks")
 
@@ -93,7 +91,7 @@ func runPullHosts(ctx context.Context, cmd *cli.Command) error {
 	cursor := ""
 	size := cmd.Int64("batch-size")
 	for {
-		resp, err := comatproto.SyncListHosts(ctx, &client, cursor, size)
+		resp, err := comatproto.SyncListHosts(ctx, client, cursor, size)
 		if err != nil {
 			return err
 		}
