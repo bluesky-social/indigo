@@ -49,6 +49,7 @@ type TapConfig struct {
 	WebhookURL                 string
 	CollectionFilters          []string // e.g., ["app.bsky.feed.post", "app.bsky.graph.*"]
 	OutboxOnly                 bool
+	AdminToken                 string
 }
 
 func NewTap(config TapConfig) (*Tap, error) {
@@ -124,9 +125,10 @@ func NewTap(config TapConfig) (*Tap, error) {
 	}
 
 	server := &TapServer{
-		logger: logger.With("component", "server"),
-		db:     db,
-		outbox: outbox,
+		logger:     logger.With("component", "server"),
+		db:         db,
+		outbox:     outbox,
+		adminToken: config.AdminToken,
 	}
 
 	t := &Tap{
