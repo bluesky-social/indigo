@@ -214,6 +214,11 @@ func (dp *DiskPersistence) resumeLog() error {
 
 	dp.log.Info("loaded seq", "seq", seq, "now", time.Now().UnixMicro())
 
+	if seq < dp.initialSeq {
+		dp.log.Warn("forcing higher seq", "found", seq, "initialSeq", dp.initialSeq)
+		seq = dp.initialSeq
+	}
+
 	dp.curSeq = seq
 	dp.logfi = fi
 	currentSeqGuage.Set(float64(dp.curSeq))
