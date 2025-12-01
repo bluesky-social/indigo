@@ -7,9 +7,9 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/util/ssrf"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // Simple interface for doing host and account status checks.
@@ -42,14 +42,21 @@ func NewHostClient(userAgent string) *HostClient {
 	}
 }
 
-func (hc *HostClient) CheckHost(ctx context.Context, host string) error {
-	xrpcc := xrpc.Client{
-		Client:    hc.Client,
-		UserAgent: &hc.UserAgent,
-		Host:      host,
+func (hc *HostClient) apiClient(host string) *atclient.APIClient {
+	client := atclient.APIClient{
+		Client: hc.Client,
+		Host:   host,
+		Headers: map[string][]string{
+			"User-Agent": []string{hc.UserAgent},
+		},
 	}
+	return &client
+}
 
-	_, err := comatproto.ServerDescribeServer(ctx, &xrpcc)
+func (hc *HostClient) CheckHost(ctx context.Context, host string) error {
+
+	client := hc.apiClient(host)
+	_, err := comatproto.ServerDescribeServer(ctx, client)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrHostNotPDS, err)
 	}
@@ -62,13 +69,9 @@ func (hc *HostClient) FetchAccountStatus(ctx context.Context, ident *identity.Id
 		return "", fmt.Errorf("account does not declare a PDS: %s", ident.DID)
 	}
 
-	xrpcc := xrpc.Client{
-		Client:    hc.Client,
-		UserAgent: &hc.UserAgent,
-		Host:      pdsEndpoint,
-	}
+	client := hc.apiClient(pdsEndpoint)
 
-	info, err := comatproto.SyncGetRepoStatus(ctx, &xrpcc, ident.DID.String())
+	info, err := comatproto.SyncGetRepoStatus(ctx, client, ident.DID.String())
 	if err != nil {
 		return "", err
 	}
