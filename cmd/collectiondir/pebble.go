@@ -194,7 +194,7 @@ func (pcd *PebbleCollectionDirectory) ReadCollection(ctx context.Context, collec
 		return nil, "", fmt.Errorf("collection id err, %w", err)
 	}
 	if cursor != "" {
-		lower, err = base64.StdEncoding.DecodeString(cursor)
+		lower, err = base64.RawURLEncoding.DecodeString(cursor)
 		if err != nil {
 			return nil, "", fmt.Errorf("could not decode cursor, %w", err)
 		}
@@ -242,7 +242,7 @@ func (pcd *PebbleCollectionDirectory) ReadCollection(ctx context.Context, collec
 			prevKey := make([]byte, len(key), len(key)+1)
 			copy(prevKey, key)
 			prevKey = append(prevKey, 0)
-			nextCursor = base64.StdEncoding.EncodeToString(prevKey)
+			nextCursor = base64.RawURLEncoding.EncodeToString(prevKey)
 			break
 		}
 	}
