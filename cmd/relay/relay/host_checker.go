@@ -9,6 +9,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
 	"github.com/bluesky-social/indigo/util/ssrf"
 )
 
@@ -18,7 +19,7 @@ import (
 type HostChecker interface {
 	// host should be a URL, including scheme, hostname (and optional port), but no path segment
 	CheckHost(ctx context.Context, host string) error
-	FetchAccountStatus(ctx context.Context, ident *identity.Identity) (string, error)
+	FetchAccountStatus(ctx context.Context, ident *identity.Identity) (models.AccountStatus, error)
 }
 
 var _ HostChecker = (*HostClient)(nil)
@@ -63,7 +64,7 @@ func (hc *HostClient) CheckHost(ctx context.Context, host string) error {
 	return nil
 }
 
-func (hc *HostClient) FetchAccountStatus(ctx context.Context, ident *identity.Identity) (string, error) {
+func (hc *HostClient) FetchAccountStatus(ctx context.Context, ident *identity.Identity) (models.AccountStatus, error) {
 	pdsEndpoint := ident.PDSEndpoint()
 	if pdsEndpoint == "" {
 		return "", fmt.Errorf("account does not declare a PDS: %s", ident.DID)
@@ -76,23 +77,28 @@ func (hc *HostClient) FetchAccountStatus(ctx context.Context, ident *identity.Id
 		return "", err
 	}
 	if info.Active {
-		return "active", nil
+		return models.AccountStatusActive, nil
 	} else if info.Status != nil {
-		return *info.Status, nil
+		switch models.AccountStatus(*info.Status) {
+		case models.AccountStatusDeactivated, models.AccountStatusDeleted, models.AccountStatusDesynchronized, models.AccountStatusSuspended, models.AccountStatusTakendown:
+			return models.AccountStatus(*info.Status), nil
+		default:
+			return models.AccountStatusInactive, nil
+		}
 	} else {
-		return "inactive", nil
+		return models.AccountStatusInactive, nil
 	}
 }
 
 type MockHostChecker struct {
 	Hosts    map[string]bool
-	Accounts map[string]string
+	Accounts map[string]models.AccountStatus
 }
 
 func NewMockHostChecker() *MockHostChecker {
 	return &MockHostChecker{
 		Hosts:    make(map[string]bool),
-		Accounts: make(map[string]string),
+		Accounts: make(map[string]models.AccountStatus),
 	}
 }
 
@@ -104,7 +110,7 @@ func (hc *MockHostChecker) CheckHost(ctx context.Context, host string) error {
 	return nil
 }
 
-func (hc *MockHostChecker) FetchAccountStatus(ctx context.Context, ident *identity.Identity) (string, error) {
+func (hc *MockHostChecker) FetchAccountStatus(ctx context.Context, ident *identity.Identity) (models.AccountStatus, error) {
 	status, ok := hc.Accounts[ident.DID.String()]
 	if !ok {
 		return "", ErrAccountNotFound
