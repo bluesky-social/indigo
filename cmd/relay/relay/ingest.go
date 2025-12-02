@@ -208,17 +208,22 @@ func (r *Relay) processIdentityEvent(ctx context.Context, evt *comatproto.SyncSu
 	}
 	r.accountCache.Remove(did.String())
 
-	// optimistically process event, but ignore all return values. eg, might create a row in account table if this event came from the current host
-	_, _, _ = r.preProcessEvent(ctx, evt.Did, hostname, hostID, logger)
+	// optimistically process event. might create a row in account table if this event came from the current host
+	handle := evt.Handle
+	_, _, err = r.preProcessEvent(ctx, evt.Did, hostname, hostID, logger)
+	if err != nil {
+		// don't pass-through handle if there was a problem with event (eg, account on another host, or inactive status)
+		handle = nil
+	}
 
-	// NOTE: not doing other validation or processing here; eg not strictly checking account host mapping or account status. Any PDS host can emit an identity event for any account, and it will be passed through
+	// NOTE: not doing other validation or processing here; eg not strictly checking account host mapping or account status. Any PDS host can emit an identity event for any account, and it will be passed through (other than handle)
 
 	// Broadcast the identity event to all consumers
 	err = r.Events.AddEvent(ctx, &stream.XRPCStreamEvent{
 		RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
 			Did:    did.String(),
-			Time:   evt.Time,   // TODO: update to now?
-			Handle: evt.Handle, // TODO: we could substitute in our own handle resolution here
+			Time:   evt.Time, // TODO: update to now?
+			Handle: handle,
 		},
 		PrivUid: 0, // NOTE: unknown/unused
 	})
