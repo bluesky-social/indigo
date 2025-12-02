@@ -218,6 +218,7 @@ func (r *Relay) EnsureAccountActive(ctx context.Context, acc *models.Account) er
 	}
 
 	if acc.UpstreamStatus != status {
+		// NOTE: r.UpdateAccountUpstreamStatus purges account cache
 		if err := r.UpdateAccountUpstreamStatus(ctx, did, acc.UID, status); err != nil {
 			return err
 		}
