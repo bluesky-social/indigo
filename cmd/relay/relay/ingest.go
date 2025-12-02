@@ -197,26 +197,32 @@ func (r *Relay) processIdentityEvent(ctx context.Context, evt *comatproto.SyncSu
 	logger := r.Logger.With("did", evt.Did, "seq", evt.Seq, "host", hostname, "eventType", "identity")
 	logger.Debug("relay got identity event")
 
-	acc, _, err := r.preProcessEvent(ctx, evt.Did, hostname, hostID, logger)
+	// Flush any cached DID/identity info for this user before any other processing
+	did, err := syntax.ParseDID(evt.Did)
 	if err != nil {
-		return err
+		logger.Warn("invalid DID in message")
+		return fmt.Errorf("invalid DID in message: %w", err)
 	}
-	did := syntax.DID(acc.DID)
-
-	// Flush any cached DID/identity info for this user
+	did = NormalizeDID(did)
 	err = r.Dir.Purge(ctx, did.AtIdentifier())
 	if err != nil {
 		logger.Error("problem purging identity directory cache", "err", err)
 	}
+	r.accountCache.Remove(did.String())
+
+	// optimistically process event, but ignore all return values. eg, might create a row in account table if this event came from the current host
+	_, _, _ = r.preProcessEvent(ctx, evt.Did, hostname, hostID, logger)
+
+	// NOTE: not doing other validation or processing here; eg not strictly checking account host mapping or account status. Any PDS host can emit an identity event for any account, and it will be passed through
 
 	// Broadcast the identity event to all consumers
 	err = r.Events.AddEvent(ctx, &stream.XRPCStreamEvent{
 		RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
 			Did:    did.String(),
 			Time:   evt.Time,   // TODO: update to now?
-			Handle: evt.Handle, // TODO: we could substitute in our handle resolution here
+			Handle: evt.Handle, // TODO: we could substitute in our own handle resolution here
 		},
-		PrivUid: acc.UID,
+		PrivUid: 0, // NOTE: unknown/unused
 	})
 	if err != nil {
 		logger.Error("failed to broadcast identity event", "error", err)
