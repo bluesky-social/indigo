@@ -40,4 +40,4 @@ CMD ["/usr/bin/rainbow"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
 LABEL org.opencontainers.image.description="rainbow atproto firehose fanout service"
-LABEL org.opencontainers.image.licenses=MIT
+LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"
