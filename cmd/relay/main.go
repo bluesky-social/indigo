@@ -138,7 +138,7 @@ func run(args []string) error {
 				},
 				&cli.Int64Flag{
 					Name:    "initial-seq-number",
-					Usage:   "when initializing output firehose, start with this sequence number",
+					Usage:   "output firehose seq will be greater or equal than this number (will jump ahead if needed)",
 					Value:   1,
 					Sources: cli.EnvVars("RELAY_INITIAL_SEQ_NUMBER"),
 				},
