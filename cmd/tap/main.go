@@ -199,19 +199,11 @@ func runTap(cctx *cli.Context) error {
 	ctx, cancel := context.WithCancel(cctx.Context)
 
 	if !config.OutboxOnly {
-		if config.SignalCollection != "" {
-			go func() {
-				if err := tap.Crawler.EnumerateNetworkByCollection(ctx, config.SignalCollection); err != nil {
-					logger.Error("collection enumeration failed", "error", err, "collection", config.SignalCollection)
-				}
-			}()
-		} else if config.FullNetworkMode {
-			go func() {
-				if err := tap.Crawler.EnumerateNetwork(ctx); err != nil {
-					logger.Error("network enumeration failed", "error", err)
-				}
-			}()
-		}
+		go func() {
+			if err := tap.Crawler.Run(ctx); err != nil {
+				logger.Error("collection enumeration failed", "error", err, "collection", config.SignalCollection)
+			}
+		}()
 	}
 
 	svcErr := make(chan error, 1)

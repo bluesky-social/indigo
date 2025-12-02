@@ -106,9 +106,11 @@ func NewTap(config TapConfig) (*Tap, error) {
 	}
 
 	crawler := &Crawler{
-		logger:   logger.With("component", "crawler"),
-		db:       db,
-		relayUrl: config.RelayUrl,
+		logger:           logger.With("component", "crawler"),
+		db:               db,
+		FullNetworkMode:  config.FullNetworkMode,
+		RelayUrl:         config.RelayUrl,
+		SignalCollection: config.SignalCollection,
 	}
 
 	outbox := &Outbox{
@@ -130,6 +132,8 @@ func NewTap(config TapConfig) (*Tap, error) {
 		outbox:     outbox,
 		adminToken: config.AdminToken,
 		idDir:      repoMngr.IdDir,
+		firehose:   firehose,
+		crawler:    crawler,
 	}
 
 	t := &Tap{

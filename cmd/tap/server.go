@@ -21,6 +21,8 @@ type TapServer struct {
 	outbox     *Outbox
 	adminToken string
 	idDir      identity.Directory
+	firehose   *FirehoseProcessor
+	crawler    *Crawler
 }
 
 func (ts *TapServer) Start(address string) error {
@@ -37,6 +39,11 @@ func (ts *TapServer) Start(address string) error {
 	ts.echo.POST("/add-repos", ts.handleAddRepos)
 	ts.echo.POST("/remove-repos", ts.handleRemoveRepos)
 	ts.echo.GET("/resolve/:did", ts.handleResolveDID)
+	ts.echo.GET("/stats/repo-count", ts.handleStatsRepoCount)
+	ts.echo.GET("/stats/record-count", ts.handleStatsRecordCount)
+	ts.echo.GET("/stats/outbox-buffer", ts.handleStatsOutboxBuffer)
+	ts.echo.GET("/stats/resync-buffer", ts.handleStatsResyncBuffer)
+	ts.echo.GET("/stats/cursors", ts.handleStatsCursors)
 	ts.echo.Any("/debug/pprof/*", echo.WrapHandler(http.DefaultServeMux))
 	return ts.echo.Start(address)
 }
@@ -195,4 +202,61 @@ func (ts *TapServer) handleResolveDID(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, ident.DIDDocument())
+}
+
+func (ts *TapServer) handleStatsRepoCount(c echo.Context) error {
+	var count int64
+	if err := ts.db.Model(&models.Repo{}).Count(&count).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get repo count")
+	}
+	return c.JSON(http.StatusOK, map[string]int64{"repo_count": count})
+}
+
+func (ts *TapServer) handleStatsRecordCount(c echo.Context) error {
+	var count int64
+	if err := ts.db.Model(&models.RepoRecord{}).Count(&count).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get record count")
+	}
+	return c.JSON(http.StatusOK, map[string]int64{"record_count": count})
+}
+
+func (ts *TapServer) handleStatsOutboxBuffer(c echo.Context) error {
+	var count int64
+	if err := ts.db.Model(&models.OutboxBuffer{}).Count(&count).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get outbox buffer size")
+	}
+	return c.JSON(http.StatusOK, map[string]int64{"outbox_buffer": count})
+}
+
+func (ts *TapServer) handleStatsResyncBuffer(c echo.Context) error {
+	var count int64
+	if err := ts.db.Model(&models.ResyncBuffer{}).Count(&count).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get resync buffer size")
+	}
+	return c.JSON(http.StatusOK, map[string]int64{"resync_buffer": count})
+}
+
+type CursorsResp struct {
+	Firehose  *int64  `json:"firehose,omitempty"`
+	ListRepos *string `json:"list_repos,omitempty"`
+}
+
+func (ts *TapServer) handleStatsCursors(c echo.Context) error {
+	resp := CursorsResp{}
+
+	if ts.firehose != nil {
+		seq := ts.firehose.lastSeq.Load()
+		resp.Firehose = &seq
+	}
+
+	// Get enumeration cursor based on crawler config
+	if ts.crawler != nil {
+		cursor, err := ts.crawler.GetCursor()
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "failed to get list repos cursor")
+		}
+		resp.ListRepos = &cursor
+	}
+
+	return c.JSON(http.StatusOK, resp)
 }
