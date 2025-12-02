@@ -34,4 +34,4 @@ CMD ["/hepa", "run"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
 LABEL org.opencontainers.image.description="atproto Auto-Moderation Service (hepa, indigo edition)"
-LABEL org.opencontainers.image.licenses=MIT
+LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"

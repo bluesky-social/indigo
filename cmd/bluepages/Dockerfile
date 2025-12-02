@@ -34,4 +34,4 @@ CMD ["/bluepages", "serve"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
 LABEL org.opencontainers.image.description="atproto identity directory (bluepages)"
-LABEL org.opencontainers.image.licenses=MIT
+LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"
