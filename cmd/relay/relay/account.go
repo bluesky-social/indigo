@@ -78,7 +78,7 @@ func (r *Relay) CreateAccountHost(ctx context.Context, did syntax.DID, hostID ui
 
 	if pdsHostname != hostname {
 		if r.Config.SkipAccountHostCheck {
-			logger.Warn("ignoring account host mismatch", "pdsHostname", pdsHostname)
+			logger.Info("ignoring account host mismatch", "pdsHostname", pdsHostname)
 		} else {
 			return nil, fmt.Errorf("new account from a different host: %s", pdsHostname)
 		}
@@ -121,28 +121,41 @@ func (r *Relay) CreateAccountHost(ctx context.Context, did syntax.DID, hostID ui
 	return &acc, nil
 }
 
-// Checks if account matches provided hostID, and in the fast pass returns successfully. If not, checks if the account should be updated. If the account is now on the indicated host, it is updated, both in the database and struct via pointer.
+// Checks if account matches provided hostID, and in the fast pass returns successfully. If not, checks if the account should be updated. If the account is now on the indicated host, it is updated, both in the database and struct via pointer. Otherwise, if the account is not associated with this host, an error is returned.
 //
 // TODO: could also update to another known host, if doesn't match this hostID?
 func (r *Relay) EnsureAccountHost(ctx context.Context, acc *models.Account, hostID uint64, hostname string) error {
-	did := syntax.DID(acc.DID)
-	logger := r.Logger.With("did", did, "hostname", hostname)
 
 	if acc.HostID == hostID {
 		return nil
 	}
 
+	did := syntax.DID(acc.DID)
+	logger := r.Logger.With("did", did, "hostname", hostname)
+
+	// confirm account location
 	ident, err := r.Dir.LookupDID(ctx, did)
 	if err != nil {
-		return fmt.Errorf("account identity resolution: %w", err)
+		return fmt.Errorf("account identity resolution (%s): %w", did, err)
 	}
-	pdsEndpoint := ident.PDSEndpoint()
-	if pdsEndpoint == "" {
-		return fmt.Errorf("account has no declared PDS: %s", did)
-	}
-	pdsHostname, _, err := ParseHostname(pdsEndpoint)
+	pdsHostname, _, err := ParseHostname(ident.PDSEndpoint())
 	if err != nil {
-		return fmt.Errorf("account PDS endpoint invalid: %s", pdsEndpoint)
+		return fmt.Errorf("account PDS endpoint invalid (%s): %w", ident.PDSEndpoint(), err)
+	}
+
+	if pdsHostname != hostname {
+		// purge identity cache and try again
+		if err := r.Dir.Purge(ctx, did.AtIdentifier()); err != nil {
+			return fmt.Errorf("failed to purge identity cache: %w", err)
+		}
+		ident, err = r.Dir.LookupDID(ctx, did)
+		if err != nil {
+			return fmt.Errorf("account identity resolution: %w", err)
+		}
+		pdsHostname, _, err = ParseHostname(ident.PDSEndpoint())
+		if err != nil {
+			return fmt.Errorf("account PDS endpoint invalid (%s): %w", ident.PDSEndpoint(), err)
+		}
 	}
 
 	if pdsHostname != hostname {
@@ -153,8 +166,6 @@ func (r *Relay) EnsureAccountHost(ctx context.Context, acc *models.Account, host
 			return fmt.Errorf("new account from a different host: %s", pdsHostname)
 		}
 	}
-
-	// TODO: check new upstream status here (using r.HostChecker). In particular, a moved account might go from takendown to active
 
 	// create Account row and increment host count in the same transaction
 	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
