@@ -77,15 +77,11 @@ func (r *Relay) preProcessEvent(ctx context.Context, didStr string, hostname str
 		return nil, nil, err
 	}
 
-	// skip identity lookup if account is not active
-	if !acc.IsActive() {
-		return acc, nil, nil
-	}
-
 	ident, err := r.Dir.LookupDID(ctx, did)
 	if err != nil {
 		logger.Warn("failed to load identity", "did", did, "err", err)
 	}
+
 	return acc, ident, nil
 }
 
@@ -98,8 +94,9 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 		return err
 	}
 
-	if !acc.IsActive() {
-		logger.Info("dropping commit message for inactive-active account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
+	// verify that the account has active status
+	if err := r.EnsureAccountActive(ctx, acc); err != nil {
+		logger.Info("dropping message for inactive account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
 		eventsWarningsCounter.WithLabelValues(hostname, "inactive-account").Add(1)
 		return nil
 	}
@@ -158,8 +155,9 @@ func (r *Relay) processSyncEvent(ctx context.Context, evt *comatproto.SyncSubscr
 		return err
 	}
 
-	if !acc.IsActive() {
-		logger.Info("dropping sync message for inactive-active account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
+	// verify that the account has active status
+	if err := r.EnsureAccountActive(ctx, acc); err != nil {
+		logger.Info("dropping message for inactive account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
 		eventsWarningsCounter.WithLabelValues(hostname, "inactive-account").Add(1)
 		return nil
 	}

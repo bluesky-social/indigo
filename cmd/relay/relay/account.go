@@ -193,13 +193,50 @@ func (r *Relay) EnsureAccountHost(ctx context.Context, acc *models.Account, host
 	return nil
 }
 
+// Checks that account is active. If it is not active upstream, double-checks with the host and updates status if needed; otherwise returns an error.
+func (r *Relay) EnsureAccountActive(ctx context.Context, acc *models.Account) error {
+
+	// short-circuit in common case
+	if acc.IsActive() {
+		return nil
+	}
+	// NOTE: this is checking local takedown
+	if acc.Status != models.AccountStatusActive {
+		return fmt.Errorf("account %s has non-active local status: %s", acc.DID, acc.Status)
+	}
+
+	did := syntax.DID(acc.DID)
+
+	ident, err := r.Dir.LookupDID(ctx, did)
+	if err != nil {
+		return fmt.Errorf("account identity resolution (%s): %w", did, err)
+	}
+
+	status, err := r.HostChecker.FetchAccountStatus(ctx, ident)
+	if err != nil {
+		return err
+	}
+
+	if acc.UpstreamStatus != status {
+		if err := r.UpdateAccountUpstreamStatus(ctx, did, acc.UID, status); err != nil {
+			return err
+		}
+		acc.UpstreamStatus = status
+	}
+
+	if acc.IsActive() {
+		return nil
+	}
+	return fmt.Errorf("account is not active (%s): %s", acc.DID, acc.UpstreamStatus)
+}
+
 // This updates the account's "upstream" status (eg, at the account's PDS). Usually this is called in response to an `#account` event.
 //
 // The DID and UID are both required, and *must* match; it is assumed that calling code has already done an account lookup.
 func (r *Relay) UpdateAccountUpstreamStatus(ctx context.Context, did syntax.DID, uid uint64, status models.AccountStatus) error {
 
 	if err := r.db.WithContext(ctx).Model(models.Account{}).Where("uid = ?", uid).Update("upstream_status", status).Error; err != nil {
-		return err
+		return fmt.Errorf("failed to update account upstream status: %w", err)
 	}
 
 	// clear account cache
