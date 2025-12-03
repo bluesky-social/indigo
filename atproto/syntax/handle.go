@@ -67,7 +67,7 @@ func (h Handle) Normalize() Handle {
 }
 
 func (h Handle) AtIdentifier() AtIdentifier {
-	return AtIdentifier{Inner: h}
+	return AtIdentifier(h)
 }
 
 func (h Handle) String() string {
