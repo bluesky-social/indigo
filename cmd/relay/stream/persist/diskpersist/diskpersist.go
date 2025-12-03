@@ -79,7 +79,7 @@ type DiskPersistOptions struct {
 	WriteBufferSize int
 	Retention       time.Duration
 
-	// starting sequence number to use (if there is no existing persisted data)
+	// floor for output sequence number; will initialize to this value, or jump last seq forward if needed
 	InitialSeq int64
 
 	Logger *slog.Logger
@@ -213,6 +213,11 @@ func (dp *DiskPersistence) resumeLog() error {
 	}
 
 	dp.log.Info("loaded seq", "seq", seq, "now", time.Now().UnixMicro())
+
+	if seq < dp.initialSeq {
+		dp.log.Warn("forcing higher seq", "found", seq, "initialSeq", dp.initialSeq)
+		seq = dp.initialSeq
+	}
 
 	dp.curSeq = seq
 	dp.logfi = fi
