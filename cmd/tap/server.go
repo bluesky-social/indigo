@@ -39,6 +39,7 @@ func (ts *TapServer) Start(address string) error {
 	ts.echo.POST("/add-repos", ts.handleAddRepos)
 	ts.echo.POST("/remove-repos", ts.handleRemoveRepos)
 	ts.echo.GET("/resolve/:did", ts.handleResolveDID)
+	ts.echo.GET("/info/:did", ts.handleInfoRepo)
 	ts.echo.GET("/stats/repo-count", ts.handleStatsRepoCount)
 	ts.echo.GET("/stats/record-count", ts.handleStatsRecordCount)
 	ts.echo.GET("/stats/outbox-buffer", ts.handleStatsOutboxBuffer)
@@ -202,6 +203,31 @@ func (ts *TapServer) handleResolveDID(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, ident.DIDDocument())
+}
+
+func (ts *TapServer) handleInfoRepo(c echo.Context) error {
+	did := c.Param("did")
+
+	var repo models.Repo
+	if err := ts.db.First(&repo, "did = ?", did).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "repo not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get repo")
+	}
+
+	var recordCount int64
+	ts.db.Model(&models.RepoRecord{}).Where("did = ?", did).Count(&recordCount)
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"did":     repo.Did,
+		"handle":  repo.Handle,
+		"state":   repo.State,
+		"rev":     repo.Rev,
+		"error":   repo.ErrorMsg,
+		"retries": repo.RetryCount,
+		"records": recordCount,
+	})
 }
 
 func (ts *TapServer) handleStatsRepoCount(c echo.Context) error {
