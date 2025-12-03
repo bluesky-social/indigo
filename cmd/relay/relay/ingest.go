@@ -77,15 +77,11 @@ func (r *Relay) preProcessEvent(ctx context.Context, didStr string, hostname str
 		return nil, nil, err
 	}
 
-	// skip identity lookup if account is not active
-	if !acc.IsActive() {
-		return acc, nil, nil
-	}
-
 	ident, err := r.Dir.LookupDID(ctx, did)
 	if err != nil {
 		logger.Warn("failed to load identity", "did", did, "err", err)
 	}
+
 	return acc, ident, nil
 }
 
@@ -98,8 +94,9 @@ func (r *Relay) processCommitEvent(ctx context.Context, evt *comatproto.SyncSubs
 		return err
 	}
 
-	if !acc.IsActive() {
-		logger.Info("dropping commit message for inactive-active account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
+	// verify that the account has active status
+	if err := r.EnsureAccountActive(ctx, acc); err != nil {
+		logger.Info("dropping message for inactive account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
 		eventsWarningsCounter.WithLabelValues(hostname, "inactive-account").Add(1)
 		return nil
 	}
@@ -158,8 +155,9 @@ func (r *Relay) processSyncEvent(ctx context.Context, evt *comatproto.SyncSubscr
 		return err
 	}
 
-	if !acc.IsActive() {
-		logger.Info("dropping sync message for inactive-active account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
+	// verify that the account has active status
+	if err := r.EnsureAccountActive(ctx, acc); err != nil {
+		logger.Info("dropping message for inactive account", "status", acc.Status, "upstreamStatus", acc.UpstreamStatus)
 		eventsWarningsCounter.WithLabelValues(hostname, "inactive-account").Add(1)
 		return nil
 	}
@@ -197,26 +195,42 @@ func (r *Relay) processIdentityEvent(ctx context.Context, evt *comatproto.SyncSu
 	logger := r.Logger.With("did", evt.Did, "seq", evt.Seq, "host", hostname, "eventType", "identity")
 	logger.Debug("relay got identity event")
 
-	acc, _, err := r.preProcessEvent(ctx, evt.Did, hostname, hostID, logger)
+	// Flush any cached DID/identity info for this user before any other processing
+	did, err := syntax.ParseDID(evt.Did)
 	if err != nil {
-		return err
+		logger.Warn("invalid DID in message")
+		return fmt.Errorf("invalid DID in message: %w", err)
 	}
-	did := syntax.DID(acc.DID)
-
-	// Flush any cached DID/identity info for this user
+	did = NormalizeDID(did)
 	err = r.Dir.Purge(ctx, did.AtIdentifier())
 	if err != nil {
 		logger.Error("problem purging identity directory cache", "err", err)
 	}
+	r.accountCache.Remove(did.String())
+
+	// optimistically process event. might create a row in account table if this event came from the current host
+	handle := evt.Handle
+	_, ident, err := r.preProcessEvent(ctx, evt.Did, hostname, hostID, logger)
+	if err != nil {
+		// don't pass-through handle if there was a problem with event (eg, account on another host, or inactive status)
+		handle = nil
+	}
+
+	// check that handle at least matches that in the DID document (if available)
+	if ident != nil && handle != nil && ident.Handle.String() != *handle {
+		handle = nil
+	}
+
+	// NOTE: not doing other validation or processing here; eg not strictly checking account host mapping or account status. Any PDS host can emit an identity event for any account, and it will be passed through (other than handle)
 
 	// Broadcast the identity event to all consumers
 	err = r.Events.AddEvent(ctx, &stream.XRPCStreamEvent{
 		RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
 			Did:    did.String(),
-			Time:   evt.Time,   // TODO: update to now?
-			Handle: evt.Handle, // TODO: we could substitute in our handle resolution here
+			Time:   evt.Time, // TODO: update to now?
+			Handle: handle,
 		},
-		PrivUid: acc.UID,
+		PrivUid: 0, // NOTE: unknown/unused
 	})
 	if err != nil {
 		logger.Error("failed to broadcast identity event", "error", err)
