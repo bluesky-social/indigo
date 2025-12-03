@@ -1,11 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"log/slog"
-	"net/http"
 	"sync"
 	"time"
 )
@@ -31,8 +28,7 @@ type Outbox struct {
 	logger      *slog.Logger
 	mode        OutboxMode
 	parallelism int
-	webhookURL  string
-	httpClient  *http.Client
+	webhook     *WebhookClient
 
 	events *EventManager
 
@@ -104,7 +100,7 @@ func (o *Outbox) sendEvent(evt *OutboxEvt) {
 	case OutboxModeFireAndForget, OutboxModeWebsocketAck:
 		o.outgoing <- evt
 	case OutboxModeWebhook:
-		go o.sendWebhook(evt)
+		go o.webhook.Send(evt, o.AckEvent)
 	}
 }
 
@@ -120,42 +116,6 @@ func (o *Outbox) AckEvent(eventID uint) {
 	}
 
 	o.acks <- eventID
-}
-
-func (o *Outbox) sendWebhook(evt *OutboxEvt) {
-	retries := 0
-	for {
-		if err := o.postWebhook(evt); err != nil {
-			o.logger.Warn("webhook failed, retrying", "error", err, "id", evt.ID, "retries", retries)
-			time.Sleep(backoff(retries, 10))
-			retries++
-			continue
-		}
-
-		o.AckEvent(evt.ID)
-		return
-	}
-}
-
-func (o *Outbox) postWebhook(evt *OutboxEvt) error {
-	req, err := http.NewRequest("POST", o.webhookURL, bytes.NewReader(evt.Event))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := o.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("webhook returned non-2xx status: %d", resp.StatusCode)
-	}
-
-	return nil
 }
 
 func (o *Outbox) runBatchedDeletes(ctx context.Context) {
