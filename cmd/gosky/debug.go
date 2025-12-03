@@ -855,7 +855,7 @@ var debugCompareReposCmd = &cli.Command{
 
 		if !cctx.IsSet("host-1") {
 			dir := identity.DefaultDirectory()
-			ident, err := dir.Lookup(ctx, *did)
+			ident, err := dir.Lookup(ctx, did)
 			if err != nil {
 				return err
 			}

@@ -59,7 +59,7 @@ func runLookup(ctx context.Context, cmd *cli.Command) error {
 	slog.Info("valid syntax", "at-identifier", id)
 
 	dir := identity.DefaultDirectory()
-	acc, err := dir.Lookup(ctx, *id)
+	acc, err := dir.Lookup(ctx, id)
 	if err != nil {
 		return err
 	}

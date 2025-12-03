@@ -445,7 +445,7 @@ var getRecordCmd = &cli.Command{
 				return err
 			}
 
-			resp, err := identity.DefaultDirectory().Lookup(ctx, *atid)
+			resp, err := identity.DefaultDirectory().Lookup(ctx, atid)
 			if err != nil {
 				return err
 			}
@@ -806,7 +806,7 @@ var verifyUserCmd = &cli.Command{
 			return err
 		}
 
-		ident, err := identity.DefaultDirectory().Lookup(ctx, *idf)
+		ident, err := identity.DefaultDirectory().Lookup(ctx, idf)
 		if err != nil {
 			return err
 		}
