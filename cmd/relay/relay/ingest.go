@@ -210,9 +210,14 @@ func (r *Relay) processIdentityEvent(ctx context.Context, evt *comatproto.SyncSu
 
 	// optimistically process event. might create a row in account table if this event came from the current host
 	handle := evt.Handle
-	_, _, err = r.preProcessEvent(ctx, evt.Did, hostname, hostID, logger)
+	_, ident, err := r.preProcessEvent(ctx, evt.Did, hostname, hostID, logger)
 	if err != nil {
 		// don't pass-through handle if there was a problem with event (eg, account on another host, or inactive status)
+		handle = nil
+	}
+
+	// check that handle at least matches that in the DID document (if available)
+	if ident != nil && handle != nil && ident.Handle.String() != *handle {
 		handle = nil
 	}
 
