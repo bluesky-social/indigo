@@ -117,9 +117,13 @@ func NewTap(config TapConfig) (*Tap, error) {
 		logger:      logger.With("component", "outbox"),
 		mode:        parseOutboxMode(config.WebhookURL, config.DisableAcks),
 		parallelism: config.OutboxParallelism,
-		webhookURL:  config.WebhookURL,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+		webhook: &WebhookClient{
+			logger:     logger.With("component", "webhook_client"),
+			webhookURL: config.WebhookURL,
+			adminToken: config.AdminToken,
+			httpClient: &http.Client{
+				Timeout: 30 * time.Second,
+			},
 		},
 		events:   evtMngr,
 		acks:     make(chan uint, config.OutboxParallelism*10000),
