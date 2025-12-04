@@ -24,13 +24,29 @@ type Crawler struct {
 	SignalCollection string
 }
 
-func (c *Crawler) Run(ctx context.Context) error {
-	if c.SignalCollection != "" {
-		return c.EnumerateNetworkByCollection(ctx, c.SignalCollection)
-	} else if c.FullNetworkMode {
-		return c.EnumerateNetwork(ctx)
+func (c *Crawler) Run(ctx context.Context) {
+	for {
+		var err error
+		if c.SignalCollection != "" {
+			err = c.EnumerateNetworkByCollection(ctx, c.SignalCollection)
+		} else if c.FullNetworkMode {
+			err = c.EnumerateNetwork(ctx)
+		}
+		var d time.Duration
+		if err != nil {
+			c.logger.Error("failed to enumerate network", "error", err)
+			d = time.Minute
+		} else {
+			c.logger.Info("finished enumerating network, sleeping for 1 day")
+			d = 24 * time.Hour
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(d):
+		}
 	}
-	return nil
 }
 
 func (c *Crawler) GetCursor() (string, error) {
