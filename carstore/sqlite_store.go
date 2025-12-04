@@ -6,11 +6,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"go.opentelemetry.io/otel/attribute"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/bluesky-social/indigo/models"
 	blockformat "github.com/ipfs/go-block-format"
@@ -215,9 +216,6 @@ func (sqs *SQLiteStore) GetUserRepoHead(ctx context.Context, user models.Uid) (c
 	if lastShard == nil {
 		return cid.Undef, nil
 	}
-	if lastShard.ID == 0 {
-		return cid.Undef, nil
-	}
 
 	return lastShard.Root.CID, nil
 }
@@ -229,9 +227,6 @@ func (sqs *SQLiteStore) GetUserRepoRev(ctx context.Context, user models.Uid) (st
 		return "", err
 	}
 	if lastShard == nil {
-		return "", nil
-	}
-	if lastShard.ID == 0 {
 		return "", nil
 	}
 
@@ -476,7 +471,11 @@ func (sqs *SQLiteStore) getBlock(ctx context.Context, user models.Uid, bcid cid.
 		if err != nil {
 			return nil, fmt.Errorf("getb bad scan, %w", err)
 		}
-		return blocks.NewBlock(blockb), nil
+		blk, err := blocks.NewBlockWithCid(blockb, bcid)
+		if err != nil {
+			return nil, fmt.Errorf("getb bad block, %w", err)
+		}
+		return blk, nil
 	}
 	return nil, ErrNothingThere
 }

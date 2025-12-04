@@ -10,11 +10,11 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func main() {
-	app := cli.App{
+	app := cli.Command{
 		Name:  "atp-id",
 		Usage: "informal debugging CLI tool for atproto identities",
 	}
@@ -40,12 +40,14 @@ func main() {
 	}
 	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})
 	slog.SetDefault(slog.New(h))
-	app.RunAndExitOnError()
+	if err := app.Run(context.Background(), os.Args); err != nil {
+		slog.Error("command failed", "error", err)
+		os.Exit(-1)
+	}
 }
 
-func runLookup(cctx *cli.Context) error {
-	ctx := context.Background()
-	s := cctx.Args().First()
+func runLookup(ctx context.Context, cmd *cli.Command) error {
+	s := cmd.Args().First()
 	if s == "" {
 		return fmt.Errorf("need to provide identifier as an argument")
 	}
@@ -65,9 +67,8 @@ func runLookup(cctx *cli.Context) error {
 	return nil
 }
 
-func runResolveHandle(cctx *cli.Context) error {
-	ctx := context.Background()
-	s := cctx.Args().First()
+func runResolveHandle(ctx context.Context, cmd *cli.Command) error {
+	s := cmd.Args().First()
 	if s == "" {
 		return fmt.Errorf("need to provide handle as an argument")
 	}
@@ -87,9 +88,8 @@ func runResolveHandle(cctx *cli.Context) error {
 	return nil
 }
 
-func runResolveDID(cctx *cli.Context) error {
-	ctx := context.Background()
-	s := cctx.Args().First()
+func runResolveDID(ctx context.Context, cmd *cli.Command) error {
+	s := cmd.Args().First()
 	if s == "" {
 		fmt.Println("need to provide DID as an argument")
 		os.Exit(-1)

@@ -1,4 +1,4 @@
-FROM golang:1.24-bullseye AS build-env
+FROM golang:1.25-bookworm AS build-env
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
@@ -21,7 +21,7 @@ RUN go build \
     -o /rainbow-bin \
     ./cmd/rainbow
 
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND="noninteractive"
 ENV TZ=Etc/UTC
@@ -40,4 +40,4 @@ CMD ["/usr/bin/rainbow"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
 LABEL org.opencontainers.image.description="rainbow atproto firehose fanout service"
-LABEL org.opencontainers.image.licenses=MIT
+LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"

@@ -2021,9 +2021,33 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 4
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if t.Via == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
+	}
+
+	// t.Via (atproto.RepoStrongRef) (struct)
+	if t.Via != nil {
+
+		if len("via") > 1000000 {
+			return xerrors.Errorf("Value in field \"via\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("via"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("via")); err != nil {
+			return err
+		}
+
+		if err := t.Via.MarshalCBOR(cw); err != nil {
+			return err
+		}
 	}
 
 	// t.LexiconTypeID (string) (string)
@@ -2134,7 +2158,27 @@ func (t *GraphFollow) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch string(nameBuf[:nameLen]) {
-		// t.LexiconTypeID (string) (string)
+		// t.Via (atproto.RepoStrongRef) (struct)
+		case "via":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Via = new(atproto.RepoStrongRef)
+					if err := t.Via.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Via pointer: %w", err)
+					}
+				}
+
+			}
+			// t.LexiconTypeID (string) (string)
 		case "$type":
 
 			{
@@ -2185,7 +2229,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 9
+	fieldCount := 11
 
 	if t.Avatar == nil {
 		fieldCount--
@@ -2216,6 +2260,14 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	}
 
 	if t.PinnedPost == nil {
+		fieldCount--
+	}
+
+	if t.Pronouns == nil {
+		fieldCount--
+	}
+
+	if t.Website == nil {
 		fieldCount--
 	}
 
@@ -2296,6 +2348,70 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 
 		if err := t.Labels.MarshalCBOR(cw); err != nil {
 			return err
+		}
+	}
+
+	// t.Website (string) (string)
+	if t.Website != nil {
+
+		if len("website") > 1000000 {
+			return xerrors.Errorf("Value in field \"website\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("website"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("website")); err != nil {
+			return err
+		}
+
+		if t.Website == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.Website) > 1000000 {
+				return xerrors.Errorf("Value in field t.Website was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Website))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.Website)); err != nil {
+				return err
+			}
+		}
+	}
+
+	// t.Pronouns (string) (string)
+	if t.Pronouns != nil {
+
+		if len("pronouns") > 1000000 {
+			return xerrors.Errorf("Value in field \"pronouns\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("pronouns"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("pronouns")); err != nil {
+			return err
+		}
+
+		if t.Pronouns == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.Pronouns) > 1000000 {
+				return xerrors.Errorf("Value in field t.Pronouns was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Pronouns))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.Pronouns)); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -2546,6 +2662,48 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) (err error) {
 					}
 				}
 
+			}
+			// t.Website (string) (string)
+		case "website":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.Website = (*string)(&sval)
+				}
+			}
+			// t.Pronouns (string) (string)
+		case "pronouns":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.Pronouns = (*string)(&sval)
+				}
 			}
 			// t.CreatedAt (string) (string)
 		case "createdAt":

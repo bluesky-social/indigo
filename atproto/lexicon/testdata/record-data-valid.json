@@ -12,7 +12,6 @@
     "rkey": "demo",
     "data": {
       "$type": "example.lexicon.record",
-      "null": null,
       "boolean": true,
       "integer": 3,
       "string": "blah",
@@ -44,7 +43,10 @@
         "a": 1,
         "b": 2
       },
-      "ref": "example.lexicon.record#demoToken",
+      "ref": {
+        "a": 1,
+        "b": 2
+      },
       "union": {
         "$type": "example.lexicon.record#demoObject",
         "a": 1,

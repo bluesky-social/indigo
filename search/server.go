@@ -9,17 +9,17 @@ import (
 	"os"
 	"strings"
 
+	_ "net/http/pprof" // For pprof in the metrics server
+
 	"github.com/bluesky-social/indigo/atproto/identity"
 
-	"github.com/carlmjohnson/versioninfo"
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	es "github.com/opensearch-project/opensearch-go/v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	slogecho "github.com/samber/slog-echo"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
-
-	_ "net/http/pprof" // For pprof in the metrics server
 )
 
 type LastSeq struct {

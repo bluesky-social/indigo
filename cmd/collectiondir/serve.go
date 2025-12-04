@@ -33,7 +33,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var serveCmd = &cli.Command{
@@ -42,12 +42,12 @@ var serveCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:    "api-listen",
 			Value:   ":2510",
-			EnvVars: []string{"COLLECTIONS_API_LISTEN"},
+			Sources: cli.EnvVars("COLLECTIONS_API_LISTEN"),
 		},
 		&cli.StringFlag{
 			Name:    "metrics-listen",
 			Value:   ":2511",
-			EnvVars: []string{"COLLECTIONS_METRICS_LISTEN"},
+			Sources: cli.EnvVars("COLLECTIONS_METRICS_LISTEN"),
 		},
 		&cli.StringFlag{
 			Name:     "pebble",
@@ -62,12 +62,12 @@ var serveCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:    "upstream",
 			Usage:   "URL, e.g. wss://bsky.network",
-			EnvVars: []string{"COLLECTIONS_UPSTREAM"},
+			Sources: cli.EnvVars("COLLECTIONS_UPSTREAM"),
 		},
 		&cli.StringFlag{
 			Name:    "admin-token",
 			Usage:   "admin authentication",
-			EnvVars: []string{"COLLECTIONS_ADMIN_TOKEN"},
+			Sources: cli.EnvVars("COLLECTIONS_ADMIN_TOKEN"),
 		},
 		&cli.Float64Flag{
 			Name:  "crawl-qps",
@@ -77,32 +77,32 @@ var serveCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:    "ratelimit-header",
 			Usage:   "secret for friend PDSes",
-			EnvVars: []string{"BSKY_SOCIAL_RATE_LIMIT_SKIP", "RATE_LIMIT_HEADER"},
+			Sources: cli.EnvVars("BSKY_SOCIAL_RATE_LIMIT_SKIP", "RATE_LIMIT_HEADER"),
 		},
 		&cli.Uint64Flag{
 			Name:    "clist-min-dids",
 			Usage:   "filter collection list to >= N dids",
 			Value:   5,
-			EnvVars: []string{"COLLECTIONS_CLIST_MIN_DIDS"},
+			Sources: cli.EnvVars("COLLECTIONS_CLIST_MIN_DIDS"),
 		},
 		&cli.IntFlag{
 			Name:    "max-did-collections",
 			Usage:   "stop recording new collections per did after it has >= this many collections",
 			Value:   1000,
-			EnvVars: []string{"COLLECTIONS_MAX_DID_COLLECTIONS"},
+			Sources: cli.EnvVars("COLLECTIONS_MAX_DID_COLLECTIONS"),
 		},
 		&cli.StringFlag{
 			Name:    "sets-json-path",
 			Usage:   "file path of JSON file containing static word sets",
-			EnvVars: []string{"HEPA_SETS_JSON_PATH", "COLLECTIONS_SETS_JSON_PATH"},
+			Sources: cli.EnvVars("HEPA_SETS_JSON_PATH", "COLLECTIONS_SETS_JSON_PATH"),
 		},
 		&cli.BoolFlag{
 			Name: "verbose",
 		},
 	},
-	Action: func(cctx *cli.Context) error {
+	Action: func(ctx context.Context, cmd *cli.Command) error {
 		var server collectionServer
-		return server.run(cctx)
+		return server.run(ctx, cmd)
 	},
 }
 
@@ -165,29 +165,29 @@ type activeCrawl struct {
 	stats *CrawlStats
 }
 
-func (cs *collectionServer) run(cctx *cli.Context) error {
+func (cs *collectionServer) run(ctx context.Context, cmd *cli.Command) error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 	cs.shutdown = make(chan struct{})
 	level := slog.LevelInfo
-	if cctx.Bool("verbose") {
+	if cmd.Bool("verbose") {
 		level = slog.LevelDebug
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 	slog.SetDefault(log)
 
-	if cctx.IsSet("ratelimit-header") {
-		cs.ratelimitHeader = cctx.String("ratelimit-header")
+	if cmd.IsSet("ratelimit-header") {
+		cs.ratelimitHeader = cmd.String("ratelimit-header")
 	}
-	if cctx.IsSet("sets-json-path") {
-		badwords, err := loadBadwords(cctx.String("sets-json-path"))
+	if cmd.IsSet("sets-json-path") {
+		badwords, err := loadBadwords(cmd.String("sets-json-path"))
 		if err != nil {
 			return err
 		}
 		cs.badwords = badwords
 	}
-	cs.MinDidsForCollectionList = cctx.Uint64("clist-min-dids")
-	cs.MaxDidCollections = cctx.Int("max-did-collections")
+	cs.MinDidsForCollectionList = cmd.Uint64("clist-min-dids")
+	cs.MaxDidCollections = cmd.Int("max-did-collections")
 	cs.ingestFirehose = make(chan DidCollection, 1000)
 	cs.ingestCrawl = make(chan DidCollection, 1000)
 	var err error
@@ -196,12 +196,12 @@ func (cs *collectionServer) run(cctx *cli.Context) error {
 		return fmt.Errorf("lru init, %w", err)
 	}
 	cs.log = log
-	cs.ctx = cctx.Context
-	cs.AdminToken = cctx.String("admin-token")
+	cs.ctx = ctx
+	cs.AdminToken = cmd.String("admin-token")
 	cs.ExepctedAuthHeader = "Bearer " + cs.AdminToken
 	cs.wg.Add(1)
 	go cs.ingestReceiver()
-	pebblePath := cctx.String("pebble")
+	pebblePath := cmd.String("pebble")
 	cs.pcd = &PebbleCollectionDirectory{
 		log: cs.log,
 	}
@@ -209,7 +209,7 @@ func (cs *collectionServer) run(cctx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("%s: failed to open pebble db: %w", pebblePath, err)
 	}
-	cs.dauDirectoryDir = cctx.String("dau-directory")
+	cs.dauDirectoryDir = cmd.String("dau-directory")
 	if cs.dauDirectoryDir != "" {
 		err := cs.openDau()
 		if err != nil {
@@ -218,18 +218,18 @@ func (cs *collectionServer) run(cctx *cli.Context) error {
 	}
 	cs.statsCacheFresh.L = &cs.statsCacheLock
 
-	apiServerEcho, err := cs.createApiServer(cctx.Context, cctx.String("api-listen"))
+	apiServerEcho, err := cs.createApiServer(ctx, cmd.String("api-listen"))
 	if err != nil {
 		return err
 	}
 	cs.wg.Add(1)
-	go func() { cs.StartApiServer(cctx.Context, apiServerEcho) }()
+	go func() { cs.StartApiServer(ctx, apiServerEcho) }()
 
-	cs.createMetricsServer(cctx.String("metrics-listen"))
+	cs.createMetricsServer(cmd.String("metrics-listen"))
 	cs.wg.Add(1)
-	go func() { cs.StartMetricsServer(cctx.Context) }()
+	go func() { cs.StartMetricsServer(ctx) }()
 
-	upstream := cctx.String("upstream")
+	upstream := cmd.String("upstream")
 	if upstream != "" {
 		fh := Firehose{
 			Log:  log,

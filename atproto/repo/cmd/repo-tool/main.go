@@ -12,18 +12,18 @@ import (
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func main() {
-	app := cli.App{
+	app := cli.Command{
 		Name:  "repo-tool",
 		Usage: "development tool for atproto MST trees, CAR files, etc",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "log-level",
 				Usage:   "log verbosity level (eg: warn, info, debug)",
-				EnvVars: []string{"BEEMO_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"},
+				Sources: cli.EnvVars("BEEMO_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"),
 			},
 		},
 	}
@@ -49,19 +49,22 @@ func main() {
 					Name:    "relay-host",
 					Usage:   "method, hostname, and port of Relay instance (websocket)",
 					Value:   "wss://bsky.network",
-					EnvVars: []string{"ATP_RELAY_HOST"},
+					Sources: cli.EnvVars("ATP_RELAY_HOST"),
 				},
 			},
 		},
 	}
 	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})
 	slog.SetDefault(slog.New(h))
-	app.RunAndExitOnError()
+	if err := app.Run(context.Background(), os.Args); err != nil {
+		slog.Error("command failed", "error", err)
+		os.Exit(-1)
+	}
 }
 
-func configLogger(cctx *cli.Context, writer io.Writer) *slog.Logger {
+func configLogger(ctx context.Context, cmd *cli.Command, writer io.Writer) *slog.Logger {
 	var level slog.Level
-	switch strings.ToLower(cctx.String("log-level")) {
+	switch strings.ToLower(cmd.String("log-level")) {
 	case "error":
 		level = slog.LevelError
 	case "warn":
@@ -80,9 +83,8 @@ func configLogger(cctx *cli.Context, writer io.Writer) *slog.Logger {
 	return logger
 }
 
-func runVerifyCarMst(cctx *cli.Context) error {
-	ctx := context.Background()
-	p := cctx.Args().First()
+func runVerifyCarMst(ctx context.Context, cmd *cli.Command) error {
+	p := cmd.Args().First()
 	if p == "" {
 		return fmt.Errorf("need to provide path to CAR file")
 	}
@@ -110,11 +112,10 @@ func runVerifyCarMst(cctx *cli.Context) error {
 	return nil
 }
 
-func runVerifyCarSignature(cctx *cli.Context) error {
-	ctx := context.Background()
+func runVerifyCarSignature(ctx context.Context, cmd *cli.Command) error {
 	dir := identity.DefaultDirectory()
 
-	p := cctx.Args().First()
+	p := cmd.Args().First()
 	if p == "" {
 		return fmt.Errorf("need to provide path to CAR file")
 	}

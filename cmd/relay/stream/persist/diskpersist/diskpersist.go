@@ -79,7 +79,7 @@ type DiskPersistOptions struct {
 	WriteBufferSize int
 	Retention       time.Duration
 
-	// starting sequence number to use (if there is no existing persisted data)
+	// floor for output sequence number; will initialize to this value, or jump last seq forward if needed
 	InitialSeq int64
 
 	Logger *slog.Logger
@@ -200,10 +200,28 @@ func (dp *DiskPersistence) resumeLog() error {
 		return fmt.Errorf("failed to scan log file for last seqno: %w", err)
 	}
 
+	if seq == -1 {
+		// The log file is empty, use its starting sequence
+		seq = lfr.SeqStart
+		if seq == 0 {
+			// First file, and no records in it: use the initial sequence number instead
+			seq = dp.initialSeq
+		}
+	} else {
+		// Restart at the last item plus one
+		seq++
+	}
+
 	dp.log.Info("loaded seq", "seq", seq, "now", time.Now().UnixMicro())
 
-	dp.curSeq = seq + 1
+	if seq < dp.initialSeq {
+		dp.log.Warn("forcing higher seq", "found", seq, "initialSeq", dp.initialSeq)
+		seq = dp.initialSeq
+	}
+
+	dp.curSeq = seq
 	dp.logfi = fi
+	currentSeqGuage.Set(float64(dp.curSeq))
 
 	return nil
 }
@@ -228,6 +246,7 @@ func (dp *DiskPersistence) initLogFile() error {
 
 	dp.logfi = fi
 	dp.curSeq = dp.initialSeq
+	currentSeqGuage.Set(float64(dp.curSeq))
 	return nil
 }
 
@@ -362,7 +381,9 @@ func (dp *DiskPersistence) flushLog(ctx context.Context) error {
 	dp.outbuf.Truncate(0)
 
 	for _, ej := range dp.evtbuf {
-		dp.broadcast(ej.Evt)
+		if dp.broadcast != nil {
+			dp.broadcast(ej.Evt)
+		}
 		ej.Buffer.Truncate(0)
 		dp.buffers.Put(ej.Buffer)
 	}
@@ -410,6 +431,11 @@ var filesGarbageCollected = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "disk_persister_garbage_collections_files_collected",
 	Help: "Number of files collected during garbage collection",
 }, []string{})
+
+var currentSeqGuage = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "disk_persister_current_seq",
+	Help: "Current sequence number to be used for next persisted event",
+})
 
 func (dp *DiskPersistence) garbageCollect(ctx context.Context) []error {
 	garbageCollectionsExecuted.WithLabelValues().Inc()
@@ -472,6 +498,7 @@ func (dp *DiskPersistence) garbageCollect(ctx context.Context) []error {
 func (dp *DiskPersistence) doPersist(ctx context.Context, pjob persistJob) error {
 	seq := dp.curSeq
 	dp.curSeq++
+	currentSeqGuage.Set(float64(dp.curSeq))
 
 	// Set sequence number in event header
 	// the rest of the header is set in DiskPersistence.Persist()

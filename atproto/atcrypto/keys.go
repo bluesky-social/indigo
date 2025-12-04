@@ -69,7 +69,7 @@ type PublicKey interface {
 	JWK() (*JWK, error)
 }
 
-var ErrInvalidSignature = errors.New("crytographic signature invalid")
+var ErrInvalidSignature = errors.New("cryptographic signature invalid")
 
 /*
 // quick code to verify varint byte conversion (https://play.golang.com/):

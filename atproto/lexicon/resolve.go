@@ -7,10 +7,10 @@ import (
 	"log/slog"
 
 	"github.com/bluesky-social/indigo/api/agnostic"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // Low-level routine for resolving an NSID to full Lexicon data record (as stored in a repository).
@@ -73,10 +73,8 @@ func resolveLexiconJSON(ctx context.Context, dir identity.Directory, nsid syntax
 func fetchRecordJSON(ctx context.Context, ident identity.Identity, aturi syntax.ATURI) (*json.RawMessage, error) {
 
 	slog.Debug("fetching record", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
-	xrpcc := xrpc.Client{
-		Host: ident.PDSEndpoint(),
-	}
-	resp, err := agnostic.RepoGetRecord(ctx, &xrpcc, "", aturi.Collection().String(), ident.DID.String(), aturi.RecordKey().String())
+	client := atclient.NewAPIClient(ident.PDSEndpoint())
+	resp, err := agnostic.RepoGetRecord(ctx, client, "", aturi.Collection().String(), ident.DID.String(), aturi.RecordKey().String())
 	if err != nil {
 		return nil, err
 	}

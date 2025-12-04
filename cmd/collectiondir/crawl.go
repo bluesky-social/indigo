@@ -15,7 +15,7 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"golang.org/x/time/rate"
 )
 
@@ -55,14 +55,14 @@ var offlineCrawlCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:    "ratelimit-header",
 			Usage:   "secret for friend PDSes",
-			EnvVars: []string{"BSKY_SOCIAL_RATE_LIMIT_SKIP", "RATE_LIMIT_HEADER"},
+			Sources: cli.EnvVars("BSKY_SOCIAL_RATE_LIMIT_SKIP", "RATE_LIMIT_HEADER"),
 		},
 	},
-	Action: func(cctx *cli.Context) error {
+	Action: func(ctx context.Context, cmd *cli.Command) error {
 		log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		hostname := cctx.String("host")
+		hostname := cmd.String("host")
 		hosturl, err := url.Parse(hostname)
 		if err != nil {
 			hosturl = new(url.URL)
@@ -73,13 +73,13 @@ var offlineCrawlCmd = &cli.Command{
 			Host:   hosturl.String(),
 			Client: util.RobustHTTPClient(),
 		}
-		if cctx.IsSet("ratelimit-header") {
+		if cmd.IsSet("ratelimit-header") {
 			rpcClient.Headers = map[string]string{
-				"x-ratelimit-bypass": cctx.String("ratelimit-header"),
+				"x-ratelimit-bypass": cmd.String("ratelimit-header"),
 			}
 		}
 		log.Info("will crawl", "url", rpcClient.Host)
-		csvOutPath := cctx.String("csv-out")
+		csvOutPath := cmd.String("csv-out")
 		var fout io.Writer = os.Stdout
 		if csvOutPath != "" {
 			if csvOutPath == "-" {
@@ -91,7 +91,7 @@ var offlineCrawlCmd = &cli.Command{
 				}
 			}
 		}
-		qps := cctx.Float64("qps")
+		qps := cmd.Float64("qps")
 		results := make(chan DidCollection, 100)
 		defer close(results)
 		go DidCollectionsToCsv(fout, results)

@@ -11,7 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 type MentionChecker struct {
@@ -61,14 +61,13 @@ func (mc *MentionChecker) ProcessPost(ctx context.Context, did syntax.DID, rkey 
 	return nil
 }
 
-func notifyMentions(cctx *cli.Context) error {
-	ctx := context.Background()
-	logger := configLogger(cctx, os.Stdout)
-	relayHost := cctx.String("relay-host")
-	minimumWords := cctx.Int("minimum-words")
+func notifyMentions(ctx context.Context, cmd *cli.Command) error {
+	logger := configLogger(cmd, os.Stdout)
+	relayHost := cmd.String("relay-host")
+	minimumWords := cmd.Int("minimum-words")
 
 	mentionDIDs := []syntax.DID{}
-	for _, raw := range strings.Split(cctx.String("mention-dids"), ",") {
+	for _, raw := range strings.Split(cmd.String("mention-dids"), ",") {
 		did, err := syntax.ParseDID(raw)
 		if err != nil {
 			return err
@@ -77,7 +76,7 @@ func notifyMentions(cctx *cli.Context) error {
 	}
 
 	checker := MentionChecker{
-		slackWebhookURL: cctx.String("slack-webhook-url"),
+		slackWebhookURL: cmd.String("slack-webhook-url"),
 		mentionDIDs:     mentionDIDs,
 		logger:          logger,
 		directory:       identity.DefaultDirectory(),

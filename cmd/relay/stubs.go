@@ -6,9 +6,9 @@ import (
 	"strconv"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/relay/relay"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
@@ -22,7 +22,7 @@ func (s *Service) HandleComAtprotoSyncSubscribeRepos(c echo.Context) error {
 	if cursorQuery != "" {
 		cval, err := strconv.ParseInt(cursorQuery, 10, 64)
 		if err != nil || cval < 0 {
-			return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("cursor parameter invalid: %s", cursorQuery)})
+			return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: fmt.Sprintf("cursor parameter invalid: %s", cursorQuery)})
 		}
 		cursor = &cval
 	}
@@ -37,7 +37,7 @@ func (s *Service) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 
 	var body comatproto.SyncRequestCrawl_Input
 	if err := c.Bind(&body); err != nil {
-		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("invalid body: %s", err)})
+		return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: fmt.Sprintf("invalid body: %s", err)})
 	}
 
 	// func (s *Service) handleComAtprotoSyncRequestCrawl(ctx context.Context,body *comatproto.SyncRequestCrawl_Input) error
@@ -58,7 +58,7 @@ func (s *Service) HandleComAtprotoSyncListHosts(c echo.Context) error {
 	if limitQuery != "" {
 		limit, err = strconv.Atoi(limitQuery)
 		if err != nil || limit < 1 || limit > 1000 {
-			return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("limit parameter invalid or out of range: %s", limitQuery)})
+			return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: fmt.Sprintf("limit parameter invalid or out of range: %s", limitQuery)})
 		}
 	}
 
@@ -66,7 +66,7 @@ func (s *Service) HandleComAtprotoSyncListHosts(c echo.Context) error {
 	if cursorQuery != "" {
 		cursor, err = strconv.ParseInt(cursorQuery, 10, 64)
 		if err != nil || cursor < 0 {
-			return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("cursor parameter invalid: %s", cursorQuery)})
+			return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: fmt.Sprintf("cursor parameter invalid: %s", cursorQuery)})
 		}
 	}
 
@@ -103,7 +103,7 @@ func (s *Service) HandleComAtprotoSyncListRepos(c echo.Context) error {
 	if limitQuery != "" {
 		limit, err = strconv.Atoi(limitQuery)
 		if err != nil || limit < 1 || limit > 1000 {
-			return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("limit parameter invalid: %s", limitQuery)})
+			return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: fmt.Sprintf("limit parameter invalid: %s", limitQuery)})
 		}
 	}
 
@@ -111,7 +111,7 @@ func (s *Service) HandleComAtprotoSyncListRepos(c echo.Context) error {
 	if cursorQuery != "" {
 		cursor, err = strconv.ParseInt(cursorQuery, 10, 64)
 		if err != nil || cursor < 0 {
-			return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("limit parameter invalid cursor: %s", cursorQuery)})
+			return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: fmt.Sprintf("limit parameter invalid cursor: %s", cursorQuery)})
 		}
 	}
 
@@ -133,17 +133,17 @@ func (s *Service) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 
 	did, err := syntax.ParseDID(didQuery)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("missing or invalid DID parameter: %s", err)})
+		return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: fmt.Sprintf("missing or invalid DID parameter: %s", err)})
 	}
 
 	ident, err := s.relay.Dir.LookupDID(ctx, did)
 	if err != nil {
 		// TODO: could handle lookup errors more granularly
-		return c.JSON(http.StatusNotFound, xrpc.XRPCError{ErrStr: "RepoNotFound", Message: fmt.Sprintf("could not resolve DID: %s", err)})
+		return c.JSON(http.StatusNotFound, atclient.ErrorBody{Name: "RepoNotFound", Message: fmt.Sprintf("could not resolve DID: %s", err)})
 	}
 	pdsHost, _, err := relay.ParseHostname(ident.PDSEndpoint())
 	if err != nil {
-		return c.JSON(http.StatusNotFound, xrpc.XRPCError{ErrStr: "RepoNotFound", Message: "DID document has no valid atproto PDS endpoint"})
+		return c.JSON(http.StatusNotFound, atclient.ErrorBody{Name: "RepoNotFound", Message: "DID document has no valid atproto PDS endpoint"})
 	}
 
 	u := c.Request().URL
@@ -165,7 +165,7 @@ func (s *Service) HandleComAtprotoSyncGetRepoStatus(c echo.Context) error {
 
 	did, err := syntax.ParseDID(didQuery)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("missing or invalid DID parameter: %s", err)})
+		return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: fmt.Sprintf("missing or invalid DID parameter: %s", err)})
 	}
 
 	out, handleErr := s.handleComAtprotoSyncGetRepoStatus(c, did)
@@ -183,7 +183,7 @@ func (s *Service) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
 
 	did, err := syntax.ParseDID(didQuery)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("missing or invalid DID parameter: %s", err)})
+		return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: fmt.Sprintf("missing or invalid DID parameter: %s", err)})
 	}
 
 	var out *comatproto.SyncGetLatestCommit_Output

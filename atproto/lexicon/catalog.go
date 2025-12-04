@@ -51,6 +51,10 @@ func (c *BaseCatalog) Resolve(ref string) (*Schema, error) {
 // Inserts a schema loaded from a JSON file in to the catalog.
 func (c *BaseCatalog) AddSchemaFile(sf SchemaFile) error {
 
+	if err := sf.FinishParse(); err != nil {
+		return err
+	}
+
 	if err := sf.CheckSchema(); err != nil {
 		return err
 	}
@@ -74,9 +78,6 @@ func (c *BaseCatalog) AddSchemaFile(sf SchemaFile) error {
 func (c *BaseCatalog) addSchemaFromBytes(b []byte) error {
 	var sf SchemaFile
 	if err := json.Unmarshal(b, &sf); err != nil {
-		return err
-	}
-	if err := sf.FinishParse(); err != nil {
 		return err
 	}
 	if err := c.AddSchemaFile(sf); err != nil {

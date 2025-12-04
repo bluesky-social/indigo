@@ -9,6 +9,9 @@ func acceptableMimeType(pattern, val string) bool {
 	if val == "" || pattern == "" {
 		return false
 	}
+	if pattern == "*/*" {
+		return true
+	}
 	if strings.HasSuffix(pattern, "*") {
 		prefix := pattern[:len(pattern)-1]
 		return strings.HasPrefix(val, prefix)

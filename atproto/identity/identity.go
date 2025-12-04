@@ -24,7 +24,7 @@ type Identity struct {
 	Keys        map[string]VerificationMethod
 }
 
-// Sub-field type for [Identity], representing a crytographic public key declared as a "verificationMethod" in the DID document.
+// Sub-field type for [Identity], representing a cryptographic public key declared as a "verificationMethod" in the DID document.
 type VerificationMethod struct {
 	Type               string
 	PublicKeyMultibase string

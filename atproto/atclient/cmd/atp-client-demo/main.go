@@ -12,11 +12,11 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func main() {
-	app := cli.App{
+	app := cli.Command{
 		Name:  "atp-client-demo",
 		Usage: "dev helper for atproto/client SDK",
 		Commands: []*cli.Command{
@@ -117,7 +117,10 @@ func main() {
 	}
 	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})
 	slog.SetDefault(slog.New(h))
-	app.RunAndExitOnError()
+	if err := app.Run(context.Background(), os.Args); err != nil {
+		slog.Error("command failed", "error", err)
+		os.Exit(-1)
+	}
 }
 
 func getFeed(ctx context.Context, c *atclient.APIClient) error {
@@ -156,37 +159,34 @@ func listRecords(ctx context.Context, c *atclient.APIClient) error {
 	return nil
 }
 
-func runGetFeedPublic(cctx *cli.Context) error {
-	ctx := cctx.Context
+func runGetFeedPublic(ctx context.Context, cmd *cli.Command) error {
 
 	c := atclient.APIClient{
-		Host: cctx.String("host"),
+		Host: cmd.String("host"),
 	}
 
 	return getFeed(ctx, &c)
 }
 
-func runListRecordsPublic(cctx *cli.Context) error {
-	ctx := cctx.Context
+func runListRecordsPublic(ctx context.Context, cmd *cli.Command) error {
 
 	c := atclient.APIClient{
-		Host: cctx.String("host"),
+		Host: cmd.String("host"),
 	}
 
 	return listRecords(ctx, &c)
 }
 
-func runLoginAuth(cctx *cli.Context) error {
-	ctx := cctx.Context
+func runLoginAuth(ctx context.Context, cmd *cli.Command) error {
 
-	atid, err := syntax.ParseAtIdentifier(cctx.String("username"))
+	atid, err := syntax.ParseAtIdentifier(cmd.String("username"))
 	if err != nil {
 		return err
 	}
 
 	dir := identity.DefaultDirectory()
 
-	c, err := atclient.LoginWithPassword(ctx, dir, *atid, cctx.String("password"), "", nil)
+	c, err := atclient.LoginWithPassword(ctx, dir, *atid, cmd.String("password"), "", nil)
 	if err != nil {
 		return err
 	}
@@ -205,33 +205,31 @@ func runLoginAuth(cctx *cli.Context) error {
 	return nil
 }
 
-func runGetFeedAuth(cctx *cli.Context) error {
-	ctx := cctx.Context
+func runGetFeedAuth(ctx context.Context, cmd *cli.Command) error {
 
-	atid, err := syntax.ParseAtIdentifier(cctx.String("username"))
+	atid, err := syntax.ParseAtIdentifier(cmd.String("username"))
 	if err != nil {
 		return err
 	}
 
 	dir := identity.DefaultDirectory()
 
-	c, err := atclient.LoginWithPassword(ctx, dir, *atid, cctx.String("password"), "", nil)
+	c, err := atclient.LoginWithPassword(ctx, dir, *atid, cmd.String("password"), "", nil)
 	if err != nil {
 		return err
 	}
-	c = c.WithService(cctx.String("appview"))
+	c = c.WithService(cmd.String("appview"))
 
 	return getFeed(ctx, c)
 }
 
-func runLookupAdmin(cctx *cli.Context) error {
-	ctx := cctx.Context
+func runLookupAdmin(ctx context.Context, cmd *cli.Command) error {
 
-	c := atclient.NewAdminClient(cctx.String("host"), cctx.String("admin-password"))
+	c := atclient.NewAdminClient(cmd.String("host"), cmd.String("admin-password"))
 
 	var d json.RawMessage
 	params := map[string]any{
-		"did": cctx.String("did"),
+		"did": cmd.String("did"),
 	}
 	if err := c.Get(ctx, "com.atproto.admin.getAccountInfo", params, &d); err != nil {
 		return err

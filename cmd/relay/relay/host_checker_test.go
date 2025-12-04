@@ -6,6 +6,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -17,7 +18,7 @@ func TestMockHostChecker(t *testing.T) {
 
 	hc := NewMockHostChecker()
 	hc.Hosts["https://pds.example.com"] = true
-	hc.Accounts["did:web:active.example.com"] = "active"
+	hc.Accounts["did:web:active.example.com"] = models.AccountStatusActive
 
 	assert.NoError(hc.CheckHost(ctx, "https://pds.example.com"))
 	assert.Error(hc.CheckHost(ctx, ""))
@@ -25,7 +26,7 @@ func TestMockHostChecker(t *testing.T) {
 
 	s1, err := hc.FetchAccountStatus(ctx, &identity.Identity{DID: syntax.DID("did:web:active.example.com")})
 	assert.NoError(err)
-	assert.Equal("active", s1)
+	assert.Equal(models.AccountStatusActive, s1)
 
 	_, err = hc.FetchAccountStatus(ctx, &identity.Identity{DID: syntax.DID("did:web:nope.example.com")})
 	assert.Error(err)
@@ -48,7 +49,7 @@ func TestLiveHostChecker(t *testing.T) {
 
 	s1, err := hc.FetchAccountStatus(ctx, ident)
 	assert.NoError(err)
-	assert.Equal("active", s1)
+	assert.Equal(models.AccountStatusActive, s1)
 
 	ident.DID = syntax.DID("did:web:dummy.example.com")
 	_, err = hc.FetchAccountStatus(ctx, ident)

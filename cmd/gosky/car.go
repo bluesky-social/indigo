@@ -12,7 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 
 	"github.com/ipfs/go-cid"
-	cli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
 )
 
 var carCmd = &cli.Command{
