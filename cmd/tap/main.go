@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -168,10 +170,16 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
+	// fail early if relay url is not http/https
+	relayUrl := cmd.String("relay-url")
+	if !strings.HasPrefix(relayUrl, "http://") && !strings.HasPrefix(relayUrl, "https://") {
+		return fmt.Errorf("relay-url must start with http:// or https://")
+	}
+
 	config := TapConfig{
 		DatabaseURL:                cmd.String("database-url"),
 		DBMaxConns:                 int(cmd.Int("db-max-conns")),
-		RelayUrl:                   cmd.String("relay-url"),
+		RelayUrl:                   relayUrl,
 		FirehoseParallelism:        int(cmd.Int("firehose-parallelism")),
 		ResyncParallelism:          int(cmd.Int("resync-parallelism")),
 		OutboxParallelism:          int(cmd.Int("outbox-parallelism")),

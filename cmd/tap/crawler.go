@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/cmd/tap/models"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Crawler struct {
@@ -84,7 +85,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 			break
 		}
 
-		if err := c.db.Save(&repos).Error; err != nil {
+		if err := c.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&repos).Error; err != nil {
 			c.logger.Error("failed to save repos batch", "error", err, "count", len(repos))
 			return err
 		}
@@ -161,7 +162,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 			break
 		}
 
-		if err := c.db.Save(&repos).Error; err != nil {
+		if err := c.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&repos).Error; err != nil {
 			c.logger.Error("failed to save repos batch", "error", err, "collection", collection, "count", len(repos))
 			return err
 		}
