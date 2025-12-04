@@ -10,8 +10,8 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 
-	"github.com/carlmjohnson/versioninfo"
-	"github.com/urfave/cli/v2"
+	"github.com/earthboundkid/versioninfo/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func main() {
@@ -22,172 +22,170 @@ func main() {
 }
 
 func run(args []string) error {
-	app := cli.App{
+	app := cli.Command{
 		Name:    "tap",
 		Usage:   "atproto sync service",
 		Version: versioninfo.Short(),
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "env",
+				Usage:   "environment name for observability",
+				Value:   "dev",
+				Sources: cli.EnvVars("TAP_ENV"),
+			},
+			&cli.BoolFlag{
+				Name: "enable-jaeger-tracing",
+			},
+			&cli.BoolFlag{
+				Name: "enable-otel-tracing",
+			},
+			&cli.StringFlag{
+				Name:    "otel-exporter-otlp-endpoint",
+				Sources: cli.EnvVars("OTEL_EXPORTER_OTLP_ENDPOINT"),
+			},
+			&cli.StringFlag{
+				Name:    "database-url",
+				Usage:   "database connection string (sqlite://path or postgres://...)",
+				Value:   "sqlite://./tap.db",
+				Sources: cli.EnvVars("TAP_DATABASE_URL"),
+			},
+			&cli.IntFlag{
+				Name:    "db-max-conns",
+				Usage:   "maximum number of database connections",
+				Value:   32,
+				Sources: cli.EnvVars("TAP_DB_MAX_CONNS"),
+			},
+			&cli.StringFlag{
+				Name:    "relay-url",
+				Usage:   "AT Protocol relay URL",
+				Value:   "https://relay1.us-east.bsky.network",
+				Sources: cli.EnvVars("TAP_RELAY_URL"),
+			},
+			&cli.StringFlag{
+				Name:    "bind",
+				Usage:   "address and port to listen on for HTTP APIs",
+				Value:   ":2480",
+				Sources: cli.EnvVars("TAP_BIND"),
+			},
+			&cli.IntFlag{
+				Name:    "firehose-parallelism",
+				Usage:   "number of parallel firehose event processors",
+				Value:   10,
+				Sources: cli.EnvVars("TAP_FIREHOSE_PARALLELISM"),
+			},
+			&cli.IntFlag{
+				Name:    "resync-parallelism",
+				Usage:   "number of parallel resync workers",
+				Value:   5,
+				Sources: cli.EnvVars("TAP_RESYNC_PARALLELISM"),
+			},
+			&cli.IntFlag{
+				Name:    "outbox-parallelism",
+				Usage:   "number of parallel outbox workers",
+				Value:   1,
+				Sources: cli.EnvVars("TAP_OUTBOX_PARALLELISM"),
+			},
+			&cli.DurationFlag{
+				Name:    "cursor-save-interval",
+				Usage:   "how often to save firehose cursor",
+				Value:   1 * time.Second,
+				Sources: cli.EnvVars("TAP_CURSOR_SAVE_INTERVAL"),
+			},
+			&cli.DurationFlag{
+				Name:    "repo-fetch-timeout",
+				Usage:   "timeout when fetching repo CARs from PDS (e.g. 180s for slow hosts)",
+				Value:   30 * time.Second,
+				Sources: cli.EnvVars("TAP_REPO_FETCH_TIMEOUT"),
+			},
+			&cli.IntFlag{
+				Name:    "identity-cache-size",
+				Usage:   "size of identity resolution cache",
+				Value:   2000000,
+				Sources: cli.EnvVars("TAP_IDENTITY_CACHE_SIZE"),
+			},
+			&cli.IntFlag{
+				Name:    "event-cache-size",
+				Usage:   "rough size of event cache",
+				Value:   100000,
+				Sources: cli.EnvVars("TAP_EVENT_CACHE_SIZE"),
+			},
+			&cli.BoolFlag{
+				Name:    "full-network-mode",
+				Usage:   "enumerate and sync all repos on the network",
+				Sources: cli.EnvVars("TAP_FULL_NETWORK_MODE"),
+			},
+			&cli.StringFlag{
+				Name:    "signal-collection",
+				Usage:   "enumerate repos by collection (exact NSID)",
+				Sources: cli.EnvVars("TAP_SIGNAL_COLLECTION"),
+			},
+			&cli.BoolFlag{
+				Name:    "disable-acks",
+				Usage:   "disable client acknowledgments (fire-and-forget mode)",
+				Sources: cli.EnvVars("TAP_DISABLE_ACKS"),
+			},
+			&cli.StringFlag{
+				Name:    "webhook-url",
+				Usage:   "webhook URL for event delivery (instead of WebSocket)",
+				Sources: cli.EnvVars("TAP_WEBHOOK_URL"),
+			},
+			&cli.StringSliceFlag{
+				Name:    "collection-filters",
+				Usage:   "filter output records by collection (supports wildcards)",
+				Sources: cli.EnvVars("TAP_COLLECTION_FILTERS"),
+			},
+			&cli.BoolFlag{
+				Name:    "outbox-only",
+				Usage:   "run in outbox-only mode (no firehose, resync, or enumeration)",
+				Sources: cli.EnvVars("TAP_OUTBOX_ONLY"),
+			},
+			&cli.StringFlag{
+				Name:    "log-level",
+				Usage:   "log verbosity level (debug, info, warn, error)",
+				Value:   "info",
+				Sources: cli.EnvVars("TAP_LOG_LEVEL", "LOG_LEVEL"),
+			},
+			&cli.StringFlag{
+				Name:    "admin-token",
+				Usage:   "admin token required for all API requests (if set)",
+				Sources: cli.EnvVars("TAP_ADMIN_TOKEN"),
+			},
+		},
+		Action: runTap,
 	}
 
-	app.Flags = []cli.Flag{
-		&cli.StringFlag{
-			Name:    "env",
-			Usage:   "environment name for observability",
-			Value:   "dev",
-			EnvVars: []string{"TAP_ENV"},
-		},
-		&cli.BoolFlag{
-			Name: "enable-jaeger-tracing",
-		},
-		&cli.BoolFlag{
-			Name: "enable-otel-tracing",
-		},
-		&cli.StringFlag{
-			Name:    "otel-exporter-otlp-endpoint",
-			EnvVars: []string{"OTEL_EXPORTER_OTLP_ENDPOINT"},
-		},
-		&cli.StringFlag{
-			Name:    "database-url",
-			Usage:   "database connection string (sqlite://path or postgres://...)",
-			Value:   "sqlite://./tap.db",
-			EnvVars: []string{"TAP_DATABASE_URL"},
-		},
-		&cli.IntFlag{
-			Name:    "db-max-conns",
-			Usage:   "maximum number of database connections",
-			Value:   32,
-			EnvVars: []string{"TAP_DB_MAX_CONNS"},
-		},
-		&cli.StringFlag{
-			Name:    "relay-url",
-			Usage:   "AT Protocol relay URL",
-			Value:   "https://relay1.us-east.bsky.network",
-			EnvVars: []string{"TAP_RELAY_URL"},
-		},
-		&cli.StringFlag{
-			Name:    "bind",
-			Usage:   "address and port to listen on for HTTP APIs",
-			Value:   ":2480",
-			EnvVars: []string{"TAP_BIND"},
-		},
-		&cli.IntFlag{
-			Name:    "firehose-parallelism",
-			Usage:   "number of parallel firehose event processors",
-			Value:   10,
-			EnvVars: []string{"TAP_FIREHOSE_PARALLELISM"},
-		},
-		&cli.IntFlag{
-			Name:    "resync-parallelism",
-			Usage:   "number of parallel resync workers",
-			Value:   5,
-			EnvVars: []string{"TAP_RESYNC_PARALLELISM"},
-		},
-		&cli.IntFlag{
-			Name:    "outbox-parallelism",
-			Usage:   "number of parallel outbox workers",
-			Value:   1,
-			EnvVars: []string{"TAP_OUTBOX_PARALLELISM"},
-		},
-		&cli.DurationFlag{
-			Name:    "cursor-save-interval",
-			Usage:   "how often to save firehose cursor",
-			Value:   1 * time.Second,
-			EnvVars: []string{"TAP_CURSOR_SAVE_INTERVAL"},
-		},
-		&cli.DurationFlag{
-			Name:    "repo-fetch-timeout",
-			Usage:   "timeout when fetching repo CARs from PDS (e.g. 180s for slow hosts)",
-			Value:   30 * time.Second,
-			EnvVars: []string{"TAP_REPO_FETCH_TIMEOUT"},
-		},
-		&cli.IntFlag{
-			Name:    "identity-cache-size",
-			Usage:   "size of identity resolution cache",
-			Value:   2000000,
-			EnvVars: []string{"TAP_IDENTITY_CACHE_SIZE"},
-		},
-		&cli.IntFlag{
-			Name:    "event-cache-size",
-			Usage:   "rough size of event cache",
-			Value:   100000,
-			EnvVars: []string{"TAP_EVENT_CACHE_SIZE"},
-		},
-		&cli.BoolFlag{
-			Name:    "full-network-mode",
-			Usage:   "enumerate and sync all repos on the network",
-			EnvVars: []string{"TAP_FULL_NETWORK_MODE"},
-		},
-		&cli.StringFlag{
-			Name:    "signal-collection",
-			Usage:   "enumerate repos by collection (exact NSID)",
-			EnvVars: []string{"TAP_SIGNAL_COLLECTION"},
-		},
-		&cli.BoolFlag{
-			Name:    "disable-acks",
-			Usage:   "disable client acknowledgments (fire-and-forget mode)",
-			EnvVars: []string{"TAP_DISABLE_ACKS"},
-		},
-		&cli.StringFlag{
-			Name:    "webhook-url",
-			Usage:   "webhook URL for event delivery (instead of WebSocket)",
-			EnvVars: []string{"TAP_WEBHOOK_URL"},
-		},
-		&cli.StringSliceFlag{
-			Name:    "collection-filters",
-			Usage:   "filter output records by collection (supports wildcards)",
-			EnvVars: []string{"TAP_COLLECTION_FILTERS"},
-		},
-		&cli.BoolFlag{
-			Name:    "outbox-only",
-			Usage:   "run in outbox-only mode (no firehose, resync, or enumeration)",
-			EnvVars: []string{"TAP_OUTBOX_ONLY"},
-		},
-		&cli.StringFlag{
-			Name:    "log-level",
-			Usage:   "log verbosity level (debug, info, warn, error)",
-			Value:   "info",
-			EnvVars: []string{"TAP_LOG_LEVEL", "LOG_LEVEL"},
-		},
-		&cli.StringFlag{
-			Name:    "admin-token",
-			Usage:   "admin token required for all API requests (if set)",
-			EnvVars: []string{"TAP_ADMIN_TOKEN"},
-		},
-	}
-
-	app.Action = runTap
-
-	return app.Run(args)
+	return app.Run(context.Background(), args)
 }
 
-func runTap(cctx *cli.Context) error {
-	if err := setupOTEL(cctx); err != nil {
+func runTap(ctx context.Context, cmd *cli.Command) error {
+	if err := setupOTEL(cmd); err != nil {
 		return err
 	}
 
-	logger := configLogger(cctx, os.Stdout)
+	logger := configLogger(cmd, os.Stdout)
 	slog.SetDefault(logger)
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	config := TapConfig{
-		DatabaseURL:                cctx.String("database-url"),
-		DBMaxConns:                 cctx.Int("db-max-conns"),
-		RelayUrl:                   cctx.String("relay-url"),
-		FirehoseParallelism:        cctx.Int("firehose-parallelism"),
-		ResyncParallelism:          cctx.Int("resync-parallelism"),
-		OutboxParallelism:          cctx.Int("outbox-parallelism"),
-		FirehoseCursorSaveInterval: cctx.Duration("cursor-save-interval"),
-		RepoFetchTimeout:           cctx.Duration("repo-fetch-timeout"),
-		IdentityCacheSize:          cctx.Int("identity-cache-size"),
-		EventCacheSize:             cctx.Int("event-cache-size"),
-		FullNetworkMode:            cctx.Bool("full-network-mode"),
-		SignalCollection:           cctx.String("signal-collection"),
-		DisableAcks:                cctx.Bool("disable-acks"),
-		WebhookURL:                 cctx.String("webhook-url"),
-		CollectionFilters:          cctx.StringSlice("collection-filters"),
-		OutboxOnly:                 cctx.Bool("outbox-only"),
-		AdminToken:                 cctx.String("admin-token"),
+		DatabaseURL:                cmd.String("database-url"),
+		DBMaxConns:                 int(cmd.Int("db-max-conns")),
+		RelayUrl:                   cmd.String("relay-url"),
+		FirehoseParallelism:        int(cmd.Int("firehose-parallelism")),
+		ResyncParallelism:          int(cmd.Int("resync-parallelism")),
+		OutboxParallelism:          int(cmd.Int("outbox-parallelism")),
+		FirehoseCursorSaveInterval: cmd.Duration("cursor-save-interval"),
+		RepoFetchTimeout:           cmd.Duration("repo-fetch-timeout"),
+		IdentityCacheSize:          int(cmd.Int("identity-cache-size")),
+		EventCacheSize:             int(cmd.Int("event-cache-size")),
+		FullNetworkMode:            cmd.Bool("full-network-mode"),
+		SignalCollection:           cmd.String("signal-collection"),
+		DisableAcks:                cmd.Bool("disable-acks"),
+		WebhookURL:                 cmd.String("webhook-url"),
+		CollectionFilters:          cmd.StringSlice("collection-filters"),
+		OutboxOnly:                 cmd.Bool("outbox-only"),
+		AdminToken:                 cmd.String("admin-token"),
 	}
 
 	logger.Info("creating tap service")
@@ -196,11 +194,11 @@ func runTap(cctx *cli.Context) error {
 		return err
 	}
 
-	ctx, cancel := context.WithCancel(cctx.Context)
+	runCtx, cancel := context.WithCancel(ctx)
 
 	if !config.OutboxOnly {
 		go func() {
-			if err := tap.Crawler.Run(ctx); err != nil {
+			if err := tap.Crawler.Run(runCtx); err != nil {
 				logger.Error("collection enumeration failed", "error", err, "collection", config.SignalCollection)
 			}
 		}()
@@ -211,17 +209,17 @@ func runTap(cctx *cli.Context) error {
 	if !config.OutboxOnly {
 		go func() {
 			logger.Info("starting firehose consumer")
-			if err := tap.Firehose.Run(ctx); err != nil {
+			if err := tap.Firehose.Run(runCtx); err != nil {
 				svcErr <- err
 			}
 		}()
 	}
 
-	go tap.Run(ctx)
+	go tap.Run(runCtx)
 
 	go func() {
-		logger.Info("starting HTTP server", "addr", cctx.String("bind"))
-		if err := tap.Server.Start(cctx.String("bind")); err != nil {
+		logger.Info("starting HTTP server", "addr", cmd.String("bind"))
+		if err := tap.Server.Start(cmd.String("bind")); err != nil {
 			svcErr <- err
 		}
 	}()
@@ -255,9 +253,9 @@ func runTap(cctx *cli.Context) error {
 	return nil
 }
 
-func configLogger(cctx *cli.Context, writer *os.File) *slog.Logger {
+func configLogger(cmd *cli.Command, writer *os.File) *slog.Logger {
 	var level slog.Level
-	switch cctx.String("log-level") {
+	switch cmd.String("log-level") {
 	case "debug":
 		level = slog.LevelDebug
 	case "info":
