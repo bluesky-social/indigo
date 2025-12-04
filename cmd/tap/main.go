@@ -205,11 +205,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	runCtx, cancel := context.WithCancel(ctx)
 
 	if !config.OutboxOnly {
-		go func() {
-			if err := tap.Crawler.Run(runCtx); err != nil {
-				logger.Error("collection enumeration failed", "error", err, "collection", config.SignalCollection)
-			}
-		}()
+		go tap.Crawler.Run(runCtx)
 	}
 
 	svcErr := make(chan error, 1)
