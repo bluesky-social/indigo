@@ -182,6 +182,10 @@ func VerifyCommitSignatureFromCar(ctx context.Context, dir identity.Directory, c
 		return nil, err
 	}
 
+	if err := commit.VerifyStructure(); err != nil {
+		return nil, err
+	}
+
 	did, err := syntax.ParseDID(commit.DID)
 	if err != nil {
 		return nil, err
