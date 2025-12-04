@@ -81,10 +81,10 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 	if evt.PrevData == nil {
 		fp.logger.Debug("legacy commit event, skipping prev data check", "did", evt.Repo, "rev", evt.Rev)
 	} else if evt.PrevData.String() != curr.PrevData {
-		fp.logger.Warn("repo state desynced", "did", evt.Repo, "rev", evt.Rev)
+		fp.logger.Warn("repo state desynchronized", "did", evt.Repo, "rev", evt.Rev)
 		// gets picked up by resync workers
-		if err := fp.repos.UpdateRepoState(evt.Repo, models.RepoStateDesynced); err != nil {
-			fp.logger.Error("failed to update repo state to desynced", "did", evt.Repo, "error", err)
+		if err := fp.repos.UpdateRepoState(evt.Repo, models.RepoStateDesynchronized); err != nil {
+			fp.logger.Error("failed to update repo state to desynchronized", "did", evt.Repo, "error", err)
 			return err
 		}
 		return nil
@@ -228,8 +228,8 @@ func (fp *FirehoseProcessor) ProcessSync(ctx context.Context, evt *comatproto.Sy
 		return nil
 	}
 
-	if err := fp.repos.UpdateRepoState(commit.DID, models.RepoStateDesynced); err != nil {
-		fp.logger.Error("failed to update repo state to desynced", "did", commit.DID, "error", err)
+	if err := fp.repos.UpdateRepoState(commit.DID, models.RepoStateDesynchronized); err != nil {
+		fp.logger.Error("failed to update repo state to desynchronized", "did", commit.DID, "error", err)
 		return err
 	}
 

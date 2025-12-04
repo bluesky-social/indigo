@@ -3,7 +3,9 @@
 
 Tap is a single-tenant service that subscribes to an atproto relay and outputs filtered, verified events for a subset of repos.
 
-Tap simplifies firehose consumption by handling verification, backfill, and filtering. Your application connects to tap and receives simple JSON events for only the repos and collections you care about. Historical data for configured repos is automatically fetched from PDSs and delivered before live events begin.
+Tap simplifies firehose consumption by handling verification, backfill, and filtering. Your application connects to tap and receives simple JSON events for only the repos and collections you care about, no need to worry about binary formats for validating cryptographic signatures.
+
+Historical data for configured repos is automatically fetched from PDSs and delivered before live events begin.
 
 Features and design decisions:
 
@@ -12,8 +14,9 @@ Features and design decisions:
 - filtered output: by DID list, by collection, or full network mode
 - ordering guarantees: live events wait for historical backfill to complete
 - delivery modes: WebSocket with acks, fire-and-forget, or webhook
-- single golang binary, SQLite backend
-- designed for moderate scale (thousands of repos, 10k+ events/sec)
+- single Go binary
+- SQLite or Postgres backend
+- designed for moderate scale (millions of repos, 30k+ events/sec)
 
 This tool is useful for building applications that need to track specific accounts or collections without dealing with the complexity of repo verification and backfill orchestration.
 
@@ -30,7 +33,7 @@ go run ./cmd/tap --disable-acks=true
 websocat ws://localhost:8080/channel
 
 #  Add a repo to track
-curl -X POST http://localhost:8080/add-repos \
+curl -X POST http://localhost:8080/repos/add \
   -H "Content-Type: application/json" \
   -d '{"dids": ["did:plc:z72i7hdynmk6r22z27h6tvur"]}' # @bsky.app repo
 ```
@@ -40,23 +43,23 @@ Each repo will be backfilled from its PDS, then live events will stream as they 
 ## HTTP API
 
 - `GET /health`: returns `{"status":"ok"}`
-- `POST /add-repos`: add DIDs to track (triggers backfill of added repos)
-- `POST /remove-repos`: remove DIDs (stops sync, deletes data. does not delete buffered events in outbox)
+- `POST /repos/add`: add DIDs to track (triggers backfill of added repos)
+- `POST /repos/remove`: remove DIDs (stops sync, deletes tracked repo metadata. does not delete buffered events in outbox)
 - `GET /channel`: WebSocket endpoint to receive events
 
-If more than one client connects to the WebSocket, events will be transparently sharded across all connected clients.
+If more than one client connects to the WebSocket, events will be transparently sharded across all connected clients. There are no guarantees around sharding, events are delivered to an any available websocket consumer. Though the general deliverability guarantees (as described in *Per-Repo Ordering Rules*) hold across shards.
 
 ## Configuration
 
 Environment variables or CLI flags:
 
-- `TAP_DB_PATH`: path to SQLite database file (default: `./tap.db`)
+- `TAP_DATABASE_URL`: path to SQLite database file or postgres connection string (default: `sqlite://./tap.db`)
 - `TAP_RELAY_URL`: atproto relay URL (default: `https://relay1.us-east.bsky.network`)
 - `TAP_BIND`: HTTP server address (default: `:8080`)
 - `TAP_FIREHOSE_PARALLELISM`: concurrent firehose event processors (default: `10`)
 - `TAP_RESYNC_PARALLELISM`: concurrent resync workers (default: `5`)
 - `TAP_OUTBOX_PARALLELISM`: concurrent outbox workers (default: `5`)
-- `TAP_CURSOR_SAVE_INTERVAL`: how often to save cursor (default: `5s`, set to `0` to disable)
+- `TAP_CURSOR_SAVE_INTERVAL`: how often to persist upstream firehose cursor (default: `5s`)
 - `TAP_REPO_FETCH_TIMEOUT`: timeout for fetching repo CARs from PDS (Go duration syntax, e.g. `180s`)
 - `TAP_FULL_NETWORK_MODE`: track all repos on the network (default: `false`)
 - `TAP_SIGNAL_COLLECTION`: track all repos with at least one record in this collection (e.g. `app.bsky.actor.profile`)
@@ -81,11 +84,22 @@ Tap supports three delivery modes:
 
 Tap syncs a subset of repos in the network. It can operate in three modes for determining this network boundary.
 
-**Dynamically Configured** (default):  Tap starts out tracking no repos. Specific repos can then by added via `/add-repos` and removed via `/remove-repos`.
+**Dynamically Configured** (default):  Tap starts out tracking no repos. Specific repos can then by added via `/repos/add` and removed via `/repos/remove`.
 
 **Collection Signal**: Set `TAP_SIGNAL_COLLECTION=com.example.nsid`. Track all repos that have at least one record in the specified collection. Many applications create a "declaration" or "profile" in a repo when that repo uses that application
 
 **Full Network**: Set `TAP_FULL_NETWORK_MODE=true`. Enumerates and tracks all findable repos on the entire network. Resource-intensive and takes days/weeks to complete backfill.
+
+## Collection Filtering
+
+After narrowing down the network to a subset of repos, Tap can further filter records down to a specified set of collections. Filters apply to record events only. User events are always delivered for tracked repos.
+
+If you are interested syncing all of a single record type, it is important to specify that collection as both the signal collection and the filter collection. For example: `TAP_SIGNAL_COLLECTION=com.example.nsid TAP_COLLECTION_FILTERS=com.example.nsid ...`
+
+Collection filters use wildcards but only at the period breaks in NSIDs. For example:
+
+`TAP_COLLECTION_FILTERS=app.bsky.feed.post,app.bsky.graph.*`
+
 
 ## Event Format
 
@@ -130,7 +144,7 @@ Events are delivered as JSON:
 
 ## Backfill
 
-When a repo is added (via `/add-repos`, full network mode, or collection discovery):
+When a repo is added (via `/repos/add`, full network mode, or collection discovery):
 
 1. **Historical backfill**: Tap fetches the full repo from the account's PDS using `com.atproto.sync.getRepo`
 2. **Live event buffering**: Any firehose events for this repo during backfill are held in memory
@@ -160,20 +174,12 @@ Example sequence: `H1, H2, L1, H3, H4, L2, H5`
 
 This ensures live events act as ordering checkpoints while allowing historical backfill to run quickly.
 
-## Collection Filtering
-
-Collection filters use wildcards but only at the period breaks in NSIDs. For example:
-
-`TAP_COLLECTION_FILTERS=app.bsky.feed.post,app.bsky.graph.*`
-
-Filters apply to record events only. User events are always delivered for tracked repos.
-
 ## Operations
 
 Tap logs to stdout in JSON format. The firehose consumer automatically reconnects with exponential backoff on relay failures. Cursor position is saved periodically (default 5 seconds) and restored on restart.
 
 SQLite is tuned for high write throughput: WAL mode, 10-second busy timeout, `synchronous=NORMAL`, 64MB cache, batched deletes. The outbox buffers up to 1M pending events in memory.
 
-Resync is automatic: if a commit does not validate according to [Sync v1.1](https://github.com/bluesky-social/proposals/tree/main/0006-sync-iteration) semantics, the repo is marked `desynced` until it can be refetched from the authoritative PDS. Live events during resync are buffered and replayed after completion. Failures trigger exponential backoff (1 minute → 1 hour max).
+Resync is automatic: if a commit does not validate according to [Sync v1.1](https://github.com/bluesky-social/proposals/tree/main/0006-sync-iteration) semantics, the repo is marked `desyncrhonized` until it can be refetched from the authoritative PDS. Live events during resync are buffered and replayed after completion. Failures trigger exponential backoff (1 minute → 1 hour max).
 
 Identity resolution uses a cached directory (24-hour TTL). DNS lookups are skipped for `*.bsky.social` handles. The cache warms up at startup and may cause a burst of PLC directory requests.
