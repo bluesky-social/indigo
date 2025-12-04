@@ -303,6 +303,8 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 				}); err != nil {
 					return err
 				}
+			default:
+				logger.Info("unhandled event stream message type", "msg_type", header.MsgType)
 			}
 
 		case EvtKindErrorFrame:
@@ -318,7 +320,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler,
 			}
 
 		default:
-			return fmt.Errorf("unrecognized event stream type: %d", header.Op)
+			return fmt.Errorf("unrecognized event stream frame type: %d", header.Op)
 		}
 
 	}

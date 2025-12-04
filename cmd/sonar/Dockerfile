@@ -1,5 +1,5 @@
 # Stage 1: Build the Go binary
-FROM golang:1.24-alpine3.22 AS build-env
+FROM golang:1.25-alpine3.22 AS build-env
 
 # Install SSL ca certificates.
 RUN apk update && apk add --no-cache ca-certificates && update-ca-certificates
@@ -28,3 +28,7 @@ COPY --from=build-env /sonar /sonar
 
 # Set the startup command to run the binary
 CMD ["/sonar"]
+
+LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
+LABEL org.opencontainers.image.description="AT Proto firehose monitoring service"
+LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"

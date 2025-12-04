@@ -3,7 +3,7 @@
 #   podman build -f ./cmd/beemo/Dockerfile -t beemo .
 
 ### Compile stage
-FROM golang:1.24-alpine3.22 AS build-env
+FROM golang:1.25-alpine3.22 AS build-env
 RUN apk add --no-cache build-base make git
 
 ADD . /dockerbuild
@@ -32,4 +32,4 @@ CMD ["/beemo"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
 LABEL org.opencontainers.image.description="ATP ChatOps Bot (beemo)"
-LABEL org.opencontainers.image.licenses=MIT
+LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"

@@ -78,7 +78,7 @@ func (r *Relay) CreateAccountHost(ctx context.Context, did syntax.DID, hostID ui
 
 	if pdsHostname != hostname {
 		if r.Config.SkipAccountHostCheck {
-			logger.Warn("ignoring account host mismatch", "pdsHostname", pdsHostname)
+			logger.Info("ignoring account host mismatch", "pdsHostname", pdsHostname)
 		} else {
 			return nil, fmt.Errorf("new account from a different host: %s", pdsHostname)
 		}
@@ -121,28 +121,41 @@ func (r *Relay) CreateAccountHost(ctx context.Context, did syntax.DID, hostID ui
 	return &acc, nil
 }
 
-// Checks if account matches provided hostID, and in the fast pass returns successfully. If not, checks if the account should be updated. If the account is now on the indicated host, it is updated, both in the database and struct via pointer.
+// Checks if account matches provided hostID, and in the fast pass returns successfully. If not, checks if the account should be updated. If the account is now on the indicated host, it is updated, both in the database and struct via pointer. Otherwise, if the account is not associated with this host, an error is returned.
 //
 // TODO: could also update to another known host, if doesn't match this hostID?
 func (r *Relay) EnsureAccountHost(ctx context.Context, acc *models.Account, hostID uint64, hostname string) error {
-	did := syntax.DID(acc.DID)
-	logger := r.Logger.With("did", did, "hostname", hostname)
 
 	if acc.HostID == hostID {
 		return nil
 	}
 
+	did := syntax.DID(acc.DID)
+	logger := r.Logger.With("did", did, "hostname", hostname)
+
+	// confirm account location
 	ident, err := r.Dir.LookupDID(ctx, did)
 	if err != nil {
-		return fmt.Errorf("account identity resolution: %w", err)
+		return fmt.Errorf("account identity resolution (%s): %w", did, err)
 	}
-	pdsEndpoint := ident.PDSEndpoint()
-	if pdsEndpoint == "" {
-		return fmt.Errorf("account has no declared PDS: %s", did)
-	}
-	pdsHostname, _, err := ParseHostname(pdsEndpoint)
+	pdsHostname, _, err := ParseHostname(ident.PDSEndpoint())
 	if err != nil {
-		return fmt.Errorf("account PDS endpoint invalid: %s", pdsEndpoint)
+		return fmt.Errorf("account PDS endpoint invalid (%s): %w", ident.PDSEndpoint(), err)
+	}
+
+	if pdsHostname != hostname {
+		// purge identity cache and try again
+		if err := r.Dir.Purge(ctx, did.AtIdentifier()); err != nil {
+			return fmt.Errorf("failed to purge identity cache: %w", err)
+		}
+		ident, err = r.Dir.LookupDID(ctx, did)
+		if err != nil {
+			return fmt.Errorf("account identity resolution: %w", err)
+		}
+		pdsHostname, _, err = ParseHostname(ident.PDSEndpoint())
+		if err != nil {
+			return fmt.Errorf("account PDS endpoint invalid (%s): %w", ident.PDSEndpoint(), err)
+		}
 	}
 
 	if pdsHostname != hostname {
@@ -153,8 +166,6 @@ func (r *Relay) EnsureAccountHost(ctx context.Context, acc *models.Account, host
 			return fmt.Errorf("new account from a different host: %s", pdsHostname)
 		}
 	}
-
-	// TODO: check new upstream status here (using r.HostChecker). In particular, a moved account might go from takendown to active
 
 	// create Account row and increment host count in the same transaction
 	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -182,13 +193,51 @@ func (r *Relay) EnsureAccountHost(ctx context.Context, acc *models.Account, host
 	return nil
 }
 
+// Checks that account is active. If it is not active upstream, double-checks with the host and updates status if needed; otherwise returns an error.
+func (r *Relay) EnsureAccountActive(ctx context.Context, acc *models.Account) error {
+
+	// short-circuit in common case
+	if acc.IsActive() {
+		return nil
+	}
+	// NOTE: this is checking local takedown
+	if acc.Status != models.AccountStatusActive {
+		return fmt.Errorf("account %s has non-active local status: %s", acc.DID, acc.Status)
+	}
+
+	did := syntax.DID(acc.DID)
+
+	ident, err := r.Dir.LookupDID(ctx, did)
+	if err != nil {
+		return fmt.Errorf("account identity resolution (%s): %w", did, err)
+	}
+
+	status, err := r.HostChecker.FetchAccountStatus(ctx, ident)
+	if err != nil {
+		return err
+	}
+
+	if acc.UpstreamStatus != status {
+		// NOTE: r.UpdateAccountUpstreamStatus purges account cache
+		if err := r.UpdateAccountUpstreamStatus(ctx, did, acc.UID, status); err != nil {
+			return err
+		}
+		acc.UpstreamStatus = status
+	}
+
+	if acc.IsActive() {
+		return nil
+	}
+	return fmt.Errorf("account is not active (%s): %s", acc.DID, acc.UpstreamStatus)
+}
+
 // This updates the account's "upstream" status (eg, at the account's PDS). Usually this is called in response to an `#account` event.
 //
 // The DID and UID are both required, and *must* match; it is assumed that calling code has already done an account lookup.
 func (r *Relay) UpdateAccountUpstreamStatus(ctx context.Context, did syntax.DID, uid uint64, status models.AccountStatus) error {
 
 	if err := r.db.WithContext(ctx).Model(models.Account{}).Where("uid = ?", uid).Update("upstream_status", status).Error; err != nil {
-		return err
+		return fmt.Errorf("failed to update account upstream status: %w", err)
 	}
 
 	// clear account cache
@@ -237,9 +286,23 @@ func (r *Relay) UpdateAccountLocalStatus(ctx context.Context, did syntax.DID, st
 
 // Returns the of active accounts (based on local and upstream status). The sort order is by UID, ascending.
 func (r *Relay) ListAccounts(ctx context.Context, cursor int64, limit int) ([]*models.Account, error) {
-
 	accounts := []*models.Account{}
 	if err := r.db.WithContext(ctx).Model(&models.Account{}).Where("uid > ? AND status = 'active' AND upstream_status = 'active'", cursor).Order("uid").Limit(limit).Find(&accounts).Error; err != nil {
+		return nil, err
+	}
+	return accounts, nil
+}
+func (r *Relay) ListAccountsDetailed(ctx context.Context, cursor int64, limit int) ([]*models.AccountDetailed, error) {
+	accounts := []*models.AccountDetailed{}
+	if err := r.db.WithContext(ctx).Raw(`
+		SELECT account.uid, account.did, account.host_id, account.status, account.upstream_status,
+		       account_repo.rev, account_repo.commit_cid, account_repo.commit_data_cid
+		FROM account
+		INNER JOIN account_repo ON account.uid = account_repo.uid
+		WHERE account.uid > ? AND account.status = 'active' AND account.upstream_status = 'active'
+		ORDER BY account.uid
+		LIMIT ?
+	`, cursor, limit).Scan(&accounts).Error; err != nil {
 		return nil, err
 	}
 	return accounts, nil

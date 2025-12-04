@@ -174,6 +174,7 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 		nil,            // addedLabels []string
 		nil,            // addedTags []string
 		"",             // ageAssuranceState
+		"",             // batchId string
 		nil,            // collections []string
 		"",             // comment string
 		"",             // createdAfter string
@@ -192,6 +193,7 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 		did.String(),   // subject string
 		"",             // subjectType string
 		[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
+		false, // withStrike bool
 	)
 
 	if err != nil {
@@ -258,6 +260,7 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 		nil,            // addedLabels []string
 		nil,            // addedTags []string
 		"",             // ageAssuranceState
+		"",             // batchId string
 		nil,            // collections []string
 		"",             // comment string
 		"",             // createdAfter string
@@ -276,6 +279,7 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 		uri.String(),   // subject string
 		"",             // subjectType string
 		[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
+		false, // withStrike bool
 	)
 	if err != nil {
 		return false, err

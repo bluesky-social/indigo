@@ -1,5 +1,5 @@
 # Stage 1: Build the Go binary
-FROM golang:1.24-alpine3.22 AS build-env
+FROM golang:1.25-alpine3.22 AS build-env
 
 # Create a directory for the application
 WORKDIR /app
@@ -27,3 +27,7 @@ COPY --from=build-env /supercollider /supercollider
 
 # Set the startup command to run the binary
 CMD ["/supercollider"]
+
+LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
+LABEL org.opencontainers.image.description="AT Proto firehose performance testing service"
+LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"

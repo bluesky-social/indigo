@@ -61,6 +61,7 @@ func (oc *OzoneConsumer) Run(ctx context.Context) error {
 			nil,            // addedLabels []string
 			nil,            // addedTags []string
 			"",             // ageAssuranceState
+			"",             // batchId string
 			nil,            // collections []string
 			"",             // comment string
 			since.String(), // createdAfter string
@@ -79,6 +80,7 @@ func (oc *OzoneConsumer) Run(ctx context.Context) error {
 			"",             // subject string
 			"",             // subjectType string
 			nil,            // types []string
+			false,          // withStrike bool
 		)
 		if err != nil {
 			oc.Logger.Warn("ozone query events failed; sleeping then will retrying", "err", err, "period", period.String())

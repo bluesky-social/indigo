@@ -55,7 +55,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 	pf := printerf(w)
 	fname := typename
 
-	params := "ctx context.Context, c util.LexClient"
+	params := "ctx context.Context, c lexutil.LexClient"
 	inpvar := "nil"
 	inpenc := ""
 
@@ -67,7 +67,6 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 			params = fmt.Sprintf("%s, input io.Reader", params)
 		case EncodingJSON:
 			params = fmt.Sprintf("%s, input *%s", params, inputname)
-
 		default:
 			return fmt.Errorf("unsupported input encoding (RPC input): %q", s.Input.Encoding)
 		}
@@ -174,9 +173,9 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 	var reqtype string
 	switch s.Type {
 	case "procedure":
-		reqtype = "util.Procedure"
+		reqtype = "lexutil.Procedure"
 	case "query":
-		reqtype = "util.Query"
+		reqtype = "lexutil.Query"
 	default:
 		return fmt.Errorf("can only generate RPC for Query or Procedure (got %s)", s.Type)
 	}
@@ -552,20 +551,20 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 		return "string", nil
 	case "unknown":
 		// NOTE: sometimes a record, for which we want LexiconTypeDecoder, sometimes any object
-		if k == "didDoc" || k == "plcOp" || k == "meta" {
+		if k == "didDoc" || k == "plcOp" || k == "meta" || k == "debug" {
 			return "interface{}", nil
 		} else {
-			return "*util.LexiconTypeDecoder", nil
+			return "*lexutil.LexiconTypeDecoder", nil
 		}
 	case "union":
 		if len(v.Refs) > 0 {
 			return "*" + name + "_" + strings.Title(k), nil
 		} else {
 			// an empty union is effectively an 'unknown', but with mandatory type indicator
-			return "*util.LexiconTypeDecoder", nil
+			return "*lexutil.LexiconTypeDecoder", nil
 		}
 	case "blob":
-		return "*util.LexBlob", nil
+		return "*lexutil.LexBlob", nil
 	case "array":
 		subt, err := s.typeNameForField(name+"_"+strings.Title(k), "Elem", *v.Items)
 		if err != nil {
@@ -574,9 +573,9 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 
 		return "[]" + subt, nil
 	case "cid-link":
-		return "util.LexLink", nil
+		return "lexutil.LexLink", nil
 	case "bytes":
-		return "util.LexBytes", nil
+		return "lexutil.LexBytes", nil
 	default:
 		return "", fmt.Errorf("field %q in %s has unsupported type name (%s)", k, name, v.Type)
 	}
@@ -640,10 +639,6 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 	case "boolean":
 		pf("type %s bool\n", name)
 	case "object":
-		if ts.needsType {
-			pf("//\n// RECORDTYPE: %s\n", name)
-		}
-
 		pf("type %s struct {\n", name)
 
 		if ts.needsType {
@@ -655,7 +650,7 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			if ts.defName != "" && ts.defName != "main" {
 				cval += "#" + ts.defName
 			}
-			pf("\tLexiconTypeID string `json:\"$type,const=%s%s\" cborgen:\"$type,const=%s%s\"`\n", cval, omit, cval, omit)
+			pf("\tLexiconTypeID string `json:\"$type%s\" cborgen:\"$type,const=%s%s\"`\n", omit, cval, omit)
 		} else {
 			//pf("\tLexiconTypeID string `json:\"$type,omitempty\" cborgen:\"$type,omitempty\"`\n")
 		}
@@ -696,13 +691,13 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			jsonOmit, cborOmit := omit, omit
 
 			// Don't generate pointers to lexbytes, as it's already a pointer.
-			if ptr == "*" && tname == "util.LexBytes" {
+			if ptr == "*" && tname == "lexutil.LexBytes" {
 				ptr = ""
 			}
 
 			// TODO: hard-coded hacks for now, making this type (with underlying type []byte)
 			// be omitempty.
-			if ptr == "" && tname == "util.LexBytes" {
+			if ptr == "" && tname == "lexutil.LexBytes" {
 				jsonOmit = ",omitempty"
 				cborOmit = ",omitempty"
 			}
@@ -818,7 +813,7 @@ func (ts *TypeSchema) writeJsonMarshalerEnum(name string, w io.Writer) error {
 		pf("\t\treturn json.Marshal(t.%s)\n\t}\n", vname)
 	}
 
-	pf("\treturn nil, fmt.Errorf(\"cannot marshal empty enum\")\n}\n")
+	pf("\treturn nil, fmt.Errorf(\"can not marshal empty union as JSON\")\n}\n\n")
 	return nil
 }
 
@@ -831,7 +826,7 @@ func (s *TypeSchema) writeJsonUnmarshalerObject(name string, w io.Writer) error 
 func (ts *TypeSchema) writeJsonUnmarshalerEnum(name string, w io.Writer) error {
 	pf := printerf(w)
 	pf("func (t *%s) UnmarshalJSON(b []byte) (error) {\n", name)
-	pf("\ttyp, err := util.TypeExtract(b)\n")
+	pf("\ttyp, err := lexutil.TypeExtract(b)\n")
 	pf("\tif err != nil {\n\t\treturn err\n\t}\n\n")
 	pf("\tswitch typ {\n")
 	for _, e := range ts.Refs {
@@ -847,13 +842,11 @@ func (ts *TypeSchema) writeJsonUnmarshalerEnum(name string, w io.Writer) error {
 	}
 
 	if ts.Closed {
-		pf(`
-			default:
-				return fmt.Errorf("closed enums must have a matching value")
+		pf(`			default:
+				return fmt.Errorf("closed unions must match a listed schema")
 		`)
 	} else {
-		pf(`
-			default:
+		pf(`			default:
 				return nil
 		`)
 
@@ -881,14 +874,14 @@ func (ts *TypeSchema) writeCborMarshalerEnum(name string, w io.Writer) error {
 		pf("\t\treturn t.%s.MarshalCBOR(w)\n\t}\n", vname)
 	}
 
-	pf("\treturn fmt.Errorf(\"cannot cbor marshal empty enum\")\n}\n")
+	pf("\treturn fmt.Errorf(\"can not marshal empty union as CBOR\")\n}\n\n")
 	return nil
 }
 
 func (ts *TypeSchema) writeCborUnmarshalerEnum(name string, w io.Writer) error {
 	pf := printerf(w)
 	pf("func (t *%s) UnmarshalCBOR(r io.Reader) error {\n", name)
-	pf("\ttyp, b, err := util.CborTypeExtractReader(r)\n")
+	pf("\ttyp, b, err := lexutil.CborTypeExtractReader(r)\n")
 	pf("\tif err != nil {\n\t\treturn err\n\t}\n\n")
 	pf("\tswitch typ {\n")
 	for _, e := range ts.Refs {
@@ -904,13 +897,11 @@ func (ts *TypeSchema) writeCborUnmarshalerEnum(name string, w io.Writer) error {
 	}
 
 	if ts.Closed {
-		pf(`
-			default:
-				return fmt.Errorf("closed enums must have a matching value")
+		pf(`			default:
+				return fmt.Errorf("closed unions must match a listed schema")
 		`)
 	} else {
-		pf(`
-			default:
+		pf(`			default:
 				return nil
 		`)
 
