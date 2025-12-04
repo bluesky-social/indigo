@@ -3,12 +3,13 @@ package main
 import (
 	"errors"
 	"math/rand"
+	"net/http"
 	"strings"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 func backoff(retries int, max int) time.Duration {
@@ -59,9 +60,9 @@ func evtHasSignalCollection(evt *comatproto.SyncSubscribeRepos_Commit, signalCol
 }
 
 func isRateLimitError(err error) bool {
-	var xrpcErr *xrpc.Error
+	var xrpcErr *atclient.APIError
 	if errors.As(err, &xrpcErr) {
-		return xrpcErr.IsThrottled()
+		return xrpcErr.StatusCode == http.StatusTooManyRequests
 	}
 	return false
 }
