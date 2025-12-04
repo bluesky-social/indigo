@@ -66,7 +66,7 @@ func run(args []string) error {
 		&cli.StringFlag{
 			Name:    "bind",
 			Usage:   "address and port to listen on for HTTP APIs",
-			Value:   ":8080",
+			Value:   ":2480",
 			EnvVars: []string{"TAP_BIND"},
 		},
 		&cli.IntFlag{
