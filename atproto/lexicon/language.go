@@ -142,12 +142,10 @@ func (s *SchemaDef) setBase(base string) {
 				v.Parameters.Properties[i] = val
 			}
 		}
-		if v.Message != nil {
-			u := SchemaDef{Inner: v.Message.Schema}
-			u.setBase(base)
-			i := u.Inner.(SchemaUnion)
-			v.Message.Schema = i
-		}
+		u := SchemaDef{Inner: v.Message.Schema}
+		u.setBase(base)
+		i := u.Inner.(SchemaUnion)
+		v.Message.Schema = i
 		s.Inner = v
 	case SchemaArray:
 		v.Items.setBase(base)
@@ -425,20 +423,18 @@ func (s *SchemaProcedure) CheckSchema() error {
 }
 
 type SchemaSubscription struct {
-	Type        string         `json:"type"` // "subscription"
-	Description *string        `json:"description,omitempty"`
-	Parameters  *SchemaParams  `json:"parameters"`        // optional
-	Message     *SchemaMessage `json:"message,omitempty"` // TODO(specs): is this really optional?
+	Type        string        `json:"type"` // "subscription"
+	Description *string       `json:"description,omitempty"`
+	Parameters  *SchemaParams `json:"parameters"` // optional
+	Message     SchemaMessage `json:"message"`
 }
 
 func (s *SchemaSubscription) CheckSchema() error {
 	if s.Type != "subscription" {
 		return fmt.Errorf("expected 'subscription' schema")
 	}
-	if s.Message != nil {
-		if err := s.Message.CheckSchema(); err != nil {
-			return err
-		}
+	if err := s.Message.CheckSchema(); err != nil {
+		return err
 	}
 	if s.Parameters != nil {
 		if err := s.Parameters.CheckSchema(); err != nil {
