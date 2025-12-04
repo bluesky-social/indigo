@@ -82,7 +82,7 @@ func (r *Resyncer) claimResyncJob(ctx context.Context) (string, bool, error) {
 			LIMIT 1
 		)
 		RETURNING did
-		`, models.RepoStateResyncing, models.RepoStatePending, models.RepoStateDesynced).Scan(&did)
+		`, models.RepoStateResyncing, models.RepoStatePending, models.RepoStateDesynchronized).Scan(&did)
 	if result.Error != nil {
 		return "", false, result.Error
 	}
@@ -289,7 +289,7 @@ func (r *Resyncer) handleResyncError(did string, err error) error {
 	var state models.RepoState
 	var errMsg string
 	if err == nil {
-		state = models.RepoStateDesynced
+		state = models.RepoStateDesynchronized
 		errMsg = ""
 	} else {
 		state = models.RepoStateError
@@ -323,5 +323,5 @@ func (r *Resyncer) handleResyncError(did string, err error) error {
 func (r *Resyncer) resetPartiallyResynced() error {
 	return r.db.Model(&models.Repo{}).
 		Where("state = ?", models.RepoStateResyncing).
-		Update("state", models.RepoStateDesynced).Error
+		Update("state", models.RepoStateDesynchronized).Error
 }

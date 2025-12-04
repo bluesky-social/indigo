@@ -3,14 +3,14 @@ package models
 type RepoState string
 
 const (
-	RepoStatePending     RepoState = "pending"
-	RepoStateDesynced    RepoState = "desynced"
-	RepoStateResyncing   RepoState = "resyncing"
-	RepoStateActive      RepoState = "active"
-	RepoStateTakendown   RepoState = "takendown"
-	RepoStateSuspended   RepoState = "suspended"
-	RepoStateDeactivated RepoState = "deactivated"
-	RepoStateError       RepoState = "error"
+	RepoStatePending        RepoState = "pending"
+	RepoStateDesynchronized RepoState = "desynchronized"
+	RepoStateResyncing      RepoState = "resyncing"
+	RepoStateActive         RepoState = "active"
+	RepoStateTakendown      RepoState = "takendown"
+	RepoStateSuspended      RepoState = "suspended"
+	RepoStateDeactivated    RepoState = "deactivated"
+	RepoStateError          RepoState = "error"
 )
 
 type AccountStatus string

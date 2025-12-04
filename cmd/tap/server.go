@@ -36,8 +36,8 @@ func (ts *TapServer) Start(address string) error {
 
 	ts.echo.GET("/health", ts.handleHealthcheck)
 	ts.echo.GET("/channel", ts.handleChannelWebsocket)
-	ts.echo.POST("/add-repos", ts.handleAddRepos)
-	ts.echo.POST("/remove-repos", ts.handleRemoveRepos)
+	ts.echo.POST("/repos/add", ts.handleAddRepos)
+	ts.echo.POST("/repos/remove", ts.handleRemoveRepos)
 	ts.echo.GET("/resolve/:did", ts.handleResolveDID)
 	ts.echo.GET("/info/:did", ts.handleInfoRepo)
 	ts.echo.GET("/stats/repo-count", ts.handleStatsRepoCount)
