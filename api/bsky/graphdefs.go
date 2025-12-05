@@ -65,7 +65,15 @@ type GraphDefs_NotFoundActor struct {
 // lists the bi-directional graph relationships between one actor (not indicated in the object), and the target actors (the DID included in the object)
 type GraphDefs_Relationship struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.graph.defs#relationship"`
-	Did           string `json:"did" cborgen:"did"`
+	// blockedBy: if the actor is blocked by this DID, contains the AT-URI of the block record
+	BlockedBy *string `json:"blockedBy,omitempty" cborgen:"blockedBy,omitempty"`
+	// blockedByList: if the actor is blocked by this DID via a block list, contains the AT-URI of the listblock record
+	BlockedByList *string `json:"blockedByList,omitempty" cborgen:"blockedByList,omitempty"`
+	// blocking: if the actor blocks this DID, this is the AT-URI of the block record
+	Blocking *string `json:"blocking,omitempty" cborgen:"blocking,omitempty"`
+	// blockingByList: if the actor blocks this DID via a block list, this is the AT-URI of the listblock record
+	BlockingByList *string `json:"blockingByList,omitempty" cborgen:"blockingByList,omitempty"`
+	Did            string  `json:"did" cborgen:"did"`
 	// followedBy: if the actor is followed by this DID, contains the AT-URI of the follow record
 	FollowedBy *string `json:"followedBy,omitempty" cborgen:"followedBy,omitempty"`
 	// following: if the actor follows this DID, this is the AT-URI of the follow record
