@@ -43,13 +43,16 @@ func (w *WebhookClient) post(evt *OutboxEvt) error {
 
 	resp, err := w.httpClient.Do(req)
 	if err != nil {
+		webhookRequests.WithLabelValues("error").Inc()
 		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		webhookRequests.WithLabelValues("non_2xx").Inc()
 		return fmt.Errorf("webhook returned non-2xx status: %d", resp.StatusCode)
 	}
 
+	webhookRequests.WithLabelValues("success").Inc()
 	return nil
 }

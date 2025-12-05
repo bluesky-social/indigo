@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	_ "net/http/pprof"
+
 	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/earthboundkid/versioninfo/v2"
@@ -34,9 +36,6 @@ func run(args []string) error {
 				Usage:   "environment name for observability",
 				Value:   "dev",
 				Sources: cli.EnvVars("TAP_ENV"),
-			},
-			&cli.BoolFlag{
-				Name: "enable-jaeger-tracing",
 			},
 			&cli.BoolFlag{
 				Name: "enable-otel-tracing",
@@ -152,6 +151,11 @@ func run(args []string) error {
 				Usage:   "admin token required for all API requests (if set)",
 				Sources: cli.EnvVars("TAP_ADMIN_TOKEN"),
 			},
+			&cli.StringFlag{
+				Name:    "metrics-listen",
+				Usage:   "address for metrics/pprof server (disabled if empty)",
+				Sources: cli.EnvVars("TAP_METRICS_LISTEN"),
+			},
 		},
 		Action: runTap,
 	}
@@ -227,6 +231,15 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 			svcErr <- err
 		}
 	}()
+
+	if metricsAddr := cmd.String("metrics-listen"); metricsAddr != "" {
+		go func() {
+			logger.Info("starting metrics server", "addr", metricsAddr)
+			if err := tap.Server.RunMetrics(metricsAddr); err != nil {
+				logger.Error("metrics server failed", "error", err)
+			}
+		}()
+	}
 
 	logger.Info("startup complete")
 	select {
