@@ -3,6 +3,8 @@ package lexicon
 import (
 	"fmt"
 	"strings"
+
+	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
 // Serialization helper type for top-level Lexicon schema JSON objects (files).
@@ -47,6 +49,10 @@ func (sf *SchemaFile) FinishParse() error {
 func (sf *SchemaFile) CheckSchema() error {
 	if sf.Lexicon != 1 {
 		return fmt.Errorf("unsupported lexicon language version: %d", sf.Lexicon)
+	}
+
+	if _, err := syntax.ParseNSID(sf.ID); err != nil {
+		return fmt.Errorf("invalid lexicon schema NSID: %s", sf.ID)
 	}
 
 	for frag, def := range sf.Defs {
