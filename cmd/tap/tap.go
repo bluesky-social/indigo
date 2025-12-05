@@ -120,7 +120,7 @@ func NewTap(config TapConfig) (*Tap, error) {
 		webhook: &WebhookClient{
 			logger:     logger.With("component", "webhook_client"),
 			webhookURL: config.WebhookURL,
-			apiToken: config.ApiToken,
+			apiToken:   config.ApiToken,
 			httpClient: &http.Client{
 				Timeout: 30 * time.Second,
 			},
@@ -131,13 +131,13 @@ func NewTap(config TapConfig) (*Tap, error) {
 	}
 
 	server := &TapServer{
-		logger:     logger.With("component", "server"),
-		db:         db,
-		outbox:     outbox,
+		logger:   logger.With("component", "server"),
+		db:       db,
+		outbox:   outbox,
 		apiToken: config.ApiToken,
-		idDir:      repoMngr.IdDir,
-		firehose:   firehose,
-		crawler:    crawler,
+		idDir:    repoMngr.IdDir,
+		firehose: firehose,
+		crawler:  crawler,
 	}
 
 	t := &Tap{
@@ -165,13 +165,6 @@ func NewTap(config TapConfig) (*Tap, error) {
 // Run starts internal background workers for resync, cursor saving, and outbox delivery.
 func (t *Tap) Run(ctx context.Context) {
 	go t.Events.LoadEvents(ctx)
-
-	go func() {
-		for {
-			t.Events.logger.Info("cache stat", "size", len(t.Events.cache))
-			time.Sleep(time.Second)
-		}
-	}()
 
 	if !t.config.OutboxOnly {
 		go t.Resyncer.run(ctx)
