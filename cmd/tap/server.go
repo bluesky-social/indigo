@@ -10,6 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/cmd/tap/models"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gorm.io/gorm"
 )
@@ -28,6 +29,7 @@ type TapServer struct {
 func (ts *TapServer) Start(address string) error {
 	ts.echo = echo.New()
 	ts.echo.HideBanner = true
+	ts.echo.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
 
 	// Apply API token middleware if configured
 	if ts.apiToken != "" {
