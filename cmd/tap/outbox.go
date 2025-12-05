@@ -96,6 +96,7 @@ func (o *Outbox) deliverEvent(eventID uint) {
 }
 
 func (o *Outbox) sendEvent(evt *OutboxEvt) {
+	eventsDelivered.Inc()
 	switch o.mode {
 	case OutboxModeFireAndForget, OutboxModeWebsocketAck:
 		o.outgoing <- evt
@@ -106,6 +107,7 @@ func (o *Outbox) sendEvent(evt *OutboxEvt) {
 
 // AckEvent marks an event as delivered and queues it for deletion.
 func (o *Outbox) AckEvent(eventID uint) {
+	eventsAcked.Inc()
 	evt, exists := o.events.GetEvent(eventID)
 
 	if exists {

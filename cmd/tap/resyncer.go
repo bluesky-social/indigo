@@ -97,6 +97,9 @@ func (r *Resyncer) resyncDid(ctx context.Context, did string) error {
 	span.SetAttributes(attribute.String("did", did))
 	defer span.End()
 
+	resyncsStarted.Inc()
+	startTime := time.Now()
+
 	r.logger.Info("starting resync", "did", did)
 
 	err := r.repos.RefreshIdentity(ctx, did)
@@ -106,8 +109,13 @@ func (r *Resyncer) resyncDid(ctx context.Context, did string) error {
 
 	success, err := r.doResync(ctx, did)
 	if !success {
+		resyncsFailed.Inc()
+		resyncDuration.Observe(time.Since(startTime).Seconds())
 		return r.handleResyncError(did, err)
 	}
+
+	resyncsCompleted.Inc()
+	resyncDuration.Observe(time.Since(startTime).Seconds())
 
 	if err := r.events.drainResyncBuffer(ctx, did); err != nil {
 		r.logger.Error("failed to drain resync buffer events", "did", did, "error", err)

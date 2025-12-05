@@ -40,6 +40,11 @@ type FirehoseProcessor struct {
 	lastSeq atomic.Int64
 }
 
+func (fp *FirehoseProcessor) updateLastSeq(seq int64) {
+	fp.lastSeq.Store(seq)
+	firehoseLastSeq.Set(float64(seq))
+}
+
 func (fp *FirehoseProcessor) Run(ctx context.Context) error {
 	fp.events.WaitForReady(ctx)
 
@@ -49,10 +54,12 @@ func (fp *FirehoseProcessor) Run(ctx context.Context) error {
 
 // ProcessCommit validates and applies a commit event from the firehose.
 func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
+	firehoseEventsReceived.Inc()
+
 	ctx, span := tracer.Start(ctx, "ProcessCommit")
 	defer span.End()
 
-	defer fp.lastSeq.Store(evt.Seq)
+	defer fp.updateLastSeq(evt.Seq)
 
 	curr, err := fp.repos.GetRepoState(evt.Repo)
 	if err != nil {
@@ -66,15 +73,18 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 			}
 		}
 		// even if we just tracked, we return here and just let the resync workers handle the rest
+		firehoseEventsSkipped.Inc()
 		return nil
 	}
 
 	if curr.State != models.RepoStateActive && curr.State != models.RepoStateResyncing {
+		firehoseEventsSkipped.Inc()
 		return nil
 	}
 
 	if curr.Rev != "" && evt.Rev <= curr.Rev {
 		fp.logger.Debug("skipping replayed event", "did", evt.Repo, "eventRev", evt.Rev, "currentRev", curr.Rev)
+		firehoseEventsSkipped.Inc()
 		return nil
 	}
 
@@ -104,6 +114,7 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 		}
 	}
 	if len(filteredOps) == 0 {
+		firehoseEventsSkipped.Inc()
 		return nil
 	}
 	commit.Ops = filteredOps
@@ -122,6 +133,7 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 		return err
 	}
 
+	firehoseEventsProcessed.Inc()
 	return nil
 }
 
@@ -190,10 +202,12 @@ func (fp *FirehoseProcessor) validateCommit(ctx context.Context, evt *comatproto
 
 // ProcessSync handles sync events and marks repos for resync if needed.
 func (fp *FirehoseProcessor) ProcessSync(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync) error {
+	firehoseEventsReceived.Inc()
+
 	ctx, span := tracer.Start(ctx, "ProcessSync")
 	defer span.End()
 
-	defer fp.lastSeq.Store(evt.Seq)
+	defer fp.updateLastSeq(evt.Seq)
 
 	curr, err := fp.repos.GetRepoState(evt.Did)
 	if err != nil {
@@ -204,8 +218,10 @@ func (fp *FirehoseProcessor) ProcessSync(ctx context.Context, evt *comatproto.Sy
 				fp.logger.Error("failed to auto-track repo", "did", evt.Did, "error", err)
 				return err
 			}
+			firehoseEventsSkipped.Inc()
 			return nil
 		}
+		firehoseEventsSkipped.Inc()
 		return nil
 	}
 
@@ -215,16 +231,19 @@ func (fp *FirehoseProcessor) ProcessSync(ctx context.Context, evt *comatproto.Sy
 	}
 
 	if curr.State != models.RepoStateActive {
+		firehoseEventsSkipped.Inc()
 		return nil
 	}
 
 	if curr.Rev != "" && commit.Rev <= curr.Rev {
 		fp.logger.Debug("skipping replayed event", "did", commit.DID, "eventRev", commit.Rev, "currentRev", curr.Rev)
+		firehoseEventsSkipped.Inc()
 		return nil
 	}
 
 	if curr.PrevData == commit.Data.String() {
 		fp.logger.Debug("skipping noop sync event", "did", commit.DID, "rev", commit.Rev)
+		firehoseEventsSkipped.Inc()
 		return nil
 	}
 
@@ -233,11 +252,13 @@ func (fp *FirehoseProcessor) ProcessSync(ctx context.Context, evt *comatproto.Sy
 		return err
 	}
 
+	firehoseEventsProcessed.Inc()
 	return nil
 }
 
 func (fp *FirehoseProcessor) ProcessIdentity(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Identity) error {
-	defer fp.lastSeq.Store(evt.Seq)
+	firehoseEventsReceived.Inc()
+	defer fp.updateLastSeq(evt.Seq)
 
 	curr, err := fp.repos.GetRepoState(evt.Did)
 	if err != nil {
@@ -247,16 +268,24 @@ func (fp *FirehoseProcessor) ProcessIdentity(ctx context.Context, evt *comatprot
 			if err := fp.repos.EnsureRepo(evt.Did); err != nil {
 				return err
 			}
+			firehoseEventsSkipped.Inc()
 			return nil
 		}
+		firehoseEventsSkipped.Inc()
 		return nil
 	}
 
-	return fp.repos.RefreshIdentity(ctx, evt.Did)
+	if err := fp.repos.RefreshIdentity(ctx, evt.Did); err != nil {
+		return err
+	}
+
+	firehoseEventsProcessed.Inc()
+	return nil
 }
 
 func (fp *FirehoseProcessor) ProcessAccount(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Account) error {
-	defer fp.lastSeq.Store(evt.Seq)
+	firehoseEventsReceived.Inc()
+	defer fp.updateLastSeq(evt.Seq)
 
 	curr, err := fp.repos.GetRepoState(evt.Did)
 	if err != nil {
@@ -267,8 +296,10 @@ func (fp *FirehoseProcessor) ProcessAccount(ctx context.Context, evt *comatproto
 				fp.logger.Error("failed to auto-track repo", "did", evt.Did, "error", err)
 				return err
 			}
+			firehoseEventsSkipped.Inc()
 			return nil
 		}
+		firehoseEventsSkipped.Inc()
 		return nil
 	}
 
@@ -279,10 +310,12 @@ func (fp *FirehoseProcessor) ProcessAccount(ctx context.Context, evt *comatproto
 		updateTo = models.AccountStatus(*evt.Status)
 	} else {
 		// no-op for other events such as throttled or desynchronized
+		firehoseEventsSkipped.Inc()
 		return nil
 	}
 
 	if curr.Status == updateTo {
+		firehoseEventsSkipped.Inc()
 		return nil
 	}
 
@@ -311,6 +344,7 @@ func (fp *FirehoseProcessor) ProcessAccount(ctx context.Context, evt *comatproto
 		}
 	}
 
+	firehoseEventsProcessed.Inc()
 	return nil
 }
 

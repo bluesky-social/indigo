@@ -9,7 +9,6 @@ import (
 	"github.com/urfave/cli/v3"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
@@ -21,26 +20,6 @@ func setupOTEL(cmd *cli.Command) error {
 	env := cmd.String("env")
 	if env == "" {
 		env = "dev"
-	}
-
-	if cmd.Bool("enable-jaeger-tracing") {
-		jaegerUrl := "http://localhost:14268/api/traces"
-		exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(jaegerUrl)))
-		if err != nil {
-			return err
-		}
-		tp := tracesdk.NewTracerProvider(
-			tracesdk.WithBatcher(exp),
-			tracesdk.WithResource(resource.NewWithAttributes(
-				semconv.SchemaURL,
-				semconv.ServiceNameKey.String("tap"),
-				attribute.String("env", env),
-				attribute.String("environment", env),
-				attribute.Int64("ID", 1),
-			)),
-		)
-
-		otel.SetTracerProvider(tp)
 	}
 
 	// Enable OTLP HTTP exporter

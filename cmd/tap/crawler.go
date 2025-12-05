@@ -106,6 +106,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 			return err
 		}
 
+		crawlerReposDiscovered.Add(float64(len(repos)))
 		c.logger.Info("enumerated repos batch", "count", len(repos))
 
 		if repoList.Cursor == nil || *repoList.Cursor == "" {
@@ -183,6 +184,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 			return err
 		}
 
+		crawlerReposDiscovered.Add(float64(len(repos)))
 		c.logger.Info("enumerated repos by collection batch", "collection", collection, "count", len(repos))
 
 		if repoList.Cursor == nil || *repoList.Cursor == "" {

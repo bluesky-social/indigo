@@ -78,6 +78,7 @@ func (em *EventManager) DeleteEvents(ids []uint) error {
 	for _, id := range ids {
 		delete(em.cache, id)
 	}
+	eventCacheSize.Set(float64(len(em.cache)))
 	return nil
 }
 
@@ -134,6 +135,7 @@ func (em *EventManager) loadEventPage(lastID int) (int, error) {
 		}
 		em.cache[entry.ID] = entry
 	}
+	eventCacheSize.Set(float64(len(em.cache)))
 	em.cacheLk.Unlock()
 
 	for i := range dbEvts {
@@ -259,6 +261,7 @@ func (em *EventManager) AddRecordEvents(evts []*RecordEvt, live bool, dbCallback
 		entryCopy := entry // Create heap copy
 		em.cache[id] = &entryCopy
 	}
+	eventCacheSize.Set(float64(len(em.cache)))
 	em.cacheLk.Unlock()
 
 	for _, evtID := range evtIDs {
@@ -296,6 +299,7 @@ func (em *EventManager) AddUserEvent(evt *UserEvt, dbCallback DBCallback) error 
 		Live:  false,
 		Event: jsonData,
 	}
+	eventCacheSize.Set(float64(len(em.cache)))
 	em.cacheLk.Unlock()
 
 	em.pendingIDs <- evtID
