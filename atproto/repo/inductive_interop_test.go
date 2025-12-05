@@ -112,6 +112,18 @@ func (f *CommitProofFixture) Test(t *testing.T) {
 	}
 	assert.NoError(diffTree.Verify())
 
+	// print out blocks (for development)
+	/*
+		akc, err := diffBlocks.AllKeysChan(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Printf("## %s\n", f.Comment)
+		for c := range akc {
+			fmt.Println(c)
+		}
+	*/
+
 	// verify inclusion of blocks in diff
 	for _, cstr := range f.BlocksInProof {
 		c, err := cid.Decode(cstr)
