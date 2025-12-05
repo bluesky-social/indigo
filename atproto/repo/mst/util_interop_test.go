@@ -1,6 +1,9 @@
 package mst
 
 import (
+	"bufio"
+	"os"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -75,4 +78,23 @@ func TestHeightForKey(t *testing.T) {
 	assert.Equal(HeightForKey([]byte("app.bsky.feed.post/9adeb165882c")), 8, msg)
 
 	assert.Equal(HeightForKey([]byte("R2/359107")), 2, msg)
+}
+
+func TestExampleKeyHeights(t *testing.T) {
+	assert := assert.New(t)
+
+	file, err := os.Open("testdata/example_keys.txt")
+	assert.NoError(err)
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) < 3 || line[0] == '#' {
+			continue
+		}
+		height, err := strconv.Atoi(string(line[1]))
+		assert.NoError(err)
+		assert.Equal(height, HeightForKey([]byte(line)))
+	}
+	assert.NoError(scanner.Err())
 }
