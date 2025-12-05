@@ -49,7 +49,7 @@ type TapConfig struct {
 	WebhookURL                 string
 	CollectionFilters          []string // e.g., ["app.bsky.feed.post", "app.bsky.graph.*"]
 	OutboxOnly                 bool
-	AdminToken                 string
+	ApiToken                   string
 }
 
 func NewTap(config TapConfig) (*Tap, error) {
@@ -120,7 +120,7 @@ func NewTap(config TapConfig) (*Tap, error) {
 		webhook: &WebhookClient{
 			logger:     logger.With("component", "webhook_client"),
 			webhookURL: config.WebhookURL,
-			adminToken: config.AdminToken,
+			apiToken: config.ApiToken,
 			httpClient: &http.Client{
 				Timeout: 30 * time.Second,
 			},
@@ -134,7 +134,7 @@ func NewTap(config TapConfig) (*Tap, error) {
 		logger:     logger.With("component", "server"),
 		db:         db,
 		outbox:     outbox,
-		adminToken: config.AdminToken,
+		apiToken: config.ApiToken,
 		idDir:      repoMngr.IdDir,
 		firehose:   firehose,
 		crawler:    crawler,

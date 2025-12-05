@@ -15,23 +15,23 @@ import (
 )
 
 type TapServer struct {
-	db         *gorm.DB
-	echo       *echo.Echo
-	logger     *slog.Logger
-	outbox     *Outbox
-	adminToken string
-	idDir      identity.Directory
-	firehose   *FirehoseProcessor
-	crawler    *Crawler
+	db       *gorm.DB
+	echo     *echo.Echo
+	logger   *slog.Logger
+	outbox   *Outbox
+	apiToken string
+	idDir    identity.Directory
+	firehose *FirehoseProcessor
+	crawler  *Crawler
 }
 
 func (ts *TapServer) Start(address string) error {
 	ts.echo = echo.New()
 	ts.echo.HideBanner = true
 
-	// Apply admin token middleware if configured
-	if ts.adminToken != "" {
-		ts.echo.Use(ts.adminAuthMiddleware)
+	// Apply API token middleware if configured
+	if ts.apiToken != "" {
+		ts.echo.Use(ts.apiTokenMiddleware)
 	}
 
 	ts.echo.GET("/health", ts.handleHealthcheck)
@@ -48,7 +48,7 @@ func (ts *TapServer) Start(address string) error {
 	return ts.echo.Start(address)
 }
 
-func (ts *TapServer) adminAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+func (ts *TapServer) apiTokenMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		token := c.Request().Header.Get("Authorization")
 		if token == "" {
@@ -61,8 +61,8 @@ func (ts *TapServer) adminAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc
 			token = token[len(bearerPrefix):]
 		}
 
-		if token != ts.adminToken {
-			return echo.NewHTTPError(http.StatusUnauthorized, "invalid admin token")
+		if token != ts.apiToken {
+			return echo.NewHTTPError(http.StatusUnauthorized, "invalid api token")
 		}
 
 		return next(c)

@@ -147,9 +147,9 @@ func run(args []string) error {
 				Sources: cli.EnvVars("TAP_LOG_LEVEL", "LOG_LEVEL"),
 			},
 			&cli.StringFlag{
-				Name:    "admin-token",
-				Usage:   "admin token required for all API requests (if set)",
-				Sources: cli.EnvVars("TAP_ADMIN_TOKEN"),
+				Name:    "api-token",
+				Usage:   "api token required for all API requests (if set)",
+				Sources: cli.EnvVars("TAP_API_TOKEN"),
 			},
 			&cli.StringFlag{
 				Name:    "metrics-listen",
@@ -197,7 +197,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		WebhookURL:                 cmd.String("webhook-url"),
 		CollectionFilters:          cmd.StringSlice("collection-filters"),
 		OutboxOnly:                 cmd.Bool("outbox-only"),
-		AdminToken:                 cmd.String("admin-token"),
+		ApiToken:                   cmd.String("api-token"),
 	}
 
 	logger.Info("creating tap service")
