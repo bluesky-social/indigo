@@ -189,13 +189,12 @@ func lintSchemaDef(nsid syntax.NSID, defname string, def lexicon.SchemaDef) []Li
 				issues = append(issues, reciss...)
 			}
 		}
-		if v.Message != nil {
-			// TODO: v.Message.Schema must only have local references (same file), and should have at least one defined
-			reciss := lintSchemaRecursive(nsid, lexicon.SchemaDef{Inner: v.Message.Schema})
-			if len(reciss) > 0 {
-				issues = append(issues, reciss...)
-			}
-		} else {
+		// TODO: v.Message.Schema must only have local references (same file)
+		reciss := lintSchemaRecursive(nsid, lexicon.SchemaDef{Inner: v.Message.Schema})
+		if len(reciss) > 0 {
+			issues = append(issues, reciss...)
+		}
+		if len(v.Message.Schema.Refs) == 0 {
 			issues = append(issues, LintIssue{
 				NSID:            nsid,
 				LintLevel:       "warn",
@@ -204,7 +203,6 @@ func lintSchemaDef(nsid syntax.NSID, defname string, def lexicon.SchemaDef) []Li
 				Message:         "no subscription message types defined",
 			})
 		}
-		// TODO: at least one message type
 	case lexicon.SchemaPermissionSet:
 		if v.Title == nil || *v.Title == "" {
 			issues = append(issues, LintIssue{
