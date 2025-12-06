@@ -3,7 +3,7 @@
     "name": "invalid lexicon field",
     "lexicon": {
       "lexicon": "one",
-      "id": "example.lexicon",
+      "id": "example.lexicon.other",
       "defs": {
         "demo": {
           "type": "integer"
@@ -24,10 +24,22 @@
     }
   },
   {
+    "name": "invalid NSID",
+    "lexicon": {
+      "lexicon": 1,
+      "id": "one-two-three",
+      "defs": {
+        "demo": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  {
     "name": "defined unknown",
     "lexicon": {
       "lexicon": 1,
-      "id": "example.lexicon",
+      "id": "example.lexicon.other",
       "defs": {
         "demo": {
           "type": "unknown"
@@ -39,7 +51,7 @@
     "name": "defined ref",
     "lexicon": {
       "lexicon": 1,
-      "id": "example.lexicon",
+      "id": "example.lexicon.other",
       "defs": {
         "demo": {
           "type": "ref",
@@ -52,7 +64,7 @@
     "name": "non-main primary",
     "lexicon": {
       "lexicon": 1,
-      "id": "example.lexicon",
+      "id": "example.lexicon.other",
       "defs": {
         "demo": {
           "type": "record",
@@ -68,7 +80,7 @@
     "name": "record missing type object",
     "lexicon": {
       "lexicon": 1,
-      "id": "example.lexicon",
+      "id": "example.lexicon.other",
       "defs": {
         "main": {
           "type": "record",

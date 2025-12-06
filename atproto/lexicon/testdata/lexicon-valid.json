@@ -3,7 +3,7 @@
     "name": "minimal",
     "lexicon": {
       "lexicon": 1,
-      "id": "example.lexicon",
+      "id": "example.lexicon.other",
       "defs": {
         "demo": {
           "type": "integer"
