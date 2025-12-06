@@ -23,6 +23,7 @@ const (
 type Datetime string
 
 var datetimeRegex = regexp.MustCompile(`^[0-9]{4}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-6][0-9]:[0-6][0-9](.[0-9]{1,20})?(Z|([+-][0-2][0-9]:[0-5][0-9]))$`)
+var astroZero = time.Date(0000, 1, 1, 0, 0, 0, 0, time.UTC)
 
 func ParseDatetime(raw string) (Datetime, error) {
 	if raw == "" {
@@ -39,9 +40,13 @@ func ParseDatetime(raw string) (Datetime, error) {
 		return "", errors.New("Datetime can't use '-00:00' for UTC timezone, must use '+00:00', per ISO-8601")
 	}
 	// ensure that the datetime actually parses using golang time lib
-	_, err := time.Parse(time.RFC3339Nano, raw)
+	t, err := time.Parse(time.RFC3339Nano, raw)
 	if err != nil {
 		return "", err
+	}
+	// times before astronomical zero are disallowed
+	if t.Before(astroZero) {
+		return "", errors.New("Datetime can not be before year zero")
 	}
 	return Datetime(raw), nil
 }
