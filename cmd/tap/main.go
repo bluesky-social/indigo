@@ -37,13 +37,6 @@ func run(args []string) error {
 				Value:   "dev",
 				Sources: cli.EnvVars("TAP_ENV"),
 			},
-			&cli.BoolFlag{
-				Name: "enable-otel-tracing",
-			},
-			&cli.StringFlag{
-				Name:    "otel-exporter-otlp-endpoint",
-				Sources: cli.EnvVars("OTEL_EXPORTER_OTLP_ENDPOINT"),
-			},
 			&cli.StringFlag{
 				Name:    "database-url",
 				Usage:   "database connection string (sqlite://path or postgres://...)",
@@ -164,10 +157,6 @@ func run(args []string) error {
 }
 
 func runTap(ctx context.Context, cmd *cli.Command) error {
-	if err := setupOTEL(cmd); err != nil {
-		return err
-	}
-
 	logger := configLogger(cmd, os.Stdout)
 	slog.SetDefault(logger)
 
