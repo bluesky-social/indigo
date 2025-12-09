@@ -21,7 +21,7 @@ type EventManager struct {
 	nextID atomic.Uint64
 
 	cacheSize       int
-	finishedLoading bool
+	finishedLoading atomic.Bool
 
 	cache   map[uint]*OutboxEvt
 	cacheLk sync.RWMutex
@@ -36,7 +36,7 @@ func (em *EventManager) IsFull() bool {
 }
 
 func (em *EventManager) IsReady() bool {
-	return em.finishedLoading && !em.IsFull()
+	return em.finishedLoading.Load() && !em.IsFull()
 }
 
 func (em *EventManager) WaitForReady(ctx context.Context) {
@@ -101,7 +101,7 @@ func (em *EventManager) LoadEvents(ctx context.Context) {
 				continue
 			}
 			if lastPageID == lastID {
-				em.finishedLoading = true
+				em.finishedLoading.Store(true)
 				return
 			}
 			lastID = lastPageID
