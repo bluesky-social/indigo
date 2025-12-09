@@ -170,17 +170,17 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	config := TapConfig{
-		DatabaseURL:                cmd.String("database-url"),
-		DBMaxConns:                 int(cmd.Int("db-max-conns")),
+		DatabaseURL:                cmd.String("db-url"),
+		DBMaxConns:                 int(cmd.Int("max-db-conn")),
 		RelayUrl:                   relayUrl,
 		FirehoseParallelism:        int(cmd.Int("firehose-parallelism")),
 		ResyncParallelism:          int(cmd.Int("resync-parallelism")),
 		OutboxParallelism:          int(cmd.Int("outbox-parallelism")),
 		FirehoseCursorSaveInterval: cmd.Duration("cursor-save-interval"),
 		RepoFetchTimeout:           cmd.Duration("repo-fetch-timeout"),
-		IdentityCacheSize:          int(cmd.Int("identity-cache-size")),
-		EventCacheSize:             int(cmd.Int("event-cache-size")),
-		FullNetworkMode:            cmd.Bool("full-network-mode"),
+		IdentityCacheSize:          int(cmd.Int("ident-cache-size")),
+		EventCacheSize:             int(cmd.Int("outbox-capacity")),
+		FullNetworkMode:            cmd.Bool("full-network"),
 		SignalCollection:           cmd.String("signal-collection"),
 		DisableAcks:                cmd.Bool("disable-acks"),
 		WebhookURL:                 cmd.String("webhook-url"),
