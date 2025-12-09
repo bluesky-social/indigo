@@ -98,7 +98,7 @@ Tap syncs a subset of repos in the network. It can operate in three modes for de
 
 ## Collection Filtering
 
-After narrowing down the network to a subset of repos, Tap can further filter records down to a specified set of collections. Filters apply to record events only. User events are always delivered for tracked repos.
+After narrowing down the network to a subset of repos, Tap can further filter records down to a specified set of collections. Filters apply to record events only. Identity events are always delivered for tracked repos.
 
 If you are interested syncing all of a single record type, it is important to specify that collection as both the signal collection and the filter collection. For example: `TAP_SIGNAL_COLLECTION=com.example.nsid TAP_COLLECTION_FILTERS=com.example.nsid`
 
@@ -134,13 +134,13 @@ Events are delivered as JSON:
 }
 ```
 
-**User events** (handle or status changes):
+**Identity events** (handle or status changes):
 
 ```json
 {
   "id": 12346,
-  "type": "user",
-  "user": {
+  "type": "identity",
+  "identity": {
     "did": "did:plc:abc123",
     "handle": "alice.bsky.social",
     "isActive": true,

@@ -60,13 +60,13 @@ func (rm *RepoManager) RefreshIdentity(ctx context.Context, did string) error {
 		return nil
 	}
 
-	userEvt := &UserEvt{
+	identityEvt := &IdentityEvt{
 		Did:      did,
 		Handle:   handleStr,
 		IsActive: curr.Status == models.AccountStatusActive,
 		Status:   curr.Status,
 	}
-	if err := rm.events.AddUserEvent(ctx, userEvt, func(tx *gorm.DB) error {
+	if err := rm.events.AddIdentityEvent(ctx, identityEvt, func(tx *gorm.DB) error {
 		return tx.Model(&models.Repo{}).
 			Where("did = ?", did).
 			Update("handle", handleStr).Error
