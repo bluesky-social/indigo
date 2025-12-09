@@ -40,7 +40,7 @@ type RecordEvt struct {
 	Cid        string                 `json:"cid,omitempty"`
 }
 
-func (e *RecordEvt) MarshalJSON(id uint) ([]byte, error) {
+func (e *RecordEvt) MarshalWithId(id uint) ([]byte, error) {
 	return json.Marshal(MarshallableEvt{
 		ID:        id,
 		Type:      "record",
@@ -55,7 +55,7 @@ type UserEvt struct {
 	Status   models.AccountStatus `json:"status"`
 }
 
-func (e *UserEvt) MarshalJSON(id uint) ([]byte, error) {
+func (e *UserEvt) MarshalWithId(id uint) ([]byte, error) {
 	return json.Marshal(MarshallableEvt{
 		ID:      id,
 		Type:    "user",
