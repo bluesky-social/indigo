@@ -73,7 +73,7 @@ func (r *Resyncer) claimResyncJob(ctx context.Context) (string, bool, error) {
 	defer r.claimJobMu.Unlock()
 
 	var did string
-	result := r.db.Raw(`
+	result := r.db.WithContext(ctx).Raw(`
 		UPDATE repos
 		SET state = ?
 		WHERE did = (
@@ -111,7 +111,7 @@ func (r *Resyncer) resyncDid(ctx context.Context, did string) error {
 	if !success {
 		resyncsFailed.Inc()
 		resyncDuration.Observe(time.Since(startTime).Seconds())
-		return r.handleResyncError(did, err)
+		return r.handleResyncError(ctx, did, err)
 	}
 
 	resyncsCompleted.Inc()
@@ -181,7 +181,7 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 	r.logger.Info("iterating repo records", "did", did, "rev", rev)
 
 	var existingRecords []models.RepoRecord
-	if err := r.db.Find(&existingRecords, "did = ?", did).Error; err != nil {
+	if err := r.db.WithContext(ctx).Find(&existingRecords, "did = ?", did).Error; err != nil {
 		return false, fmt.Errorf("failed to load existing records: %w", err)
 	}
 
@@ -254,7 +254,7 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 
 		if len(evtBatch) >= batchSize {
 			r.events.WaitForReady(ctx)
-			if err := r.events.AddRecordEvents(evtBatch, false, func(tx *gorm.DB) error {
+			if err := r.events.AddRecordEvents(ctx, evtBatch, false, func(tx *gorm.DB) error {
 				return nil
 			}); err != nil {
 				r.logger.Error("failed to flush batch", "error", err, "did", did)
@@ -270,13 +270,13 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 		return false, fmt.Errorf("failed to iterate repo: %w", err)
 	}
 
-	if err := r.events.AddRecordEvents(evtBatch, false, func(tx *gorm.DB) error {
+	if err := r.events.AddRecordEvents(ctx, evtBatch, false, func(tx *gorm.DB) error {
 		return nil
 	}); err != nil {
 		return false, fmt.Errorf("failed to flush final batch: %w", err)
 	}
 
-	if err := r.db.Model(&models.Repo{}).
+	if err := r.db.WithContext(ctx).Model(&models.Repo{}).
 		Where("did = ?", did).
 		Updates(map[string]interface{}{
 			"state":       models.RepoStateActive,
@@ -293,7 +293,7 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 	return true, nil
 }
 
-func (r *Resyncer) handleResyncError(did string, err error) error {
+func (r *Resyncer) handleResyncError(ctx context.Context, did string, err error) error {
 	var state models.RepoState
 	var errMsg string
 	if err == nil {
@@ -304,7 +304,7 @@ func (r *Resyncer) handleResyncError(did string, err error) error {
 		errMsg = err.Error()
 	}
 
-	repo, err := r.repos.GetRepoState(did)
+	repo, err := r.repos.GetRepoState(ctx, did)
 	if err != nil {
 		return err
 	}
@@ -312,7 +312,7 @@ func (r *Resyncer) handleResyncError(did string, err error) error {
 	// start a 1 min & go up to 1 hr between retries
 	retryAfter := time.Now().Add(backoff(repo.RetryCount, 60))
 
-	dbErr := r.db.Model(&models.Repo{}).
+	dbErr := r.db.WithContext(ctx).Model(&models.Repo{}).
 		Where("did = ?", did).
 		Updates(map[string]interface{}{
 			"state":       state,
@@ -328,8 +328,8 @@ func (r *Resyncer) handleResyncError(did string, err error) error {
 
 }
 
-func (r *Resyncer) resetPartiallyResynced() error {
-	return r.db.Model(&models.Repo{}).
+func (r *Resyncer) resetPartiallyResynced(ctx context.Context) error {
+	return r.db.WithContext(ctx).Model(&models.Repo{}).
 		Where("state = ?", models.RepoStateResyncing).
 		Update("state", models.RepoStateDesynchronized).Error
 }

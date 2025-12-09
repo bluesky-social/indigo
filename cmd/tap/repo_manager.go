@@ -17,9 +17,9 @@ type RepoManager struct {
 	events *EventManager
 }
 
-func (rm *RepoManager) GetRepoState(did string) (*models.Repo, error) {
+func (rm *RepoManager) GetRepoState(ctx context.Context, did string) (*models.Repo, error) {
 	var r models.Repo
-	if err := rm.db.First(&r, "did = ?", did).Error; err != nil {
+	if err := rm.db.WithContext(ctx).First(&r, "did = ?", did).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return nil, err
 		}
@@ -28,8 +28,8 @@ func (rm *RepoManager) GetRepoState(did string) (*models.Repo, error) {
 	return &r, nil
 }
 
-func (rm *RepoManager) UpdateRepoState(did string, state models.RepoState) error {
-	return rm.db.Model(&models.Repo{}).
+func (rm *RepoManager) UpdateRepoState(ctx context.Context, did string, state models.RepoState) error {
+	return rm.db.WithContext(ctx).Model(&models.Repo{}).
 		Where("did = ?", did).
 		Update("state", state).Error
 }
@@ -48,7 +48,7 @@ func (rm *RepoManager) RefreshIdentity(ctx context.Context, did string) error {
 		return err
 	}
 
-	curr, err := rm.GetRepoState(did)
+	curr, err := rm.GetRepoState(ctx, did)
 	if err != nil {
 		return err
 	} else if curr == nil {
@@ -66,7 +66,7 @@ func (rm *RepoManager) RefreshIdentity(ctx context.Context, did string) error {
 		IsActive: curr.Status == models.AccountStatusActive,
 		Status:   curr.Status,
 	}
-	if err := rm.events.AddUserEvent(userEvt, func(tx *gorm.DB) error {
+	if err := rm.events.AddUserEvent(ctx, userEvt, func(tx *gorm.DB) error {
 		return tx.Model(&models.Repo{}).
 			Where("did = ?", did).
 			Update("handle", handleStr).Error
@@ -78,8 +78,8 @@ func (rm *RepoManager) RefreshIdentity(ctx context.Context, did string) error {
 	return nil
 }
 
-func (rm *RepoManager) EnsureRepo(did string) error {
-	if err := rm.db.Save(&models.Repo{
+func (rm *RepoManager) EnsureRepo(ctx context.Context, did string) error {
+	if err := rm.db.WithContext(ctx).Save(&models.Repo{
 		Did:    did,
 		State:  models.RepoStatePending,
 		Status: models.AccountStatusActive,

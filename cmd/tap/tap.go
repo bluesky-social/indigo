@@ -157,7 +157,7 @@ func NewTap(config TapConfig) (*Tap, error) {
 		config: config,
 	}
 
-	if err := t.Resyncer.resetPartiallyResynced(); err != nil {
+	if err := t.Resyncer.resetPartiallyResynced(context.Background()); err != nil {
 		return nil, err
 	}
 

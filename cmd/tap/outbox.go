@@ -134,14 +134,14 @@ func (o *Outbox) runBatchedDeletes(ctx context.Context) {
 		case id := <-o.acks:
 			batch = append(batch, id)
 			if len(batch) >= 1000 {
-				if err := o.events.DeleteEvents(batch); err != nil {
+				if err := o.events.DeleteEvents(ctx, batch); err != nil {
 					o.logger.Error("failed to delete batch of acked events", "error", err, "count", len(batch))
 				}
 				batch = nil
 			}
 		case <-ticker.C:
 			if len(batch) > 0 {
-				if err := o.events.DeleteEvents(batch); err != nil {
+				if err := o.events.DeleteEvents(ctx, batch); err != nil {
 					o.logger.Error("failed to delete batch of acked events", "error", err, "count", len(batch))
 				}
 				batch = nil

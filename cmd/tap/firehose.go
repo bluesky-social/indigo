@@ -61,13 +61,13 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 
 	defer fp.updateLastSeq(evt.Seq)
 
-	curr, err := fp.repos.GetRepoState(evt.Repo)
+	curr, err := fp.repos.GetRepoState(ctx, evt.Repo)
 	if err != nil {
 		return err
 	} else if curr == nil {
 		shouldTrack := fp.fullNetworkMode || (fp.signalCollection != "" && evtHasSignalCollection(evt, fp.signalCollection))
 		if shouldTrack {
-			if err := fp.repos.EnsureRepo(evt.Repo); err != nil {
+			if err := fp.repos.EnsureRepo(ctx, evt.Repo); err != nil {
 				fp.logger.Error("failed to auto-track repo", "did", evt.Repo, "error", err)
 				return err
 			}
@@ -93,7 +93,7 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 	} else if evt.PrevData.String() != curr.PrevData {
 		fp.logger.Warn("repo state desynchronized", "did", evt.Repo, "rev", evt.Rev)
 		// gets picked up by resync workers
-		if err := fp.repos.UpdateRepoState(evt.Repo, models.RepoStateDesynchronized); err != nil {
+		if err := fp.repos.UpdateRepoState(ctx, evt.Repo, models.RepoStateDesynchronized); err != nil {
 			fp.logger.Error("failed to update repo state to desynchronized", "did", evt.Repo, "error", err)
 			return err
 		}
@@ -120,13 +120,13 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 	commit.Ops = filteredOps
 
 	if curr.State == models.RepoStateResyncing {
-		if err := fp.events.addToResyncBuffer(commit); err != nil {
+		if err := fp.events.addToResyncBuffer(ctx, commit); err != nil {
 			fp.logger.Error("failed to buffer commit", "did", evt.Repo, "error", err)
 			return err
 		}
 	}
 
-	if err := fp.events.AddCommit(commit, func(tx *gorm.DB) error {
+	if err := fp.events.AddCommit(ctx, commit, func(tx *gorm.DB) error {
 		return nil
 	}); err != nil {
 		fp.logger.Error("failed to update repo state", "did", commit.Did, "rev", commit.Rev, "error", err)
@@ -209,12 +209,12 @@ func (fp *FirehoseProcessor) ProcessSync(ctx context.Context, evt *comatproto.Sy
 
 	defer fp.updateLastSeq(evt.Seq)
 
-	curr, err := fp.repos.GetRepoState(evt.Did)
+	curr, err := fp.repos.GetRepoState(ctx, evt.Did)
 	if err != nil {
 		return err
 	} else if curr == nil {
 		if fp.fullNetworkMode {
-			if err := fp.repos.EnsureRepo(evt.Did); err != nil {
+			if err := fp.repos.EnsureRepo(ctx, evt.Did); err != nil {
 				fp.logger.Error("failed to auto-track repo", "did", evt.Did, "error", err)
 				return err
 			}
@@ -247,7 +247,7 @@ func (fp *FirehoseProcessor) ProcessSync(ctx context.Context, evt *comatproto.Sy
 		return nil
 	}
 
-	if err := fp.repos.UpdateRepoState(commit.DID, models.RepoStateDesynchronized); err != nil {
+	if err := fp.repos.UpdateRepoState(ctx, commit.DID, models.RepoStateDesynchronized); err != nil {
 		fp.logger.Error("failed to update repo state to desynchronized", "did", commit.DID, "error", err)
 		return err
 	}
@@ -260,12 +260,12 @@ func (fp *FirehoseProcessor) ProcessIdentity(ctx context.Context, evt *comatprot
 	firehoseEventsReceived.Inc()
 	defer fp.updateLastSeq(evt.Seq)
 
-	curr, err := fp.repos.GetRepoState(evt.Did)
+	curr, err := fp.repos.GetRepoState(ctx, evt.Did)
 	if err != nil {
 		return err
 	} else if curr == nil {
 		if fp.fullNetworkMode {
-			if err := fp.repos.EnsureRepo(evt.Did); err != nil {
+			if err := fp.repos.EnsureRepo(ctx, evt.Did); err != nil {
 				return err
 			}
 			firehoseEventsSkipped.Inc()
@@ -287,12 +287,12 @@ func (fp *FirehoseProcessor) ProcessAccount(ctx context.Context, evt *comatproto
 	firehoseEventsReceived.Inc()
 	defer fp.updateLastSeq(evt.Seq)
 
-	curr, err := fp.repos.GetRepoState(evt.Did)
+	curr, err := fp.repos.GetRepoState(ctx, evt.Did)
 	if err != nil {
 		return err
 	} else if curr == nil {
 		if fp.fullNetworkMode && evt.Active {
-			if err := fp.repos.EnsureRepo(evt.Did); err != nil {
+			if err := fp.repos.EnsureRepo(ctx, evt.Did); err != nil {
 				fp.logger.Error("failed to auto-track repo", "did", evt.Did, "error", err)
 				return err
 			}
@@ -327,14 +327,14 @@ func (fp *FirehoseProcessor) ProcessAccount(ctx context.Context, evt *comatproto
 	}
 
 	if updateTo == models.AccountStatusDeleted {
-		if err := fp.events.AddUserEvent(userEvt, func(tx *gorm.DB) error {
+		if err := fp.events.AddUserEvent(ctx, userEvt, func(tx *gorm.DB) error {
 			return deleteRepo(tx, evt.Did)
 		}); err != nil {
 			fp.logger.Error("failed to delete repo", "did", evt.Did, "error", err)
 			return err
 		}
 	} else {
-		if err := fp.events.AddUserEvent(userEvt, func(tx *gorm.DB) error {
+		if err := fp.events.AddUserEvent(ctx, userEvt, func(tx *gorm.DB) error {
 			return tx.Model(&models.Repo{}).
 				Where("did = ?", evt.Did).
 				Update("status", updateTo).Error
@@ -354,7 +354,7 @@ func (fp *FirehoseProcessor) saveCursor(ctx context.Context) error {
 		return nil
 	}
 
-	return fp.db.Save(&models.FirehoseCursor{
+	return fp.db.WithContext(ctx).Save(&models.FirehoseCursor{
 		Url:    fp.relayUrl,
 		Cursor: seq,
 	}).Error
@@ -382,7 +382,7 @@ func (fp *FirehoseProcessor) RunCursorSaver(ctx context.Context) {
 
 func (fp *FirehoseProcessor) GetCursor(ctx context.Context) (int64, error) {
 	var cursor models.FirehoseCursor
-	if err := fp.db.Where("url = ?", fp.relayUrl).First(&cursor).Error; err != nil {
+	if err := fp.db.WithContext(ctx).Where("url = ?", fp.relayUrl).First(&cursor).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			fp.logger.Info("no pre-existing cursor in database", "relayUrl", fp.relayUrl)
 			return 0, nil
@@ -409,16 +409,16 @@ func (fp *FirehoseProcessor) runConsumer(ctx context.Context) error {
 
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
-			return fp.ProcessCommit(context.Background(), evt)
+			return fp.ProcessCommit(ctx, evt)
 		},
 		RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
-			return fp.ProcessSync(context.Background(), evt)
+			return fp.ProcessSync(ctx, evt)
 		},
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
-			return fp.ProcessIdentity(context.Background(), evt)
+			return fp.ProcessIdentity(ctx, evt)
 		},
 		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
-			return fp.ProcessAccount(context.Background(), evt)
+			return fp.ProcessAccount(ctx, evt)
 		},
 	}
 

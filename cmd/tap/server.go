@@ -151,6 +151,8 @@ type DidPayload struct {
 }
 
 func (ts *TapServer) handleAddRepos(c echo.Context) error {
+	ctx := c.Request().Context()
+
 	var payload DidPayload
 	if err := c.Bind(&payload); err != nil {
 		return err
@@ -164,7 +166,7 @@ func (ts *TapServer) handleAddRepos(c echo.Context) error {
 		}
 	}
 
-	if err := ts.db.Save(&dids).Error; err != nil {
+	if err := ts.db.WithContext(ctx).Save(&dids).Error; err != nil {
 		ts.logger.Error("failed to upsert dids", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
@@ -175,13 +177,15 @@ func (ts *TapServer) handleAddRepos(c echo.Context) error {
 }
 
 func (ts *TapServer) handleRemoveRepos(c echo.Context) error {
+	ctx := c.Request().Context()
+
 	var payload DidPayload
 	if err := c.Bind(&payload); err != nil {
 		return err
 	}
 
 	for _, did := range payload.DIDs {
-		err := deleteRepo(ts.db, did)
+		err := deleteRepo(ts.db.WithContext(ctx), did)
 		if err != nil {
 			ts.logger.Error("failed to delete repo", "error", err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
@@ -213,10 +217,11 @@ func (ts *TapServer) handleResolveDID(c echo.Context) error {
 }
 
 func (ts *TapServer) handleInfoRepo(c echo.Context) error {
+	ctx := c.Request().Context()
 	did := c.Param("did")
 
 	var repo models.Repo
-	if err := ts.db.First(&repo, "did = ?", did).Error; err != nil {
+	if err := ts.db.WithContext(ctx).First(&repo, "did = ?", did).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return echo.NewHTTPError(http.StatusNotFound, "repo not found")
 		}
@@ -224,7 +229,7 @@ func (ts *TapServer) handleInfoRepo(c echo.Context) error {
 	}
 
 	var recordCount int64
-	ts.db.Model(&models.RepoRecord{}).Where("did = ?", did).Count(&recordCount)
+	ts.db.WithContext(ctx).Model(&models.RepoRecord{}).Where("did = ?", did).Count(&recordCount)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"did":     repo.Did,
@@ -238,32 +243,36 @@ func (ts *TapServer) handleInfoRepo(c echo.Context) error {
 }
 
 func (ts *TapServer) handleStatsRepoCount(c echo.Context) error {
+	ctx := c.Request().Context()
 	var count int64
-	if err := ts.db.Model(&models.Repo{}).Count(&count).Error; err != nil {
+	if err := ts.db.WithContext(ctx).Model(&models.Repo{}).Count(&count).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get repo count")
 	}
 	return c.JSON(http.StatusOK, map[string]int64{"repo_count": count})
 }
 
 func (ts *TapServer) handleStatsRecordCount(c echo.Context) error {
+	ctx := c.Request().Context()
 	var count int64
-	if err := ts.db.Model(&models.RepoRecord{}).Count(&count).Error; err != nil {
+	if err := ts.db.WithContext(ctx).Model(&models.RepoRecord{}).Count(&count).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get record count")
 	}
 	return c.JSON(http.StatusOK, map[string]int64{"record_count": count})
 }
 
 func (ts *TapServer) handleStatsOutboxBuffer(c echo.Context) error {
+	ctx := c.Request().Context()
 	var count int64
-	if err := ts.db.Model(&models.OutboxBuffer{}).Count(&count).Error; err != nil {
+	if err := ts.db.WithContext(ctx).Model(&models.OutboxBuffer{}).Count(&count).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get outbox buffer size")
 	}
 	return c.JSON(http.StatusOK, map[string]int64{"outbox_buffer": count})
 }
 
 func (ts *TapServer) handleStatsResyncBuffer(c echo.Context) error {
+	ctx := c.Request().Context()
 	var count int64
-	if err := ts.db.Model(&models.ResyncBuffer{}).Count(&count).Error; err != nil {
+	if err := ts.db.WithContext(ctx).Model(&models.ResyncBuffer{}).Count(&count).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get resync buffer size")
 	}
 	return c.JSON(http.StatusOK, map[string]int64{"resync_buffer": count})
@@ -275,6 +284,7 @@ type CursorsResp struct {
 }
 
 func (ts *TapServer) handleStatsCursors(c echo.Context) error {
+	ctx := c.Request().Context()
 	resp := CursorsResp{}
 
 	if ts.firehose != nil {
@@ -284,7 +294,7 @@ func (ts *TapServer) handleStatsCursors(c echo.Context) error {
 
 	// Get enumeration cursor based on crawler config
 	if ts.crawler != nil {
-		cursor, err := ts.crawler.GetCursor()
+		cursor, err := ts.crawler.GetCursor(ctx)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "failed to get list repos cursor")
 		}

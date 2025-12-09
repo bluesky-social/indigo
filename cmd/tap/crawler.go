@@ -49,11 +49,11 @@ func (c *Crawler) Run(ctx context.Context) {
 	}
 }
 
-func (c *Crawler) GetCursor() (string, error) {
+func (c *Crawler) GetCursor(ctx context.Context) (string, error) {
 	if c.SignalCollection != "" {
-		return c.getCollectionCursor(c.SignalCollection)
+		return c.getCollectionCursor(ctx, c.SignalCollection)
 	} else if c.FullNetworkMode {
-		return c.getListReposCursor()
+		return c.getListReposCursor(ctx)
 	}
 	return "", nil
 }
@@ -63,7 +63,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 	ctx, span := tracer.Start(ctx, "EnumerateNetwork")
 	defer span.End()
 
-	cursor, err := c.getListReposCursor()
+	cursor, err := c.getListReposCursor(ctx)
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 			break
 		}
 
-		if err := c.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&repos).Error; err != nil {
+		if err := c.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&repos).Error; err != nil {
 			c.logger.Error("failed to save repos batch", "error", err, "count", len(repos))
 			return err
 		}
@@ -114,7 +114,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 		}
 		cursor = *repoList.Cursor
 
-		if err := c.db.Save(&models.ListReposCursor{
+		if err := c.db.WithContext(ctx).Save(&models.ListReposCursor{
 			Url:    c.RelayUrl,
 			Cursor: cursor,
 		}).Error; err != nil {
@@ -126,9 +126,9 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 	return nil
 }
 
-func (c *Crawler) getListReposCursor() (string, error) {
+func (c *Crawler) getListReposCursor(ctx context.Context) (string, error) {
 	var dbCursor models.ListReposCursor
-	err := c.db.Where("url = ?", c.RelayUrl).First(&dbCursor).Error
+	err := c.db.WithContext(ctx).Where("url = ?", c.RelayUrl).First(&dbCursor).Error
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return "", fmt.Errorf("failed to read list repos cursor: %w", err)
@@ -144,7 +144,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 	span.SetAttributes(attribute.String("collection", collection))
 	defer span.End()
 
-	cursor, err := c.getCollectionCursor(collection)
+	cursor, err := c.getCollectionCursor(ctx, collection)
 	if err != nil {
 		return err
 	}
@@ -179,7 +179,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 			break
 		}
 
-		if err := c.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&repos).Error; err != nil {
+		if err := c.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&repos).Error; err != nil {
 			c.logger.Error("failed to save repos batch", "error", err, "collection", collection, "count", len(repos))
 			return err
 		}
@@ -192,7 +192,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 		}
 		cursor = *repoList.Cursor
 
-		if err := c.db.Save(&models.CollectionCursor{
+		if err := c.db.WithContext(ctx).Save(&models.CollectionCursor{
 			Url:        c.RelayUrl,
 			Collection: collection,
 			Cursor:     cursor,
@@ -205,9 +205,9 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 	return nil
 }
 
-func (c *Crawler) getCollectionCursor(collection string) (string, error) {
+func (c *Crawler) getCollectionCursor(ctx context.Context, collection string) (string, error) {
 	var dbCursor models.CollectionCursor
-	err := c.db.Where("url = ? AND collection = ?", c.RelayUrl, collection).First(&dbCursor).Error
+	err := c.db.WithContext(ctx).Where("url = ? AND collection = ?", c.RelayUrl, collection).First(&dbCursor).Error
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return "", fmt.Errorf("failed to read collection cursor: %w", err)
