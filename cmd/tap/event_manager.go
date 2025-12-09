@@ -273,7 +273,7 @@ func (em *EventManager) AddRecordEvents(ctx context.Context, evts []*RecordEvt, 
 	return nil
 }
 
-func (em *EventManager) AddUserEvent(ctx context.Context, evt *UserEvt, dbCallback DBCallback) error {
+func (em *EventManager) AddIdentityEvent(ctx context.Context, evt *IdentityEvt, dbCallback DBCallback) error {
 	evtID := uint(em.nextID.Add(1))
 	jsonData, err := evt.MarshalWithId(evtID)
 	if err != nil {

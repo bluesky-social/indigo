@@ -48,26 +48,26 @@ func (e *RecordEvt) MarshalWithId(id uint) ([]byte, error) {
 	})
 }
 
-type UserEvt struct {
+type IdentityEvt struct {
 	Did      string               `json:"did"`
 	Handle   string               `json:"handle"`
 	IsActive bool                 `json:"is_active"`
 	Status   models.AccountStatus `json:"status"`
 }
 
-func (e *UserEvt) MarshalWithId(id uint) ([]byte, error) {
+func (e *IdentityEvt) MarshalWithId(id uint) ([]byte, error) {
 	return json.Marshal(MarshallableEvt{
-		ID:      id,
-		Type:    "user",
-		UserEvt: e,
+		ID:          id,
+		Type:        "identity",
+		IdentityEvt: e,
 	})
 }
 
 type MarshallableEvt struct {
-	ID        uint       `json:"id"`
-	Type      string     `json:"type"`
-	RecordEvt *RecordEvt `json:"record,omitempty"`
-	UserEvt   *UserEvt   `json:"user,omitempty"`
+	ID          uint         `json:"id"`
+	Type        string       `json:"type"`
+	RecordEvt   *RecordEvt   `json:"record,omitempty"`
+	IdentityEvt *IdentityEvt `json:"identity,omitempty"`
 }
 
 type OutboxEvt struct {

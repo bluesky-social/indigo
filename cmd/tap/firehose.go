@@ -319,7 +319,7 @@ func (fp *FirehoseProcessor) ProcessAccount(ctx context.Context, evt *comatproto
 		return nil
 	}
 
-	userEvt := &UserEvt{
+	identityEvt := &IdentityEvt{
 		Did:      curr.Did,
 		Handle:   curr.Handle,
 		IsActive: evt.Active,
@@ -327,14 +327,14 @@ func (fp *FirehoseProcessor) ProcessAccount(ctx context.Context, evt *comatproto
 	}
 
 	if updateTo == models.AccountStatusDeleted {
-		if err := fp.events.AddUserEvent(ctx, userEvt, func(tx *gorm.DB) error {
+		if err := fp.events.AddIdentityEvent(ctx, identityEvt, func(tx *gorm.DB) error {
 			return deleteRepo(tx, evt.Did)
 		}); err != nil {
 			fp.logger.Error("failed to delete repo", "did", evt.Did, "error", err)
 			return err
 		}
 	} else {
-		if err := fp.events.AddUserEvent(ctx, userEvt, func(tx *gorm.DB) error {
+		if err := fp.events.AddIdentityEvent(ctx, identityEvt, func(tx *gorm.DB) error {
 			return tx.Model(&models.Repo{}).
 				Where("did = ?", evt.Did).
 				Update("status", updateTo).Error
