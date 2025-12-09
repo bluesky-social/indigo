@@ -62,7 +62,7 @@ Environment variables or CLI flags:
 - `TAP_RESYNC_PARALLELISM`: concurrent resync workers (default: `5`)
 - `TAP_OUTBOX_PARALLELISM`: concurrent outbox workers (default: `1`)
 - `TAP_CURSOR_SAVE_INTERVAL`: how often to persist upstream firehose cursor (default: `1s`)
-- `TAP_REPO_FETCH_TIMEOUT`: timeout for fetching repo CARs from PDS (default: `60s`)
+- `TAP_REPO_FETCH_TIMEOUT`: timeout for fetching repo CARs from PDS (default: `300s`)
 - `TAP_IDENT_CACHE_SIZE`: size of in-process identity cache (default: `2000000`)
 - `TAP_OUTBOX_CAPACITY`: rough size of outbox before back pressure is applied (default: `100000`)
 - `TAP_FULL_NETWORK`: track all repos on the network (default: `false`)
