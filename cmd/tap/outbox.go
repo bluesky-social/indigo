@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/puzpuzpuz/xsync/v4"
 )
 
 // Ordering guarantees for events belonging to the same DID:
@@ -32,7 +34,7 @@ type Outbox struct {
 
 	events *EventManager
 
-	didWorkers sync.Map // map[string]*DIDWorker
+	didWorkers *xsync.Map[string, *DIDWorker]
 
 	acks     chan uint
 	outgoing chan *OutboxEvt
@@ -78,8 +80,7 @@ func (o *Outbox) deliverEvent(eventID uint) {
 		return
 	}
 
-	if val, ok := o.didWorkers.Load(evt.Did); ok {
-		worker := val.(*DIDWorker)
+	if worker, ok := o.didWorkers.Load(evt.Did); ok {
 		worker.addEvent(evt)
 		return
 	}
@@ -92,7 +93,7 @@ func (o *Outbox) deliverEvent(eventID uint) {
 		ctx:            o.ctx,
 	}
 	actual, _ := o.didWorkers.LoadOrStore(evt.Did, worker)
-	actual.(*DIDWorker).addEvent(evt)
+	actual.addEvent(evt)
 }
 
 func (o *Outbox) sendEvent(evt *OutboxEvt) {
@@ -111,8 +112,7 @@ func (o *Outbox) AckEvent(eventID uint) {
 	evt, exists := o.events.GetEvent(eventID)
 
 	if exists {
-		if val, ok := o.didWorkers.Load(evt.Did); ok {
-			worker := val.(*DIDWorker)
+		if worker, ok := o.didWorkers.Load(evt.Did); ok {
 			worker.ackEvent(eventID)
 		}
 	}
@@ -168,8 +168,8 @@ func (o *Outbox) checkTimeouts(ctx context.Context) {
 func (o *Outbox) retryTimedOutEvents() {
 	// Get snapshot of all active workers
 	workers := make([]*DIDWorker, 0)
-	o.didWorkers.Range(func(key, value interface{}) bool {
-		workers = append(workers, value.(*DIDWorker))
+	o.didWorkers.Range(func(key string, value *DIDWorker) bool {
+		workers = append(workers, value)
 		return true
 	})
 
