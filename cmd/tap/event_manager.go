@@ -66,12 +66,12 @@ func (em *EventManager) GetEvent(id uint) (*OutboxEvt, bool) {
 	return evt, exists
 }
 
-func (em *EventManager) DeleteEvents(ids []uint) error {
+func (em *EventManager) DeleteEvents(ctx context.Context, ids []uint) error {
 	if len(ids) == 0 {
 		return nil
 	}
 
-	if err := em.db.Delete(&models.OutboxBuffer{}, ids).Error; err != nil {
+	if err := em.db.WithContext(ctx).Delete(&models.OutboxBuffer{}, ids).Error; err != nil {
 		return err
 	}
 
@@ -96,7 +96,7 @@ func (em *EventManager) LoadEvents(ctx context.Context) {
 				continue
 			}
 
-			lastPageID, err := em.loadEventPage(lastID)
+			lastPageID, err := em.loadEventPage(ctx, lastID)
 			if err != nil {
 				em.logger.Error("failed to load events into cache", "error", err, "lastID", lastID)
 				time.Sleep(500 * time.Millisecond)
@@ -111,10 +111,10 @@ func (em *EventManager) LoadEvents(ctx context.Context) {
 	}
 }
 
-func (em *EventManager) loadEventPage(lastID int) (int, error) {
+func (em *EventManager) loadEventPage(ctx context.Context, lastID int) (int, error) {
 	batchSize := 1000
 	dbEvts := make([]models.OutboxBuffer, 0, batchSize)
-	if err := em.db.Raw(
+	if err := em.db.WithContext(ctx).Raw(
 		"SELECT * FROM outbox_buffers WHERE id > ? ORDER BY id ASC LIMIT ?",
 		lastID,
 		batchSize,
@@ -147,7 +147,7 @@ func (em *EventManager) loadEventPage(lastID int) (int, error) {
 	return int(dbEvts[resultSize-1].ID), nil
 }
 
-func (em *EventManager) AddCommit(commit *Commit, dbCallback DBCallback) error {
+func (em *EventManager) AddCommit(ctx context.Context, commit *Commit, dbCallback DBCallback) error {
 	evts := make([]*RecordEvt, 0, len(commit.Ops))
 
 	for _, op := range commit.Ops {
@@ -164,7 +164,7 @@ func (em *EventManager) AddCommit(commit *Commit, dbCallback DBCallback) error {
 		evts = append(evts, evt)
 	}
 
-	return em.AddRecordEvents(evts, true, func(tx *gorm.DB) error {
+	return em.AddRecordEvents(ctx, evts, true, func(tx *gorm.DB) error {
 		if err := dbCallback(tx); err != nil {
 			return err
 		}
@@ -178,7 +178,7 @@ func (em *EventManager) AddCommit(commit *Commit, dbCallback DBCallback) error {
 	})
 }
 
-func (em *EventManager) AddRecordEvents(evts []*RecordEvt, live bool, dbCallback DBCallback) error {
+func (em *EventManager) AddRecordEvents(ctx context.Context, evts []*RecordEvt, live bool, dbCallback DBCallback) error {
 	toPut := make([]*models.RepoRecord, 0, len(evts))
 	toDel := make([]*models.RepoRecord, 0)
 	dbEvts := make([]*models.OutboxBuffer, 0, len(evts))
@@ -224,7 +224,7 @@ func (em *EventManager) AddRecordEvents(evts []*RecordEvt, live bool, dbCallback
 		}
 	}
 
-	err := em.db.Transaction(func(tx *gorm.DB) error {
+	err := em.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := dbCallback(tx); err != nil {
 			return err
 		}
@@ -273,14 +273,14 @@ func (em *EventManager) AddRecordEvents(evts []*RecordEvt, live bool, dbCallback
 	return nil
 }
 
-func (em *EventManager) AddUserEvent(evt *UserEvt, dbCallback DBCallback) error {
+func (em *EventManager) AddUserEvent(ctx context.Context, evt *UserEvt, dbCallback DBCallback) error {
 	evtID := uint(em.nextID.Add(1))
 	jsonData, err := evt.MarshalJSON(evtID)
 	if err != nil {
 		return err
 	}
 
-	if err := em.db.Transaction(func(tx *gorm.DB) error {
+	if err := em.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := dbCallback(tx); err != nil {
 			return err
 		}
@@ -309,12 +309,12 @@ func (em *EventManager) AddUserEvent(evt *UserEvt, dbCallback DBCallback) error 
 	return nil
 }
 
-func (em *EventManager) addToResyncBuffer(commit *Commit) error {
+func (em *EventManager) addToResyncBuffer(ctx context.Context, commit *Commit) error {
 	jsonData, err := json.Marshal(commit)
 	if err != nil {
 		return err
 	}
-	return em.db.Create(&models.ResyncBuffer{
+	return em.db.WithContext(ctx).Create(&models.ResyncBuffer{
 		Did:  commit.Did,
 		Data: string(jsonData),
 	}).Error
@@ -322,7 +322,7 @@ func (em *EventManager) addToResyncBuffer(commit *Commit) error {
 
 func (em *EventManager) drainResyncBuffer(ctx context.Context, did string) error {
 	var bufferedEvts []models.ResyncBuffer
-	if err := em.db.Where("did = ?", did).Order("id ASC").Find(&bufferedEvts).Error; err != nil {
+	if err := em.db.WithContext(ctx).Where("did = ?", did).Order("id ASC").Find(&bufferedEvts).Error; err != nil {
 		return fmt.Errorf("failed to load buffered events: %w", err)
 	}
 
@@ -336,7 +336,7 @@ func (em *EventManager) drainResyncBuffer(ctx context.Context, did string) error
 			return fmt.Errorf("failed to unmarshal buffered event: %w", err)
 		}
 
-		if err := em.AddCommit(&commit, func(tx *gorm.DB) error {
+		if err := em.AddCommit(ctx, &commit, func(tx *gorm.DB) error {
 			return tx.Delete(&models.ResyncBuffer{}, "id = ?", evt.ID).Error
 		}); err != nil {
 			return err
