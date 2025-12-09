@@ -11,7 +11,7 @@ import (
 type WebhookClient struct {
 	logger     *slog.Logger
 	webhookURL string
-	apiToken string
+	adminPassword string
 	httpClient *http.Client
 }
 
@@ -37,8 +37,8 @@ func (w *WebhookClient) post(evt *OutboxEvt) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	if w.apiToken != "" {
-		req.Header.Set("Authorization", "Bearer "+w.apiToken)
+	if w.adminPassword != "" {
+		req.SetBasicAuth("admin", w.adminPassword)
 	}
 
 	resp, err := w.httpClient.Do(req)
