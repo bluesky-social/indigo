@@ -32,6 +32,8 @@ type EventManager struct {
 type DBCallback = func(tx *gorm.DB) error
 
 func (em *EventManager) IsFull() bool {
+	em.cacheLk.RLock()
+	defer em.cacheLk.RUnlock()
 	return len(em.cache) >= em.cacheSize
 }
 
