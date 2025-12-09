@@ -10,6 +10,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/tap/models"
+	"github.com/puzpuzpuz/xsync/v4"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -125,9 +126,10 @@ func NewTap(config TapConfig) (*Tap, error) {
 				Timeout: 30 * time.Second,
 			},
 		},
-		events:   evtMngr,
-		acks:     make(chan uint, config.OutboxParallelism*10000),
-		outgoing: make(chan *OutboxEvt, config.OutboxParallelism*10000),
+		events:     evtMngr,
+		didWorkers: xsync.NewMap[string, *DIDWorker](),
+		acks:       make(chan uint, config.OutboxParallelism*10000),
+		outgoing:   make(chan *OutboxEvt, config.OutboxParallelism*10000),
 	}
 
 	server := &TapServer{
