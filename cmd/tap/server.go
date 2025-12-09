@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/bluesky-social/indigo/atproto/auth"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/tap/models"
@@ -20,7 +21,7 @@ type TapServer struct {
 	echo     *echo.Echo
 	logger   *slog.Logger
 	outbox   *Outbox
-	apiToken string
+	adminPassword string
 	idDir    identity.Directory
 	firehose *FirehoseProcessor
 	crawler  *Crawler
@@ -31,9 +32,11 @@ func (ts *TapServer) Start(address string) error {
 	ts.echo.HideBanner = true
 	ts.echo.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
 
-	// Apply API token middleware if configured
-	if ts.apiToken != "" {
-		ts.echo.Use(ts.apiTokenMiddleware)
+	// Apply admin auth middleware if configured
+	if ts.adminPassword != "" {
+		ts.echo.Use(echo.WrapMiddleware(func(next http.Handler) http.Handler {
+			return auth.AdminAuthMiddleware(next.ServeHTTP, []string{ts.adminPassword})
+		}))
 	}
 
 	ts.echo.GET("/health", ts.handleHealthcheck)
@@ -48,27 +51,6 @@ func (ts *TapServer) Start(address string) error {
 	ts.echo.GET("/stats/resync-buffer", ts.handleStatsResyncBuffer)
 	ts.echo.GET("/stats/cursors", ts.handleStatsCursors)
 	return ts.echo.Start(address)
-}
-
-func (ts *TapServer) apiTokenMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		token := c.Request().Header.Get("Authorization")
-		if token == "" {
-			return echo.NewHTTPError(http.StatusUnauthorized, "missing authorization header")
-		}
-
-		// Support "Bearer <token>" format
-		const bearerPrefix = "Bearer "
-		if len(token) > len(bearerPrefix) && token[:len(bearerPrefix)] == bearerPrefix {
-			token = token[len(bearerPrefix):]
-		}
-
-		if token != ts.apiToken {
-			return echo.NewHTTPError(http.StatusUnauthorized, "invalid api token")
-		}
-
-		return next(c)
-	}
 }
 
 // Shutdown gracefully shuts down the HTTP server.

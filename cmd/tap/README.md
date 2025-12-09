@@ -71,7 +71,7 @@ Environment variables or CLI flags:
 - `TAP_DISABLE_ACKS`: fire-and-forget mode, no client acks (default: `false`)
 - `TAP_WEBHOOK_URL`: webhook URL for event delivery (disables WebSocket mode)
 - `TAP_OUTBOX_ONLY`: run in outbox-only mode (no firehose, resync, or enumeration) (default: `false`)
-- `TAP_API_TOKEN`: API token required for all API requests (if set)
+- `TAP_ADMIN_PASSWORD`: Basic auth admin password required for all requests (if set)
 - `TAP_LOG_LEVEL`: log verbosity (`debug`, `info`, `warn`, `error`, default: `info`)
 - `TAP_METRICS_LISTEN`: address for metrics/pprof server (disabled if empty)
 
@@ -180,6 +180,21 @@ Example sequence: `H1, H2, L1, H3, H4, L2, H5`
 - Wait for L2 to complete, then send H5
 
 This ensures live events act as ordering checkpoints while allowing historical backfill to run quickly.
+
+## Authentication
+
+If exposing Tap to the internet, you should set `TAP_ADMIN_PASSWORD` to require authentication for all API requests.
+
+Tap uses HTTP Basic authentication with the username `admin`. Basic auth works by concatenating the username and password with a colon (`admin:yourpassword`), then base64-encoding the result. This is sent in the `Authorization` header as `Basic <encoded-value>`.
+
+Example with curl:
+```bash
+curl -u admin:yourpassword http://localhost:2480/repos/add \
+  -H "Content-Type: application/json" \
+  -d '{"dids": ["did:plc:..."]}'
+```
+
+When using webhook mode, Tap sends the same Basic auth credentials to your webhook endpoint.
 
 ## Operations
 
