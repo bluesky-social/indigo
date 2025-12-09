@@ -87,8 +87,8 @@ func run(args []string) error {
 			},
 			&cli.DurationFlag{
 				Name:    "repo-fetch-timeout",
-				Usage:   "timeout when fetching repo CARs from PDS (e.g. 180s for slow hosts)",
-				Value:   60 * time.Second,
+				Usage:   "timeout when fetching repo CARs from PDS (e.g. 180s)",
+				Value:   300 * time.Second,
 				Sources: cli.EnvVars("TAP_REPO_FETCH_TIMEOUT"),
 			},
 			&cli.IntFlag{
