@@ -3,7 +3,8 @@ on:
   push:
     branches:
       - main
-      - sync-tool
+    tags:
+      - 'tap-v*'
 env:
   REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
@@ -40,6 +41,9 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=sha,enable=true,priority=100,prefix=tap:,suffix=,format=long
+            type=semver,pattern=tap:{{version}},prefix=,enable=${{ startsWith(github.ref, 'refs/tags/tap-v') }}
+            type=semver,pattern=tap:{{major}}.{{minor}},prefix=,enable=${{ startsWith(github.ref, 'refs/tags/tap-v') }}
+            type=raw,value=tap:latest,enable=${{ startsWith(github.ref, 'refs/tags/tap-v') }}
 
       - name: Build and push Docker image
         id: build-and-push
