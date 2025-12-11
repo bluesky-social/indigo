@@ -138,6 +138,12 @@ func run(args []string) error {
 				Usage:   "Basic auth admin password required for all requests (if set)",
 				Sources: cli.EnvVars("TAP_ADMIN_PASSWORD"),
 			},
+			&cli.DurationFlag{
+				Name:    "retry-timeout",
+				Usage:   "timeout before retrying unacked events",
+				Value:   60 * time.Second,
+				Sources: cli.EnvVars("TAP_RETRY_TIMEOUT"),
+			},
 			&cli.StringFlag{
 				Name:    "log-level",
 				Usage:   "log verbosity level (debug, info, warn, error)",
@@ -187,6 +193,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		CollectionFilters:          cmd.StringSlice("collection-filters"),
 		OutboxOnly:                 cmd.Bool("outbox-only"),
 		AdminPassword:              cmd.String("admin-password"),
+		RetryTimeout:               cmd.Duration("retry-timeout"),
 	}
 
 	logger.Info("creating tap service")
