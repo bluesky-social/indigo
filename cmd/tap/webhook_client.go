@@ -9,10 +9,10 @@ import (
 )
 
 type WebhookClient struct {
-	logger     *slog.Logger
-	webhookURL string
+	logger        *slog.Logger
+	webhookURL    string
 	adminPassword string
-	httpClient *http.Client
+	httpClient    *http.Client
 }
 
 func (w *WebhookClient) Send(evt *OutboxEvt, ackFn func(uint)) {

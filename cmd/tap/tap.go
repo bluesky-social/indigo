@@ -50,7 +50,7 @@ type TapConfig struct {
 	WebhookURL                 string
 	CollectionFilters          []string // e.g., ["app.bsky.feed.post", "app.bsky.graph.*"]
 	OutboxOnly                 bool
-	AdminPassword                   string
+	AdminPassword              string
 }
 
 func NewTap(config TapConfig) (*Tap, error) {
@@ -119,9 +119,9 @@ func NewTap(config TapConfig) (*Tap, error) {
 		mode:        parseOutboxMode(config.WebhookURL, config.DisableAcks),
 		parallelism: config.OutboxParallelism,
 		webhook: &WebhookClient{
-			logger:     logger.With("component", "webhook_client"),
-			webhookURL: config.WebhookURL,
-			adminPassword:   config.AdminPassword,
+			logger:        logger.With("component", "webhook_client"),
+			webhookURL:    config.WebhookURL,
+			adminPassword: config.AdminPassword,
 			httpClient: &http.Client{
 				Timeout: 30 * time.Second,
 			},
@@ -133,13 +133,13 @@ func NewTap(config TapConfig) (*Tap, error) {
 	}
 
 	server := &TapServer{
-		logger:   logger.With("component", "server"),
-		db:       db,
-		outbox:   outbox,
+		logger:        logger.With("component", "server"),
+		db:            db,
+		outbox:        outbox,
 		adminPassword: config.AdminPassword,
-		idDir:    repoMngr.IdDir,
-		firehose: firehose,
-		crawler:  crawler,
+		idDir:         repoMngr.IdDir,
+		firehose:      firehose,
+		crawler:       crawler,
 	}
 
 	t := &Tap{
