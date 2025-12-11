@@ -14,17 +14,18 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type TapServer struct {
-	db       *gorm.DB
-	echo     *echo.Echo
-	logger   *slog.Logger
-	outbox   *Outbox
+	db            *gorm.DB
+	echo          *echo.Echo
+	logger        *slog.Logger
+	outbox        *Outbox
 	adminPassword string
-	idDir    identity.Directory
-	firehose *FirehoseProcessor
-	crawler  *Crawler
+	idDir         identity.Directory
+	firehose      *FirehoseProcessor
+	crawler       *Crawler
 }
 
 func (ts *TapServer) Start(address string) error {
@@ -148,8 +149,8 @@ func (ts *TapServer) handleAddRepos(c echo.Context) error {
 		}
 	}
 
-	if err := ts.db.WithContext(ctx).Save(&dids).Error; err != nil {
-		ts.logger.Error("failed to upsert dids", "error", err)
+	if err := ts.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&dids).Error; err != nil {
+		ts.logger.Error("failed to insert dids", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
