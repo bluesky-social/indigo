@@ -51,6 +51,7 @@ type TapConfig struct {
 	CollectionFilters          []string // e.g., ["app.bsky.feed.post", "app.bsky.graph.*"]
 	OutboxOnly                 bool
 	AdminPassword              string
+	RetryTimeout               time.Duration
 }
 
 func NewTap(config TapConfig) (*Tap, error) {
@@ -115,9 +116,10 @@ func NewTap(config TapConfig) (*Tap, error) {
 	}
 
 	outbox := &Outbox{
-		logger:      logger.With("component", "outbox"),
-		mode:        parseOutboxMode(config.WebhookURL, config.DisableAcks),
-		parallelism: config.OutboxParallelism,
+		logger:       logger.With("component", "outbox"),
+		mode:         parseOutboxMode(config.WebhookURL, config.DisableAcks),
+		parallelism:  config.OutboxParallelism,
+		retryTimeout: config.RetryTimeout,
 		webhook: &WebhookClient{
 			logger:        logger.With("component", "webhook_client"),
 			webhookURL:    config.WebhookURL,

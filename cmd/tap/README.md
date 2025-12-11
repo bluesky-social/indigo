@@ -72,6 +72,7 @@ Environment variables or CLI flags:
 - `TAP_WEBHOOK_URL`: webhook URL for event delivery (disables WebSocket mode)
 - `TAP_OUTBOX_ONLY`: run in outbox-only mode (no firehose, resync, or enumeration) (default: `false`)
 - `TAP_ADMIN_PASSWORD`: Basic auth admin password required for all requests (if set)
+- `TAP_RETRY_TIMEOUT`: timeout before retrying unacked events (default: `60s`)
 - `TAP_LOG_LEVEL`: log verbosity (`debug`, `info`, `warn`, `error`, default: `info`)
 - `TAP_METRICS_LISTEN`: address for metrics/pprof server (disabled if empty)
 

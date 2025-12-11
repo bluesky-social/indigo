@@ -27,10 +27,11 @@ import (
 //   - Wait for L3 to complete, then send H5
 
 type Outbox struct {
-	logger      *slog.Logger
-	mode        OutboxMode
-	parallelism int
-	webhook     *WebhookClient
+	logger       *slog.Logger
+	mode         OutboxMode
+	parallelism  int
+	retryTimeout time.Duration
+	webhook      *WebhookClient
 
 	events *EventManager
 
@@ -151,7 +152,7 @@ func (o *Outbox) runBatchedDeletes(ctx context.Context) {
 }
 
 func (o *Outbox) checkTimeouts(ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(o.retryTimeout)
 	defer ticker.Stop()
 
 	for {
@@ -327,7 +328,7 @@ func (w *DIDWorker) timedOutEvents() []uint {
 	now := time.Now()
 
 	for evtId, sentAt := range w.inFlightSentAt {
-		if now.Sub(sentAt) > 10*time.Second {
+		if now.Sub(sentAt) > w.outbox.retryTimeout {
 			timedOut = append(timedOut, evtId)
 		}
 	}
