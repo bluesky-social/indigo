@@ -74,7 +74,7 @@ var checkUserCmd = &cli.Command{
 			return err
 		}
 
-		id, err := dir.Lookup(ctx, *ident)
+		id, err := dir.Lookup(ctx, ident)
 		if err != nil {
 			return fmt.Errorf("resolve identifier %q: %w", cctx.Args().First(), err)
 		}

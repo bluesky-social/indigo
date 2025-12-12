@@ -449,7 +449,7 @@ var processRecentCmd = &cli.Command{
 			return err
 		}
 
-		return capture.FetchAndProcessRecent(ctx, srv.Engine, *atid, cmd.Int("limit"))
+		return capture.FetchAndProcessRecent(ctx, srv.Engine, atid, cmd.Int("limit"))
 	},
 }
 
@@ -479,7 +479,7 @@ var captureRecentCmd = &cli.Command{
 			return err
 		}
 
-		cap, err := capture.CaptureRecent(ctx, srv.Engine, *atid, cmd.Int("limit"))
+		cap, err := capture.CaptureRecent(ctx, srv.Engine, atid, cmd.Int("limit"))
 		if err != nil {
 			return err
 		}
