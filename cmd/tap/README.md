@@ -20,7 +20,7 @@ Features and design decisions:
 
 ```bash
 # Run tap
-go run ./cmd/tap --disable-acks=true
+go run ./cmd/tap run --disable-acks=true
 # By default, the service uses SQLite at `./tap.db` and binds to port `:2480`.
 
 # In a separate terminal, connect to receive events:
