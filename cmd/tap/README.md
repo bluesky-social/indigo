@@ -14,6 +14,8 @@ Features and design decisions:
 - SQLite or Postgres backend
 - designed for moderate scale (millions of repos, 30k+ events/sec)
 
+There is a convenient client library in Typescript for working with Tap at [@atproto/tap](https://github.com/bluesky-social/atproto/blob/main/packages/tap/README.md)
+
 ⚠️ Tap is still in beta and may have bugs. Please report any issues you encounter.
 
 ## Quick Start
@@ -80,7 +82,7 @@ Environment variables or CLI flags:
 
 Tap supports three delivery modes:
 
-**WebSocket with acks** (default): Client sends acks each event once it has been processed/persisted. Ensures that no data is lost and client does not need to handle cursors. It's recommended to use a client library such as [@atproto/tap](https://github.com/bluesky-social/atproto/tree/main/packages/tap) when using this mode.
+**WebSocket with acks** (default): Client sends acks each event once it has been processed/persisted. Ensures that no data is lost and client does not need to handle cursors. It's recommended to use a client library such as [@atproto/tap](https://github.com/bluesky-social/atproto/tree/main/packages/tap/README.md) when using this mode.
 
 **Fire-and-forget**: Set `TAP_DISABLE_ACKS=true`. Events are sent and considered "acked" once the client receives them. Simpler but may result in data loss. Recommended for testing purposes or when data integrity is not critical.
 
