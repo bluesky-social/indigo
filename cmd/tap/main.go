@@ -26,137 +26,143 @@ func main() {
 }
 
 func run(args []string) error {
-	app := cli.Command{
+	app := &cli.Command{
 		Name:    "tap",
-		Usage:   "atproto sync service",
+		Usage:   "atproto sync tool",
 		Version: versioninfo.Short(),
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "env",
-				Usage:   "environment name for observability",
-				Value:   "dev",
-				Sources: cli.EnvVars("TAP_ENV"),
-			},
-			&cli.StringFlag{
-				Name:    "db-url",
-				Usage:   "database connection string (sqlite://path or postgres://...)",
-				Value:   "sqlite://./tap.db",
-				Sources: cli.EnvVars("TAP_DATABASE_URL"),
-			},
-			&cli.IntFlag{
-				Name:    "max-db-conn",
-				Usage:   "maximum number of database connections",
-				Value:   32,
-				Sources: cli.EnvVars("TAP_MAX_DB_CONNS"),
-			},
-			&cli.StringFlag{
-				Name:    "bind",
-				Usage:   "address and port to listen on for HTTP APIs",
-				Value:   ":2480",
-				Sources: cli.EnvVars("TAP_BIND"),
-			},
-			&cli.StringFlag{
-				Name:    "relay-url",
-				Usage:   "AT Protocol relay HTTP/HTTPS url",
-				Value:   "https://relay1.us-east.bsky.network",
-				Sources: cli.EnvVars("TAP_RELAY_URL"),
-			},
-			&cli.IntFlag{
-				Name:    "firehose-parallelism",
-				Usage:   "number of parallel firehose event processors",
-				Value:   10,
-				Sources: cli.EnvVars("TAP_FIREHOSE_PARALLELISM"),
-			},
-			&cli.IntFlag{
-				Name:    "resync-parallelism",
-				Usage:   "number of parallel resync workers",
-				Value:   5,
-				Sources: cli.EnvVars("TAP_RESYNC_PARALLELISM"),
-			},
-			&cli.IntFlag{
-				Name:    "outbox-parallelism",
-				Usage:   "number of parallel outbox workers",
-				Value:   1,
-				Sources: cli.EnvVars("TAP_OUTBOX_PARALLELISM"),
-			},
-			&cli.DurationFlag{
-				Name:    "cursor-save-interval",
-				Usage:   "how often to save firehose cursor",
-				Value:   1 * time.Second,
-				Sources: cli.EnvVars("TAP_CURSOR_SAVE_INTERVAL"),
-			},
-			&cli.DurationFlag{
-				Name:    "repo-fetch-timeout",
-				Usage:   "timeout when fetching repo CARs from PDS (e.g. 180s)",
-				Value:   300 * time.Second,
-				Sources: cli.EnvVars("TAP_REPO_FETCH_TIMEOUT"),
-			},
-			&cli.IntFlag{
-				Name:    "ident-cache-size",
-				Usage:   "size of in-process identity cache",
-				Value:   2_000_000,
-				Sources: cli.EnvVars("RELAY_IDENT_CACHE_SIZE"),
-			},
-			&cli.IntFlag{
-				Name:    "outbox-capacity",
-				Usage:   "rough size of outbox before back pressure is applied",
-				Value:   100_000,
-				Sources: cli.EnvVars("TAP_OUTBOX_CAPACITY"),
-			},
-			&cli.BoolFlag{
-				Name:    "full-network",
-				Usage:   "enumerate and sync all repos on the network",
-				Sources: cli.EnvVars("TAP_FULL_NETWORK"),
-			},
-			&cli.StringFlag{
-				Name:    "signal-collection",
-				Usage:   "enumerate repos by collection (exact NSID)",
-				Sources: cli.EnvVars("TAP_SIGNAL_COLLECTION"),
-			},
-			&cli.BoolFlag{
-				Name:    "disable-acks",
-				Usage:   "disable client acknowledgments (fire-and-forget mode)",
-				Sources: cli.EnvVars("TAP_DISABLE_ACKS"),
-			},
-			&cli.StringFlag{
-				Name:    "webhook-url",
-				Usage:   "webhook URL for event delivery (instead of WebSocket)",
-				Sources: cli.EnvVars("TAP_WEBHOOK_URL"),
-			},
-			&cli.StringSliceFlag{
-				Name:    "collection-filters",
-				Usage:   "filter output records by collection (supports wildcards)",
-				Sources: cli.EnvVars("TAP_COLLECTION_FILTERS"),
-			},
-			&cli.BoolFlag{
-				Name:    "outbox-only",
-				Usage:   "run in outbox-only mode (no firehose, resync, or enumeration)",
-				Sources: cli.EnvVars("TAP_OUTBOX_ONLY"),
-			},
-			&cli.StringFlag{
-				Name:    "admin-password",
-				Usage:   "Basic auth admin password required for all requests (if set)",
-				Sources: cli.EnvVars("TAP_ADMIN_PASSWORD"),
-			},
-			&cli.DurationFlag{
-				Name:    "retry-timeout",
-				Usage:   "timeout before retrying unacked events",
-				Value:   60 * time.Second,
-				Sources: cli.EnvVars("TAP_RETRY_TIMEOUT"),
-			},
-			&cli.StringFlag{
-				Name:    "log-level",
-				Usage:   "log verbosity level (debug, info, warn, error)",
-				Value:   "info",
-				Sources: cli.EnvVars("TAP_LOG_LEVEL", "LOG_LEVEL"),
-			},
-			&cli.StringFlag{
-				Name:    "metrics-listen",
-				Usage:   "address for metrics/pprof server (disabled if empty)",
-				Sources: cli.EnvVars("TAP_METRICS_LISTEN"),
+		Commands: []*cli.Command{
+			{
+				Name:  "run",
+				Usage: "start the tap server",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "env",
+						Usage:   "environment name for observability",
+						Value:   "dev",
+						Sources: cli.EnvVars("TAP_ENV"),
+					},
+					&cli.StringFlag{
+						Name:    "db-url",
+						Usage:   "database connection string (sqlite://path or postgres://...)",
+						Value:   "sqlite://./tap.db",
+						Sources: cli.EnvVars("TAP_DATABASE_URL"),
+					},
+					&cli.IntFlag{
+						Name:    "max-db-conn",
+						Usage:   "maximum number of database connections",
+						Value:   32,
+						Sources: cli.EnvVars("TAP_MAX_DB_CONNS"),
+					},
+					&cli.StringFlag{
+						Name:    "bind",
+						Usage:   "address and port to listen on for HTTP APIs",
+						Value:   ":2480",
+						Sources: cli.EnvVars("TAP_BIND"),
+					},
+					&cli.StringFlag{
+						Name:    "relay-url",
+						Usage:   "AT Protocol relay HTTP/HTTPS url",
+						Value:   "https://relay1.us-east.bsky.network",
+						Sources: cli.EnvVars("TAP_RELAY_URL"),
+					},
+					&cli.IntFlag{
+						Name:    "firehose-parallelism",
+						Usage:   "number of parallel firehose event processors",
+						Value:   10,
+						Sources: cli.EnvVars("TAP_FIREHOSE_PARALLELISM"),
+					},
+					&cli.IntFlag{
+						Name:    "resync-parallelism",
+						Usage:   "number of parallel resync workers",
+						Value:   5,
+						Sources: cli.EnvVars("TAP_RESYNC_PARALLELISM"),
+					},
+					&cli.IntFlag{
+						Name:    "outbox-parallelism",
+						Usage:   "number of parallel outbox workers",
+						Value:   1,
+						Sources: cli.EnvVars("TAP_OUTBOX_PARALLELISM"),
+					},
+					&cli.DurationFlag{
+						Name:    "cursor-save-interval",
+						Usage:   "how often to save firehose cursor",
+						Value:   1 * time.Second,
+						Sources: cli.EnvVars("TAP_CURSOR_SAVE_INTERVAL"),
+					},
+					&cli.DurationFlag{
+						Name:    "repo-fetch-timeout",
+						Usage:   "timeout when fetching repo CARs from PDS (e.g. 180s)",
+						Value:   300 * time.Second,
+						Sources: cli.EnvVars("TAP_REPO_FETCH_TIMEOUT"),
+					},
+					&cli.IntFlag{
+						Name:    "ident-cache-size",
+						Usage:   "size of in-process identity cache",
+						Value:   2_000_000,
+						Sources: cli.EnvVars("RELAY_IDENT_CACHE_SIZE"),
+					},
+					&cli.IntFlag{
+						Name:    "outbox-capacity",
+						Usage:   "rough size of outbox before back pressure is applied",
+						Value:   100_000,
+						Sources: cli.EnvVars("TAP_OUTBOX_CAPACITY"),
+					},
+					&cli.BoolFlag{
+						Name:    "full-network",
+						Usage:   "enumerate and sync all repos on the network",
+						Sources: cli.EnvVars("TAP_FULL_NETWORK"),
+					},
+					&cli.StringFlag{
+						Name:    "signal-collection",
+						Usage:   "enumerate repos by collection (exact NSID)",
+						Sources: cli.EnvVars("TAP_SIGNAL_COLLECTION"),
+					},
+					&cli.BoolFlag{
+						Name:    "disable-acks",
+						Usage:   "disable client acknowledgments (fire-and-forget mode)",
+						Sources: cli.EnvVars("TAP_DISABLE_ACKS"),
+					},
+					&cli.StringFlag{
+						Name:    "webhook-url",
+						Usage:   "webhook URL for event delivery (instead of WebSocket)",
+						Sources: cli.EnvVars("TAP_WEBHOOK_URL"),
+					},
+					&cli.StringSliceFlag{
+						Name:    "collection-filters",
+						Usage:   "filter output records by collection (supports wildcards)",
+						Sources: cli.EnvVars("TAP_COLLECTION_FILTERS"),
+					},
+					&cli.BoolFlag{
+						Name:    "outbox-only",
+						Usage:   "run in outbox-only mode (no firehose, resync, or enumeration)",
+						Sources: cli.EnvVars("TAP_OUTBOX_ONLY"),
+					},
+					&cli.StringFlag{
+						Name:    "admin-password",
+						Usage:   "Basic auth admin password required for all requests (if set)",
+						Sources: cli.EnvVars("TAP_ADMIN_PASSWORD"),
+					},
+					&cli.DurationFlag{
+						Name:    "retry-timeout",
+						Usage:   "timeout before retrying unacked events",
+						Value:   60 * time.Second,
+						Sources: cli.EnvVars("TAP_RETRY_TIMEOUT"),
+					},
+					&cli.StringFlag{
+						Name:    "log-level",
+						Usage:   "log verbosity level (debug, info, warn, error)",
+						Value:   "info",
+						Sources: cli.EnvVars("TAP_LOG_LEVEL", "LOG_LEVEL"),
+					},
+					&cli.StringFlag{
+						Name:    "metrics-listen",
+						Usage:   "address for metrics/pprof server (disabled if empty)",
+						Sources: cli.EnvVars("TAP_METRICS_LISTEN"),
+					},
+				},
+				Action: runTap,
 			},
 		},
-		Action: runTap,
 	}
 
 	return app.Run(context.Background(), args)
