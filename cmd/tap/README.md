@@ -206,3 +206,28 @@ SQLite is tuned for high write throughput: WAL mode, 10-second busy timeout, `sy
 Resync is automatic: if a commit does not validate according to [Sync v1.1](https://github.com/bluesky-social/proposals/tree/main/0006-sync-iteration) semantics, the repo is marked `desyncrhonized` until it can be refetched from the authoritative PDS. Live events during resync are buffered and replayed after completion. Failures trigger exponential backoff (1 minute → 1 hour max).
 
 Identity resolution uses a cached directory (24-hour TTL). DNS lookups are skipped for `*.bsky.social` handles. The cache warms up at startup and may cause a burst of PLC directory requests.
+
+## Distribution & Deployment
+
+Tap is distributed as a single Go binary and is easy to build and run.
+
+**Build from source:**
+```bash
+go build -o tap ./cmd/tap
+./tap run
+```
+
+**Docker:**
+
+A pre-built Docker image is also available:
+```bash
+docker pull ghcr.io/bluesky-social/indigo/tap:latest
+docker run -p 2480:2480 ghcr.io/bluesky-social/indigo/tap:latest
+```
+
+To persist data, mount a volume at `/data`:
+```bash
+docker run -p 2480:2480 -v ./data:/data ghcr.io/bluesky-social/indigo/tap:latest
+```
+
+The Dockerfile is included in the repo at `cmd/tap/Dockerfile` if you need to build your own image.

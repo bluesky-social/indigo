@@ -19,8 +19,8 @@ FROM alpine:3.22
 RUN apk add --no-cache --update dumb-init ca-certificates runit
 ENTRYPOINT ["dumb-init", "--"]
 
-WORKDIR /
-RUN mkdir -p data/tap
+RUN mkdir -p /data
+WORKDIR /data
 COPY --from=build-env /tap /
 
 # small things to make golang binaries work well under alpine
