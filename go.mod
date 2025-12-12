@@ -50,6 +50,7 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/client_model v0.5.0
 	github.com/puzpuzpuz/xsync/v3 v3.0.2
+	github.com/puzpuzpuz/xsync/v4 v4.2.0
 	github.com/redis/go-redis/v9 v9.3.0
 	github.com/rivo/uniseg v0.1.0
 	github.com/samber/slog-echo v1.8.0
@@ -178,7 +179,7 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
-	golang.org/x/net v0.23.0 // indirect
+	golang.org/x/net v0.23.0
 	golang.org/x/sys v0.22.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231120223509-83a465c0220f // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231120223509-83a465c0220f // indirect
