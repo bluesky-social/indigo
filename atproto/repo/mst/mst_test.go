@@ -14,8 +14,8 @@ import (
 func TestBasicMST(t *testing.T) {
 	assert := assert.New(t)
 
-	c2, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu222222222")
-	c3, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu333333333")
+	c2, _ := cid.Decode("bafyreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu222222222")
+	c3, _ := cid.Decode("bafyreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu333333333")
 	assert.NotEmpty(c2)
 	assert.NotEmpty(c3)
 	tree := NewEmptyTree()
@@ -76,7 +76,7 @@ func TestKeyLimits(t *testing.T) {
 
 	var err error
 	tree := NewEmptyTree()
-	c2, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu222222222")
+	c2, _ := cid.Decode("bafyreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu222222222")
 
 	emptyKey := []byte{}
 	_, err = tree.Get(emptyKey)
@@ -98,8 +98,8 @@ func TestKeyLimits(t *testing.T) {
 func TestBasicMap(t *testing.T) {
 	assert := assert.New(t)
 
-	c2, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu222222222")
-	c3, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu333333333")
+	c2, _ := cid.Decode("bafyreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu222222222")
+	c3, _ := cid.Decode("bafyreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu333333333")
 	assert.NotEmpty(c2)
 	assert.NotEmpty(c3)
 
@@ -131,7 +131,7 @@ func TestBasicMap(t *testing.T) {
 func randomCid() cid.Cid {
 	buf := make([]byte, 32)
 	rand.Read(buf)
-	c, err := cid.NewPrefixV1(cid.Raw, multihash.SHA2_256).Sum(buf)
+	c, err := cid.NewPrefixV1(cid.DagCBOR, multihash.SHA2_256).Sum(buf)
 	if err != nil {
 		panic(err)
 	}
@@ -248,16 +248,16 @@ func TestBrokenCaseOne(t *testing.T) {
 	var err error
 
 	entries := [][]string{
-		{"1ea173efefa4", "bafkreibey6qzs7vb4wzlzfo7flflevl7qstzaggooiqivuexb6snapadq4"},
-		{"bed5c5789108", "bafkreifoxw552rsnuoargsfilhwmhprxr6qyzjmbtgjzmboii4x4mk4aoi"},
-		{"340b57a94d4c", "bafkreigarcm3fvnekjml6vmm5dyg46qnfkpc2lhghnh2wvntwvbrvxzq7q"},
-		{"8d37e30d3d29", "bafkreifdgiz7dmgng4aebiw5m6w4cypiiar2edgtkkfg47o3pniir3pxve"},
-		{"ee4b5efda333", "bafkreiho7qtewg7fm7egxe2ectkm2ykqygakph3nt4rrlp5mxwkvdwckk4"},
-		{"1180aeeadc01", "bafkreifqhtleufnxv2nkwehoa5lgmilwgkfqvlpkwbalvka6m6675ewkhu"},
-		{"c368b6b55998", "bafkreial4xepr5wnhetxnkmylmipdmjybxsgf74becdi74olmzb5w5gpiq"},
-		{"b948d2e0fc76", "bafkreiaefdmlyfjf4qovfyn22zbpw57wu667jtrvavogfxr7drewx4u24y"},
-		{"93c53d491ffd", "bafkreie2nxdmjsy6k6lendnsy7bzyufj7j37l42ymquwmpuzsauraqsibq"},
-		{"54ef0958a374", "bafkreigbnjxc7wbxgqxs2n2djjmlxnuf222gdiq4jgdtkse4yn67v5crq4"},
+		{"1ea173efefa4", "bafyreibey6qzs7vb4wzlzfo7flflevl7qstzaggooiqivuexb6snapadq4"},
+		{"bed5c5789108", "bafyreifoxw552rsnuoargsfilhwmhprxr6qyzjmbtgjzmboii4x4mk4aoi"},
+		{"340b57a94d4c", "bafyreigarcm3fvnekjml6vmm5dyg46qnfkpc2lhghnh2wvntwvbrvxzq7q"},
+		{"8d37e30d3d29", "bafyreifdgiz7dmgng4aebiw5m6w4cypiiar2edgtkkfg47o3pniir3pxve"},
+		{"ee4b5efda333", "bafyreiho7qtewg7fm7egxe2ectkm2ykqygakph3nt4rrlp5mxwkvdwckk4"},
+		{"1180aeeadc01", "bafyreifqhtleufnxv2nkwehoa5lgmilwgkfqvlpkwbalvka6m6675ewkhu"},
+		{"c368b6b55998", "bafyreial4xepr5wnhetxnkmylmipdmjybxsgf74becdi74olmzb5w5gpiq"},
+		{"b948d2e0fc76", "bafyreiaefdmlyfjf4qovfyn22zbpw57wu667jtrvavogfxr7drewx4u24y"},
+		{"93c53d491ffd", "bafyreie2nxdmjsy6k6lendnsy7bzyufj7j37l42ymquwmpuzsauraqsibq"},
+		{"54ef0958a374", "bafyreigbnjxc7wbxgqxs2n2djjmlxnuf222gdiq4jgdtkse4yn67v5crq4"},
 	}
 
 	tree := NewEmptyTree()

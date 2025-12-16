@@ -19,7 +19,7 @@ import (
 func randomCid() cid.Cid {
 	buf := make([]byte, 32)
 	rand.Read(buf)
-	c, err := cid.NewPrefixV1(cid.Raw, multihash.SHA2_256).Sum(buf)
+	c, err := cid.NewPrefixV1(cid.DagCBOR, multihash.SHA2_256).Sum(buf)
 	if err != nil {
 		panic(err)
 	}
@@ -51,8 +51,8 @@ func debugCountEntries(n *mst.Node) int {
 func TestBasicOperation(t *testing.T) {
 	assert := assert.New(t)
 
-	c2, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu222222222")
-	c3, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu333333333")
+	c2, _ := cid.Decode("bafyreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu222222222")
+	c3, _ := cid.Decode("bafyreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu333333333")
 	et := mst.NewEmptyTree()
 	tree := &et
 	var op *Operation
@@ -252,8 +252,8 @@ func randomOperations(t *testing.T, size, opCount, iterations int) {
 func TestNormalizeOps(t *testing.T) {
 	assert := assert.New(t)
 
-	c2, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu222222222")
-	c3, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu333333333")
+	c2, _ := cid.Decode("bafyreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu222222222")
+	c3, _ := cid.Decode("bafyreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu333333333")
 
 	simple := []Operation{
 		Operation{
