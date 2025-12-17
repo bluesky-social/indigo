@@ -97,7 +97,7 @@ Tap syncs a subset of repos in the network. It can operate in three modes for de
 
 **Collection Signal**: Set `TAP_SIGNAL_COLLECTION=com.example.nsid`. Track all repos that have at least one record in the specified collection. Many applications create a "declaration" or "profile" in a repo when that repo uses that application
 
-**Full Network**: Set `TAP_FULL_NETWORK_MODE=true`. Enumerates and tracks all findable repos on the entire network. Resource-intensive and takes days/weeks to complete backfill.
+**Full Network**: Set `TAP_FULL_NETWORK=true`. Enumerates and tracks all findable repos on the entire network. Resource-intensive and takes days/weeks to complete backfill.
 
 ## Collection Filtering
 
