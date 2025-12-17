@@ -60,6 +60,12 @@ func run(args []string) error {
 						Sources: cli.EnvVars("TAP_BIND"),
 					},
 					&cli.StringFlag{
+						Name:    "plc-url",
+						Usage:   "PLC registry HTTP/HTTPS url",
+						Value:   "https://plc.directory",
+						Sources: cli.EnvVars("TAP_PLC_URL", "ATP_PLC_HOST"),
+					},
+					&cli.StringFlag{
 						Name:    "relay-url",
 						Usage:   "AT Protocol relay HTTP/HTTPS url",
 						Value:   "https://relay1.us-east.bsky.network",
@@ -181,9 +187,16 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("relay-url must start with http:// or https://")
 	}
 
+	// fail early if plc url is not http/https
+	plcUrl := cmd.String("plc-url")
+	if !strings.HasPrefix(plcUrl, "http://") && !strings.HasPrefix(plcUrl, "https://") {
+		return fmt.Errorf("plc-url must start with http:// or https://")
+	}
+
 	config := TapConfig{
 		DatabaseURL:                cmd.String("db-url"),
 		DBMaxConns:                 int(cmd.Int("max-db-conn")),
+		PLCURL:                     plcUrl,
 		RelayUrl:                   relayUrl,
 		FirehoseParallelism:        int(cmd.Int("firehose-parallelism")),
 		ResyncParallelism:          int(cmd.Int("resync-parallelism")),
