@@ -36,6 +36,7 @@ type Tap struct {
 type TapConfig struct {
 	DatabaseURL                string
 	DBMaxConns                 int
+	PLCURL                     string
 	RelayUrl                   string
 	FirehoseParallelism        int
 	ResyncParallelism          int
@@ -61,6 +62,7 @@ func NewTap(config TapConfig) (*Tap, error) {
 	}
 
 	bdir := identity.BaseDirectory{
+		PLCURL:                config.PLCURL,
 		TryAuthoritativeDNS:   false,
 		SkipDNSDomainSuffixes: []string{".bsky.social"},
 	}
