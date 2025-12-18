@@ -138,11 +138,9 @@ func (fl *FlatLexicon) flattenType(fd *FlatDef, tpath []string, def *lexicon.Sch
 		fl.Types = append(fl.Types, ft)
 	case lexicon.SchemaSubscription:
 		// v.Properties: same as above
-		if v.Message != nil {
-			for _, ref := range v.Message.Schema.Refs {
-				if !strings.HasPrefix(ref, "#") {
-					fl.ExternalRefs[strings.TrimSuffix(ref, "#main")] = true
-				}
+		for _, ref := range v.Message.Schema.Refs {
+			if !strings.HasPrefix(ref, "#") {
+				fl.ExternalRefs[strings.TrimSuffix(ref, "#main")] = true
 			}
 		}
 		fl.Types = append(fl.Types, ft)
