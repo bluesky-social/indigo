@@ -59,6 +59,7 @@ Environment variables or CLI flags:
 - `TAP_DATABASE_URL`: database connection string, SQLite or PostgreSQL (default: `sqlite://./tap.db`)
 - `TAP_MAX_DB_CONNS`: maximum number of database connections (default: `32`)
 - `TAP_BIND`: HTTP server address (default: `:2480`)
+- `TAP_PLC_URL`: PLC directory HTTP/HTTPS URL (default: `https://plc.directory`)
 - `TAP_RELAY_URL`: AT Protocol relay HTTP/HTTPS URL (default: `https://relay1.us-east.bsky.network`)
 - `TAP_FIREHOSE_PARALLELISM`: concurrent firehose event processors (default: `10`)
 - `TAP_RESYNC_PARALLELISM`: concurrent resync workers (default: `5`)
