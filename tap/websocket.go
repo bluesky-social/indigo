@@ -170,12 +170,6 @@ func (ws *Websocket) Run(ctx context.Context) error {
 	}
 }
 
-func (ws *Websocket) close(conn *websocket.Conn) {
-	if err := conn.Close(); err != nil {
-		ws.log.Error("failed to close websocket connection", "err", err)
-	}
-}
-
 func (ws *Websocket) runOnce(ctx context.Context) error {
 	dialer := websocket.Dialer{HandshakeTimeout: ws.connectTimeout}
 	conn, _, err := dialer.DialContext(ctx, ws.addr, nil)
