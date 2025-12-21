@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -83,7 +84,7 @@ func WithAcks() func(*Websocket) {
 type WebsocketHandlerFunc func(context.Context, *Event)
 
 // Initializes a tap websocket consumer
-func NewWebsocket(ctx context.Context, addr string, handler WebsocketHandlerFunc, opts ...WebsocketOption) (*Websocket, error) {
+func NewWebsocket(addr string, handler WebsocketHandlerFunc, opts ...WebsocketOption) (*Websocket, error) {
 	u, err := url.Parse(addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse websocket url %q: %w", addr, err)
@@ -152,7 +153,7 @@ func (ws *Websocket) Run(ctx context.Context) error {
 		ws.log.Error("websocket connection failed", "err", err, "consecutive_errors", errCount)
 
 		if errCount >= ws.maxErrs {
-			return fmt.Errorf("webcosket connection failed %d consecutive times: %w", errCount, err)
+			return fmt.Errorf("websocket connection failed %d consecutive times: %w", errCount, err)
 		}
 
 		ws.log.Warn("retrying websocket connection", "consecutive_errors", errCount)
@@ -181,13 +182,22 @@ func (ws *Websocket) runOnce(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to websocket at %q: %w", ws.addr, err)
 	}
-	defer ws.close(conn)
+
+	var closeOnce sync.Once
+	closeConn := func() {
+		closeOnce.Do(func() {
+			if err := conn.Close(); err != nil {
+				ws.log.Error("failed to close websocket connection", "err", err)
+			}
+		})
+	}
+	defer closeConn()
 
 	ws.log.Debug("connected to websocket", "addr", ws.addr)
 
 	go func() {
 		<-ctx.Done()
-		ws.close(conn)
+		closeConn()
 	}()
 
 	for {
@@ -214,9 +224,7 @@ func (ws *Websocket) runOnce(ctx context.Context) error {
 			continue
 		}
 
-		if ws.handler != nil {
-			ws.handler(ctx, &ev)
-		}
+		ws.handler(ctx, &ev)
 
 		// ACKs are optional
 		if ws.sendAcks {

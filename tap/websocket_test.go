@@ -52,7 +52,7 @@ func TestWebsocket(t *testing.T) {
 
 	wsURL := "ws://" + strings.TrimPrefix(server.URL, "http://")
 
-	ws, err := NewWebsocket(ctx, wsURL, func(ctx context.Context, ev *Event) {
+	ws, err := NewWebsocket(wsURL, func(ctx context.Context, ev *Event) {
 		mu.Lock()
 		received = append(received, ev)
 		mu.Unlock()
@@ -134,7 +134,7 @@ func TestWebsocketWithAcks(t *testing.T) {
 
 	wsURL := "ws://" + strings.TrimPrefix(server.URL, "http://")
 
-	ws, err := NewWebsocket(ctx, wsURL, func(ctx context.Context, ev *Event) {}, WithLogger(nil), WithAcks())
+	ws, err := NewWebsocket(wsURL, func(ctx context.Context, ev *Event) {}, WithLogger(nil), WithAcks())
 	require.NoError(err)
 
 	go ws.Run(ctx)

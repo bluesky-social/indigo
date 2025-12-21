@@ -55,12 +55,12 @@ func (e *Event) UnmarshalJSON(data []byte) error {
 	e.Type = event.Type
 
 	switch event.Type {
-	case "record":
+	case eventTypeRecord:
 		e.record = &RecordEvent{}
 		if err := json.Unmarshal(event.Record, e.record); err != nil {
 			return fmt.Errorf("failed to unmarshal tap record event: %w", err)
 		}
-	case "user":
+	case eventTypeUser:
 		e.user = &UserEvent{}
 		if err := json.Unmarshal(event.User, e.user); err != nil {
 			return fmt.Errorf("failed to unmarshal tap user event: %w", err)
