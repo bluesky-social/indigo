@@ -10,15 +10,16 @@ const (
 	eventTypeUser   = "user"
 )
 
-// @DOCSTRING
+// Event represents an atproto event from tap. Use a type switch on the Payload() method to access event data.
 type Event struct {
-	ID     uint64
-	Type   string
+	ID   uint64
+	Type string
+
 	record *RecordEvent
 	user   *UserEvent
 }
 
-// @DOCSTRING
+// RecordEvent represents a record creation, update, or deletion in a user's repository.
 type RecordEvent struct {
 	DID        string          `json:"did"`
 	Collection string          `json:"collection"`
@@ -29,7 +30,7 @@ type RecordEvent struct {
 	Live       bool            `json:"live"`
 }
 
-// @DOCSTRING
+// UserEvent represents a user account status change.
 type UserEvent struct {
 	DID      string `json:"did"`
 	Handle   string `json:"handle"`
@@ -91,7 +92,7 @@ func (e Event) MarshalJSON() ([]byte, error) {
 	return buf, nil
 }
 
-// @DOCSTRING
+// Payload returns the typed event data as either *RecordEvent or *UserEvent.
 func (e *Event) Payload() any {
 	switch e.Type {
 	case eventTypeRecord:
