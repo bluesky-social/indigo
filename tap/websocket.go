@@ -90,7 +90,7 @@ func NewWebsocket(ctx context.Context, addr string, handler WebsocketHandlerFunc
 	}
 
 	switch u.Scheme {
-	case "ws://", "wss://": // ok
+	case "ws", "wss": // ok
 	default:
 		return nil, fmt.Errorf("invalid websocket protocol scheme: wanted ws:// or wss://, got %q", u.Scheme)
 	}
