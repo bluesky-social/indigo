@@ -68,6 +68,12 @@ func (em *EventManager) Shutdown(ctx context.Context) error {
 }
 
 func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
+	defer func() {
+		if r := recover(); r != nil {
+			em.log.Error("caught panic in broadcastEvent", "recover", r)
+		}
+	}()
+
 	// the main thing we do is send it out, so MarshalCBOR once
 	if err := evt.Preserialize(); err != nil {
 		em.log.Error("broadcast serialize failed", "err", err)
