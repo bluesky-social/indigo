@@ -13,59 +13,84 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// @DOCSTRING
+// Websocket implements a tap consumer that reads via a websocket
 type Websocket struct {
-	addr               string
-	connectTimeout     time.Duration
-	readTimeout        time.Duration
-	logger             *slog.Logger
-	maxConsecutiveErrs int
-	handler            WebsocketHandlerFunc
+	log *slog.Logger
+
+	addr     string
+	sendAcks bool
+	maxErrs  int
+
+	connectTimeout time.Duration
+	readTimeout    time.Duration
+	writeTimeout   time.Duration
+
+	handler WebsocketHandlerFunc
 }
 
-// @DOCSTRING
+// Defines an option for the tap websocket consumer
 type WebsocketOption func(*Websocket)
 
-// @DOCSTRING
+// Defines the log/slog logger to use throughout the lifecycle of the websocket
+// consumer. Pass nil to disable logging.
+func WithLogger(logger *slog.Logger) func(*Websocket) {
+	return func(ws *Websocket) {
+		ws.log = logger
+
+		if ws.log == nil {
+			// write to io.Discard if a nil logger is passed
+			ws.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+		}
+	}
+}
+
+// Sets the connect timeout for connecting to the websocket
 func WithConnectTimeout(timeout time.Duration) func(*Websocket) {
 	return func(ws *Websocket) {
 		ws.connectTimeout = timeout
 	}
 }
 
-// @DOCSTRING
-func WithLogger(logger *slog.Logger) func(*Websocket) {
+// Sets the read timeout for reading data from the websocket
+func WithReadTimeout(timeout time.Duration) func(*Websocket) {
 	return func(ws *Websocket) {
-		ws.logger = logger
-
-		if ws.logger == nil {
-			// write to io.Discard if a nil logger is passed
-			ws.logger = slog.New(slog.NewTextHandler(io.Discard, nil))
-		}
+		ws.readTimeout = timeout
 	}
 }
 
-// @DOCSTRING
+// Sets the write timeout for writing data to the websocket
+func WithWriteTimeout(timeout time.Duration) func(*Websocket) {
+	return func(ws *Websocket) {
+		ws.writeTimeout = timeout
+	}
+}
+
+// Controls how many times the loop will attempt to reconnect to the websocket in a row before giving up
 func WithMaxConsecutiveErrors(numErrs int) func(*Websocket) {
 	return func(ws *Websocket) {
-		ws.maxConsecutiveErrs = numErrs
+		ws.maxErrs = numErrs
 	}
 }
 
-// @DOCSTRING
+// Turns on message acknowledgements
+func WithAcks() func(*Websocket) {
+	return func(ws *Websocket) {
+		ws.sendAcks = true
+	}
+}
+
+// Defines an option for the tap websocket consumer
 type WebsocketHandlerFunc func(context.Context, *Event)
 
-// @DOCSTRING
+// Initializes a tap websocket consumer
 func NewWebsocket(ctx context.Context, addr string, handler WebsocketHandlerFunc, opts ...WebsocketOption) (*Websocket, error) {
-	// validate user args
 	u, err := url.Parse(addr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse websocket url %q: %w", err)
+		return nil, fmt.Errorf("failed to parse websocket url %q: %w", addr, err)
 	}
 
 	switch u.Scheme {
-	case "ws://", "wss://":
-		// ok
+	case "ws://", "wss://": // ok
 	default:
 		return nil, fmt.Errorf("invalid websocket protocol scheme: wanted ws:// or wss://, got %q", u.Scheme)
 	}
@@ -75,12 +100,17 @@ func NewWebsocket(ctx context.Context, addr string, handler WebsocketHandlerFunc
 	}
 
 	ws := &Websocket{
-		addr:               addr,
-		connectTimeout:     15 * time.Second,
-		readTimeout:        time.Minute,
-		logger:             slog.Default().WithGroup("tap"),
-		maxConsecutiveErrs: 5,
-		handler:            handler,
+		log: slog.Default().WithGroup("tap"),
+
+		addr:     addr,
+		sendAcks: false,
+		maxErrs:  10,
+
+		connectTimeout: 30 * time.Second,
+		readTimeout:    30 * time.Second,
+		writeTimeout:   30 * time.Second,
+
+		handler: handler,
 	}
 
 	for _, opt := range opts {
@@ -90,9 +120,9 @@ func NewWebsocket(ctx context.Context, addr string, handler WebsocketHandlerFunc
 	return ws, nil
 }
 
-// @DOCSTRING
+// Connects to and beings the main tap websocket consumer loop
 func (ws *Websocket) Run(ctx context.Context) error {
-	const initialBackoff = time.Second
+	const initialBackoff = 500 * time.Millisecond
 
 	errCount := 0
 	backoff := initialBackoff
@@ -100,35 +130,32 @@ func (ws *Websocket) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			ws.logger.Debug("websocket ingester shutting down")
+			ws.log.Debug("websocket ingester shutting down")
 			return nil
 		default:
 		}
 
 		err := ws.runOnce(ctx)
 		if errors.Is(err, context.Canceled) {
-			ws.logger.Debug("websocket ingester shutting down")
+			ws.log.Debug("websocket ingester shutting down")
 			return nil
 		}
 
 		if err == nil {
 			errCount = 0
 			backoff = initialBackoff
-			ws.logger.Debug("websocket connection closed normally, reconnecting")
+			ws.log.Debug("websocket connection closed normally, reconnecting")
 			continue
 		}
 
 		errCount++
-		ws.logger.Error("websocket connection failed",
-			"err", err,
-			"consecutive_errors", errCount,
-		)
+		ws.log.Error("websocket connection failed", "err", err, "consecutive_errors", errCount)
 
-		if errCount >= ws.maxConsecutiveErrs {
+		if errCount >= ws.maxErrs {
 			return fmt.Errorf("webcosket connection failed %d consecutive times: %w", errCount, err)
 		}
 
-		ws.logger.Warn("retrying websocket connection", "consecutive_errors", errCount)
+		ws.log.Warn("retrying websocket connection", "consecutive_errors", errCount)
 
 		select {
 		case <-ctx.Done():
@@ -137,14 +164,14 @@ func (ws *Websocket) Run(ctx context.Context) error {
 		case <-time.After(backoff):
 		}
 
-		// wait exponentially, up to a limit of 10 seconds
+		// wait exponentially, up to a limit
 		backoff = min(backoff*2, 10*time.Second)
 	}
 }
 
 func (ws *Websocket) close(conn *websocket.Conn) {
 	if err := conn.Close(); err != nil {
-		ws.logger.Error("failed to close websocket connection", "err", err)
+		ws.log.Error("failed to close websocket connection", "err", err)
 	}
 }
 
@@ -156,7 +183,7 @@ func (ws *Websocket) runOnce(ctx context.Context) error {
 	}
 	defer ws.close(conn)
 
-	ws.logger.Debug("connected to websocket", "addr", ws.addr)
+	ws.log.Debug("connected to websocket", "addr", ws.addr)
 
 	go func() {
 		<-ctx.Done()
@@ -181,12 +208,37 @@ func (ws *Websocket) runOnce(ctx context.Context) error {
 			return fmt.Errorf("failed to read websocket message: %w", err)
 		}
 
-		var event Event
-		if err := json.Unmarshal(buf, &event); err != nil {
-			ws.logger.Error("failed to unmarshal event json", "err", err)
+		var ev Event
+		if err := json.Unmarshal(buf, &ev); err != nil {
+			ws.log.Error("failed to unmarshal event json", "err", err)
 			continue
 		}
 
-		ws.handler(ctx, &event)
+		if ws.handler != nil {
+			ws.handler(ctx, &ev)
+		}
+
+		// ACKs are optional
+		if ws.sendAcks {
+			if err := ws.ack(conn, &ev); err != nil {
+				return fmt.Errorf("failed to acknowledge event: %w", err)
+			}
+		}
 	}
+}
+
+func (ws *Websocket) ack(conn *websocket.Conn, ev *Event) error {
+	if err := conn.SetWriteDeadline(time.Now().Add(ws.writeTimeout)); err != nil {
+		return fmt.Errorf("failed to set write deadline on ack: %w", err)
+	}
+
+	if err := conn.WriteJSON(newACKPayload(ev.ID)); err != nil {
+		if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+			return nil // normal remote closure
+		}
+
+		return fmt.Errorf("failed to send ack: %w", err)
+	}
+
+	return nil
 }

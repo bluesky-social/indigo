@@ -12,7 +12,7 @@ const (
 
 // @DOCSTRING
 type Event struct {
-	ID     int64
+	ID     uint64
 	Type   string
 	record *RecordEvent
 	user   *UserEvent
@@ -39,7 +39,7 @@ type UserEvent struct {
 
 func (e *Event) UnmarshalJSON(data []byte) error {
 	event := struct {
-		ID     int64           `json:"id"`
+		ID     uint64          `json:"id"`
 		Type   string          `json:"type"`
 		Record json.RawMessage `json:"record,omitempty"`
 		User   json.RawMessage `json:"user,omitempty"`
@@ -72,7 +72,7 @@ func (e *Event) UnmarshalJSON(data []byte) error {
 
 func (e Event) MarshalJSON() ([]byte, error) {
 	event := struct {
-		ID     int64        `json:"id"`
+		ID     uint64       `json:"id"`
 		Type   string       `json:"type"`
 		Record *RecordEvent `json:"record,omitempty"`
 		User   *UserEvent   `json:"user,omitempty"`
@@ -101,4 +101,16 @@ func (e *Event) Payload() any {
 	}
 
 	return nil // unreachable
+}
+
+type ackPayload struct {
+	Type string `json:"type"` // Always "ack"
+	ID   uint64 `json:"id"`
+}
+
+func newACKPayload(id uint64) *ackPayload {
+	return &ackPayload{
+		Type: "ack",
+		ID:   id,
+	}
 }
