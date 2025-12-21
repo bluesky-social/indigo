@@ -107,7 +107,7 @@ func TestWebsocketWithAcks(t *testing.T) {
 		},
 	}
 
-	var receivedAck *ACK
+	var receivedAck *Event
 	var wg sync.WaitGroup
 	wg.Add(1)
 
@@ -123,7 +123,7 @@ func TestWebsocketWithAcks(t *testing.T) {
 
 		_, ackBuf, err := conn.ReadMessage()
 		if err == nil {
-			receivedAck = &ACK{}
+			receivedAck = &Event{}
 			json.Unmarshal(ackBuf, receivedAck)
 		}
 		wg.Done()

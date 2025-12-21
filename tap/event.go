@@ -6,6 +6,7 @@ import (
 )
 
 const (
+	eventTypeACK    = "ack"
 	eventTypeRecord = "record"
 	eventTypeUser   = "user"
 )
@@ -104,17 +105,10 @@ func (e *Event) Payload() any {
 	return nil // unreachable
 }
 
-// A payload to be sent to tap to acknowledge durable write of an event so we may continue processing.
-// This should only be instantiated using the `NewACK` function.
-type ACK struct {
-	Type string `json:"type"` // Always "ack"
-	ID   uint64 `json:"id"`
-}
-
 // Constructs a new ACK object to be serialized and sent back to tap
-func NewACK(id uint64) *ACK {
-	return &ACK{
-		Type: "ack",
+func NewACKPayload(id uint64) *Event {
+	return &Event{
+		Type: eventTypeACK,
 		ID:   id,
 	}
 }
