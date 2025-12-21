@@ -232,7 +232,7 @@ func (ws *Websocket) ack(conn *websocket.Conn, ev *Event) error {
 		return fmt.Errorf("failed to set write deadline on ack: %w", err)
 	}
 
-	if err := conn.WriteJSON(newACKPayload(ev.ID)); err != nil {
+	if err := conn.WriteJSON(NewACK(ev.ID)); err != nil {
 		if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
 			return nil // normal remote closure
 		}
