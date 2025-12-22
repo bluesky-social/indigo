@@ -14,6 +14,23 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// A thin error wrapper that indicates to the tap client consumer loop that a message
+// should not be retried (i.e. invalid user input that will surely fail again on retry).
+type NonRetryableError struct {
+	err error
+}
+
+func NewNonRetryableError(err error) *NonRetryableError {
+	return &NonRetryableError{err: err}
+}
+
+func (err *NonRetryableError) Error() string {
+	if err.err != nil {
+		return err.err.Error()
+	}
+	return ""
+}
+
 // Websocket implements a tap consumer that reads via a websocket
 type Websocket struct {
 	log *slog.Logger
@@ -80,8 +97,9 @@ func WithAcks() func(*Websocket) {
 	}
 }
 
-// Defines an option for the tap websocket consumer
-type WebsocketHandlerFunc func(context.Context, *Event)
+// Defines an option for the tap websocket consumer. A nil error indicates that an ACK will be sent to tap
+// if WithAcks() is provided.
+type WebsocketHandlerFunc func(context.Context, *Event) error
 
 // Initializes a tap websocket consumer
 func NewWebsocket(addr string, handler WebsocketHandlerFunc, opts ...WebsocketOption) (*Websocket, error) {
@@ -123,12 +141,7 @@ func NewWebsocket(addr string, handler WebsocketHandlerFunc, opts ...WebsocketOp
 
 // Connects to and beings the main tap websocket consumer loop
 func (ws *Websocket) Run(ctx context.Context) error {
-	const initialBackoff = 500 * time.Millisecond
-
-	errCount := 0
-	backoff := initialBackoff
-
-	for {
+	for errCount := 0; ; {
 		select {
 		case <-ctx.Done():
 			ws.log.Debug("websocket ingester shutting down")
@@ -144,7 +157,6 @@ func (ws *Websocket) Run(ctx context.Context) error {
 
 		if err == nil {
 			errCount = 0
-			backoff = initialBackoff
 			ws.log.Debug("websocket connection closed normally, reconnecting")
 			continue
 		}
@@ -157,16 +169,17 @@ func (ws *Websocket) Run(ctx context.Context) error {
 		}
 
 		ws.log.Warn("retrying websocket connection", "consecutive_errors", errCount)
-
-		select {
-		case <-ctx.Done():
-			// shutdown received during a backoff sleep; nothing to do
+		if sleepMaybeExit(ctx, errCount) {
 			return nil
-		case <-time.After(backoff):
 		}
 
-		// wait exponentially, up to a limit
-		backoff = min(backoff*2, 10*time.Second)
+		errCount++
+	}
+}
+
+func (ws *Websocket) close(conn *websocket.Conn) {
+	if err := conn.Close(); err != nil {
+		ws.log.Error("failed to close websocket connection", "err", err)
 	}
 }
 
@@ -195,6 +208,10 @@ func (ws *Websocket) runOnce(ctx context.Context) error {
 	}()
 
 	for {
+		if done(ctx) {
+			return nil
+		}
+
 		if err := conn.SetReadDeadline(time.Now().Add(ws.readTimeout)); err != nil {
 			return fmt.Errorf("failed to set websocket read deadline: %w", err)
 		}
@@ -214,33 +231,90 @@ func (ws *Websocket) runOnce(ctx context.Context) error {
 
 		var ev Event
 		if err := json.Unmarshal(buf, &ev); err != nil {
-			ws.log.Error("failed to unmarshal event json", "err", err)
+			ws.log.Warn("failed to unmarshal event json", "err", err)
 			continue
 		}
 
-		ws.handler(ctx, &ev)
+		// indefinitely retry messages that failed to process if ACKs are required, unless
+		// a non-retryable error occurrs
+		for errCount := 0; ; errCount++ {
+			if done(ctx) {
+				break
+			}
 
-		// ACKs are optional
-		if ws.sendAcks {
-			if err := ws.ack(conn, &ev); err != nil {
-				return fmt.Errorf("failed to acknowledge event: %w", err)
+			err := ws.handler(ctx, &ev)
+			if err != nil {
+				ws.log.Error("failed to process event", "err", err)
+				if sleepMaybeExit(ctx, errCount) {
+					return nil
+				}
+
+				var nr *NonRetryableError
+				if errors.As(err, &nr) {
+					ws.log.Error("handled non-retryable error", "id", ev.ID, "err", err)
+					break
+				}
+
+				continue
+			}
+
+			if !ws.sendAcks {
+				break
+			}
+
+			ws.ack(ctx, conn, &ev)
+		}
+	}
+}
+
+// Indefinitely tries acking the message with the tap server
+func (ws *Websocket) ack(ctx context.Context, conn *websocket.Conn, ev *Event) {
+	for errCount := 0; ; errCount++ {
+		if done(ctx) {
+			return
+		}
+
+		if err := conn.SetWriteDeadline(time.Now().Add(ws.writeTimeout)); err != nil {
+			ws.log.Warn("failed to set write deadline on ack", "err", err)
+		}
+
+		if err := conn.WriteJSON(NewACKPayload(ev.ID)); err != nil {
+			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+				return // normal remote closure
+			}
+
+			ws.log.Error("failed to send ack", "err", err)
+
+			if sleepMaybeExit(ctx, errCount) {
+				return
 			}
 		}
 	}
 }
 
-func (ws *Websocket) ack(conn *websocket.Conn, ev *Event) error {
-	if err := conn.SetWriteDeadline(time.Now().Add(ws.writeTimeout)); err != nil {
-		return fmt.Errorf("failed to set write deadline on ack: %w", err)
+func done(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+		return false
 	}
+}
 
-	if err := conn.WriteJSON(NewACKPayload(ev.ID)); err != nil {
-		if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-			return nil // normal remote closure
-		}
-
-		return fmt.Errorf("failed to send ack: %w", err)
+func sleepMaybeExit(ctx context.Context, errCount int) bool {
+	select {
+	case <-ctx.Done():
+		return true // shutdown received during a backoff sleep means that we're done
+	case <-time.After(backoffDuration(errCount)):
+		return false
 	}
+}
 
-	return nil
+func backoffDuration(errCount int) time.Duration {
+	const initialBackoff = 500 * time.Millisecond
+
+	multiplier := 1 << errCount
+	waitFor := initialBackoff * time.Duration(multiplier)
+
+	return min(waitFor, 10*time.Second)
 }

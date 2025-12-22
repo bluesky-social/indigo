@@ -3,6 +3,7 @@ package tap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -52,11 +53,12 @@ func TestWebsocket(t *testing.T) {
 
 	wsURL := "ws://" + strings.TrimPrefix(server.URL, "http://")
 
-	ws, err := NewWebsocket(wsURL, func(ctx context.Context, ev *Event) {
+	ws, err := NewWebsocket(wsURL, func(ctx context.Context, ev *Event) error {
 		mu.Lock()
 		received = append(received, ev)
 		mu.Unlock()
 		wg.Done()
+		return nil
 	}, WithLogger(nil))
 	require.NoError(err)
 
@@ -93,54 +95,112 @@ func TestWebsocket(t *testing.T) {
 
 func TestWebsocketWithAcks(t *testing.T) {
 	t.Parallel()
-	ctx := t.Context()
-	require := require.New(t)
 
-	recordEvent := Event{
-		ID:   42,
-		Type: "record",
-		record: &RecordEvent{
-			DID:        "did:plc:ack",
-			Collection: "app.bsky.feed.like",
-			Rkey:       "ack",
-			Action:     "create",
-		},
-	}
+	t.Run("ack sent on success", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		require := require.New(t)
 
-	var receivedAck *Event
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			return
+		recordEvent := Event{
+			ID:   42,
+			Type: eventTypeRecord,
+			record: &RecordEvent{
+				DID:        "did:plc:ack",
+				Collection: "app.bsky.feed.like",
+				Rkey:       "ack",
+				Action:     "create",
+			},
 		}
-		defer conn.Close()
 
-		buf, _ := json.Marshal(recordEvent)
-		conn.WriteMessage(websocket.TextMessage, buf)
+		var receivedAck *Event
+		var wg sync.WaitGroup
+		wg.Add(1)
 
-		_, ackBuf, err := conn.ReadMessage()
-		if err == nil {
-			receivedAck = &Event{}
-			json.Unmarshal(ackBuf, receivedAck)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			conn, err := upgrader.Upgrade(w, r, nil)
+			if err != nil {
+				return
+			}
+			defer conn.Close()
+
+			buf, _ := json.Marshal(recordEvent)
+			conn.WriteMessage(websocket.TextMessage, buf)
+
+			_, ackBuf, err := conn.ReadMessage()
+			if err == nil {
+				receivedAck = &Event{}
+				json.Unmarshal(ackBuf, receivedAck)
+			}
+			wg.Done()
+
+			conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		}))
+		defer server.Close()
+
+		wsURL := "ws://" + strings.TrimPrefix(server.URL, "http://")
+
+		ws, err := NewWebsocket(wsURL, func(ctx context.Context, ev *Event) error {
+			return nil
+		}, WithLogger(nil), WithAcks())
+		require.NoError(err)
+
+		go ws.Run(ctx)
+		wg.Wait()
+
+		require.NotNil(receivedAck)
+		require.Equal(eventTypeACK, receivedAck.Type)
+		require.Equal(recordEvent.ID, receivedAck.ID)
+	})
+
+	t.Run("ack not sent on error", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		require := require.New(t)
+
+		recordEvent := Event{
+			ID:   99,
+			Type: eventTypeRecord,
+			record: &RecordEvent{
+				DID:        "did:plc:noack",
+				Collection: "app.bsky.feed.post",
+				Rkey:       "noack",
+				Action:     "create",
+			},
 		}
-		wg.Done()
 
-		conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-	}))
-	defer server.Close()
+		var receivedAck bool
+		var wg sync.WaitGroup
+		wg.Add(1)
 
-	wsURL := "ws://" + strings.TrimPrefix(server.URL, "http://")
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			conn, err := upgrader.Upgrade(w, r, nil)
+			if err != nil {
+				return
+			}
+			defer conn.Close()
 
-	ws, err := NewWebsocket(wsURL, func(ctx context.Context, ev *Event) {}, WithLogger(nil), WithAcks())
-	require.NoError(err)
+			buf, _ := json.Marshal(recordEvent)
+			conn.WriteMessage(websocket.TextMessage, buf)
 
-	go ws.Run(ctx)
-	wg.Wait()
+			conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+			_, _, err = conn.ReadMessage()
+			receivedAck = err == nil
+			wg.Done()
 
-	require.NotNil(receivedAck)
-	require.Equal("ack", receivedAck.Type)
-	require.Equal(recordEvent.ID, receivedAck.ID)
+			conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		}))
+		defer server.Close()
+
+		wsURL := "ws://" + strings.TrimPrefix(server.URL, "http://")
+
+		ws, err := NewWebsocket(wsURL, func(ctx context.Context, ev *Event) error {
+			return errors.New("processing failed")
+		}, WithLogger(nil), WithAcks())
+		require.NoError(err)
+
+		go ws.Run(ctx)
+		wg.Wait()
+
+		require.False(receivedAck, "expected no ACK when handler returns error")
+	})
 }
