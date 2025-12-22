@@ -151,6 +151,7 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 	r.logger.Info("fetching repo from PDS", "did", did, "pds", pdsURL)
 
 	client := atclient.NewAPIClient(pdsURL)
+	client.Headers.Set("User-Agent", userAgent())
 	timeout := r.repoFetchTimeout
 	if timeout <= 0 {
 		timeout = 30 * time.Second
