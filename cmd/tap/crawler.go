@@ -69,6 +69,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 	}
 
 	client := atclient.NewAPIClient(c.RelayUrl)
+	client.Headers.Set("User-Agent", userAgent())
 	client.Client = &http.Client{
 		Timeout: 30 * time.Second,
 	}
@@ -150,6 +151,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 	}
 
 	client := atclient.NewAPIClient(c.RelayUrl)
+	client.Headers.Set("User-Agent", userAgent())
 	client.Client = &http.Client{
 		Timeout: 30 * time.Second,
 	}

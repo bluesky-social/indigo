@@ -37,6 +37,7 @@ func (w *WebhookClient) post(evt *OutboxEvt) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", userAgent())
 	if w.adminPassword != "" {
 		req.SetBasicAuth("admin", w.adminPassword)
 	}
