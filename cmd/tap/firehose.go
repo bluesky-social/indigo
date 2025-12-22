@@ -443,7 +443,9 @@ func (fp *FirehoseProcessor) runConsumer(ctx context.Context) error {
 		fp.logger.Info("connecting to firehose", "url", urlStr, "cursor", cursor, "retries", retries)
 
 		dialer := websocket.DefaultDialer
-		con, _, err := dialer.DialContext(ctx, urlStr, http.Header{})
+		con, _, err := dialer.DialContext(ctx, urlStr, http.Header{
+			"User-Agent": []string{userAgent()},
+		})
 		if err != nil {
 			fp.logger.Warn("dialing failed", "error", err, "retries", retries)
 			time.Sleep(backoff(retries, 10))
