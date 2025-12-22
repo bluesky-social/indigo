@@ -141,6 +141,11 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 		return false, fmt.Errorf("no PDS endpoint for DID: %s", did)
 	}
 
+	signingKey, err := ident.PublicKey()
+	if err != nil {
+		return false, fmt.Errorf("failed to get public key: %w", err)
+	}
+
 	r.pdsBackoffMu.RLock()
 	backoffUntil, inBackoff := r.pdsBackoff[pdsURL]
 	r.pdsBackoffMu.RUnlock()
@@ -175,6 +180,11 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 	commit, repo, err := repolib.LoadRepoFromCAR(ctx, bytes.NewReader(repoBytes))
 	if err != nil {
 		return false, fmt.Errorf("failed to read repo from CAR: %w", err)
+	}
+
+	err = commit.VerifySignature(signingKey)
+	if err != nil {
+		return false, fmt.Errorf("failed to verify signature: %w", err)
 	}
 
 	rev := commit.Rev
