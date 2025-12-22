@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -10,7 +11,12 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/earthboundkid/versioninfo/v2"
 )
+
+func userAgent() string {
+	return fmt.Sprintf("tap/%s", versioninfo.Short())
+}
 
 func backoff(retries int, max int) time.Duration {
 	dur := 1 << retries
