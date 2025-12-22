@@ -239,8 +239,7 @@ func (ws *Websocket) runOnce(ctx context.Context) error {
 			continue
 		}
 
-		// indefinitely retry messages that failed to process if ACKs are required, unless
-		// a non-retryable error occurrs
+		// indefinitely retry messages that failed to process unless a non-retryable error occurrs
 		for errCount := 0; ; errCount++ {
 			if done(ctx) {
 				break
@@ -261,11 +260,9 @@ func (ws *Websocket) runOnce(ctx context.Context) error {
 
 				continue
 			}
+		}
 
-			if !ws.sendAcks {
-				break
-			}
-
+		if ws.sendAcks {
 			ws.ack(ctx, conn, &ev)
 		}
 	}
@@ -282,16 +279,19 @@ func (ws *Websocket) ack(ctx context.Context, conn *websocket.Conn, ev *Event) {
 			ws.log.Warn("failed to set write deadline on ack", "err", err)
 		}
 
-		if err := conn.WriteJSON(NewACKPayload(ev.ID)); err != nil {
-			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-				return // normal remote closure
-			}
+		err := conn.WriteJSON(NewACKPayload(ev.ID))
+		if err == nil {
+			return
+		}
 
-			ws.log.Error("failed to send ack", "err", err)
+		if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+			return // normal remote closure
+		}
 
-			if sleepMaybeExit(ctx, errCount) {
-				return
-			}
+		ws.log.Error("failed to send ack", "err", err)
+
+		if sleepMaybeExit(ctx, errCount) {
+			return
 		}
 	}
 }
