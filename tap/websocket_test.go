@@ -29,7 +29,7 @@ func TestWebsocket(t *testing.T) {
 	events := []Event{
 		{ID: 1, Type: eventTypeRecord, record: &RecordEvent{DID: "did:plc:1", Collection: "app.bsky.feed.post"}},
 		{ID: 2, Type: eventTypeRecord, record: &RecordEvent{DID: "did:plc:2", Collection: "app.bsky.feed.like"}},
-		{ID: 3, Type: eventTypeUser, user: &UserEvent{DID: "did:plc:3", Handle: "user3.test"}},
+		{ID: 3, Type: eventTypeIdentity, identity: &IdentityEvent{DID: "did:plc:3", Handle: "user3.test"}},
 	}
 
 	var received []*Event
@@ -86,12 +86,12 @@ func TestWebsocket(t *testing.T) {
 
 		case 2:
 			switch pl := ev.Payload().(type) {
-			case *UserEvent:
-				require.NotNil(events[i].user)
-				require.Equal(events[i].user.Handle, pl.Handle)
-				require.Equal(events[i].Type, eventTypeUser)
+			case *IdentityEvent:
+				require.NotNil(events[i].identity)
+				require.Equal(events[i].identity.Handle, pl.Handle)
+				require.Equal(events[i].Type, eventTypeIdentity)
 			default:
-				require.FailNow("incorrect payload type, want %T got %T", &UserEvent{}, ev.Payload())
+				require.FailNow("incorrect payload type, want %T got %T", &IdentityEvent{}, ev.Payload())
 			}
 		}
 	}

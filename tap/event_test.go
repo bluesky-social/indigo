@@ -47,14 +47,14 @@ func TestEventJSON(t *testing.T) {
 		require.JSONEq(string(original.record.Record), string(payload.Record))
 	})
 
-	t.Run("marshal/unmarshal user", func(t *testing.T) {
+	t.Run("marshal/unmarshal identity", func(t *testing.T) {
 		t.Parallel()
 		require := require.New(t)
 
 		original := Event{
 			ID:   456,
-			Type: eventTypeUser,
-			user: &UserEvent{
+			Type: eventTypeIdentity,
+			identity: &IdentityEvent{
 				DID:      "did:plc:user",
 				Handle:   "test.bsky.social",
 				IsActive: true,
@@ -70,12 +70,12 @@ func TestEventJSON(t *testing.T) {
 		require.Equal(original.ID, decoded.ID)
 		require.Equal(original.Type, decoded.Type)
 
-		payload, ok := decoded.Payload().(*UserEvent)
+		payload, ok := decoded.Payload().(*IdentityEvent)
 		require.True(ok)
-		require.Equal(original.user.DID, payload.DID)
-		require.Equal(original.user.Handle, payload.Handle)
-		require.Equal(original.user.IsActive, payload.IsActive)
-		require.Equal(original.user.Status, payload.Status)
+		require.Equal(original.identity.DID, payload.DID)
+		require.Equal(original.identity.Handle, payload.Handle)
+		require.Equal(original.identity.IsActive, payload.IsActive)
+		require.Equal(original.identity.Status, payload.Status)
 	})
 
 	t.Run("unmarshal from raw json", func(t *testing.T) {
@@ -88,11 +88,11 @@ func TestEventJSON(t *testing.T) {
 		require.Equal(uint64(1), recordEvent.ID)
 		require.Equal(eventTypeRecord, recordEvent.Type)
 
-		userJSON := `{"id":2,"type":"user","user":{"did":"did:plc:def","handle":"foo.test","isActive":true,"status":"active"}}`
-		var userEvent Event
-		require.NoError(json.Unmarshal([]byte(userJSON), &userEvent))
-		require.Equal(uint64(2), userEvent.ID)
-		require.Equal(eventTypeUser, userEvent.Type)
+		identityJSON := `{"id":2,"type":"identity","identity":{"did":"did:plc:def","handle":"foo.test","isActive":true,"status":"active"}}`
+		var identEvent Event
+		require.NoError(json.Unmarshal([]byte(identityJSON), &identEvent))
+		require.Equal(uint64(2), identEvent.ID)
+		require.Equal(eventTypeIdentity, identEvent.Type)
 	})
 
 	t.Run("unmarshal unknown type", func(t *testing.T) {
