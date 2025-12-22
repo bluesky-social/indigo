@@ -15,6 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func init() {
+	initialBackoff = 0
+}
+
 var upgrader = websocket.Upgrader{}
 
 func TestWebsocket(t *testing.T) {
@@ -203,4 +207,72 @@ func TestWebsocketWithAcks(t *testing.T) {
 
 		require.False(receivedAck, "expected no ACK when handler returns error")
 	})
+}
+
+func TestWebsocketNonRetryableError(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	require := require.New(t)
+
+	events := []Event{
+		{ID: 1, Type: eventTypeRecord, record: &RecordEvent{DID: "did:plc:1", Collection: "app.bsky.feed.post"}},
+		{ID: 2, Type: eventTypeRecord, record: &RecordEvent{DID: "did:plc:2", Collection: "app.bsky.feed.post"}},
+		{ID: 3, Type: eventTypeRecord, record: &RecordEvent{DID: "did:plc:3", Collection: "app.bsky.feed.post"}},
+	}
+
+	var callCounts sync.Map
+	var wg sync.WaitGroup
+	wg.Add(len(events))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		for _, ev := range events {
+			buf, _ := json.Marshal(ev)
+			conn.WriteMessage(websocket.TextMessage, buf)
+			time.Sleep(10 * time.Millisecond)
+		}
+
+		time.Sleep(100 * time.Millisecond)
+		conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	}))
+	defer server.Close()
+
+	wsURL := "ws://" + strings.TrimPrefix(server.URL, "http://")
+
+	ws, err := NewWebsocket(wsURL, func(ctx context.Context, ev *Event) error {
+		val, _ := callCounts.LoadOrStore(ev.ID, new(int))
+		count := val.(*int)
+		*count++
+
+		if ev.ID == 2 {
+			if *count == 1 {
+				wg.Done()
+			}
+			return NewNonRetryableError(errors.New("bad input, do not retry"))
+		}
+
+		wg.Done()
+		return nil
+	}, WithLogger(nil))
+	require.NoError(err)
+
+	go ws.Run(ctx)
+	wg.Wait()
+
+	// event 1: should be called exactly once (success)
+	val1, _ := callCounts.Load(uint64(1))
+	require.Equal(1, *val1.(*int), "event 1 should be processed once")
+
+	// event 2: should be called exactly once (non-retryable error, no retry)
+	val2, _ := callCounts.Load(uint64(2))
+	require.Equal(1, *val2.(*int), "event 2 with NonRetryableError should not be retried")
+
+	// event 3: should be called exactly once (success, proving we moved on after non-retryable)
+	val3, _ := callCounts.Load(uint64(3))
+	require.Equal(1, *val3.(*int), "event 3 should be processed after non-retryable error")
 }

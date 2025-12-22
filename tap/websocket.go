@@ -14,6 +14,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var (
+	initialBackoff = 500 * time.Millisecond
+)
+
 // A thin error wrapper that indicates to the tap client consumer loop that a message
 // should not be retried (i.e. invalid user input that will surely fail again on retry).
 type NonRetryableError struct {
@@ -311,8 +315,6 @@ func sleepMaybeExit(ctx context.Context, errCount int) bool {
 }
 
 func backoffDuration(errCount int) time.Duration {
-	const initialBackoff = 500 * time.Millisecond
-
 	multiplier := 1 << errCount
 	waitFor := initialBackoff * time.Duration(multiplier)
 
