@@ -246,19 +246,19 @@ func (ws *Websocket) runOnce(ctx context.Context) error {
 			}
 
 			err := ws.handler(ctx, &ev)
-			if err != nil {
-				ws.log.Error("failed to process event", "err", err)
-				if sleepMaybeExit(ctx, errCount) {
-					return nil
-				}
+			if err == nil {
+				break
+			}
 
-				var nr *NonRetryableError
-				if errors.As(err, &nr) {
-					ws.log.Error("handled non-retryable error", "id", ev.ID, "err", err)
-					break
-				}
+			ws.log.Error("failed to process event", "err", err)
+			if sleepMaybeExit(ctx, errCount) {
+				return nil
+			}
 
-				continue
+			var nr *NonRetryableError
+			if errors.As(err, &nr) {
+				ws.log.Error("handled non-retryable error", "id", ev.ID, "err", err)
+				break
 			}
 		}
 
