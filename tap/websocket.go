@@ -176,8 +176,6 @@ func (ws *Websocket) Run(ctx context.Context) error {
 		if sleepMaybeExit(ctx, errCount) {
 			return nil
 		}
-
-		errCount++
 	}
 }
 
