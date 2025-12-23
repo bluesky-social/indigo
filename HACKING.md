@@ -77,10 +77,15 @@ Packages:
     # then generate
     go run ./gen
 
-To run codegen for new or updated Lexicons, using lexgen, first place (or git checkout) the JSON lexicon files at `../atproto/`. Then, in *this* repository (indigo), run commands like:
+To run codegen for new or updated Lexicons, using lexgen, first place (or git checkout) the JSON lexicon files at `../atproto/`. Then, in *this* repository (indigo), run commands in this order (atproto must be generated first as other packages depend on types like `com.atproto.label.defs#label`):
 
-    go run ./cmd/lexgen/ --package bsky --prefix app.bsky --outdir api/bsky ../atproto/lexicons/app/bsky/
+    # Generate atproto types first (other packages depend on these)
     go run ./cmd/lexgen/ --package atproto --prefix com.atproto --outdir api/atproto ../atproto/lexicons/com/atproto/
+
+    # Then generate the other packages
+    go run ./cmd/lexgen/ --package bsky --prefix app.bsky --outdir api/bsky ../atproto/lexicons/app/bsky/
+    go run ./cmd/lexgen/ --package chat --prefix chat.bsky --outdir api/chat ../atproto/lexicons/chat/bsky/
+    go run ./cmd/lexgen/ --package ozone --prefix tools.ozone --outdir api/ozone ../atproto/lexicons/tools/ozone/
 
 You may want to delete all the codegen files before re-generating, to detect deleted files.
 
