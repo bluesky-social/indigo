@@ -79,12 +79,12 @@ func (r *Resyncer) claimResyncJob(ctx context.Context) (string, bool, error) {
 		SET state = ?
 		WHERE did = (
 			SELECT did FROM repos
-			WHERE state IN (?, ?)
+			WHERE state IN (?, ?, ?)
 			AND (retry_after = 0 OR retry_after < ?)
 			LIMIT 1
 		)
 		RETURNING did
-		`, models.RepoStateResyncing, models.RepoStatePending, models.RepoStateDesynchronized, now).Scan(&did)
+		`, models.RepoStateResyncing, models.RepoStatePending, models.RepoStateDesynchronized, models.RepoStateError, now).Scan(&did)
 	if result.Error != nil {
 		return "", false, result.Error
 	}
@@ -323,7 +323,7 @@ func (r *Resyncer) handleResyncError(ctx context.Context, did string, err error)
 	}
 
 	// start a 1 min & go up to 1 hr between retries
-	retryAfter := time.Now().Add(backoff(repo.RetryCount, 60))
+	retryAfter := time.Now().Add(backoff(repo.RetryCount, 60) * 60)
 
 	dbErr := r.db.WithContext(ctx).Model(&models.Repo{}).
 		Where("did = ?", did).
