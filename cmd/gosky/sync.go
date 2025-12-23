@@ -43,7 +43,7 @@ var syncGetRepoCmd = &cli.Command{
 			return err
 		}
 		dir := identity.DefaultDirectory()
-		ident, err := dir.Lookup(ctx, *atid)
+		ident, err := dir.Lookup(ctx, atid)
 		if err != nil {
 			return err
 		}
@@ -98,7 +98,7 @@ var syncGetRootCmd = &cli.Command{
 		}
 
 		dir := identity.DefaultDirectory()
-		ident, err := dir.Lookup(ctx, *atid)
+		ident, err := dir.Lookup(ctx, atid)
 		if err != nil {
 			return err
 		}
