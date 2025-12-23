@@ -73,16 +73,18 @@ func (r *Resyncer) claimResyncJob(ctx context.Context) (string, bool, error) {
 	defer r.claimJobMu.Unlock()
 
 	var did string
+	now := time.Now().Unix()
 	result := r.db.WithContext(ctx).Raw(`
 		UPDATE repos
 		SET state = ?
 		WHERE did = (
 			SELECT did FROM repos
 			WHERE state IN (?, ?)
+			AND (retry_after = 0 OR retry_after < ?)
 			LIMIT 1
 		)
 		RETURNING did
-		`, models.RepoStateResyncing, models.RepoStatePending, models.RepoStateDesynchronized).Scan(&did)
+		`, models.RepoStateResyncing, models.RepoStatePending, models.RepoStateDesynchronized, now).Scan(&did)
 	if result.Error != nil {
 		return "", false, result.Error
 	}
