@@ -84,6 +84,12 @@ func run(args []string) error {
 						Sources: cli.EnvVars("TAP_RESYNC_PARALLELISM"),
 					},
 					&cli.IntFlag{
+						Name:    "labeler-parallelism",
+						Usage:   "maximum concurrent labeler subscriptions",
+						Value:   1_000,
+						Sources: cli.EnvVars("TAP_LABELER_PARALLELISM"),
+					},
+					&cli.IntFlag{
 						Name:    "outbox-parallelism",
 						Usage:   "number of parallel outbox workers",
 						Value:   1,
@@ -122,6 +128,11 @@ func run(args []string) error {
 						Name:    "signal-collection",
 						Usage:   "enumerate repos by collection (exact NSID)",
 						Sources: cli.EnvVars("TAP_SIGNAL_COLLECTION"),
+					},
+					&cli.BoolFlag{
+						Name:    "discover-labelers",
+						Usage:   "auto-discover labeler services from identity events",
+						Sources: cli.EnvVars("TAP_DISCOVER_LABELERS"),
 					},
 					&cli.BoolFlag{
 						Name:    "disable-acks",
@@ -200,6 +211,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		RelayUrl:                   relayUrl,
 		FirehoseParallelism:        int(cmd.Int("firehose-parallelism")),
 		ResyncParallelism:          int(cmd.Int("resync-parallelism")),
+		LabelerParallelism:         int(cmd.Int("labeler-parallelism")),
 		OutboxParallelism:          int(cmd.Int("outbox-parallelism")),
 		FirehoseCursorSaveInterval: cmd.Duration("cursor-save-interval"),
 		RepoFetchTimeout:           cmd.Duration("repo-fetch-timeout"),
@@ -207,6 +219,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		EventCacheSize:             int(cmd.Int("outbox-capacity")),
 		FullNetworkMode:            cmd.Bool("full-network"),
 		SignalCollection:           cmd.String("signal-collection"),
+		DiscoverLabelers:           cmd.Bool("discover-labelers"),
 		DisableAcks:                cmd.Bool("disable-acks"),
 		WebhookURL:                 cmd.String("webhook-url"),
 		CollectionFilters:          cmd.StringSlice("collection-filters"),

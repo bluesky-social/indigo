@@ -77,3 +77,19 @@ var (
 		Help: "Total repos discovered by crawler",
 	})
 )
+
+// Label metrics
+var (
+	labelEventsReceived = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tap_label_events_received_total",
+		Help: "Total number of label events received from labelers",
+	})
+	labelEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tap_label_events_processed_total",
+		Help: "Total number of label events successfully processed",
+	})
+	labelLastSeq = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "tap_label_last_seq",
+		Help: "Sequence number of last processed label event per labeler",
+	}, []string{"labeler"})
+)

@@ -24,6 +24,7 @@ type Tap struct {
 	Firehose *FirehoseProcessor
 	Events   *EventManager
 	Repos    *RepoManager
+	Labelers *LabelerManager
 	Resyncer *Resyncer
 	Crawler  *Crawler
 
@@ -40,6 +41,7 @@ type TapConfig struct {
 	RelayUrl                   string
 	FirehoseParallelism        int
 	ResyncParallelism          int
+	LabelerParallelism         int
 	OutboxParallelism          int
 	FirehoseCursorSaveInterval time.Duration
 	RepoFetchTimeout           time.Duration
@@ -47,6 +49,7 @@ type TapConfig struct {
 	EventCacheSize             int
 	FullNetworkMode            bool
 	SignalCollection           string
+	DiscoverLabelers           bool
 	DisableAcks                bool
 	WebhookURL                 string
 	CollectionFilters          []string // e.g., ["app.bsky.feed.post", "app.bsky.graph.*"]
@@ -85,14 +88,26 @@ func NewTap(config TapConfig) (*Tap, error) {
 		events: evtMngr,
 	}
 
+	labelerMngr := &LabelerManager{
+		logger:             logger.With("component", "labeler_manager"),
+		db:                 db,
+		idDir:              &cdir,
+		events:             evtMngr,
+		parallelism:        config.LabelerParallelism,
+		cursorSaveInterval: config.FirehoseCursorSaveInterval,
+		activeSubscribers:  make(map[string]context.CancelFunc),
+	}
+
 	resyncer := &Resyncer{
 		logger:            logger.With("component", "resyncer"),
 		db:                db,
 		events:            evtMngr,
 		repos:             repoMngr,
+		labelers:          labelerMngr,
 		repoFetchTimeout:  config.RepoFetchTimeout,
 		collectionFilters: config.CollectionFilters,
 		parallelism:       config.ResyncParallelism,
+		discoverLabelers:  config.DiscoverLabelers,
 		pdsBackoff:        make(map[string]time.Time),
 	}
 
@@ -101,9 +116,11 @@ func NewTap(config TapConfig) (*Tap, error) {
 		db:                 db,
 		events:             evtMngr,
 		repos:              repoMngr,
+		labelers:           labelerMngr,
 		relayUrl:           config.RelayUrl,
 		fullNetworkMode:    config.FullNetworkMode,
 		signalCollection:   config.SignalCollection,
+		discoverLabelers:   config.DiscoverLabelers,
 		collectionFilters:  config.CollectionFilters,
 		parallelism:        config.FirehoseParallelism,
 		cursorSaveInterval: config.FirehoseCursorSaveInterval,
@@ -153,6 +170,7 @@ func NewTap(config TapConfig) (*Tap, error) {
 		Firehose: firehose,
 		Events:   evtMngr,
 		Repos:    repoMngr,
+		Labelers: labelerMngr,
 		Resyncer: resyncer,
 		Crawler:  crawler,
 		Server:   server,
@@ -174,6 +192,7 @@ func (t *Tap) Run(ctx context.Context) {
 
 	if !t.config.OutboxOnly {
 		go t.Resyncer.run(ctx)
+		go t.Labelers.Run(ctx)
 	}
 
 	go t.Outbox.Run(ctx)
@@ -237,7 +256,7 @@ func SetupDatabase(dbUrl string, maxConns int) (*gorm.DB, error) {
 
 	}
 
-	if err := db.AutoMigrate(&models.Repo{}, &models.RepoRecord{}, &models.OutboxBuffer{}, &models.ResyncBuffer{}, &models.FirehoseCursor{}, &models.ListReposCursor{}, &models.CollectionCursor{}); err != nil {
+	if err := db.AutoMigrate(&models.Repo{}, &models.RepoRecord{}, &models.OutboxBuffer{}, &models.ResyncBuffer{}, &models.FirehoseCursor{}, &models.ListReposCursor{}, &models.CollectionCursor{}, &models.Labeler{}); err != nil {
 		return nil, err
 	}
 
