@@ -63,11 +63,32 @@ func (e *IdentityEvt) MarshalWithId(id uint) ([]byte, error) {
 	})
 }
 
+type LabelEvt struct {
+	Live       bool   `json:"live"`
+	LabelerDID string `json:"labelerDID"`
+	Uri        string `json:"uri"`
+	Val        string `json:"val"`
+	Cts        string `json:"cts"`
+	Src        string `json:"src"`
+	Cid        string `json:"cid,omitempty"`
+	Neg        bool   `json:"neg,omitempty"`
+	Exp        string `json:"exp,omitempty"`
+}
+
+func (e *LabelEvt) MarshalWithId(id uint) ([]byte, error) {
+	return json.Marshal(MarshallableEvt{
+		ID:       id,
+		Type:     "label",
+		LabelEvt: e,
+	})
+}
+
 type MarshallableEvt struct {
 	ID          uint         `json:"id"`
 	Type        string       `json:"type"`
 	RecordEvt   *RecordEvt   `json:"record,omitempty"`
 	IdentityEvt *IdentityEvt `json:"identity,omitempty"`
+	LabelEvt    *LabelEvt    `json:"label,omitempty"`
 }
 
 type OutboxEvt struct {

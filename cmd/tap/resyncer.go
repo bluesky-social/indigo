@@ -24,14 +24,16 @@ type Resyncer struct {
 	logger *slog.Logger
 	db     *gorm.DB
 
-	events *EventManager
-	repos  *RepoManager
+	events   *EventManager
+	repos    *RepoManager
+	labelers *LabelerManager
 
 	claimJobMu sync.Mutex
 
 	repoFetchTimeout  time.Duration
 	collectionFilters []string
 	parallelism       int
+	discoverLabelers  bool
 
 	pdsBackoff   map[string]time.Time
 	pdsBackoffMu sync.RWMutex
@@ -107,6 +109,14 @@ func (r *Resyncer) resyncDid(ctx context.Context, did string) error {
 	err := r.repos.RefreshIdentity(ctx, did)
 	if err != nil {
 		r.logger.Info("failed to refresh identity", "did", did, "error", err)
+	}
+
+	if r.discoverLabelers && r.labelers != nil {
+		if ident, err := r.repos.IdDir.LookupDID(ctx, syntax.DID(did)); err == nil && ident.GetServiceEndpoint("atproto_labeler") != "" {
+			if err := r.labelers.EnsureLabeler(ctx, did); err != nil {
+				r.logger.Warn("failed to ensure labeler during resync", "did", did, "error", err)
+			}
+		}
 	}
 
 	success, err := r.doResync(ctx, did)

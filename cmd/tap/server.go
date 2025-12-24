@@ -44,9 +44,12 @@ func (ts *TapServer) Start(address string) error {
 	ts.echo.GET("/channel", ts.handleChannelWebsocket)
 	ts.echo.POST("/repos/add", ts.handleAddRepos)
 	ts.echo.POST("/repos/remove", ts.handleRemoveRepos)
+	ts.echo.POST("/labelers/add", ts.handleAddLabelers)
+	ts.echo.POST("/labelers/remove", ts.handleRemoveLabelers)
 	ts.echo.GET("/resolve/:did", ts.handleResolveDID)
 	ts.echo.GET("/info/:did", ts.handleInfoRepo)
 	ts.echo.GET("/stats/repo-count", ts.handleStatsRepoCount)
+	ts.echo.GET("/stats/labeler-count", ts.handleStatsLabelerCount)
 	ts.echo.GET("/stats/record-count", ts.handleStatsRecordCount)
 	ts.echo.GET("/stats/outbox-buffer", ts.handleStatsOutboxBuffer)
 	ts.echo.GET("/stats/resync-buffer", ts.handleStatsResyncBuffer)
@@ -180,6 +183,56 @@ func (ts *TapServer) handleRemoveRepos(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
+type LabelerPayload struct {
+	DIDs []string `json:"dids"`
+}
+
+func (ts *TapServer) handleAddLabelers(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	var payload LabelerPayload
+	if err := c.Bind(&payload); err != nil {
+		return err
+	}
+
+	labelers := make([]models.Labeler, len(payload.DIDs))
+	for i, did := range payload.DIDs {
+		labelers[i] = models.Labeler{
+			DID:        did,
+			ServiceURL: nil,
+			State:      "pending",
+		}
+	}
+
+	if err := ts.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&labelers).Error; err != nil {
+		ts.logger.Error("failed to insert labeler dids", "error", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	ts.logger.Info("added labeler dids", "count", len(payload.DIDs))
+
+	return c.NoContent(http.StatusOK)
+}
+
+func (ts *TapServer) handleRemoveLabelers(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	var payload LabelerPayload
+	if err := c.Bind(&payload); err != nil {
+		return err
+	}
+
+	for _, did := range payload.DIDs {
+		if err := ts.db.WithContext(ctx).Delete(&models.Labeler{}, "did = ?", did).Error; err != nil {
+			ts.logger.Error("failed to remove labeler", "did", did, "error", err)
+			continue
+		}
+		ts.logger.Info("removed labeler", "did", did)
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
 func (ts *TapServer) handleResolveDID(c echo.Context) error {
 	didParam := c.Param("did")
 
@@ -234,6 +287,16 @@ func (ts *TapServer) handleStatsRepoCount(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]int64{"repo_count": count})
 }
 
+func (ts *TapServer) handleStatsLabelerCount(c echo.Context) error {
+	ctx := c.Request().Context()
+	var count int64
+	if err := ts.db.WithContext(ctx).Model(&models.Labeler{}).Count(&count).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get labeler count")
+	}
+	return c.JSON(http.StatusOK, map[string]int64{"labeler_count": count})
+}
+
+
 func (ts *TapServer) handleStatsRecordCount(c echo.Context) error {
 	ctx := c.Request().Context()
 	var count int64
@@ -264,6 +327,7 @@ func (ts *TapServer) handleStatsResyncBuffer(c echo.Context) error {
 type CursorsResp struct {
 	Firehose  *int64  `json:"firehose,omitempty"`
 	ListRepos *string `json:"list_repos,omitempty"`
+	Labelers  any     `json:"labelers,omitempty"`
 }
 
 func (ts *TapServer) handleStatsCursors(c echo.Context) error {
@@ -282,6 +346,21 @@ func (ts *TapServer) handleStatsCursors(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusInternalServerError, "failed to get list repos cursor")
 		}
 		resp.ListRepos = &cursor
+	}
+
+	var labelerCursors []struct {
+		DID    string `json:"did"`
+		Cursor int64  `json:"cursor"`
+	}
+	if err := ts.db.WithContext(ctx).Model(&models.Labeler{}).
+		Select("did, cursor").
+		Where("cursor > 0").
+		Find(&labelerCursors).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get labeler cursors")
+	}
+
+	if len(labelerCursors) > 0 {
+		resp.Labelers = labelerCursors
 	}
 
 	return c.JSON(http.StatusOK, resp)

@@ -70,3 +70,13 @@ type CollectionCursor struct {
 	Collection string `gorm:"primaryKey"`
 	Cursor     string `gorm:"not null"`
 }
+
+type Labeler struct {
+	DID        string  `gorm:"primaryKey;column:did"`
+	ServiceURL *string `gorm:"type:text"`
+	Cursor     int64   `gorm:"not null;default:0"`
+	State      string  `gorm:"not null;default:'pending';index"`
+	ErrorMsg   string  `gorm:"type:text"`
+	RetryCount int     `gorm:"not null;default:0"`
+	RetryAfter int64   `gorm:"not null;default:0"`
+}
