@@ -1,5 +1,5 @@
 # Sonar
-Sonar is an AT Proto Firehose Montioring tool
+Sonar is an AT Proto Firehose Monitoring tool
 
 Sonar connects to an AT Proto Firehose (either from a PDS or a Relay) following the semantics of `com.atproto.sync.subscribeRepos`.
 
