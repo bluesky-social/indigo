@@ -1,0 +1,16 @@
+FROM golang:1.25-bookworm
+
+ENV CGO_ENABLED="1"
+
+# Fix watch on mac.
+ENV ENTR_INOTIFY_WORKAROUND=1
+
+RUN apt-get update && apt-get install --yes \
+  curl \
+  dumb-init \
+  entr
+
+WORKDIR /app
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["cmd/relay/bin/denv.sh"]
