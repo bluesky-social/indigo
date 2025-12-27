@@ -16,6 +16,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/tap/models"
 	"github.com/ipfs/go-cid"
+	"github.com/puzpuzpuz/xsync/v4"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
 )
@@ -33,8 +34,7 @@ type Resyncer struct {
 	collectionFilters []string
 	parallelism       int
 
-	pdsBackoff   map[string]time.Time
-	pdsBackoffMu sync.RWMutex
+	pdsBackoff *xsync.Map[string, time.Time]
 }
 
 func (r *Resyncer) run(ctx context.Context) {
@@ -148,11 +148,10 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 		return false, fmt.Errorf("failed to get public key: %w", err)
 	}
 
-	r.pdsBackoffMu.RLock()
-	backoffUntil, inBackoff := r.pdsBackoff[pdsURL]
-	r.pdsBackoffMu.RUnlock()
-	if inBackoff && time.Now().Before(backoffUntil) {
-		return false, nil
+	if backoffUntil, ok := r.pdsBackoff.Load(pdsURL); ok {
+		if time.Now().Before(backoffUntil) {
+			return false, nil
+		}
 	}
 
 	r.logger.Info("fetching repo from PDS", "did", did, "pds", pdsURL)
@@ -170,9 +169,7 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 	repoBytes, err := comatproto.SyncGetRepo(ctx, client, did, "")
 	if err != nil {
 		if isRateLimitError(err) {
-			r.pdsBackoffMu.Lock()
-			r.pdsBackoff[pdsURL] = time.Now().Add(10 * time.Second)
-			r.pdsBackoffMu.Unlock()
+			r.pdsBackoff.Store(pdsURL, time.Now().Add(10*time.Second))
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to get repo: %w", err)

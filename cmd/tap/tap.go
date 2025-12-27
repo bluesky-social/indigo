@@ -96,7 +96,7 @@ func NewTap(config TapConfig) (*Tap, error) {
 		repoFetchTimeout:  config.RepoFetchTimeout,
 		collectionFilters: config.CollectionFilters,
 		parallelism:       config.ResyncParallelism,
-		pdsBackoff:        make(map[string]time.Time),
+		pdsBackoff:        xsync.NewMap[string, time.Time](),
 	}
 
 	firehose := &FirehoseProcessor{
