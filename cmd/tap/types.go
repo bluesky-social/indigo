@@ -12,6 +12,7 @@ const (
 	OutboxModeFireAndForget OutboxMode = "fire-and-forget"
 	OutboxModeWebsocketAck  OutboxMode = "websocket-ack"
 	OutboxModeWebhook       OutboxMode = "webhook"
+	OutboxModeKafka                    = "kafka"
 )
 
 type Commit struct {

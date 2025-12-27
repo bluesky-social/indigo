@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -78,8 +79,8 @@ var wsUpgrader = websocket.Upgrader{
 }
 
 func (ts *TapServer) handleChannelWebsocket(c echo.Context) error {
-	if ts.outbox.mode == OutboxModeWebhook {
-		return echo.NewHTTPError(http.StatusBadRequest, "websocket not available in webhook mode")
+	if ts.outbox.mode != OutboxModeWebsocketAck && ts.outbox.mode != OutboxModeFireAndForget {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("websocket not available in %s mode", ts.outbox.mode))
 	}
 
 	ws, err := wsUpgrader.Upgrade(c.Response(), c.Request(), nil)
