@@ -51,7 +51,7 @@ type Outbox struct {
 func (o *Outbox) Run(ctx context.Context) {
 	o.ctx = ctx
 
-	if o.mode == OutboxModeWebsocketAck {
+	if o.mode == OutboxModeWebsocketAck || o.mode == OutboxModeKafka {
 		go o.checkTimeouts(ctx)
 	}
 
@@ -110,37 +110,6 @@ func (o *Outbox) sendEvent(evt *OutboxEvt) {
 		o.outgoing <- evt
 	case OutboxModeWebhook:
 		go o.webhook.Send(evt, o.AckEvent)
-	}
-}
-
-func (o *Outbox) kafkaProduceAsync(evt *OutboxEvt) {
-	logger := o.logger.With("name", "kafkaProduceAsync", "id", evt.ID)
-
-	b, err := json.Marshal(evt)
-	if err != nil {
-		logger.Error("error marshaling event", "error", err)
-		return
-	}
-
-	// TODO: would be nice to pipe a better context through to here
-	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
-	defer cancel()
-
-	cb := func(_ *kgo.Record, err error) {
-		status := "ok"
-		defer func() {
-			kafkaEventsProduced.WithLabelValues(status).Inc()
-		}()
-
-		if err != nil {
-			logger.Info("error while producing event", "error", err)
-			status = "error"
-		}
-	}
-
-	if err := o.kafkaProducer.ProduceAsync(ctx, evt.Did, b, cb); err != nil {
-		logger.Error("error queueing event for production", "error", err)
-		kafkaEventsProduced.WithLabelValues("error_queueing").Inc()
 	}
 }
 
@@ -220,6 +189,40 @@ func (o *Outbox) retryTimedOutEvents() {
 				o.sendEvent(evt)
 			}
 		}
+	}
+}
+
+func (o *Outbox) kafkaProduceAsync(evt *OutboxEvt) {
+	logger := o.logger.With("name", "kafkaProduceAsync", "id", evt.ID)
+
+	b, err := json.Marshal(evt)
+	if err != nil {
+		logger.Error("error marshaling event", "error", err)
+		return
+	}
+
+	// TODO: would be nice to pipe a better context through to here
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+
+	cb := func(_ *kgo.Record, err error) {
+		status := "ok"
+		defer func() {
+			kafkaEventsProduced.WithLabelValues(status).Inc()
+		}()
+
+		if err != nil {
+			logger.Info("error while producing event", "error", err)
+			status = "error"
+			return
+		}
+
+		o.AckEvent(evt.ID)
+	}
+
+	if err := o.kafkaProducer.ProduceAsync(ctx, evt.Did, b, cb); err != nil {
+		logger.Error("error queueing event for production", "error", err)
+		kafkaEventsProduced.WithLabelValues("error_queueing").Inc()
 	}
 }
 

@@ -134,6 +134,16 @@ func run(args []string) error {
 						Sources: cli.EnvVars("TAP_WEBHOOK_URL"),
 					},
 					&cli.StringSliceFlag{
+						Name:    "kafka-bootstrap-servers",
+						Usage:   "bootstrap servers for Kafka delivery (instead of WebSocket)",
+						Sources: cli.EnvVars("TAP_KAFKA_BOOTSTRAP_SERVERS"),
+					},
+					&cli.StringFlag{
+						Name:    "kafka-output-topic",
+						Usage:   "output topic for Kafka events when using Kafka mode",
+						Sources: cli.EnvVars("TAP_KAFKA_OUTPUT_TOPIC"),
+					},
+					&cli.StringSliceFlag{
 						Name:    "collection-filters",
 						Usage:   "filter output records by collection (supports wildcards)",
 						Sources: cli.EnvVars("TAP_COLLECTION_FILTERS"),
@@ -209,6 +219,8 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		SignalCollection:           cmd.String("signal-collection"),
 		DisableAcks:                cmd.Bool("disable-acks"),
 		WebhookURL:                 cmd.String("webhook-url"),
+		KafkaBootstrapServers:      cmd.StringSlice("kafka-bootstrap-servers"),
+		KafkaOutputTopic:           cmd.String("kafka-output-topic"),
 		CollectionFilters:          cmd.StringSlice("collection-filters"),
 		OutboxOnly:                 cmd.Bool("outbox-only"),
 		AdminPassword:              cmd.String("admin-password"),
