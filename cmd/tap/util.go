@@ -73,9 +73,11 @@ func isRateLimitError(err error) bool {
 	return false
 }
 
-func parseOutboxMode(webhookURL string, disableAcks bool) OutboxMode {
+func parseOutboxMode(webhookURL string, kafkaBootstrapServers []string, kafkaOutputTopic string, disableAcks bool) OutboxMode {
 	if webhookURL != "" {
 		return OutboxModeWebhook
+	} else if len(kafkaBootstrapServers) > 0 {
+		return OutboxModeKafka
 	} else if disableAcks {
 		return OutboxModeFireAndForget
 	} else {

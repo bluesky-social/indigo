@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"sync"
 	"time"
 
+	"github.com/haileyok/at-kafka/atkafka"
 	"github.com/puzpuzpuz/xsync/v4"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 // Ordering guarantees for events belonging to the same DID:
@@ -27,11 +30,12 @@ import (
 //   - Wait for L3 to complete, then send H5
 
 type Outbox struct {
-	logger       *slog.Logger
-	mode         OutboxMode
-	parallelism  int
-	retryTimeout time.Duration
-	webhook      *WebhookClient
+	logger        *slog.Logger
+	mode          OutboxMode
+	parallelism   int
+	retryTimeout  time.Duration
+	webhook       *WebhookClient
+	kafkaProducer *atkafka.Producer
 
 	events *EventManager
 
@@ -100,10 +104,43 @@ func (o *Outbox) deliverEvent(eventID uint) {
 func (o *Outbox) sendEvent(evt *OutboxEvt) {
 	eventsDelivered.Inc()
 	switch o.mode {
+	case OutboxModeKafka:
+		o.kafkaProduceAsync(evt)
 	case OutboxModeFireAndForget, OutboxModeWebsocketAck:
 		o.outgoing <- evt
 	case OutboxModeWebhook:
 		go o.webhook.Send(evt, o.AckEvent)
+	}
+}
+
+func (o *Outbox) kafkaProduceAsync(evt *OutboxEvt) {
+	logger := o.logger.With("name", "kafkaProduceAsync", "id", evt.ID)
+
+	b, err := json.Marshal(evt)
+	if err != nil {
+		logger.Error("error marshaling event", "error", err)
+		return
+	}
+
+	// TODO: would be nice to pipe a better context through to here
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+
+	cb := func(_ *kgo.Record, err error) {
+		status := "ok"
+		defer func() {
+			kafkaEventsProduced.WithLabelValues(status).Inc()
+		}()
+
+		if err != nil {
+			logger.Info("error while producing event", "error", err)
+			status = "error"
+		}
+	}
+
+	if err := o.kafkaProducer.ProduceAsync(ctx, evt.Did, b, cb); err != nil {
+		logger.Error("error queueing event for production", "error", err)
+		kafkaEventsProduced.WithLabelValues("error_queueing").Inc()
 	}
 }
 
