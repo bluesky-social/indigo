@@ -634,9 +634,13 @@ var listAllRecordsCmd = &cli.Command{
 
 		var repob []byte
 		if strings.HasPrefix(arg, "did:") {
-			xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+			resp, err := identity.DefaultDirectory().LookupDID(ctx, syntax.DID(arg))
 			if err != nil {
 				return err
+			}
+
+			xrpcc := &xrpc.Client{
+				Host: resp.PDSEndpoint(),
 			}
 
 			if arg == "" {
@@ -660,11 +664,6 @@ var listAllRecordsCmd = &cli.Command{
 			repob = fb
 		}
 
-		rr, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(repob))
-		if err != nil {
-			return err
-		}
-
 		collection := "app.bsky.feed.post"
 		if cctx.Bool("all") {
 			collection = ""
@@ -672,24 +671,19 @@ var listAllRecordsCmd = &cli.Command{
 		vals := cctx.Bool("values")
 		cids := cctx.Bool("cids")
 
-		if err := rr.ForEach(ctx, collection, func(k string, v cid.Cid) error {
+		if err := repo.StreamRepoRecords(ctx, bytes.NewReader(repob), collection, nil, func(k string, cc cid.Cid, v []byte) error {
 			if !strings.HasPrefix(k, collection) {
 				return repo.ErrDoneIterating
 			}
 
 			fmt.Print(k)
 			if cids {
-				fmt.Println(" - ", v)
+				fmt.Println(" - ", cc)
 			} else {
 				fmt.Println()
 			}
 			if vals {
-				b, err := rr.Blockstore().Get(ctx, v)
-				if err != nil {
-					return err
-				}
-
-				convb, err := cborToJson(b.RawData())
+				convb, err := cborToJson(v)
 				if err != nil {
 					return err
 				}
