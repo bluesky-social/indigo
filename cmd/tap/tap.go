@@ -132,8 +132,8 @@ func NewTap(config TapConfig) (*Tap, error) {
 			logger.With("component", "kafkaProducer"),
 			config.KafkaBootstrapServers,
 			config.KafkaOutputTopic,
-			atkafka.WithEnsureTopic(true), // ensures that the topic has been created
-			atkafka.WithTopicPartitions(24),
+			atkafka.WithEnsureTopic(true),   // ensures that the topic has been created
+			atkafka.WithTopicPartitions(24), // TODO: partition count env var
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka producer: %w", err)

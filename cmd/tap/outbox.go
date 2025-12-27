@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -231,7 +232,14 @@ func (o *Outbox) kafkaProduceAsync(evt *OutboxEvt) {
 		o.AckEvent(evt.ID)
 	}
 
-	if err := o.kafkaProducer.ProduceAsync(context.Background(), evt.Did, evt.Event, cb); err != nil {
+	var key string
+	// TODO: ordering bool
+	if true {
+		key = strconv.FormatUint(uint64(evt.ID), 10)
+	} else {
+		key = evt.Did
+	}
+	if err := o.kafkaProducer.ProduceAsync(context.Background(), key, evt.Event, cb); err != nil {
 		logger.Error("error queueing event for production", "error", err)
 		kafkaEventsProduced.WithLabelValues("error_queueing").Inc()
 	}
