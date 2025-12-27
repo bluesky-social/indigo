@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/haileyok/at-kafka/atkafka"
@@ -44,11 +45,16 @@ type Outbox struct {
 	outgoing chan *OutboxEvt
 
 	ctx context.Context
+
+	cachedTime atomic.Value
 }
 
 // Run starts the outbox workers for event delivery and cleanup.
 func (o *Outbox) Run(ctx context.Context) {
 	o.ctx = ctx
+
+	o.cachedTime.Store(time.Now())
+	go o.updateCachedTime(ctx)
 
 	if o.mode == OutboxModeWebsocketAck || o.mode == OutboxModeKafka {
 		go o.checkTimeouts(ctx)
@@ -63,6 +69,22 @@ func (o *Outbox) Run(ctx context.Context) {
 	}
 
 	<-ctx.Done()
+}
+
+// updateCachedTime updates a cached time for us every 250ms, so we avoid calling time.Now() all the time in
+// handlers
+func (o *Outbox) updateCachedTime(ctx context.Context) {
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			o.cachedTime.Store(time.Now())
+		}
+	}
 }
 
 // runDelivery continuously pulls from pendingIDs and delivers events
@@ -299,7 +321,8 @@ func (w *DIDWorker) processPendingEvts() {
 			w.blockedOnLive = true
 		}
 		w.pendingEvts = w.pendingEvts[1:]
-		w.inFlightSentAt[eventID] = time.Now()
+
+		w.inFlightSentAt[eventID] = w.outbox.cachedTime.Load().(time.Time)
 		w.mu.Unlock()
 
 		w.outbox.sendEvent(evt)
@@ -316,7 +339,7 @@ func (w *DIDWorker) addEvent(evt *OutboxEvt) {
 
 	// Fast path: no contention, send immediately without goroutine
 	if !hasInFlight {
-		w.inFlightSentAt[evt.ID] = time.Now()
+		w.inFlightSentAt[evt.ID] = w.outbox.cachedTime.Load().(time.Time)
 		w.mu.Unlock()
 		w.outbox.sendEvent(evt)
 		return
