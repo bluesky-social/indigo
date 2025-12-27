@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"sync"
 	"time"
@@ -195,12 +194,6 @@ func (o *Outbox) retryTimedOutEvents() {
 func (o *Outbox) kafkaProduceAsync(evt *OutboxEvt) {
 	logger := o.logger.With("name", "kafkaProduceAsync", "id", evt.ID)
 
-	b, err := json.Marshal(evt)
-	if err != nil {
-		logger.Error("error marshaling event", "error", err)
-		return
-	}
-
 	cb := func(_ *kgo.Record, err error) {
 		status := "ok"
 		defer func() {
@@ -216,7 +209,7 @@ func (o *Outbox) kafkaProduceAsync(evt *OutboxEvt) {
 		o.AckEvent(evt.ID)
 	}
 
-	if err := o.kafkaProducer.ProduceAsync(context.Background(), evt.Did, b, cb); err != nil {
+	if err := o.kafkaProducer.ProduceAsync(context.Background(), evt.Did, evt.Event, cb); err != nil {
 		logger.Error("error queueing event for production", "error", err)
 		kafkaEventsProduced.WithLabelValues("error_queueing").Inc()
 	}
