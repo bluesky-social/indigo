@@ -73,6 +73,8 @@ Environment variables or CLI flags:
 - `TAP_COLLECTION_FILTERS`: comma-separated collection filters, wildcards accepted (e.g., `app.bsky.feed.post,app.bsky.graph.*`)
 - `TAP_DISABLE_ACKS`: fire-and-forget mode, no client acks (default: `false`)
 - `TAP_WEBHOOK_URL`: webhook URL for event delivery (disables WebSocket mode)
+- `TAP_KAFKA_BOOTSTRAP_SERVERS`: comma-separated list of Kafka bootstrap servers for event delivery (disables WebSocket mode)
+- `TAP_KAFKA_OUTPUT_TOPIC`: output topic for Kafka events, when using Kafka mode instead of WebSocket
 - `TAP_OUTBOX_ONLY`: run in outbox-only mode (no firehose, resync, or enumeration) (default: `false`)
 - `TAP_ADMIN_PASSWORD`: Basic auth admin password required for all requests (if set)
 - `TAP_RETRY_TIMEOUT`: timeout before retrying unacked events (default: `60s`)
@@ -88,6 +90,8 @@ Tap supports three delivery modes:
 **Fire-and-forget**: Set `TAP_DISABLE_ACKS=true`. Events are sent and considered "acked" once the client receives them. Simpler but may result in data loss. Recommended for testing purposes or when data integrity is not critical.
 
 **Webhook**: Set `TAP_WEBHOOK_URL=http://...`. Events are POSTed as JSON. Events considered "acked" once the webhook responds with a 200. Recommended for lower throughput serverless environments.
+
+**Kafka**: Set `TAP_KAFKA_BOOTSTRAP_SERVERS=localhost:9092` and `TAP_KAFKA_OUTPUT_TOPIC=tap-events`. Events are output to the given Kafka topic as JSON. Events are considered "acked" once they have been successfuly produced to Kafka.
 
 
 ## Network Boundary Modes
