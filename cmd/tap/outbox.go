@@ -201,10 +201,6 @@ func (o *Outbox) kafkaProduceAsync(evt *OutboxEvt) {
 		return
 	}
 
-	// TODO: would be nice to pipe a better context through to here
-	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
-	defer cancel()
-
 	cb := func(_ *kgo.Record, err error) {
 		status := "ok"
 		defer func() {
@@ -220,7 +216,7 @@ func (o *Outbox) kafkaProduceAsync(evt *OutboxEvt) {
 		o.AckEvent(evt.ID)
 	}
 
-	if err := o.kafkaProducer.ProduceAsync(ctx, evt.Did, b, cb); err != nil {
+	if err := o.kafkaProducer.ProduceAsync(context.Background(), evt.Did, b, cb); err != nil {
 		logger.Error("error queueing event for production", "error", err)
 		kafkaEventsProduced.WithLabelValues("error_queueing").Inc()
 	}
