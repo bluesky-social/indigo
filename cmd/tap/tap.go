@@ -50,6 +50,7 @@ type TapConfig struct {
 	DisableAcks                bool
 	WebhookURL                 string
 	CollectionFilters          []string // e.g., ["app.bsky.feed.post", "app.bsky.graph.*"]
+	RecordContentFilters       []string // e.g., ["app.bsky.feed.like: $.subject.uri =~ \"app.bsky.feed.generator\""]
 	OutboxOnly                 bool
 	AdminPassword              string
 	RetryTimeout               time.Duration
