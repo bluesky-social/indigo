@@ -110,7 +110,7 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 	// filter ops to only matching collections after validation (since all ops are necessary for commit validation)
 	filteredOps := []CommitOp{}
 	for _, op := range commit.Ops {
-		if matchesCollection(op.Collection, fp.collectionFilters) {
+		if matchesCollection(op.Collection, fp.collectionFilters) && matchesRecordContentFilters(fp.logger, op.Collection, op.Record, fp.recordContentFilters) {
 			filteredOps = append(filteredOps, op)
 		}
 	}
