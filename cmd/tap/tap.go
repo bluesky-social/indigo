@@ -87,27 +87,29 @@ func NewTap(config TapConfig) (*Tap, error) {
 	}
 
 	resyncer := &Resyncer{
-		logger:            logger.With("component", "resyncer"),
-		db:                db,
-		events:            evtMngr,
-		repos:             repoMngr,
-		repoFetchTimeout:  config.RepoFetchTimeout,
-		collectionFilters: config.CollectionFilters,
-		parallelism:       config.ResyncParallelism,
-		pdsBackoff:        make(map[string]time.Time),
+		logger:               logger.With("component", "resyncer"),
+		db:                   db,
+		events:               evtMngr,
+		repos:                repoMngr,
+		repoFetchTimeout:     config.RepoFetchTimeout,
+		collectionFilters:    config.CollectionFilters,
+		recordContentFilters: config.RecordContentFilters,
+		parallelism:          config.ResyncParallelism,
+		pdsBackoff:           make(map[string]time.Time),
 	}
 
 	firehose := &FirehoseProcessor{
-		logger:             logger.With("component", "firehose"),
-		db:                 db,
-		events:             evtMngr,
-		repos:              repoMngr,
-		relayUrl:           config.RelayUrl,
-		fullNetworkMode:    config.FullNetworkMode,
-		signalCollection:   config.SignalCollection,
-		collectionFilters:  config.CollectionFilters,
-		parallelism:        config.FirehoseParallelism,
-		cursorSaveInterval: config.FirehoseCursorSaveInterval,
+		logger:               logger.With("component", "firehose"),
+		db:                   db,
+		events:               evtMngr,
+		repos:                repoMngr,
+		relayUrl:             config.RelayUrl,
+		fullNetworkMode:      config.FullNetworkMode,
+		signalCollection:     config.SignalCollection,
+		collectionFilters:    config.CollectionFilters,
+		recordContentFilters: config.RecordContentFilters,
+		parallelism:          config.FirehoseParallelism,
+		cursorSaveInterval:   config.FirehoseCursorSaveInterval,
 	}
 
 	crawler := &Crawler{

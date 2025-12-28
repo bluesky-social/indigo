@@ -29,9 +29,10 @@ type Resyncer struct {
 
 	claimJobMu sync.Mutex
 
-	repoFetchTimeout  time.Duration
-	collectionFilters []string
-	parallelism       int
+	repoFetchTimeout     time.Duration
+	collectionFilters    []string
+	recordContentFilters []string
+	parallelism          int
 
 	pdsBackoff   map[string]time.Time
 	pdsBackoffMu sync.RWMutex

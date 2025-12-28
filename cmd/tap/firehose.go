@@ -30,12 +30,13 @@ type FirehoseProcessor struct {
 	events *EventManager
 	repos  *RepoManager
 
-	relayUrl           string
-	fullNetworkMode    bool
-	signalCollection   string
-	collectionFilters  []string
-	parallelism        int
-	cursorSaveInterval time.Duration
+	relayUrl             string
+	fullNetworkMode      bool
+	signalCollection     string
+	collectionFilters    []string
+	recordContentFilters []string
+	parallelism          int
+	cursorSaveInterval   time.Duration
 
 	lastSeq atomic.Int64
 }
