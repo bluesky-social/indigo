@@ -254,6 +254,10 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 			r.logger.Error("failed to unmarshal record", "did", did, "path", recPath, "error", err)
 		}
 
+		if !matchesRecordContentFilters(r.logger, collStr, rec, r.recordContentFilters) {
+			return nil
+		}
+
 		evt := &RecordEvt{
 			Live:       false,
 			Did:        did,
