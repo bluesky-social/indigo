@@ -3,11 +3,15 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
+	"github.com/PaesslerAG/gval"
+	"github.com/PaesslerAG/jsonpath"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -81,4 +85,51 @@ func parseOutboxMode(webhookURL string, disableAcks bool) OutboxMode {
 	} else {
 		return OutboxModeWebsocketAck
 	}
+}
+
+func matchesRecordContentFilters(logger *slog.Logger, collStr string, rec map[string]any, recordContentFilters []string) bool {
+	re := regexp.MustCompile(`^(\S+)\s*:\s*(\S+)\s*=~\s*(r)?"(.*?)"$`)
+	// defaults to true
+	recordMatches := true
+
+	for _, recordContentFilter := range recordContentFilters {
+		// recordContentFilter format: collection: jsonpath =~ (r)?"matchstring"
+		matches := re.FindStringSubmatch(recordContentFilter)
+		if len(matches) == 0 {
+			logger.Warn("invalid recordContentFilter", "filter", recordContentFilter)
+			continue
+		}
+		matchCollStr := strings.TrimSpace(matches[1])
+		if collStr != matchCollStr {
+			// this filter is for another collection
+			continue
+		}
+
+		jsonPath := strings.TrimSpace(matches[2])
+		rawFlag := len(matches[3]) > 0
+		var matchStr string
+		if rawFlag {
+			matchStr = strings.TrimSpace(matches[4])
+		} else {
+			matchStr = strings.Replace(
+				regexp.QuoteMeta(
+					strings.TrimSpace(matches[4])), `\`, `\\`, -1)
+		}
+
+		finalExpr := fmt.Sprintf(`%s =~ "%s"`, jsonPath, matchStr)
+		matchResult, err := gval.Full(jsonpath.PlaceholderExtension()).Evaluate(finalExpr, rec)
+		if err != nil {
+			logger.Warn("failed to compile recordContentFilter", "filter", recordContentFilter, "error", err)
+			continue
+		}
+
+		if matchResult == true {
+			recordMatches = true
+			break
+		} else {
+			// this one doesn't match, but perhaps another one does
+			recordMatches = false
+		}
+	}
+	return recordMatches
 }
