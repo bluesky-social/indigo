@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install --yes \
   dumb-init \
   entr
 
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+ENV PATH="/go/bin:${PATH}"
+
 WORKDIR /app
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
