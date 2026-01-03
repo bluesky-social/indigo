@@ -68,6 +68,10 @@ var (
 		Name: "tap_webhook_requests_total",
 		Help: "Total webhook requests by status",
 	}, []string{"status"})
+	kafkaEventsProduced = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "tap_kafka_events_produced",
+		Help: "Total number of events produced to Kafka",
+	}, []string{"status"})
 )
 
 // Crawler metrics

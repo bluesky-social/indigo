@@ -10,6 +10,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/tap/models"
+	"github.com/haileyok/at-kafka/atkafka"
 	"github.com/puzpuzpuz/xsync/v4"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -49,6 +50,8 @@ type TapConfig struct {
 	SignalCollection           string
 	DisableAcks                bool
 	WebhookURL                 string
+	KafkaBootstrapServers      []string
+	KafkaOutputTopic           string
 	CollectionFilters          []string // e.g., ["app.bsky.feed.post", "app.bsky.graph.*"]
 	OutboxOnly                 bool
 	AdminPassword              string
@@ -93,7 +96,7 @@ func NewTap(config TapConfig) (*Tap, error) {
 		repoFetchTimeout:  config.RepoFetchTimeout,
 		collectionFilters: config.CollectionFilters,
 		parallelism:       config.ResyncParallelism,
-		pdsBackoff:        make(map[string]time.Time),
+		pdsBackoff:        xsync.NewMap[string, time.Time](),
 	}
 
 	firehose := &FirehoseProcessor{
@@ -117,9 +120,29 @@ func NewTap(config TapConfig) (*Tap, error) {
 		SignalCollection: config.SignalCollection,
 	}
 
+	outboxMode := parseOutboxMode(config.WebhookURL, config.KafkaBootstrapServers, config.KafkaOutputTopic, config.DisableAcks)
+
+	var kafkaProducer *atkafka.Producer
+	if outboxMode == OutboxModeKafka {
+		var err error
+		// the producer from atkafka is the same as https://github.com/bluesky-social/go-util, except it allows for producing JSON rather than
+		// protobufs, which is what we want here
+		kafkaProducer, err = atkafka.NewProducer(
+			context.TODO(),
+			logger.With("component", "kafkaProducer"),
+			config.KafkaBootstrapServers,
+			config.KafkaOutputTopic,
+			atkafka.WithEnsureTopic(true),   // ensures that the topic has been created
+			atkafka.WithTopicPartitions(24), // TODO: partition count env var
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create kafka producer: %w", err)
+		}
+	}
+
 	outbox := &Outbox{
 		logger:       logger.With("component", "outbox"),
-		mode:         parseOutboxMode(config.WebhookURL, config.DisableAcks),
+		mode:         outboxMode,
 		parallelism:  config.OutboxParallelism,
 		retryTimeout: config.RetryTimeout,
 		webhook: &WebhookClient{
@@ -130,10 +153,11 @@ func NewTap(config TapConfig) (*Tap, error) {
 				Timeout: 30 * time.Second,
 			},
 		},
-		events:     evtMngr,
-		didWorkers: xsync.NewMap[string, *DIDWorker](),
-		acks:       make(chan uint, config.OutboxParallelism*10000),
-		outgoing:   make(chan *OutboxEvt, config.OutboxParallelism*10000),
+		kafkaProducer: kafkaProducer,
+		events:        evtMngr,
+		didWorkers:    xsync.NewMap[string, *DIDWorker](),
+		acks:          make(chan uint, config.OutboxParallelism*10000),
+		outgoing:      make(chan *OutboxEvt, config.OutboxParallelism*10000),
 	}
 
 	server := &TapServer{
