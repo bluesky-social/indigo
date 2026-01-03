@@ -140,6 +140,9 @@ func (em *EventManager) loadEventPage(ctx context.Context, lastID int) (int, err
 	eventCacheSize.Set(float64(len(em.cache)))
 	em.cacheLk.Unlock()
 
+	maxID := dbEvts[len(dbEvts)-1].ID
+	em.nextID.Store(uint64(maxID + 1))
+
 	for i := range dbEvts {
 		em.pendingIDs <- dbEvts[i].ID
 	}
