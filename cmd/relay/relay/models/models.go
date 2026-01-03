@@ -89,6 +89,7 @@ func (Account) TableName() string {
 // This is a small extension table to `Account`, which holds fast-changing fields updated on every firehose event.
 type AccountRepo struct {
 	// references Account.UID, but not set up as a foreign key
+	// TODO: it might help the query planner to add the foreign key relationship to the 'account' table.
 	UID uint64 `gorm:"column:uid;primarykey" json:"uid"`
 	Rev string `gorm:"column:rev;not null" json:"rev"`
 
