@@ -71,6 +71,7 @@ Environment variables or CLI flags:
 - `TAP_FULL_NETWORK`: track all repos on the network (default: `false`)
 - `TAP_SIGNAL_COLLECTION`: track all repos with at least one record in this collection (e.g. `app.bsky.actor.profile`)
 - `TAP_COLLECTION_FILTERS`: comma-separated collection filters, wildcards accepted (e.g., `app.bsky.feed.post,app.bsky.graph.*`)
+- `TAP_RECORD_CONTENT_FILTERS`: comma-separated record content filters (e.g., `app.bsky.feed.like: $.subject.uri =~ "app.bsky.feed.generator"`)
 - `TAP_DISABLE_ACKS`: fire-and-forget mode, no client acks (default: `false`)
 - `TAP_WEBHOOK_URL`: webhook URL for event delivery (disables WebSocket mode)
 - `TAP_OUTBOX_ONLY`: run in outbox-only mode (no firehose, resync, or enumeration) (default: `false`)
@@ -110,6 +111,22 @@ Collection filters use wildcards but only at the period breaks in NSIDs. For exa
 
 `TAP_COLLECTION_FILTERS=app.bsky.feed.post,app.bsky.graph.*`
 
+## Record Content Filtering
+
+This provides an additional way to filter events based on record content. The syntax is
+
+```
+<collectionType> : <jsonPath> =~ <regexExpr>
+```
+
+`regexExpr` is a string that is used to match the jsonPath value. A normal string will match literally, e.g. `foo.bar` will match any value with `"foo.bar"`. If needed, r-strings can be used for true regular expression matching, e.g. `r"foo.bar"` will match anything with "fooxbar" or "foolbar" in it.
+
+Thus, the following two are equivalent:
+
+```
+"app.bsky.feed.generator"
+r"app\.bsky\.feed\.generator"
+```
 
 ## Event Format
 

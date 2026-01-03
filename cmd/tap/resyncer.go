@@ -29,9 +29,10 @@ type Resyncer struct {
 
 	claimJobMu sync.Mutex
 
-	repoFetchTimeout  time.Duration
-	collectionFilters []string
-	parallelism       int
+	repoFetchTimeout     time.Duration
+	collectionFilters    []string
+	recordContentFilters []string
+	parallelism          int
 
 	pdsBackoff   map[string]time.Time
 	pdsBackoffMu sync.RWMutex
@@ -251,6 +252,10 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 			// do not fail here
 			// we end up storing the CID but not passing the record along in the outbox
 			r.logger.Error("failed to unmarshal record", "did", did, "path", recPath, "error", err)
+		}
+
+		if !matchesRecordContentFilters(r.logger, collStr, rec, r.recordContentFilters) {
+			return nil
 		}
 
 		evt := &RecordEvt{
