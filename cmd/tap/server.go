@@ -218,6 +218,7 @@ func (ts *TapServer) handleInfoRepo(c echo.Context) error {
 		"did":     repo.Did,
 		"handle":  repo.Handle,
 		"state":   repo.State,
+		"status":  repo.Status,
 		"rev":     repo.Rev,
 		"error":   repo.ErrorMsg,
 		"retries": repo.RetryCount,
