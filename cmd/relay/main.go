@@ -142,6 +142,12 @@ func run(args []string) error {
 					Value:   1,
 					Sources: cli.EnvVars("RELAY_INITIAL_SEQ_NUMBER"),
 				},
+				&cli.Int64Flag{
+					Name:    "cursor-hint-scroll-back",
+					Usage:   "number of events to scroll back when using cursor hint for new hosts",
+					Value:   100, // Default value
+					Sources: cli.EnvVars("RELAY_CURSOR_HINT_SCROLL_BACK"),
+				},
 				&cli.StringSliceFlag{
 					Name:    "sibling-relays",
 					Usage:   "servers (eg https://example.com) to forward admin state changes to; multiple allowed",
@@ -257,6 +263,7 @@ func runRelay(ctx context.Context, cmd *cli.Command) error {
 	relayConfig.HostPerDayLimit = cmd.Int64("new-hosts-per-day-limit")
 	relayConfig.TrustedDomains = cmd.StringSlice("trusted-domains")
 	relayConfig.LenientSyncValidation = cmd.Bool("lenient-sync-validation")
+	relayConfig.CursorHintScrollBack = cmd.Int64("cursor-hint-scroll-back")
 
 	svcConfig := DefaultServiceConfig()
 	svcConfig.AllowInsecureHosts = cmd.Bool("allow-insecure-hosts")

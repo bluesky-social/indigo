@@ -8,7 +8,7 @@ import (
 	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
 )
 
-func (r *Relay) SubscribeToHost(ctx context.Context, hostname string, noSSL, adminForce bool) error {
+func (r *Relay) SubscribeToHost(ctx context.Context, hostname string, noSSL, adminForce bool, cursorHint int64) error {
 
 	// if we already have an active subscription, exit early
 	if r.Slurper.CheckIfSubscribed(hostname) {
@@ -35,19 +35,28 @@ func (r *Relay) SubscribeToHost(ctx context.Context, hostname string, noSSL, adm
 			accountLimit = r.Config.TrustedRepoLimit
 		}
 
+		var lastSeq int64
+		if cursorHint > 0 {
+			lastSeq = cursorHint - r.Config.CursorHintScrollBack
+			if lastSeq < 1 {
+				lastSeq = 1
+			}
+		}
+
 		host = models.Host{
 			Hostname:     hostname,
 			NoSSL:        noSSL,
 			Status:       models.HostStatusActive,
 			Trusted:      trusted,
 			AccountLimit: accountLimit,
+			LastSeq:      lastSeq,
 		}
 
 		if err := r.db.WithContext(ctx).Create(&host).Error; err != nil {
 			return err
 		}
 
-		r.Logger.Info("adding new host subscription", "hostname", hostname, "noSSL", noSSL, "adminForce", adminForce)
+		r.Logger.Info("adding new host subscription", "hostname", hostname, "noSSL", noSSL, "adminForce", adminForce, "initialCursor", lastSeq)
 	} else if host.Status == models.HostStatusBanned {
 		return fmt.Errorf("cannot subscribe to banned pds")
 	}
