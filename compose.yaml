@@ -1,0 +1,23 @@
+services:
+  fdb-coordinator:
+    image: foundationdb/foundationdb:7.3.63
+    container_name: atlas-fdb-coordinator
+    network_mode: host
+    environment:
+      FDB_NETWORKING_MODE: host
+      FDB_CLUSTER_FILE: /etc/foundationdb/fdb.cluster
+    volumes:
+      - ./foundation.cluster:/etc/foundationdb/fdb.cluster:ro
+
+  fdb-server-1:
+    depends_on:
+      - fdb-coordinator
+    image: foundationdb/foundationdb:7.3.63
+    container_name: atlas-fdb-server-1
+    network_mode: host
+    environment:
+      FDB_NETWORKING_MODE: host
+      FDB_PORT: 4501
+      FDB_CLUSTER_FILE: /etc/foundationdb/fdb.cluster
+    volumes:
+      - ./foundation.cluster:/etc/foundationdb/fdb.cluster:ro
