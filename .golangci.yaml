@@ -5,13 +5,20 @@ issues:
   max-same-issues: 0
 
 linters:
-  disable:
-    - errcheck
-    - gocritic
-    - unused
+  exclusions:
+    paths:
+      - "^(?!cmd/cask|internal/cask).*"
   settings:
     errcheck:
       check-type-assertions: true
-      disable-default-exclusions: true
     gocritic:
       enable-all: true
+
+formatters:
+  enable:
+    - gofmt
+  settings:
+    gofmt:
+      rewrite-rules:
+        - pattern: 'interface{}'
+          replacement: 'any'
