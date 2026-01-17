@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apple/foundationdb/bindings/go/src/fdb/directory"
 	"github.com/bluesky-social/indigo/internal/testutil"
 	"github.com/bluesky-social/indigo/pkg/clock"
 	"github.com/bluesky-social/indigo/pkg/foundation"
@@ -23,19 +22,15 @@ func testDB(t *testing.T) *foundation.DB {
 	return testutil.TestDB(t)
 }
 
-func testDir(t *testing.T) directory.DirectorySubspace {
+func testDirPath(t *testing.T) []string {
 	t.Helper()
-	db := testDB(t)
-	dir, err := directory.CreateOrOpen(db.Database, []string{t.Name(), "leader"}, nil)
-	require.NoError(t, err)
-	return dir
+	return []string{t.Name(), "leader"}
 }
 
 func testLeaderElection(t *testing.T, identity string, clk clock.Clock) *LeaderElection {
 	t.Helper()
 	db := testDB(t)
-	dir := testDir(t)
-	return New(db, dir, LeaderElectionConfig{
+	le, err := New(db, testDirPath(t), LeaderElectionConfig{
 		Identity:            identity,
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
@@ -43,6 +38,8 @@ func testLeaderElection(t *testing.T, identity string, clk clock.Clock) *LeaderE
 		AcquisitionInterval: testAcquisitionInterval,
 		Clock:               clk,
 	})
+	require.NoError(t, err)
+	return le
 }
 
 // waitForWaiters waits until the mock clock has at least n waiters.

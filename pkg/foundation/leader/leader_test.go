@@ -22,8 +22,8 @@ func TestLeaderElection_SingleProcess(t *testing.T) {
 	becameLeader := make(chan struct{}, 1)
 
 	db := testDB(t)
-	dir := testDir(t)
-	le := New(db, dir, LeaderElectionConfig{
+	dirPath := testDirPath(t)
+	le, err := New(db, dirPath, LeaderElectionConfig{
 		Identity:            "single-process-test",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
@@ -37,6 +37,7 @@ func TestLeaderElection_SingleProcess(t *testing.T) {
 			}
 		},
 	})
+	require.NoError(t, err)
 
 	go func() {
 		_ = le.Run(ctx)
@@ -69,14 +70,14 @@ func TestLeaderElection_MultipleProcesses_OneLeader(t *testing.T) {
 
 	mockClock := clock.NewMockClock(time.Now())
 	db := testDB(t)
-	dir := testDir(t)
+	dirPath := testDirPath(t)
 
 	const numProcesses = 5
 	var leaderCount atomic.Int32
 	var elections []*LeaderElection
 
 	for i := range numProcesses {
-		le := New(db, dir, LeaderElectionConfig{
+		le, err := New(db, dirPath, LeaderElectionConfig{
 			Identity:            fmt.Sprintf("process-%d", i),
 			Logger:              slog.Default(),
 			LeaseDuration:       testLeaseDuration,
@@ -90,6 +91,7 @@ func TestLeaderElection_MultipleProcesses_OneLeader(t *testing.T) {
 				leaderCount.Add(-1)
 			},
 		})
+		require.NoError(t, err)
 		elections = append(elections, le)
 	}
 
@@ -128,12 +130,12 @@ func TestLeaderElection_GracefulHandoff(t *testing.T) {
 
 	mockClock := clock.NewMockClock(time.Now())
 	db := testDB(t)
-	dir := testDir(t)
+	dirPath := testDirPath(t)
 
 	var leader1BecameLeader, leader2BecameLeader atomic.Bool
 	var leader1LostLeadership atomic.Bool
 
-	le1 := New(db, dir, LeaderElectionConfig{
+	le1, err := New(db, dirPath, LeaderElectionConfig{
 		Identity:            "graceful-handoff-1",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
@@ -147,8 +149,9 @@ func TestLeaderElection_GracefulHandoff(t *testing.T) {
 			leader1LostLeadership.Store(true)
 		},
 	})
+	require.NoError(t, err)
 
-	le2 := New(db, dir, LeaderElectionConfig{
+	le2, err := New(db, dirPath, LeaderElectionConfig{
 		Identity:            "graceful-handoff-2",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
@@ -159,6 +162,7 @@ func TestLeaderElection_GracefulHandoff(t *testing.T) {
 			leader2BecameLeader.Store(true)
 		},
 	})
+	require.NoError(t, err)
 
 	// Start first leader
 	go func() {
@@ -209,13 +213,13 @@ func TestLeaderElection_CrashRecovery(t *testing.T) {
 
 	mockClock := clock.NewMockClock(time.Now())
 	db := testDB(t)
-	dir := testDir(t)
+	dirPath := testDirPath(t)
 
 	var leader1BecameLeader, leader2BecameLeader atomic.Bool
 
 	ctx1, cancel1 := context.WithCancel(ctx)
 
-	le1 := New(db, dir, LeaderElectionConfig{
+	le1, err := New(db, dirPath, LeaderElectionConfig{
 		Identity:            "crash-recovery-1",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
@@ -226,8 +230,9 @@ func TestLeaderElection_CrashRecovery(t *testing.T) {
 			leader1BecameLeader.Store(true)
 		},
 	})
+	require.NoError(t, err)
 
-	le2 := New(db, dir, LeaderElectionConfig{
+	le2, err := New(db, dirPath, LeaderElectionConfig{
 		Identity:            "crash-recovery-2",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
@@ -238,6 +243,7 @@ func TestLeaderElection_CrashRecovery(t *testing.T) {
 			leader2BecameLeader.Store(true)
 		},
 	})
+	require.NoError(t, err)
 
 	// Start le1
 	go func() {
@@ -284,13 +290,13 @@ func TestLeaderElection_NoDuplicateLeaders(t *testing.T) {
 
 	mockClock := clock.NewMockClock(time.Now())
 	db := testDB(t)
-	dir := testDir(t)
+	dirPath := testDirPath(t)
 
 	const numProcesses = 10
 	var elections []*LeaderElection
 
 	for i := range numProcesses {
-		le := New(db, dir, LeaderElectionConfig{
+		le, err := New(db, dirPath, LeaderElectionConfig{
 			Identity:            fmt.Sprintf("no-dup-%d", i),
 			Logger:              slog.Default(),
 			LeaseDuration:       testLeaseDuration,
@@ -298,6 +304,7 @@ func TestLeaderElection_NoDuplicateLeaders(t *testing.T) {
 			AcquisitionInterval: testAcquisitionInterval,
 			Clock:               mockClock,
 		})
+		require.NoError(t, err)
 		elections = append(elections, le)
 	}
 
@@ -340,12 +347,12 @@ func TestLeaderElection_LeaseRenewal(t *testing.T) {
 
 	mockClock := clock.NewMockClock(time.Now())
 	db := testDB(t)
-	dir := testDir(t)
+	dirPath := testDirPath(t)
 
 	var becameLeader atomic.Bool
 	var lostLeadership atomic.Bool
 
-	le := New(db, dir, LeaderElectionConfig{
+	le, err := New(db, dirPath, LeaderElectionConfig{
 		Identity:            "lease-renewal-test",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
@@ -359,6 +366,7 @@ func TestLeaderElection_LeaseRenewal(t *testing.T) {
 			lostLeadership.Store(true)
 		},
 	})
+	require.NoError(t, err)
 
 	go func() {
 		_ = le.Run(ctx)
@@ -387,13 +395,13 @@ func TestLeaderElection_RapidStartStop(t *testing.T) {
 
 	ctx := context.Background()
 	db := testDB(t)
-	dir := testDir(t)
+	dirPath := testDirPath(t)
 
 	mockClock := clock.NewMockClock(time.Now())
 
 	// Rapidly start and stop elections
 	for i := range 10 {
-		le := New(db, dir, LeaderElectionConfig{
+		le, err := New(db, dirPath, LeaderElectionConfig{
 			Identity:            fmt.Sprintf("rapid-%d", i),
 			Logger:              slog.Default(),
 			LeaseDuration:       testLeaseDuration,
@@ -401,6 +409,7 @@ func TestLeaderElection_RapidStartStop(t *testing.T) {
 			AcquisitionInterval: testAcquisitionInterval,
 			Clock:               mockClock,
 		})
+		require.NoError(t, err)
 
 		runCtx, runCancel := context.WithCancel(ctx)
 		go func() {
@@ -420,7 +429,7 @@ func TestLeaderElection_RapidStartStop(t *testing.T) {
 	finalCtx, finalCancel := context.WithCancel(ctx)
 	defer finalCancel()
 
-	le := New(db, dir, LeaderElectionConfig{
+	le, err := New(db, dirPath, LeaderElectionConfig{
 		Identity:            "rapid-final",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
@@ -431,6 +440,7 @@ func TestLeaderElection_RapidStartStop(t *testing.T) {
 			becameLeader.Store(true)
 		},
 	})
+	require.NoError(t, err)
 
 	go func() {
 		_ = le.Run(finalCtx)
@@ -530,11 +540,11 @@ func TestLeaderElection_LeaderStealing(t *testing.T) {
 
 	mockClock := clock.NewMockClock(time.Now())
 	db := testDB(t)
-	dir := testDir(t)
+	dirPath := testDirPath(t)
 
 	var leader1Acquired, leader2Acquired atomic.Int32
 
-	le1 := New(db, dir, LeaderElectionConfig{
+	le1, err := New(db, dirPath, LeaderElectionConfig{
 		Identity:            "stealer-1",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
@@ -545,8 +555,9 @@ func TestLeaderElection_LeaderStealing(t *testing.T) {
 			leader1Acquired.Add(1)
 		},
 	})
+	require.NoError(t, err)
 
-	le2 := New(db, dir, LeaderElectionConfig{
+	le2, err := New(db, dirPath, LeaderElectionConfig{
 		Identity:            "stealer-2",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
@@ -557,6 +568,7 @@ func TestLeaderElection_LeaderStealing(t *testing.T) {
 			leader2Acquired.Add(1)
 		},
 	})
+	require.NoError(t, err)
 
 	// Start both at nearly the same time
 	go func() { _ = le1.Run(ctx) }()

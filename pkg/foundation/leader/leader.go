@@ -101,14 +101,19 @@ type LeaderElection struct {
 	leaseExpiresAt time.Time
 }
 
-// New creates a new LeaderElection instance. The dir parameter specifies the
-// FDB directory subspace where leader state will be stored.
-func New(db *foundation.DB, dir directory.DirectorySubspace, cfg LeaderElectionConfig) *LeaderElection {
+// New creates a new LeaderElection instance. The dirPath parameter specifies the
+// FDB directory path where leader state will be stored.
+func New(db *foundation.DB, dirPath []string, cfg LeaderElectionConfig) (*LeaderElection, error) {
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
 	}
 	if cfg.Clock == nil {
 		cfg.Clock = &clock.RealClock{}
+	}
+
+	dir, err := directory.CreateOrOpen(db.Database, dirPath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create leader election directory: %w", err)
 	}
 
 	le := &LeaderElection{
@@ -132,7 +137,7 @@ func New(db *foundation.DB, dir directory.DirectorySubspace, cfg LeaderElectionC
 		le.acquisitionInterval = cfg.AcquisitionInterval
 	}
 
-	return le
+	return le, nil
 }
 
 func (le *LeaderElection) IsLeader() bool {

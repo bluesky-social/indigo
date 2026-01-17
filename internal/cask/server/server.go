@@ -66,12 +66,15 @@ func New(ctx context.Context, config Config) (*Server, error) {
 		models: m,
 	}
 
-	s.leaderElection = leader.New(db, m.FirehoseLeaderDir(), leader.LeaderElectionConfig{
+	s.leaderElection, err = leader.New(db, []string{"firehoseLeader"}, leader.LeaderElectionConfig{
 		Identity:         s.processID(),
 		Logger:           config.Logger,
 		OnBecameLeader:   s.onBecameLeader,
 		OnLostLeadership: s.onLostLeadership,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to init leader election: %w", err)
+	}
 
 	return s, nil
 }
