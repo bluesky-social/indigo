@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
@@ -63,10 +62,8 @@ type LeaderElection struct {
 	renewalInterval     time.Duration
 	acquisitionInterval time.Duration
 
-	stopped atomic.Bool
-	stopCh  chan any
-
 	mu             sync.RWMutex
+	cancel         context.CancelFunc
 	isLeader       bool
 	leaseExpiresAt time.Time
 }
@@ -94,7 +91,6 @@ func New(db *foundation.DB, dirPath []string, cfg LeaderElectionConfig) (*Leader
 		leaseDuration:       DefaultLeaseDuration,
 		renewalInterval:     DefaultRenewalInterval,
 		acquisitionInterval: DefaultAcquisitionInterval,
-		stopCh:              make(chan any),
 	}
 
 	if cfg.LeaseDuration > 0 {
@@ -331,6 +327,11 @@ func (le *LeaderElection) ReleaseLease(ctx context.Context) (err error) {
 // Run starts the leader election loop and blocks until Stop is called or the
 // context is canceled.
 func (le *LeaderElection) Run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	le.mu.Lock()
+	le.cancel = cancel
+	le.mu.Unlock()
+
 	le.cfg.Logger.Info("starting leader election", "local_id", le.cfg.ID)
 
 	if _, err := le.TryAcquireLease(ctx); err != nil {
@@ -342,9 +343,6 @@ func (le *LeaderElection) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			le.handleShutdown(context.Background())
 			return ctx.Err()
-		case <-le.stopCh:
-			le.handleShutdown(ctx)
-			return nil
 		default:
 		}
 
@@ -376,20 +374,18 @@ func (le *LeaderElection) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			le.handleShutdown(context.Background())
 			return ctx.Err()
-		case <-le.stopCh:
-			le.handleShutdown(ctx)
-			return nil
 		case <-le.clock.After(waitFor):
 		}
 	}
 }
 
 func (le *LeaderElection) Stop() {
-	if le.stopped.Load() {
-		return
+	le.mu.Lock()
+	defer le.mu.Unlock()
+
+	if le.cancel != nil {
+		le.cancel()
 	}
-	le.stopped.Store(true)
-	close(le.stopCh)
 }
 
 func (le *LeaderElection) handleShutdown(ctx context.Context) {
@@ -400,11 +396,13 @@ func (le *LeaderElection) handleShutdown(ctx context.Context) {
 	isLeader := le.isLeader
 	le.mu.RUnlock()
 
-	if isLeader {
-		le.cfg.Logger.Info("releasing lease on shutdown", "local_id", le.cfg.ID)
-		if err := le.ReleaseLease(ctx); err != nil {
-			le.cfg.Logger.Error("failed to release lease on shutdown", "error", err)
-		}
+	if !isLeader {
+		return
+	}
+
+	le.cfg.Logger.Info("releasing lease on shutdown", "local_id", le.cfg.ID)
+	if err := le.ReleaseLease(ctx); err != nil {
+		le.cfg.Logger.Error("failed to release lease on shutdown", "error", err)
 	}
 }
 
