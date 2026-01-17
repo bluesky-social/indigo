@@ -25,8 +25,8 @@ up:
 down:
     docker compose down --remove-orphans
 
-# Lints the code (defaults to cask packages only)
-lint *ARGS="./cmd/cask/... ./internal/cask/...":
+# Lints the code
+lint ARGS="./cmd/cask/... ./pkg/... ./internal/...":
     golangci-lint run --timeout 1m {{ARGS}}
 
 # Builds and runs the given Go executable
@@ -38,11 +38,11 @@ run CMD *ARGS:
     just r -race {{CMD}} {{ARGS}}
 
 # Runs the tests
-t *ARGS="./...":
+t *ARGS="./cmd/cask/... ./internal/... ./pkg/...":
     go test -count=1 -covermode=atomic -coverprofile=test-coverage.out {{ARGS}}
 
 # Runs the tests with the race detector enabled
-test *ARGS="./...":
+test *ARGS="./cmd/cask/... ./internal/... ./pkg/...":
     just t -race {{ARGS}}
 
 # run `just test` first, then run this to view test coverage

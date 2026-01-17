@@ -7,6 +7,7 @@ toolchain go1.25.1
 require (
 	github.com/PuerkitoBio/purell v1.2.1
 	github.com/RussellLuo/slidingwindow v0.0.0-20200528002341-535bb99d338b
+	github.com/apple/foundationdb/bindings/go v0.0.0-20250221231555-5140696da2df
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
 	github.com/brianvoe/gofakeit/v6 v6.25.0

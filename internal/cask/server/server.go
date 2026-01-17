@@ -2,14 +2,16 @@ package server
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
 	_ "net/http/pprof"
 
+	"github.com/bluesky-social/indigo/util/svcutil"
+
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -18,16 +20,16 @@ type Config struct {
 	FDBClusterFile string
 }
 
-type server struct {
+type Server struct {
 	cfg Config
 	log *slog.Logger
 
-	httpServer    *http.Server
+	echo          *echo.Echo
 	metricsServer *http.Server
 }
 
-func New(config Config) (*server, error) {
-	s := &server{
+func New(config Config) (*Server, error) {
+	s := &Server{
 		cfg: config,
 		log: config.Logger,
 	}
@@ -35,36 +37,35 @@ func New(config Config) (*server, error) {
 	return s, nil
 }
 
-func (s *server) Start(addr string) error {
-	handler := s.recoverMiddleware(s.router())
+func (s *Server) Start(addr string) error {
+	e := echo.New()
+	e.HideBanner = true
+	e.HidePort = true
 
-	s.httpServer = &http.Server{
-		Addr:         addr,
-		Handler:      handler,
-		ErrorLog:     slog.NewLogLogger(s.log.Handler(), slog.LevelError),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-	}
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+	}))
 
-	return s.httpServer.ListenAndServe()
+	e.Use(svcutil.MetricsMiddleware)
+	e.HTTPErrorHandler = s.errorHandler
+
+	// misc. handlers
+	e.GET("/", s.handleHome)
+	e.GET("/ping", s.handleHealth)
+	e.GET("/_health", s.handleHealth)
+
+	// xrpc handlers
+	e.GET("/xrpc/_health", s.handleHealth)
+
+	s.echo = e
+	return e.Start(addr)
 }
 
-func (s *server) router() *http.ServeMux {
+func (s *Server) RunMetrics(addr string) error {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /", s.handleHome)
-	mux.HandleFunc("GET /ping", s.handleHealth)
-	mux.HandleFunc("GET /_health", s.handleHealth)
-	mux.HandleFunc("GET /xrpc/_health", s.handleHealth)
-
-	return mux
-}
-
-func (s *server) RunMetrics(addr string) error {
-	mux := http.NewServeMux()
-
-	mux.Handle("GET /metrics", promhttp.Handler())
-
+	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/debug/pprof/", http.DefaultServeMux.ServeHTTP)
 
 	s.metricsServer = &http.Server{
@@ -78,19 +79,16 @@ func (s *server) RunMetrics(addr string) error {
 	return s.metricsServer.ListenAndServe()
 }
 
-func (s *server) Shutdown(ctx context.Context) error {
+func (s *Server) Shutdown(ctx context.Context) error {
 	var shutdownErr error
 
-	// Shutdown API server
-	if s.httpServer != nil {
-		s.httpServer.SetKeepAlivesEnabled(false)
-		if err := s.httpServer.Shutdown(ctx); err != nil {
+	if s.echo != nil {
+		if err := s.echo.Shutdown(ctx); err != nil {
 			s.log.Error("error shutting down API server", "error", err)
 			shutdownErr = err
 		}
 	}
 
-	// Shutdown metrics server
 	if s.metricsServer != nil {
 		s.metricsServer.SetKeepAlivesEnabled(false)
 		if err := s.metricsServer.Shutdown(ctx); err != nil {
@@ -104,50 +102,32 @@ func (s *server) Shutdown(ctx context.Context) error {
 	return shutdownErr
 }
 
-func (s *server) recoverMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if err := recover(); err != nil {
-				s.log.Error("panic recovered", "error", err, "path", r.URL.Path)
-				s.internalError(w, "internal server error")
-			}
-		}()
-		next.ServeHTTP(w, r)
-	})
-}
+func (s *Server) errorHandler(err error, c echo.Context) {
+	code := http.StatusInternalServerError
+	msg := "internal server error"
 
-func (s *server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	s.jsonOK(w, map[string]string{
-		"status": "ok",
-	})
-}
+	if he, ok := err.(*echo.HTTPError); ok {
+		code = he.Code
+		if m, ok := he.Message.(string); ok {
+			msg = m
+		}
+	}
 
-func (s *server) plaintextOK(w http.ResponseWriter, msg string, args ...any) {
-	s.plaintextWithCode(w, http.StatusOK, msg, args...)
-}
+	if code >= 500 {
+		s.log.Error("handler error", "path", c.Path(), "error", err)
+	}
 
-func (s *server) plaintextWithCode(w http.ResponseWriter, code int, msg string, args ...any) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(code)
-	fmt.Fprintf(w, msg, args...) // nolint:errcheck
-}
-
-func (s *server) jsonOK(w http.ResponseWriter, resp any) {
-	s.jsonWithCode(w, http.StatusOK, resp)
-}
-
-func (s *server) jsonWithCode(w http.ResponseWriter, code int, resp any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		s.log.Error("failed to encode json response", "error", err)
+	if !c.Response().Committed {
+		if err := c.JSON(code, map[string]any{
+			"error": msg,
+		}); err != nil {
+			s.log.Error("failed to write error response", "error", err)
+		}
 	}
 }
 
-func (s *server) internalError(w http.ResponseWriter, message string) {
-	s.jsonWithCode(w, http.StatusInternalServerError, map[string]string{
-		"error":   "InternalServerError",
-		"message": message,
+func (s *Server) handleHealth(c echo.Context) error {
+	return c.JSON(http.StatusOK, map[string]string{
+		"status": "ok",
 	})
 }
