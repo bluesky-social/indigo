@@ -31,7 +31,7 @@ func testLeaderElection(t *testing.T, identity string, clk clock.Clock) *LeaderE
 	t.Helper()
 	db := testDB(t)
 	le, err := New(db, testDirPath(t), LeaderElectionConfig{
-		Identity:            identity,
+		ID:                  identity,
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
 		RenewalInterval:     testRenewalInterval,

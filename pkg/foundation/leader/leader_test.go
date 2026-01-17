@@ -14,9 +14,7 @@ import (
 
 func TestLeaderElection_SingleProcess(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	mockClock := clock.NewMockClock(time.Now())
 	becameLeader := make(chan struct{}, 1)
@@ -24,7 +22,7 @@ func TestLeaderElection_SingleProcess(t *testing.T) {
 	db := testDB(t)
 	dirPath := testDirPath(t)
 	le, err := New(db, dirPath, LeaderElectionConfig{
-		Identity:            "single-process-test",
+		ID:                  "single-process-test",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
 		RenewalInterval:     testRenewalInterval,
@@ -57,16 +55,14 @@ func TestLeaderElection_SingleProcess(t *testing.T) {
 	leader, err := le.GetLeader(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, leader)
-	require.Equal(t, "single-process-test", leader.ID)
+	require.Equal(t, "single-process-test", leader.Id)
 
 	le.Stop()
 }
 
 func TestLeaderElection_MultipleProcesses_OneLeader(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	mockClock := clock.NewMockClock(time.Now())
 	db := testDB(t)
@@ -78,7 +74,7 @@ func TestLeaderElection_MultipleProcesses_OneLeader(t *testing.T) {
 
 	for i := range numProcesses {
 		le, err := New(db, dirPath, LeaderElectionConfig{
-			Identity:            fmt.Sprintf("process-%d", i),
+			ID:                  fmt.Sprintf("process-%d", i),
 			Logger:              slog.Default(),
 			LeaseDuration:       testLeaseDuration,
 			RenewalInterval:     testRenewalInterval,
@@ -124,9 +120,7 @@ func TestLeaderElection_MultipleProcesses_OneLeader(t *testing.T) {
 
 func TestLeaderElection_GracefulHandoff(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	mockClock := clock.NewMockClock(time.Now())
 	db := testDB(t)
@@ -136,7 +130,7 @@ func TestLeaderElection_GracefulHandoff(t *testing.T) {
 	var leader1LostLeadership atomic.Bool
 
 	le1, err := New(db, dirPath, LeaderElectionConfig{
-		Identity:            "graceful-handoff-1",
+		ID:                  "graceful-handoff-1",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
 		RenewalInterval:     testRenewalInterval,
@@ -152,7 +146,7 @@ func TestLeaderElection_GracefulHandoff(t *testing.T) {
 	require.NoError(t, err)
 
 	le2, err := New(db, dirPath, LeaderElectionConfig{
-		Identity:            "graceful-handoff-2",
+		ID:                  "graceful-handoff-2",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
 		RenewalInterval:     testRenewalInterval,
@@ -207,9 +201,7 @@ func TestLeaderElection_GracefulHandoff(t *testing.T) {
 
 func TestLeaderElection_CrashRecovery(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	mockClock := clock.NewMockClock(time.Now())
 	db := testDB(t)
@@ -220,7 +212,7 @@ func TestLeaderElection_CrashRecovery(t *testing.T) {
 	ctx1, cancel1 := context.WithCancel(ctx)
 
 	le1, err := New(db, dirPath, LeaderElectionConfig{
-		Identity:            "crash-recovery-1",
+		ID:                  "crash-recovery-1",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
 		RenewalInterval:     testRenewalInterval,
@@ -233,7 +225,7 @@ func TestLeaderElection_CrashRecovery(t *testing.T) {
 	require.NoError(t, err)
 
 	le2, err := New(db, dirPath, LeaderElectionConfig{
-		Identity:            "crash-recovery-2",
+		ID:                  "crash-recovery-2",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
 		RenewalInterval:     testRenewalInterval,
@@ -284,9 +276,7 @@ func TestLeaderElection_CrashRecovery(t *testing.T) {
 
 func TestLeaderElection_NoDuplicateLeaders(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	mockClock := clock.NewMockClock(time.Now())
 	db := testDB(t)
@@ -297,7 +287,7 @@ func TestLeaderElection_NoDuplicateLeaders(t *testing.T) {
 
 	for i := range numProcesses {
 		le, err := New(db, dirPath, LeaderElectionConfig{
-			Identity:            fmt.Sprintf("no-dup-%d", i),
+			ID:                  fmt.Sprintf("no-dup-%d", i),
 			Logger:              slog.Default(),
 			LeaseDuration:       testLeaseDuration,
 			RenewalInterval:     testRenewalInterval,
@@ -341,9 +331,7 @@ func TestLeaderElection_NoDuplicateLeaders(t *testing.T) {
 
 func TestLeaderElection_LeaseRenewal(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	mockClock := clock.NewMockClock(time.Now())
 	db := testDB(t)
@@ -353,7 +341,7 @@ func TestLeaderElection_LeaseRenewal(t *testing.T) {
 	var lostLeadership atomic.Bool
 
 	le, err := New(db, dirPath, LeaderElectionConfig{
-		Identity:            "lease-renewal-test",
+		ID:                  "lease-renewal-test",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
 		RenewalInterval:     testRenewalInterval,
@@ -392,8 +380,8 @@ func TestLeaderElection_LeaseRenewal(t *testing.T) {
 
 func TestLeaderElection_RapidStartStop(t *testing.T) {
 	t.Parallel()
+	ctx := t.Context()
 
-	ctx := context.Background()
 	db := testDB(t)
 	dirPath := testDirPath(t)
 
@@ -402,7 +390,7 @@ func TestLeaderElection_RapidStartStop(t *testing.T) {
 	// Rapidly start and stop elections
 	for i := range 10 {
 		le, err := New(db, dirPath, LeaderElectionConfig{
-			Identity:            fmt.Sprintf("rapid-%d", i),
+			ID:                  fmt.Sprintf("rapid-%d", i),
 			Logger:              slog.Default(),
 			LeaseDuration:       testLeaseDuration,
 			RenewalInterval:     testRenewalInterval,
@@ -430,7 +418,7 @@ func TestLeaderElection_RapidStartStop(t *testing.T) {
 	defer finalCancel()
 
 	le, err := New(db, dirPath, LeaderElectionConfig{
-		Identity:            "rapid-final",
+		ID:                  "rapid-final",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
 		RenewalInterval:     testRenewalInterval,
@@ -455,8 +443,8 @@ func TestLeaderElection_RapidStartStop(t *testing.T) {
 
 func TestLeaderElection_GetLeader_NoLeader(t *testing.T) {
 	t.Parallel()
+	ctx := t.Context()
 
-	ctx := context.Background()
 	mockClock := clock.NewMockClock(time.Now())
 	le := testLeaderElection(t, "get-leader-test", mockClock)
 
@@ -468,8 +456,8 @@ func TestLeaderElection_GetLeader_NoLeader(t *testing.T) {
 
 func TestLeaderElection_TryAcquireLease_AlreadyLeader(t *testing.T) {
 	t.Parallel()
+	ctx := t.Context()
 
-	ctx := context.Background()
 	mockClock := clock.NewMockClock(time.Now())
 	le := testLeaderElection(t, "already-leader-test", mockClock)
 
@@ -490,8 +478,8 @@ func TestLeaderElection_TryAcquireLease_AlreadyLeader(t *testing.T) {
 
 func TestLeaderElection_RenewLease_NotLeader(t *testing.T) {
 	t.Parallel()
+	ctx := t.Context()
 
-	ctx := context.Background()
 	mockClock := clock.NewMockClock(time.Now())
 	le := testLeaderElection(t, "renew-not-leader-test", mockClock)
 
@@ -502,8 +490,8 @@ func TestLeaderElection_RenewLease_NotLeader(t *testing.T) {
 
 func TestLeaderElection_ReleaseLease_NotLeader(t *testing.T) {
 	t.Parallel()
+	ctx := t.Context()
 
-	ctx := context.Background()
 	mockClock := clock.NewMockClock(time.Now())
 	le := testLeaderElection(t, "release-not-leader-test", mockClock)
 
@@ -514,9 +502,7 @@ func TestLeaderElection_ReleaseLease_NotLeader(t *testing.T) {
 
 func TestLeaderElection_DoubleStop(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	mockClock := clock.NewMockClock(time.Now())
 	le := testLeaderElection(t, "double-stop-test", mockClock)
@@ -534,9 +520,7 @@ func TestLeaderElection_DoubleStop(t *testing.T) {
 
 func TestLeaderElection_LeaderStealing(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	mockClock := clock.NewMockClock(time.Now())
 	db := testDB(t)
@@ -545,7 +529,7 @@ func TestLeaderElection_LeaderStealing(t *testing.T) {
 	var leader1Acquired, leader2Acquired atomic.Int32
 
 	le1, err := New(db, dirPath, LeaderElectionConfig{
-		Identity:            "stealer-1",
+		ID:                  "stealer-1",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
 		RenewalInterval:     testRenewalInterval,
@@ -558,7 +542,7 @@ func TestLeaderElection_LeaderStealing(t *testing.T) {
 	require.NoError(t, err)
 
 	le2, err := New(db, dirPath, LeaderElectionConfig{
-		Identity:            "stealer-2",
+		ID:                  "stealer-2",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
 		RenewalInterval:     testRenewalInterval,
@@ -591,8 +575,8 @@ func TestLeaderElection_LeaderStealing(t *testing.T) {
 
 func TestLeaderElection_LeaseExpiry(t *testing.T) {
 	t.Parallel()
+	ctx := t.Context()
 
-	ctx := context.Background()
 	mockClock := clock.NewMockClock(time.Now())
 	le := testLeaderElection(t, "lease-expiry-test", mockClock)
 

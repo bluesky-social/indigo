@@ -58,10 +58,10 @@ build-protos:
     #!/usr/bin/env bash
     set +x
 
-    pushd internal > /dev/null
+    pushd pkg > /dev/null
 
     # generate, then clean up the protos for all connect services
-    for PKG in "cask/types"; do
+    for PKG in prototypes; do
         pushd $PKG > /dev/null
 
         buf lint

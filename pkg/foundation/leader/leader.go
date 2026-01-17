@@ -11,9 +11,11 @@ import (
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/directory"
-	"github.com/bluesky-social/indigo/internal/cask/types"
 	"github.com/bluesky-social/indigo/pkg/clock"
 	"github.com/bluesky-social/indigo/pkg/foundation"
+	"github.com/bluesky-social/indigo/pkg/metrics"
+	"github.com/bluesky-social/indigo/pkg/prototypes"
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -31,40 +33,8 @@ var (
 	ErrLeaseExpired = errors.New("lease expired")
 )
 
-// LeaderInfo represents the leader election state stored in FoundationDB
-type LeaderInfo struct {
-	ID         string
-	AcquiredAt time.Time
-	ExpiresAt  time.Time
-	RenewedAt  time.Time
-}
-
-func isLeaderExpired(leader *types.FirehoseLeader, now time.Time) bool {
-	if leader == nil || leader.ExpiresAt == nil {
-		return true
-	}
-	return now.After(leader.ExpiresAt.AsTime())
-}
-
-func toLeaderInfo(p *types.FirehoseLeader) *LeaderInfo {
-	if p == nil {
-		return nil
-	}
-	info := &LeaderInfo{ID: p.Id}
-	if p.AcquiredAt != nil {
-		info.AcquiredAt = p.AcquiredAt.AsTime()
-	}
-	if p.ExpiresAt != nil {
-		info.ExpiresAt = p.ExpiresAt.AsTime()
-	}
-	if p.RenewedAt != nil {
-		info.RenewedAt = p.RenewedAt.AsTime()
-	}
-	return info
-}
-
 type LeaderElectionConfig struct {
-	Identity         string
+	ID               string
 	OnBecameLeader   func(ctx context.Context)
 	OnLostLeadership func(ctx context.Context)
 	Logger           *slog.Logger
@@ -94,7 +64,7 @@ type LeaderElection struct {
 	acquisitionInterval time.Duration
 
 	stopped atomic.Bool
-	stopCh  chan struct{}
+	stopCh  chan any
 
 	mu             sync.RWMutex
 	isLeader       bool
@@ -124,7 +94,7 @@ func New(db *foundation.DB, dirPath []string, cfg LeaderElectionConfig) (*Leader
 		leaseDuration:       DefaultLeaseDuration,
 		renewalInterval:     DefaultRenewalInterval,
 		acquisitionInterval: DefaultAcquisitionInterval,
-		stopCh:              make(chan struct{}),
+		stopCh:              make(chan any),
 	}
 
 	if cfg.LeaseDuration > 0 {
@@ -143,14 +113,19 @@ func New(db *foundation.DB, dirPath []string, cfg LeaderElectionConfig) (*Leader
 func (le *LeaderElection) IsLeader() bool {
 	le.mu.RLock()
 	defer le.mu.RUnlock()
+
 	return le.isLeader && le.clock.Now().Before(le.leaseExpiresAt)
 }
 
 // GetLeader returns the current leader info, or nil if no leader exists.
-func (le *LeaderElection) GetLeader(ctx context.Context) (*LeaderInfo, error) {
+func (le *LeaderElection) GetLeader(ctx context.Context) (leader *prototypes.FirehoseLeader, err error) {
+	_, span, done := foundation.Observe(ctx, le.db, "GetLeader")
+	defer func() { done(err) }()
+
 	key := foundation.Pack(le.dir, leaderKey)
 
-	data, err := foundation.ReadTransaction(le.db, func(tx fdb.ReadTransaction) ([]byte, error) {
+	var ld prototypes.FirehoseLeader
+	err = foundation.ReadProto(le.db, &ld, func(tx fdb.ReadTransaction) ([]byte, error) {
 		return tx.Get(key).Get()
 	})
 	if err != nil {
@@ -159,21 +134,25 @@ func (le *LeaderElection) GetLeader(ctx context.Context) (*LeaderInfo, error) {
 		}
 		return nil, err
 	}
-	if len(data) == 0 {
-		return nil, nil
-	}
 
-	var ld types.FirehoseLeader
-	if err := proto.Unmarshal(data, &ld); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal leader info: %w", err)
-	}
+	span.SetAttributes(
+		attribute.String("local_id", le.cfg.ID),
+		attribute.String("leader_id", ld.Id),
+		attribute.String("acquired_at", metrics.FormatPBTime(ld.AcquiredAt)),
+		attribute.String("expires_at", metrics.FormatPBTime(ld.ExpiresAt)),
+		attribute.String("renewed_at", metrics.FormatPBTime(ld.RenewedAt)),
+	)
 
-	return toLeaderInfo(&ld), nil
+	leader = &ld
+	return
 }
 
 // TryAcquireLease attempts to acquire the leader lease. Returns true if this
 // instance became the leader, false if another leader exists.
 func (le *LeaderElection) TryAcquireLease(ctx context.Context) (acquired bool, err error) {
+	_, span, done := foundation.Observe(ctx, le.db, "TryAcquireLease")
+	defer func() { done(err) }()
+
 	key := foundation.Pack(le.dir, leaderKey)
 	now := le.clock.Now()
 
@@ -184,17 +163,20 @@ func (le *LeaderElection) TryAcquireLease(ctx context.Context) (acquired bool, e
 		}
 
 		if data != nil {
-			var current types.FirehoseLeader
-			if err := proto.Unmarshal(data, &current); err != nil {
-				return false, fmt.Errorf("failed to unmarshal leader info: %w", err)
+			var existing prototypes.FirehoseLeader
+			if err := proto.Unmarshal(data, &existing); err != nil {
+				return false, fmt.Errorf("failed to unmarshal existing leader info: %w", err)
 			}
-			if !isLeaderExpired(&current, now) && current.Id != le.cfg.Identity {
+			if !isLeaderExpired(&existing, now) && existing.Id != le.cfg.ID {
+				// the leader's lease has not expired
 				return false, nil
 			}
 		}
 
-		info := &types.FirehoseLeader{
-			Id:         le.cfg.Identity,
+		// The leader does not exist, or the leader's lease has expired. Attempt to
+		// claim the leader status.
+		info := &prototypes.FirehoseLeader{
+			Id:         le.cfg.ID,
 			ExpiresAt:  timestamppb.New(now.Add(le.leaseDuration)),
 			AcquiredAt: timestamppb.New(now),
 			RenewedAt:  timestamppb.New(now),
@@ -212,6 +194,11 @@ func (le *LeaderElection) TryAcquireLease(ctx context.Context) (acquired bool, e
 		return
 	}
 
+	span.SetAttributes(
+		attribute.String("local_id", le.cfg.ID),
+		attribute.Bool("acquired", acquired),
+	)
+
 	if acquired {
 		le.mu.Lock()
 		le.leaseExpiresAt = now.Add(le.leaseDuration)
@@ -220,7 +207,7 @@ func (le *LeaderElection) TryAcquireLease(ctx context.Context) (acquired bool, e
 		le.mu.Unlock()
 
 		if !wasLeader {
-			le.cfg.Logger.Info("acquired leader lease", "identity", le.cfg.Identity)
+			le.cfg.Logger.Info("acquired new leader lease", "local_id", le.cfg.ID)
 			if le.cfg.OnBecameLeader != nil {
 				le.cfg.OnBecameLeader(ctx)
 			}
@@ -231,6 +218,9 @@ func (le *LeaderElection) TryAcquireLease(ctx context.Context) (acquired bool, e
 }
 
 func (le *LeaderElection) RenewLease(ctx context.Context) (err error) {
+	_, span, done := foundation.Observe(ctx, le.db, "RenewLease")
+	defer func() { done(err) }()
+
 	key := foundation.Pack(le.dir, leaderKey)
 	now := le.clock.Now()
 
@@ -241,15 +231,16 @@ func (le *LeaderElection) RenewLease(ctx context.Context) (err error) {
 		}
 
 		if data == nil {
+			// nobody has yet claimed the leader status, so do nothing
 			return nil, ErrNotLeader
 		}
 
-		var current types.FirehoseLeader
+		var current prototypes.FirehoseLeader
 		if err := proto.Unmarshal(data, &current); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal leader info: %w", err)
 		}
 
-		if current.Id != le.cfg.Identity {
+		if current.Id != le.cfg.ID {
 			return nil, ErrNotLeader
 		}
 
@@ -268,6 +259,12 @@ func (le *LeaderElection) RenewLease(ctx context.Context) (err error) {
 		tx.Set(key, infoData)
 		return nil, nil
 	})
+
+	span.SetAttributes(
+		attribute.String("local_id", le.cfg.ID),
+		attribute.String("expires_at", metrics.FormatTime(now.Add(le.leaseDuration))),
+	)
+
 	if err == nil {
 		le.mu.Lock()
 		le.leaseExpiresAt = now.Add(le.leaseDuration)
@@ -277,42 +274,52 @@ func (le *LeaderElection) RenewLease(ctx context.Context) (err error) {
 	return
 }
 
+// Releases the lease if and only if this process is currently the leader
 func (le *LeaderElection) ReleaseLease(ctx context.Context) (err error) {
+	_, span, done := foundation.Observe(ctx, le.db, "ReleaseLease")
+	defer func() { done(err) }()
+
 	key := foundation.Pack(le.dir, leaderKey)
 
-	_, err = foundation.Transaction(le.db, func(tx fdb.Transaction) (any, error) {
+	var wasLeader bool
+	wasLeader, err = foundation.Transaction(le.db, func(tx fdb.Transaction) (bool, error) {
 		data, err := tx.Get(key).Get()
 		if err != nil {
-			return nil, fmt.Errorf("failed to read leader info: %w", err)
+			return false, fmt.Errorf("failed to read leader info: %w", err)
 		}
 
 		if data == nil {
-			return nil, nil
+			return false, nil
 		}
 
-		var current types.FirehoseLeader
+		var current prototypes.FirehoseLeader
 		if err := proto.Unmarshal(data, &current); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal leader info: %w", err)
+			return false, fmt.Errorf("failed to unmarshal leader info: %w", err)
 		}
 
-		if current.Id != le.cfg.Identity {
-			return nil, nil
+		if current.Id != le.cfg.ID {
+			// we are not the leader, so do nothing
+			return false, nil
 		}
 
 		tx.Clear(key)
-		return nil, nil
+		return true, nil
 	})
 	if err != nil {
 		return
 	}
 
+	span.SetAttributes(
+		attribute.String("local_id", le.cfg.ID),
+		attribute.Bool("was_leader", wasLeader),
+	)
+
 	le.mu.Lock()
-	wasLeader := le.isLeader
 	le.isLeader = false
 	le.mu.Unlock()
 
 	if wasLeader {
-		le.cfg.Logger.Info("released leader lease", "identity", le.cfg.Identity)
+		le.cfg.Logger.Info("released leader lease", "local_id", le.cfg.ID)
 		if le.cfg.OnLostLeadership != nil {
 			le.cfg.OnLostLeadership(ctx)
 		}
@@ -324,10 +331,10 @@ func (le *LeaderElection) ReleaseLease(ctx context.Context) (err error) {
 // Run starts the leader election loop and blocks until Stop is called or the
 // context is canceled.
 func (le *LeaderElection) Run(ctx context.Context) error {
-	le.cfg.Logger.Info("starting leader election", "identity", le.cfg.Identity)
+	le.cfg.Logger.Info("starting leader election", "local_id", le.cfg.ID)
 
 	if _, err := le.TryAcquireLease(ctx); err != nil {
-		le.cfg.Logger.Warn("initial lease acquisition failed", "error", err)
+		return fmt.Errorf("failed to try acquire initial lease: %w", err)
 	}
 
 	for {
@@ -345,41 +352,34 @@ func (le *LeaderElection) Run(ctx context.Context) error {
 		isLeader := le.isLeader
 		le.mu.RUnlock()
 
+		var waitFor time.Duration
 		if isLeader {
+			waitFor = le.renewalInterval
 			if err := le.RenewLease(ctx); err != nil {
-				le.cfg.Logger.Warn("failed to renew lease", "error", err)
+				le.cfg.Logger.Error("failed to renew lease", "error", err)
 				le.mu.Lock()
 				le.isLeader = false
 				le.mu.Unlock()
-				le.cfg.Logger.Info("lost leadership", "identity", le.cfg.Identity)
 				if le.cfg.OnLostLeadership != nil {
 					le.cfg.OnLostLeadership(ctx)
 				}
 			}
-
-			select {
-			case <-ctx.Done():
-				le.handleShutdown(context.Background())
-				return ctx.Err()
-			case <-le.stopCh:
-				le.handleShutdown(ctx)
-				return nil
-			case <-le.clock.After(le.renewalInterval):
-			}
 		} else {
+			waitFor = le.acquisitionInterval
 			if _, err := le.TryAcquireLease(ctx); err != nil {
-				le.cfg.Logger.Warn("failed to acquire lease", "error", err)
+				le.cfg.Logger.Error("failed to acquire lease", "error", err)
 			}
+		}
 
-			select {
-			case <-ctx.Done():
-				le.handleShutdown(context.Background())
-				return ctx.Err()
-			case <-le.stopCh:
-				le.handleShutdown(ctx)
-				return nil
-			case <-le.clock.After(le.acquisitionInterval):
-			}
+		// wait for the appropriate period of time, or until shutdown was requested
+		select {
+		case <-ctx.Done():
+			le.handleShutdown(context.Background())
+			return ctx.Err()
+		case <-le.stopCh:
+			le.handleShutdown(ctx)
+			return nil
+		case <-le.clock.After(waitFor):
 		}
 	}
 }
@@ -393,14 +393,24 @@ func (le *LeaderElection) Stop() {
 }
 
 func (le *LeaderElection) handleShutdown(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	le.mu.RLock()
 	isLeader := le.isLeader
 	le.mu.RUnlock()
 
 	if isLeader {
-		le.cfg.Logger.Info("releasing lease on shutdown", "identity", le.cfg.Identity)
+		le.cfg.Logger.Info("releasing lease on shutdown", "local_id", le.cfg.ID)
 		if err := le.ReleaseLease(ctx); err != nil {
-			le.cfg.Logger.Warn("failed to release lease on shutdown", "error", err)
+			le.cfg.Logger.Error("failed to release lease on shutdown", "error", err)
 		}
 	}
+}
+
+func isLeaderExpired(leader *prototypes.FirehoseLeader, now time.Time) bool {
+	if leader == nil || leader.ExpiresAt == nil {
+		return true
+	}
+	return now.After(leader.ExpiresAt.AsTime())
 }

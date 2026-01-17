@@ -67,7 +67,7 @@ func New(ctx context.Context, config Config) (*Server, error) {
 	}
 
 	s.leaderElection, err = leader.New(db, []string{"firehoseLeader"}, leader.LeaderElectionConfig{
-		Identity:         s.processID(),
+		ID:               s.processID(),
 		Logger:           config.Logger,
 		OnBecameLeader:   s.onBecameLeader,
 		OnLostLeadership: s.onLostLeadership,

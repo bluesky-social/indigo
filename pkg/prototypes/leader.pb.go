@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.6
 // 	protoc        (unknown)
-// source: cask.proto
+// source: leader.proto
 
-package types
+package prototypes
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -35,7 +35,7 @@ type FirehoseLeader struct {
 
 func (x *FirehoseLeader) Reset() {
 	*x = FirehoseLeader{}
-	mi := &file_cask_proto_msgTypes[0]
+	mi := &file_leader_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -47,7 +47,7 @@ func (x *FirehoseLeader) String() string {
 func (*FirehoseLeader) ProtoMessage() {}
 
 func (x *FirehoseLeader) ProtoReflect() protoreflect.Message {
-	mi := &file_cask_proto_msgTypes[0]
+	mi := &file_leader_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -60,7 +60,7 @@ func (x *FirehoseLeader) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirehoseLeader.ProtoReflect.Descriptor instead.
 func (*FirehoseLeader) Descriptor() ([]byte, []int) {
-	return file_cask_proto_rawDescGZIP(), []int{0}
+	return file_leader_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *FirehoseLeader) GetId() string {
@@ -91,12 +91,11 @@ func (x *FirehoseLeader) GetRenewedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-var File_cask_proto protoreflect.FileDescriptor
+var File_leader_proto protoreflect.FileDescriptor
 
-const file_cask_proto_rawDesc = "" +
+const file_leader_proto_rawDesc = "" +
 	"\n" +
-	"\n" +
-	"cask.proto\x12\x05types\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd3\x01\n" +
+	"\fleader.proto\x12\x05types\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd3\x01\n" +
 	"\x0eFirehoseLeader\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12;\n" +
 	"\vacquired_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
@@ -104,26 +103,26 @@ const file_cask_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x129\n" +
 	"\n" +
-	"renewed_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\trenewedAtB6Z4github.com/bluesky-social/indigo/internal/cask/typesb\x06proto3"
+	"renewed_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\trenewedAtB1Z/github.com/bluesky-social/indigo/pkg/prototypesb\x06proto3"
 
 var (
-	file_cask_proto_rawDescOnce sync.Once
-	file_cask_proto_rawDescData []byte
+	file_leader_proto_rawDescOnce sync.Once
+	file_leader_proto_rawDescData []byte
 )
 
-func file_cask_proto_rawDescGZIP() []byte {
-	file_cask_proto_rawDescOnce.Do(func() {
-		file_cask_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_cask_proto_rawDesc), len(file_cask_proto_rawDesc)))
+func file_leader_proto_rawDescGZIP() []byte {
+	file_leader_proto_rawDescOnce.Do(func() {
+		file_leader_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_leader_proto_rawDesc), len(file_leader_proto_rawDesc)))
 	})
-	return file_cask_proto_rawDescData
+	return file_leader_proto_rawDescData
 }
 
-var file_cask_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_cask_proto_goTypes = []any{
+var file_leader_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_leader_proto_goTypes = []any{
 	(*FirehoseLeader)(nil),        // 0: types.FirehoseLeader
 	(*timestamppb.Timestamp)(nil), // 1: google.protobuf.Timestamp
 }
-var file_cask_proto_depIdxs = []int32{
+var file_leader_proto_depIdxs = []int32{
 	1, // 0: types.FirehoseLeader.acquired_at:type_name -> google.protobuf.Timestamp
 	1, // 1: types.FirehoseLeader.expires_at:type_name -> google.protobuf.Timestamp
 	1, // 2: types.FirehoseLeader.renewed_at:type_name -> google.protobuf.Timestamp
@@ -134,26 +133,26 @@ var file_cask_proto_depIdxs = []int32{
 	0, // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_cask_proto_init() }
-func file_cask_proto_init() {
-	if File_cask_proto != nil {
+func init() { file_leader_proto_init() }
+func file_leader_proto_init() {
+	if File_leader_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cask_proto_rawDesc), len(file_cask_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_leader_proto_rawDesc), len(file_leader_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_cask_proto_goTypes,
-		DependencyIndexes: file_cask_proto_depIdxs,
-		MessageInfos:      file_cask_proto_msgTypes,
+		GoTypes:           file_leader_proto_goTypes,
+		DependencyIndexes: file_leader_proto_depIdxs,
+		MessageInfos:      file_leader_proto_msgTypes,
 	}.Build()
-	File_cask_proto = out.File
-	file_cask_proto_goTypes = nil
-	file_cask_proto_depIdxs = nil
+	File_leader_proto = out.File
+	file_leader_proto_goTypes = nil
+	file_leader_proto_depIdxs = nil
 }
