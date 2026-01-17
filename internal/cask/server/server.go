@@ -2,17 +2,18 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
-	"time"
 
 	_ "net/http/pprof"
 
+	"github.com/bluesky-social/indigo/pkg/foundation"
+	"github.com/bluesky-social/indigo/pkg/metrics"
 	"github.com/bluesky-social/indigo/util/svcutil"
 	"github.com/bluesky-social/indigo/xrpc"
-
 	"github.com/labstack/echo/v4"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/otel"
 )
 
 type Config struct {
@@ -26,12 +27,31 @@ type Server struct {
 
 	echo          *echo.Echo
 	metricsServer *http.Server
+
+	db *foundation.DB
 }
 
-func New(config Config) (*Server, error) {
+func New(ctx context.Context, config Config) (*Server, error) {
+	const service = "cask"
+	if err := metrics.InitTracing(ctx, service); err != nil {
+		return nil, fmt.Errorf("failed to init tracing: %w", err)
+	}
+	tr := otel.Tracer(service)
+
+	db, err := foundation.New(ctx, &foundation.Config{
+		Tracer:          tr,
+		APIVersion:      730,
+		ClusterFilePath: config.FDBClusterFile,
+		RetryLimit:      100,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	s := &Server{
 		cfg: config,
 		log: config.Logger,
+		db:  db,
 	}
 
 	return s, nil
@@ -54,23 +74,6 @@ func (s *Server) Start(addr string) error {
 
 	s.echo = e
 	return e.Start(addr)
-}
-
-func (s *Server) RunMetrics(addr string) error {
-	mux := http.NewServeMux()
-
-	mux.Handle("/metrics", promhttp.Handler())
-	mux.HandleFunc("/debug/pprof/", http.DefaultServeMux.ServeHTTP)
-
-	s.metricsServer = &http.Server{
-		Addr:         addr,
-		Handler:      mux,
-		ErrorLog:     slog.NewLogLogger(s.log.Handler(), slog.LevelError),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-	}
-
-	return s.metricsServer.ListenAndServe()
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {

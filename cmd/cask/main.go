@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/internal/cask/server"
+	"github.com/bluesky-social/indigo/pkg/metrics"
 
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v3"
@@ -77,16 +78,19 @@ func run(args []string) error {
 	return app.Run(context.Background(), args)
 }
 
-func runServer(_ context.Context, cmd *cli.Command) error {
+func runServer(ctx context.Context, cmd *cli.Command) error {
 	logger := configLogger(cmd.String("log-level"))
 	slog.SetDefault(logger)
 
 	logger = logger.With("system", "cask")
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
-	srv, err := server.New(server.Config{
+	srv, err := server.New(ctx, server.Config{
 		Logger:         logger,
 		FDBClusterFile: cmd.String("fdb-cluster-file"),
 	})
@@ -99,7 +103,7 @@ func runServer(_ context.Context, cmd *cli.Command) error {
 	metricsAddr := cmd.String("metrics-listen")
 	go func() {
 		logger.Info("starting metrics server", "addr", metricsAddr)
-		if err := srv.RunMetrics(metricsAddr); err != nil && err != http.ErrServerClosed {
+		if err := metrics.RunServer(ctx, cancel, metricsAddr); err != nil {
 			logger.Error("metrics server failed", "error", err)
 			svcErr <- err
 		}
@@ -126,8 +130,8 @@ func runServer(_ context.Context, cmd *cli.Command) error {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), cmd.Duration("shutdown-timeout"))
-	defer cancel()
+	ctx, shutdownCancel := context.WithTimeout(context.Background(), cmd.Duration("shutdown-timeout"))
+	defer shutdownCancel()
 
 	logger.Info("shutting down")
 	if err := srv.Shutdown(ctx); err != nil {
