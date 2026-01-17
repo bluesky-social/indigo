@@ -9,6 +9,10 @@ import (
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/directory"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
+	"github.com/bluesky-social/indigo/pkg/metrics"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 )
@@ -16,6 +20,10 @@ import (
 var (
 	// ErrNotFound is returned when a requested item does not exist in the database
 	ErrNotFound = errors.New("not found")
+)
+
+var (
+	queryDuration *prometheus.HistogramVec
 )
 
 type Config struct {
@@ -32,10 +40,20 @@ type DB struct {
 	Tracer trace.Tracer
 }
 
-func New(ctx context.Context, cfg *Config) (*DB, error) {
+func New(ctx context.Context, service string, cfg *Config) (*DB, error) {
 	if cfg.RetryLimit <= 0 {
 		return nil, fmt.Errorf("invalid transaction retry limit")
 	}
+
+	queryDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:      "query_duration_secs",
+			Namespace: service,
+			Help:      "Duration histogram of FoundationDB queries in seconds",
+			Buckets:   prometheus.ExponentialBuckets(0.0001, 2, 18), // 0.1ms to ~13s
+		},
+		[]string{"query", "status"},
+	)
 
 	if err := fdb.APIVersion(cfg.APIVersion); err != nil {
 		return nil, fmt.Errorf("failed to set fdb client api version: %w", err)
@@ -146,4 +164,30 @@ func ReadProto(db *DB, item proto.Message, fn func(fdb.ReadTransaction) ([]byte,
 	}
 
 	return proto.Unmarshal(buf, item)
+}
+
+// Observe records prometheus metrics and OTEL span status for foundation queries.
+// The returned `done` function must be called to end the span and record metrics.
+func Observe(ctx context.Context, db *DB, name string) (context.Context, trace.Span, func(error)) {
+	ctx, span := db.Tracer.Start(ctx, name)
+	start := time.Now()
+
+	return ctx, span, func(err error) {
+		defer span.End()
+
+		var status string
+		switch {
+		case err == nil:
+			status = metrics.StatusOK
+			span.SetStatus(codes.Ok, "")
+		case errors.Is(err, ErrNotFound):
+			status = metrics.StatusNotFound
+			span.SetStatus(codes.Ok, "not found")
+		default:
+			status = metrics.StatusError
+			span.RecordError(err)
+		}
+
+		queryDuration.WithLabelValues(name, status).Observe(time.Since(start).Seconds())
+	}
 }

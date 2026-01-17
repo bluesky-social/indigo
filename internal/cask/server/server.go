@@ -11,6 +11,7 @@ import (
 
 	"github.com/bluesky-social/indigo/internal/cask/models"
 	"github.com/bluesky-social/indigo/pkg/foundation"
+	"github.com/bluesky-social/indigo/pkg/foundation/leader"
 	"github.com/bluesky-social/indigo/pkg/metrics"
 	"github.com/bluesky-social/indigo/util/svcutil"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -33,7 +34,7 @@ type Server struct {
 
 	db             *foundation.DB
 	models         *models.Models
-	leaderElection *models.LeaderElection
+	leaderElection *leader.LeaderElection
 }
 
 func New(ctx context.Context, config Config) (*Server, error) {
@@ -43,7 +44,7 @@ func New(ctx context.Context, config Config) (*Server, error) {
 	}
 	tr := otel.Tracer(service)
 
-	db, err := foundation.New(ctx, &foundation.Config{
+	db, err := foundation.New(ctx, service, &foundation.Config{
 		Tracer:          tr,
 		APIVersion:      730,
 		ClusterFilePath: config.FDBClusterFile,
@@ -65,7 +66,7 @@ func New(ctx context.Context, config Config) (*Server, error) {
 		models: m,
 	}
 
-	s.leaderElection = m.NewLeaderElection(db, models.LeaderElectionConfig{
+	s.leaderElection = leader.New(db, m.FirehoseLeaderDir(), leader.LeaderElectionConfig{
 		Identity:         s.processID(),
 		Logger:           config.Logger,
 		OnBecameLeader:   s.onBecameLeader,

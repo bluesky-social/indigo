@@ -1,6 +1,8 @@
-package models
+package testutil
 
 import (
+	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 
@@ -11,21 +13,26 @@ import (
 
 var (
 	setupOnce sync.Once
-
-	// Should be retrieved via `testDB(t)`; don't use this directly
 	testingDB *foundation.DB
 )
 
-func testDB(t *testing.T) *foundation.DB {
+func repoRoot() string {
+	// thisFile is internal/testutil/foundation.go, so go up two levels
+	_, thisFile, _, _ := runtime.Caller(0)
+	return filepath.Dir(filepath.Dir(filepath.Dir(thisFile)))
+}
+
+func TestDB(t *testing.T) *foundation.DB {
 	tracer := otel.Tracer("test")
 
 	var err error
 	setupOnce.Do(func() {
 		testingDB, err = foundation.New(
 			t.Context(),
+			"testing",
 			&foundation.Config{
 				Tracer:          tracer,
-				ClusterFilePath: "../../../foundation.cluster",
+				ClusterFilePath: filepath.Join(repoRoot(), "foundation.cluster"),
 				APIVersion:      730,
 				RetryLimit:      100,
 			},

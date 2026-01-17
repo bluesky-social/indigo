@@ -1,4 +1,4 @@
-package models
+package leader
 
 import (
 	"context"
@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
+	"github.com/apple/foundationdb/bindings/go/src/fdb/directory"
 	"github.com/bluesky-social/indigo/internal/cask/types"
+	"github.com/bluesky-social/indigo/pkg/clock"
 	"github.com/bluesky-social/indigo/pkg/foundation"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -29,11 +31,36 @@ var (
 	ErrLeaseExpired = errors.New("lease expired")
 )
 
+// LeaderInfo represents the leader election state stored in FoundationDB
+type LeaderInfo struct {
+	ID         string
+	AcquiredAt time.Time
+	ExpiresAt  time.Time
+	RenewedAt  time.Time
+}
+
 func isLeaderExpired(leader *types.FirehoseLeader, now time.Time) bool {
 	if leader == nil || leader.ExpiresAt == nil {
 		return true
 	}
 	return now.After(leader.ExpiresAt.AsTime())
+}
+
+func toLeaderInfo(p *types.FirehoseLeader) *LeaderInfo {
+	if p == nil {
+		return nil
+	}
+	info := &LeaderInfo{ID: p.Id}
+	if p.AcquiredAt != nil {
+		info.AcquiredAt = p.AcquiredAt.AsTime()
+	}
+	if p.ExpiresAt != nil {
+		info.ExpiresAt = p.ExpiresAt.AsTime()
+	}
+	if p.RenewedAt != nil {
+		info.RenewedAt = p.RenewedAt.AsTime()
+	}
+	return info
 }
 
 type LeaderElectionConfig struct {
@@ -47,21 +74,20 @@ type LeaderElectionConfig struct {
 	RenewalInterval     time.Duration
 	AcquisitionInterval time.Duration
 
-	// Clock for time operations (optional, defaults to real clock)
-	Clock Clock
+	// Clock can be overridden with a mock clock in tests
+	Clock clock.Clock
 }
 
-// LeaderElection coordinates leader election across multiple cask server processes
+// LeaderElection coordinates leader election across multiple server processes
 // using FoundationDB. Exactly one instance in the cluster is elected as the leader
-// at any time, and is responsible for running the atproto firehose consumer. If the
-// leader crashes or becomes unavailable, another instance will acquire the lease within
-// ~1 second and take over firehose consumption, allowing for high availability without
-// duplicate event processing.
+// at any time. If the leader crashes or becomes unavailable, another instance will
+// acquire the lease within ~1 second and take over, allowing for high availability
+// without duplicate processing.
 type LeaderElection struct {
-	models *Models
-	db     *foundation.DB
-	cfg    LeaderElectionConfig
-	clock  Clock
+	db    *foundation.DB
+	dir   directory.DirectorySubspace
+	cfg   LeaderElectionConfig
+	clock clock.Clock
 
 	leaseDuration       time.Duration
 	renewalInterval     time.Duration
@@ -75,17 +101,19 @@ type LeaderElection struct {
 	leaseExpiresAt time.Time
 }
 
-func (m *Models) NewLeaderElection(db *foundation.DB, cfg LeaderElectionConfig) *LeaderElection {
+// New creates a new LeaderElection instance. The dir parameter specifies the
+// FDB directory subspace where leader state will be stored.
+func New(db *foundation.DB, dir directory.DirectorySubspace, cfg LeaderElectionConfig) *LeaderElection {
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
 	}
 	if cfg.Clock == nil {
-		cfg.Clock = RealClock{}
+		cfg.Clock = &clock.RealClock{}
 	}
 
 	le := &LeaderElection{
-		models:              m,
 		db:                  db,
+		dir:                 dir,
 		cfg:                 cfg,
 		clock:               cfg.Clock,
 		leaseDuration:       DefaultLeaseDuration,
@@ -113,14 +141,11 @@ func (le *LeaderElection) IsLeader() bool {
 	return le.isLeader && le.clock.Now().Before(le.leaseExpiresAt)
 }
 
-func (le *LeaderElection) GetFirehoseLeader(ctx context.Context) (leader *types.FirehoseLeader, err error) {
-	_, _, done := observe(ctx, le.db, "GetFirehoseLeader")
-	defer func() { done(err) }()
+// GetLeader returns the current leader info, or nil if no leader exists.
+func (le *LeaderElection) GetLeader(ctx context.Context) (*LeaderInfo, error) {
+	key := foundation.Pack(le.dir, leaderKey)
 
-	key := foundation.Pack(le.models.firehoseLeader, leaderKey)
-
-	var ld types.FirehoseLeader
-	err = foundation.ReadProto(le.db, &ld, func(tx fdb.ReadTransaction) ([]byte, error) {
+	data, err := foundation.ReadTransaction(le.db, func(tx fdb.ReadTransaction) ([]byte, error) {
 		return tx.Get(key).Get()
 	})
 	if err != nil {
@@ -129,18 +154,22 @@ func (le *LeaderElection) GetFirehoseLeader(ctx context.Context) (leader *types.
 		}
 		return nil, err
 	}
+	if len(data) == 0 {
+		return nil, nil
+	}
 
-	leader = &ld
-	return
+	var ld types.FirehoseLeader
+	if err := proto.Unmarshal(data, &ld); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal leader info: %w", err)
+	}
+
+	return toLeaderInfo(&ld), nil
 }
 
 // TryAcquireLease attempts to acquire the leader lease. Returns true if this
 // instance became the leader, false if another leader exists.
 func (le *LeaderElection) TryAcquireLease(ctx context.Context) (acquired bool, err error) {
-	_, _, done := observe(ctx, le.db, "TryAcquireLease")
-	defer func() { done(err) }()
-
-	key := foundation.Pack(le.models.firehoseLeader, leaderKey)
+	key := foundation.Pack(le.dir, leaderKey)
 	now := le.clock.Now()
 
 	acquired, err = foundation.Transaction(le.db, func(tx fdb.Transaction) (bool, error) {
@@ -197,10 +226,7 @@ func (le *LeaderElection) TryAcquireLease(ctx context.Context) (acquired bool, e
 }
 
 func (le *LeaderElection) RenewLease(ctx context.Context) (err error) {
-	_, _, done := observe(ctx, le.db, "RenewLease")
-	defer func() { done(err) }()
-
-	key := foundation.Pack(le.models.firehoseLeader, leaderKey)
+	key := foundation.Pack(le.dir, leaderKey)
 	now := le.clock.Now()
 
 	_, err = foundation.Transaction(le.db, func(tx fdb.Transaction) (any, error) {
@@ -247,10 +273,7 @@ func (le *LeaderElection) RenewLease(ctx context.Context) (err error) {
 }
 
 func (le *LeaderElection) ReleaseLease(ctx context.Context) (err error) {
-	_, _, done := observe(ctx, le.db, "ReleaseLease")
-	defer func() { done(err) }()
-
-	key := foundation.Pack(le.models.firehoseLeader, leaderKey)
+	key := foundation.Pack(le.dir, leaderKey)
 
 	_, err = foundation.Transaction(le.db, func(tx fdb.Transaction) (any, error) {
 		data, err := tx.Get(key).Get()
