@@ -29,11 +29,11 @@ var (
 	ErrLeaseExpired = errors.New("lease expired")
 )
 
-func isLeaderExpired(leader *types.FirehoseLeader) bool {
+func isLeaderExpired(leader *types.FirehoseLeader, now time.Time) bool {
 	if leader == nil || leader.ExpiresAt == nil {
 		return true
 	}
-	return time.Now().After(leader.ExpiresAt.AsTime())
+	return now.After(leader.ExpiresAt.AsTime())
 }
 
 type LeaderElectionConfig struct {
@@ -46,6 +46,9 @@ type LeaderElectionConfig struct {
 	LeaseDuration       time.Duration
 	RenewalInterval     time.Duration
 	AcquisitionInterval time.Duration
+
+	// Clock for time operations (optional, defaults to real clock)
+	Clock Clock
 }
 
 // LeaderElection coordinates leader election across multiple cask server processes
@@ -58,6 +61,7 @@ type LeaderElection struct {
 	models *Models
 	db     *foundation.DB
 	cfg    LeaderElectionConfig
+	clock  Clock
 
 	leaseDuration       time.Duration
 	renewalInterval     time.Duration
@@ -75,11 +79,15 @@ func (m *Models) NewLeaderElection(db *foundation.DB, cfg LeaderElectionConfig) 
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
 	}
+	if cfg.Clock == nil {
+		cfg.Clock = RealClock{}
+	}
 
 	le := &LeaderElection{
 		models:              m,
 		db:                  db,
 		cfg:                 cfg,
+		clock:               cfg.Clock,
 		leaseDuration:       DefaultLeaseDuration,
 		renewalInterval:     DefaultRenewalInterval,
 		acquisitionInterval: DefaultAcquisitionInterval,
@@ -102,7 +110,7 @@ func (m *Models) NewLeaderElection(db *foundation.DB, cfg LeaderElectionConfig) 
 func (le *LeaderElection) IsLeader() bool {
 	le.mu.RLock()
 	defer le.mu.RUnlock()
-	return le.isLeader && time.Now().Before(le.leaseExpiresAt)
+	return le.isLeader && le.clock.Now().Before(le.leaseExpiresAt)
 }
 
 func (le *LeaderElection) GetFirehoseLeader(ctx context.Context) (leader *types.FirehoseLeader, err error) {
@@ -133,7 +141,7 @@ func (le *LeaderElection) TryAcquireLease(ctx context.Context) (acquired bool, e
 	defer func() { done(err) }()
 
 	key := foundation.Pack(le.models.firehoseLeader, leaderKey)
-	now := time.Now()
+	now := le.clock.Now()
 
 	acquired, err = foundation.Transaction(le.db, func(tx fdb.Transaction) (bool, error) {
 		data, err := tx.Get(key).Get()
@@ -146,7 +154,7 @@ func (le *LeaderElection) TryAcquireLease(ctx context.Context) (acquired bool, e
 			if err := proto.Unmarshal(data, &current); err != nil {
 				return false, fmt.Errorf("failed to unmarshal leader info: %w", err)
 			}
-			if !isLeaderExpired(&current) && current.Id != le.cfg.Identity {
+			if !isLeaderExpired(&current, now) && current.Id != le.cfg.Identity {
 				return false, nil
 			}
 		}
@@ -193,7 +201,7 @@ func (le *LeaderElection) RenewLease(ctx context.Context) (err error) {
 	defer func() { done(err) }()
 
 	key := foundation.Pack(le.models.firehoseLeader, leaderKey)
-	now := time.Now()
+	now := le.clock.Now()
 
 	_, err = foundation.Transaction(le.db, func(tx fdb.Transaction) (any, error) {
 		data, err := tx.Get(key).Get()
@@ -214,7 +222,7 @@ func (le *LeaderElection) RenewLease(ctx context.Context) (err error) {
 			return nil, ErrNotLeader
 		}
 
-		if isLeaderExpired(&current) {
+		if isLeaderExpired(&current, now) {
 			return nil, ErrLeaseExpired
 		}
 
@@ -328,7 +336,7 @@ func (le *LeaderElection) Run(ctx context.Context) error {
 			case <-le.stopCh:
 				le.handleShutdown(ctx)
 				return nil
-			case <-time.After(le.renewalInterval):
+			case <-le.clock.After(le.renewalInterval):
 			}
 		} else {
 			if _, err := le.TryAcquireLease(ctx); err != nil {
@@ -342,7 +350,7 @@ func (le *LeaderElection) Run(ctx context.Context) error {
 			case <-le.stopCh:
 				le.handleShutdown(ctx)
 				return nil
-			case <-time.After(le.acquisitionInterval):
+			case <-le.clock.After(le.acquisitionInterval):
 			}
 		}
 	}
