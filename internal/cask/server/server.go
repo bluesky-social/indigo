@@ -9,9 +9,9 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/bluesky-social/indigo/util/svcutil"
+	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -42,18 +42,12 @@ func (s *Server) Start(addr string) error {
 	e.HideBanner = true
 	e.HidePort = true
 
-	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
-	}))
-
 	e.Use(svcutil.MetricsMiddleware)
 	e.HTTPErrorHandler = s.errorHandler
 
 	// misc. handlers
 	e.GET("/", s.handleHome)
 	e.GET("/ping", s.handleHealth)
-	e.GET("/_health", s.handleHealth)
 
 	// xrpc handlers
 	e.GET("/xrpc/_health", s.handleHealth)
@@ -104,12 +98,23 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 func (s *Server) errorHandler(err error, c echo.Context) {
 	code := http.StatusInternalServerError
+	errStr := "InternalServerError"
 	msg := "internal server error"
 
 	if he, ok := err.(*echo.HTTPError); ok {
 		code = he.Code
 		if m, ok := he.Message.(string); ok {
 			msg = m
+		}
+		switch code {
+		case http.StatusBadRequest:
+			errStr = "BadRequest"
+		case http.StatusUnauthorized:
+			errStr = "AuthRequired"
+		case http.StatusForbidden:
+			errStr = "Forbidden"
+		case http.StatusNotFound:
+			errStr = "NotFound"
 		}
 	}
 
@@ -118,9 +123,7 @@ func (s *Server) errorHandler(err error, c echo.Context) {
 	}
 
 	if !c.Response().Committed {
-		if err := c.JSON(code, map[string]any{
-			"error": msg,
-		}); err != nil {
+		if err := c.JSON(code, xrpc.XRPCError{ErrStr: errStr, Message: msg}); err != nil {
 			s.log.Error("failed to write error response", "error", err)
 		}
 	}
