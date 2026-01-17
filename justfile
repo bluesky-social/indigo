@@ -25,8 +25,8 @@ up:
 down:
     docker compose down --remove-orphans
 
-# Lints the code
-lint *ARGS="./...":
+# Lints the code (defaults to cask packages only)
+lint *ARGS="./cmd/cask/... ./internal/cask/...":
     golangci-lint run --timeout 1m {{ARGS}}
 
 # Builds and runs the given Go executable

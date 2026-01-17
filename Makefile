@@ -28,6 +28,7 @@ build: ## Build all executables
 	go build -o ./sonar-cli ./cmd/sonar
 	go build ./cmd/palomar
 	go build ./cmd/tap
+	go build ./cmd/cask
 
 .PHONY: all
 all: build

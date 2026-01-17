@@ -5,9 +5,6 @@ issues:
   max-same-issues: 0
 
 linters:
-  exclusions:
-    paths:
-      - "^(?!cmd/cask|internal/cask).*"
   settings:
     errcheck:
       check-type-assertions: true
