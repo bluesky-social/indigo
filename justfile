@@ -52,3 +52,47 @@ cover:
 # Connects to the local foundationdb developement server
 fdbcli:
     fdbcli -C foundation.cluster
+
+# Generates protobuf sources
+build-protos:
+    #!/usr/bin/env bash
+    set +x
+
+    pushd internal > /dev/null
+
+    # generate, then clean up the protos for all connect services
+    for PKG in "cask/types"; do
+        pushd $PKG > /dev/null
+
+        buf lint
+        buf generate
+
+        if [[ -e "${PKG}connect/${PKG}.connect.go" ]]; then
+            mv "${PKG}connect/${PKG}.connect.go" .
+            rmdir "${PKG}connect"
+
+            # remove unnecessary/broken import
+            sed -i.bak "/^\t${PKG} \"/d" "${PKG}.connect.go"
+
+            # remove qualified names from that removed import, but ignore ones
+            # that are preceeded by a slash character (i.e. "/agent.Service/Ping")
+            sed -i.bak "s/\([^/]\)${PKG}\./\1/g; s/^${PKG}\.//" "${PKG}.connect.go"
+
+            # move the generated code to our top level package
+            sed -i.bak "s/package ${PKG}connect/package ${PKG}/" "${PKG}.connect.go"
+
+            # remove package qualification, since it's all in our top level package
+            sed -i.bak 's/__\.//g' "${PKG}.connect.go"
+
+            # clean up .bak file. This was required to make sed in-place flag work the same on mac and linux
+            rm "${PKG}.connect.go.bak"
+
+            # run go fmt
+            go fmt "${PKG}.connect.go" >/dev/null
+        fi
+
+        popd > /dev/null
+    done
+
+    go fmt ./...
+    popd > /dev/null

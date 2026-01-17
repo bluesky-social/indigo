@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 
 	_ "net/http/pprof"
 
+	"github.com/bluesky-social/indigo/internal/cask/models"
 	"github.com/bluesky-social/indigo/pkg/foundation"
 	"github.com/bluesky-social/indigo/pkg/metrics"
 	"github.com/bluesky-social/indigo/util/svcutil"
 	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
 )
@@ -28,7 +31,9 @@ type Server struct {
 	echo          *echo.Echo
 	metricsServer *http.Server
 
-	db *foundation.DB
+	db             *foundation.DB
+	models         *models.Models
+	leaderElection *models.LeaderElection
 }
 
 func New(ctx context.Context, config Config) (*Server, error) {
@@ -48,16 +53,29 @@ func New(ctx context.Context, config Config) (*Server, error) {
 		return nil, err
 	}
 
-	s := &Server{
-		cfg: config,
-		log: config.Logger,
-		db:  db,
+	m, err := models.New(tr, db.Database)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init models: %w", err)
 	}
+
+	s := &Server{
+		cfg:    config,
+		log:    config.Logger,
+		db:     db,
+		models: m,
+	}
+
+	s.leaderElection = m.NewLeaderElection(db, models.LeaderElectionConfig{
+		Identity:         s.processID(),
+		Logger:           config.Logger,
+		OnBecameLeader:   s.onBecameLeader,
+		OnLostLeadership: s.onLostLeadership,
+	})
 
 	return s, nil
 }
 
-func (s *Server) Start(addr string) error {
+func (s *Server) Start(ctx context.Context, addr string) error {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -73,11 +91,22 @@ func (s *Server) Start(addr string) error {
 	e.GET("/xrpc/_health", s.handleHealth)
 
 	s.echo = e
+
+	go func() {
+		if err := s.leaderElection.Run(ctx); err != nil && ctx.Err() == nil {
+			s.log.Error("leader election stopped unexpectedly", "error", err)
+		}
+	}()
+
 	return e.Start(addr)
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
 	var shutdownErr error
+
+	if s.leaderElection != nil {
+		s.leaderElection.Stop()
+	}
 
 	if s.echo != nil {
 		if err := s.echo.Shutdown(ctx); err != nil {
@@ -136,4 +165,22 @@ func (s *Server) handleHealth(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{
 		"status": "ok",
 	})
+}
+
+func (s *Server) processID() string {
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "unknown"
+	}
+	return fmt.Sprintf("%s-%s", hostname, uuid.NewString()[:8])
+}
+
+func (s *Server) onBecameLeader(ctx context.Context) {
+	s.log.Info("became firehose leader, starting consumer")
+	// TODO: start firehose consumer
+}
+
+func (s *Server) onLostLeadership(ctx context.Context) {
+	s.log.Info("lost firehose leadership, stopping consumer")
+	// TODO: stop firehose consumer
 }

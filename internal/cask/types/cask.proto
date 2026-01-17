@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package types;
+option go_package = "github.com/bluesky-social/indigo/internal/cask/types";
+
+import "google/protobuf/timestamp.proto";
+
+//
+// Types stored in FoundationDB
+//
+
+message FirehoseLeader {
+	// A UUID for the leader
+	string id = 1;
+  google.protobuf.Timestamp acquired_at = 2;
+  google.protobuf.Timestamp expires_at = 3;
+  google.protobuf.Timestamp renewed_at = 4;
+}

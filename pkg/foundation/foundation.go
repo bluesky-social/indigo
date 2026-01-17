@@ -10,6 +10,7 @@ import (
 	"github.com/apple/foundationdb/bindings/go/src/fdb/directory"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 	"go.opentelemetry.io/otel/trace"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -131,4 +132,18 @@ func Pack(dir directory.DirectorySubspace, keys ...tuple.TupleElement) fdb.Key {
 		return fdb.Key(tup.Pack())
 	}
 	return dir.Pack(tup)
+}
+
+// Executes the given anonymous function as a read transaction, then attempts to protobuf unmarshal
+// the resulting `[]byte` in to the given `item`. Returns `ErrNotFound` if the item does not exist in the db.
+func ReadProto(db *DB, item proto.Message, fn func(fdb.ReadTransaction) ([]byte, error)) error {
+	buf, err := ReadTransaction(db, fn)
+	if err != nil {
+		return err
+	}
+	if len(buf) == 0 {
+		return ErrNotFound
+	}
+
+	return proto.Unmarshal(buf, item)
 }

@@ -112,7 +112,7 @@ func runServer(ctx context.Context, cmd *cli.Command) error {
 	apiAddr := cmd.String("api-listen")
 	go func() {
 		logger.Info("starting API server", "addr", apiAddr)
-		if err := srv.Start(apiAddr); err != nil && err != http.ErrServerClosed {
+		if err := srv.Start(ctx, apiAddr); err != nil && err != http.ErrServerClosed {
 			logger.Error("API server failed", "error", err)
 			svcErr <- err
 		}
