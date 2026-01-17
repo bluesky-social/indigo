@@ -339,13 +339,6 @@ func (le *LeaderElection) Run(ctx context.Context) error {
 	}
 
 	for {
-		select {
-		case <-ctx.Done():
-			le.handleShutdown(context.Background())
-			return ctx.Err()
-		default:
-		}
-
 		le.mu.RLock()
 		isLeader := le.isLeader
 		le.mu.RUnlock()
@@ -369,11 +362,10 @@ func (le *LeaderElection) Run(ctx context.Context) error {
 			}
 		}
 
-		// wait for the appropriate period of time, or until shutdown was requested
 		select {
 		case <-ctx.Done():
 			le.handleShutdown(context.Background())
-			return ctx.Err()
+			return nil
 		case <-le.clock.After(waitFor):
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/bluesky-social/indigo/internal/testutil"
 	"github.com/bluesky-social/indigo/pkg/clock"
 	"github.com/bluesky-social/indigo/pkg/foundation"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,7 +25,8 @@ func testDB(t *testing.T) *foundation.DB {
 
 func testDirPath(t *testing.T) []string {
 	t.Helper()
-	return []string{t.Name(), "leader"}
+	// Include a UUID for complete isolation between test runs and parallel tests
+	return []string{t.Name(), uuid.NewString(), "leader"}
 }
 
 func testLeaderElection(t *testing.T, identity string, clk clock.Clock) *LeaderElection {
@@ -46,9 +48,16 @@ func testLeaderElection(t *testing.T, identity string, clk clock.Clock) *LeaderE
 // Uses a short real-time sleep between checks for goroutine scheduling.
 func waitForWaiters(t *testing.T, clk *clock.MockClock, n int) {
 	t.Helper()
-	require.Eventually(t, func() bool {
-		return clk.WaiterCount() >= n
-	}, 2*time.Second, 5*time.Millisecond, "timed out waiting for %d waiters, got %d", n, clk.WaiterCount())
+	require.Eventually(t,
+		func() bool {
+			return clk.WaiterCount() >= n
+		},
+		2*time.Second,
+		time.Millisecond,
+		"timed out waiting for %d waiters, got %d",
+		n,
+		clk.WaiterCount(),
+	)
 }
 
 // advanceAndWait advances the mock clock and waits briefly for goroutines to process

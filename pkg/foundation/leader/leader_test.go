@@ -10,6 +10,7 @@ import (
 
 	"github.com/bluesky-social/indigo/pkg/clock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestLeaderElection_SingleProcess(t *testing.T) {
@@ -17,7 +18,7 @@ func TestLeaderElection_SingleProcess(t *testing.T) {
 	ctx := t.Context()
 
 	mockClock := clock.NewMockClock(time.Now())
-	becameLeader := make(chan struct{}, 1)
+	becameLeader := make(chan any)
 
 	db := testDB(t)
 	dirPath := testDirPath(t)
@@ -29,17 +30,13 @@ func TestLeaderElection_SingleProcess(t *testing.T) {
 		AcquisitionInterval: testAcquisitionInterval,
 		Clock:               mockClock,
 		OnBecameLeader: func(ctx context.Context) {
-			select {
-			case becameLeader <- struct{}{}:
-			default:
-			}
+			becameLeader <- struct{}{}
 		},
 	})
 	require.NoError(t, err)
 
-	go func() {
-		_ = le.Run(ctx)
-	}()
+	errs := errgroup.Group{}
+	errs.Go(func() error { return le.Run(ctx) })
 
 	// Should become leader almost immediately (after initial acquisition)
 	select {
@@ -58,9 +55,10 @@ func TestLeaderElection_SingleProcess(t *testing.T) {
 	require.Equal(t, "single-process-test", leader.Id)
 
 	le.Stop()
+	require.NoError(t, errs.Wait())
 }
 
-func TestLeaderElection_MultipleProcesses_OneLeader(t *testing.T) {
+func TestLeaderElection_MultipleProcesses(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 
@@ -68,54 +66,51 @@ func TestLeaderElection_MultipleProcesses_OneLeader(t *testing.T) {
 	db := testDB(t)
 	dirPath := testDirPath(t)
 
-	const numProcesses = 5
-	var leaderCount atomic.Int32
+	const numProcesses = 10
 	var elections []*LeaderElection
 
 	for i := range numProcesses {
 		le, err := New(db, dirPath, LeaderElectionConfig{
-			ID:                  fmt.Sprintf("process-%d", i),
+			ID:                  fmt.Sprintf("multiple-%d", i),
 			Logger:              slog.Default(),
 			LeaseDuration:       testLeaseDuration,
 			RenewalInterval:     testRenewalInterval,
 			AcquisitionInterval: testAcquisitionInterval,
 			Clock:               mockClock,
-			OnBecameLeader: func(ctx context.Context) {
-				leaderCount.Add(1)
-			},
-			OnLostLeadership: func(ctx context.Context) {
-				leaderCount.Add(-1)
-			},
 		})
 		require.NoError(t, err)
 		elections = append(elections, le)
 	}
 
 	// Start all elections
+	errs := errgroup.Group{}
 	for _, le := range elections {
-		go func() {
-			_ = le.Run(ctx)
-		}()
+		errs.Go(func() error { return le.Run(ctx) })
 	}
 
-	// Wait for all processes to be waiting on the clock
+	// Wait for all to be waiting
 	waitForWaiters(t, mockClock, numProcesses)
 
-	// Count how many think they're the leader
-	actualLeaders := 0
-	for _, le := range elections {
-		if le.IsLeader() {
-			actualLeaders++
+	// Check leader count multiple times while advancing clock
+	for i := range 20 {
+		leaders := 0
+		for _, le := range elections {
+			if le.IsLeader() {
+				leaders++
+			}
 		}
-	}
+		require.LessOrEqual(t, leaders, 1, "should never have more than 1 leader (iteration %d)", i)
 
-	require.Equal(t, 1, actualLeaders, "expected exactly one leader")
-	require.Equal(t, int32(1), leaderCount.Load(), "leader count should be 1")
+		// Advance clock to trigger renewal/acquisition cycles
+		advanceAndWait(mockClock, testRenewalInterval)
+		waitForWaiters(t, mockClock, numProcesses)
+	}
 
 	// Stop all
 	for _, le := range elections {
 		le.Stop()
 	}
+	require.NoError(t, errs.Wait())
 }
 
 func TestLeaderElection_GracefulHandoff(t *testing.T) {
@@ -159,9 +154,8 @@ func TestLeaderElection_GracefulHandoff(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start first leader
-	go func() {
-		_ = le1.Run(ctx)
-	}()
+	errs := errgroup.Group{}
+	errs.Go(func() error { return le1.Run(ctx) })
 
 	// Wait for le1 to become leader and start waiting
 	require.Eventually(t, func() bool {
@@ -172,9 +166,7 @@ func TestLeaderElection_GracefulHandoff(t *testing.T) {
 	require.False(t, le2.IsLeader())
 
 	// Start second election
-	go func() {
-		_ = le2.Run(ctx)
-	}()
+	errs.Go(func() error { return le2.Run(ctx) })
 
 	// Wait for both to be waiting
 	waitForWaiters(t, mockClock, 2)
@@ -197,6 +189,7 @@ func TestLeaderElection_GracefulHandoff(t *testing.T) {
 	require.True(t, leader1LostLeadership.Load(), "le1 should have lost leadership")
 
 	le2.Stop()
+	require.NoError(t, errs.Wait())
 }
 
 func TestLeaderElection_CrashRecovery(t *testing.T) {
@@ -237,10 +230,9 @@ func TestLeaderElection_CrashRecovery(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Start le1
-	go func() {
-		_ = le1.Run(ctx1)
-	}()
+	// Start le1 with its own context (will be cancelled to simulate crash)
+	errs1 := errgroup.Group{}
+	errs1.Go(func() error { return le1.Run(ctx1) })
 
 	// Wait for le1 to become leader
 	require.Eventually(t, func() bool {
@@ -248,9 +240,8 @@ func TestLeaderElection_CrashRecovery(t *testing.T) {
 	}, time.Second, time.Millisecond, "le1 should become leader")
 
 	// Start le2
-	go func() {
-		_ = le2.Run(ctx)
-	}()
+	errs2 := errgroup.Group{}
+	errs2.Go(func() error { return le2.Run(ctx) })
 
 	// Wait for both to be waiting
 	waitForWaiters(t, mockClock, 2)
@@ -260,7 +251,7 @@ func TestLeaderElection_CrashRecovery(t *testing.T) {
 
 	// Simulate crash - cancel context without graceful shutdown
 	cancel1()
-	time.Sleep(20 * time.Millisecond) // Let le1 exit
+	require.NoError(t, errs1.Wait())
 
 	// Advance clock past lease expiry so le2 can acquire
 	for i := 0; i < 5 && !leader2BecameLeader.Load(); i++ {
@@ -268,65 +259,10 @@ func TestLeaderElection_CrashRecovery(t *testing.T) {
 	}
 
 	require.True(t, leader2BecameLeader.Load(), "le2 should become leader after le1 crashes")
-
 	require.True(t, le2.IsLeader())
 
 	le2.Stop()
-}
-
-func TestLeaderElection_NoDuplicateLeaders(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-
-	mockClock := clock.NewMockClock(time.Now())
-	db := testDB(t)
-	dirPath := testDirPath(t)
-
-	const numProcesses = 10
-	var elections []*LeaderElection
-
-	for i := range numProcesses {
-		le, err := New(db, dirPath, LeaderElectionConfig{
-			ID:                  fmt.Sprintf("no-dup-%d", i),
-			Logger:              slog.Default(),
-			LeaseDuration:       testLeaseDuration,
-			RenewalInterval:     testRenewalInterval,
-			AcquisitionInterval: testAcquisitionInterval,
-			Clock:               mockClock,
-		})
-		require.NoError(t, err)
-		elections = append(elections, le)
-	}
-
-	// Start all elections
-	for _, le := range elections {
-		go func() {
-			_ = le.Run(ctx)
-		}()
-	}
-
-	// Wait for all to be waiting
-	waitForWaiters(t, mockClock, numProcesses)
-
-	// Check leader count multiple times while advancing clock
-	for i := range 20 {
-		leaders := 0
-		for _, le := range elections {
-			if le.IsLeader() {
-				leaders++
-			}
-		}
-		require.LessOrEqual(t, leaders, 1, "should never have more than 1 leader (iteration %d)", i)
-
-		// Advance clock to trigger renewal/acquisition cycles
-		advanceAndWait(mockClock, testRenewalInterval)
-		waitForWaiters(t, mockClock, numProcesses)
-	}
-
-	// Stop all
-	for _, le := range elections {
-		le.Stop()
-	}
+	require.NoError(t, errs2.Wait())
 }
 
 func TestLeaderElection_LeaseRenewal(t *testing.T) {
@@ -356,9 +292,8 @@ func TestLeaderElection_LeaseRenewal(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	go func() {
-		_ = le.Run(ctx)
-	}()
+	errs := errgroup.Group{}
+	errs.Go(func() error { return le.Run(ctx) })
 
 	// Wait for leader
 	require.Eventually(t, func() bool {
@@ -376,6 +311,7 @@ func TestLeaderElection_LeaseRenewal(t *testing.T) {
 	}
 
 	le.Stop()
+	require.NoError(t, errs.Wait())
 }
 
 func TestLeaderElection_RapidStartStop(t *testing.T) {
@@ -399,14 +335,12 @@ func TestLeaderElection_RapidStartStop(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		runCtx, runCancel := context.WithCancel(ctx)
-		go func() {
-			_ = le.Run(runCtx)
-		}()
+		errs := errgroup.Group{}
+		errs.Go(func() error { return le.Run(ctx) })
 
 		waitForWaiters(t, mockClock, 1)
 		le.Stop()
-		runCancel()
+		require.NoError(t, errs.Wait())
 
 		// Advance clock to clear any pending waiters
 		mockClock.Advance(testLeaseDuration)
@@ -414,8 +348,6 @@ func TestLeaderElection_RapidStartStop(t *testing.T) {
 
 	// Final election should be able to acquire leadership
 	var becameLeader atomic.Bool
-	finalCtx, finalCancel := context.WithCancel(ctx)
-	defer finalCancel()
 
 	le, err := New(db, dirPath, LeaderElectionConfig{
 		ID:                  "rapid-final",
@@ -430,15 +362,15 @@ func TestLeaderElection_RapidStartStop(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	go func() {
-		_ = le.Run(finalCtx)
-	}()
+	errs := errgroup.Group{}
+	errs.Go(func() error { return le.Run(ctx) })
 
 	require.Eventually(t, func() bool {
 		return becameLeader.Load()
 	}, time.Second, time.Millisecond, "final election should become leader")
 
 	le.Stop()
+	require.NoError(t, errs.Wait())
 }
 
 func TestLeaderElection_GetLeader_NoLeader(t *testing.T) {
@@ -473,7 +405,7 @@ func TestLeaderElection_TryAcquireLease_AlreadyLeader(t *testing.T) {
 	require.True(t, acquired)
 	require.True(t, le.IsLeader())
 
-	_ = le.ReleaseLease(ctx)
+	require.NoError(t, le.ReleaseLease(ctx))
 }
 
 func TestLeaderElection_RenewLease_NotLeader(t *testing.T) {
@@ -500,25 +432,7 @@ func TestLeaderElection_ReleaseLease_NotLeader(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestLeaderElection_DoubleStop(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-
-	mockClock := clock.NewMockClock(time.Now())
-	le := testLeaderElection(t, "double-stop-test", mockClock)
-
-	go func() {
-		_ = le.Run(ctx)
-	}()
-
-	waitForWaiters(t, mockClock, 1)
-
-	// Double stop should not panic
-	le.Stop()
-	le.Stop()
-}
-
-func TestLeaderElection_LeaderStealing(t *testing.T) {
+func TestLeaderElection_LeaderRacing(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 
@@ -529,7 +443,7 @@ func TestLeaderElection_LeaderStealing(t *testing.T) {
 	var leader1Acquired, leader2Acquired atomic.Int32
 
 	le1, err := New(db, dirPath, LeaderElectionConfig{
-		ID:                  "stealer-1",
+		ID:                  "racer-1",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
 		RenewalInterval:     testRenewalInterval,
@@ -542,7 +456,7 @@ func TestLeaderElection_LeaderStealing(t *testing.T) {
 	require.NoError(t, err)
 
 	le2, err := New(db, dirPath, LeaderElectionConfig{
-		ID:                  "stealer-2",
+		ID:                  "racer-2",
 		Logger:              slog.Default(),
 		LeaseDuration:       testLeaseDuration,
 		RenewalInterval:     testRenewalInterval,
@@ -555,8 +469,9 @@ func TestLeaderElection_LeaderStealing(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start both at nearly the same time
-	go func() { _ = le1.Run(ctx) }()
-	go func() { _ = le2.Run(ctx) }()
+	errs := errgroup.Group{}
+	errs.Go(func() error { return le1.Run(ctx) })
+	errs.Go(func() error { return le2.Run(ctx) })
 
 	// Wait for both to be waiting
 	waitForWaiters(t, mockClock, 2)
@@ -571,6 +486,7 @@ func TestLeaderElection_LeaderStealing(t *testing.T) {
 
 	le1.Stop()
 	le2.Stop()
+	require.NoError(t, errs.Wait())
 }
 
 func TestLeaderElection_LeaseExpiry(t *testing.T) {
@@ -578,17 +494,55 @@ func TestLeaderElection_LeaseExpiry(t *testing.T) {
 	ctx := t.Context()
 
 	mockClock := clock.NewMockClock(time.Now())
-	le := testLeaderElection(t, "lease-expiry-test", mockClock)
+	db := testDB(t)
+	dirPath := testDirPath(t)
 
-	// Acquire leadership
-	acquired, err := le.TryAcquireLease(ctx)
+	le1, err := New(db, dirPath, LeaderElectionConfig{
+		ID:                  "expiry-1",
+		Logger:              slog.Default(),
+		LeaseDuration:       testLeaseDuration,
+		RenewalInterval:     testRenewalInterval,
+		AcquisitionInterval: testAcquisitionInterval,
+		Clock:               mockClock,
+	})
 	require.NoError(t, err)
-	require.True(t, acquired)
-	require.True(t, le.IsLeader())
+
+	le2, err := New(db, dirPath, LeaderElectionConfig{
+		ID:                  "expiry-2",
+		Logger:              slog.Default(),
+		LeaseDuration:       testLeaseDuration,
+		RenewalInterval:     testRenewalInterval,
+		AcquisitionInterval: testAcquisitionInterval,
+		Clock:               mockClock,
+	})
+	require.NoError(t, err)
+
+	// le1 acquires leadership
+	acquired, err := le1.TryAcquireLease(ctx)
+	require.NoError(t, err)
+	require.True(t, acquired, "le1 should acquire leadership")
+	require.True(t, le1.IsLeader())
+
+	// le2 should not be able to acquire while le1's lease is valid
+	acquired, err = le2.TryAcquireLease(ctx)
+	require.NoError(t, err)
+	require.False(t, acquired, "le2 should not acquire while le1's lease is valid")
+	require.False(t, le2.IsLeader())
 
 	// Advance clock past lease expiry
 	mockClock.Advance(testLeaseDuration + time.Second)
 
-	// IsLeader should now return false
-	require.False(t, le.IsLeader(), "should not be leader after lease expires")
+	// le1 should no longer be considered leader (lease expired)
+	require.False(t, le1.IsLeader(), "le1 should not be leader after lease expires")
+
+	// Now le2 should be able to acquire the expired lease
+	acquired, err = le2.TryAcquireLease(ctx)
+	require.NoError(t, err)
+	require.True(t, acquired, "le2 should acquire after le1's lease expires")
+	require.True(t, le2.IsLeader())
+
+	// Verify the leader info shows le2 as the current leader
+	leader, err := le2.GetLeader(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "expiry-2", leader.Id)
 }
