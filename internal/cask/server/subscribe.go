@@ -36,8 +36,9 @@ type subscriber struct {
 }
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  10 << 10,
-	WriteBufferSize: 10 << 10,
+	ReadBufferSize:    10 << 10,
+	WriteBufferSize:   10 << 10,
+	EnableCompression: true,
 }
 
 // handleSubscribeRepos handles the com.atproto.sync.subscribeRepos XRPC endpoint.
