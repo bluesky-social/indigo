@@ -271,6 +271,7 @@ func (s *Server) closeAllSubscribers() {
 		wg.Go(func() {
 			closeMsg := websocket.FormatCloseMessage(websocket.CloseGoingAway, "server shutting down")
 			_ = sub.conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(time.Second))
+			_ = sub.conn.Close()
 		})
 	}
 	wg.Wait()
