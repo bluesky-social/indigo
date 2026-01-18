@@ -252,28 +252,13 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 	return
 }
 
-// GetEventsAfterSeq retrieves events where upstream_seq > afterSeq.
-// This uses the cursor index for O(1) lookup of the versionstamp, then fetches
-// events starting from that position. After the initial seek, use GetEventsSince
-// with the returned versionstamp cursor for efficient continuation.
-func (m *Models) GetEventsAfterSeq(ctx context.Context, afterSeq int64, limit int) (events []*prototypes.FirehoseEvent, nextCursor []byte, err error) {
-	_, span, done := foundation.Observe(ctx, m.db, "GetEventsAfterSeq")
-	defer func() { done(err) }()
-
-	span.SetAttributes(
-		attribute.Int64("after_seq", afterSeq),
-		attribute.Int("limit", limit),
-	)
-
-	// First, look up the versionstamp for the afterSeq cursor in the index
-	versionstamp, err := m.getVersionstampForSeq(ctx, afterSeq)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to lookup cursor in index: %w", err)
-	}
-
-	// If we found a versionstamp, use GetEventsSince to get events after it
-	// If not found (cursor too old or doesn't exist), start from the beginning
-	return m.GetEventsSince(ctx, versionstamp, limit)
+// GetVersionstampForSeq looks up the versionstamp cursor for the given upstream sequence number.
+// This uses a floor lookup - it finds the greatest seq <= the requested value.
+// Returns nil if no events exist with seq <= the requested value (caller should start from beginning).
+// This is used to convert an upstream firehose cursor to an internal versionstamp cursor
+// for efficient streaming.
+func (m *Models) GetVersionstampForSeq(ctx context.Context, seq int64) ([]byte, error) {
+	return m.getVersionstampForSeq(ctx, seq)
 }
 
 // getVersionstampForSeq looks up the versionstamp for the greatest upstream sequence

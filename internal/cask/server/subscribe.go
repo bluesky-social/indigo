@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net"
 	"strconv"
 	"sync"
@@ -66,10 +67,6 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 	}
 	defer conn.Close() //nolint:errcheck
 
-	// Track last write time for ping logic
-	lastWriteMu := sync.Mutex{}
-	lastWrite := time.Now()
-
 	// Ping goroutine - keeps connection alive and detects dead clients
 	go func() {
 		ticker := time.NewTicker(pingInterval)
@@ -78,15 +75,6 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 		for {
 			select {
 			case <-ticker.C:
-				lastWriteMu.Lock()
-				lw := lastWrite
-				lastWriteMu.Unlock()
-
-				// Skip ping if we wrote recently
-				if time.Since(lw) < pingInterval {
-					continue
-				}
-
 				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(pingPongTimeout)); err != nil {
 					s.log.Info("failed to ping client", "error", err)
 					cancel()
@@ -129,6 +117,7 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 		done:        make(chan struct{}),
 	}
 	subID := s.registerSubscriber(sub)
+
 	defer func() {
 		// Unregister first, then signal done. This ensures that when
 		// closeAllSubscribers receives on the done channel, the subscriber
@@ -144,39 +133,25 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 		"subscriber_id", subID,
 	)
 
-	// Internal cursor (versionstamp) for efficient pagination after initial positioning
-	var versionstampCursor []byte
-
-	// If client provided a cursor, we need to find events after that sequence.
+	// Convert the upstream sequence cursor to a versionstamp cursor for efficient streaming.
 	// If no cursor was provided, start from the "tip" (only receive new events).
 	// This matches the behavior of the upstream relay's subscribeRepos.
+	var versionstampCursor []byte
 	if hasCursor {
-		// First fetch: find events after the upstream sequence cursor
-		var rawEvents []*eventData
+		// Convert upstream seq cursor to versionstamp cursor (single key lookup)
 		var err error
-		rawEvents, versionstampCursor, err = s.getEventsAfterSeq(ctx, cursorSeq, eventBatchSize)
+		versionstampCursor, err = s.getVersionstampForSeq(ctx, cursorSeq)
 		if err != nil {
-			s.log.Error("failed to read events from FDB", "error", err)
+			s.log.Error("failed to lookup cursor", "error", err)
 			return err
 		}
-
-		// Stream any historical events to the client
-		for _, evt := range rawEvents {
-			if err := s.writeEvent(conn, evt); err != nil {
-				s.log.Debug("failed to write event", "error", err)
-				return nil
-			}
-			sub.eventsSent.Add(1)
-		}
-
-		lastWriteMu.Lock()
-		lastWrite = time.Now()
-		lastWriteMu.Unlock()
+		// Note: versionstampCursor may be nil if cursor is older than all events,
+		// which means we'll start from the beginning of the events subspace.
 	} else {
 		// No cursor provided: start from the "tip" (latest event)
 		// Get the latest versionstamp so we only receive new events from now on
 		var err error
-		versionstampCursor, err = s.getLatestVersionstamp(ctx)
+		versionstampCursor, err = s.models.GetLatestVersionstamp(ctx)
 		if err != nil {
 			s.log.Error("failed to get latest versionstamp", "error", err)
 			return err
@@ -219,10 +194,6 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 			}
 			sub.eventsSent.Add(1)
 		}
-
-		lastWriteMu.Lock()
-		lastWrite = time.Now()
-		lastWriteMu.Unlock()
 	}
 }
 
@@ -246,20 +217,8 @@ type eventData struct {
 	upstreamSeq int64
 }
 
-func (s *Server) getEventsAfterSeq(ctx context.Context, afterSeq int64, limit int) ([]*eventData, []byte, error) {
-	events, cursor, err := s.models.GetEventsAfterSeq(ctx, afterSeq, limit)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	result := make([]*eventData, len(events))
-	for i, evt := range events {
-		result[i] = &eventData{
-			rawEvent:    evt.RawEvent,
-			upstreamSeq: evt.UpstreamSeq,
-		}
-	}
-	return result, cursor, nil
+func (s *Server) getVersionstampForSeq(ctx context.Context, seq int64) ([]byte, error) {
+	return s.models.GetVersionstampForSeq(ctx, seq)
 }
 
 func (s *Server) getEventsSince(ctx context.Context, cursor []byte, limit int) ([]*eventData, []byte, error) {
@@ -268,18 +227,15 @@ func (s *Server) getEventsSince(ctx context.Context, cursor []byte, limit int) (
 		return nil, nil, err
 	}
 
-	result := make([]*eventData, len(events))
-	for i, evt := range events {
-		result[i] = &eventData{
+	res := make([]*eventData, 0, len(events))
+	for _, evt := range events {
+		res = append(res, &eventData{
 			rawEvent:    evt.RawEvent,
 			upstreamSeq: evt.UpstreamSeq,
-		}
+		})
 	}
-	return result, nextCursor, nil
-}
 
-func (s *Server) getLatestVersionstamp(ctx context.Context) ([]byte, error) {
-	return s.models.GetLatestVersionstamp(ctx)
+	return res, nextCursor, nil
 }
 
 func (s *Server) registerSubscriber(sub *subscriber) uint64 {
@@ -313,32 +269,24 @@ func (s *Server) unregisterSubscriber(id uint64, sub *subscriber) {
 	delete(s.subscribers, id)
 }
 
-// closeAllSubscribers gracefully closes all active subscriber connections.
-// It sends WebSocket close frames in parallel and waits for handlers to exit.
 func (s *Server) closeAllSubscribers(timeout time.Duration) {
-	// Get snapshot of subscribers while holding lock
 	s.subscribersMu.Lock()
-	subs := make([]*subscriber, 0, len(s.subscribers))
-	for _, sub := range s.subscribers {
-		subs = append(subs, sub)
-	}
+	subs := map[uint64]*subscriber{}
+	maps.Copy(subs, s.subscribers)
 	s.subscribersMu.Unlock()
-
-	if len(subs) == 0 {
-		return
-	}
 
 	s.log.Info("closing subscriber connections", "count", len(subs))
 
-	// Send close frames to all subscribers in parallel, ignoring errors
+	// Send close frames to all subscribers in parallel
 	var wg sync.WaitGroup
 	for _, sub := range subs {
-		wg.Add(1)
-		go func(sub *subscriber) {
-			defer wg.Done()
+		wg.Go(func() {
 			closeMsg := websocket.FormatCloseMessage(websocket.CloseGoingAway, "server shutting down")
-			_ = sub.conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(time.Second)) //nolint:errcheck
-		}(sub)
+			err := sub.conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(time.Second))
+			if err != nil {
+				s.log.Warn("failed to send close message to client", "error", err)
+			}
+		})
 	}
 	wg.Wait()
 
@@ -355,12 +303,6 @@ func (s *Server) closeAllSubscribers(timeout time.Duration) {
 	case <-done:
 		s.log.Info("all subscribers disconnected gracefully")
 	case <-time.After(timeout):
-		s.log.Warn("timeout waiting for subscribers to disconnect, forcing close")
-		// Force close any remaining connections in parallel, ignoring errors
-		for _, sub := range subs {
-			go func(sub *subscriber) {
-				_ = sub.conn.Close() //nolint:errcheck
-			}(sub)
-		}
+		s.log.Warn("timeout waiting for subscribers to disconnect, forcing shutdown")
 	}
 }

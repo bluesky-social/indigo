@@ -238,7 +238,7 @@ func TestCursorIsVersionstamp(t *testing.T) {
 	require.Len(t, cursor, versionstampLength)
 }
 
-func TestGetEventsAfterSeq_Basic(t *testing.T) {
+func TestGetVersionstampForSeq_Basic(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -255,8 +255,12 @@ func TestGetEventsAfterSeq_Basic(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// Get events after seq 101 (should return 102, 103, 104)
-	events, cursor, err := m.GetEventsAfterSeq(ctx, 101, 10)
+	// Get versionstamp for seq 101, then get events after it (should return 102, 103, 104)
+	vsCursor, err := m.GetVersionstampForSeq(ctx, 101)
+	require.NoError(t, err)
+	require.NotEmpty(t, vsCursor)
+
+	events, cursor, err := m.GetEventsSince(ctx, vsCursor, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 3)
 	require.NotEmpty(t, cursor)
@@ -266,7 +270,7 @@ func TestGetEventsAfterSeq_Basic(t *testing.T) {
 	require.Equal(t, int64(104), events[2].UpstreamSeq)
 }
 
-func TestGetEventsAfterSeq_WithGaps(t *testing.T) {
+func TestGetVersionstampForSeq_WithGaps(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -286,7 +290,11 @@ func TestGetEventsAfterSeq_WithGaps(t *testing.T) {
 
 	// Request cursor=1002 (doesn't exist, should floor to 1000)
 	// Should return events after 1000: 1005, 1010
-	events, cursor, err := m.GetEventsAfterSeq(ctx, 1002, 10)
+	vsCursor, err := m.GetVersionstampForSeq(ctx, 1002)
+	require.NoError(t, err)
+	require.NotEmpty(t, vsCursor)
+
+	events, cursor, err := m.GetEventsSince(ctx, vsCursor, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 2)
 	require.NotEmpty(t, cursor)
@@ -295,7 +303,7 @@ func TestGetEventsAfterSeq_WithGaps(t *testing.T) {
 	require.Equal(t, int64(1010), events[1].UpstreamSeq)
 }
 
-func TestGetEventsAfterSeq_CursorMatchesExactly(t *testing.T) {
+func TestGetVersionstampForSeq_CursorMatchesExactly(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -315,7 +323,11 @@ func TestGetEventsAfterSeq_CursorMatchesExactly(t *testing.T) {
 
 	// Request cursor=1005 (exact match)
 	// Should return events after 1005: just 1010
-	events, cursor, err := m.GetEventsAfterSeq(ctx, 1005, 10)
+	vsCursor, err := m.GetVersionstampForSeq(ctx, 1005)
+	require.NoError(t, err)
+	require.NotEmpty(t, vsCursor)
+
+	events, cursor, err := m.GetEventsSince(ctx, vsCursor, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 1)
 	require.NotEmpty(t, cursor)
@@ -323,7 +335,7 @@ func TestGetEventsAfterSeq_CursorMatchesExactly(t *testing.T) {
 	require.Equal(t, int64(1010), events[0].UpstreamSeq)
 }
 
-func TestGetEventsAfterSeq_CursorBeforeAllEvents(t *testing.T) {
+func TestGetVersionstampForSeq_CursorBeforeAllEvents(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -341,8 +353,13 @@ func TestGetEventsAfterSeq_CursorBeforeAllEvents(t *testing.T) {
 	}
 
 	// Request cursor=50 (before all events)
-	// Floor lookup finds nothing, so we start from beginning
-	events, cursor, err := m.GetEventsAfterSeq(ctx, 50, 10)
+	// Floor lookup finds nothing, so vsCursor is nil (start from beginning)
+	vsCursor, err := m.GetVersionstampForSeq(ctx, 50)
+	require.NoError(t, err)
+	require.Empty(t, vsCursor)
+
+	// GetEventsSince with nil cursor starts from beginning
+	events, cursor, err := m.GetEventsSince(ctx, vsCursor, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 3)
 	require.NotEmpty(t, cursor)
@@ -352,7 +369,7 @@ func TestGetEventsAfterSeq_CursorBeforeAllEvents(t *testing.T) {
 	require.Equal(t, int64(102), events[2].UpstreamSeq)
 }
 
-func TestGetEventsAfterSeq_CursorAfterAllEvents(t *testing.T) {
+func TestGetVersionstampForSeq_CursorAfterAllEvents(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -371,33 +388,45 @@ func TestGetEventsAfterSeq_CursorAfterAllEvents(t *testing.T) {
 
 	// Request cursor=104 (the last event)
 	// Should return nothing (no events after 104)
-	events, cursor, err := m.GetEventsAfterSeq(ctx, 104, 10)
+	vsCursor, err := m.GetVersionstampForSeq(ctx, 104)
+	require.NoError(t, err)
+	require.NotEmpty(t, vsCursor)
+
+	events, cursor, err := m.GetEventsSince(ctx, vsCursor, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 0)
 	require.Empty(t, cursor)
 
 	// Request cursor=200 (way past all events)
 	// Floor lookup finds 104, but there's nothing after it
-	events, cursor, err = m.GetEventsAfterSeq(ctx, 200, 10)
+	vsCursor2, err := m.GetVersionstampForSeq(ctx, 200)
+	require.NoError(t, err)
+	require.NotEmpty(t, vsCursor2)
+
+	events, cursor, err = m.GetEventsSince(ctx, vsCursor2, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 0)
 	require.Empty(t, cursor)
 }
 
-func TestGetEventsAfterSeq_EmptyDatabase(t *testing.T) {
+func TestGetVersionstampForSeq_EmptyDatabase(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
 	m := testModels(t)
 
 	// Request any cursor on empty database
-	events, cursor, err := m.GetEventsAfterSeq(ctx, 100, 10)
+	vsCursor, err := m.GetVersionstampForSeq(ctx, 100)
+	require.NoError(t, err)
+	require.Empty(t, vsCursor) // nil since no events exist
+
+	events, cursor, err := m.GetEventsSince(ctx, vsCursor, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 0)
 	require.Empty(t, cursor)
 }
 
-func TestGetEventsAfterSeq_Pagination(t *testing.T) {
+func TestGetVersionstampForSeq_Pagination(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -414,8 +443,13 @@ func TestGetEventsAfterSeq_Pagination(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// Get first 3 events after seq 99 (should get 100, 101, 102)
-	events, cursor, err := m.GetEventsAfterSeq(ctx, 99, 3)
+	// Get versionstamp for seq 99 (before all events, returns nil)
+	vsCursor, err := m.GetVersionstampForSeq(ctx, 99)
+	require.NoError(t, err)
+	require.Empty(t, vsCursor) // nil since cursor is before all events
+
+	// Get first 3 events (starting from beginning since vsCursor is nil)
+	events, cursor, err := m.GetEventsSince(ctx, vsCursor, 3)
 	require.NoError(t, err)
 	require.Len(t, events, 3)
 	require.NotEmpty(t, cursor)
@@ -454,18 +488,28 @@ func TestCursorIndex_WrittenCorrectly(t *testing.T) {
 	require.Len(t, events, 1)
 	require.Len(t, vsCursor, versionstampLength)
 
-	// Now use GetEventsAfterSeq with the exact seq - should use cursor index
-	// and return no events (since we're asking for events AFTER 12345)
-	events, _, err = m.GetEventsAfterSeq(ctx, 12345, 10)
+	// Now use GetVersionstampForSeq with the exact seq
+	// Should return versionstamp for event 12345
+	indexCursor, err := m.GetVersionstampForSeq(ctx, 12345)
+	require.NoError(t, err)
+	require.NotEmpty(t, indexCursor)
+
+	// Events after this cursor should be empty (nothing after 12345)
+	events, _, err = m.GetEventsSince(ctx, indexCursor, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 0)
 
-	// Ask for events after 12344 - should return our event
-	events, indexCursor, err := m.GetEventsAfterSeq(ctx, 12344, 10)
+	// Ask for versionstamp at 12344 (before our event)
+	indexCursor2, err := m.GetVersionstampForSeq(ctx, 12344)
+	require.NoError(t, err)
+	require.Empty(t, indexCursor2) // nil since no events <= 12344
+
+	// Getting events from nil cursor should return our event
+	events, returnedCursor, err := m.GetEventsSince(ctx, indexCursor2, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 1)
 	require.Equal(t, int64(12345), events[0].UpstreamSeq)
 
-	// The cursor returned should be the same versionstamp
-	require.Equal(t, vsCursor, indexCursor)
+	// The cursor returned should be the same versionstamp as from direct lookup
+	require.Equal(t, vsCursor, returnedCursor)
 }

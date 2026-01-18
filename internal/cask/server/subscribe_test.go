@@ -282,6 +282,41 @@ func TestSubscribeRepos_MultipleSubscribers(t *testing.T) {
 	}
 }
 
+func TestSubscribeRepos_LargeCatchup(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	s, m := testServer(t)
+	server := startTestServer(t, s)
+	defer server.Close()
+
+	// Write many events to simulate a large catchup scenario
+	// This verifies that streaming works correctly and doesn't hit FDB transaction limits
+	const numEvents = 500
+	for i := range numEvents {
+		event := &prototypes.FirehoseEvent{
+			UpstreamSeq: int64(1000 + i),
+			EventType:   "#commit",
+			RawEvent:    []byte("event-data-" + string(rune('A'+(i%26)))),
+		}
+		err := m.WriteEvent(ctx, event)
+		require.NoError(t, err)
+	}
+
+	// Connect with cursor=0 to receive all historical events
+	conn := dialWebSocket(t, server, "0")
+	defer conn.Close() //nolint:errcheck
+
+	// Should receive all events in order
+	for i := range numEvents {
+		msgType, data, err := readMessage(t, conn, 10*time.Second)
+		require.NoError(t, err, "failed to receive event %d", i)
+		require.Equal(t, websocket.BinaryMessage, msgType)
+		expected := []byte("event-data-" + string(rune('A'+(i%26))))
+		require.Equal(t, expected, data, "event %d mismatch", i)
+	}
+}
+
 func TestSubscribeRepos_SubscriberTracking(t *testing.T) {
 	t.Parallel()
 
