@@ -12,6 +12,7 @@ import (
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/internal/cask/metrics"
 	"github.com/bluesky-social/indigo/internal/cask/models"
 	"github.com/bluesky-social/indigo/pkg/prototypes"
 	"github.com/gorilla/websocket"
@@ -68,12 +69,15 @@ func (c *Consumer) Run(ctx context.Context) error {
 	return c.handleConnection(ctx, con)
 }
 
-// handleConnection reads events from the websocket connection and stores them.
+// handleConnection reads events from the upstream firehose websocket connection and stores them
+// in the database to be fanned out amongst all other cask processes
 func (c *Consumer) handleConnection(ctx context.Context, con *websocket.Conn) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Start ping handler goroutine
+	metrics.ConsumerConnected.Inc()
+	defer metrics.ConsumerConnected.Dec()
+
 	go c.pingHandler(ctx, con)
 
 	// Configure connection
@@ -125,6 +129,8 @@ func (c *Consumer) readAndStoreEvent(ctx context.Context, con *websocket.Conn) e
 	}
 	rawEvent := buf.Bytes()
 
+	metrics.BytesReceivedTotal.Add(float64(len(rawEvent)))
+
 	// parse just the header to extract event type and sequence
 	reader := bytes.NewReader(rawEvent)
 	var header events.EventHeader
@@ -150,22 +156,32 @@ func (c *Consumer) readAndStoreEvent(ctx context.Context, con *websocket.Conn) e
 		EventType:   eventType,
 	}
 
+	status := metrics.StatusError
+	defer func() {
+		metrics.EventsReceivedTotal.WithLabelValues(eventType, status).Inc()
+	}()
+
 	const retries = 5
 	for retry := range retries {
 		err := c.models.WriteEvent(ctx, event)
 		if err == nil {
+			if seq > 0 {
+				metrics.UpstreamSeq.Set(float64(seq))
+			}
 			break
 		}
+
 		if retry == retries-1 {
 			return fmt.Errorf("failed to write event to database: %w", err)
 		}
 
 		// exponential backoff
 		backoff := int(50*time.Millisecond) * retry * retry
-		dur := max(backoff, int(2*time.Second))
+		dur := max(backoff, int(time.Second))
 		time.Sleep(time.Duration(dur))
 	}
 
+	status = metrics.StatusOK
 	return nil
 }
 

@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bluesky-social/indigo/internal/cask/metrics"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 )
@@ -164,27 +165,29 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 			return err
 		}
 
+		// If there are no new events, wait before polling again
 		if len(rawEvents) == 0 {
-			// No new events, wait before polling again
 			select {
 			case <-ctx.Done():
 				return nil
 			case <-time.After(pollInterval):
-				continue
 			}
+			continue
 		}
 
-		// Update cursor for next iteration
-		versionstampCursor = nextCursor
-
-		// Stream events to client
+		// Send events to the client
 		for _, evt := range rawEvents {
 			if err := s.writeEvent(conn, evt); err != nil {
 				s.log.Debug("failed to write event", "error", err)
 				return nil
 			}
+
 			sub.eventsSent.Add(1)
+			metrics.EventsSentTotal.WithLabelValues(sub.remoteAddr, sub.userAgent).Inc()
 		}
+
+		// Update cursor for next iteration
+		versionstampCursor = nextCursor
 	}
 }
 
@@ -242,6 +245,10 @@ func (s *Server) registerSubscriber(sub *subscriber) {
 		s.subscribers = make(map[uint64]*subscriber)
 	}
 	s.subscribers[id] = sub
+
+	// Update metrics
+	metrics.ActiveSubscribers.Inc()
+	metrics.SubscriberConnections.Inc()
 }
 
 func (s *Server) unregisterSubscriber(sub *subscriber) {
@@ -256,6 +263,8 @@ func (s *Server) unregisterSubscriber(sub *subscriber) {
 	s.subscribersMu.Lock()
 	delete(s.subscribers, sub.id)
 	s.subscribersMu.Unlock()
+
+	metrics.ActiveSubscribers.Dec()
 }
 
 func (s *Server) closeAllSubscribers() {
