@@ -26,6 +26,7 @@ type Config struct {
 	Logger         *slog.Logger
 	FDBClusterFile string
 	FirehoseURL    string
+	ProxyHost      string
 }
 
 type Server struct {
@@ -34,6 +35,7 @@ type Server struct {
 
 	echo          *echo.Echo
 	metricsServer *http.Server
+	httpClient    *http.Client
 
 	db             *foundation.DB
 	models         *models.Models
@@ -72,6 +74,7 @@ func New(ctx context.Context, config Config) (*Server, error) {
 	s := &Server{
 		cfg:           config,
 		log:           config.Logger,
+		httpClient:    &http.Client{},
 		db:            db,
 		models:        m,
 		consumerMu:    &sync.Mutex{},
@@ -113,10 +116,15 @@ func (s *Server) router() *echo.Echo {
 	// misc. handlers
 	e.GET("/", s.handleHome)
 	e.GET("/ping", s.handleHealth)
+	e.GET("/_health", s.handleHealth)
 
 	// xrpc handlers
 	e.GET("/xrpc/_health", s.handleHealth)
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.handleSubscribeRepos)
+
+	// Proxy all other xrpc and admin requests to upstream
+	e.Any("/xrpc/*", s.proxyToUpstream)
+	e.Any("/admin/*", s.proxyToUpstream)
 
 	return e
 }

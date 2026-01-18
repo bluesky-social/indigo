@@ -72,9 +72,14 @@ func run(args []string) error {
 					},
 					&cli.StringFlag{
 						Name:    "firehose-url",
-						Usage:   "upstream ATProto firehose websocket URL (e.g., wss://bsky.network)",
+						Usage:   "Upstream ATProto firehose websocket URL (e.g., wss://bsky.network)",
 						Value:   "wss://bsky.network",
 						Sources: cli.EnvVars("CASK_FIREHOSE_URL"),
+					},
+					&cli.StringFlag{
+						Name:    "proxy-host",
+						Usage:   "Upstream HTTP host to proxy xrpc/admin requests to",
+						Sources: cli.EnvVars("CASK_PROXY_HOST"),
 					},
 				},
 			},
@@ -100,6 +105,7 @@ func runServer(ctx context.Context, cmd *cli.Command) error {
 		Logger:         logger,
 		FDBClusterFile: cmd.String("fdb-cluster-file"),
 		FirehoseURL:    cmd.String("firehose-url"),
+		ProxyHost:      cmd.String("upstream-host"),
 	})
 	if err != nil {
 		return err
