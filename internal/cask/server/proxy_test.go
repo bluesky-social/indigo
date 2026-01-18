@@ -186,3 +186,52 @@ func TestProxyToUpstream_PostWithBody(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, `{"success":true}`, rec.Body.String())
 }
+
+func TestProxyToCollectionDir_NoHostConfigured(t *testing.T) {
+	s := &Server{
+		cfg: Config{
+			CollectionDirHost: "", // No collectiondir configured
+		},
+	}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/xrpc/com.atproto.sync.listReposByCollection?collection=app.bsky.feed.post", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := s.proxyToCollectionDir(c)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	require.Contains(t, rec.Body.String(), "no collection directory host configured")
+}
+
+func TestProxyToCollectionDir_Success(t *testing.T) {
+	// Create a mock collectiondir server
+	collectionDir := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/xrpc/com.atproto.sync.listReposByCollection", r.URL.Path)
+		require.Equal(t, "collection=app.bsky.feed.post", r.URL.RawQuery)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"repos":[{"did":"did:plc:123"}],"cursor":"abc"}`))
+	}))
+	defer collectionDir.Close()
+
+	s := &Server{
+		cfg: Config{
+			CollectionDirHost: collectionDir.URL,
+		},
+		httpClient: collectionDir.Client(),
+	}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/xrpc/com.atproto.sync.listReposByCollection?collection=app.bsky.feed.post", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := s.proxyToCollectionDir(c)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	require.Contains(t, rec.Body.String(), "did:plc:123")
+}

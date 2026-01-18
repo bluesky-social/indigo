@@ -81,6 +81,11 @@ func run(args []string) error {
 						Usage:   "Upstream HTTP host to proxy xrpc/admin requests to",
 						Sources: cli.EnvVars("CASK_PROXY_HOST"),
 					},
+					&cli.StringFlag{
+						Name:    "collectiondir-host",
+						Usage:   "HTTP host for listReposByCollection endpoint",
+						Sources: cli.EnvVars("CASK_COLLECTIONDIR_HOST"),
+					},
 				},
 			},
 		},
@@ -102,10 +107,11 @@ func runServer(ctx context.Context, cmd *cli.Command) error {
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	srv, err := server.New(ctx, server.Config{
-		Logger:         logger,
-		FDBClusterFile: cmd.String("fdb-cluster-file"),
-		FirehoseURL:    cmd.String("firehose-url"),
-		ProxyHost:      cmd.String("upstream-host"),
+		Logger:            logger,
+		FDBClusterFile:    cmd.String("fdb-cluster-file"),
+		FirehoseURL:       cmd.String("firehose-url"),
+		ProxyHost:         cmd.String("proxy-host"),
+		CollectionDirHost: cmd.String("collectiondir-host"),
 	})
 	if err != nil {
 		return err

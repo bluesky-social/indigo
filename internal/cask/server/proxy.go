@@ -30,6 +30,27 @@ func (s *Server) proxyToUpstream(c echo.Context) error {
 	return s.proxyRequest(c, u.Host, u.Scheme)
 }
 
+// proxyToCollectionDir proxies a request to the collection directory service.
+func (s *Server) proxyToCollectionDir(c echo.Context) error {
+	if s.cfg.CollectionDirHost == "" {
+		return c.JSON(http.StatusServiceUnavailable, xrpc.XRPCError{
+			ErrStr:  "ServiceUnavailable",
+			Message: "no collection directory host configured",
+		})
+	}
+
+	u, err := url.Parse(s.cfg.CollectionDirHost)
+	if err != nil {
+		s.log.Error("failed to parse collection directory host", "error", err)
+		return c.JSON(http.StatusInternalServerError, xrpc.XRPCError{
+			ErrStr:  "InternalServerError",
+			Message: "invalid collection directory host configuration",
+		})
+	}
+
+	return s.proxyRequest(c, u.Host, u.Scheme)
+}
+
 // proxyRequest proxies an HTTP request to the specified host.
 func (s *Server) proxyRequest(c echo.Context, hostname, scheme string) error {
 	req := c.Request()

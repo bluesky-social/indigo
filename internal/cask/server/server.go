@@ -23,10 +23,11 @@ import (
 )
 
 type Config struct {
-	Logger         *slog.Logger
-	FDBClusterFile string
-	FirehoseURL    string
-	ProxyHost      string
+	Logger            *slog.Logger
+	FDBClusterFile    string
+	FirehoseURL       string
+	ProxyHost         string
+	CollectionDirHost string
 }
 
 type Server struct {
@@ -121,6 +122,7 @@ func (s *Server) router() *echo.Echo {
 	// xrpc handlers
 	e.GET("/xrpc/_health", s.handleHealth)
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.handleSubscribeRepos)
+	e.GET("/xrpc/com.atproto.sync.listReposByCollection", s.proxyToCollectionDir)
 
 	// Proxy all other xrpc and admin requests to upstream
 	e.Any("/xrpc/*", s.proxyToUpstream)
