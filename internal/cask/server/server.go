@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"go.opentelemetry.io/otel"
 	"golang.org/x/sync/errgroup"
 )
@@ -28,15 +30,18 @@ type Config struct {
 	FirehoseURL       string
 	ProxyHost         string
 	CollectionDirHost string
+	UserAgent         string
+	NextCrawlers      []string
 }
 
 type Server struct {
 	cfg Config
 	log *slog.Logger
 
-	echo          *echo.Echo
-	metricsServer *http.Server
-	httpClient    *http.Client
+	echo            *echo.Echo
+	metricsServer   *http.Server
+	httpClient      *http.Client
+	nextCrawlerURLs []string
 
 	db             *foundation.DB
 	models         *models.Models
@@ -72,14 +77,31 @@ func New(ctx context.Context, config Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to init models: %w", err)
 	}
 
+	// Validate and store next-crawler URLs
+	var nextCrawlers []string
+	for _, raw := range config.NextCrawlers {
+		if raw == "" {
+			continue
+		}
+		u, err := url.Parse(raw)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse next-crawler url %q: %w", raw, err)
+		}
+		if u.Host == "" {
+			return nil, fmt.Errorf("empty URL host for next crawler: %s", raw)
+		}
+		nextCrawlers = append(nextCrawlers, raw)
+	}
+
 	s := &Server{
-		cfg:           config,
-		log:           config.Logger,
-		httpClient:    &http.Client{},
-		db:            db,
-		models:        m,
-		consumerMu:    &sync.Mutex{},
-		subscribersMu: &sync.Mutex{},
+		cfg:             config,
+		log:             config.Logger,
+		httpClient:      &http.Client{},
+		nextCrawlerURLs: nextCrawlers,
+		db:              db,
+		models:          m,
+		consumerMu:      &sync.Mutex{},
+		subscribersMu:   &sync.Mutex{},
 	}
 
 	s.leaderElection, err = leader.New(db, []string{"firehoseLeader"}, leader.LeaderElectionConfig{
@@ -111,6 +133,22 @@ func (s *Server) router() *echo.Echo {
 	e.HideBanner = true
 	e.HidePort = true
 
+	// CORS middleware - allow all origins for browser-based clients
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+	}))
+
+	// Custom Server header middleware
+	if s.cfg.UserAgent != "" {
+		e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				c.Response().Header().Set(echo.HeaderServer, s.cfg.UserAgent)
+				return next(c)
+			}
+		})
+	}
+
 	e.Use(svcutil.MetricsMiddleware)
 	e.HTTPErrorHandler = s.errorHandler
 
@@ -123,6 +161,13 @@ func (s *Server) router() *echo.Echo {
 	e.GET("/xrpc/_health", s.handleHealth)
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.handleSubscribeRepos)
 	e.GET("/xrpc/com.atproto.sync.listReposByCollection", s.proxyToCollectionDir)
+
+	// requestCrawl - either forward to multiple crawlers or just proxy to upstream
+	if len(s.nextCrawlerURLs) > 0 {
+		e.POST("/xrpc/com.atproto.sync.requestCrawl", s.handleRequestCrawl)
+	} else {
+		e.POST("/xrpc/com.atproto.sync.requestCrawl", s.proxyToUpstream)
+	}
 
 	// Proxy all other xrpc and admin requests to upstream
 	e.Any("/xrpc/*", s.proxyToUpstream)

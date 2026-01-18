@@ -1,10 +1,14 @@
 package server
 
 import (
+	"bytes"
+	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
 )
@@ -49,6 +53,80 @@ func (s *Server) proxyToCollectionDir(c echo.Context) error {
 	}
 
 	return s.proxyRequest(c, u.Host, u.Scheme)
+}
+
+// handleRequestCrawl handles com.atproto.sync.requestCrawl by first forwarding to upstream,
+// then async-forwarding to all configured next-crawlers.
+func (s *Server) handleRequestCrawl(c echo.Context) error {
+	// Read and parse the request body
+	body, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{
+			ErrStr:  "BadRequest",
+			Message: fmt.Sprintf("failed to read request body: %s", err),
+		})
+	}
+
+	var input comatproto.SyncRequestCrawl_Input
+	if err := c.Bind(&input); err != nil {
+		// Reset body for binding since we already read it
+		c.Request().Body = io.NopCloser(bytes.NewReader(body))
+		if err := c.Bind(&input); err != nil {
+			return c.JSON(http.StatusBadRequest, xrpc.XRPCError{
+				ErrStr:  "BadRequest",
+				Message: fmt.Sprintf("invalid body: %s", err),
+			})
+		}
+	}
+	if input.Hostname == "" {
+		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{
+			ErrStr:  "BadRequest",
+			Message: "must include a hostname",
+		})
+	}
+
+	// First forward to upstream
+	if s.cfg.ProxyHost != "" {
+		xrpcc := xrpc.Client{
+			Client: s.httpClient,
+			Host:   s.cfg.ProxyHost,
+		}
+		if s.cfg.UserAgent != "" {
+			xrpcc.UserAgent = &s.cfg.UserAgent
+		}
+
+		if err := comatproto.SyncRequestCrawl(c.Request().Context(), &xrpcc, &input); err != nil {
+			if httpErr, ok := err.(*xrpc.Error); ok {
+				return c.JSON(httpErr.StatusCode, xrpc.XRPCError{
+					ErrStr:  "UpstreamError",
+					Message: fmt.Sprintf("%s", httpErr.Wrapped),
+				})
+			}
+			return c.JSON(http.StatusInternalServerError, xrpc.XRPCError{
+				ErrStr:  "ProxyRequestFailed",
+				Message: fmt.Sprintf("failed forwarding request: %s", err),
+			})
+		}
+	}
+
+	// Forward to all next-crawlers asynchronously
+	for _, crawler := range s.nextCrawlerURLs {
+		crawlerURL := crawler
+		go func() {
+			ctx := context.Background()
+			xrpcc := xrpc.Client{
+				Client: s.httpClient,
+				Host:   crawlerURL,
+			}
+			if err := comatproto.SyncRequestCrawl(ctx, &xrpcc, &input); err != nil {
+				s.log.Warn("failed to forward requestCrawl", "crawler", crawlerURL, "targetHost", input.Hostname, "err", err)
+			} else {
+				s.log.Debug("forwarded requestCrawl", "crawler", crawlerURL, "targetHost", input.Hostname)
+			}
+		}()
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{"success": true})
 }
 
 // proxyRequest proxies an HTTP request to the specified host.

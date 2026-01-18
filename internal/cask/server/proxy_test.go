@@ -235,3 +235,49 @@ func TestProxyToCollectionDir_Success(t *testing.T) {
 	require.Equal(t, "application/json", rec.Header().Get("Content-Type"))
 	require.Contains(t, rec.Body.String(), "did:plc:123")
 }
+
+func TestHandleRequestCrawl_NoHostname(t *testing.T) {
+	s := &Server{
+		cfg: Config{},
+	}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/xrpc/com.atproto.sync.requestCrawl", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := s.handleRequestCrawl(c)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Contains(t, rec.Body.String(), "must include a hostname")
+}
+
+func TestHandleRequestCrawl_ForwardsToUpstream(t *testing.T) {
+	upstreamCalled := false
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamCalled = true
+		require.Equal(t, "/xrpc/com.atproto.sync.requestCrawl", r.URL.Path)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+
+	s := &Server{
+		cfg: Config{
+			ProxyHost: upstream.URL,
+		},
+		httpClient: upstream.Client(),
+	}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/xrpc/com.atproto.sync.requestCrawl", strings.NewReader(`{"hostname":"test.pds.com"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := s.handleRequestCrawl(c)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.True(t, upstreamCalled)
+	require.Contains(t, rec.Body.String(), "success")
+}

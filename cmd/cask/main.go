@@ -86,6 +86,17 @@ func run(args []string) error {
 						Usage:   "HTTP host for listReposByCollection endpoint",
 						Sources: cli.EnvVars("CASK_COLLECTIONDIR_HOST"),
 					},
+					&cli.StringFlag{
+						Name:    "user-agent",
+						Usage:   "User agent string for Server header",
+						Value:   "cask/0.1",
+						Sources: cli.EnvVars("CASK_USER_AGENT"),
+					},
+					&cli.StringSliceFlag{
+						Name:    "next-crawler",
+						Usage:   "Additional crawler hosts to forward requestCrawl to (can be specified multiple times)",
+						Sources: cli.EnvVars("CASK_NEXT_CRAWLERS"),
+					},
 				},
 			},
 		},
@@ -112,6 +123,8 @@ func runServer(ctx context.Context, cmd *cli.Command) error {
 		FirehoseURL:       cmd.String("firehose-url"),
 		ProxyHost:         cmd.String("proxy-host"),
 		CollectionDirHost: cmd.String("collectiondir-host"),
+		UserAgent:         cmd.String("user-agent"),
+		NextCrawlers:      cmd.StringSlice("next-crawler"),
 	})
 	if err != nil {
 		return err
