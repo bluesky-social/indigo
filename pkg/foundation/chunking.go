@@ -3,6 +3,7 @@ package foundation
 import (
 	"encoding/binary"
 	"fmt"
+	"sync"
 
 	"github.com/klauspost/compress/zstd"
 )
@@ -46,6 +47,10 @@ type Chunker struct {
 
 	encoder *zstd.Encoder
 	decoder *zstd.Decoder
+
+	// Buffer pools to reduce allocations
+	compressPool   sync.Pool // for compression output buffers
+	reassemblePool sync.Pool // for reassembly buffers
 }
 
 // NewChunker creates a new Chunker with the given configuration.
@@ -70,8 +75,29 @@ func NewChunker(cfg *ChunkerConfig) *Chunker {
 	}
 
 	// zstd encoder/decoder are safe for concurrent use
-	c.encoder, _ = zstd.NewWriter(nil, zstd.WithEncoderLevel(zstd.SpeedDefault))
-	c.decoder, _ = zstd.NewReader(nil)
+	c.encoder, _ = zstd.NewWriter(nil,
+		zstd.WithEncoderLevel(zstd.SpeedDefault),
+		zstd.WithEncoderConcurrency(1), // Single-threaded per call, but encoder itself is reusable
+	)
+	c.decoder, _ = zstd.NewReader(nil,
+		zstd.WithDecoderConcurrency(1),
+	)
+
+	// Initialize pools with reasonable starting sizes
+	c.compressPool = sync.Pool{
+		New: func() any {
+			// Start with compression threshold size - most common case
+			buf := make([]byte, 0, c.compressionThreshold)
+			return &buf
+		},
+	}
+	c.reassemblePool = sync.Pool{
+		New: func() any {
+			// Start with chunk size - typical reassembly size
+			buf := make([]byte, 0, c.chunkSize)
+			return &buf
+		},
+	}
 
 	return c
 }
@@ -107,6 +133,14 @@ func (h *ChunkHeader) Encode() []byte {
 	return buf
 }
 
+// EncodeInto writes the chunk header into an existing byte slice.
+// The slice must have at least ChunkHeaderSize bytes.
+func (h *ChunkHeader) EncodeInto(buf []byte) {
+	buf[0] = h.Flags
+	binary.BigEndian.PutUint16(buf[1:3], h.TotalChunks)
+	binary.BigEndian.PutUint32(buf[3:7], h.UncompressedSize)
+}
+
 // DecodeChunkHeader reads a chunk header from a byte slice
 func DecodeChunkHeader(data []byte) (*ChunkHeader, error) {
 	if len(data) < ChunkHeaderSize {
@@ -119,19 +153,70 @@ func DecodeChunkHeader(data []byte) (*ChunkHeader, error) {
 	}, nil
 }
 
+// getCompressBuffer gets a buffer from the pool, ensuring it has sufficient capacity
+func (c *Chunker) getCompressBuffer(size int) []byte {
+	bufPtr, ok := c.compressPool.Get().(*[]byte)
+	if !ok || bufPtr == nil {
+		return make([]byte, 0, size)
+	}
+	buf := *bufPtr
+	if cap(buf) < size {
+		// Need a larger buffer
+		return make([]byte, 0, size)
+	}
+	return buf[:0]
+}
+
+// putCompressBuffer returns a buffer to the pool
+func (c *Chunker) putCompressBuffer(buf []byte) {
+	// Only pool reasonably-sized buffers to avoid memory bloat
+	if cap(buf) <= c.maxBatchBytes {
+		c.compressPool.Put(&buf)
+	}
+}
+
+// getReassembleBuffer gets a buffer from the pool, ensuring it has sufficient capacity
+func (c *Chunker) getReassembleBuffer(size int) []byte {
+	bufPtr, ok := c.reassemblePool.Get().(*[]byte)
+	if !ok || bufPtr == nil {
+		return make([]byte, 0, size)
+	}
+	buf := *bufPtr
+	if cap(buf) < size {
+		return make([]byte, 0, size)
+	}
+	return buf[:0]
+}
+
+// putReassembleBuffer returns a buffer to the pool
+func (c *Chunker) putReassembleBuffer(buf []byte) {
+	if cap(buf) <= c.maxBatchBytes {
+		c.reassemblePool.Put(&buf)
+	}
+}
+
 // ChunkData splits data into chunks for storage. If the data exceeds the compression
 // threshold, it will be compressed first. Returns the chunks (first chunk includes header).
 func (c *Chunker) ChunkData(data []byte) ([][]byte, error) {
 	originalSize := len(data)
 	compressed := false
+	var compressBuf []byte
 
 	// Compress if over threshold
 	if len(data) >= c.compressionThreshold {
-		compressedData := c.encoder.EncodeAll(data, nil)
+		// Get a buffer from pool for compression output
+		// Estimate: compressed size is usually smaller than original
+		compressBuf = c.getCompressBuffer(len(data))
+		compressedData := c.encoder.EncodeAll(data, compressBuf)
+
 		// Only use compressed version if it's actually smaller
 		if len(compressedData) < len(data) {
 			data = compressedData
 			compressed = true
+		} else {
+			// Compression didn't help, return buffer to pool
+			c.putCompressBuffer(compressBuf)
+			compressBuf = nil
 		}
 	}
 
@@ -139,18 +224,24 @@ func (c *Chunker) ChunkData(data []byte) ([][]byte, error) {
 	// First chunk has header overhead, so it holds less data
 	firstChunkDataSize := c.chunkSize - ChunkHeaderSize
 	if len(data) <= firstChunkDataSize {
-		// Single chunk
-		header := &ChunkHeader{
+		// Single chunk - most common case, optimize for it
+		chunk := make([]byte, ChunkHeaderSize+len(data))
+
+		header := ChunkHeader{
 			TotalChunks:      1,
 			UncompressedSize: uint32(originalSize),
 		}
 		if compressed {
 			header.Flags |= FlagCompressed
 		}
+		header.EncodeInto(chunk)
+		copy(chunk[ChunkHeaderSize:], data)
 
-		chunk := make([]byte, 0, ChunkHeaderSize+len(data))
-		chunk = append(chunk, header.Encode()...)
-		chunk = append(chunk, data...)
+		// Return compression buffer to pool if we used one
+		if compressBuf != nil {
+			c.putCompressBuffer(compressBuf)
+		}
+
 		return [][]byte{chunk}, nil
 	}
 
@@ -160,10 +251,13 @@ func (c *Chunker) ChunkData(data []byte) ([][]byte, error) {
 	totalChunks := 1 + additionalChunks
 
 	if totalChunks > 65535 {
+		if compressBuf != nil {
+			c.putCompressBuffer(compressBuf)
+		}
 		return nil, fmt.Errorf("data too large: would require %d chunks (max 65535)", totalChunks)
 	}
 
-	header := &ChunkHeader{
+	header := ChunkHeader{
 		TotalChunks:      uint16(totalChunks),
 		UncompressedSize: uint32(originalSize),
 	}
@@ -171,20 +265,27 @@ func (c *Chunker) ChunkData(data []byte) ([][]byte, error) {
 		header.Flags |= FlagCompressed
 	}
 
-	chunks := make([][]byte, 0, totalChunks)
+	chunks := make([][]byte, totalChunks)
 
 	// First chunk with header
-	firstChunk := make([]byte, 0, c.chunkSize)
-	firstChunk = append(firstChunk, header.Encode()...)
-	firstChunk = append(firstChunk, data[:firstChunkDataSize]...)
-	chunks = append(chunks, firstChunk)
+	firstChunk := make([]byte, ChunkHeaderSize+firstChunkDataSize)
+	header.EncodeInto(firstChunk)
+	copy(firstChunk[ChunkHeaderSize:], data[:firstChunkDataSize])
+	chunks[0] = firstChunk
 
-	// Remaining chunks
+	// Remaining chunks - copy data to ensure independence from source buffer
 	offset := firstChunkDataSize
-	for offset < len(data) {
+	for i := 1; i < totalChunks; i++ {
 		end := min(offset+c.chunkSize, len(data))
-		chunks = append(chunks, data[offset:end])
+		chunkData := make([]byte, end-offset)
+		copy(chunkData, data[offset:end])
+		chunks[i] = chunkData
 		offset = end
+	}
+
+	// Return compression buffer to pool
+	if compressBuf != nil {
+		c.putCompressBuffer(compressBuf)
 	}
 
 	return chunks, nil
@@ -207,9 +308,15 @@ func (c *Chunker) ReassembleChunks(chunks [][]byte) ([]byte, error) {
 		return nil, fmt.Errorf("chunk count mismatch: header says %d, got %d", header.TotalChunks, len(chunks))
 	}
 
-	// Reassemble data
-	// Estimate total size (compressed size unknown, but we can grow as needed)
-	var data []byte
+	// Calculate total compressed size for pre-allocation
+	compressedSize := 0
+	for _, chunk := range chunks {
+		compressedSize += len(chunk)
+	}
+	compressedSize -= ChunkHeaderSize // First chunk has header
+
+	// Pre-allocate reassembly buffer
+	data := c.getReassembleBuffer(compressedSize)
 
 	// First chunk data (after header)
 	data = append(data, chunks[0][ChunkHeaderSize:]...)
@@ -221,10 +328,16 @@ func (c *Chunker) ReassembleChunks(chunks [][]byte) ([]byte, error) {
 
 	// Decompress if needed
 	if header.Flags&FlagCompressed != 0 {
-		decompressed, err := c.decoder.DecodeAll(data, nil)
+		// Pre-allocate decompression buffer with known uncompressed size
+		decompressBuf := make([]byte, 0, header.UncompressedSize)
+		decompressed, err := c.decoder.DecodeAll(data, decompressBuf)
 		if err != nil {
+			c.putReassembleBuffer(data)
 			return nil, fmt.Errorf("failed to decompress data: %w", err)
 		}
+
+		// Return the compressed data buffer to pool
+		c.putReassembleBuffer(data)
 		data = decompressed
 	}
 
