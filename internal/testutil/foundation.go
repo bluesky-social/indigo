@@ -22,7 +22,7 @@ func repoRoot() string {
 	return filepath.Dir(filepath.Dir(filepath.Dir(thisFile)))
 }
 
-func TestDB(t *testing.T) *foundation.DB {
+func TestFoundationDB(t *testing.T) *foundation.DB {
 	tracer := otel.Tracer("test")
 
 	var err error

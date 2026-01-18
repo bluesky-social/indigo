@@ -24,7 +24,7 @@ const (
 
 func testDB(t *testing.T) *foundation.DB {
 	t.Helper()
-	return testutil.TestDB(t)
+	return testutil.TestFoundationDB(t)
 }
 
 func testDirPath(t *testing.T) []string {

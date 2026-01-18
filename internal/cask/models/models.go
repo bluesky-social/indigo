@@ -24,8 +24,14 @@ func NewWithPrefix(db *foundation.DB, prefix string) (*Models, error) {
 		db: db,
 	}
 
+	// Build directory path, optionally prefixed for test isolation
+	dirPath := []string{"firehose_events"}
+	if prefix != "" {
+		dirPath = []string{prefix, "firehose_events"}
+	}
+
 	var err error
-	m.events, err = directory.CreateOrOpen(m.db.Database, []string{"firehose_events"}, nil)
+	m.events, err = directory.CreateOrOpen(m.db.Database, dirPath, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create firehose_events directory: %w", err)
 	}
