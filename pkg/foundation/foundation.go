@@ -32,12 +32,17 @@ type Config struct {
 	APIVersion      int
 	ClusterFilePath string
 	RetryLimit      int64
+
+	// Chunker configures how large values are split for storage.
+	// If nil, default chunking settings are used.
+	Chunker *ChunkerConfig
 }
 
 type DB struct {
 	*fdb.Database
 
-	Tracer trace.Tracer
+	Tracer  trace.Tracer
+	Chunker *Chunker
 }
 
 func New(ctx context.Context, service string, cfg *Config) (*DB, error) {
@@ -72,7 +77,11 @@ func New(ctx context.Context, service string, cfg *Config) (*DB, error) {
 		return nil, fmt.Errorf("failed to set fdb transaction retry limit: %w", err)
 	}
 
-	d := &DB{Database: &db, Tracer: cfg.Tracer}
+	d := &DB{
+		Database: &db,
+		Tracer:   cfg.Tracer,
+		Chunker:  NewChunker(cfg.Chunker),
+	}
 
 	// check that the connection can be established
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)

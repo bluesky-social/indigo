@@ -235,18 +235,3 @@ func (c *Chunker) ReassembleChunks(chunks [][]byte) ([]byte, error) {
 
 	return data, nil
 }
-
-// DefaultChunker is the package-level chunker with default configuration
-var DefaultChunker = NewChunker(nil)
-
-// ChunkData splits data into chunks using the default chunker.
-// This is a convenience function; for custom configuration, create a Chunker instance.
-func ChunkData(data []byte) ([][]byte, error) {
-	return DefaultChunker.ChunkData(data)
-}
-
-// ReassembleChunks reconstructs data from chunks using the default chunker.
-// This is a convenience function; for custom configuration, create a Chunker instance.
-func ReassembleChunks(chunks [][]byte) ([]byte, error) {
-	return DefaultChunker.ReassembleChunks(chunks)
-}

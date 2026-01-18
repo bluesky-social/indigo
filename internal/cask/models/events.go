@@ -39,7 +39,7 @@ func (m *Models) WriteEvent(ctx context.Context, event *prototypes.FirehoseEvent
 	}
 
 	// Chunk the data (handles compression automatically for large events)
-	chunks, err := foundation.ChunkData(eventBuf)
+	chunks, err := m.db.Chunker.ChunkData(eventBuf)
 	if err != nil {
 		return fmt.Errorf("failed to chunk event data: %w", err)
 	}
@@ -136,7 +136,7 @@ func (m *Models) GetLatestUpstreamSeq(ctx context.Context) (seq int64, err error
 			return nil, nil // no events yet
 		}
 
-		return foundation.ReassembleChunks(chunks)
+		return m.db.Chunker.ReassembleChunks(chunks)
 	})
 	if err != nil {
 		return 0, err
@@ -258,7 +258,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 			// Check if this is a new event (different versionstamp)
 			if currentVersionstamp != nil && !slices.Equal(versionstamp, currentVersionstamp) {
 				// Reassemble and process the previous event
-				eventData, err := foundation.ReassembleChunks(currentChunks)
+				eventData, err := m.db.Chunker.ReassembleChunks(currentChunks)
 				if err != nil {
 					return nil, fmt.Errorf("failed to reassemble chunks: %w", err)
 				}
@@ -272,7 +272,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 				lastVersionstamp = currentVersionstamp
 
 				// Check limits
-				if len(events) >= limit || accumulatedBytes >= foundation.DefaultMaxBatchBytes {
+				if len(events) >= limit || accumulatedBytes >= m.db.Chunker.MaxBatchBytes() {
 					return &result{events: events, nextCursor: lastVersionstamp}, nil
 				}
 
@@ -286,7 +286,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 
 		// Process the last event if we have chunks
 		if len(currentChunks) > 0 {
-			eventData, err := foundation.ReassembleChunks(currentChunks)
+			eventData, err := m.db.Chunker.ReassembleChunks(currentChunks)
 			if err != nil {
 				return nil, fmt.Errorf("failed to reassemble chunks: %w", err)
 			}
