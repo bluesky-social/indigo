@@ -42,6 +42,11 @@ type Server struct {
 
 	consumerMu     sync.Mutex
 	consumerCancel context.CancelFunc
+
+	// Subscriber tracking
+	subscribersMu    sync.Mutex
+	subscribers      map[uint64]*subscriber
+	nextSubscriberID uint64
 }
 
 func New(ctx context.Context, config Config) (*Server, error) {
@@ -99,6 +104,7 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 
 	// xrpc handlers
 	e.GET("/xrpc/_health", s.handleHealth)
+	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.handleSubscribeRepos)
 
 	s.echo = e
 

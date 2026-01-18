@@ -237,3 +237,235 @@ func TestCursorIsVersionstamp(t *testing.T) {
 	// Cursor should be exactly 10 bytes (versionstamp length)
 	require.Len(t, cursor, versionstampLength)
 }
+
+func TestGetEventsAfterSeq_Basic(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	m := testModels(t)
+
+	// Write events with sequential upstream seqs
+	for i := range 5 {
+		event := &prototypes.FirehoseEvent{
+			UpstreamSeq: int64(100 + i),
+			EventType:   "#commit",
+			RawEvent:    []byte("event data"),
+		}
+		err := m.WriteEvent(ctx, event)
+		require.NoError(t, err)
+	}
+
+	// Get events after seq 101 (should return 102, 103, 104)
+	events, cursor, err := m.GetEventsAfterSeq(ctx, 101, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 3)
+	require.NotEmpty(t, cursor)
+
+	require.Equal(t, int64(102), events[0].UpstreamSeq)
+	require.Equal(t, int64(103), events[1].UpstreamSeq)
+	require.Equal(t, int64(104), events[2].UpstreamSeq)
+}
+
+func TestGetEventsAfterSeq_WithGaps(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	m := testModels(t)
+
+	// Write events with gaps: 1000, 1005, 1010
+	seqs := []int64{1000, 1005, 1010}
+	for _, seq := range seqs {
+		event := &prototypes.FirehoseEvent{
+			UpstreamSeq: seq,
+			EventType:   "#commit",
+			RawEvent:    []byte("event data"),
+		}
+		err := m.WriteEvent(ctx, event)
+		require.NoError(t, err)
+	}
+
+	// Request cursor=1002 (doesn't exist, should floor to 1000)
+	// Should return events after 1000: 1005, 1010
+	events, cursor, err := m.GetEventsAfterSeq(ctx, 1002, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 2)
+	require.NotEmpty(t, cursor)
+
+	require.Equal(t, int64(1005), events[0].UpstreamSeq)
+	require.Equal(t, int64(1010), events[1].UpstreamSeq)
+}
+
+func TestGetEventsAfterSeq_CursorMatchesExactly(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	m := testModels(t)
+
+	// Write events with gaps: 1000, 1005, 1010
+	seqs := []int64{1000, 1005, 1010}
+	for _, seq := range seqs {
+		event := &prototypes.FirehoseEvent{
+			UpstreamSeq: seq,
+			EventType:   "#commit",
+			RawEvent:    []byte("event data"),
+		}
+		err := m.WriteEvent(ctx, event)
+		require.NoError(t, err)
+	}
+
+	// Request cursor=1005 (exact match)
+	// Should return events after 1005: just 1010
+	events, cursor, err := m.GetEventsAfterSeq(ctx, 1005, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	require.NotEmpty(t, cursor)
+
+	require.Equal(t, int64(1010), events[0].UpstreamSeq)
+}
+
+func TestGetEventsAfterSeq_CursorBeforeAllEvents(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	m := testModels(t)
+
+	// Write events starting at 100
+	for i := range 3 {
+		event := &prototypes.FirehoseEvent{
+			UpstreamSeq: int64(100 + i),
+			EventType:   "#commit",
+			RawEvent:    []byte("event data"),
+		}
+		err := m.WriteEvent(ctx, event)
+		require.NoError(t, err)
+	}
+
+	// Request cursor=50 (before all events)
+	// Floor lookup finds nothing, so we start from beginning
+	events, cursor, err := m.GetEventsAfterSeq(ctx, 50, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 3)
+	require.NotEmpty(t, cursor)
+
+	require.Equal(t, int64(100), events[0].UpstreamSeq)
+	require.Equal(t, int64(101), events[1].UpstreamSeq)
+	require.Equal(t, int64(102), events[2].UpstreamSeq)
+}
+
+func TestGetEventsAfterSeq_CursorAfterAllEvents(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	m := testModels(t)
+
+	// Write events up to 104
+	for i := range 5 {
+		event := &prototypes.FirehoseEvent{
+			UpstreamSeq: int64(100 + i),
+			EventType:   "#commit",
+			RawEvent:    []byte("event data"),
+		}
+		err := m.WriteEvent(ctx, event)
+		require.NoError(t, err)
+	}
+
+	// Request cursor=104 (the last event)
+	// Should return nothing (no events after 104)
+	events, cursor, err := m.GetEventsAfterSeq(ctx, 104, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 0)
+	require.Empty(t, cursor)
+
+	// Request cursor=200 (way past all events)
+	// Floor lookup finds 104, but there's nothing after it
+	events, cursor, err = m.GetEventsAfterSeq(ctx, 200, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 0)
+	require.Empty(t, cursor)
+}
+
+func TestGetEventsAfterSeq_EmptyDatabase(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	m := testModels(t)
+
+	// Request any cursor on empty database
+	events, cursor, err := m.GetEventsAfterSeq(ctx, 100, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 0)
+	require.Empty(t, cursor)
+}
+
+func TestGetEventsAfterSeq_Pagination(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	m := testModels(t)
+
+	// Write 10 events
+	for i := range 10 {
+		event := &prototypes.FirehoseEvent{
+			UpstreamSeq: int64(100 + i),
+			EventType:   "#commit",
+			RawEvent:    []byte("event data"),
+		}
+		err := m.WriteEvent(ctx, event)
+		require.NoError(t, err)
+	}
+
+	// Get first 3 events after seq 99 (should get 100, 101, 102)
+	events, cursor, err := m.GetEventsAfterSeq(ctx, 99, 3)
+	require.NoError(t, err)
+	require.Len(t, events, 3)
+	require.NotEmpty(t, cursor)
+
+	require.Equal(t, int64(100), events[0].UpstreamSeq)
+	require.Equal(t, int64(102), events[2].UpstreamSeq)
+
+	// Use returned cursor with GetEventsSince for continuation
+	events, cursor, err = m.GetEventsSince(ctx, cursor, 3)
+	require.NoError(t, err)
+	require.Len(t, events, 3)
+	require.NotEmpty(t, cursor)
+
+	require.Equal(t, int64(103), events[0].UpstreamSeq)
+	require.Equal(t, int64(105), events[2].UpstreamSeq)
+}
+
+func TestCursorIndex_WrittenCorrectly(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	m := testModels(t)
+
+	// Write an event
+	event := &prototypes.FirehoseEvent{
+		UpstreamSeq: 12345,
+		EventType:   "#commit",
+		RawEvent:    []byte("test"),
+	}
+	err := m.WriteEvent(ctx, event)
+	require.NoError(t, err)
+
+	// Get the versionstamp via GetEventsSince
+	events, vsCursor, err := m.GetEventsSince(ctx, nil, 1)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	require.Len(t, vsCursor, versionstampLength)
+
+	// Now use GetEventsAfterSeq with the exact seq - should use cursor index
+	// and return no events (since we're asking for events AFTER 12345)
+	events, _, err = m.GetEventsAfterSeq(ctx, 12345, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 0)
+
+	// Ask for events after 12344 - should return our event
+	events, indexCursor, err := m.GetEventsAfterSeq(ctx, 12344, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	require.Equal(t, int64(12345), events[0].UpstreamSeq)
+
+	// The cursor returned should be the same versionstamp
+	require.Equal(t, vsCursor, indexCursor)
+}

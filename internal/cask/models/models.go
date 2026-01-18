@@ -13,6 +13,11 @@ type Models struct {
 	// Primary index: events keyed by versionstamp for global ordering
 	// Key: (versionstamp), Value: serialized FirehoseEvent
 	events directory.DirectorySubspace
+
+	// Secondary index: maps upstream sequence number to versionstamp
+	// Key: (upstream_seq as big-endian int64), Value: versionstamp (10 bytes)
+	// This allows O(1) lookup for cursor positioning instead of O(n) scan
+	cursorIndex directory.DirectorySubspace
 }
 
 func New(db *foundation.DB) (*Models, error) {
@@ -24,16 +29,23 @@ func NewWithPrefix(db *foundation.DB, prefix string) (*Models, error) {
 		db: db,
 	}
 
-	// Build directory path, optionally prefixed for test isolation
-	dirPath := []string{"firehose_events"}
+	// Build directory paths, optionally prefixed for test isolation
+	eventsPath := []string{"firehose_events"}
+	cursorIndexPath := []string{"cursor_index"}
 	if prefix != "" {
-		dirPath = []string{prefix, "firehose_events"}
+		eventsPath = []string{prefix, "firehose_events"}
+		cursorIndexPath = []string{prefix, "cursor_index"}
 	}
 
 	var err error
-	m.events, err = directory.CreateOrOpen(m.db.Database, dirPath, nil)
+	m.events, err = directory.CreateOrOpen(m.db.Database, eventsPath, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create firehose_events directory: %w", err)
+	}
+
+	m.cursorIndex, err = directory.CreateOrOpen(m.db.Database, cursorIndexPath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cursor_index directory: %w", err)
 	}
 
 	return m, nil

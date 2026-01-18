@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
+	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 	"github.com/bluesky-social/indigo/pkg/foundation"
 	"github.com/bluesky-social/indigo/pkg/prototypes"
 	"go.opentelemetry.io/otel/attribute"
@@ -20,6 +21,7 @@ const (
 
 // WriteEvent writes a firehose event to FoundationDB with a versionstamped key.
 // The event will be assigned a sequence number by FDB's versionstamp at commit time.
+// It also writes a secondary index mapping upstream_seq -> versionstamp for O(1) cursor lookup.
 func (m *Models) WriteEvent(ctx context.Context, event *prototypes.FirehoseEvent) (err error) {
 	_, span, done := foundation.Observe(ctx, m.db, "WriteEvent")
 	defer func() { done(err) }()
@@ -54,18 +56,82 @@ func (m *Models) WriteEvent(ctx context.Context, event *prototypes.FirehoseEvent
 	//
 	// We pre-allocate the key slice to avoid accidentally mutating the prefix's
 	// backing array if it happens to have spare capacity.
-	key := make([]byte, 0, len(prefix)+14)
-	key = append(key, prefix...)
-	key = append(key, make([]byte, 10)...) // versionstamp placeholder (10 zero bytes)
-	key = binary.LittleEndian.AppendUint32(key, uint32(len(prefix)))
+	eventKey := make([]byte, 0, len(prefix)+14)
+	eventKey = append(eventKey, prefix...)
+	eventKey = append(eventKey, make([]byte, 10)...) // versionstamp placeholder (10 zero bytes)
+	eventKey = binary.LittleEndian.AppendUint32(eventKey, uint32(len(prefix)))
+
+	// Build the cursor index key: [cursor_index_prefix][upstream_seq as big-endian int64]
+	// Big-endian ensures lexicographic ordering matches numeric ordering.
+	cursorIndexKey := m.cursorIndex.Pack(tuple.Tuple{event.UpstreamSeq})
+
+	// Build the cursor index value with a versionstamp placeholder.
+	// SetVersionstampedValue expects: [10 zero bytes][4-byte little-endian offset]
+	// The offset is 0 because the versionstamp should be at the start of the value.
+	cursorIndexValue := make([]byte, 14)
+	// First 10 bytes are already zero (versionstamp placeholder)
+	// Last 4 bytes are offset (0 in little-endian, which is also all zeros)
+	// So the entire 14-byte slice is already correct as zero-initialized
 
 	_, err = foundation.Transaction(m.db, func(tx fdb.Transaction) (any, error) {
 		// Write the event with a versionstamped key. At commit time, FDB atomically
 		// assigns the versionstamp, ensuring this event gets a unique sequence number.
-		tx.SetVersionstampedKey(fdb.Key(key), eventBuf)
+		tx.SetVersionstampedKey(fdb.Key(eventKey), eventBuf)
+
+		// Write the cursor index with the same versionstamp as the value.
+		// This allows O(1) lookup: given an upstream_seq, we can find the versionstamp
+		// and then use GetEventsSince for efficient continuation.
+		tx.SetVersionstampedValue(cursorIndexKey, cursorIndexValue)
+
 		return nil, nil
 	})
 
+	return
+}
+
+// GetLatestUpstreamSeq returns the upstream sequence number from the most recent
+// event stored in FDB. This is used to resume consuming from the upstream firehose
+// after a restart. Returns 0 if no events exist. We use the term "upstream" to refer
+// to the upstream firehose server to which this cask instance points.
+func (m *Models) GetLatestUpstreamSeq(ctx context.Context) (seq int64, err error) {
+	_, span, done := foundation.Observe(ctx, m.db, "GetLatestUpstreamSeq")
+	defer func() { done(err) }()
+
+	var seqBuf []byte
+	seqBuf, err = foundation.ReadTransaction(m.db, func(tx fdb.ReadTransaction) ([]byte, error) {
+		// Read the last event by doing a reverse range scan with limit 1
+		start := m.events.FDBKey()
+		end := fdb.Key(append(m.events.Bytes(), 0xFF))
+		keyRange := fdb.KeyRange{Begin: start, End: end}
+
+		// Reverse=true gives us the last key first
+		iter := tx.GetRange(keyRange, fdb.RangeOptions{Limit: 1, Reverse: true}).Iterator()
+
+		if !iter.Advance() {
+			return nil, nil // no events yet
+		}
+
+		kv, err := iter.Get()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get latest event: %w", err)
+		}
+
+		return kv.Value, nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	if seqBuf == nil {
+		return 0, err // no events yet
+	}
+
+	var event prototypes.FirehoseEvent
+	if err := proto.Unmarshal(seqBuf, &event); err != nil {
+		return 0, fmt.Errorf("failed to unmarshal latest event: %w", err)
+	}
+
+	seq = event.UpstreamSeq
+	span.SetAttributes(attribute.Int64("latest_seq", seq))
 	return
 }
 
@@ -149,48 +215,71 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 	return
 }
 
-// GetLatestUpstreamSeq returns the upstream sequence number from the most recent
-// event stored in FDB. This is used to resume consuming from the upstream firehose
-// after a restart. Returns 0 if no events exist. We use the term "upstream" to refer
-// to the upstream firehose server to which this cask instance points.
-func (m *Models) GetLatestUpstreamSeq(ctx context.Context) (seq int64, err error) {
-	_, span, done := foundation.Observe(ctx, m.db, "GetLatestUpstreamSeq")
+// GetEventsAfterSeq retrieves events where upstream_seq > afterSeq.
+// This uses the cursor index for O(1) lookup of the versionstamp, then fetches
+// events starting from that position. After the initial seek, use GetEventsSince
+// with the returned versionstamp cursor for efficient continuation.
+func (m *Models) GetEventsAfterSeq(ctx context.Context, afterSeq int64, limit int) (events []*prototypes.FirehoseEvent, nextCursor []byte, err error) {
+	_, span, done := foundation.Observe(ctx, m.db, "GetEventsAfterSeq")
 	defer func() { done(err) }()
 
-	var seqBuf []byte
-	seqBuf, err = foundation.ReadTransaction(m.db, func(tx fdb.ReadTransaction) ([]byte, error) {
-		// Read the last event by doing a reverse range scan with limit 1
-		startKey := m.events.FDBKey()
-		endKey := fdb.Key(append(m.events.Bytes(), 0xFF))
+	span.SetAttributes(
+		attribute.Int64("after_seq", afterSeq),
+		attribute.Int("limit", limit),
+	)
+
+	// First, look up the versionstamp for the afterSeq cursor in the index
+	versionstamp, err := m.getVersionstampForSeq(ctx, afterSeq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to lookup cursor in index: %w", err)
+	}
+
+	// If we found a versionstamp, use GetEventsSince to get events after it
+	// If not found (cursor too old or doesn't exist), start from the beginning
+	return m.GetEventsSince(ctx, versionstamp, limit)
+}
+
+// getVersionstampForSeq looks up the versionstamp for the greatest upstream sequence
+// number that is <= the requested seq (floor lookup). This handles gaps in sequence
+// numbers - if the client requests cursor=1002 but we only have events 1000, 1005, 1010,
+// we return the versionstamp for seq=1000 so we can stream events after it.
+// Returns nil if no events exist with seq <= the requested value.
+func (m *Models) getVersionstampForSeq(ctx context.Context, seq int64) ([]byte, error) {
+	_, span, done := foundation.Observe(ctx, m.db, "getVersionstampForSeq")
+	var err error
+	defer func() { done(err) }()
+
+	span.SetAttributes(attribute.Int64("requested_seq", seq))
+
+	var versionstamp []byte
+	versionstamp, err = foundation.ReadTransaction(m.db, func(tx fdb.ReadTransaction) ([]byte, error) {
+		// Do a floor lookup: find the greatest key <= the requested seq.
+		// We scan from the beginning of the index up to (and including) the requested seq,
+		// in reverse order with limit 1.
+		startKey := m.cursorIndex.FDBKey()
+		// End key is exclusive, so we need seq+1 to include seq itself
+		endKey := m.cursorIndex.Pack(tuple.Tuple{seq + 1})
 
 		rng := fdb.KeyRange{Begin: startKey, End: endKey}
-		// Reverse=true gives us the last key first
 		iter := tx.GetRange(rng, fdb.RangeOptions{Limit: 1, Reverse: true}).Iterator()
 
 		if !iter.Advance() {
-			return nil, nil // no events yet
+			return nil, nil // no events with seq <= requested
 		}
 
 		kv, err := iter.Get()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get latest event: %w", err)
+			return nil, fmt.Errorf("failed to get cursor index entry: %w", err)
 		}
 
-		return kv.Value, nil
+		// The value is a 10-byte versionstamp (the 4-byte offset suffix was stripped by FDB)
+		if len(kv.Value) < versionstampLength {
+			return nil, fmt.Errorf("invalid versionstamp length in cursor index: %d", len(kv.Value))
+		}
+		return kv.Value[:versionstampLength], nil
 	})
-	if err != nil {
-		return 0, err
-	}
-	if seqBuf == nil {
-		return 0, err // no events yet
-	}
 
-	var event prototypes.FirehoseEvent
-	if err := proto.Unmarshal(seqBuf, &event); err != nil {
-		return 0, fmt.Errorf("failed to unmarshal latest event: %w", err)
-	}
+	span.SetAttributes(attribute.String("versionstamp", string(versionstamp)))
 
-	seq = event.UpstreamSeq
-	span.SetAttributes(attribute.Int64("latest_seq", seq))
-	return
+	return versionstamp, err
 }

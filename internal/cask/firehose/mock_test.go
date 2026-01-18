@@ -67,7 +67,7 @@ func (ff *fakeFirehose) handleRequest(w http.ResponseWriter, r *http.Request) {
 		ff.t.Logf("websocket upgrade failed: %v", err)
 		return
 	}
-	defer conn.Close() // nolint:errcheck
+	defer conn.Close() //nolint:errcheck
 
 	ff.mu.Lock()
 	events := append([][]byte{}, ff.events...) // Copy to avoid holding lock
@@ -145,7 +145,7 @@ func (ff *fakeFirehoseBlocking) Close() {
 	ff.mu.Unlock()
 
 	for _, conn := range conns {
-		conn.Close() // nolint:errcheck
+		conn.Close() //nolint:errcheck
 	}
 	ff.server.Close()
 }
