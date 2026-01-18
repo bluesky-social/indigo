@@ -6,9 +6,11 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sync"
 
 	_ "net/http/pprof"
 
+	"github.com/bluesky-social/indigo/internal/cask/firehose"
 	"github.com/bluesky-social/indigo/internal/cask/models"
 	"github.com/bluesky-social/indigo/pkg/foundation"
 	"github.com/bluesky-social/indigo/pkg/foundation/leader"
@@ -18,11 +20,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
+	"golang.org/x/sync/errgroup"
 )
 
 type Config struct {
 	Logger         *slog.Logger
 	FDBClusterFile string
+	FirehoseURL    string
 }
 
 type Server struct {
@@ -35,6 +39,9 @@ type Server struct {
 	db             *foundation.DB
 	models         *models.Models
 	leaderElection *leader.LeaderElection
+
+	consumerMu     sync.Mutex
+	consumerCancel context.CancelFunc
 }
 
 func New(ctx context.Context, config Config) (*Server, error) {
@@ -42,10 +49,9 @@ func New(ctx context.Context, config Config) (*Server, error) {
 	if err := metrics.InitTracing(ctx, service); err != nil {
 		return nil, fmt.Errorf("failed to init tracing: %w", err)
 	}
-	tr := otel.Tracer(service)
 
 	db, err := foundation.New(ctx, service, &foundation.Config{
-		Tracer:          tr,
+		Tracer:          otel.Tracer(service),
 		APIVersion:      730,
 		ClusterFilePath: config.FDBClusterFile,
 		RetryLimit:      100,
@@ -54,7 +60,7 @@ func New(ctx context.Context, config Config) (*Server, error) {
 		return nil, err
 	}
 
-	m, err := models.New(tr, db.Database)
+	m, err := models.New(db)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init models: %w", err)
 	}
@@ -105,31 +111,34 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 	return e.Start(addr)
 }
 
+// Gracefully stops the server process. If we're the leaseholder of the firehose consumer
+// lock, we stop the consumer and release the lease. Then, we stop the
 func (s *Server) Shutdown(ctx context.Context) error {
-	var shutdownErr error
+	s.stopConsumer()
+	s.leaderElection.Stop()
 
-	if s.leaderElection != nil {
-		s.leaderElection.Stop()
-	}
-
-	if s.echo != nil {
+	errs := errgroup.Group{}
+	errs.Go(func() error {
+		s.echo.Server.SetKeepAlivesEnabled(false)
 		if err := s.echo.Shutdown(ctx); err != nil {
 			s.log.Error("error shutting down API server", "error", err)
-			shutdownErr = err
+			return err
 		}
-	}
+		return nil
+	})
 
-	if s.metricsServer != nil {
-		s.metricsServer.SetKeepAlivesEnabled(false)
-		if err := s.metricsServer.Shutdown(ctx); err != nil {
-			s.log.Error("error shutting down metrics server", "error", err)
-			if shutdownErr == nil {
-				shutdownErr = err
+	errs.Go(func() error {
+		if s.metricsServer != nil {
+			s.metricsServer.SetKeepAlivesEnabled(false)
+			if err := s.metricsServer.Shutdown(ctx); err != nil {
+				s.log.Error("error shutting down metrics server", "error", err)
+				return err
 			}
 		}
-	}
+		return nil
+	})
 
-	return shutdownErr
+	return errs.Wait()
 }
 
 func (s *Server) errorHandler(err error, c echo.Context) {
@@ -181,10 +190,38 @@ func (s *Server) processID() string {
 
 func (s *Server) onBecameLeader(ctx context.Context) {
 	s.log.Info("became firehose leader, starting consumer")
-	// TODO: start firehose consumer
+	go s.startConsumer()
 }
 
 func (s *Server) onLostLeadership(ctx context.Context) {
 	s.log.Info("lost firehose leadership, stopping consumer")
-	// TODO: stop firehose consumer
+	s.stopConsumer()
+}
+
+// Starts the firehose consumer in a goroutine. This is invoked when the process
+// grabs the leader lock on a background goroutine.
+func (s *Server) startConsumer() {
+	s.consumerCancel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	s.consumerMu.Lock()
+	s.consumerCancel = cancel
+	s.consumerMu.Unlock()
+
+	consumer := firehose.NewConsumer(s.log, s.models, s.cfg.FirehoseURL)
+	if err := consumer.Run(ctx); err != nil {
+		s.log.Error("firehose consumer stopped unexpectedly", "error", err)
+	}
+}
+
+// Stops the firehose consumer, if running. This is called when the
+// process loses leadership.
+func (s *Server) stopConsumer() {
+	s.consumerMu.Lock()
+	defer s.consumerMu.Unlock()
+
+	if s.consumerCancel != nil {
+		s.consumerCancel()
+		s.consumerCancel = nil
+	}
 }

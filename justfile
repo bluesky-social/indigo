@@ -29,13 +29,13 @@ down:
 lint ARGS="./cmd/cask/... ./pkg/... ./internal/...":
     golangci-lint run --timeout 1m {{ARGS}}
 
-# Builds and runs the given Go executable
+# Builds and a go executable
 r CMD *ARGS:
     go run ./cmd/{{CMD}} {{ARGS}}
 
-# Builds and runs the given Go executable with the race detector enabled
+# Builds and runs a go executable with the race detector enabled
 run CMD *ARGS:
-    just r -race {{CMD}} {{ARGS}}
+    go run -race ./cmd/{{CMD}} {{ARGS}}
 
 # Runs the tests
 t *ARGS="./cmd/cask/... ./internal/... ./pkg/...":

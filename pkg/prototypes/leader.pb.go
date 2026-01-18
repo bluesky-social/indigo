@@ -91,6 +91,80 @@ func (x *FirehoseLeader) GetRenewedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+// FirehoseEvent wraps a raw ATProto firehose event for storage in FoundationDB.
+// Events are stored with versionstamped keys for global ordering.
+type FirehoseEvent struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Sequence number from the upstream firehose (for cursor tracking)
+	UpstreamSeq int64 `protobuf:"varint,1,opt,name=upstream_seq,json=upstreamSeq,proto3" json:"upstream_seq,omitempty"`
+	// The raw CBOR-encoded event bytes from the websocket (header + body)
+	RawEvent []byte `protobuf:"bytes,2,opt,name=raw_event,json=rawEvent,proto3" json:"raw_event,omitempty"`
+	// Timestamp when this event was received by cask
+	ReceivedAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=received_at,json=receivedAt,proto3" json:"received_at,omitempty"`
+	// Event type extracted from the header (e.g., "#commit", "#identity", "#account")
+	EventType     string `protobuf:"bytes,4,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FirehoseEvent) Reset() {
+	*x = FirehoseEvent{}
+	mi := &file_leader_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FirehoseEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FirehoseEvent) ProtoMessage() {}
+
+func (x *FirehoseEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_leader_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FirehoseEvent.ProtoReflect.Descriptor instead.
+func (*FirehoseEvent) Descriptor() ([]byte, []int) {
+	return file_leader_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *FirehoseEvent) GetUpstreamSeq() int64 {
+	if x != nil {
+		return x.UpstreamSeq
+	}
+	return 0
+}
+
+func (x *FirehoseEvent) GetRawEvent() []byte {
+	if x != nil {
+		return x.RawEvent
+	}
+	return nil
+}
+
+func (x *FirehoseEvent) GetReceivedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ReceivedAt
+	}
+	return nil
+}
+
+func (x *FirehoseEvent) GetEventType() string {
+	if x != nil {
+		return x.EventType
+	}
+	return ""
+}
+
 var File_leader_proto protoreflect.FileDescriptor
 
 const file_leader_proto_rawDesc = "" +
@@ -103,7 +177,14 @@ const file_leader_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x129\n" +
 	"\n" +
-	"renewed_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\trenewedAtB1Z/github.com/bluesky-social/indigo/pkg/prototypesb\x06proto3"
+	"renewed_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\trenewedAt\"\xab\x01\n" +
+	"\rFirehoseEvent\x12!\n" +
+	"\fupstream_seq\x18\x01 \x01(\x03R\vupstreamSeq\x12\x1b\n" +
+	"\traw_event\x18\x02 \x01(\fR\brawEvent\x12;\n" +
+	"\vreceived_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"receivedAt\x12\x1d\n" +
+	"\n" +
+	"event_type\x18\x04 \x01(\tR\teventTypeB1Z/github.com/bluesky-social/indigo/pkg/prototypesb\x06proto3"
 
 var (
 	file_leader_proto_rawDescOnce sync.Once
@@ -117,20 +198,22 @@ func file_leader_proto_rawDescGZIP() []byte {
 	return file_leader_proto_rawDescData
 }
 
-var file_leader_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_leader_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_leader_proto_goTypes = []any{
 	(*FirehoseLeader)(nil),        // 0: types.FirehoseLeader
-	(*timestamppb.Timestamp)(nil), // 1: google.protobuf.Timestamp
+	(*FirehoseEvent)(nil),         // 1: types.FirehoseEvent
+	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
 }
 var file_leader_proto_depIdxs = []int32{
-	1, // 0: types.FirehoseLeader.acquired_at:type_name -> google.protobuf.Timestamp
-	1, // 1: types.FirehoseLeader.expires_at:type_name -> google.protobuf.Timestamp
-	1, // 2: types.FirehoseLeader.renewed_at:type_name -> google.protobuf.Timestamp
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	2, // 0: types.FirehoseLeader.acquired_at:type_name -> google.protobuf.Timestamp
+	2, // 1: types.FirehoseLeader.expires_at:type_name -> google.protobuf.Timestamp
+	2, // 2: types.FirehoseLeader.renewed_at:type_name -> google.protobuf.Timestamp
+	2, // 3: types.FirehoseEvent.received_at:type_name -> google.protobuf.Timestamp
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_leader_proto_init() }
@@ -144,7 +227,7 @@ func file_leader_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_leader_proto_rawDesc), len(file_leader_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

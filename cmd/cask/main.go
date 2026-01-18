@@ -70,6 +70,12 @@ func run(args []string) error {
 						Value:   "/etc/foundationdb/fdb.cluster",
 						Sources: cli.EnvVars("CASK_FDB_CLUSTER_FILE", "FDB_CLUSTER_FILE"),
 					},
+					&cli.StringFlag{
+						Name:    "firehose-url",
+						Usage:   "upstream ATProto firehose websocket URL (e.g., wss://bsky.network)",
+						Value:   "wss://bsky.network",
+						Sources: cli.EnvVars("CASK_FIREHOSE_URL"),
+					},
 				},
 			},
 		},
@@ -93,6 +99,7 @@ func runServer(ctx context.Context, cmd *cli.Command) error {
 	srv, err := server.New(ctx, server.Config{
 		Logger:         logger,
 		FDBClusterFile: cmd.String("fdb-cluster-file"),
+		FirehoseURL:    cmd.String("firehose-url"),
 	})
 	if err != nil {
 		return err

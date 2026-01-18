@@ -1,24 +1,34 @@
 package models
 
 import (
-	"github.com/apple/foundationdb/bindings/go/src/fdb"
-	"go.opentelemetry.io/otel/trace"
+	"fmt"
+
+	"github.com/apple/foundationdb/bindings/go/src/fdb/directory"
+	"github.com/bluesky-social/indigo/pkg/foundation"
 )
 
 type Models struct {
-	tracer trace.Tracer
-	db     *fdb.Database
+	db *foundation.DB
+
+	// Primary index: events keyed by versionstamp for global ordering
+	// Key: (versionstamp), Value: serialized FirehoseEvent
+	events directory.DirectorySubspace
 }
 
-func New(tr trace.Tracer, db *fdb.Database) (*Models, error) {
-	return NewWithPrefix(tr, db, "")
+func New(db *foundation.DB) (*Models, error) {
+	return NewWithPrefix(db, "")
 }
 
-func NewWithPrefix(tr trace.Tracer, db *fdb.Database, prefix string) (*Models, error) {
-	models := &Models{
-		tracer: tr,
-		db:     db,
+func NewWithPrefix(db *foundation.DB, prefix string) (*Models, error) {
+	m := &Models{
+		db: db,
 	}
 
-	return models, nil
+	var err error
+	m.events, err = directory.CreateOrOpen(m.db.Database, []string{"firehose_events"}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create firehose_events directory: %w", err)
+	}
+
+	return m, nil
 }

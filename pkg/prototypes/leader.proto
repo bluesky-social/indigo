@@ -16,3 +16,19 @@ message FirehoseLeader {
   google.protobuf.Timestamp expires_at = 3;
   google.protobuf.Timestamp renewed_at = 4;
 }
+
+// FirehoseEvent wraps a raw ATProto firehose event for storage in FoundationDB.
+// Events are stored with versionstamped keys for global ordering.
+message FirehoseEvent {
+  // Sequence number from the upstream firehose (for cursor tracking)
+  int64 upstream_seq = 1;
+
+  // The raw CBOR-encoded event bytes from the websocket (header + body)
+  bytes raw_event = 2;
+
+  // Timestamp when this event was received by cask
+  google.protobuf.Timestamp received_at = 3;
+
+  // Event type extracted from the header (e.g., "#commit", "#identity", "#account")
+  string event_type = 4;
+}
