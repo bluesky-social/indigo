@@ -10,27 +10,11 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/internal/cask/models"
-	"github.com/bluesky-social/indigo/internal/testutil"
-	"github.com/bluesky-social/indigo/pkg/foundation"
 	"github.com/bluesky-social/indigo/pkg/prototypes"
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 )
-
-func testDB(t *testing.T) *foundation.DB {
-	t.Helper()
-	return testutil.TestFoundationDB(t)
-}
-
-func testModels(t *testing.T) *models.Models {
-	t.Helper()
-	db := testDB(t)
-	m, err := models.NewWithPrefix(db, uuid.NewString())
-	require.NoError(t, err)
-	return m
-}
 
 func testServer(t *testing.T) (*Server, *models.Models) {
 	t.Helper()

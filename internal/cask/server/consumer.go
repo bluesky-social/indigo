@@ -1,4 +1,4 @@
-package firehose
+package server
 
 import (
 	"bytes"
@@ -25,7 +25,7 @@ type Consumer struct {
 	host   string
 }
 
-func NewConsumer(log *slog.Logger, models *models.Models, host string) *Consumer {
+func newFirehoseConsumer(log *slog.Logger, models *models.Models, host string) *Consumer {
 	return &Consumer{
 		log:    log.With("component", "firehose-consumer"),
 		models: models,

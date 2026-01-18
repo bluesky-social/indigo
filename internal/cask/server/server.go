@@ -10,7 +10,6 @@ import (
 
 	_ "net/http/pprof"
 
-	"github.com/bluesky-social/indigo/internal/cask/firehose"
 	"github.com/bluesky-social/indigo/internal/cask/models"
 	"github.com/bluesky-social/indigo/pkg/foundation"
 	"github.com/bluesky-social/indigo/pkg/foundation/leader"
@@ -222,7 +221,7 @@ func (s *Server) startConsumer() {
 	s.consumerCancel = cancel
 	s.consumerMu.Unlock()
 
-	consumer := firehose.NewConsumer(s.log, s.models, s.cfg.FirehoseURL)
+	consumer := newFirehoseConsumer(s.log, s.models, s.cfg.FirehoseURL)
 	if err := consumer.Run(ctx); err != nil {
 		s.log.Error("firehose consumer stopped unexpectedly", "error", err)
 	}
