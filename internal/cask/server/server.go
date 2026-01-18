@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	_ "net/http/pprof"
 
@@ -40,11 +41,11 @@ type Server struct {
 	models         *models.Models
 	leaderElection *leader.LeaderElection
 
-	consumerMu     sync.Mutex
+	consumerMu     *sync.Mutex
 	consumerCancel context.CancelFunc
 
 	// Subscriber tracking
-	subscribersMu    sync.Mutex
+	subscribersMu    *sync.Mutex
 	subscribers      map[uint64]*subscriber
 	nextSubscriberID uint64
 }
@@ -71,10 +72,12 @@ func New(ctx context.Context, config Config) (*Server, error) {
 	}
 
 	s := &Server{
-		cfg:    config,
-		log:    config.Logger,
-		db:     db,
-		models: m,
+		cfg:           config,
+		log:           config.Logger,
+		db:            db,
+		models:        m,
+		consumerMu:    &sync.Mutex{},
+		subscribersMu: &sync.Mutex{},
 	}
 
 	s.leaderElection, err = leader.New(db, []string{"firehoseLeader"}, leader.LeaderElectionConfig{
@@ -91,6 +94,17 @@ func New(ctx context.Context, config Config) (*Server, error) {
 }
 
 func (s *Server) Start(ctx context.Context, addr string) error {
+	go func() {
+		if err := s.leaderElection.Run(ctx); err != nil && ctx.Err() == nil {
+			s.log.Error("leader election stopped unexpectedly", "error", err)
+		}
+	}()
+
+	s.echo = s.router()
+	return s.echo.Start(addr)
+}
+
+func (s *Server) router() *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -106,22 +120,18 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 	e.GET("/xrpc/_health", s.handleHealth)
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.handleSubscribeRepos)
 
-	s.echo = e
-
-	go func() {
-		if err := s.leaderElection.Run(ctx); err != nil && ctx.Err() == nil {
-			s.log.Error("leader election stopped unexpectedly", "error", err)
-		}
-	}()
-
-	return e.Start(addr)
+	return e
 }
 
 // Gracefully stops the server process. If we're the leaseholder of the firehose consumer
-// lock, we stop the consumer and release the lease. Then, we stop the
+// lock, we stop the consumer and release the lease. Then we close all subscriber connections
+// gracefully before shutting down the HTTP server.
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.stopConsumer()
 	s.leaderElection.Stop()
+
+	// Close all WebSocket subscribers gracefully before shutting down HTTP server
+	s.closeAllSubscribers(5 * time.Second)
 
 	errs := errgroup.Group{}
 	errs.Go(func() error {
@@ -207,7 +217,7 @@ func (s *Server) onLostLeadership(ctx context.Context) {
 // Starts the firehose consumer in a goroutine. This is invoked when the process
 // grabs the leader lock on a background goroutine.
 func (s *Server) startConsumer() {
-	s.consumerCancel()
+	s.stopConsumer()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s.consumerMu.Lock()

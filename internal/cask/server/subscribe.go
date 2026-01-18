@@ -27,10 +27,12 @@ const (
 // subscriber represents an active subscribeRepos connection
 type subscriber struct {
 	id          uint64
+	conn        *websocket.Conn
 	remoteAddr  string
 	userAgent   string
 	connectedAt time.Time
 	eventsSent  atomic.Uint64
+	done        chan struct{} // closed when handler exits
 }
 
 var upgrader = websocket.Upgrader{
@@ -117,14 +119,22 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 		}
 	}()
 
-	// Register subscriber for tracking
+	// Register subscriber for tracking and graceful shutdown
 	sub := &subscriber{
+		conn:        conn,
 		remoteAddr:  c.RealIP(),
 		userAgent:   c.Request().UserAgent(),
 		connectedAt: time.Now(),
+		done:        make(chan struct{}),
 	}
 	subID := s.registerSubscriber(sub)
-	defer s.unregisterSubscriber(subID, sub)
+	defer func() {
+		// Unregister first, then signal done. This ensures that when
+		// closeAllSubscribers receives on the done channel, the subscriber
+		// has already been removed from the map.
+		s.unregisterSubscriber(subID, sub)
+		close(sub.done)
+	}()
 
 	s.log.Info("new subscriber",
 		"remote_addr", sub.remoteAddr,
@@ -136,11 +146,43 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 	// Internal cursor (versionstamp) for efficient pagination after initial positioning
 	var versionstampCursor []byte
 
-	// If client provided a cursor, we need to find events after that sequence
-	// Once we find them, we use versionstamp cursor for efficient continuation
-	needsInitialSeek := hasCursor
+	// If client provided a cursor, we need to find events after that sequence.
+	// If no cursor was provided, start from the "tip" (only receive new events).
+	// This matches the behavior of the upstream relay's subscribeRepos.
+	if hasCursor {
+		// First fetch: find events after the upstream sequence cursor
+		var rawEvents []*eventData
+		var err error
+		rawEvents, versionstampCursor, err = s.getEventsAfterSeq(ctx, cursorSeq, eventBatchSize)
+		if err != nil {
+			s.log.Error("failed to read events from FDB", "error", err)
+			return err
+		}
 
-	// Main event streaming loop
+		// Stream any historical events to the client
+		for _, evt := range rawEvents {
+			if err := s.writeEvent(conn, evt); err != nil {
+				s.log.Debug("failed to write event", "error", err)
+				return nil
+			}
+			sub.eventsSent.Add(1)
+		}
+
+		lastWriteMu.Lock()
+		lastWrite = time.Now()
+		lastWriteMu.Unlock()
+	} else {
+		// No cursor provided: start from the "tip" (latest event)
+		// Get the latest versionstamp so we only receive new events from now on
+		var err error
+		versionstampCursor, err = s.getLatestVersionstamp(ctx)
+		if err != nil {
+			s.log.Error("failed to get latest versionstamp", "error", err)
+			return err
+		}
+	}
+
+	// Main event streaming loop - poll for new events
 	for {
 		select {
 		case <-ctx.Done():
@@ -148,35 +190,14 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 		default:
 		}
 
-		var events []*eventWithCursor
-		var err error
-
-		if needsInitialSeek {
-			// First fetch: find events after the upstream sequence cursor
-			var rawEvents []*eventData
-			rawEvents, versionstampCursor, err = s.getEventsAfterSeq(ctx, cursorSeq, eventBatchSize)
-			if err != nil {
-				s.log.Error("failed to read events from FDB", "error", err)
-				return err
-			}
-			for _, e := range rawEvents {
-				events = append(events, &eventWithCursor{data: e})
-			}
-			needsInitialSeek = false
-		} else {
-			// Subsequent fetches: use versionstamp cursor for efficiency
-			var rawEvents []*eventData
-			rawEvents, versionstampCursor, err = s.getEventsSince(ctx, versionstampCursor, eventBatchSize)
-			if err != nil {
-				s.log.Error("failed to read events from FDB", "error", err)
-				return err
-			}
-			for _, e := range rawEvents {
-				events = append(events, &eventWithCursor{data: e})
-			}
+		// Fetch events after the current versionstamp cursor
+		rawEvents, nextCursor, err := s.getEventsSince(ctx, versionstampCursor, eventBatchSize)
+		if err != nil {
+			s.log.Error("failed to read events from FDB", "error", err)
+			return err
 		}
 
-		if len(events) == 0 {
+		if len(rawEvents) == 0 {
 			// No new events, wait before polling again
 			select {
 			case <-ctx.Done():
@@ -186,25 +207,15 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 			}
 		}
 
-		// Stream events to client
-		for _, evt := range events {
-			wc, err := conn.NextWriter(websocket.BinaryMessage)
-			if err != nil {
-				s.log.Debug("failed to get writer", "error", err)
-				return nil
-			}
+		// Update cursor for next iteration
+		versionstampCursor = nextCursor
 
-			// Write the raw CBOR bytes directly - no re-serialization needed
-			if _, err := wc.Write(evt.data.rawEvent); err != nil {
+		// Stream events to client
+		for _, evt := range rawEvents {
+			if err := s.writeEvent(conn, evt); err != nil {
 				s.log.Debug("failed to write event", "error", err)
 				return nil
 			}
-
-			if err := wc.Close(); err != nil {
-				s.log.Debug("failed to flush event", "error", err)
-				return nil
-			}
-
 			sub.eventsSent.Add(1)
 		}
 
@@ -214,13 +225,24 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 	}
 }
 
+// writeEvent writes a single event to the WebSocket connection
+func (s *Server) writeEvent(conn *websocket.Conn, evt *eventData) error {
+	wc, err := conn.NextWriter(websocket.BinaryMessage)
+	if err != nil {
+		return err
+	}
+
+	// Write the raw CBOR bytes directly - no re-serialization needed
+	if _, err := wc.Write(evt.rawEvent); err != nil {
+		return err
+	}
+
+	return wc.Close()
+}
+
 type eventData struct {
 	rawEvent    []byte
 	upstreamSeq int64
-}
-
-type eventWithCursor struct {
-	data *eventData
 }
 
 func (s *Server) getEventsAfterSeq(ctx context.Context, afterSeq int64, limit int) ([]*eventData, []byte, error) {
@@ -255,6 +277,10 @@ func (s *Server) getEventsSince(ctx context.Context, cursor []byte, limit int) (
 	return result, nextCursor, nil
 }
 
+func (s *Server) getLatestVersionstamp(ctx context.Context) ([]byte, error) {
+	return s.models.GetLatestVersionstamp(ctx)
+}
+
 func (s *Server) registerSubscriber(sub *subscriber) uint64 {
 	s.subscribersMu.Lock()
 	defer s.subscribersMu.Unlock()
@@ -284,4 +310,56 @@ func (s *Server) unregisterSubscriber(id uint64, sub *subscriber) {
 	)
 
 	delete(s.subscribers, id)
+}
+
+// closeAllSubscribers gracefully closes all active subscriber connections.
+// It sends WebSocket close frames in parallel and waits for handlers to exit.
+func (s *Server) closeAllSubscribers(timeout time.Duration) {
+	// Get snapshot of subscribers while holding lock
+	s.subscribersMu.Lock()
+	subs := make([]*subscriber, 0, len(s.subscribers))
+	for _, sub := range s.subscribers {
+		subs = append(subs, sub)
+	}
+	s.subscribersMu.Unlock()
+
+	if len(subs) == 0 {
+		return
+	}
+
+	s.log.Info("closing subscriber connections", "count", len(subs))
+
+	// Send close frames to all subscribers in parallel, ignoring errors
+	var wg sync.WaitGroup
+	for _, sub := range subs {
+		wg.Add(1)
+		go func(sub *subscriber) {
+			defer wg.Done()
+			closeMsg := websocket.FormatCloseMessage(websocket.CloseGoingAway, "server shutting down")
+			_ = sub.conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(time.Second)) //nolint:errcheck
+		}(sub)
+	}
+	wg.Wait()
+
+	// Wait for all handlers to exit with timeout
+	done := make(chan struct{})
+	go func() {
+		for _, sub := range subs {
+			<-sub.done
+		}
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		s.log.Info("all subscribers disconnected gracefully")
+	case <-time.After(timeout):
+		s.log.Warn("timeout waiting for subscribers to disconnect, forcing close")
+		// Force close any remaining connections in parallel, ignoring errors
+		for _, sub := range subs {
+			go func(sub *subscriber) {
+				_ = sub.conn.Close() //nolint:errcheck
+			}(sub)
+		}
+	}
 }

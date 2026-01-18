@@ -135,6 +135,43 @@ func (m *Models) GetLatestUpstreamSeq(ctx context.Context) (seq int64, err error
 	return
 }
 
+// GetLatestVersionstamp returns the versionstamp of the most recent event stored in FDB.
+// This is used to start subscribers at the "tip" when no cursor is provided.
+// Returns nil if no events exist.
+func (m *Models) GetLatestVersionstamp(ctx context.Context) (cursor []byte, err error) {
+	_, span, done := foundation.Observe(ctx, m.db, "GetLatestVersionstamp")
+	defer func() { done(err) }()
+
+	cursor, err = foundation.ReadTransaction(m.db, func(tx fdb.ReadTransaction) ([]byte, error) {
+		// Read the last event by doing a reverse range scan with limit 1
+		start := m.events.FDBKey()
+		end := fdb.Key(append(m.events.Bytes(), 0xFF))
+		keyRange := fdb.KeyRange{Begin: start, End: end}
+
+		// Reverse=true gives us the last key first
+		iter := tx.GetRange(keyRange, fdb.RangeOptions{Limit: 1, Reverse: true}).Iterator()
+
+		if !iter.Advance() {
+			return nil, nil // no events yet
+		}
+
+		kv, err := iter.Get()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get latest event: %w", err)
+		}
+
+		// Extract versionstamp from key (after prefix)
+		prefixLen := len(m.events.Bytes())
+		if len(kv.Key) < prefixLen+versionstampLength {
+			return nil, nil // malformed key
+		}
+		return kv.Key[prefixLen : prefixLen+versionstampLength], nil
+	})
+
+	span.SetAttributes(attribute.String("cursor", string(cursor)))
+	return
+}
+
 // GetEventsSince retrieves events starting from (but not including) the given cursor.
 // If cursor is nil, retrieves from the beginning.
 // Returns events and the cursor for the last event returned.

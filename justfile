@@ -1,3 +1,4 @@
+set dotenv-required
 set shell := ["bash", "-cu"]
 
 # Lints and runs all tests with the race detector enabled
