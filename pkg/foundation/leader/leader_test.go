@@ -233,6 +233,12 @@ func TestLeaderElection_GracefulHandoff(t *testing.T) {
 	// Stop le1 gracefully (releases lease)
 	le1.Stop()
 
+	// Wait for le1 to fully release the lease before advancing the clock.
+	// OnLostLeadership is called after the FDB transaction completes.
+	require.Eventually(t, func() bool {
+		return leader1LostLeadership.Load()
+	}, time.Second, time.Millisecond, "le1 should release leadership")
+
 	// Advance clock so le2's wait expires and it can try to acquire.
 	// We may need multiple advances as le2 processes.
 	for i := 0; i < 5 && !leader2BecameLeader.Load(); i++ {
@@ -241,9 +247,7 @@ func TestLeaderElection_GracefulHandoff(t *testing.T) {
 	}
 
 	require.True(t, leader2BecameLeader.Load(), "le2 should become leader after le1 stops")
-
 	require.True(t, le2.IsLeader())
-	require.True(t, leader1LostLeadership.Load(), "le1 should have lost leadership")
 
 	le2.Stop()
 	require.NoError(t, errs.Wait())
