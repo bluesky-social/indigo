@@ -20,6 +20,7 @@ func TestHandleHealth(t *testing.T) {
 	err := s.handleHealth(c)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), `"service":"cask"`)
 	require.Contains(t, rec.Body.String(), `"status":"ok"`)
 }
 

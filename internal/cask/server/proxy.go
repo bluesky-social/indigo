@@ -109,13 +109,13 @@ func (s *Server) handleRequestCrawl(c echo.Context) error {
 		}
 	}
 
-	// Forward to all next-crawlers asynchronously
+	// Forward to all next-crawlers asynchronously using the robust peer client
 	for _, crawler := range s.nextCrawlerURLs {
 		crawlerURL := crawler
 		go func() {
 			ctx := context.Background()
 			xrpcc := xrpc.Client{
-				Client: s.httpClient,
+				Client: s.peerClient,
 				Host:   crawlerURL,
 			}
 			if err := comatproto.SyncRequestCrawl(ctx, &xrpcc, &input); err != nil {

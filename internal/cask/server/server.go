@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
+	"time"
 
 	_ "net/http/pprof"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/bluesky-social/indigo/pkg/foundation"
 	"github.com/bluesky-social/indigo/pkg/foundation/leader"
 	"github.com/bluesky-social/indigo/pkg/metrics"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/svcutil"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/google/uuid"
@@ -40,7 +43,8 @@ type Server struct {
 
 	echo            *echo.Echo
 	metricsServer   *http.Server
-	httpClient      *http.Client
+	httpClient      *http.Client // For upstream proxy requests (no redirect following)
+	peerClient      *http.Client // For next-crawler forwarding (robust client)
 	nextCrawlerURLs []string
 
 	db             *foundation.DB
@@ -93,10 +97,19 @@ func New(ctx context.Context, config Config) (*Server, error) {
 		nextCrawlers = append(nextCrawlers, raw)
 	}
 
+	// HTTP client for upstream proxy requests - disable automatic redirect following
+	upstreamClient := &http.Client{
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
 	s := &Server{
 		cfg:             config,
 		log:             config.Logger,
-		httpClient:      &http.Client{},
+		httpClient:      upstreamClient,
+		peerClient:      util.RobustHTTPClient(),
 		nextCrawlerURLs: nextCrawlers,
 		db:              db,
 		models:          m,
@@ -231,20 +244,36 @@ func (s *Server) errorHandler(err error, c echo.Context) {
 		}
 	}
 
+	path := c.Path()
+
 	if code >= 500 {
-		s.log.Error("handler error", "path", c.Path(), "error", err)
+		s.log.Error("handler error", "path", path, "error", err)
 	}
 
-	if !c.Response().Committed {
-		if err := c.JSON(code, xrpc.XRPCError{ErrStr: errStr, Message: msg}); err != nil {
-			s.log.Error("failed to write error response", "error", err)
-		}
+	// Don't send response for WebSocket paths - the connection is already upgraded
+	if strings.Contains(path, "subscribeRepos") {
+		return
+	}
+
+	if c.Response().Committed {
+		return
+	}
+
+	// For admin paths, include the actual error message
+	if strings.HasPrefix(path, "/admin/") {
+		_ = c.JSON(code, map[string]any{"error": err.Error()})
+		return
+	}
+
+	if err := c.JSON(code, xrpc.XRPCError{ErrStr: errStr, Message: msg}); err != nil {
+		s.log.Error("failed to write error response", "error", err)
 	}
 }
 
 func (s *Server) handleHealth(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{
-		"status": "ok",
+		"service": "cask",
+		"status":  "ok",
 	})
 }
 

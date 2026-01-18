@@ -267,6 +267,7 @@ func TestHandleRequestCrawl_ForwardsToUpstream(t *testing.T) {
 			ProxyHost: upstream.URL,
 		},
 		httpClient: upstream.Client(),
+		peerClient: upstream.Client(),
 	}
 
 	e := echo.New()
