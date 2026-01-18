@@ -48,11 +48,13 @@ var (
 		Help:      "Total number of events received from the upstream firehose",
 	}, []string{"event_type", "status"})
 
-	// BytesReceivedTotal tracks the total bytes received from the upstream firehose
-	BytesReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name:      "bytes_received_total",
+	// EventSizeBytes tracks the distribution of event sizes in bytes
+	// Buckets: 128, 256, 512, 1KB, 2KB, 4KB, 8KB, 16KB, 32KB, 64KB, 128KB, 256KB, 512KB, 1MB
+	EventSizeBytes = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:      "event_size_bytes",
 		Namespace: namespace,
-		Help:      "Total bytes received from the upstream firehose",
+		Help:      "Distribution of event sizes in bytes",
+		Buckets:   prometheus.ExponentialBuckets(128, 2, 14),
 	})
 
 	// UpstreamSeq tracks the latest upstream sequence number processed

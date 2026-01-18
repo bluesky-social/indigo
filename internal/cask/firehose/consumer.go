@@ -129,7 +129,7 @@ func (c *Consumer) readAndStoreEvent(ctx context.Context, con *websocket.Conn) e
 	}
 	rawEvent := buf.Bytes()
 
-	metrics.BytesReceivedTotal.Add(float64(len(rawEvent)))
+	metrics.EventSizeBytes.Observe(float64(len(rawEvent)))
 
 	// parse just the header to extract event type and sequence
 	reader := bytes.NewReader(rawEvent)
