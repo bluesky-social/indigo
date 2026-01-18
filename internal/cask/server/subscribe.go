@@ -33,7 +33,6 @@ type subscriber struct {
 	userAgent   string
 	connectedAt time.Time
 	eventsSent  atomic.Uint64
-	done        chan struct{} // closed when handler exits
 }
 
 var upgrader = websocket.Upgrader{
@@ -108,29 +107,21 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 		}
 	}()
 
-	// Register subscriber for tracking and graceful shutdown
+	// Register subscriber for tracking
 	sub := &subscriber{
 		conn:        conn,
 		remoteAddr:  c.RealIP(),
 		userAgent:   c.Request().UserAgent(),
 		connectedAt: time.Now(),
-		done:        make(chan struct{}),
 	}
-	subID := s.registerSubscriber(sub)
-
-	defer func() {
-		// Unregister first, then signal done. This ensures that when
-		// closeAllSubscribers receives on the done channel, the subscriber
-		// has already been removed from the map.
-		s.unregisterSubscriber(subID, sub)
-		close(sub.done)
-	}()
+	s.registerSubscriber(sub)
+	defer s.unregisterSubscriber(sub)
 
 	s.log.Info("new subscriber",
 		"remote_addr", sub.remoteAddr,
 		"user_agent", sub.userAgent,
 		"cursor", cursorSeq,
-		"subscriber_id", subID,
+		"subscriber_id", sub.id,
 	)
 
 	// Convert the upstream sequence cursor to a versionstamp cursor for efficient streaming.
@@ -238,7 +229,8 @@ func (s *Server) getEventsSince(ctx context.Context, cursor []byte, limit int) (
 	return res, nextCursor, nil
 }
 
-func (s *Server) registerSubscriber(sub *subscriber) uint64 {
+// Records the subscriber in the server, and sets its ID on the passed object
+func (s *Server) registerSubscriber(sub *subscriber) {
 	s.subscribersMu.Lock()
 	defer s.subscribersMu.Unlock()
 
@@ -250,59 +242,38 @@ func (s *Server) registerSubscriber(sub *subscriber) uint64 {
 		s.subscribers = make(map[uint64]*subscriber)
 	}
 	s.subscribers[id] = sub
-
-	return id
 }
 
-func (s *Server) unregisterSubscriber(id uint64, sub *subscriber) {
-	s.subscribersMu.Lock()
-	defer s.subscribersMu.Unlock()
-
+func (s *Server) unregisterSubscriber(sub *subscriber) {
 	s.log.Info("subscriber disconnected",
-		"subscriber_id", id,
+		"subscriber_id", sub.id,
 		"remote_addr", sub.remoteAddr,
 		"user_agent", sub.userAgent,
 		"events_sent", sub.eventsSent.Load(),
-		"connected_duration", time.Since(sub.connectedAt),
+		"connected_duration", time.Since(sub.connectedAt).String(),
 	)
 
-	delete(s.subscribers, id)
+	s.subscribersMu.Lock()
+	delete(s.subscribers, sub.id)
+	s.subscribersMu.Unlock()
 }
 
-func (s *Server) closeAllSubscribers(timeout time.Duration) {
+func (s *Server) closeAllSubscribers() {
 	s.subscribersMu.Lock()
 	subs := map[uint64]*subscriber{}
 	maps.Copy(subs, s.subscribers)
 	s.subscribersMu.Unlock()
 
-	s.log.Info("closing subscriber connections", "count", len(subs))
+	s.log.Info("sending close frames to clients", "count", len(subs))
 
-	// Send close frames to all subscribers in parallel
 	var wg sync.WaitGroup
 	for _, sub := range subs {
 		wg.Go(func() {
 			closeMsg := websocket.FormatCloseMessage(websocket.CloseGoingAway, "server shutting down")
-			err := sub.conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(time.Second))
-			if err != nil {
-				s.log.Warn("failed to send close message to client", "error", err)
-			}
+			_ = sub.conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(time.Second))
 		})
 	}
 	wg.Wait()
 
-	// Wait for all handlers to exit with timeout
-	done := make(chan struct{})
-	go func() {
-		for _, sub := range subs {
-			<-sub.done
-		}
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		s.log.Info("all subscribers disconnected gracefully")
-	case <-time.After(timeout):
-		s.log.Warn("timeout waiting for subscribers to disconnect, forcing shutdown")
-	}
+	s.log.Info("all close frames sent to clients", "count", len(subs))
 }

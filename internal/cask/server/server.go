@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"sync"
-	"time"
 
 	_ "net/http/pprof"
 
@@ -130,8 +129,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	s.stopConsumer()
 	s.leaderElection.Stop()
 
-	// Close all WebSocket subscribers gracefully before shutting down HTTP server
-	s.closeAllSubscribers(5 * time.Second)
+	s.closeAllSubscribers()
 
 	errs := errgroup.Group{}
 	errs.Go(func() error {

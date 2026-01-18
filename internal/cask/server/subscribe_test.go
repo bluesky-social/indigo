@@ -371,15 +371,10 @@ func TestSubscribeRepos_GracefulShutdown(t *testing.T) {
 	require.Len(t, s.subscribers, 2)
 	s.subscribersMu.Unlock()
 
-	// Call graceful shutdown in background
-	shutdownDone := make(chan struct{})
-	go func() {
-		s.closeAllSubscribers(2 * time.Second)
-		close(shutdownDone)
-	}()
+	// Send close frames to all subscribers
+	s.closeAllSubscribers()
 
 	// Both connections should receive close frames and ReadMessage should error
-	// Use a timeout to avoid hanging if something goes wrong
 	_ = conn1.SetReadDeadline(time.Now().Add(5 * time.Second)) //nolint:errcheck
 	_, _, err := conn1.ReadMessage()
 	require.Error(t, err)
@@ -387,17 +382,4 @@ func TestSubscribeRepos_GracefulShutdown(t *testing.T) {
 	_ = conn2.SetReadDeadline(time.Now().Add(5 * time.Second)) //nolint:errcheck
 	_, _, err = conn2.ReadMessage()
 	require.Error(t, err)
-
-	// Wait for shutdown to complete
-	select {
-	case <-shutdownDone:
-		// Good
-	case <-time.After(5 * time.Second):
-		t.Fatal("timeout waiting for graceful shutdown to complete")
-	}
-
-	// Should have no subscribers after graceful shutdown
-	s.subscribersMu.Lock()
-	require.Len(t, s.subscribers, 0)
-	s.subscribersMu.Unlock()
 }
