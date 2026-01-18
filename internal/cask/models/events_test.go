@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"crypto/rand"
 	"testing"
 
 	"github.com/bluesky-social/indigo/internal/testutil"
@@ -512,4 +513,41 @@ func TestCursorIndex_WrittenCorrectly(t *testing.T) {
 
 	// The cursor returned should be the same versionstamp as from direct lookup
 	require.Equal(t, vsCursor, returnedCursor)
+}
+
+func TestWriteEvent_LargeEvent(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	m := testModels(t)
+
+	// Create a large event that requires multiple chunks (>90KB default chunk size)
+	// Use random data so it doesn't compress too well
+	largeData := make([]byte, 3*1024*1024) // 3MB
+	_, err := rand.Read(largeData)
+	require.NoError(t, err)
+
+	event := &prototypes.FirehoseEvent{
+		UpstreamSeq: 12345,
+		EventType:   "#commit",
+		RawEvent:    largeData,
+	}
+
+	err = m.WriteEvent(ctx, event)
+	require.NoError(t, err)
+
+	// Verify we can read it back correctly
+	events, cursor, err := m.GetEventsSince(ctx, nil, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	require.NotEmpty(t, cursor)
+
+	require.Equal(t, int64(12345), events[0].UpstreamSeq)
+	require.Equal(t, "#commit", events[0].EventType)
+	require.Equal(t, largeData, events[0].RawEvent)
+
+	// Verify GetLatestUpstreamSeq also works with chunked events
+	seq, err := m.GetLatestUpstreamSeq(ctx)
+	require.NoError(t, err)
+	require.Equal(t, int64(12345), seq)
 }
