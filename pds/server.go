@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/api/atproto"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
@@ -656,7 +655,7 @@ func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) e
 
 	// Push an Identity event
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
+		RepoIdentity: &atproto.SyncSubscribeRepos_Identity{
 			Did:  u.Did,
 			Time: time.Now().Format(util.ISO8601),
 		},
@@ -670,7 +669,7 @@ func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) e
 func (s *Server) TakedownRepo(ctx context.Context, did string) error {
 	// Push an Account event
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+		RepoAccount: &atproto.SyncSubscribeRepos_Account{
 			Did:    did,
 			Active: false,
 			Status: &events.AccountStatusTakendown,
@@ -686,7 +685,7 @@ func (s *Server) TakedownRepo(ctx context.Context, did string) error {
 func (s *Server) SuspendRepo(ctx context.Context, did string) error {
 	// Push an Account event
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+		RepoAccount: &atproto.SyncSubscribeRepos_Account{
 			Did:    did,
 			Active: false,
 			Status: &events.AccountStatusSuspended,
@@ -702,7 +701,7 @@ func (s *Server) SuspendRepo(ctx context.Context, did string) error {
 func (s *Server) DeactivateRepo(ctx context.Context, did string) error {
 	// Push an Account event
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+		RepoAccount: &atproto.SyncSubscribeRepos_Account{
 			Did:    did,
 			Active: false,
 			Status: &events.AccountStatusDeactivated,
@@ -718,7 +717,7 @@ func (s *Server) DeactivateRepo(ctx context.Context, did string) error {
 func (s *Server) ReactivateRepo(ctx context.Context, did string) error {
 	// Push an Account event
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+		RepoAccount: &atproto.SyncSubscribeRepos_Account{
 			Did:    did,
 			Active: true,
 			Status: &events.AccountStatusActive,
