@@ -292,7 +292,7 @@ func runLookupCmd(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	ident, err := dir.Lookup(ctx, *atid)
+	ident, err := dir.Lookup(ctx, atid)
 	if err != nil {
 		return err
 	}
@@ -317,12 +317,12 @@ func runRefreshCmd(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	err = dir.Purge(ctx, *atid)
+	err = dir.Purge(ctx, atid)
 	if err != nil {
 		return err
 	}
 
-	ident, err := dir.Lookup(ctx, *atid)
+	ident, err := dir.Lookup(ctx, atid)
 	if err != nil {
 		return err
 	}
