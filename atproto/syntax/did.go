@@ -72,7 +72,7 @@ func (d DID) Identifier() string {
 }
 
 func (d DID) AtIdentifier() AtIdentifier {
-	return AtIdentifier{Inner: d}
+	return AtIdentifier(d)
 }
 
 func (d DID) String() string {
