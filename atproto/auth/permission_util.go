@@ -60,10 +60,10 @@ func validBlobAccept(accept string) bool {
 	if len(parts) != 2 {
 		return false
 	}
-	if parts[0] == "*" {
+	if parts[0] == "*" || parts[0] == "" {
 		return false
 	}
-	if parts[1] == "**" {
+	if parts[1] == "**" || parts[1] == "" {
 		return false
 	}
 	return true

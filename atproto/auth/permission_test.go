@@ -144,3 +144,28 @@ func TestInteropPermissionInvalid(t *testing.T) {
 	}
 	assert.NoError(scanner.Err())
 }
+
+func TestValidBlobAccept(t *testing.T) {
+	assert := assert.New(t)
+
+	validAccepts := []string{
+		"text/plain",
+		"text/*",
+	}
+	invalidAccepts := []string{
+		"",
+		"*/png",
+		"/plain",
+		"text/",
+		"text/**",
+	}
+
+	for _, val := range validAccepts {
+		assert.True(validBlobAccept(val), val)
+	}
+
+	for _, val := range invalidAccepts {
+		assert.False(validBlobAccept(val), val)
+	}
+
+}
