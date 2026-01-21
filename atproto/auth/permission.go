@@ -133,7 +133,7 @@ func ParsePermissionString(scope string) (*Permission, error) {
 		if p.Attribute != "" && p.Attribute != "email" && p.Attribute != "repo" {
 			return nil, ErrInvalidPermissionParams
 		}
-		// TODO: maybe this should not be limited to a single "action" string?
+		// NOTE: currently actions are `read` and `manage`, and it makes no sense to use more than one as `manage` implies `read`. This might change in the future, if more action are added.
 		if len(g.Params["action"]) > 1 {
 			return nil, ErrInvalidPermissionParams
 		}
