@@ -64,7 +64,7 @@ Response:
 
 ## Development Quickstart
 
-Run an ephemeral opensearch instance on local port 9200, with SSL disabled, and the `analysis-icu` and `analysis-kuromoji` plugins installed, using docker:
+Run an ephemeral opensearch instance on local port 9200, with SSL disabled, and the `analysis-icu`, `analysis-kuromoji` and `analysis-nori` plugins installed, using docker:
 
     docker build -f Dockerfile.opensearch . -t opensearch-palomar
 
