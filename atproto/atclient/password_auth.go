@@ -144,7 +144,7 @@ func (a *PasswordAuth) Refresh(ctx context.Context, c *http.Client, priorRefresh
 	}
 
 	u := a.Session.Host + "/xrpc/com.atproto.server.refreshSession"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
 	if err != nil {
 		return err
 	}
