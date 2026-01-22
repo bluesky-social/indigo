@@ -42,9 +42,12 @@ Each repo will be backfilled from its PDS, then live events will stream as they 
 - `WS /channel`: WebSocket endpoint to receive events
 - `POST /repos/add`: add DIDs to track (triggers backfill of added repos)
 - `POST /repos/remove`: remove DIDs (stops sync, deletes tracked repo metadata. does not delete buffered events in outbox)
+- `POST /labelers/add`: add labeler DIDs to subscribe to (triggers backfill of labels)
+- `POST /labelers/remove`: remove labeler DIDs
 - `GET /resolve/:did`: resolve a DID to its DID document
 - `GET /info/:did`: get info about a tracked repo (repo state, repo rev, record count, error, retry count)
 - `GET /stats/repo-count`: get total number of tracked repos
+- `GET /stats/labeler-count`: get total number of tracked labelers
 - `GET /stats/record-count`: get total number of tracked records
 - `GET /stats/outbox-buffer`: get number of events in outbox buffer
 - `GET /stats/resync-buffer`: get number of events in resync buffer
@@ -63,6 +66,7 @@ Environment variables or CLI flags:
 - `TAP_RELAY_URL`: AT Protocol relay HTTP/HTTPS URL (default: `https://relay1.us-east.bsky.network`)
 - `TAP_FIREHOSE_PARALLELISM`: concurrent firehose event processors (default: `10`)
 - `TAP_RESYNC_PARALLELISM`: concurrent resync workers (default: `5`)
+- `TAP_LABELER_PARALLELISM`: maximum concurrent labeler subscriptions (default: `1000`)
 - `TAP_OUTBOX_PARALLELISM`: concurrent outbox workers (default: `1`)
 - `TAP_CURSOR_SAVE_INTERVAL`: how often to persist upstream firehose cursor (default: `1s`)
 - `TAP_REPO_FETCH_TIMEOUT`: timeout for fetching repo CARs from PDS (default: `300s`)
@@ -70,6 +74,7 @@ Environment variables or CLI flags:
 - `TAP_OUTBOX_CAPACITY`: rough size of outbox before back pressure is applied (default: `100000`)
 - `TAP_FULL_NETWORK`: track all repos on the network (default: `false`)
 - `TAP_SIGNAL_COLLECTION`: track all repos with at least one record in this collection (e.g. `app.bsky.actor.profile`)
+- `TAP_DISCOVER_LABELERS`: auto-discover labeler services from identity events (default: `false`)
 - `TAP_COLLECTION_FILTERS`: comma-separated collection filters, wildcards accepted (e.g., `app.bsky.feed.post,app.bsky.graph.*`)
 - `TAP_DISABLE_ACKS`: fire-and-forget mode, no client acks (default: `false`)
 - `TAP_WEBHOOK_URL`: webhook URL for event delivery (disables WebSocket mode)
@@ -99,6 +104,8 @@ Tap syncs a subset of repos in the network. It can operate in three modes for de
 **Collection Signal**: Set `TAP_SIGNAL_COLLECTION=com.example.nsid`. Track all repos that have at least one record in the specified collection. Many applications create a "declaration" or "profile" in a repo when that repo uses that application
 
 **Full Network**: Set `TAP_FULL_NETWORK=true`. Enumerates and tracks all findable repos on the entire network. Resource-intensive and takes days/weeks to complete backfill.
+
+**Labelers**: Tap starts out tracking no labelers. Specific labelers can be added via `/labelers/add`. Set `TAP_DISCOVER_LABELERS=true` to automatically subscribe to labeler services announced in identity events from tracked repos.
 
 ## Collection Filtering
 
@@ -149,6 +156,25 @@ Events are delivered as JSON:
     "handle": "alice.bsky.social",
     "isActive": true,
     "status": "active"
+  }
+}
+```
+
+**Label events** (labels and negations):
+
+```json
+{
+  "id": 12347,
+  "type": "label",
+  "label": {
+    "live": false, // true if a label was received with a `cts` in the last minute
+    "labelerDID": "did:plc:ar7c4by46qjdydhdevvrndac",
+    "uri": "at://did:plc:abc123/app.bsky.feed.post/xyz",
+    "val": "spam",
+    "cts": "2024-10-07T12:00:00.000Z",
+    "src": "did:plc:ar7c4by46qjdydhdevvrndac",
+    "cid": "bafyrei...",
+    "neg": false
   }
 }
 ```

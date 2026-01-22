@@ -27,12 +27,14 @@ type FirehoseProcessor struct {
 	logger *slog.Logger
 	db     *gorm.DB
 
-	events *EventManager
-	repos  *RepoManager
+	events   *EventManager
+	repos    *RepoManager
+	labelers *LabelerManager
 
 	relayUrl           string
 	fullNetworkMode    bool
 	signalCollection   string
+	discoverLabelers   bool
 	collectionFilters  []string
 	parallelism        int
 	cursorSaveInterval time.Duration
@@ -277,6 +279,14 @@ func (fp *FirehoseProcessor) ProcessIdentity(ctx context.Context, evt *comatprot
 
 	if err := fp.repos.RefreshIdentity(ctx, evt.Did); err != nil {
 		return err
+	}
+
+	if fp.discoverLabelers {
+		if ident, err := fp.repos.IdDir.LookupDID(ctx, syntax.DID(evt.Did)); err == nil && ident.GetServiceEndpoint("atproto_labeler") != "" {
+			if err := fp.labelers.EnsureLabeler(ctx, evt.Did); err != nil {
+				return err
+			}
+		}
 	}
 
 	firehoseEventsProcessed.Inc()

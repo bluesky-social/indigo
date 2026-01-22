@@ -323,6 +323,37 @@ func (em *EventManager) addToResyncBuffer(ctx context.Context, commit *Commit) e
 	}).Error
 }
 
+func (em *EventManager) AddLabelEvent(ctx context.Context, evt *LabelEvt) error {
+	evtID := uint(em.nextID.Add(1))
+	jsonData, err := evt.MarshalWithId(evtID)
+	if err != nil {
+		return err
+	}
+
+	if err := em.db.WithContext(ctx).Create(&models.OutboxBuffer{
+		ID:   evtID,
+		Did:  evt.LabelerDID,
+		Live: evt.Live,
+		Data: string(jsonData),
+	}).Error; err != nil {
+		return err
+	}
+
+	em.cacheLk.Lock()
+	em.cache[evtID] = &OutboxEvt{
+		ID:    evtID,
+		Did:   evt.LabelerDID,
+		Live:  evt.Live,
+		Event: jsonData,
+	}
+	eventCacheSize.Set(float64(len(em.cache)))
+	em.cacheLk.Unlock()
+
+	em.pendingIDs <- evtID
+
+	return nil
+}
+
 func (em *EventManager) drainResyncBuffer(ctx context.Context, did string) error {
 	var bufferedEvts []models.ResyncBuffer
 	if err := em.db.WithContext(ctx).Where("did = ?", did).Order("id ASC").Find(&bufferedEvts).Error; err != nil {
