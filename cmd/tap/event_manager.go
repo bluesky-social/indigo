@@ -151,6 +151,10 @@ func (em *EventManager) loadEventPage(ctx context.Context, lastID int) (int, err
 }
 
 func (em *EventManager) AddCommit(ctx context.Context, commit *Commit, dbCallback DBCallback) error {
+	if len(commit.Ops) == 0 {
+		return updateRepoCommitMeta(em.db, commit)
+	}
+
 	evts := make([]*RecordEvt, 0, len(commit.Ops))
 
 	for _, op := range commit.Ops {
@@ -172,13 +176,17 @@ func (em *EventManager) AddCommit(ctx context.Context, commit *Commit, dbCallbac
 			return err
 		}
 
-		return tx.Model(&models.Repo{}).
-			Where("did = ?", commit.Did).
-			Updates(map[string]interface{}{
-				"rev":       commit.Rev,
-				"prev_data": commit.DataCid,
-			}).Error
+		return updateRepoCommitMeta(tx, commit)
 	})
+}
+
+func updateRepoCommitMeta(dbOrTx *gorm.DB, commit *Commit) error {
+	return dbOrTx.Model(&models.Repo{}).
+		Where("did = ?", commit.Did).
+		Updates(map[string]interface{}{
+			"rev":       commit.Rev,
+			"prev_data": commit.DataCid,
+		}).Error
 }
 
 func (em *EventManager) AddRecordEvents(ctx context.Context, evts []*RecordEvt, live bool, dbCallback DBCallback) error {
