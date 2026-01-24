@@ -438,13 +438,12 @@ func TestConsumer_AllEventTypes(t *testing.T) {
 	ff := newFakeFirehose(t)
 	defer ff.Close()
 
-	// Queue all supported event types
+	// Queue all supported event types (error events are not stored, they cause the consumer to exit)
 	ff.QueueEvent(encodeEvent(t, "#commit", eventOpts{seq: 1, repo: "did:plc:user1"}))
 	ff.QueueEvent(encodeEvent(t, "#identity", eventOpts{seq: 2, did: "did:plc:user2"}))
 	ff.QueueEvent(encodeEvent(t, "#account", eventOpts{seq: 3, did: "did:plc:user3", active: true}))
 	ff.QueueEvent(encodeEvent(t, "#sync", eventOpts{seq: 4, did: "did:plc:user4"}))
 	ff.QueueEvent(encodeEvent(t, "#labels", eventOpts{seq: 5, did: "did:plc:labeler"}))
-	ff.QueueEvent(encodeEvent(t, "error", eventOpts{}))
 
 	consumer := newFirehoseConsumer(slog.Default(), m, ff.URL())
 
@@ -464,7 +463,7 @@ func TestConsumer_AllEventTypes(t *testing.T) {
 
 	evts, _, err := m.GetEventsSince(ctx, nil, 10)
 	require.NoError(t, err)
-	require.Len(t, evts, 6)
+	require.Len(t, evts, 5)
 
 	// Verify all event types were stored correctly
 	require.Equal(t, "#commit", evts[0].EventType)
@@ -481,9 +480,6 @@ func TestConsumer_AllEventTypes(t *testing.T) {
 
 	require.Equal(t, "#labels", evts[4].EventType)
 	require.Equal(t, int64(5), evts[4].UpstreamSeq)
-
-	require.Equal(t, "error", evts[5].EventType)
-	require.Equal(t, int64(0), evts[5].UpstreamSeq) // error frames have no sequence
 }
 
 func TestConsumer_ContextCancellation(t *testing.T) {

@@ -138,15 +138,20 @@ func (c *Consumer) readAndStoreEvent(ctx context.Context, con *websocket.Conn) e
 		return fmt.Errorf("failed to parse event header: %w", err)
 	}
 
+	eventType := ""
+	status := metrics.StatusError
+	defer func() {
+		metrics.EventsReceivedTotal.WithLabelValues(eventType, status).Inc()
+	}()
+
 	// extract sequence number from the event body (if it's a message)
 	seq := int64(0)
-	eventType := ""
 	switch header.Op {
 	case events.EvtKindMessage:
 		eventType = header.MsgType
 		seq = c.extractSequenceNumber(rawEvent, header.MsgType)
 	case events.EvtKindErrorFrame:
-		eventType = "error"
+		return fmt.Errorf("received firehose error event")
 	}
 
 	event := &prototypes.FirehoseEvent{
@@ -155,11 +160,6 @@ func (c *Consumer) readAndStoreEvent(ctx context.Context, con *websocket.Conn) e
 		ReceivedAt:  timestamppb.Now(),
 		EventType:   eventType,
 	}
-
-	status := metrics.StatusError
-	defer func() {
-		metrics.EventsReceivedTotal.WithLabelValues(eventType, status).Inc()
-	}()
 
 	const retries = 5
 	for retry := range retries {
