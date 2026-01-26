@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -119,7 +120,7 @@ func (r *Resyncer) resyncDid(ctx context.Context, did string) error {
 	resyncsCompleted.Inc()
 	resyncDuration.Observe(time.Since(startTime).Seconds())
 
-	if err := r.events.drainResyncBuffer(ctx, did); err != nil {
+	if err := r.drainResyncBuffer(ctx, did); err != nil {
 		r.logger.Error("failed to drain resync buffer events", "did", did, "error", err)
 	}
 
@@ -345,4 +346,40 @@ func (r *Resyncer) resetPartiallyResynced(ctx context.Context) error {
 	return r.db.WithContext(ctx).Model(&models.Repo{}).
 		Where("state = ?", models.RepoStateResyncing).
 		Update("state", models.RepoStateDesynchronized).Error
+}
+
+func (r *Resyncer) drainResyncBuffer(ctx context.Context, did string) error {
+	var bufferedEvts []models.ResyncBuffer
+	if err := r.events.db.WithContext(ctx).Where("did = ?", did).Order("id ASC").Find(&bufferedEvts).Error; err != nil {
+		return fmt.Errorf("failed to load buffered events: %w", err)
+	}
+
+	if len(bufferedEvts) == 0 {
+		return nil
+	}
+
+	curr, err := r.repos.GetRepoState(ctx, did)
+	if err != nil {
+		return fmt.Errorf("failed to get repo state: %w", err)
+	}
+
+	for _, evt := range bufferedEvts {
+		var commit Commit
+		if err := json.Unmarshal([]byte(evt.Data), &commit); err != nil {
+			return fmt.Errorf("failed to unmarshal buffered event: %w", err)
+		}
+
+		// if this commit doesn't stack neatly on current state of tracked repo then we skip
+		if commit.PrevData != curr.PrevData {
+			continue
+		}
+
+		if err := r.events.AddCommit(ctx, &commit, func(tx *gorm.DB) error {
+			return tx.Delete(&models.ResyncBuffer{}, "id = ?", evt.ID).Error
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
