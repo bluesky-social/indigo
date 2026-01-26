@@ -370,7 +370,8 @@ func (r *Resyncer) drainResyncBuffer(ctx context.Context, did string) error {
 		}
 
 		// if this commit doesn't stack neatly on current state of tracked repo then we skip
-		if commit.PrevData != curr.PrevData {
+		// NOTE: the check against the empty string can be eliminated after we start refusing legacy commit events
+		if commit.PrevData != "" && commit.PrevData != curr.PrevData {
 			continue
 		}
 
