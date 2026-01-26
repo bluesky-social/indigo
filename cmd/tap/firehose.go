@@ -178,11 +178,14 @@ func (fp *FirehoseProcessor) validateCommitAndFilterOps(ctx context.Context, evt
 	}
 
 	commit := &Commit{
-		Did:      evt.Repo,
-		Rev:      repoCommit.Rev,
-		DataCid:  repoCommit.Data.String(),
-		PrevData: evt.PrevData.String(),
-		Ops:      parsedOps,
+		Did:     evt.Repo,
+		Rev:     repoCommit.Rev,
+		DataCid: repoCommit.Data.String(),
+		Ops:     parsedOps,
+	}
+
+	if evt.PrevData != nil {
+		commit.PrevData = evt.PrevData.String()
 	}
 
 	return commit, nil
