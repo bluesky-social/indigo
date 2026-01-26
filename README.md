@@ -4,6 +4,20 @@
 
 Some Bluesky software is developed in Typescript, and lives in the [bluesky-social/atproto](https://github.com/bluesky-social/atproto) repository. Some is developed in Go, and lives here.
 
+**If you are not a Go developer and you want to run one of these tools**, you can do:
+
+```bash
+# with [Homebrew](brew.sh) installed
+brew install go
+# for example, to run tap
+go install github.com/bluesky-social/indigo/cmd/tap
+tap
+```
+
+Go will fetch dependencies, compile, and install `tap` or another service with a one-line `go install` command.
+
+*Soon*, we plan to decouple the tools in this repo so you can install them individually like [goat](https://formulae.brew.sh/formula/goat).
+
 ## What is in here?
 
 **Go Services:**
