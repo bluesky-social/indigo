@@ -49,22 +49,34 @@ func (r *Resyncer) runResyncWorker(ctx context.Context, workerID int) {
 
 	for {
 		r.events.WaitForReady(ctx)
-		did, found, err := r.claimResyncJob(ctx)
-		if err != nil {
-			logger.Error("failed to claim resync job", "error", err)
-			time.Sleep(time.Second)
-			continue
-		}
 
-		if !found {
-			time.Sleep(time.Second)
-			continue
-		}
+		// Before calling claimResyncJob, check for context cancellation.
+		// If the context is cancelled after this check, claimResyncJob will return an
+		// error then sleep briefly before coming back to check the context again.
+		// Checking here avoids tring to enumerate and classify all the errors that
+		// claimResyncJob might return due to shutdown.
+		select {
+		case <-ctx.Done():
+			logger.Info("resync worker shutting down", "error", ctx.Err())
+			return
+		default:
+			did, found, err := r.claimResyncJob(ctx)
+			if err != nil {
+				logger.Error("failed to claim resync job", "error", err)
+				time.Sleep(time.Second)
+				continue
+			}
 
-		logger.Info("processing resync", "did", did)
-		err = r.resyncDid(ctx, did)
-		if err != nil {
-			logger.Error("resync failed", "did", did, "error", err)
+			if !found {
+				time.Sleep(time.Second)
+				continue
+			}
+
+			logger.Info("processing resync", "did", did)
+			err = r.resyncDid(ctx, did)
+			if err != nil {
+				logger.Error("resync failed", "did", did, "error", err)
+			}
 		}
 	}
 }
