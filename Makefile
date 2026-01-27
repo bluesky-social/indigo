@@ -17,7 +17,6 @@ help: ## Print info about all commands
 .PHONY: build
 build: ## Build all executables
 	go build ./cmd/gosky
-	go build ./cmd/bigsky
 	go build ./cmd/relay
 	go build ./cmd/beemo
 	go build ./cmd/lexgen
@@ -76,10 +75,6 @@ cborgen: ## Run codegen tool for CBOR serialization
 
 .env:
 	if [ ! -f ".env" ]; then cp example.dev.env .env; fi
-
-.PHONY: run-postgres
-run-postgres: .env ## Runs a local postgres instance
-	docker compose -f cmd/bigsky/docker-compose.yml up -d
 
 .PHONY: run-dev-opensearch
 run-dev-opensearch: .env ## Runs a local opensearch instance
