@@ -111,6 +111,23 @@ func (bs *readStreamBlockstore) Put(ctx context.Context, blk block.Block) error 
 	return fmt.Errorf("put is not needed")
 }
 
+// StreamRepoRecords parses a CAR-encoded repository from the given reader and
+// iterates over its records.
+//
+// The prefix parameter specifies the starting point for iteration. Records are
+// visited in lexicographic order starting from the first key >= prefix. If
+// prefix exactly matches a full record path, that record will be included.
+// Note that this does not filter to only keys with that prefix; all records
+// from that point onward are visited.
+//
+// The setRev callback receives the repository revision string after the commit
+// is loaded. It may be nil, in which case it is ignored.
+//
+// The cb parameter is the visitor function called for each record with the
+// record's key, CID, and raw data. If cb returns an error, the error is logged
+// and iteration continues; errors from cb do not stop the walk and are not
+// returned from this function. To signal intentional early termination, cb can
+// return ErrDoneIterating, which is handled silently without logging.
 func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, setRev func(string), cb func(k string, c cid.Cid, v []byte) error) error {
 	ctx, span := otel.Tracer("repo").Start(ctx, "RepoStream")
 	defer span.End()
