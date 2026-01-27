@@ -74,7 +74,7 @@ func TestDowncase(t *testing.T) {
 func TestEmpty(t *testing.T) {
 	assert := assert.New(t)
 
-	atid := AtIdentifier{}
+	atid := AtIdentifier("")
 
 	assert.False(atid.IsHandle())
 	assert.False(atid.IsDID())

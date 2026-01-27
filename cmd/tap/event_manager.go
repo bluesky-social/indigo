@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -140,6 +139,9 @@ func (em *EventManager) loadEventPage(ctx context.Context, lastID int) (int, err
 	eventCacheSize.Set(float64(len(em.cache)))
 	em.cacheLk.Unlock()
 
+	maxID := dbEvts[len(dbEvts)-1].ID
+	em.nextID.Store(uint64(maxID + 1))
+
 	for i := range dbEvts {
 		em.pendingIDs <- dbEvts[i].ID
 	}
@@ -148,6 +150,10 @@ func (em *EventManager) loadEventPage(ctx context.Context, lastID int) (int, err
 }
 
 func (em *EventManager) AddCommit(ctx context.Context, commit *Commit, dbCallback DBCallback) error {
+	if len(commit.Ops) == 0 {
+		return updateRepoCommitMeta(em.db, commit)
+	}
+
 	evts := make([]*RecordEvt, 0, len(commit.Ops))
 
 	for _, op := range commit.Ops {
@@ -169,13 +175,17 @@ func (em *EventManager) AddCommit(ctx context.Context, commit *Commit, dbCallbac
 			return err
 		}
 
-		return tx.Model(&models.Repo{}).
-			Where("did = ?", commit.Did).
-			Updates(map[string]interface{}{
-				"rev":       commit.Rev,
-				"prev_data": commit.DataCid,
-			}).Error
+		return updateRepoCommitMeta(tx, commit)
 	})
+}
+
+func updateRepoCommitMeta(dbOrTx *gorm.DB, commit *Commit) error {
+	return dbOrTx.Model(&models.Repo{}).
+		Where("did = ?", commit.Did).
+		Updates(map[string]interface{}{
+			"rev":       commit.Rev,
+			"prev_data": commit.DataCid,
+		}).Error
 }
 
 func (em *EventManager) AddRecordEvents(ctx context.Context, evts []*RecordEvt, live bool, dbCallback DBCallback) error {
@@ -318,30 +328,4 @@ func (em *EventManager) addToResyncBuffer(ctx context.Context, commit *Commit) e
 		Did:  commit.Did,
 		Data: string(jsonData),
 	}).Error
-}
-
-func (em *EventManager) drainResyncBuffer(ctx context.Context, did string) error {
-	var bufferedEvts []models.ResyncBuffer
-	if err := em.db.WithContext(ctx).Where("did = ?", did).Order("id ASC").Find(&bufferedEvts).Error; err != nil {
-		return fmt.Errorf("failed to load buffered events: %w", err)
-	}
-
-	if len(bufferedEvts) == 0 {
-		return nil
-	}
-
-	for _, evt := range bufferedEvts {
-		var commit Commit
-		if err := json.Unmarshal([]byte(evt.Data), &commit); err != nil {
-			return fmt.Errorf("failed to unmarshal buffered event: %w", err)
-		}
-
-		if err := em.AddCommit(ctx, &commit, func(tx *gorm.DB) error {
-			return tx.Delete(&models.ResyncBuffer{}, "id = ?", evt.ID).Error
-		}); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

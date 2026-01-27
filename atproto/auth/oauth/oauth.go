@@ -538,7 +538,7 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (str
 		if err != nil {
 			return "", fmt.Errorf("not a valid account identifier (%s): %w", identifier, err)
 		}
-		ident, err := app.Dir.Lookup(ctx, *atid)
+		ident, err := app.Dir.Lookup(ctx, atid)
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve username (%s): %w", identifier, err)
 		}

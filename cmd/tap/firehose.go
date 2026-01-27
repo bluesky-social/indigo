@@ -88,6 +88,17 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 		return nil
 	}
 
+	commit, err := fp.validateCommitAndFilterOps(ctx, evt)
+	if err != nil {
+		fp.logger.Error("failed to parse operations", "did", evt.Repo, "error", err)
+		return err
+	}
+
+	if curr.State == models.RepoStateResyncing {
+		firehoseEventsSkipped.Inc()
+		return fp.events.addToResyncBuffer(ctx, commit)
+	}
+
 	if evt.PrevData == nil {
 		fp.logger.Debug("legacy commit event, skipping prev data check", "did", evt.Repo, "rev", evt.Rev)
 	} else if evt.PrevData.String() != curr.PrevData {
@@ -98,32 +109,6 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 			return err
 		}
 		return nil
-	}
-
-	commit, err := fp.validateCommit(ctx, evt)
-	if err != nil {
-		fp.logger.Error("failed to parse operations", "did", evt.Repo, "error", err)
-		return err
-	}
-
-	// filter ops to only matching collections after validation (since all ops are necessary for commit validation)
-	filteredOps := []CommitOp{}
-	for _, op := range commit.Ops {
-		if matchesCollection(op.Collection, fp.collectionFilters) {
-			filteredOps = append(filteredOps, op)
-		}
-	}
-	if len(filteredOps) == 0 {
-		firehoseEventsSkipped.Inc()
-		return nil
-	}
-	commit.Ops = filteredOps
-
-	if curr.State == models.RepoStateResyncing {
-		if err := fp.events.addToResyncBuffer(ctx, commit); err != nil {
-			fp.logger.Error("failed to buffer commit", "did", evt.Repo, "error", err)
-			return err
-		}
 	}
 
 	if err := fp.events.AddCommit(ctx, commit, func(tx *gorm.DB) error {
@@ -137,7 +122,7 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 	return nil
 }
 
-func (fp *FirehoseProcessor) validateCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) (*Commit, error) {
+func (fp *FirehoseProcessor) validateCommitAndFilterOps(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) (*Commit, error) {
 	if err := repo.VerifyCommitSignature(ctx, fp.repos.IdDir, evt); err != nil {
 		return nil, err
 	}
@@ -147,7 +132,7 @@ func (fp *FirehoseProcessor) validateCommit(ctx context.Context, evt *comatproto
 		return nil, err
 	}
 
-	var parsedOps []CommitOp
+	parsedOps := make([]CommitOp, 0)
 
 	for _, op := range evt.Ops {
 		collection, rkey, err := syntax.ParseRepoPath(op.Path)
@@ -182,7 +167,9 @@ func (fp *FirehoseProcessor) validateCommit(ctx context.Context, evt *comatproto
 			parsed.Record = record
 		}
 
-		parsedOps = append(parsedOps, parsed)
+		if matchesCollection(parsed.Collection, fp.collectionFilters) {
+			parsedOps = append(parsedOps, parsed)
+		}
 	}
 
 	repoCommit, err := r.Commit()
@@ -195,6 +182,10 @@ func (fp *FirehoseProcessor) validateCommit(ctx context.Context, evt *comatproto
 		Rev:     repoCommit.Rev,
 		DataCid: repoCommit.Data.String(),
 		Ops:     parsedOps,
+	}
+
+	if evt.PrevData != nil {
+		commit.PrevData = evt.PrevData.String()
 	}
 
 	return commit, nil
@@ -443,7 +434,9 @@ func (fp *FirehoseProcessor) runConsumer(ctx context.Context) error {
 		fp.logger.Info("connecting to firehose", "url", urlStr, "cursor", cursor, "retries", retries)
 
 		dialer := websocket.DefaultDialer
-		con, _, err := dialer.DialContext(ctx, urlStr, http.Header{})
+		con, _, err := dialer.DialContext(ctx, urlStr, http.Header{
+			"User-Agent": []string{userAgent()},
+		})
 		if err != nil {
 			fp.logger.Warn("dialing failed", "error", err, "retries", retries)
 			time.Sleep(backoff(retries, 10))

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -73,16 +74,18 @@ func (r *Resyncer) claimResyncJob(ctx context.Context) (string, bool, error) {
 	defer r.claimJobMu.Unlock()
 
 	var did string
+	now := time.Now().Unix()
 	result := r.db.WithContext(ctx).Raw(`
 		UPDATE repos
 		SET state = ?
 		WHERE did = (
 			SELECT did FROM repos
-			WHERE state IN (?, ?)
+			WHERE state IN (?, ?, ?)
+			AND (retry_after = 0 OR retry_after < ?)
 			LIMIT 1
 		)
 		RETURNING did
-		`, models.RepoStateResyncing, models.RepoStatePending, models.RepoStateDesynchronized).Scan(&did)
+		`, models.RepoStateResyncing, models.RepoStatePending, models.RepoStateDesynchronized, models.RepoStateError, now).Scan(&did)
 	if result.Error != nil {
 		return "", false, result.Error
 	}
@@ -117,7 +120,7 @@ func (r *Resyncer) resyncDid(ctx context.Context, did string) error {
 	resyncsCompleted.Inc()
 	resyncDuration.Observe(time.Since(startTime).Seconds())
 
-	if err := r.events.drainResyncBuffer(ctx, did); err != nil {
+	if err := r.drainResyncBuffer(ctx, did); err != nil {
 		r.logger.Error("failed to drain resync buffer events", "did", did, "error", err)
 	}
 
@@ -141,6 +144,11 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 		return false, fmt.Errorf("no PDS endpoint for DID: %s", did)
 	}
 
+	signingKey, err := ident.PublicKey()
+	if err != nil {
+		return false, fmt.Errorf("failed to get public key: %w", err)
+	}
+
 	r.pdsBackoffMu.RLock()
 	backoffUntil, inBackoff := r.pdsBackoff[pdsURL]
 	r.pdsBackoffMu.RUnlock()
@@ -151,6 +159,7 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 	r.logger.Info("fetching repo from PDS", "did", did, "pds", pdsURL)
 
 	client := atclient.NewAPIClient(pdsURL)
+	client.Headers.Set("User-Agent", userAgent())
 	timeout := r.repoFetchTimeout
 	if timeout <= 0 {
 		timeout = 30 * time.Second
@@ -175,6 +184,11 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 	commit, repo, err := repolib.LoadRepoFromCAR(ctx, bytes.NewReader(repoBytes))
 	if err != nil {
 		return false, fmt.Errorf("failed to read repo from CAR: %w", err)
+	}
+
+	err = commit.VerifySignature(signingKey)
+	if err != nil {
+		return false, fmt.Errorf("failed to verify signature: %w", err)
 	}
 
 	rev := commit.Rev
@@ -310,7 +324,7 @@ func (r *Resyncer) handleResyncError(ctx context.Context, did string, err error)
 	}
 
 	// start a 1 min & go up to 1 hr between retries
-	retryAfter := time.Now().Add(backoff(repo.RetryCount, 60))
+	retryAfter := time.Now().Add(backoff(repo.RetryCount, 60) * 60)
 
 	dbErr := r.db.WithContext(ctx).Model(&models.Repo{}).
 		Where("did = ?", did).
@@ -332,4 +346,41 @@ func (r *Resyncer) resetPartiallyResynced(ctx context.Context) error {
 	return r.db.WithContext(ctx).Model(&models.Repo{}).
 		Where("state = ?", models.RepoStateResyncing).
 		Update("state", models.RepoStateDesynchronized).Error
+}
+
+func (r *Resyncer) drainResyncBuffer(ctx context.Context, did string) error {
+	var bufferedEvts []models.ResyncBuffer
+	if err := r.events.db.WithContext(ctx).Where("did = ?", did).Order("id ASC").Find(&bufferedEvts).Error; err != nil {
+		return fmt.Errorf("failed to load buffered events: %w", err)
+	}
+
+	if len(bufferedEvts) == 0 {
+		return nil
+	}
+
+	curr, err := r.repos.GetRepoState(ctx, did)
+	if err != nil {
+		return fmt.Errorf("failed to get repo state: %w", err)
+	}
+
+	for _, evt := range bufferedEvts {
+		var commit Commit
+		if err := json.Unmarshal([]byte(evt.Data), &commit); err != nil {
+			return fmt.Errorf("failed to unmarshal buffered event: %w", err)
+		}
+
+		// if this commit doesn't stack neatly on current state of tracked repo then we skip
+		// NOTE: the check against the empty string can be eliminated after we start refusing legacy commit events
+		if commit.PrevData != "" && commit.PrevData != curr.PrevData {
+			continue
+		}
+
+		if err := r.events.AddCommit(ctx, &commit, func(tx *gorm.DB) error {
+			return tx.Delete(&models.ResyncBuffer{}, "id = ?", evt.ID).Error
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
