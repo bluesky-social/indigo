@@ -31,6 +31,7 @@ type TapServer struct {
 func (ts *TapServer) Start(address string) error {
 	ts.echo = echo.New()
 	ts.echo.HideBanner = true
+	ts.echo.HidePort = true // silence http server started on [::]:port log line
 	ts.echo.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
 
 	// Apply admin auth middleware if configured
