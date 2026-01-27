@@ -24,7 +24,6 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
-	"github.com/bluesky-social/indigo/handles"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
@@ -193,8 +192,7 @@ var readRepoStreamCmd = &cli.Command{
 			_ = con.Close()
 		}()
 
-		didr := cliutil.GetDidResolver(cctx)
-		hr := &handles.ProdHandleResolver{}
+		bdir := identity.BaseDirectory{}
 		resolveHandles := cctx.Bool("resolve-handles")
 
 		cache, _ := lru.New[string, *cachedHandle](10000)
@@ -206,17 +204,21 @@ var readRepoStreamCmd = &cli.Command{
 				}
 			}
 
-			h, _, err := handles.ResolveDidToHandle(ctx, didr, hr, did)
+			ident, err := bdir.LookupDID(ctx, syntax.DID(did))
 			if err != nil {
 				return "", err
 			}
 
+			if ident.Handle.IsInvalidHandle() {
+				return "", fmt.Errorf("invalid handle")
+			}
+
 			cache.Add(did, &cachedHandle{
-				Handle: h,
+				Handle: ident.Handle.String(),
 				Valid:  time.Now().Add(time.Minute * 10),
 			})
 
-			return h, nil
+			return ident.Handle.String(), nil
 		}
 		var limiter *rate.Limiter
 		if cctx.Float64("max-throughput") > 0 {
