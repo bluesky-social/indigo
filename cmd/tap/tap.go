@@ -10,6 +10,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/tap/models"
+	"github.com/bluesky-social/indigo/internal/group"
 	"github.com/puzpuzpuz/xsync/v4"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -169,14 +170,30 @@ func NewTap(config TapConfig) (*Tap, error) {
 }
 
 // Run starts internal background workers for resync, cursor saving, and outbox delivery.
-func (t *Tap) Run(ctx context.Context) {
-	go t.Events.LoadEvents(ctx)
+func (t *Tap) Run(ctx context.Context) error {
+	t.logger.Info("starting tap service")
+	defer t.logger.Info("tap service stopped")
+	g := group.New(group.WithContext(ctx))
+
+	g.Add(func(ctx context.Context) error {
+		t.Events.LoadEvents(ctx)
+		// loadevents runs until its loaded all the events, but if we return
+		// the group will shut down everything, so just block here on ctx.Done()
+		<-ctx.Done()
+		return ctx.Err()
+	})
 
 	if !t.config.OutboxOnly {
-		go t.Resyncer.run(ctx)
+		g.Add(t.Resyncer.run)
 	}
 
-	go t.Outbox.Run(ctx)
+	g.Add(t.Outbox.Run)
+	t.logger.Info("tap service started")
+	err := g.Wait()
+	if err != nil {
+		t.logger.Error("tap service stopped with error", "error", err)
+	}
+	return err
 }
 
 func (t *Tap) CloseDb(ctx context.Context) error {

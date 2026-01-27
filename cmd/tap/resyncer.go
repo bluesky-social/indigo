@@ -16,6 +16,7 @@ import (
 	repolib "github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/tap/models"
+	"github.com/bluesky-social/indigo/internal/group"
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
@@ -38,13 +39,17 @@ type Resyncer struct {
 	pdsBackoffMu sync.RWMutex
 }
 
-func (r *Resyncer) run(ctx context.Context) {
+func (r *Resyncer) run(ctx context.Context) error {
+	g := group.New(group.WithContext(ctx))
 	for i := 0; i < r.parallelism; i++ {
-		go r.runResyncWorker(ctx, i)
+		g.Add(func(ctx context.Context) error {
+			return r.runResyncWorker(ctx, i)
+		})
 	}
+	return g.Wait()
 }
 
-func (r *Resyncer) runResyncWorker(ctx context.Context, workerID int) {
+func (r *Resyncer) runResyncWorker(ctx context.Context, workerID int) error {
 	logger := r.logger.With("worker", workerID)
 
 	for {
@@ -58,7 +63,7 @@ func (r *Resyncer) runResyncWorker(ctx context.Context, workerID int) {
 		select {
 		case <-ctx.Done():
 			logger.Info("resync worker shutting down", "error", ctx.Err())
-			return
+			return ctx.Err()
 		default:
 			did, found, err := r.claimResyncJob(ctx)
 			if err != nil {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -12,6 +13,7 @@ import (
 
 	_ "net/http/pprof"
 
+	"github.com/bluesky-social/indigo/internal/group"
 	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/earthboundkid/versioninfo/v2"
@@ -19,7 +21,7 @@ import (
 )
 
 func main() {
-	if err := run(os.Args); err != nil {
+	if err := run(os.Args); err != nil && !errors.Is(err, context.Canceled) {
 		slog.Error("exiting process", "error", err)
 		os.Exit(-1)
 	}
@@ -221,65 +223,59 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	if !config.OutboxOnly {
-		go tap.Crawler.Run(ctx)
-	}
-
-	svcErr := make(chan error, 1)
+	g := group.New(group.WithContext(ctx))
 
 	if !config.OutboxOnly {
-		go func() {
+		g.Add(tap.Crawler.Run)
+		g.Add(func(ctx context.Context) error {
 			logger.Info("starting firehose consumer")
-			if err := tap.Firehose.Run(ctx); err != nil {
-				svcErr <- err
-			}
-		}()
+			defer logger.Info("firehose consumer stopped")
+			return tap.Firehose.Run(ctx)
+		})
 	}
 
-	go tap.Run(ctx)
+	g.Add(func(ctx context.Context) error {
+		tap.Run(ctx)
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutdownCancel()
+		return tap.CloseDb(shutdownCtx)
+	})
 
-	go func() {
+	g.Add(func(ctx context.Context) error {
 		logger.Info("starting HTTP server", "addr", cmd.String("bind"))
-		if err := tap.Server.Start(cmd.String("bind")); err != nil {
-			svcErr <- err
+
+		// async shutdown of HTTP servers is always tricky
+		shutdownErr := make(chan error, 1)
+		go func() {
+			defer logger.Info("HTTP server stopped", "addr", cmd.String("bind"))
+			<-ctx.Done()
+			logger.Info("shutting down HTTP server", "addr", cmd.String("bind"), "error", ctx.Err())
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer shutdownCancel()
+
+			shutdownErr <- tap.Server.Shutdown(shutdownCtx)
+		}()
+
+		err := tap.Server.Start(cmd.String("bind"))
+		if err == nil {
+			err = <-shutdownErr
 		}
-	}()
+		logger.Info("HTTP server exited", "addr", cmd.String("bind"), "error", err)
+		return err
+	})
 
 	if metricsAddr := cmd.String("metrics-listen"); metricsAddr != "" {
-		go func() {
+		g.Add(func(ctx context.Context) error {
 			logger.Info("starting metrics server", "addr", metricsAddr)
-			if err := tap.Server.RunMetrics(metricsAddr); err != nil {
-				logger.Error("metrics server failed", "error", err)
-			}
-		}()
+			defer logger.Info("metrics server stopped", "addr", metricsAddr)
+			return tap.Server.RunMetrics(metricsAddr)
+		})
 	}
 
 	logger.Info("startup complete")
-	select {
-	case <-ctx.Done():
-		logger.Info("received shutdown signal", "reason", ctx.Err())
-	case err := <-svcErr:
-		if err != nil {
-			logger.Error("service error", "error", err)
-		}
-	}
-
-	logger.Info("shutting down")
-
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
-
-	if err := tap.Server.Shutdown(shutdownCtx); err != nil {
-		logger.Error("error during shutdown", "error", err)
-		return err
-	}
-
-	if err := tap.CloseDb(shutdownCtx); err != nil {
-		return err
-	}
-
-	logger.Info("shutdown complete")
-	return nil
+	err = g.Wait()
+	logger.Info("shutting down", "error", err)
+	return err
 }
 
 func configLogger(cmd *cli.Command, writer *os.File) *slog.Logger {
