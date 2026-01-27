@@ -20,7 +20,6 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -469,7 +468,7 @@ var debugFeedGenCmd = &cli.Command{
 			return err
 		}
 
-		didr := cliutil.GetDidResolver(cctx)
+		dir := identity.DefaultDirectory()
 
 		uri := cctx.Args().First()
 		puri, err := util.ParseAtUri(uri)
@@ -490,35 +489,27 @@ var debugFeedGenCmd = &cli.Command{
 		}
 
 		fmt.Println("Feed DID is: ", fgr.Did)
-		doc, err := didr.GetDocument(ctx, fgr.Did)
+		ident, err := dir.LookupDID(ctx, syntax.DID(fgr.Did))
 		if err != nil {
 			return err
 		}
 
 		fmt.Println("Got service did document:")
-		b, err := json.MarshalIndent(doc, "", "  ")
+		b, err := json.MarshalIndent(ident, "", "  ")
 		if err != nil {
 			return err
 		}
 		fmt.Println(string(b))
 
-		var ss *did.Service
-		for _, s := range doc.Service {
-			if s.ID.String() == "#bsky_fg" {
-				cp := s
-				ss = &cp
-				break
-			}
-		}
-
-		if ss == nil {
+		svc, ok := ident.Services["bsky_fg"]
+		if !ok {
 			return fmt.Errorf("No '#bsky_fg' service entry found in feedgens DID document")
 		}
 
-		fmt.Println("Service endpoint is: ", ss.ServiceEndpoint)
+		fmt.Println("Service endpoint is: ", svc.URL)
 
 		fgclient := &xrpc.Client{
-			Host: ss.ServiceEndpoint,
+			Host: svc.URL,
 		}
 
 		desc, err := bsky.FeedDescribeFeedGenerator(ctx, fgclient)
@@ -601,15 +592,14 @@ var debugFeedViewCmd = &cli.Command{
 			return err
 		}
 
-		didr := cliutil.GetDidResolver(cctx)
+		ctx := context.TODO()
+		dir := identity.DefaultDirectory()
 
 		uri := cctx.Args().First()
 		puri, err := util.ParseAtUri(uri)
 		if err != nil {
 			return err
 		}
-
-		ctx := context.TODO()
 
 		out, err := atproto.RepoGetRecord(ctx, xrpcc, "", puri.Collection, puri.Did, puri.Rkey)
 		if err != nil {
@@ -621,26 +611,18 @@ var debugFeedViewCmd = &cli.Command{
 			return fmt.Errorf("invalid feedgen record")
 		}
 
-		doc, err := didr.GetDocument(ctx, fgr.Did)
+		ident, err := dir.LookupDID(ctx, syntax.DID(fgr.Did))
 		if err != nil {
 			return err
 		}
 
-		var ss *did.Service
-		for _, s := range doc.Service {
-			if s.ID.String() == "#bsky_fg" {
-				cp := s
-				ss = &cp
-				break
-			}
-		}
-
-		if ss == nil {
+		svc, ok := ident.Services["bsky_fg"]
+		if !ok {
 			return fmt.Errorf("No '#bsky_fg' service entry found in feedgens DID document")
 		}
 
 		fgclient := &xrpc.Client{
-			Host: ss.ServiceEndpoint,
+			Host: svc.URL,
 		}
 
 		cache, err := loadCache("postcache.json")
