@@ -26,6 +26,9 @@ func main() {
 }
 
 func run(args []string) error {
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
 	app := &cli.Command{
 		Name:    "tap",
 		Usage:   "atproto sync tool",
@@ -171,15 +174,12 @@ func run(args []string) error {
 		},
 	}
 
-	return app.Run(context.Background(), args)
+	return app.Run(ctx, args)
 }
 
 func runTap(ctx context.Context, cmd *cli.Command) error {
 	logger := configLogger(cmd, os.Stdout)
 	slog.SetDefault(logger)
-
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	// fail early if relay url is not http/https
 	relayUrl := cmd.String("relay-url")
@@ -221,10 +221,8 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	runCtx, cancel := context.WithCancel(ctx)
-
 	if !config.OutboxOnly {
-		go tap.Crawler.Run(runCtx)
+		go tap.Crawler.Run(ctx)
 	}
 
 	svcErr := make(chan error, 1)
@@ -232,13 +230,13 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	if !config.OutboxOnly {
 		go func() {
 			logger.Info("starting firehose consumer")
-			if err := tap.Firehose.Run(runCtx); err != nil {
+			if err := tap.Firehose.Run(ctx); err != nil {
 				svcErr <- err
 			}
 		}()
 	}
 
-	go tap.Run(runCtx)
+	go tap.Run(ctx)
 
 	go func() {
 		logger.Info("starting HTTP server", "addr", cmd.String("bind"))
@@ -258,8 +256,8 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 
 	logger.Info("startup complete")
 	select {
-	case <-signals:
-		logger.Info("received shutdown signal")
+	case <-ctx.Done():
+		logger.Info("received shutdown signal", "reason", ctx.Err())
 	case err := <-svcErr:
 		if err != nil {
 			logger.Error("service error", "error", err)
@@ -267,7 +265,6 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	logger.Info("shutting down")
-	cancel()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
