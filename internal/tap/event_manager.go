@@ -1,4 +1,4 @@
-package main
+package tap
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bluesky-social/indigo/cmd/tap/models"
+	"github.com/bluesky-social/indigo/internal/tap/models"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

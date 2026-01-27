@@ -1,4 +1,4 @@
-package main
+package tap
 
 import (
 	"github.com/prometheus/client_golang/prometheus"

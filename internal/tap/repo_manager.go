@@ -1,4 +1,4 @@
-package main
+package tap
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/tap/models"
+	"github.com/bluesky-social/indigo/internal/tap/models"
 	"gorm.io/gorm"
 )
 

@@ -12,6 +12,7 @@ import (
 
 	_ "net/http/pprof"
 
+	"github.com/bluesky-social/indigo/internal/tap"
 	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/earthboundkid/versioninfo/v2"
@@ -193,7 +194,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("plc-url must start with http:// or https://")
 	}
 
-	config := TapConfig{
+	config := tap.Config{
 		DatabaseURL:                cmd.String("db-url"),
 		DBMaxConns:                 int(cmd.Int("max-db-conn")),
 		PLCURL:                     plcUrl,
@@ -216,7 +217,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	logger.Info("creating tap service")
-	tap, err := NewTap(config)
+	tap, err := tap.New(config)
 	if err != nil {
 		return err
 	}
