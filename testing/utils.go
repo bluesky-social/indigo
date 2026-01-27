@@ -1,13 +1,11 @@
 package testing
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/base32"
-	"encoding/json"
 	"fmt"
 	mathrand "math/rand"
 	"net"
@@ -21,19 +19,12 @@ import (
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/bgs"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/diskpersist"
-	"github.com/bluesky-social/indigo/events/schedulers/sequential"
-	"github.com/bluesky-social/indigo/handles"
-	"github.com/bluesky-social/indigo/indexer"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/repomgr"
 	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
@@ -42,7 +33,6 @@ import (
 
 	"net/url"
 
-	"github.com/gorilla/websocket"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -161,89 +151,6 @@ func (tp *TestPDS) Run(t *testing.T) {
 
 	tp.shutdown = func() {
 		tp.server.Shutdown(context.TODO())
-	}
-}
-
-func (tp *TestPDS) RequestScraping(t *testing.T, b *TestRelay) {
-	t.Helper()
-
-	err := b.bgs.CreateAdminToken("test")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	req, err := http.NewRequest("POST", "http://"+b.Host()+"/admin/subs/setPerDayLimit?limit=500", nil)
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer test")
-
-	// Send the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-
-	// Check the response
-	if resp.StatusCode != http.StatusOK {
-		t.Fatal("expected 200 OK, got: ", resp.Status)
-	}
-
-	c := &xrpc.Client{Host: "http://" + b.Host()}
-	if err := atproto.SyncRequestCrawl(context.TODO(), c, &atproto.SyncRequestCrawl_Input{Hostname: tp.RawHost()}); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func (tp *TestPDS) BumpLimits(t *testing.T, b *TestRelay) {
-	t.Helper()
-
-	err := b.bgs.CreateAdminToken("test")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	u, err := url.Parse(tp.HTTPHost())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	limReqBody := bgs.RateLimitChangeRequest{
-		Host: u.Host,
-		PDSRates: bgs.PDSRates{
-			PerSecond: 5_000,
-			PerHour:   100_000,
-			PerDay:    1_000_000,
-			RepoLimit: 500_000,
-			CrawlRate: 50_000,
-		},
-	}
-
-	// JSON encode the request body
-	reqBody, err := json.Marshal(limReqBody)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	req, err := http.NewRequest("POST", "http://"+b.Host()+"/admin/pds/changeLimits", bytes.NewBuffer(reqBody))
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer test")
-
-	// Send the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-
-	// Check the response
-	if resp.StatusCode != http.StatusOK {
-		t.Fatal("expected 200 OK, got: ", resp.Status)
 	}
 }
 
@@ -494,207 +401,12 @@ func TestPLC(t *testing.T) *plc.FakeDid {
 	return plc.NewFakeDid(db)
 }
 
-type TestRelay struct {
-	bgs *bgs.BGS
-	tr  *handles.TestHandleResolver
-	db  *gorm.DB
-
-	// listener is owned by by the Relay structure and should be closed by
-	// shutting down the Relay.
-	listener net.Listener
-}
-
-func (t *TestRelay) Host() string {
-	return t.listener.Addr().String()
-}
-
-func MustSetupRelay(t *testing.T, didr plc.PLCClient, archive bool) *TestRelay {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	tbgs, err := SetupRelay(ctx, didr, archive)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return tbgs
-}
-
-func SetupRelay(ctx context.Context, didr plc.PLCClient, archive bool) (*TestRelay, error) {
-	dir, err := os.MkdirTemp("", "integtest")
-	if err != nil {
-		return nil, err
-	}
-
-	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.sqlite")))
-	if err != nil {
-		return nil, err
-	}
-
-	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.sqlite")))
-	if err != nil {
-		return nil, err
-	}
-
-	cspath := filepath.Join(dir, "carstore")
-	if err := os.Mkdir(cspath, 0775); err != nil {
-		return nil, err
-	}
-
-	var cs carstore.CarStore
-	if archive {
-		arccs, err := carstore.NewCarStore(cardb, []string{cspath})
-		if err != nil {
-			return nil, err
-		}
-		cs = arccs
-	} else {
-		nacs, err := carstore.NewNonArchivalCarstore(cardb)
-		if err != nil {
-			return nil, err
-		}
-		cs = nacs
-	}
-
-	//kmgr := indexer.NewKeyManager(didr, nil)
-	kmgr := &bsutil.FakeKeyManager{}
-
-	repoman := repomgr.NewRepoManager(cs, kmgr)
-
-	opts := diskpersist.DefaultDiskPersistOptions()
-	opts.EventsPerFile = 10
-	diskpersist, err := diskpersist.NewDiskPersistence(filepath.Join(dir, "dp-primary"), filepath.Join(dir, "dp-archive"), maindb, opts)
-
-	evtman := events.NewEventManager(diskpersist)
-	rf := indexer.NewRepoFetcher(maindb, repoman, 10)
-
-	ix, err := indexer.NewIndexer(maindb, evtman, didr, rf, true)
-	if err != nil {
-		return nil, err
-	}
-
-	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
-		if err := ix.HandleRepoEvent(ctx, evt); err != nil {
-			fmt.Println("test relay failed to handle repo event", err)
-		}
-	}, true) // TODO: actually want this to be false, but some tests use this to confirm the Relay has seen certain records
-
-	tr := &handles.TestHandleResolver{}
-
-	bgsConfig := bgs.DefaultBGSConfig()
-	bgsConfig.SSL = false
-	b, err := bgs.NewBGS(maindb, ix, repoman, evtman, didr, rf, tr, bgsConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	var lc net.ListenConfig
-	listener, err := lc.Listen(ctx, "tcp", "localhost:0")
-	if err != nil {
-		return nil, err
-	}
-
-	return &TestRelay{
-		db:       maindb,
-		bgs:      b,
-		tr:       tr,
-		listener: listener,
-	}, nil
-}
-
-func (b *TestRelay) Run(t *testing.T) {
-	go func() {
-		if err := b.bgs.StartWithListener(b.listener); err != nil {
-			fmt.Println(err)
-		}
-	}()
-	time.Sleep(time.Millisecond * 10)
-}
-
-func (b *TestRelay) BanDomain(t *testing.T, d string) {
-	t.Helper()
-
-	if err := b.db.Create(&models.DomainBan{
-		Domain: d,
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
-}
-
 type EventStream struct {
 	Lk     sync.Mutex
 	Events []*events.XRPCStreamEvent
 	Cancel func()
 
 	Cur int
-}
-
-func (b *TestRelay) Events(t *testing.T, since int64) *EventStream {
-	d := websocket.Dialer{}
-	h := http.Header{}
-
-	q := ""
-	if since >= 0 {
-		q = fmt.Sprintf("?cursor=%d", since)
-	}
-
-	con, resp, err := d.Dial("ws://"+b.Host()+"/xrpc/com.atproto.sync.subscribeRepos"+q, h)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if resp.StatusCode != 101 {
-		t.Fatal("expected http 101 response, got: ", resp.StatusCode)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	es := &EventStream{
-		Cancel: cancel,
-	}
-
-	go func() {
-		<-ctx.Done()
-		con.Close()
-	}()
-
-	go func() {
-		rsc := &events.RepoStreamCallbacks{
-			RepoCommit: func(evt *atproto.SyncSubscribeRepos_Commit) error {
-				fmt.Println("received event: ", evt.Seq, evt.Repo, len(es.Events))
-				es.Lk.Lock()
-				es.Events = append(es.Events, &events.XRPCStreamEvent{RepoCommit: evt})
-				es.Lk.Unlock()
-				return nil
-			},
-			RepoSync: func(evt *atproto.SyncSubscribeRepos_Sync) error {
-				fmt.Println("received sync event: ", evt.Seq, evt.Did)
-				es.Lk.Lock()
-				es.Events = append(es.Events, &events.XRPCStreamEvent{RepoSync: evt})
-				es.Lk.Unlock()
-				return nil
-			},
-			RepoIdentity: func(evt *atproto.SyncSubscribeRepos_Identity) error {
-				fmt.Println("received identity event: ", evt.Seq, evt.Did)
-				es.Lk.Lock()
-				es.Events = append(es.Events, &events.XRPCStreamEvent{RepoIdentity: evt})
-				es.Lk.Unlock()
-				return nil
-			},
-			RepoAccount: func(evt *atproto.SyncSubscribeRepos_Account) error {
-				fmt.Println("received account event: ", evt.Seq, evt.Did)
-				es.Lk.Lock()
-				es.Events = append(es.Events, &events.XRPCStreamEvent{RepoAccount: evt})
-				es.Lk.Unlock()
-				return nil
-			},
-		}
-		seqScheduler := sequential.NewScheduler("test", rsc.EventHandler)
-		if err := events.HandleRepoStream(ctx, con, seqScheduler, nil); err != nil {
-			fmt.Println(err)
-		}
-	}()
-
-	return es
 }
 
 func (es *EventStream) Next() *events.XRPCStreamEvent {
