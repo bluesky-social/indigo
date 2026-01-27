@@ -44,7 +44,7 @@ type Outbox struct {
 }
 
 // Run starts the outbox workers for event delivery and cleanup.
-func (o *Outbox) Run(ctx context.Context) {
+func (o *Outbox) Run(ctx context.Context) error {
 	o.ctx = ctx
 
 	if o.mode == OutboxModeWebsocketAck {
@@ -60,6 +60,7 @@ func (o *Outbox) Run(ctx context.Context) {
 	}
 
 	<-ctx.Done()
+	return ctx.Err()
 }
 
 // runDelivery continuously pulls from pendingIDs and delivers events

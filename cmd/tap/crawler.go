@@ -24,7 +24,7 @@ type Crawler struct {
 	SignalCollection string
 }
 
-func (c *Crawler) Run(ctx context.Context) {
+func (c *Crawler) Run(ctx context.Context) error {
 	for {
 		var err error
 		if c.SignalCollection != "" {
@@ -43,7 +43,7 @@ func (c *Crawler) Run(ctx context.Context) {
 
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case <-time.After(d):
 		}
 	}

@@ -40,19 +40,19 @@ func (em *EventManager) IsReady() bool {
 	return em.finishedLoading.Load() && !em.IsFull()
 }
 
-func (em *EventManager) WaitForReady(ctx context.Context) {
+func (em *EventManager) WaitForReady(ctx context.Context) error {
 	if em.IsReady() {
-		return
+		return nil
 	}
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case <-ticker.C:
 			if em.IsReady() {
-				return
+				return nil
 			}
 		}
 	}
