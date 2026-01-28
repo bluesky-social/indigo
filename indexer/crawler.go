@@ -226,16 +226,13 @@ func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
 }
 
 func (c *CrawlDispatcher) fetchWorker() {
-	for {
-		select {
-		case job := <-c.repoSync:
-			if err := c.repoFetcher.FetchAndIndexRepo(context.TODO(), job); err != nil {
-				c.log.Error("failed to perform repo crawl", "did", job.act.Did, "err", err)
-			}
-
-			// TODO: do we still just do this if it errors?
-			c.complete <- job.act.Uid
+	for job := range c.repoSync {
+		if err := c.repoFetcher.FetchAndIndexRepo(context.TODO(), job); err != nil {
+			c.log.Error("failed to perform repo crawl", "did", job.act.Did, "err", err)
 		}
+
+		// TODO: do we still just do this if it errors?
+		c.complete <- job.act.Uid
 	}
 }
 
