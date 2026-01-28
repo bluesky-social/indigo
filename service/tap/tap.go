@@ -1,4 +1,4 @@
-package main
+package tap
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/cmd/tap/models"
+	"github.com/bluesky-social/indigo/service/tap/models"
 	"github.com/puzpuzpuz/xsync/v4"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -30,10 +30,10 @@ type Tap struct {
 	Server *TapServer
 	Outbox *Outbox
 
-	config TapConfig
+	config Config
 }
 
-type TapConfig struct {
+type Config struct {
 	DatabaseURL                string
 	DBMaxConns                 int
 	PLCURL                     string
@@ -55,7 +55,7 @@ type TapConfig struct {
 	RetryTimeout               time.Duration
 }
 
-func NewTap(config TapConfig) (*Tap, error) {
+func New(config Config) (*Tap, error) {
 	db, err := SetupDatabase(config.DatabaseURL, config.DBMaxConns)
 	if err != nil {
 		return nil, err

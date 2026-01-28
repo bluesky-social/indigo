@@ -1,7 +1,7 @@
-package main
+package tap
 
 import (
-	"github.com/bluesky-social/indigo/cmd/tap/models"
+	"github.com/bluesky-social/indigo/service/tap/models"
 	"gorm.io/gorm"
 )
 

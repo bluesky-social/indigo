@@ -1,4 +1,4 @@
-package main
+package tap
 
 import (
 	"context"
@@ -13,9 +13,9 @@ import (
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/cmd/tap/models"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
+	"github.com/bluesky-social/indigo/service/tap/models"
 	"github.com/gorilla/websocket"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"

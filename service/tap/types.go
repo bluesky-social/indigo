@@ -1,9 +1,9 @@
-package main
+package tap
 
 import (
 	"encoding/json"
 
-	"github.com/bluesky-social/indigo/cmd/tap/models"
+	"github.com/bluesky-social/indigo/service/tap/models"
 )
 
 type OutboxMode string
