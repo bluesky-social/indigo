@@ -1,35 +1,16 @@
 package tap
 
 import (
-	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/service/tap/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
-
-type Tap struct {
-	db     *gorm.DB
-	logger *slog.Logger
-
-	Firehose *FirehoseProcessor
-	Events   *EventManager
-	Repos    *RepoManager
-	Resyncer *Resyncer
-	Crawler  *Crawler
-
-	Server *TapServer
-	Outbox *Outbox
-
-	outboxOnly bool
-}
 
 type Config struct {
 	DatabaseURL                string
@@ -53,82 +34,14 @@ type Config struct {
 	RetryTimeout               time.Duration
 }
 
-func New(config *Config) (*Tap, error) {
-	db, err := SetupDatabase(config.DatabaseURL, config.DBMaxConns)
+func CloseDb(db *gorm.DB) error {
+	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("error getting sql db: %w", err)
 	}
-
-	bdir := identity.BaseDirectory{
-		PLCURL:                config.PLCURL,
-		TryAuthoritativeDNS:   false,
-		SkipDNSDomainSuffixes: []string{".bsky.social"},
-	}
-	cdir := identity.NewCacheDirectory(&bdir, config.IdentityCacheSize, time.Hour*24, time.Minute*2, time.Minute*5)
-
-	logger := slog.Default().With("system", "tap")
-
-	evtMngr := NewEventManager(logger, db, config)
-
-	repoMngr := NewRepoManager(logger, db, &cdir, evtMngr)
-
-	resyncer := NewResyncer(logger, db, evtMngr, repoMngr, config)
-
-	firehose := NewFirehoseProcessor(logger, db, evtMngr, repoMngr, config)
-
-	crawler := NewCrawler(logger, db, config)
-
-	outbox := NewOutbox(logger, evtMngr, config)
-
-	server := NewTapServer(logger, db, outbox, repoMngr.IdDir, firehose, crawler, config)
-
-	t := &Tap{
-		db:     db,
-		logger: slog.Default().With("system", "tap"),
-
-		Firehose: firehose,
-		Events:   evtMngr,
-		Repos:    repoMngr,
-		Resyncer: resyncer,
-		Crawler:  crawler,
-		Server:   server,
-		Outbox:   outbox,
-
-		outboxOnly: config.OutboxOnly,
-	}
-
-	if err := resyncer.resetPartiallyResynced(context.Background()); err != nil {
-		return nil, err
-	}
-
-	return t, nil
-}
-
-// Run starts internal background workers for resync, cursor saving, and outbox delivery.
-func (t *Tap) Run(ctx context.Context) {
-	go t.Events.LoadEvents(ctx)
-
-	if !t.outboxOnly {
-		go t.Resyncer.run(ctx)
-	}
-
-	go t.Outbox.Run(ctx)
-}
-
-func (t *Tap) CloseDb(ctx context.Context) error {
-	t.logger.Info("shutting down tap")
-
-	sqlDB, err := t.db.DB()
-	if err != nil {
-		t.logger.Error("error getting sql db", "error", err)
-		return err
-	}
-
 	if err := sqlDB.Close(); err != nil {
-		t.logger.Error("error closing sqlite db", "error", err)
-		return err
+		return fmt.Errorf("error closing db: %w", err)
 	}
-
 	return nil
 }
 

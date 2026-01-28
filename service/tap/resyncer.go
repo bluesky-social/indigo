@@ -51,7 +51,7 @@ func NewResyncer(logger *slog.Logger, db *gorm.DB, evtMngr *EventManager, repoMn
 	}
 }
 
-func (r *Resyncer) run(ctx context.Context) {
+func (r *Resyncer) Run(ctx context.Context) {
 	for i := 0; i < r.parallelism; i++ {
 		go r.runResyncWorker(ctx, i)
 	}
@@ -367,7 +367,7 @@ func (r *Resyncer) handleResyncError(ctx context.Context, did string, err error)
 
 }
 
-func (r *Resyncer) resetPartiallyResynced(ctx context.Context) error {
+func (r *Resyncer) ResetPartiallyResynced(ctx context.Context) error {
 	return r.db.WithContext(ctx).Model(&models.Repo{}).
 		Where("state = ?", models.RepoStateResyncing).
 		Update("state", models.RepoStateDesynchronized).Error

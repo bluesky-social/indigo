@@ -13,6 +13,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/service/tap"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -182,7 +183,7 @@ func run(args []string) error {
 }
 
 func runTap(ctx context.Context, cmd *cli.Command) error {
-	logger := configLogger(cmd, os.Stdout)
+	logger := configLogger(cmd, os.Stdout).With("system", "tap")
 	slog.SetDefault(logger)
 
 	// fail early if relay url is not http/https
@@ -220,13 +221,39 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	logger.Info("creating tap service")
-	tap, err := tap.New(config)
+
+	db, err := tap.SetupDatabase(config.DatabaseURL, config.DBMaxConns)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to setup database: %w", err)
+	}
+
+	bdir := identity.BaseDirectory{
+		PLCURL:                config.PLCURL,
+		TryAuthoritativeDNS:   false,
+		SkipDNSDomainSuffixes: []string{".bsky.social"},
+	}
+	cdir := identity.NewCacheDirectory(&bdir, config.IdentityCacheSize, time.Hour*24, time.Minute*2, time.Minute*5)
+
+	evtMngr := tap.NewEventManager(logger, db, config)
+
+	repoMngr := tap.NewRepoManager(logger, db, &cdir, evtMngr)
+
+	resyncer := tap.NewResyncer(logger, db, evtMngr, repoMngr, config)
+
+	firehose := tap.NewFirehoseProcessor(logger, db, evtMngr, repoMngr, config)
+
+	crawler := tap.NewCrawler(logger, db, config)
+
+	outbox := tap.NewOutbox(logger, evtMngr, config)
+
+	server := tap.NewTapServer(logger, db, outbox, repoMngr.IdDir, firehose, crawler, config)
+
+	if err := resyncer.ResetPartiallyResynced(context.Background()); err != nil {
+		return fmt.Errorf("failed to reset partially resynced repos: %w", err)
 	}
 
 	if !config.OutboxOnly {
-		go tap.Crawler.Run(ctx)
+		go crawler.Run(ctx)
 	}
 
 	svcErr := make(chan error, 1)
@@ -234,17 +261,24 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	if !config.OutboxOnly {
 		go func() {
 			logger.Info("starting firehose consumer")
-			if err := tap.Firehose.Run(ctx); err != nil {
+			if err := firehose.Run(ctx); err != nil {
 				svcErr <- err
 			}
 		}()
 	}
 
-	go tap.Run(ctx)
+	logger.Info("starting background workers")
+	go evtMngr.LoadEvents(ctx)
+
+	if config.OutboxOnly {
+		resyncer.Run(ctx)
+	}
+
+	go outbox.Run(ctx)
 
 	go func() {
 		logger.Info("starting HTTP server", "addr", cmd.String("bind"))
-		if err := tap.Server.Start(cmd.String("bind")); err != nil {
+		if err := server.Start(cmd.String("bind")); err != nil {
 			svcErr <- err
 		}
 	}()
@@ -270,17 +304,18 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		}
 	}
 
-	logger.Info("shutting down")
+	logger.Info("shutting down tap")
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
-	if err := tap.Server.Shutdown(shutdownCtx); err != nil {
+	if err := server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("error during shutdown", "error", err)
 		return err
 	}
 
-	if err := tap.CloseDb(shutdownCtx); err != nil {
+	if err := tap.CloseDb(db); err != nil {
+		logger.Error("error closing database", "error", err)
 		return err
 	}
 
