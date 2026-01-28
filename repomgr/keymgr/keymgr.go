@@ -26,7 +26,7 @@ func NewKeyManager(didr DidResolver, k *did.PrivKey) *KeyManager {
 	return &KeyManager{
 		didr:       didr,
 		signingKey: k,
-		log:        slog.Default().With("system", "indexer"),
+		log:        slog.Default().With("system", "keymgr"),
 	}
 }
 
