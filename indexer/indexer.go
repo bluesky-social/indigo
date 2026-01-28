@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/bluesky-social/bigsky/did"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"

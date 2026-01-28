@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluesky-social/bigsky/plc"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
 	"gorm.io/driver/sqlite"

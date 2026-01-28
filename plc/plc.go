@@ -3,7 +3,7 @@ package plc
 import (
 	"context"
 
-	didres "github.com/bluesky-social/indigo/did"
+	didres "github.com/bluesky-social/bigsky/did"
 	"github.com/whyrusleeping/go-did"
 )
 
