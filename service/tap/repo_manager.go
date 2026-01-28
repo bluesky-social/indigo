@@ -17,6 +17,15 @@ type RepoManager struct {
 	events *EventManager
 }
 
+func NewRepoManager(logger *slog.Logger, db *gorm.DB, dir identity.Directory, evtMngr *EventManager) *RepoManager {
+	return &RepoManager{
+		logger: logger.With("component", "repo_manager"),
+		db:     db,
+		IdDir:  dir,
+		events: evtMngr,
+	}
+}
+
 func (rm *RepoManager) GetRepoState(ctx context.Context, did string) (*models.Repo, error) {
 	var r models.Repo
 	if err := rm.db.WithContext(ctx).First(&r, "did = ?", did).Error; err != nil {

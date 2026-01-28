@@ -3,6 +3,7 @@ package tap
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"sync"
 	"time"
 
@@ -41,6 +42,27 @@ type Outbox struct {
 	outgoing chan *OutboxEvt
 
 	ctx context.Context
+}
+
+func NewOutbox(logger *slog.Logger, evtMngr *EventManager, config Config) *Outbox {
+	return &Outbox{
+		logger:       logger.With("component", "outbox"),
+		mode:         parseOutboxMode(config.WebhookURL, config.DisableAcks),
+		parallelism:  config.OutboxParallelism,
+		retryTimeout: config.RetryTimeout,
+		webhook: &WebhookClient{
+			logger:        logger.With("component", "webhook_client"),
+			webhookURL:    config.WebhookURL,
+			adminPassword: config.AdminPassword,
+			httpClient: &http.Client{
+				Timeout: 30 * time.Second,
+			},
+		},
+		events:     evtMngr,
+		didWorkers: xsync.NewMap[string, *DIDWorker](),
+		acks:       make(chan uint, config.OutboxParallelism*10000),
+		outgoing:   make(chan *OutboxEvt, config.OutboxParallelism*10000),
+	}
 }
 
 // Run starts the outbox workers for event delivery and cleanup.

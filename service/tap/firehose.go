@@ -40,6 +40,21 @@ type FirehoseProcessor struct {
 	lastSeq atomic.Int64
 }
 
+func NewFirehoseProcessor(logger *slog.Logger, db *gorm.DB, evtMngr *EventManager, repoMngr *RepoManager, config Config) *FirehoseProcessor {
+	return &FirehoseProcessor{
+		logger:             logger.With("component", "firehose"),
+		db:                 db,
+		events:             evtMngr,
+		repos:              repoMngr,
+		relayUrl:           config.RelayUrl,
+		fullNetworkMode:    config.FullNetworkMode,
+		signalCollection:   config.SignalCollection,
+		collectionFilters:  config.CollectionFilters,
+		parallelism:        config.FirehoseParallelism,
+		cursorSaveInterval: config.FirehoseCursorSaveInterval,
+	}
+}
+
 func (fp *FirehoseProcessor) updateLastSeq(seq int64) {
 	fp.lastSeq.Store(seq)
 	firehoseLastSeq.Set(float64(seq))

@@ -38,6 +38,19 @@ type Resyncer struct {
 	pdsBackoffMu sync.RWMutex
 }
 
+func NewResyncer(logger *slog.Logger, db *gorm.DB, evtMngr *EventManager, repoMngr *RepoManager, config Config) *Resyncer {
+	return &Resyncer{
+		logger:            logger.With("component", "resyncer"),
+		db:                db,
+		events:            evtMngr,
+		repos:             repoMngr,
+		repoFetchTimeout:  config.RepoFetchTimeout,
+		collectionFilters: config.CollectionFilters,
+		parallelism:       config.ResyncParallelism,
+		pdsBackoff:        make(map[string]time.Time),
+	}
+}
+
 func (r *Resyncer) run(ctx context.Context) {
 	for i := 0; i < r.parallelism; i++ {
 		go r.runResyncWorker(ctx, i)

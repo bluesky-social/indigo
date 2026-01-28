@@ -24,6 +24,16 @@ type Crawler struct {
 	SignalCollection string
 }
 
+func NewCrawler(logger *slog.Logger, db *gorm.DB, config Config) *Crawler {
+	return &Crawler{
+		logger:           logger.With("component", "crawler"),
+		db:               db,
+		FullNetworkMode:  config.FullNetworkMode,
+		RelayUrl:         config.RelayUrl,
+		SignalCollection: config.SignalCollection,
+	}
+}
+
 func (c *Crawler) Run(ctx context.Context) {
 	for {
 		var err error
