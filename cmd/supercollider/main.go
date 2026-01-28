@@ -26,11 +26,11 @@ import (
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/yolopersist"
-	"github.com/bluesky-social/indigo/indexer"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/repomgr/keymgr"
 	"github.com/bluesky-social/indigo/util"
 
 	petname "github.com/dustinkirkland/golang-petname"
@@ -568,7 +568,7 @@ func initSpeedyRepoMan(key *godid.PrivKey) (*repomgr.RepoManager, *godid.PrivKey
 
 	cachedidr := plc.NewCachingDidResolver(mr, time.Minute*5, 1000)
 
-	kmgr := indexer.NewKeyManager(cachedidr, key)
+	kmgr := keymgr.NewKeyManager(cachedidr, key)
 
 	repoman := repomgr.NewRepoManager(cs, kmgr)
 
