@@ -44,7 +44,7 @@ type Outbox struct {
 	ctx context.Context
 }
 
-func NewOutbox(logger *slog.Logger, evtMngr *EventManager, config Config) *Outbox {
+func NewOutbox(logger *slog.Logger, evtMngr *EventManager, config *Config) *Outbox {
 	return &Outbox{
 		logger:       logger.With("component", "outbox"),
 		mode:         parseOutboxMode(config.WebhookURL, config.DisableAcks),

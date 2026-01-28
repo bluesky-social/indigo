@@ -28,7 +28,7 @@ type Tap struct {
 	Server *TapServer
 	Outbox *Outbox
 
-	config Config
+	outboxOnly bool
 }
 
 type Config struct {
@@ -53,7 +53,7 @@ type Config struct {
 	RetryTimeout               time.Duration
 }
 
-func New(config Config) (*Tap, error) {
+func New(config *Config) (*Tap, error) {
 	db, err := SetupDatabase(config.DatabaseURL, config.DBMaxConns)
 	if err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func New(config Config) (*Tap, error) {
 		Server:   server,
 		Outbox:   outbox,
 
-		config: config,
+		outboxOnly: config.OutboxOnly,
 	}
 
 	if err := resyncer.resetPartiallyResynced(context.Background()); err != nil {
@@ -108,7 +108,7 @@ func New(config Config) (*Tap, error) {
 func (t *Tap) Run(ctx context.Context) {
 	go t.Events.LoadEvents(ctx)
 
-	if !t.config.OutboxOnly {
+	if !t.outboxOnly {
 		go t.Resyncer.run(ctx)
 	}
 

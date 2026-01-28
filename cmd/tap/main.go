@@ -197,7 +197,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("plc-url must start with http:// or https://")
 	}
 
-	config := tap.Config{
+	config := &tap.Config{
 		DatabaseURL:                cmd.String("db-url"),
 		DBMaxConns:                 int(cmd.Int("max-db-conn")),
 		PLCURL:                     plcUrl,

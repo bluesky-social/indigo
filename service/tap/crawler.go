@@ -24,7 +24,7 @@ type Crawler struct {
 	SignalCollection string
 }
 
-func NewCrawler(logger *slog.Logger, db *gorm.DB, config Config) *Crawler {
+func NewCrawler(logger *slog.Logger, db *gorm.DB, config *Config) *Crawler {
 	return &Crawler{
 		logger:           logger.With("component", "crawler"),
 		db:               db,

@@ -28,7 +28,7 @@ type EventManager struct {
 	pendingIDs chan uint
 }
 
-func NewEventManager(logger *slog.Logger, db *gorm.DB, config Config) *EventManager {
+func NewEventManager(logger *slog.Logger, db *gorm.DB, config *Config) *EventManager {
 	return &EventManager{
 		logger:     logger.With("component", "event_manager"),
 		db:         db,

@@ -38,7 +38,7 @@ type Resyncer struct {
 	pdsBackoffMu sync.RWMutex
 }
 
-func NewResyncer(logger *slog.Logger, db *gorm.DB, evtMngr *EventManager, repoMngr *RepoManager, config Config) *Resyncer {
+func NewResyncer(logger *slog.Logger, db *gorm.DB, evtMngr *EventManager, repoMngr *RepoManager, config *Config) *Resyncer {
 	return &Resyncer{
 		logger:            logger.With("component", "resyncer"),
 		db:                db,

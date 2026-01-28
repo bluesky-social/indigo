@@ -40,7 +40,7 @@ type FirehoseProcessor struct {
 	lastSeq atomic.Int64
 }
 
-func NewFirehoseProcessor(logger *slog.Logger, db *gorm.DB, evtMngr *EventManager, repoMngr *RepoManager, config Config) *FirehoseProcessor {
+func NewFirehoseProcessor(logger *slog.Logger, db *gorm.DB, evtMngr *EventManager, repoMngr *RepoManager, config *Config) *FirehoseProcessor {
 	return &FirehoseProcessor{
 		logger:             logger.With("component", "firehose"),
 		db:                 db,

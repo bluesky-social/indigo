@@ -27,7 +27,7 @@ type TapServer struct {
 	crawler       *Crawler
 }
 
-func NewTapServer(logger *slog.Logger, db *gorm.DB, outbox *Outbox, idDir identity.Directory, firehose *FirehoseProcessor, crawler *Crawler, config Config) *TapServer {
+func NewTapServer(logger *slog.Logger, db *gorm.DB, outbox *Outbox, idDir identity.Directory, firehose *FirehoseProcessor, crawler *Crawler, config *Config) *TapServer {
 	return &TapServer{
 		logger:        logger.With("component", "server"),
 		db:            db,
