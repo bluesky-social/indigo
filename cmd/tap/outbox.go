@@ -3,10 +3,14 @@ package main
 import (
 	"context"
 	"log/slog"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/haileyok/at-kafka/atkafka"
 	"github.com/puzpuzpuz/xsync/v4"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 // Ordering guarantees for events belonging to the same DID:
@@ -27,11 +31,12 @@ import (
 //   - Wait for L3 to complete, then send H5
 
 type Outbox struct {
-	logger       *slog.Logger
-	mode         OutboxMode
-	parallelism  int
-	retryTimeout time.Duration
-	webhook      *WebhookClient
+	logger        *slog.Logger
+	mode          OutboxMode
+	parallelism   int
+	retryTimeout  time.Duration
+	webhook       *WebhookClient
+	kafkaProducer *atkafka.Producer
 
 	events *EventManager
 
@@ -41,13 +46,18 @@ type Outbox struct {
 	outgoing chan *OutboxEvt
 
 	ctx context.Context
+
+	cachedTime atomic.Value
 }
 
 // Run starts the outbox workers for event delivery and cleanup.
 func (o *Outbox) Run(ctx context.Context) {
 	o.ctx = ctx
 
-	if o.mode == OutboxModeWebsocketAck {
+	o.cachedTime.Store(time.Now())
+	go o.updateCachedTime(ctx)
+
+	if o.mode == OutboxModeWebsocketAck || o.mode == OutboxModeKafka {
 		go o.checkTimeouts(ctx)
 	}
 
@@ -60,6 +70,22 @@ func (o *Outbox) Run(ctx context.Context) {
 	}
 
 	<-ctx.Done()
+}
+
+// updateCachedTime updates a cached time for us every 250ms, so we avoid calling time.Now() all the time in
+// handlers
+func (o *Outbox) updateCachedTime(ctx context.Context) {
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			o.cachedTime.Store(time.Now())
+		}
+	}
 }
 
 // runDelivery continuously pulls from pendingIDs and delivers events
@@ -100,6 +126,8 @@ func (o *Outbox) workerFor(did string) *DIDWorker {
 func (o *Outbox) sendEvent(evt *OutboxEvt) {
 	eventsDelivered.Inc()
 	switch o.mode {
+	case OutboxModeKafka:
+		o.kafkaProduceAsync(evt)
 	case OutboxModeFireAndForget, OutboxModeWebsocketAck:
 		o.outgoing <- evt
 	case OutboxModeWebhook:
@@ -183,6 +211,37 @@ func (o *Outbox) retryTimedOutEvents() {
 				o.sendEvent(evt)
 			}
 		}
+	}
+}
+
+func (o *Outbox) kafkaProduceAsync(evt *OutboxEvt) {
+	logger := o.logger.With("name", "kafkaProduceAsync", "id", evt.ID)
+
+	cb := func(_ *kgo.Record, err error) {
+		status := "ok"
+		defer func() {
+			kafkaEventsProduced.WithLabelValues(status).Inc()
+		}()
+
+		if err != nil {
+			logger.Info("error while producing event", "error", err)
+			status = "error"
+			return
+		}
+
+		o.AckEvent(evt.ID)
+	}
+
+	var key string
+	// TODO: ordering bool
+	if true {
+		key = strconv.FormatUint(uint64(evt.ID), 10)
+	} else {
+		key = evt.Did
+	}
+	if err := o.kafkaProducer.ProduceAsync(context.Background(), key, evt.Event, cb); err != nil {
+		logger.Error("error queueing event for production", "error", err)
+		kafkaEventsProduced.WithLabelValues("error_queueing").Inc()
 	}
 }
 
@@ -270,7 +329,8 @@ func (w *DIDWorker) processPendingEvts() {
 			w.blockedOnLive = true
 		}
 		w.pendingEvts = w.pendingEvts[1:]
-		w.inFlightSentAt[eventID] = time.Now()
+
+		w.inFlightSentAt[eventID] = w.outbox.cachedTime.Load().(time.Time)
 		w.mu.Unlock()
 
 		w.outbox.sendEvent(evt)
@@ -287,7 +347,7 @@ func (w *DIDWorker) addEvent(evt *OutboxEvt) {
 
 	// Fast path: no contention, send immediately without goroutine
 	if !hasInFlight {
-		w.inFlightSentAt[evt.ID] = time.Now()
+		w.inFlightSentAt[evt.ID] = w.outbox.cachedTime.Load().(time.Time)
 		w.mu.Unlock()
 		w.outbox.sendEvent(evt)
 		return
