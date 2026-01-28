@@ -396,12 +396,12 @@ var getRecordCmd = &cli.Command{
 				return err
 			}
 
-			puri, err := util.ParseAtUri(cctx.Args().First())
+			aturi, err := syntax.ParseATURI(cctx.Args().First())
 			if err != nil {
 				return err
 			}
 
-			out, err := comatproto.RepoGetRecord(ctx, xrpcc, "", puri.Collection, puri.Did, puri.Rkey)
+			out, err := comatproto.RepoGetRecord(ctx, xrpcc, "", aturi.Collection().String(), aturi.Authority().String(), aturi.RecordKey().String())
 			if err != nil {
 				return err
 			}

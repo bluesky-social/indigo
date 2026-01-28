@@ -26,7 +26,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -472,14 +471,14 @@ var debugFeedGenCmd = &cli.Command{
 		didr := cliutil.GetDidResolver(cctx)
 
 		uri := cctx.Args().First()
-		puri, err := util.ParseAtUri(uri)
+		aturi, err := syntax.ParseATURI(uri)
 		if err != nil {
 			return err
 		}
 
 		ctx := context.TODO()
 
-		out, err := atproto.RepoGetRecord(ctx, xrpcc, "", puri.Collection, puri.Did, puri.Rkey)
+		out, err := atproto.RepoGetRecord(ctx, xrpcc, "", aturi.Collection().String(), aturi.Authority().String(), aturi.RecordKey().String())
 		if err != nil {
 			return fmt.Errorf("getting record: %w", err)
 		}
@@ -604,14 +603,14 @@ var debugFeedViewCmd = &cli.Command{
 		didr := cliutil.GetDidResolver(cctx)
 
 		uri := cctx.Args().First()
-		puri, err := util.ParseAtUri(uri)
+		aturi, err := syntax.ParseATURI(uri)
 		if err != nil {
 			return err
 		}
 
 		ctx := context.TODO()
 
-		out, err := atproto.RepoGetRecord(ctx, xrpcc, "", puri.Collection, puri.Did, puri.Rkey)
+		out, err := atproto.RepoGetRecord(ctx, xrpcc, "", aturi.Collection().String(), aturi.Authority().String(), aturi.RecordKey().String())
 		if err != nil {
 			return fmt.Errorf("getting record: %w", err)
 		}

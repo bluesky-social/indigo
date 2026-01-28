@@ -8,6 +8,7 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -221,13 +222,13 @@ func isNotFound(err error) bool {
 }
 
 func (ix *Indexer) GetPost(ctx context.Context, uri string) (*models.FeedPost, error) {
-	puri, err := util.ParseAtUri(uri)
+	aturi, err := syntax.ParseATURI(uri)
 	if err != nil {
 		return nil, err
 	}
 
 	var post models.FeedPost
-	if err := ix.db.First(&post, "rkey = ? AND author = (?)", puri.Rkey, ix.db.Model(models.ActorInfo{}).Where("did = ?", puri.Did).Select("id")).Error; err != nil {
+	if err := ix.db.First(&post, "rkey = ? AND author = (?)", aturi.RecordKey().String(), ix.db.Model(models.ActorInfo{}).Where("did = ?", aturi.Authority().String()).Select("id")).Error; err != nil {
 		return nil, err
 	}
 
