@@ -81,7 +81,7 @@ func NewTap(config TapConfig) (*Tap, error) {
 	repoMngr := &RepoManager{
 		logger: logger.With("component", "server"),
 		db:     db,
-		IdDir:  &cdir,
+		IdDir:  cdir,
 		events: evtMngr,
 	}
 
