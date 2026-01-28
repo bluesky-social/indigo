@@ -10,9 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"net/http"
 	_ "net/http/pprof"
 
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v3"
@@ -248,7 +250,9 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	if metricsAddr := cmd.String("metrics-listen"); metricsAddr != "" {
 		go func() {
 			logger.Info("starting metrics server", "addr", metricsAddr)
-			if err := tap.Server.RunMetrics(metricsAddr); err != nil {
+			// RunMetrics starts the metrics and pprof server on a separate port.
+			http.Handle("/metrics", promhttp.Handler())
+			if err := http.ListenAndServe(metricsAddr, nil); err != nil {
 				logger.Error("metrics server failed", "error", err)
 			}
 		}()
