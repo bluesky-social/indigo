@@ -11,7 +11,7 @@ import (
 
 // A fake identity directory, for use in tests
 type MockDirectory struct {
-	mu         *sync.RWMutex
+	mu         sync.RWMutex
 	Handles    map[syntax.Handle]syntax.DID
 	Identities map[syntax.DID]Identity
 }
@@ -21,7 +21,6 @@ var _ Resolver = (*MockDirectory)(nil)
 
 func NewMockDirectory() MockDirectory {
 	return MockDirectory{
-		mu:         &sync.RWMutex{},
 		Handles:    make(map[syntax.Handle]syntax.DID),
 		Identities: make(map[syntax.DID]Identity),
 	}

@@ -10,7 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/cmd/relay/stream/eventmgr"
 
 	"github.com/RussellLuo/slidingwindow"
-	"github.com/hashicorp/golang-lru/v2"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
@@ -81,8 +81,7 @@ func NewRelay(db *gorm.DB, evtman *eventmgr.EventManager, dir identity.Directory
 		HostChecker: hc,
 		Config:      *config,
 
-		consumersLk: sync.RWMutex{},
-		consumers:   make(map[uint64]*SocketConsumer),
+		consumers: make(map[uint64]*SocketConsumer),
 
 		accountCache: uc,
 

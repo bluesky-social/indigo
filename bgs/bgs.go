@@ -158,8 +158,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		didr:    didr,
 		ssl:     config.SSL,
 
-		consumersLk: sync.RWMutex{},
-		consumers:   make(map[uint64]*SocketConsumer),
+		consumers: make(map[uint64]*SocketConsumer),
 
 		pdsResyncs: make(map[uint]*PDSResync),
 
