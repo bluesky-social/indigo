@@ -10,9 +10,9 @@ import (
 	"testing"
 
 	"github.com/bluesky-social/bigsky/plc"
+	"github.com/bluesky-social/bigsky/util/cliutil"
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
 )
