@@ -14,8 +14,8 @@ import (
 	"github.com/bluesky-social/indigo/events/diskpersist"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
-	pds "github.com/bluesky-social/indigo/pds/data"
 	"github.com/bluesky-social/indigo/repomgr"
+	pds "github.com/bluesky-social/indigo/testing/pdsmodels"
 	"github.com/bluesky-social/indigo/util"
 
 	"gorm.io/driver/sqlite"
