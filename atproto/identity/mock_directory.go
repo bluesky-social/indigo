@@ -11,9 +11,9 @@ import (
 
 // A fake identity directory, for use in tests
 type MockDirectory struct {
-	mu         *sync.RWMutex
-	Handles    map[syntax.Handle]syntax.DID
-	Identities map[syntax.DID]Identity
+	mu         sync.RWMutex
+	handles    map[syntax.Handle]syntax.DID
+	identities map[syntax.DID]Identity
 }
 
 var _ Directory = (*MockDirectory)(nil)
@@ -21,9 +21,8 @@ var _ Resolver = (*MockDirectory)(nil)
 
 func NewMockDirectory() MockDirectory {
 	return MockDirectory{
-		mu:         &sync.RWMutex{},
-		Handles:    make(map[syntax.Handle]syntax.DID),
-		Identities: make(map[syntax.DID]Identity),
+		handles:    make(map[syntax.Handle]syntax.DID),
+		identities: make(map[syntax.DID]Identity),
 	}
 }
 
@@ -32,9 +31,9 @@ func (d *MockDirectory) Insert(ident Identity) {
 	defer d.mu.Unlock()
 
 	if !ident.Handle.IsInvalidHandle() {
-		d.Handles[ident.Handle.Normalize()] = ident.DID
+		d.handles[ident.Handle.Normalize()] = ident.DID
 	}
-	d.Identities[ident.DID] = ident
+	d.identities[ident.DID] = ident
 }
 
 func (d *MockDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
@@ -42,11 +41,11 @@ func (d *MockDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Ide
 	defer d.mu.RUnlock()
 
 	h = h.Normalize()
-	did, ok := d.Handles[h]
+	did, ok := d.handles[h]
 	if !ok {
 		return nil, ErrHandleNotFound
 	}
-	ident, ok := d.Identities[did]
+	ident, ok := d.identities[did]
 	if !ok {
 		return nil, ErrDIDNotFound
 	}
@@ -57,7 +56,7 @@ func (d *MockDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identit
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	ident, ok := d.Identities[did]
+	ident, ok := d.identities[did]
 	if !ok {
 		return nil, ErrDIDNotFound
 	}
@@ -84,7 +83,7 @@ func (d *MockDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syn
 	defer d.mu.RUnlock()
 
 	h = h.Normalize()
-	did, ok := d.Handles[h]
+	did, ok := d.handles[h]
 	if !ok {
 		return "", ErrHandleNotFound
 	}
@@ -95,7 +94,7 @@ func (d *MockDirectory) ResolveDID(ctx context.Context, did syntax.DID) (*DIDDoc
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	ident, ok := d.Identities[did]
+	ident, ok := d.identities[did]
 	if !ok {
 		return nil, ErrDIDNotFound
 	}
@@ -107,7 +106,7 @@ func (d *MockDirectory) ResolveDIDRaw(ctx context.Context, did syntax.DID) (json
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	ident, ok := d.Identities[did]
+	ident, ok := d.identities[did]
 	if !ok {
 		return nil, ErrDIDNotFound
 	}
