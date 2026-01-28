@@ -1,0 +1,168 @@
+[
+    {
+        "scope": "resource",
+        "generic": {
+            "resource": "resource",
+            "positional": "",
+            "params": {}
+        }
+    },
+    {
+        "scope": "resource:positional?key=val",
+        "generic": {
+            "resource": "resource",
+            "positional": "positional",
+            "params": {
+              "key": ["val"]
+            }
+        }
+    },
+    {
+        "scope": "resource:positional?thing&key=val",
+        "generic": {
+            "resource": "resource",
+            "positional": "positional",
+            "params": {
+              "thing": [""],
+              "key": ["val"]
+            }
+        }
+    },
+    {
+        "scope": "service:did:web:com.example#type?key=val",
+        "generic": {
+            "resource": "service",
+            "positional": "did:web:com.example#type",
+            "params": {
+              "key": ["val"]
+            }
+        }
+    },
+    {
+        "scope": "resource:",
+        "generic": {
+            "resource": "resource",
+            "positional": "",
+            "params": {}
+        }
+    },
+    {
+        "scope": "resource:?",
+        "generic": {
+            "resource": "resource",
+            "positional": "",
+            "params": {}
+        }
+    },
+    {
+        "scope": "resource:&",
+        "generic": {
+            "resource": "resource",
+            "positional": "&",
+            "params": {}
+        }
+    },
+    {
+        "scope": "resource?",
+        "generic": {
+            "resource": "resource",
+            "positional": "",
+            "params": {}
+        }
+    },
+    {
+        "scope": "res:pos?p=true",
+        "generic": {
+            "resource": "res",
+            "positional": "pos",
+            "params": {
+                "p": ["true"]
+            }
+        }
+    },
+    {
+        "scope": "my-res",
+        "generic": {
+            "resource": "my-res",
+            "positional": "",
+            "params": {}
+        }
+    },
+    {
+        "scope": "my-res:my-pos",
+        "generic": {
+            "resource": "my-res",
+            "positional": "my-pos",
+            "params": {}
+        }
+    },
+    {
+        "scope": "my-res:",
+        "generic": {
+            "resource": "my-res",
+            "positional": "",
+            "params": {}
+        }
+    },
+    {
+        "scope": "my-res:foo?x=value&y=value-y",
+        "generic": {
+            "resource": "my-res",
+            "positional": "foo",
+            "params": {
+                "x": ["value"],
+                "y": ["value-y"]
+            }
+        }
+    },
+    {
+        "scope": "my-res?x=value&y=value-y",
+        "generic": {
+            "resource": "my-res",
+            "positional": "",
+            "params": {
+                "x": ["value"],
+                "y": ["value-y"]
+            }
+        }
+    },
+    {
+        "scope": "my-res?x=foo&x=bar&x=baz",
+        "generic": {
+            "resource": "my-res",
+            "positional": "",
+            "params": {
+                "x": ["foo", "bar", "baz"]
+            }
+        }
+    },
+
+    {
+        "scope": "rpc:foo.bar?aud=did:foo:bar?lxm=bar.baz",
+        "generic": {
+            "resource": "rpc",
+            "positional": "foo.bar",
+            "params": {
+                "aud": ["did:foo:bar?lxm=bar.baz"]
+            }
+        }
+    },
+    {
+        "scope": "my-res?x=my%20value",
+        "generic": {
+            "resource": "my-res",
+            "positional": "",
+            "params": {
+                "x": ["my value"]
+            }
+        }
+    },
+    {
+        "scope": "my-res:my:pos",
+        "generic": {
+            "resource": "my-res",
+            "positional": "my:pos",
+            "params": {}
+        }
+    }
+]
