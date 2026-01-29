@@ -19,17 +19,27 @@ type Crawler struct {
 	db     *gorm.DB
 	logger *slog.Logger
 
-	FullNetworkMode  bool
-	RelayUrl         string
-	SignalCollection string
+	fullNetworkMode  bool
+	relayUrl         string
+	signalCollection string
+}
+
+func NewCrawler(logger *slog.Logger, db *gorm.DB, config *TapConfig) *Crawler {
+	return &Crawler{
+		logger:           logger.With("component", "crawler"),
+		db:               db,
+		fullNetworkMode:  config.FullNetworkMode,
+		relayUrl:         config.RelayUrl,
+		signalCollection: config.SignalCollection,
+	}
 }
 
 func (c *Crawler) Run(ctx context.Context) {
 	for {
 		var err error
-		if c.SignalCollection != "" {
-			err = c.EnumerateNetworkByCollection(ctx, c.SignalCollection)
-		} else if c.FullNetworkMode {
+		if c.signalCollection != "" {
+			err = c.EnumerateNetworkByCollection(ctx, c.signalCollection)
+		} else if c.fullNetworkMode {
 			err = c.EnumerateNetwork(ctx)
 		}
 		var d time.Duration
@@ -50,9 +60,9 @@ func (c *Crawler) Run(ctx context.Context) {
 }
 
 func (c *Crawler) GetCursor(ctx context.Context) (string, error) {
-	if c.SignalCollection != "" {
-		return c.getCollectionCursor(ctx, c.SignalCollection)
-	} else if c.FullNetworkMode {
+	if c.signalCollection != "" {
+		return c.getCollectionCursor(ctx, c.signalCollection)
+	} else if c.fullNetworkMode {
 		return c.getListReposCursor(ctx)
 	}
 	return "", nil
@@ -68,7 +78,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 		return err
 	}
 
-	client := atclient.NewAPIClient(c.RelayUrl)
+	client := atclient.NewAPIClient(c.relayUrl)
 	client.Headers.Set("User-Agent", userAgent())
 	client.Client = &http.Client{
 		Timeout: 30 * time.Second,
@@ -116,7 +126,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 		cursor = *repoList.Cursor
 
 		if err := c.db.WithContext(ctx).Save(&models.ListReposCursor{
-			Url:    c.RelayUrl,
+			Url:    c.relayUrl,
 			Cursor: cursor,
 		}).Error; err != nil {
 			c.logger.Error("failed to save list repos cursor", "error", err)
@@ -129,7 +139,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 
 func (c *Crawler) getListReposCursor(ctx context.Context) (string, error) {
 	var dbCursor models.ListReposCursor
-	err := c.db.WithContext(ctx).Where("url = ?", c.RelayUrl).First(&dbCursor).Error
+	err := c.db.WithContext(ctx).Where("url = ?", c.relayUrl).First(&dbCursor).Error
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return "", fmt.Errorf("failed to read list repos cursor: %w", err)
@@ -150,7 +160,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 		return err
 	}
 
-	client := atclient.NewAPIClient(c.RelayUrl)
+	client := atclient.NewAPIClient(c.relayUrl)
 	client.Headers.Set("User-Agent", userAgent())
 	client.Client = &http.Client{
 		Timeout: 30 * time.Second,
@@ -195,7 +205,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 		cursor = *repoList.Cursor
 
 		if err := c.db.WithContext(ctx).Save(&models.CollectionCursor{
-			Url:        c.RelayUrl,
+			Url:        c.relayUrl,
 			Collection: collection,
 			Cursor:     cursor,
 		}).Error; err != nil {
@@ -209,7 +219,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 
 func (c *Crawler) getCollectionCursor(ctx context.Context, collection string) (string, error) {
 	var dbCursor models.CollectionCursor
-	err := c.db.WithContext(ctx).Where("url = ? AND collection = ?", c.RelayUrl, collection).First(&dbCursor).Error
+	err := c.db.WithContext(ctx).Where("url = ? AND collection = ?", c.relayUrl, collection).First(&dbCursor).Error
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return "", fmt.Errorf("failed to read collection cursor: %w", err)

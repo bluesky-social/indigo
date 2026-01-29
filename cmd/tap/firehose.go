@@ -40,6 +40,21 @@ type FirehoseProcessor struct {
 	lastSeq atomic.Int64
 }
 
+func NewFirehoseProcessor(logger *slog.Logger, db *gorm.DB, events *EventManager, repos *RepoManager, config *TapConfig) *FirehoseProcessor {
+	return &FirehoseProcessor{
+		logger:             logger.With("component", "firehose"),
+		db:                 db,
+		events:             events,
+		repos:              repos,
+		relayUrl:           config.RelayUrl,
+		fullNetworkMode:    config.FullNetworkMode,
+		signalCollection:   config.SignalCollection,
+		collectionFilters:  config.CollectionFilters,
+		parallelism:        config.FirehoseParallelism,
+		cursorSaveInterval: config.FirehoseCursorSaveInterval,
+	}
+}
+
 func (fp *FirehoseProcessor) updateLastSeq(seq int64) {
 	fp.lastSeq.Store(seq)
 	firehoseLastSeq.Set(float64(seq))
@@ -123,7 +138,7 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 }
 
 func (fp *FirehoseProcessor) validateCommitAndFilterOps(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) (*Commit, error) {
-	if err := repo.VerifyCommitSignature(ctx, fp.repos.IdDir, evt); err != nil {
+	if err := repo.VerifyCommitSignature(ctx, fp.repos.idDir, evt); err != nil {
 		return nil, err
 	}
 
@@ -216,7 +231,7 @@ func (fp *FirehoseProcessor) ProcessSync(ctx context.Context, evt *comatproto.Sy
 		return nil
 	}
 
-	commit, err := repo.VerifySyncMessage(ctx, fp.repos.IdDir, evt)
+	commit, err := repo.VerifySyncMessage(ctx, fp.repos.idDir, evt)
 	if err != nil {
 		return fmt.Errorf("failed to verify sync message: %w", err)
 	}
