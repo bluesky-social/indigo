@@ -4,11 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util/cliutil"
 
+	"github.com/did-method-plc/go-didplc"
 	"github.com/urfave/cli/v2"
 )
 
@@ -75,7 +79,8 @@ var didCreateCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		s := cliutil.GetPLCClient(cctx)
+		ctx := context.Background()
+		plcc := didplc.Client{}
 
 		args, err := needArgs(cctx, "handle", "service")
 		if err != nil {
@@ -85,19 +90,48 @@ var didCreateCmd = &cli.Command{
 
 		recoverydid := cctx.String("recoverydid")
 
-		sigkey, err := cliutil.LoadKeyFromFile(cctx.String("signingkey"))
+		keybytes, err := os.ReadFile(cctx.String("signingkey"))
 		if err != nil {
 			return err
 		}
 
-		fmt.Println("KEYDID: ", sigkey.Public().DID())
+		priv, err := atcrypto.ParsePrivateMultibase(strings.TrimSpace(string(keybytes)))
+		if err != nil {
+			return err
+		}
+		pub, err := priv.PublicKey()
 
-		ndid, err := s.CreateDID(context.TODO(), sigkey, recoverydid, handle, service)
+		fmt.Println("KEYDID: ", pub.DIDKey())
+
+		op := didplc.RegularOp{
+			Type:         "plc_operation",
+			RotationKeys: []string{recoverydid},
+			VerificationMethods: map[string]string{
+				"atproto": pub.DIDKey(),
+			},
+			AlsoKnownAs: []string{"at://" + handle},
+			Services: map[string]didplc.OpService{
+				"atproto_pds": didplc.OpService{
+					Type:     "AtprotoPersonalDataServer",
+					Endpoint: service,
+				},
+			},
+			Prev: nil,
+			Sig:  nil,
+		}
+		if err := op.Sign(priv); err != nil {
+			return err
+		}
+		did, err := op.DID()
 		if err != nil {
 			return err
 		}
 
-		fmt.Println(ndid)
+		if err := plcc.Submit(ctx, did, &op); err != nil {
+			return err
+		}
+
+		fmt.Println(did)
 		return nil
 	},
 }

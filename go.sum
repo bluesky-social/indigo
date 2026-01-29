@@ -77,6 +77,8 @@ github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 h1:8UrgZ3GkP4i/CLijOJx79Yu+etly
 github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0/go.mod h1:v57UDF4pDQJcEfFUCRop3lJL149eHGSe9Jvczhzjo/0=
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f h1:lO4WD4F/rVNCu3HqELle0jiPLLBs70cWOduZpkS1E78=
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cuUVRXasLTGF7a8hSLbxyZXjz+1KgoB3wDUb6vlszIc=
+github.com/did-method-plc/go-didplc v0.0.0-20260120020700-900121c9da4b h1:8LnByVrVeg1NUpEC1JoVz9qByuGfLwrCE1CjPP9mj9M=
+github.com/did-method-plc/go-didplc v0.0.0-20260120020700-900121c9da4b/go.mod h1:KriMp3m/YfciVcyUoQdXr5klXHEasvPr4yQurhTSJr4=
 github.com/dustinkirkland/golang-petname v0.0.0-20231002161417-6a283f1aaaf2 h1:S6Dco8FtAhEI/qkg/00H6RdEGC+MCy5GPiQ+xweNRFE=
 github.com/dustinkirkland/golang-petname v0.0.0-20231002161417-6a283f1aaaf2/go.mod h1:8AuBTZBRSFqEYBPYULd+NN474/zZBLP+6WeT5S9xlAc=
 github.com/earthboundkid/versioninfo/v2 v2.24.1 h1:SJTMHaoUx3GzjjnUO1QzP3ZXK6Ee/nbWyCm58eY3oUg=

@@ -11,6 +11,7 @@ require (
 	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
 	github.com/brianvoe/gofakeit/v6 v6.25.0
 	github.com/cockroachdb/pebble v1.1.2
+	github.com/did-method-plc/go-didplc v0.0.0-20260120020700-900121c9da4b
 	github.com/dustinkirkland/golang-petname v0.0.0-20231002161417-6a283f1aaaf2
 	github.com/earthboundkid/versioninfo/v2 v2.24.1
 	github.com/go-redis/cache/v9 v9.0.0
