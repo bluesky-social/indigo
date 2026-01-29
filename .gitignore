@@ -35,7 +35,6 @@ test-coverage.out
 /sonar
 /sonar-cli
 /stress
-/supercollider
 /tap
 
 # Don't ignore this file itself, or other specific dotfiles
