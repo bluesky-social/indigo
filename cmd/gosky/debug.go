@@ -301,6 +301,8 @@ var compareStreamsCmd = &cli.Command{
 	},
 	ArgsUsage: `<cursor>`,
 	Action: func(cctx *cli.Context) error {
+		log := configLogger(cctx, os.Stderr)
+
 		h1 := cctx.String("host1")
 		h2 := cctx.String("host2")
 
@@ -819,6 +821,7 @@ var debugCompareReposCmd = &cli.Command{
 	},
 	ArgsUsage: `<did>`,
 	Action: func(cctx *cli.Context) error {
+		log := configLogger(cctx, os.Stderr)
 		ctx := cctx.Context
 		did, err := syntax.ParseAtIdentifier(cctx.Args().First())
 		if err != nil {
