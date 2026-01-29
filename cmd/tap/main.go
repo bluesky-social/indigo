@@ -224,7 +224,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	if !config.OutboxOnly {
-		go tap.Crawler.Run(ctx)
+		go tap.crawler.Run(ctx)
 	}
 
 	svcErr := make(chan error, 1)
@@ -232,7 +232,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	if !config.OutboxOnly {
 		go func() {
 			logger.Info("starting firehose consumer")
-			if err := tap.Firehose.Run(ctx); err != nil {
+			if err := tap.firehose.Run(ctx); err != nil {
 				svcErr <- err
 			}
 		}()
@@ -242,7 +242,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 
 	go func() {
 		logger.Info("starting HTTP server", "addr", cmd.String("bind"))
-		if err := tap.Server.Start(cmd.String("bind")); err != nil {
+		if err := tap.server.Start(cmd.String("bind")); err != nil {
 			svcErr <- err
 		}
 	}()
@@ -273,7 +273,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
-	if err := tap.Server.Shutdown(shutdownCtx); err != nil {
+	if err := tap.server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("error during shutdown", "error", err)
 		return err
 	}

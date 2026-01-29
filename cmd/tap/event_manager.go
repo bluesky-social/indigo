@@ -28,6 +28,16 @@ type EventManager struct {
 	pendingIDs chan uint
 }
 
+func NewEventManager(logger *slog.Logger, db *gorm.DB, config *TapConfig) *EventManager {
+	return &EventManager{
+		logger:     logger.With("component", "event_manager"),
+		db:         db,
+		cacheSize:  config.EventCacheSize,
+		cache:      make(map[uint]*OutboxEvt),
+		pendingIDs: make(chan uint, config.EventCacheSize*2), // give us some buffer room in channel since we can overshoot
+	}
+}
+
 type DBCallback = func(tx *gorm.DB) error
 
 func (em *EventManager) IsFull() bool {
