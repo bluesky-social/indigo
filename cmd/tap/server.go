@@ -27,6 +27,18 @@ type TapServer struct {
 	crawler       *Crawler
 }
 
+func NewTapServer(logger *slog.Logger, db *gorm.DB, outbox *Outbox, idDir identity.Directory, firehose *FirehoseProcessor, crawler *Crawler, config *TapConfig) *TapServer {
+	return &TapServer{
+		logger:        logger.With("component", "server"),
+		db:            db,
+		outbox:        outbox,
+		adminPassword: config.AdminPassword,
+		idDir:         idDir,
+		firehose:      firehose,
+		crawler:       crawler,
+	}
+}
+
 func (ts *TapServer) Start(address string) error {
 	ts.echo = echo.New()
 	ts.echo.HideBanner = true

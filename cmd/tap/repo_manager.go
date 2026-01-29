@@ -13,8 +13,17 @@ import (
 type RepoManager struct {
 	logger *slog.Logger
 	db     *gorm.DB
-	IdDir  identity.Directory
+	idDir  identity.Directory
 	events *EventManager
+}
+
+func NewRepoManager(logger *slog.Logger, db *gorm.DB, events *EventManager, idDir identity.Directory) *RepoManager {
+	return &RepoManager{
+		logger: logger.With("component", "repo_manager"),
+		db:     db,
+		idDir:  idDir,
+		events: events,
+	}
 }
 
 func (rm *RepoManager) GetRepoState(ctx context.Context, did string) (*models.Repo, error) {
@@ -39,11 +48,11 @@ func (rm *RepoManager) RefreshIdentity(ctx context.Context, did string) error {
 	ctx, span := tracer.Start(ctx, "RefreshIdentity")
 	defer span.End()
 
-	if err := rm.IdDir.Purge(ctx, syntax.DID(did).AtIdentifier()); err != nil {
+	if err := rm.idDir.Purge(ctx, syntax.DID(did).AtIdentifier()); err != nil {
 		rm.logger.Error("failed to purge identity cache", "did", did, "error", err)
 	}
 
-	id, err := rm.IdDir.LookupDID(ctx, syntax.DID(did))
+	id, err := rm.idDir.LookupDID(ctx, syntax.DID(did))
 	if err != nil {
 		return err
 	}
