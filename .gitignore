@@ -23,21 +23,21 @@ src/build/
 test-coverage.out
 
 # executables
-/beemo
-/bigsky
-/bluepages
-/fakermaker
-/gosky
-/hepa
-/lexgen
-/palomar
-/rainbow
-/relay
-/sonar
-/sonar-cli
-/stress
-/supercollider
-/tap
+/cmd/beemo/beemo
+/cmd/bigsky/bigsky
+/cmd/bluepages/bluepages
+/cmd/fakermaker/fakermaker
+/cmd/gosky/gosky
+/cmd/hepa/hepa
+/cmd/lexgen/lexgen
+/cmd/palomar/palomar
+/cmd/rainbow/rainbow
+/cmd/relay/relay
+/cmd/sonar/sonar
+/cmd/sonar/sonar-cli
+/cmd/stress/stress
+/cmd/supercollider/supercollider
+/cmd/tap/tap
 
 # Don't ignore this file itself, or other specific dotfiles
 !.gitignore

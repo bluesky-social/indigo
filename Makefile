@@ -16,18 +16,18 @@ help: ## Print info about all commands
 
 .PHONY: build
 build: ## Build all executables
-	go build ./cmd/gosky
-	go build ./cmd/bigsky
-	go build ./cmd/relay
-	go build ./cmd/beemo
-	go build ./cmd/lexgen
-	go build ./cmd/stress
-	go build ./cmd/fakermaker
-	go build ./cmd/hepa
-	go build ./cmd/supercollider
-	go build -o ./sonar-cli ./cmd/sonar
-	go build ./cmd/palomar
-	go build ./cmd/tap
+	go build -o ./cmd/gosky/gosky ./cmd/gosky
+	go build -o ./cmd/bigsky/bigsky ./cmd/bigsky
+	go build -o ./cmd/relay/relay ./cmd/relay
+	go build -o ./cmd/beemo/beemo ./cmd/beemo
+	go build -o ./cmd/lexgen/lexgen ./cmd/lexgen
+	go build -o ./cmd/stress/stress ./cmd/stress
+	go build -o ./cmd/fakermaker/fakermaker ./cmd/fakermaker
+	go build -o ./cmd/hepa/hepa ./cmd/hepa
+	go build -o ./cmd/supercollider/supercollider ./cmd/supercollider
+	go build -o ./cmd/sonar/sonar ./cmd/sonar
+	go build -o ./cmd/palomar/palomar ./cmd/palomar
+	go build -o ./cmd/tap/tap ./cmd/tap
 
 .PHONY: all
 all: build
