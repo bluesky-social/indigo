@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/tap/models"
-	"github.com/puzpuzpuz/xsync/v4"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -21,16 +19,16 @@ type Tap struct {
 	db     *gorm.DB
 	logger *slog.Logger
 
-	Firehose *FirehoseProcessor
-	Events   *EventManager
-	Repos    *RepoManager
-	Resyncer *Resyncer
-	Crawler  *Crawler
+	firehose *FirehoseProcessor
+	events   *EventManager
+	repos    *RepoManager
+	resyncer *Resyncer
+	crawler  *Crawler
 
-	Server *TapServer
-	Outbox *Outbox
+	server *TapServer
+	outbox *Outbox
 
-	config TapConfig
+	outboxOnly bool
 }
 
 type TapConfig struct {
@@ -70,98 +68,35 @@ func NewTap(config TapConfig) (*Tap, error) {
 
 	logger := slog.Default().With("system", "tap")
 
-	evtMngr := &EventManager{
-		logger:     logger.With("component", "event_manager"),
-		db:         db,
-		cacheSize:  config.EventCacheSize,
-		cache:      make(map[uint]*OutboxEvt),
-		pendingIDs: make(chan uint, config.EventCacheSize*2), // give us some buffer room in channel since we can overshoot
-	}
+	evtMngr := NewEventManager(logger, db, &config)
 
-	repoMngr := &RepoManager{
-		logger: logger.With("component", "server"),
-		db:     db,
-		IdDir:  &cdir,
-		events: evtMngr,
-	}
+	repoMngr := NewRepoManager(logger, db, evtMngr, &cdir)
 
-	resyncer := &Resyncer{
-		logger:            logger.With("component", "resyncer"),
-		db:                db,
-		events:            evtMngr,
-		repos:             repoMngr,
-		repoFetchTimeout:  config.RepoFetchTimeout,
-		collectionFilters: config.CollectionFilters,
-		parallelism:       config.ResyncParallelism,
-		pdsBackoff:        make(map[string]time.Time),
-	}
+	resyncer := NewResyncer(logger, db, repoMngr, evtMngr, &config)
 
-	firehose := &FirehoseProcessor{
-		logger:             logger.With("component", "firehose"),
-		db:                 db,
-		events:             evtMngr,
-		repos:              repoMngr,
-		relayUrl:           config.RelayUrl,
-		fullNetworkMode:    config.FullNetworkMode,
-		signalCollection:   config.SignalCollection,
-		collectionFilters:  config.CollectionFilters,
-		parallelism:        config.FirehoseParallelism,
-		cursorSaveInterval: config.FirehoseCursorSaveInterval,
-	}
+	firehose := NewFirehoseProcessor(logger, db, evtMngr, repoMngr, &config)
 
-	crawler := &Crawler{
-		logger:           logger.With("component", "crawler"),
-		db:               db,
-		FullNetworkMode:  config.FullNetworkMode,
-		RelayUrl:         config.RelayUrl,
-		SignalCollection: config.SignalCollection,
-	}
+	crawler := NewCrawler(logger, db, &config)
 
-	outbox := &Outbox{
-		logger:       logger.With("component", "outbox"),
-		mode:         parseOutboxMode(config.WebhookURL, config.DisableAcks),
-		parallelism:  config.OutboxParallelism,
-		retryTimeout: config.RetryTimeout,
-		webhook: &WebhookClient{
-			logger:        logger.With("component", "webhook_client"),
-			webhookURL:    config.WebhookURL,
-			adminPassword: config.AdminPassword,
-			httpClient: &http.Client{
-				Timeout: 30 * time.Second,
-			},
-		},
-		events:     evtMngr,
-		didWorkers: xsync.NewMap[string, *DIDWorker](),
-		acks:       make(chan uint, config.OutboxParallelism*10000),
-		outgoing:   make(chan *OutboxEvt, config.OutboxParallelism*10000),
-	}
+	outbox := NewOutbox(logger, evtMngr, &config)
 
-	server := &TapServer{
-		logger:        logger.With("component", "server"),
-		db:            db,
-		outbox:        outbox,
-		adminPassword: config.AdminPassword,
-		idDir:         repoMngr.IdDir,
-		firehose:      firehose,
-		crawler:       crawler,
-	}
+	server := NewTapServer(logger, db, outbox, &cdir, firehose, crawler, &config)
 
 	t := &Tap{
 		db:     db,
 		logger: slog.Default().With("system", "tap"),
 
-		Firehose: firehose,
-		Events:   evtMngr,
-		Repos:    repoMngr,
-		Resyncer: resyncer,
-		Crawler:  crawler,
-		Server:   server,
-		Outbox:   outbox,
-
-		config: config,
+		firehose:   firehose,
+		events:     evtMngr,
+		repos:      repoMngr,
+		resyncer:   resyncer,
+		crawler:    crawler,
+		server:     server,
+		outbox:     outbox,
+		outboxOnly: config.OutboxOnly,
 	}
 
-	if err := t.Resyncer.resetPartiallyResynced(context.Background()); err != nil {
+	if err := t.resyncer.resetPartiallyResynced(context.Background()); err != nil {
 		return nil, err
 	}
 
@@ -170,13 +105,13 @@ func NewTap(config TapConfig) (*Tap, error) {
 
 // Run starts internal background workers for resync, cursor saving, and outbox delivery.
 func (t *Tap) Run(ctx context.Context) {
-	go t.Events.LoadEvents(ctx)
+	go t.events.LoadEvents(ctx)
 
-	if !t.config.OutboxOnly {
-		go t.Resyncer.run(ctx)
+	if !t.outboxOnly {
+		go t.resyncer.run(ctx)
 	}
 
-	go t.Outbox.Run(ctx)
+	go t.outbox.Run(ctx)
 }
 
 func (t *Tap) CloseDb(ctx context.Context) error {

@@ -38,6 +38,19 @@ type Resyncer struct {
 	pdsBackoffMu sync.RWMutex
 }
 
+func NewResyncer(logger *slog.Logger, db *gorm.DB, repos *RepoManager, events *EventManager, config *TapConfig) *Resyncer {
+	return &Resyncer{
+		logger:            logger.With("component", "resyncer"),
+		db:                db,
+		events:            events,
+		repos:             repos,
+		repoFetchTimeout:  config.RepoFetchTimeout,
+		collectionFilters: config.CollectionFilters,
+		parallelism:       config.ResyncParallelism,
+		pdsBackoff:        make(map[string]time.Time),
+	}
+}
+
 func (r *Resyncer) run(ctx context.Context) {
 	for i := 0; i < r.parallelism; i++ {
 		go r.runResyncWorker(ctx, i)
@@ -146,7 +159,7 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 	span.SetAttributes(attribute.String("did", did))
 	defer span.End()
 
-	ident, err := r.repos.IdDir.LookupDID(ctx, syntax.DID(did))
+	ident, err := r.repos.idDir.LookupDID(ctx, syntax.DID(did))
 	if err != nil {
 		return false, fmt.Errorf("failed to resolve DID: %w", err)
 	}
