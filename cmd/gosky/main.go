@@ -44,8 +44,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-var log = slog.Default().With("system", "gosky")
-
 func main() {
 	run(os.Args)
 }
@@ -77,13 +75,12 @@ func run(args []string) {
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
-	}
-
-	_, _, err := cliutil.SetupSlog(cliutil.LogOptions{})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "logging setup error: %s\n", err.Error())
-		os.Exit(1)
-		return
+		&cli.StringFlag{
+			Name:    "log-level",
+			Usage:   "log verbosity level (debug, info, warn, error)",
+			Value:   "info",
+			EnvVars: []string{"GOSKY_LOG_LEVEL", "LOG_LEVEL", "BSKYLOG_LOG_LEVEL", "GOLOG_LOG_LEVEL"},
+		},
 	}
 
 	app.Commands = []*cli.Command{
@@ -161,6 +158,7 @@ var readRepoStreamCmd = &cli.Command{
 	},
 	ArgsUsage: `[<repo> [cursor]]`,
 	Action: func(cctx *cli.Context) error {
+		log := configLogger(cctx, os.Stderr)
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT)
 		defer stop()
 
@@ -848,4 +846,26 @@ var verifyUserCmd = &cli.Command{
 
 		return nil
 	},
+}
+
+func configLogger(cmd *cli.Context, writer *os.File) *slog.Logger {
+	var level slog.Level
+	switch cmd.String("log-level") {
+	case "debug":
+		level = slog.LevelDebug
+	case "info":
+		level = slog.LevelInfo
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
+	logger := slog.New(slog.NewJSONHandler(writer, &slog.HandlerOptions{
+		Level: level,
+	}))
+
+	return logger
 }

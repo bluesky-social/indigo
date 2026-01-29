@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
@@ -20,6 +21,7 @@ var streamCompareCmd = &cli.Command{
 	Flags:     []cli.Flag{},
 	ArgsUsage: `<hostA> <hostB>`,
 	Action: func(cctx *cli.Context) error {
+		log := configLogger(cctx, os.Stderr)
 		d := websocket.DefaultDialer
 
 		args, err := needArgs(cctx, "hostA", "hostB")
