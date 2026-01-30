@@ -278,7 +278,7 @@ func runRelay(ctx context.Context, cmd *cli.Command) error {
 	evtman := eventmgr.NewEventManager(persister)
 
 	logger.Info("constructing relay service")
-	r, err := relay.NewRelay(db, evtman, &dir, relayConfig)
+	r, err := relay.NewRelay(db, evtman, dir, relayConfig)
 	if err != nil {
 		return err
 	}
