@@ -130,7 +130,7 @@ func RunScenario(ctx context.Context, s *Scenario) error {
 	hostPort := p.ListenRandom()
 	defer p.Shutdown()
 
-	sr := MustSimpleRelay(&dir, tmpd, s.Lenient)
+	sr := MustSimpleRelay(dir, tmpd, s.Lenient)
 
 	err = sr.Relay.SubscribeToHost(ctx, fmt.Sprintf("localhost:%d", hostPort), true, true)
 	if err != nil {
