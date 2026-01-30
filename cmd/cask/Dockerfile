@@ -7,6 +7,14 @@ ENV GOOS="linux"
 ENV GOARCH="amd64"
 ENV CGO_ENABLED="1"
 
+# Install FoundationDB client libraries and git
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && wget -O /tmp/fdb-clients.deb https://github.com/apple/foundationdb/releases/download/7.3.63/foundationdb-clients_7.3.63-1_amd64.deb \
+    && dpkg -i /tmp/fdb-clients.deb \
+    && rm /tmp/fdb-clients.deb \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /usr/src/cask
 
 COPY . .
@@ -15,7 +23,6 @@ RUN go mod download && \
   go mod verify
 
 RUN go build \
-    -v  \
     -trimpath \
     -tags timetzdata \
     -o /cask-bin \
