@@ -118,10 +118,10 @@ func (s *Service) handleComAtprotoSyncGetHostStatus(c echo.Context, hostname str
 	}
 
 	out := &comatproto.SyncGetHostStatus_Output{
-		// TODO: AccountCount
-		Hostname: host.Hostname,
-		Seq:      &host.LastSeq,
-		Status:   (*string)(&host.Status),
+		Hostname:     host.Hostname,
+		Seq:          &host.LastSeq,
+		Status:       (*string)(&host.Status),
+		AccountCount: &host.AccountCount,
 	}
 
 	return out, nil
