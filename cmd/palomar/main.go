@@ -267,7 +267,7 @@ var runCmd = &cli.Command{
 			PostIndex:    cmd.String("es-post-index"),
 		}
 
-		srv, err := search.NewServer(escli, &dir, apiConfig)
+		srv, err := search.NewServer(escli, dir, apiConfig)
 		if err != nil {
 			return err
 		}
@@ -290,7 +290,7 @@ var runCmd = &cli.Command{
 				IndexingRateLimit:   cmd.Int("indexing-rate-limit"),
 			}
 
-			idx, err := search.NewIndexer(db, escli, &dir, indexerConfig)
+			idx, err := search.NewIndexer(db, escli, dir, indexerConfig)
 			if err != nil {
 				return fmt.Errorf("failed to set up indexer: %w", err)
 			}
