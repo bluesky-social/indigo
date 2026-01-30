@@ -19,8 +19,8 @@ type MockDirectory struct {
 var _ Directory = (*MockDirectory)(nil)
 var _ Resolver = (*MockDirectory)(nil)
 
-func NewMockDirectory() MockDirectory {
-	return MockDirectory{
+func NewMockDirectory() *MockDirectory {
+	return &MockDirectory{
 		handles:    make(map[syntax.Handle]syntax.DID),
 		identities: make(map[syntax.DID]Identity),
 	}
