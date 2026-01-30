@@ -3,7 +3,6 @@
 
 Run with, eg, `go run ./cmd/rainbow`):
 
-- `cmd/bigsky`: relay daemon
 - `cmd/relay`: new (sync v1.1) relay daemon
 - `cmd/palomar`: search indexer and query service (OpenSearch)
 - `cmd/gosky`: client CLI for talking to a PDS
@@ -11,7 +10,6 @@ Run with, eg, `go run ./cmd/rainbow`):
 - `cmd/stress`: connects to local/default PDS and creates a ton of random posts
 - `cmd/beemo`: slack bot for moderation reporting (Bluesky Moderation Observer)
 - `cmd/fakermaker`: helper to generate fake accounts and content for testing
-- `cmd/supercollider`: event stream load generation tool
 - `cmd/sonar`: event stream monitoring tool
 - `cmd/hepa`: auto-moderation rule engine service
 - `cmd/rainbow`: firehose fanout service
@@ -34,10 +32,8 @@ Packages:
 - `atproto/lexicon`: lexicon validation of generic data
 - `atproto/repo`: repo and MST implementation
 - `automod`: moderation and anti-spam rules engine
-- `bgs`: relay server implementation for crawling, etc (for bigsky implementation)
 - `carstore`: library for storing repo data in CAR files on disk, plus a metadata SQL db
 - `events`: types, codegen CBOR helpers, and persistence for event feeds
-- `indexer`: aggregator, handling like counts etc in SQL database
 - `lex`: implements codegen for Lexicons (!)
 - `models`: database types/models/schemas; shared in several places
 - `mst`: merkle search tree implementation

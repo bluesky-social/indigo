@@ -68,6 +68,7 @@ func DefaultDirectory() Directory {
 		HTTPClient: http.Client{
 			Timeout: time.Second * 10,
 			Transport: &http.Transport{
+				Proxy: http.ProxyFromEnvironment,
 				// would want this around 100ms for services doing lots of handle resolution. Impacts PLC connections as well, but not too bad.
 				IdleConnTimeout: time.Millisecond * 1000,
 				MaxIdleConns:    100,

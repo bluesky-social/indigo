@@ -78,7 +78,6 @@ func NewSonar(logger *slog.Logger, cursorFile string, socketURL string) (*Sonar,
 			LastSeq: -1,
 		},
 		Logger:     logger,
-		ProgMux:    sync.Mutex{},
 		CursorFile: cursorFile,
 	}
 

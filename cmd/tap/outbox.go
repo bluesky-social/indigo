@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"sync"
 	"time"
 
@@ -43,6 +44,27 @@ type Outbox struct {
 	ctx context.Context
 }
 
+func NewOutbox(logger *slog.Logger, events *EventManager, config *TapConfig) *Outbox {
+	return &Outbox{
+		logger:       logger.With("component", "outbox"),
+		mode:         parseOutboxMode(config.WebhookURL, config.DisableAcks),
+		parallelism:  config.OutboxParallelism,
+		retryTimeout: config.RetryTimeout,
+		webhook: &WebhookClient{
+			logger:        logger.With("component", "webhook_client"),
+			webhookURL:    config.WebhookURL,
+			adminPassword: config.AdminPassword,
+			httpClient: &http.Client{
+				Timeout: 30 * time.Second,
+			},
+		},
+		events:     events,
+		didWorkers: xsync.NewMap[string, *DIDWorker](),
+		acks:       make(chan uint, config.OutboxParallelism*10000),
+		outgoing:   make(chan *OutboxEvt, config.OutboxParallelism*10000),
+	}
+}
+
 // Run starts the outbox workers for event delivery and cleanup.
 func (o *Outbox) Run(ctx context.Context) {
 	o.ctx = ctx
@@ -80,21 +102,21 @@ func (o *Outbox) deliverEvent(eventID uint) {
 		// Event was already acked/removed
 		return
 	}
+	o.workerFor(evt.Did).addEvent(evt)
+}
 
-	if worker, ok := o.didWorkers.Load(evt.Did); ok {
-		worker.addEvent(evt)
-		return
-	}
-
-	worker := &DIDWorker{
-		did:            evt.Did,
-		notifChan:      make(chan struct{}, 1),
-		inFlightSentAt: make(map[uint]time.Time),
-		outbox:         o,
-		ctx:            o.ctx,
-	}
-	actual, _ := o.didWorkers.LoadOrStore(evt.Did, worker)
-	actual.addEvent(evt)
+// workerFor gets or creates the DIDWorker for the given DID.
+func (o *Outbox) workerFor(did string) *DIDWorker {
+	w, _ := o.didWorkers.LoadOrCompute(did, func() (*DIDWorker, bool) {
+		return &DIDWorker{
+			did:            did,
+			notifChan:      make(chan struct{}, 1),
+			inFlightSentAt: make(map[uint]time.Time),
+			outbox:         o,
+			ctx:            o.ctx,
+		}, false
+	})
+	return w
 }
 
 func (o *Outbox) sendEvent(evt *OutboxEvt) {

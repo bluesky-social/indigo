@@ -14,7 +14,7 @@ import (
 type UnspeccedGetSuggestedUsers_Output struct {
 	Actors []*ActorDefs_ProfileView `json:"actors" cborgen:"actors"`
 	// recId: Snowflake for this recommendation, use when submitting recommendation events.
-	RecId *int64 `json:"recId,omitempty" cborgen:"recId,omitempty"`
+	RecId *string `json:"recId,omitempty" cborgen:"recId,omitempty"`
 }
 
 // UnspeccedGetSuggestedUsers calls the XRPC method "app.bsky.unspecced.getSuggestedUsers".

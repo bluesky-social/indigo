@@ -33,15 +33,13 @@ var didGetCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		s := cliutil.GetDidResolver(cctx)
-
 		ctx := context.TODO()
 		did := cctx.Args().First()
 
-		dir := identity.DefaultDirectory()
+		bdir := identity.BaseDirectory{}
 
 		if cctx.Bool("handle") {
-			id, err := dir.LookupDID(ctx, syntax.DID(did))
+			id, err := bdir.LookupDID(ctx, syntax.DID(did))
 			if err != nil {
 				return err
 			}
@@ -50,7 +48,7 @@ var didGetCmd = &cli.Command{
 			return nil
 		}
 
-		doc, err := s.GetDocument(context.TODO(), did)
+		doc, err := bdir.ResolveDID(ctx, syntax.DID(did))
 		if err != nil {
 			return err
 		}

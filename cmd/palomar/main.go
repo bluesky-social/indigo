@@ -490,6 +490,7 @@ func createEsClient(cmd *cli.Command) (*es.Client, error) {
 		Password:  cmd.String("elastic-password"),
 		CACert:    cert,
 		Transport: &http.Transport{
+			Proxy:               http.ProxyFromEnvironment,
 			MaxIdleConnsPerHost: 20,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: insecure,

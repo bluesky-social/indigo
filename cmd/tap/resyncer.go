@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -37,6 +38,19 @@ type Resyncer struct {
 	pdsBackoffMu sync.RWMutex
 }
 
+func NewResyncer(logger *slog.Logger, db *gorm.DB, repos *RepoManager, events *EventManager, config *TapConfig) *Resyncer {
+	return &Resyncer{
+		logger:            logger.With("component", "resyncer"),
+		db:                db,
+		events:            events,
+		repos:             repos,
+		repoFetchTimeout:  config.RepoFetchTimeout,
+		collectionFilters: config.CollectionFilters,
+		parallelism:       config.ResyncParallelism,
+		pdsBackoff:        make(map[string]time.Time),
+	}
+}
+
 func (r *Resyncer) run(ctx context.Context) {
 	for i := 0; i < r.parallelism; i++ {
 		go r.runResyncWorker(ctx, i)
@@ -48,22 +62,34 @@ func (r *Resyncer) runResyncWorker(ctx context.Context, workerID int) {
 
 	for {
 		r.events.WaitForReady(ctx)
-		did, found, err := r.claimResyncJob(ctx)
-		if err != nil {
-			logger.Error("failed to claim resync job", "error", err)
-			time.Sleep(time.Second)
-			continue
-		}
 
-		if !found {
-			time.Sleep(time.Second)
-			continue
-		}
+		// Before calling claimResyncJob, check for context cancellation.
+		// If the context is cancelled after this check, claimResyncJob will return an
+		// error then sleep briefly before coming back to check the context again.
+		// Checking here avoids tring to enumerate and classify all the errors that
+		// claimResyncJob might return due to shutdown.
+		select {
+		case <-ctx.Done():
+			logger.Info("resync worker shutting down", "error", ctx.Err())
+			return
+		default:
+			did, found, err := r.claimResyncJob(ctx)
+			if err != nil {
+				logger.Error("failed to claim resync job", "error", err)
+				time.Sleep(time.Second)
+				continue
+			}
 
-		logger.Info("processing resync", "did", did)
-		err = r.resyncDid(ctx, did)
-		if err != nil {
-			logger.Error("resync failed", "did", did, "error", err)
+			if !found {
+				time.Sleep(time.Second)
+				continue
+			}
+
+			logger.Info("processing resync", "did", did)
+			err = r.resyncDid(ctx, did)
+			if err != nil {
+				logger.Error("resync failed", "did", did, "error", err)
+			}
 		}
 	}
 }
@@ -119,7 +145,7 @@ func (r *Resyncer) resyncDid(ctx context.Context, did string) error {
 	resyncsCompleted.Inc()
 	resyncDuration.Observe(time.Since(startTime).Seconds())
 
-	if err := r.events.drainResyncBuffer(ctx, did); err != nil {
+	if err := r.drainResyncBuffer(ctx, did); err != nil {
 		r.logger.Error("failed to drain resync buffer events", "did", did, "error", err)
 	}
 
@@ -133,7 +159,7 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 	span.SetAttributes(attribute.String("did", did))
 	defer span.End()
 
-	ident, err := r.repos.IdDir.LookupDID(ctx, syntax.DID(did))
+	ident, err := r.repos.idDir.LookupDID(ctx, syntax.DID(did))
 	if err != nil {
 		return false, fmt.Errorf("failed to resolve DID: %w", err)
 	}
@@ -345,4 +371,41 @@ func (r *Resyncer) resetPartiallyResynced(ctx context.Context) error {
 	return r.db.WithContext(ctx).Model(&models.Repo{}).
 		Where("state = ?", models.RepoStateResyncing).
 		Update("state", models.RepoStateDesynchronized).Error
+}
+
+func (r *Resyncer) drainResyncBuffer(ctx context.Context, did string) error {
+	var bufferedEvts []models.ResyncBuffer
+	if err := r.events.db.WithContext(ctx).Where("did = ?", did).Order("id ASC").Find(&bufferedEvts).Error; err != nil {
+		return fmt.Errorf("failed to load buffered events: %w", err)
+	}
+
+	if len(bufferedEvts) == 0 {
+		return nil
+	}
+
+	curr, err := r.repos.GetRepoState(ctx, did)
+	if err != nil {
+		return fmt.Errorf("failed to get repo state: %w", err)
+	}
+
+	for _, evt := range bufferedEvts {
+		var commit Commit
+		if err := json.Unmarshal([]byte(evt.Data), &commit); err != nil {
+			return fmt.Errorf("failed to unmarshal buffered event: %w", err)
+		}
+
+		// if this commit doesn't stack neatly on current state of tracked repo then we skip
+		// NOTE: the check against the empty string can be eliminated after we start refusing legacy commit events
+		if commit.PrevData != "" && commit.PrevData != curr.PrevData {
+			continue
+		}
+
+		if err := r.events.AddCommit(ctx, &commit, func(tx *gorm.DB) error {
+			return tx.Delete(&models.ResyncBuffer{}, "id = ?", evt.ID).Error
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

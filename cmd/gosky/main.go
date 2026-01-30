@@ -24,7 +24,6 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
-	"github.com/bluesky-social/indigo/handles"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
@@ -44,8 +43,6 @@ import (
 	"github.com/urfave/cli/v2"
 	"golang.org/x/time/rate"
 )
-
-var log = slog.Default().With("system", "gosky")
 
 func main() {
 	run(os.Args)
@@ -78,13 +75,12 @@ func run(args []string) {
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
-	}
-
-	_, _, err := cliutil.SetupSlog(cliutil.LogOptions{})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "logging setup error: %s\n", err.Error())
-		os.Exit(1)
-		return
+		&cli.StringFlag{
+			Name:    "log-level",
+			Usage:   "log verbosity level (debug, info, warn, error)",
+			Value:   "info",
+			EnvVars: []string{"GOSKY_LOG_LEVEL", "LOG_LEVEL", "BSKYLOG_LOG_LEVEL", "GOLOG_LOG_LEVEL"},
+		},
 	}
 
 	app.Commands = []*cli.Command{
@@ -162,6 +158,7 @@ var readRepoStreamCmd = &cli.Command{
 	},
 	ArgsUsage: `[<repo> [cursor]]`,
 	Action: func(cctx *cli.Context) error {
+		log := configLogger(cctx, os.Stderr)
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT)
 		defer stop()
 
@@ -193,8 +190,7 @@ var readRepoStreamCmd = &cli.Command{
 			_ = con.Close()
 		}()
 
-		didr := cliutil.GetDidResolver(cctx)
-		hr := &handles.ProdHandleResolver{}
+		bdir := identity.BaseDirectory{}
 		resolveHandles := cctx.Bool("resolve-handles")
 
 		cache, _ := lru.New[string, *cachedHandle](10000)
@@ -206,17 +202,21 @@ var readRepoStreamCmd = &cli.Command{
 				}
 			}
 
-			h, _, err := handles.ResolveDidToHandle(ctx, didr, hr, did)
+			ident, err := bdir.LookupDID(ctx, syntax.DID(did))
 			if err != nil {
 				return "", err
 			}
 
+			if ident.Handle.IsInvalidHandle() {
+				return "", fmt.Errorf("invalid handle")
+			}
+
 			cache.Add(did, &cachedHandle{
-				Handle: h,
+				Handle: ident.Handle.String(),
 				Valid:  time.Now().Add(time.Minute * 10),
 			})
 
-			return h, nil
+			return ident.Handle.String(), nil
 		}
 		var limiter *rate.Limiter
 		if cctx.Float64("max-throughput") > 0 {
@@ -445,7 +445,7 @@ var getRecordCmd = &cli.Command{
 				return err
 			}
 
-			resp, err := identity.DefaultDirectory().Lookup(ctx, *atid)
+			resp, err := identity.DefaultDirectory().Lookup(ctx, atid)
 			if err != nil {
 				return err
 			}
@@ -806,7 +806,7 @@ var verifyUserCmd = &cli.Command{
 			return err
 		}
 
-		ident, err := identity.DefaultDirectory().Lookup(ctx, *idf)
+		ident, err := identity.DefaultDirectory().Lookup(ctx, idf)
 		if err != nil {
 			return err
 		}
@@ -846,4 +846,26 @@ var verifyUserCmd = &cli.Command{
 
 		return nil
 	},
+}
+
+func configLogger(cmd *cli.Context, writer *os.File) *slog.Logger {
+	var level slog.Level
+	switch cmd.String("log-level") {
+	case "debug":
+		level = slog.LevelDebug
+	case "info":
+		level = slog.LevelInfo
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
+	logger := slog.New(slog.NewJSONHandler(writer, &slog.HandlerOptions{
+		Level: level,
+	}))
+
+	return logger
 }

@@ -14,7 +14,7 @@ import (
 type UnspeccedGetSuggestedUsersSkeleton_Output struct {
 	Dids []string `json:"dids" cborgen:"dids"`
 	// recId: Snowflake for this recommendation, use when submitting recommendation events.
-	RecId *int64 `json:"recId,omitempty" cborgen:"recId,omitempty"`
+	RecId *string `json:"recId,omitempty" cborgen:"recId,omitempty"`
 }
 
 // UnspeccedGetSuggestedUsersSkeleton calls the XRPC method "app.bsky.unspecced.getSuggestedUsersSkeleton".

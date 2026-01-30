@@ -45,6 +45,7 @@ func NewAPIDirectory(host string) APIDirectory {
 		Client: &http.Client{
 			Timeout: time.Second * 10,
 			Transport: &http.Transport{
+				Proxy:           http.ProxyFromEnvironment,
 				IdleConnTimeout: time.Millisecond * 100,
 				MaxIdleConns:    100,
 			},

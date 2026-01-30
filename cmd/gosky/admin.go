@@ -15,7 +15,6 @@ import (
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/handles"
 	"github.com/bluesky-social/indigo/util/cliutil"
 
 	"github.com/urfave/cli/v2"
@@ -74,7 +73,7 @@ var checkUserCmd = &cli.Command{
 			return err
 		}
 
-		id, err := dir.Lookup(ctx, *ident)
+		id, err := dir.Lookup(ctx, ident)
 		if err != nil {
 			return fmt.Errorf("resolve identifier %q: %w", cctx.Args().First(), err)
 		}
@@ -447,25 +446,27 @@ var disableInvitesCmd = &cli.Command{
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		phr := &handles.ProdHandleResolver{}
-		handle := cctx.Args().First()
-		if !strings.HasPrefix(handle, "did:") {
-			resp, err := phr.ResolveHandleToDid(ctx, handle)
+		username, err := syntax.ParseAtIdentifier(cctx.Args().First())
+		if err != nil {
+			return fmt.Errorf("must provide a valid DID or handle")
+		}
+		if username.IsHandle() {
+			bdir := identity.BaseDirectory{}
+			did, err := bdir.ResolveHandle(ctx, username.Handle())
 			if err != nil {
 				return err
 			}
-
-			handle = resp
+			username = did.AtIdentifier()
 		}
 
 		if err := atproto.AdminDisableAccountInvites(ctx, xrpcc, &atproto.AdminDisableAccountInvites_Input{
-			Account: handle,
+			Account: username.String(),
 		}); err != nil {
 			return err
 		}
 
 		if err := atproto.AdminDisableInviteCodes(ctx, xrpcc, &atproto.AdminDisableInviteCodes_Input{
-			Accounts: []string{handle},
+			Accounts: []string{username.String()},
 		}); err != nil {
 			return err
 		}
@@ -489,19 +490,21 @@ var enableInvitesCmd = &cli.Command{
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		handle := cctx.Args().First()
-		if !strings.HasPrefix(handle, "did:") {
-			phr := &handles.ProdHandleResolver{}
-			resp, err := phr.ResolveHandleToDid(ctx, handle)
+		username, err := syntax.ParseAtIdentifier(cctx.Args().First())
+		if err != nil {
+			return fmt.Errorf("must provide a valid DID or handle")
+		}
+		if username.IsHandle() {
+			bdir := identity.BaseDirectory{}
+			did, err := bdir.ResolveHandle(ctx, username.Handle())
 			if err != nil {
 				return err
 			}
-
-			handle = resp
+			username = did.AtIdentifier()
 		}
 
 		return atproto.AdminEnableAccountInvites(ctx, xrpcc, &atproto.AdminEnableAccountInvites_Input{
-			Account: handle,
+			Account: username.String(),
 		})
 	},
 }
@@ -535,22 +538,24 @@ var listInviteTreeCmd = &cli.Command{
 
 		ctx := context.Background()
 
-		phr := &handles.ProdHandleResolver{}
-
-		did := cctx.Args().First()
-		if !strings.HasPrefix(did, "did:") {
-			rdid, err := phr.ResolveHandleToDid(ctx, cctx.Args().First())
-			if err != nil {
-				return fmt.Errorf("resolve handle %q: %w", cctx.Args().First(), err)
-			}
-
-			did = rdid
+		username, err := syntax.ParseAtIdentifier(cctx.Args().First())
+		if err != nil {
+			return fmt.Errorf("must provide a valid DID or handle")
 		}
+		if username.IsHandle() {
+			bdir := identity.BaseDirectory{}
+			did, err := bdir.ResolveHandle(ctx, username.Handle())
+			if err != nil {
+				return err
+			}
+			username = did.AtIdentifier()
+		}
+		did := username.DID()
 
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		queue := []string{did}
+		queue := []string{did.String()}
 
 		for len(queue) > 0 {
 			next := queue[0]
@@ -698,16 +703,22 @@ var queryModerationStatusesCmd = &cli.Command{
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		did := cctx.Args().First()
-		if !strings.HasPrefix(did, "did:") {
-			phr := &handles.ProdHandleResolver{}
-			resp, err := phr.ResolveHandleToDid(ctx, did)
+		username, err := syntax.ParseAtIdentifier(cctx.Args().First())
+		if err != nil {
+			return fmt.Errorf("must provide a valid DID or handle")
+		}
+		if username.IsHandle() {
+			bdir := identity.BaseDirectory{}
+			did, err := bdir.ResolveHandle(ctx, username.Handle())
 			if err != nil {
 				return err
 			}
-
-			did = resp
+			username = did.AtIdentifier()
 		}
+		did := username.DID()
+
+		// TODO: is the did supposed to be used in the query below?
+		_ = did
 
 		resp, err := toolsozone.ModerationQueryEvents(
 			ctx,
@@ -772,12 +783,13 @@ var createInviteCmd = &cli.Command{
 			return err
 		}
 
+		ctx := context.Background()
 		adminKey := cctx.String("admin-password")
 
 		count := cctx.Int("useCount")
 		num := cctx.Int("num")
 
-		phr := &handles.ProdHandleResolver{}
+		bdir := identity.BaseDirectory{}
 		if bulkfi := cctx.String("bulk"); bulkfi != "" {
 			xrpcc.AdminToken = &adminKey
 			dids, err := readDids(bulkfi)
@@ -786,13 +798,13 @@ var createInviteCmd = &cli.Command{
 			}
 
 			for i, d := range dids {
-				if !strings.HasPrefix(d, "did:plc:") {
-					out, err := phr.ResolveHandleToDid(context.TODO(), d)
+				if !strings.HasPrefix(d, "did:") {
+					out, err := bdir.ResolveHandle(ctx, syntax.Handle(d))
 					if err != nil {
 						return fmt.Errorf("failed to resolve %q: %w", d, err)
 					}
 
-					dids[i] = out
+					dids[i] = out.String()
 				}
 			}
 
@@ -818,12 +830,12 @@ var createInviteCmd = &cli.Command{
 		var usrdid []string
 		if forUser := cctx.Args().Get(0); forUser != "" {
 			if !strings.HasPrefix(forUser, "did:") {
-				resp, err := phr.ResolveHandleToDid(context.TODO(), forUser)
+				resp, err := bdir.ResolveHandle(ctx, syntax.Handle(forUser))
 				if err != nil {
 					return fmt.Errorf("resolving handle: %w", err)
 				}
 
-				usrdid = []string{resp}
+				usrdid = []string{resp.String()}
 			} else {
 				usrdid = []string{forUser}
 			}

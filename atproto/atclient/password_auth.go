@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -144,7 +145,7 @@ func (a *PasswordAuth) Refresh(ctx context.Context, c *http.Client, priorRefresh
 	}
 
 	u := a.Session.Host + "/xrpc/com.atproto.server.refreshSession"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
 	if err != nil {
 		return err
 	}
@@ -266,7 +267,7 @@ func LoginWithPasswordHost(ctx context.Context, host, username, password, authTo
 	}
 
 	if out.Active != nil && *out.Active == false {
-		return nil, fmt.Errorf("account is disabled: %v", out.Status)
+		slog.Info("password login to inactive account", "status", *out.Status, "username", username)
 	}
 
 	did, err := syntax.ParseDID(out.Did)

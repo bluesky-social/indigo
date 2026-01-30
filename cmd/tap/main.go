@@ -10,9 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"net/http"
 	_ "net/http/pprof"
 
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v3"
@@ -26,6 +28,9 @@ func main() {
 }
 
 func run(args []string) error {
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
 	app := &cli.Command{
 		Name:    "tap",
 		Usage:   "atproto sync tool",
@@ -171,15 +176,12 @@ func run(args []string) error {
 		},
 	}
 
-	return app.Run(context.Background(), args)
+	return app.Run(ctx, args)
 }
 
 func runTap(ctx context.Context, cmd *cli.Command) error {
 	logger := configLogger(cmd, os.Stdout)
 	slog.SetDefault(logger)
-
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	// fail early if relay url is not http/https
 	relayUrl := cmd.String("relay-url")
@@ -221,10 +223,8 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	runCtx, cancel := context.WithCancel(ctx)
-
 	if !config.OutboxOnly {
-		go tap.Crawler.Run(runCtx)
+		go tap.crawler.Run(ctx)
 	}
 
 	svcErr := make(chan error, 1)
@@ -232,17 +232,17 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	if !config.OutboxOnly {
 		go func() {
 			logger.Info("starting firehose consumer")
-			if err := tap.Firehose.Run(runCtx); err != nil {
+			if err := tap.firehose.Run(ctx); err != nil {
 				svcErr <- err
 			}
 		}()
 	}
 
-	go tap.Run(runCtx)
+	go tap.Run(ctx)
 
 	go func() {
 		logger.Info("starting HTTP server", "addr", cmd.String("bind"))
-		if err := tap.Server.Start(cmd.String("bind")); err != nil {
+		if err := tap.server.Start(cmd.String("bind")); err != nil {
 			svcErr <- err
 		}
 	}()
@@ -250,7 +250,9 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	if metricsAddr := cmd.String("metrics-listen"); metricsAddr != "" {
 		go func() {
 			logger.Info("starting metrics server", "addr", metricsAddr)
-			if err := tap.Server.RunMetrics(metricsAddr); err != nil {
+			// RunMetrics starts the metrics and pprof server on a separate port.
+			http.Handle("/metrics", promhttp.Handler())
+			if err := http.ListenAndServe(metricsAddr, nil); err != nil {
 				logger.Error("metrics server failed", "error", err)
 			}
 		}()
@@ -258,8 +260,8 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 
 	logger.Info("startup complete")
 	select {
-	case <-signals:
-		logger.Info("received shutdown signal")
+	case <-ctx.Done():
+		logger.Info("received shutdown signal", "reason", ctx.Err())
 	case err := <-svcErr:
 		if err != nil {
 			logger.Error("service error", "error", err)
@@ -267,12 +269,11 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	logger.Info("shutting down")
-	cancel()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
-	if err := tap.Server.Shutdown(shutdownCtx); err != nil {
+	if err := tap.server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("error during shutdown", "error", err)
 		return err
 	}

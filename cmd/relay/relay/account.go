@@ -299,10 +299,10 @@ func (r *Relay) ListAccountsDetailed(ctx context.Context, cursor int64, limit in
 		       account_repo.rev, account_repo.commit_cid, account_repo.commit_data_cid
 		FROM account
 		INNER JOIN account_repo ON account.uid = account_repo.uid
-		WHERE account.uid > ? AND account.status = 'active' AND account.upstream_status = 'active'
+		WHERE account.uid > ? AND account_repo.uid > ? AND account.status = 'active' AND account.upstream_status = 'active'
 		ORDER BY account.uid
 		LIMIT ?
-	`, cursor, limit).Scan(&accounts).Error; err != nil {
+	`, cursor, cursor, limit).Scan(&accounts).Error; err != nil {
 		return nil, err
 	}
 	return accounts, nil

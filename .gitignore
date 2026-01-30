@@ -24,7 +24,6 @@ test-coverage.out
 
 # executables
 /beemo
-/bigsky
 /bluepages
 /cask
 /fakermaker
@@ -37,7 +36,7 @@ test-coverage.out
 /sonar
 /sonar-cli
 /stress
-/supercollider
+/tap
 
 # Don't ignore this file itself, or other specific dotfiles
 !.gitignore

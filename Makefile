@@ -17,14 +17,12 @@ help: ## Print info about all commands
 .PHONY: build
 build: ## Build all executables
 	go build ./cmd/gosky
-	go build ./cmd/bigsky
 	go build ./cmd/relay
 	go build ./cmd/beemo
 	go build ./cmd/lexgen
 	go build ./cmd/stress
 	go build ./cmd/fakermaker
 	go build ./cmd/hepa
-	go build ./cmd/supercollider
 	go build -o ./sonar-cli ./cmd/sonar
 	go build ./cmd/palomar
 	go build ./cmd/tap
@@ -78,10 +76,6 @@ cborgen: ## Run codegen tool for CBOR serialization
 .env:
 	if [ ! -f ".env" ]; then cp example.dev.env .env; fi
 
-.PHONY: run-postgres
-run-postgres: .env ## Runs a local postgres instance
-	docker compose -f cmd/bigsky/docker-compose.yml up -d
-
 .PHONY: run-dev-opensearch
 run-dev-opensearch: .env ## Runs a local opensearch instance
 	docker build -f cmd/palomar/Dockerfile.opensearch . -t opensearch-palomar
@@ -117,24 +111,6 @@ run-dev-search: .env ## Runs search daemon for local dev
 .PHONY: sonar-up
 sonar-up: # Runs sonar docker container
 	docker compose -f cmd/sonar/docker-compose.yml up --build -d || docker-compose -f cmd/sonar/docker-compose.yml up --build -d
-
-.PHONY: sc-reload
-sc-reload: # Reloads supercollider
-	go run cmd/supercollider/main.go \
-		reload \
-		--port 6125 --total-events 2000000 \
-		--hostname alpha.supercollider.jazco.io \
-		--key-file out/alpha.pem \
-		--output-file out/alpha_in.cbor
-
-.PHONY: sc-fire
-sc-fire: # Fires supercollider
-	go run cmd/supercollider/main.go \
-		fire \
-		--port 6125 --events-per-second 10000 \
-		--hostname alpha.supercollider.jazco.io \
-		--key-file out/alpha.pem \
-		--input-file out/alpha_in.cbor
 
 .PHONY: run-netsync
 run-netsync: .env ## Runs netsync for local dev
