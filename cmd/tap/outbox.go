@@ -174,17 +174,10 @@ func (o *Outbox) runBatchedDeletes(ctx context.Context) {
 }
 
 func (o *Outbox) checkTimeouts(ctx context.Context) {
-	ticker := time.NewTicker(o.retryTimeout)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			o.retryTimedOutEvents()
-		}
-	}
+	runPeriodically(ctx, o.retryTimeout, func(ctx context.Context) error {
+		o.retryTimedOutEvents()
+		return nil
+	})
 }
 
 // retryTimedOutEvents iterates through all workers and re-queues timed out events
