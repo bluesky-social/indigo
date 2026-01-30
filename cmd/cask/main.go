@@ -97,6 +97,12 @@ func run(args []string) error {
 						Usage:   "Additional crawler hosts to forward requestCrawl to (can be specified multiple times)",
 						Sources: cli.EnvVars("CASK_NEXT_CRAWLERS"),
 					},
+					&cli.DurationFlag{
+						Name:    "event-retention",
+						Usage:   "How long to retain firehose events in FoundationDB. Set to 0 for infinite retention.",
+						Value:   72 * time.Hour,
+						Sources: cli.EnvVars("CASK_EVENT_RETENTION"),
+					},
 				},
 			},
 		},
@@ -125,6 +131,7 @@ func runServer(ctx context.Context, cmd *cli.Command) error {
 		CollectionDirHost: cmd.String("collectiondir-host"),
 		UserAgent:         cmd.String("user-agent"),
 		NextCrawlers:      cmd.StringSlice("next-crawler"),
+		EventRetention:    cmd.Duration("event-retention"),
 	})
 	if err != nil {
 		return err

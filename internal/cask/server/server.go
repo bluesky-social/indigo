@@ -35,6 +35,7 @@ type Config struct {
 	CollectionDirHost string
 	UserAgent         string
 	NextCrawlers      []string
+	EventRetention    time.Duration // How long to keep events; 0 disables cleanup
 }
 
 type Server struct {
@@ -53,6 +54,9 @@ type Server struct {
 
 	consumerMu     *sync.Mutex
 	consumerCancel context.CancelFunc
+
+	cleanerMu     *sync.Mutex
+	cleanerCancel context.CancelFunc
 
 	// Subscriber tracking
 	subscribersMu    *sync.Mutex
@@ -114,6 +118,7 @@ func New(ctx context.Context, config Config) (*Server, error) {
 		db:              db,
 		models:          m,
 		consumerMu:      &sync.Mutex{},
+		cleanerMu:       &sync.Mutex{},
 		subscribersMu:   &sync.Mutex{},
 	}
 
@@ -194,6 +199,7 @@ func (s *Server) router() *echo.Echo {
 // gracefully before shutting down the HTTP server.
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.stopConsumer()
+	s.stopCleaner()
 	s.leaderElection.Stop()
 
 	s.closeAllSubscribers()
@@ -286,13 +292,15 @@ func (s *Server) processID() string {
 }
 
 func (s *Server) onBecameLeader(ctx context.Context) {
-	s.log.Info("became firehose leader, starting consumer")
+	s.log.Info("became firehose leader, starting consumer and cleaner")
 	go s.startConsumer()
+	go s.startCleaner()
 }
 
 func (s *Server) onLostLeadership(ctx context.Context) {
-	s.log.Info("lost firehose leadership, stopping consumer")
+	s.log.Info("lost firehose leadership, stopping consumer and cleaner")
 	s.stopConsumer()
+	s.stopCleaner()
 }
 
 // Starts the firehose consumer in a goroutine. This is invoked when the process
@@ -320,5 +328,63 @@ func (s *Server) stopConsumer() {
 	if s.consumerCancel != nil {
 		s.consumerCancel()
 		s.consumerCancel = nil
+	}
+}
+
+const cleanupInterval = 5 * time.Minute
+
+// Starts the event cleaner in a goroutine. This is invoked when the process
+// grabs the leader lock. Only the leader runs the cleaner to avoid duplicate work.
+func (s *Server) startCleaner() {
+	if s.cfg.EventRetention <= 0 {
+		s.log.Info("event retention disabled, not starting cleaner")
+		return
+	}
+
+	s.stopCleaner()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cleanerMu.Lock()
+	s.cleanerCancel = cancel
+	s.cleanerMu.Unlock()
+
+	s.log.Info("starting event cleaner", "retention", s.cfg.EventRetention, "interval", cleanupInterval)
+
+	ticker := time.NewTicker(cleanupInterval)
+	defer ticker.Stop()
+
+	// Run immediately on startup, then periodically
+	s.runCleanup(ctx)
+
+	for {
+		select {
+		case <-ctx.Done():
+			s.log.Info("event cleaner stopped")
+			return
+		case <-ticker.C:
+			s.runCleanup(ctx)
+		}
+	}
+}
+
+func (s *Server) runCleanup(ctx context.Context) {
+	deleted, err := s.models.CleanupOldEvents(ctx, s.cfg.EventRetention)
+	if err != nil {
+		s.log.Error("event cleanup failed", "error", err)
+		return
+	}
+	if deleted > 0 {
+		s.log.Info("cleaned up old events", "deleted", deleted, "retention", s.cfg.EventRetention)
+	}
+}
+
+// Stops the event cleaner, if running.
+func (s *Server) stopCleaner() {
+	s.cleanerMu.Lock()
+	defer s.cleanerMu.Unlock()
+
+	if s.cleanerCancel != nil {
+		s.cleanerCancel()
+		s.cleanerCancel = nil
 	}
 }

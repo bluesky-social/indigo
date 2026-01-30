@@ -70,4 +70,18 @@ var (
 		Namespace: namespace,
 		Help:      "Whether the consumer is currently connected to the upstream firehose (1=connected, 0=disconnected)",
 	})
+
+	// EventsCleanedTotal tracks the total number of events deleted by the cleaner
+	EventsCleanedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name:      "events_cleaned_total",
+		Namespace: namespace,
+		Help:      "Total number of events deleted by the retention cleaner",
+	})
+
+	// OldestEventAgeSeconds tracks the age of the oldest event in the database
+	OldestEventAgeSeconds = promauto.NewGauge(prometheus.GaugeOpts{
+		Name:      "oldest_event_age_seconds",
+		Namespace: namespace,
+		Help:      "Age of the oldest event in seconds (0 if no events)",
+	})
 )
