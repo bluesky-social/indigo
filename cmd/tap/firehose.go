@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"net/url"
 	"sync/atomic"
 	"time"
@@ -16,7 +15,8 @@ import (
 	"github.com/bluesky-social/indigo/cmd/tap/models"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
-	"github.com/gorilla/websocket"
+	"github.com/bluesky-social/indigo/internal/ticker"
+	"github.com/bluesky-social/indigo/internal/websocket"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
@@ -368,7 +368,7 @@ func (fp *FirehoseProcessor) saveCursor(ctx context.Context) error {
 
 // RunCursorSaver periodically saves the firehose cursor to the database.
 func (fp *FirehoseProcessor) RunCursorSaver(ctx context.Context) {
-	runPeriodically(ctx, fp.cursorSaveInterval, func(ctx context.Context) error {
+	ticker.Periodically(ctx, fp.cursorSaveInterval, func(ctx context.Context) error {
 		if err := fp.saveCursor(ctx); err != nil {
 			fp.logger.Error("failed to save cursor", "error", err, "relayUrl", fp.relayUrl)
 		}
@@ -423,48 +423,23 @@ func (fp *FirehoseProcessor) runConsumer(ctx context.Context) error {
 		},
 	}
 
-	var retries int
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		cursor, err := fp.GetCursor(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to read cursor: %w", err)
-		}
-
-		if cursor > 0 {
-			u.RawQuery = fmt.Sprintf("cursor=%d", cursor)
-		}
-		urlStr := u.String()
-
-		fp.logger.Info("connecting to firehose", "url", urlStr, "cursor", cursor, "retries", retries)
-
-		dialer := websocket.DefaultDialer
-		con, _, err := dialer.DialContext(ctx, urlStr, http.Header{
-			"User-Agent": []string{userAgent()},
-		})
-		if err != nil {
-			fp.logger.Warn("dialing failed", "error", err, "retries", retries)
-			time.Sleep(backoff(retries, 10))
-			retries++
-			continue
-		}
-
-		fp.logger.Info("connected to firehose")
-		retries = 0
-
-		scheduler := parallel.NewScheduler(
-			fp.parallelism,
-			100,
-			fp.relayUrl,
-			rsc.EventHandler,
-		)
-		if err := events.HandleRepoStream(ctx, con, scheduler, nil); err != nil {
-			fp.logger.Warn("firehose connection failed", "error", err)
-		}
+	cursor, err := fp.GetCursor(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to read cursor: %w", err)
 	}
+
+	if cursor > 0 {
+		u.RawQuery = fmt.Sprintf("cursor=%d", cursor)
+	}
+	urlStr := u.String()
+
+	client := websocket.NewClient(ctx, slog.Default(), urlStr, userAgent())
+
+	scheduler := parallel.NewScheduler(
+		fp.parallelism,
+		100,
+		fp.relayUrl,
+		rsc.EventHandler,
+	)
+	return events.HandleWebsocketStream(ctx, client, scheduler, nil)
 }

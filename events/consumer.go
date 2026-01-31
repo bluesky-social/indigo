@@ -12,6 +12,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/prometheus/client_golang/prometheus"
 
+	ws "github.com/bluesky-social/indigo/internal/websocket"
 	"github.com/gorilla/websocket"
 )
 
@@ -101,6 +102,159 @@ func (sr *instrumentedReader) Read(p []byte) (int, error) {
 	n, err := sr.r.Read(p)
 	sr.bytesCounter.Add(float64(n))
 	return n, err
+}
+
+func HandleWebsocketStream(ctx context.Context, client *ws.Client, sched Scheduler, log *slog.Logger) error {
+	if log == nil {
+		log = slog.Default().With("system", "events")
+	}
+	defer sched.Shutdown()
+	defer client.Close()
+
+	remoteAddr := "1.1.1.1" // con.RemoteAddr().String()
+
+	lastSeq := int64(-1)
+	for client.Next() {
+		mt, rawReader := client.Message()
+
+		switch mt {
+		default:
+			return fmt.Errorf("expected binary message from subscription endpoint")
+		case websocket.BinaryMessage:
+			// ok
+		}
+
+		r := &instrumentedReader{
+			r:            rawReader,
+			addr:         remoteAddr,
+			bytesCounter: bytesFromStreamCounter.WithLabelValues(remoteAddr),
+		}
+
+		var header EventHeader
+		if err := header.UnmarshalCBOR(r); err != nil {
+			return fmt.Errorf("reading header: %w", err)
+		}
+
+		eventsFromStreamCounter.WithLabelValues(remoteAddr).Inc()
+
+		switch header.Op {
+		case EvtKindMessage:
+			switch header.MsgType {
+			case "#commit":
+				var evt comatproto.SyncSubscribeRepos_Commit
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return fmt.Errorf("reading repoCommit event: %w", err)
+				}
+
+				if evt.Seq < lastSeq {
+					log.Error("Got events out of order from stream", "seq", evt.Seq, "prev", lastSeq)
+				}
+
+				lastSeq = evt.Seq
+
+				if err := sched.AddWork(ctx, evt.Repo, &XRPCStreamEvent{
+					RepoCommit: &evt,
+				}); err != nil {
+					return err
+				}
+			case "#sync":
+				var evt comatproto.SyncSubscribeRepos_Sync
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return fmt.Errorf("reading repoSync event: %w", err)
+				}
+
+				if evt.Seq < lastSeq {
+					log.Error("Got events out of order from stream", "seq", evt.Seq, "prev", lastSeq)
+				}
+
+				lastSeq = evt.Seq
+
+				if err := sched.AddWork(ctx, evt.Did, &XRPCStreamEvent{
+					RepoSync: &evt,
+				}); err != nil {
+					return err
+				}
+			case "#identity":
+				var evt comatproto.SyncSubscribeRepos_Identity
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return err
+				}
+
+				if evt.Seq < lastSeq {
+					log.Error("Got events out of order from stream", "seq", evt.Seq, "prev", lastSeq)
+				}
+				lastSeq = evt.Seq
+
+				if err := sched.AddWork(ctx, evt.Did, &XRPCStreamEvent{
+					RepoIdentity: &evt,
+				}); err != nil {
+					return err
+				}
+			case "#account":
+				var evt comatproto.SyncSubscribeRepos_Account
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return err
+				}
+
+				if evt.Seq < lastSeq {
+					log.Error("Got events out of order from stream", "seq", evt.Seq, "prev", lastSeq)
+				}
+				lastSeq = evt.Seq
+
+				if err := sched.AddWork(ctx, evt.Did, &XRPCStreamEvent{
+					RepoAccount: &evt,
+				}); err != nil {
+					return err
+				}
+			case "#info":
+				// TODO: this might also be a LabelInfo (as opposed to RepoInfo)
+				var evt comatproto.SyncSubscribeRepos_Info
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return err
+				}
+
+				if err := sched.AddWork(ctx, "", &XRPCStreamEvent{
+					RepoInfo: &evt,
+				}); err != nil {
+					return err
+				}
+			case "#labels":
+				var evt comatproto.LabelSubscribeLabels_Labels
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return fmt.Errorf("reading Labels event: %w", err)
+				}
+
+				if evt.Seq < lastSeq {
+					log.Error("Got events out of order from stream", "seq", evt.Seq, "prev", lastSeq)
+				}
+
+				lastSeq = evt.Seq
+
+				if err := sched.AddWork(ctx, "", &XRPCStreamEvent{
+					LabelLabels: &evt,
+				}); err != nil {
+					return err
+				}
+			}
+
+		case EvtKindErrorFrame:
+			var errframe ErrorFrame
+			if err := errframe.UnmarshalCBOR(r); err != nil {
+				return err
+			}
+
+			if err := sched.AddWork(ctx, "", &XRPCStreamEvent{
+				Error: &errframe,
+			}); err != nil {
+				return err
+			}
+
+		default:
+			return fmt.Errorf("unrecognized event stream type: %d", header.Op)
+		}
+
+	}
+	return client.Err()
 }
 
 // HandleRepoStream

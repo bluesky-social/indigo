@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bluesky-social/indigo/internal/ticker"
 	"github.com/puzpuzpuz/xsync/v4"
 )
 
@@ -174,7 +175,7 @@ func (o *Outbox) runBatchedDeletes(ctx context.Context) {
 }
 
 func (o *Outbox) checkTimeouts(ctx context.Context) {
-	runPeriodically(ctx, o.retryTimeout, func(ctx context.Context) error {
+	ticker.Periodically(ctx, o.retryTimeout, func(ctx context.Context) error {
 		o.retryTimedOutEvents()
 		return nil
 	})
