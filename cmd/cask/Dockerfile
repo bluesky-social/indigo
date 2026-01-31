@@ -1,4 +1,4 @@
-FROM golang:1.25-bookworm AS build-env
+FROM golang:1.25-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
@@ -7,9 +7,9 @@ ENV GOOS="linux"
 ENV GOARCH="amd64"
 ENV CGO_ENABLED="1"
 
-# Install FoundationDB client libraries and git
+# Install FoundationDB client libraries and dependencies
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git \
+    && apt-get install -y --no-install-recommends git dumb-init ca-certificates \
     && wget -O /tmp/fdb-clients.deb https://github.com/apple/foundationdb/releases/download/7.3.63/foundationdb-clients_7.3.63-1_amd64.deb \
     && dpkg -i /tmp/fdb-clients.deb \
     && rm /tmp/fdb-clients.deb \
@@ -25,22 +25,10 @@ RUN go mod download && \
 RUN go build \
     -trimpath \
     -tags timetzdata \
-    -o /cask-bin \
+    -o /usr/bin/cask \
     ./cmd/cask
 
-FROM debian:bookworm-slim
-
-ENV DEBIAN_FRONTEND="noninteractive"
-ENV TZ=Etc/UTC
-ENV GODEBUG="netdns=go"
-
-RUN apt-get update && apt-get install --yes \
-  dumb-init \
-  ca-certificates \
-  runit
-
 WORKDIR /cask
-COPY --from=build-env /cask-bin /usr/bin/cask
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/usr/bin/cask"]
