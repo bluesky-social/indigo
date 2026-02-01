@@ -120,20 +120,23 @@ func (bs *readStreamBlockstore) Put(ctx context.Context, blk block.Block) error 
 // Note that this does not filter to only keys with that prefix; all records
 // from that point onward are visited.
 //
-// The setRev callback receives the repository revision string after the commit
-// is loaded. It may be nil, in which case it is ignored.
+// The onCommit callback receives the signed commit after it is loaded. It may
+// be nil, in which case it is ignored. The callback can be used to extract
+// the revision string (sc.Rev), or in the future to verify the commit
+// signature. If the callback returns an error, StreamRepoRecords returns
+// immediately with that error.
 //
 // The cb parameter is the visitor function called for each record with the
 // record's key, CID, and raw data. If cb returns an error, the error is logged
 // and iteration continues; errors from cb do not stop the walk and are not
 // returned from this function. To signal intentional early termination, cb can
 // return ErrDoneIterating, which is handled silently without logging.
-func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, setRev func(string), cb func(k string, c cid.Cid, v []byte) error) error {
+func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, onCommit func(*SignedCommit) error, cb func(k string, c cid.Cid, v []byte) error) error {
 	ctx, span := otel.Tracer("repo").Start(ctx, "RepoStream")
 	defer span.End()
 
-	if setRev == nil {
-		setRev = func(string) {}
+	if onCommit == nil {
+		onCommit = func(*SignedCommit) error { return nil }
 	}
 
 	br, root, err := carutil.NewReader(bufio.NewReader(r))
@@ -154,9 +157,9 @@ func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, setRev f
 		return fmt.Errorf("unsupported repo version: %d", sc.Version)
 	}
 
-	// TODO: verify that signature
-
-	setRev(sc.Rev)
+	if err := onCommit(&sc); err != nil {
+		return fmt.Errorf("commit callback: %w", err)
+	}
 
 	t := mst.LoadMST(cst, sc.Data)
 
