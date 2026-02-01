@@ -423,9 +423,10 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 	recordResults := make(chan recordResult, numRoutines)
 
 	var rev string
-	// guaranteed to be called before any items are send on the recordQueue channel
-	setRev := func(s string) {
-		rev = s
+	// guaranteed to be called before any items are sent on the recordQueue channel
+	onCommit := func(sc *repo.SignedCommit) error {
+		rev = sc.Rev
+		return nil
 	}
 
 	// Producer routine
@@ -433,7 +434,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 	go func() {
 		defer r.Close()
 		defer close(recordQueue)
-		err := repo.StreamRepoRecords(ctx, r, b.NSIDFilter, setRev, func(recordPath string, nodeCid cid.Cid, data []byte) error {
+		err := repo.StreamRepoRecords(ctx, r, b.NSIDFilter, onCommit, func(recordPath string, nodeCid cid.Cid, data []byte) error {
 			numRecords++
 			recordQueue <- recordQueueItem{recordPath: recordPath, nodeCid: nodeCid, data: data}
 			return nil
