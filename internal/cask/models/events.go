@@ -232,8 +232,11 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 
 		// Read more keys than limit since events may have multiple chunks
 		// We'll stop when we have enough complete events or hit byte limit
+		// Use StreamingModeWantAll to hint that we want all data upfront (reduces round-trips)
 		rng := fdb.KeyRange{Begin: startKey, End: endKey}
-		iter := tx.GetRange(rng, fdb.RangeOptions{}).Iterator()
+		iter := tx.GetRange(rng, fdb.RangeOptions{
+			Mode: fdb.StreamingModeWantAll,
+		}).Iterator()
 
 		var events []*prototypes.FirehoseEvent
 		var lastVersionstamp []byte
