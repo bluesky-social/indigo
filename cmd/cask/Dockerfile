@@ -25,6 +25,7 @@ RUN go mod download && \
 RUN go build \
     -trimpath \
     -tags timetzdata \
+    -ldflags "-X github.com/bluesky-social/indigo/pkg/env.Version=$GIT_VERSION" \
     -o /usr/bin/cask \
     ./cmd/cask
 
