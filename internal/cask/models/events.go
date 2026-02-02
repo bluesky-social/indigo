@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"slices"
 
@@ -188,7 +189,7 @@ func (m *Models) GetLatestVersionstamp(ctx context.Context) (cursor []byte, err 
 		return kv.Key[prefixLen : prefixLen+versionstampLength], nil
 	})
 
-	span.SetAttributes(attribute.String("cursor", string(cursor)))
+	span.SetAttributes(attribute.String("versionstamp", hex.EncodeToString(cursor)))
 	return
 }
 
@@ -202,7 +203,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 
 	span.SetAttributes(
 		attribute.Int("limit", limit),
-		attribute.String("cursor", string(cursor)),
+		attribute.String("versionstamp", hex.EncodeToString(cursor)),
 	)
 
 	type result struct {
@@ -311,7 +312,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 
 	span.SetAttributes(
 		attribute.Int("events_returned", len(events)),
-		attribute.String("next_cursor", string(nextCursor)),
+		attribute.String("next_versionstamp", hex.EncodeToString(nextCursor)),
 	)
 
 	return
@@ -366,7 +367,7 @@ func (m *Models) getVersionstampForSeq(ctx context.Context, seq int64) ([]byte, 
 		return kv.Value[:versionstampLength], nil
 	})
 
-	span.SetAttributes(attribute.String("versionstamp", string(versionstamp)))
+	span.SetAttributes(attribute.String("versionstamp", hex.EncodeToString(versionstamp)))
 
 	return versionstamp, err
 }
