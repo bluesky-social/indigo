@@ -448,9 +448,9 @@ type SchemaPermissionSet struct {
 	Type        string             `json:"type"` // "permission-set"
 	Description *string            `json:"description,omitempty"`
 	Title       *string            `json:"title,omitempty"`
-	TitleLangs  map[string]string  `json:"title:langs,omitempty"`
+	TitleLang   map[string]string  `json:"title:lang,omitempty"`
 	Detail      *string            `json:"detail,omitempty"`
-	DetailLangs map[string]string  `json:"detail:langs,omitempty"`
+	DetailLang  map[string]string  `json:"detail:lang,omitempty"`
 	Permissions []SchemaPermission `json:"permissions"`
 }
 
@@ -458,13 +458,13 @@ func (s *SchemaPermissionSet) CheckSchema() error {
 	if s.Type != "permission-set" {
 		return fmt.Errorf("expected 'permission-set' schema")
 	}
-	for lang, _ := range s.TitleLangs {
+	for lang, _ := range s.TitleLang {
 		_, err := syntax.ParseLanguage(lang)
 		if err != nil {
 			return err
 		}
 	}
-	for lang, _ := range s.DetailLangs {
+	for lang, _ := range s.DetailLang {
 		_, err := syntax.ParseLanguage(lang)
 		if err != nil {
 			return err
