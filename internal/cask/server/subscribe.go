@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"maps"
 	"net"
@@ -13,6 +14,9 @@ import (
 	"github.com/bluesky-social/indigo/internal/cask/metrics"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -25,6 +29,8 @@ const (
 	pingInterval    = 15 * time.Second
 	pingPongTimeout = 10 * time.Second
 )
+
+var subscribeTracer = otel.Tracer("cask/subscribe")
 
 // subscriber represents an active subscribeRepos connection
 type subscriber struct {
@@ -158,15 +164,13 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 		default:
 		}
 
-		// Fetch events after the current versionstamp cursor
-		rawEvents, nextCursor, err := s.getEventsSince(ctx, versionstampCursor, eventBatchSize)
+		nextCursor, err := s.processBatch(ctx, sub, conn, versionstampCursor)
 		if err != nil {
-			s.log.Error("failed to read events from FDB", "error", err)
 			return err
 		}
 
-		// If there are no new events, wait before polling again
-		if len(rawEvents) == 0 {
+		// nil cursor means empty batch - wait before polling again
+		if nextCursor == nil {
 			select {
 			case <-ctx.Done():
 				return nil
@@ -175,20 +179,75 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 			continue
 		}
 
-		// Send events to the client
-		for _, evt := range rawEvents {
-			if err := s.writeEvent(conn, evt); err != nil {
-				s.log.Debug("failed to write event", "error", err)
-				return nil
-			}
-
-			sub.eventsSent.Add(1)
-			metrics.EventsSentTotal.WithLabelValues(sub.remoteAddr, sub.userAgent).Inc()
-		}
-
-		// Update cursor for next iteration
 		versionstampCursor = nextCursor
 	}
+}
+
+// processBatch reads a batch of events from FDB and writes them to the websocket.
+// Returns the next cursor on success, nil cursor for empty batch, or error.
+func (s *Server) processBatch(ctx context.Context, sub *subscriber, conn *websocket.Conn, cursor []byte) ([]byte, error) {
+	ctx, span := subscribeTracer.Start(ctx, "SubscribeBatch", trace.WithAttributes(
+		attribute.Int64("subscriber_id", int64(sub.id)),
+		attribute.String("versionstamp", hex.EncodeToString(cursor)),
+	))
+	defer span.End()
+
+	// Read events from FDB
+	rawEvents, nextCursor, err := s.getEventsSince(ctx, cursor, eventBatchSize)
+	if err != nil {
+		span.RecordError(err)
+		s.log.Error("failed to read events from FDB", "error", err)
+		return nil, err
+	}
+
+	if len(rawEvents) == 0 {
+		span.SetAttributes(attribute.Bool("empty_batch", true))
+		return nil, nil
+	}
+
+	// Write events to websocket
+	totalBytes, err := s.writeEventBatch(ctx, sub, conn, rawEvents)
+	if err != nil {
+		span.RecordError(err)
+		s.log.Debug("failed to write event", "error", err)
+		return nil, err
+	}
+
+	span.SetAttributes(
+		attribute.Int("batch_size", len(rawEvents)),
+		attribute.Int("batch_bytes", totalBytes),
+	)
+
+	return nextCursor, nil
+}
+
+// writeEventBatch writes all events to the websocket connection.
+// Returns total bytes written.
+func (s *Server) writeEventBatch(ctx context.Context, sub *subscriber, conn *websocket.Conn, events []*eventData) (int, error) {
+	_, span := subscribeTracer.Start(ctx, "writeEventBatch", trace.WithAttributes(
+		attribute.Int64("subscriber_id", int64(sub.id)),
+		attribute.Int("batch_size", len(events)),
+	))
+	defer span.End()
+
+	var totalBytes int
+	for _, evt := range events {
+		if err := s.writeEvent(conn, evt); err != nil {
+			span.RecordError(err)
+			return totalBytes, err
+		}
+		totalBytes += len(evt.rawEvent)
+
+		sub.eventsSent.Add(1)
+		metrics.EventsSentTotal.WithLabelValues(sub.remoteAddr, sub.userAgent).Inc()
+	}
+
+	span.SetAttributes(
+		attribute.Int("events_written", len(events)),
+		attribute.Int("total_bytes", totalBytes),
+	)
+
+	return totalBytes, nil
 }
 
 // writeEvent writes a single event to the WebSocket connection
