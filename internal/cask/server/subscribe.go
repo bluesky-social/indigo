@@ -44,7 +44,7 @@ type subscriber struct {
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:    10 << 10,
-	WriteBufferSize:   10 << 10,
+	WriteBufferSize:   1024 << 10,
 	EnableCompression: true,
 }
 
@@ -232,7 +232,7 @@ func (s *Server) writeEventBatch(ctx context.Context, sub *subscriber, conn *web
 
 	var totalBytes int
 	for _, evt := range events {
-		if err := s.writeEvent(conn, evt); err != nil {
+		if err := conn.WriteMessage(websocket.BinaryMessage, evt.rawEvent); err != nil {
 			span.RecordError(err)
 			return totalBytes, err
 		}
@@ -248,21 +248,6 @@ func (s *Server) writeEventBatch(ctx context.Context, sub *subscriber, conn *web
 	)
 
 	return totalBytes, nil
-}
-
-// writeEvent writes a single event to the WebSocket connection
-func (s *Server) writeEvent(conn *websocket.Conn, evt *eventData) error {
-	wc, err := conn.NextWriter(websocket.BinaryMessage)
-	if err != nil {
-		return err
-	}
-
-	// Write the raw CBOR bytes directly - no re-serialization needed
-	if _, err := wc.Write(evt.rawEvent); err != nil {
-		return err
-	}
-
-	return wc.Close()
 }
 
 type eventData struct {
