@@ -1,7 +1,7 @@
 services:
   fdb-coordinator:
     image: foundationdb/foundationdb:7.3.63
-    container_name: atlas-fdb-coordinator
+    container_name: cask-fdb-coordinator
     network_mode: host
     environment:
       FDB_NETWORKING_MODE: host
@@ -13,7 +13,7 @@ services:
     depends_on:
       - fdb-coordinator
     image: foundationdb/foundationdb:7.3.63
-    container_name: atlas-fdb-server-1
+    container_name: cask-fdb-server-1
     network_mode: host
     environment:
       FDB_NETWORKING_MODE: host
