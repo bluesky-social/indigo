@@ -123,8 +123,8 @@ type TIDClock struct {
 	lastUnixMicro int64
 }
 
-func NewTIDClock(clockId uint) TIDClock {
-	return TIDClock{
+func NewTIDClock(clockId uint) *TIDClock {
+	return &TIDClock{
 		ClockID: clockId,
 	}
 }
