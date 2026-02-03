@@ -10,9 +10,11 @@ import (
 	"runtime"
 	"strings"
 
-	_ "github.com/joho/godotenv/autoload"
 	_ "net/http/pprof"
 
+	_ "github.com/joho/godotenv/autoload"
+
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/identity/apidir"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
@@ -184,7 +186,12 @@ func configLogger(cmd *cli.Command, writer io.Writer) *slog.Logger {
 	return logger
 }
 
-func configClient(cmd *cli.Command) apidir.APIDirectory {
+type directory interface {
+	identity.Directory
+	identity.Resolver
+}
+
+func configClient(cmd *cli.Command) directory {
 	return apidir.NewAPIDirectory(cmd.String("host"))
 }
 

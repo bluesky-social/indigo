@@ -12,8 +12,9 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/joho/godotenv/autoload"
 	_ "net/http/pprof"
+
+	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/identity/redisdir"
@@ -222,8 +223,7 @@ func configDirectory(cmd *cli.Command) (identity.Directory, error) {
 		}
 		dir = rdir
 	} else {
-		cdir := identity.NewCacheDirectory(&baseDir, 1_500_000, time.Hour*24, time.Minute*2, time.Minute*5)
-		dir = &cdir
+		dir = identity.NewCacheDirectory(&baseDir, 1_500_000, time.Hour*24, time.Minute*2, time.Minute*5)
 	}
 	return dir, nil
 }
