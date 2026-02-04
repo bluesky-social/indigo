@@ -1,19 +1,21 @@
 package repo
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/mst"
+	"github.com/bluesky-social/indigo/repo/carutil"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
-	"github.com/ipld/go-car"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 )
@@ -76,17 +78,28 @@ func (uc *UnsignedCommit) BytesForSigning() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+var bufrPool = &sync.Pool{
+	New: func() any {
+		return bufio.NewReader(nil)
+	},
+}
+
 func IngestRepo(ctx context.Context, bs cbor.IpldBlockstore, r io.Reader) (cid.Cid, error) {
 	ctx, span := otel.Tracer("repo").Start(ctx, "Ingest")
 	defer span.End()
 
-	br, err := car.NewCarReader(r)
+	bufr := bufrPool.Get().(*bufio.Reader)
+	bufr.Reset(r)
+
+	defer bufrPool.Put(bufr)
+
+	br, root, err := carutil.NewReader(bufr)
 	if err != nil {
 		return cid.Undef, fmt.Errorf("opening CAR block reader: %w", err)
 	}
 
 	for {
-		blk, err := br.Next()
+		blk, err := br.NextBlock()
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -99,7 +112,7 @@ func IngestRepo(ctx context.Context, bs cbor.IpldBlockstore, r io.Reader) (cid.C
 		}
 	}
 
-	return br.Header.Roots[0], nil
+	return root, nil
 }
 
 func ReadRepoFromCar(ctx context.Context, r io.Reader) (*Repo, error) {
@@ -128,7 +141,7 @@ func NewRepo(ctx context.Context, did string, bs cbor.IpldBlockstore) *Repo {
 		mst:   t,
 		sc:    sc,
 		dirty: true,
-		clk:   &clk,
+		clk:   clk,
 	}
 }
 
@@ -150,7 +163,7 @@ func OpenRepo(ctx context.Context, bs cbor.IpldBlockstore, root cid.Cid) (*Repo,
 		bs:      bs,
 		cst:     cst,
 		repoCid: root,
-		clk:     &clk,
+		clk:     clk,
 	}, nil
 }
 

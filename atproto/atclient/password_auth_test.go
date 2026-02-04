@@ -131,7 +131,7 @@ func TestPasswordAuth(t *testing.T) {
 
 	{
 		// simple GET requests, with token expire/retry
-		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
+		c, err := LoginWithPassword(ctx, dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
 		require.NoError(err)
 		err = c.Get(ctx, syntax.NSID("com.example.get"), nil, nil)
 		assert.NoError(err)
@@ -166,7 +166,7 @@ func TestPasswordAuth(t *testing.T) {
 
 	{
 		// logout
-		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
+		c, err := LoginWithPassword(ctx, dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
 		require.NoError(err)
 
 		passAuth, ok := c.Auth.(*PasswordAuth)
@@ -177,7 +177,7 @@ func TestPasswordAuth(t *testing.T) {
 
 	{
 		// simple POST request, with token expire/retry
-		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
+		c, err := LoginWithPassword(ctx, dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
 		require.NoError(err)
 		body := map[string]any{
 			"a": 123,
@@ -192,7 +192,7 @@ func TestPasswordAuth(t *testing.T) {
 
 	{
 		// POST with bytes.Buffer body
-		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
+		c, err := LoginWithPassword(ctx, dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
 		require.NoError(err)
 		body := bytes.NewBufferString("some text")
 		req := NewAPIRequest(MethodProcedure, syntax.NSID("com.example.expire"), body)
@@ -204,7 +204,7 @@ func TestPasswordAuth(t *testing.T) {
 
 	{
 		// POST with file on disk (can seek and retry)
-		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
+		c, err := LoginWithPassword(ctx, dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
 		require.NoError(err)
 		f, err := os.Open("testdata/body.json")
 		require.NoError(err)
@@ -217,7 +217,7 @@ func TestPasswordAuth(t *testing.T) {
 
 	{
 		// POST with pipe reader (can *not* retry)
-		c, err := LoginWithPassword(ctx, &dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
+		c, err := LoginWithPassword(ctx, dir, syntax.Handle("user1.example.com").AtIdentifier(), "password1", "", nil)
 		require.NoError(err)
 		r1, w1 := io.Pipe()
 		go func() {

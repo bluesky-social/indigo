@@ -110,7 +110,7 @@ func testSigningValidation(t *testing.T, priv atcrypto.PrivateKey) {
 
 	v := ServiceAuthValidator{
 		Audience: aud,
-		Dir:      &dir,
+		Dir:      dir,
 	}
 
 	t1, err := SignServiceAuth(iss, aud, time.Minute, nil, priv)
