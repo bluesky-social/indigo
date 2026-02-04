@@ -70,7 +70,7 @@ func NewTap(config TapConfig) (*Tap, error) {
 
 	evtMngr := NewEventManager(logger, db, &config)
 
-	repoMngr := NewRepoManager(logger, db, evtMngr, &cdir)
+	repoMngr := NewRepoManager(logger, db, evtMngr, cdir)
 
 	resyncer := NewResyncer(logger, db, repoMngr, evtMngr, &config)
 
@@ -80,7 +80,7 @@ func NewTap(config TapConfig) (*Tap, error) {
 
 	outbox := NewOutbox(logger, evtMngr, &config)
 
-	server := NewTapServer(logger, db, outbox, &cdir, firehose, crawler, &config)
+	server := NewTapServer(logger, db, outbox, cdir, firehose, crawler, &config)
 
 	t := &Tap{
 		db:     db,

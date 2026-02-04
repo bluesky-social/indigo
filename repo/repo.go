@@ -141,7 +141,7 @@ func NewRepo(ctx context.Context, did string, bs cbor.IpldBlockstore) *Repo {
 		mst:   t,
 		sc:    sc,
 		dirty: true,
-		clk:   &clk,
+		clk:   clk,
 	}
 }
 
@@ -163,7 +163,7 @@ func OpenRepo(ctx context.Context, bs cbor.IpldBlockstore, root cid.Cid) (*Repo,
 		bs:      bs,
 		cst:     cst,
 		repoCid: root,
-		clk:     &clk,
+		clk:     clk,
 	}, nil
 }
 

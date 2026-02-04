@@ -49,7 +49,7 @@ func TestInteropRecordValid(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.NoError(ValidateRecord(&cat, d, "example.lexicon.record", 0))
+		assert.NoError(ValidateRecord(cat, d, "example.lexicon.record", 0))
 	}
 }
 
@@ -83,7 +83,7 @@ func TestInteropRecordInvalid(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = ValidateRecord(&cat, d, "example.lexicon.record", 0)
+		err = ValidateRecord(cat, d, "example.lexicon.record", 0)
 		if err == nil {
 			fmt.Println("   FAIL")
 		}

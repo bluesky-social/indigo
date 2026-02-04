@@ -19,7 +19,7 @@ func TestBasicCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.NoError(validateData(
-		&cat,
+		cat,
 		def.Def,
 		map[string]any{
 			"cid": "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
@@ -33,7 +33,7 @@ func TestBasicCatalog(t *testing.T) {
 	))
 
 	assert.Error(validateData(
-		&cat,
+		cat,
 		def.Def,
 		map[string]any{
 			"cid": "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
