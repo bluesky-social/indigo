@@ -32,7 +32,7 @@ func ExampleValidateRecord() {
 		panic("failed to parse record JSON")
 	}
 
-	if err := ValidateRecord(&cat, recordData, "example.lexicon.record", 0); err != nil {
+	if err := ValidateRecord(cat, recordData, "example.lexicon.record", 0); err != nil {
 		fmt.Printf("Schema validation failed: %v\n", err)
 	} else {
 		fmt.Println("Success!")
