@@ -181,7 +181,13 @@ func Observe(ctx context.Context, db *DB, name string) (context.Context, trace.S
 	ctx, span := db.Tracer.Start(ctx, name)
 	start := time.Now()
 
+	called := false
 	return ctx, span, func(err error) {
+		if called {
+			return
+		}
+		called = true
+
 		defer span.End()
 
 		var status string
