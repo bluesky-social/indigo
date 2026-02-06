@@ -98,6 +98,21 @@ func (r *Resyncer) claimResyncJob(ctx context.Context) (string, bool, error) {
 	r.claimJobMu.Lock()
 	defer r.claimJobMu.Unlock()
 
+	// prioritize pending repos first before moving on to desyncrhonized
+	// only reprocess repos that errored after resyncing all other repos
+	for _, state := range []models.RepoState{models.RepoStatePending, models.RepoStateDesynchronized, models.RepoStateError} {
+		did, found, err := r.claimResyncJobOfState(ctx, state)
+		if err != nil {
+			return "", false, err
+		}
+		if found {
+			return did, true, nil
+		}
+	}
+	return "", false, nil
+}
+
+func (r *Resyncer) claimResyncJobOfState(ctx context.Context, state models.RepoState) (string, bool, error) {
 	var did string
 	now := time.Now().Unix()
 	result := r.db.WithContext(ctx).Raw(`
@@ -105,12 +120,12 @@ func (r *Resyncer) claimResyncJob(ctx context.Context) (string, bool, error) {
 		SET state = ?
 		WHERE did = (
 			SELECT did FROM repos
-			WHERE state IN (?, ?, ?)
+			WHERE state = ?
 			AND (retry_after = 0 OR retry_after < ?)
 			LIMIT 1
 		)
 		RETURNING did
-		`, models.RepoStateResyncing, models.RepoStatePending, models.RepoStateDesynchronized, models.RepoStateError, now).Scan(&did)
+		`, models.RepoStateResyncing, state, now).Scan(&did)
 	if result.Error != nil {
 		return "", false, result.Error
 	}
