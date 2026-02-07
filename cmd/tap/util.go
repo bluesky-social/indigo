@@ -15,8 +15,10 @@ import (
 	"github.com/earthboundkid/versioninfo/v2"
 )
 
+var userAgentStr = "tap/" + versioninfo.Short()
+
 func userAgent() string {
-	return fmt.Sprintf("tap/%s", versioninfo.Short())
+	return userAgentStr
 }
 
 func backoff(retries int, max int) time.Duration {
@@ -38,21 +40,17 @@ func matchesCollection(collection string, filters []string) bool {
 	}
 
 	for _, filter := range filters {
-		if strings.HasSuffix(filter, "*") {
-			prefix := strings.TrimSuffix(filter, "*")
+		if prefix, ok := strings.CutSuffix(filter, "*"); ok {
 			if strings.HasPrefix(collection, prefix) {
 				return true
 			}
-		} else {
-			if collection == filter {
-				return true
-			}
+		} else if collection == filter {
+			return true
 		}
 	}
 
 	return false
 }
-
 func evtHasSignalCollection(evt *comatproto.SyncSubscribeRepos_Commit, signalColl string) bool {
 	for _, op := range evt.Ops {
 		collection, _, err := syntax.ParseRepoPath(op.Path)
