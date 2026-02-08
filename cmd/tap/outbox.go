@@ -253,8 +253,13 @@ func (w *DIDWorker) processPendingEvts() {
 
 		w.mu.Lock()
 		if w.blockedOnLive {
-			w.mu.Unlock()
-			return
+			if len(w.inFlightSentAt) == 0 {
+				// nothing in flight, proceed to processing
+				w.blockedOnLive = false
+			} else {
+				w.mu.Unlock()
+				return
+			}
 		}
 
 		if len(w.pendingEvts) == 0 {
@@ -301,8 +306,11 @@ func (w *DIDWorker) addEvent(evt *OutboxEvt) {
 	hasInFlight := len(w.inFlightSentAt) > 0
 
 	// Fast path: no contention, send immediately without goroutine
-	if !hasInFlight {
+	if !hasInFlight && !w.blockedOnLive && len(w.pendingEvts) == 0 {
 		w.inFlightSentAt[evt.ID] = time.Now()
+		if evt.Live {
+			w.blockedOnLive = true
+		}
 		w.mu.Unlock()
 		w.outbox.sendEvent(evt)
 		return
