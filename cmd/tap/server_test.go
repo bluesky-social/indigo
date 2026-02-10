@@ -3,11 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"testing"
 
+	"github.com/bluesky-social/indigo/cmd/tap/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,7 +33,7 @@ func TestAddAndRemoveRepos(t *testing.T) {
 		outboxMode: OutboxModeFireAndForget,
 	})
 
-	dids := []string{"did:plc:repo1", "did:plc:repo2", "did:plc:repo3"}
+	dids := []string{"did:example:repo1", "did:example:repo2", "did:example:repo3"}
 
 	// Add repos
 	payload := fmt.Sprintf(`{"dids":["%s","%s","%s"]}`, dids[0], dids[1], dids[2])
@@ -42,14 +42,10 @@ func TestAddAndRemoveRepos(t *testing.T) {
 	resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	// Verify repo count
-	resp, err = http.Get(te.baseURL() + "/stats/repo-count")
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	var countBody map[string]int64
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&countBody))
-	assert.Equal(t, int64(3), countBody["repo_count"])
+	// Verify repos exist in DB
+	var count int64
+	te.db.Model(&models.Repo{}).Count(&count)
+	assert.Equal(t, int64(3), count)
 
 	// Remove one repo
 	removePayload := fmt.Sprintf(`{"dids":["%s"]}`, dids[0])
@@ -58,46 +54,79 @@ func TestAddAndRemoveRepos(t *testing.T) {
 	resp2.Body.Close()
 	assert.Equal(t, http.StatusOK, resp2.StatusCode)
 
-	// Verify repo count decreased
-	resp3, err := http.Get(te.baseURL() + "/stats/repo-count")
-	require.NoError(t, err)
-	defer resp3.Body.Close()
-
-	var countBody2 map[string]int64
-	require.NoError(t, json.NewDecoder(resp3.Body).Decode(&countBody2))
-	assert.Equal(t, int64(2), countBody2["repo_count"])
+	// Verify count decreased
+	te.db.Model(&models.Repo{}).Count(&count)
+	assert.Equal(t, int64(2), count)
 }
 
-func TestStatsEndpoints(t *testing.T) {
+func TestStatsRepoCount(t *testing.T) {
 	te := newTestEnv(t, testEnvOpts{
 		outboxMode: OutboxModeFireAndForget,
 	})
 
-	endpoints := []struct {
-		path string
-		key  string
-	}{
-		{"/stats/repo-count", "repo_count"},
-		{"/stats/record-count", "record_count"},
-		{"/stats/outbox-buffer", "outbox_buffer"},
-		{"/stats/resync-buffer", "resync_buffer"},
-	}
+	// Insert repos directly
+	te.db.Create(&models.Repo{Did: "did:example:stats1", State: models.RepoStateActive})
+	te.db.Create(&models.Repo{Did: "did:example:stats2", State: models.RepoStatePending})
 
-	for _, ep := range endpoints {
-		t.Run(ep.path, func(t *testing.T) {
-			resp, err := http.Get(te.baseURL() + ep.path)
-			require.NoError(t, err)
-			defer resp.Body.Close()
+	resp, err := http.Get(te.baseURL() + "/stats/repo-count")
+	require.NoError(t, err)
+	defer resp.Body.Close()
 
-			assert.Equal(t, http.StatusOK, resp.StatusCode)
+	var body map[string]int64
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	assert.Equal(t, int64(2), body["repo_count"])
+}
 
-			body, err := io.ReadAll(resp.Body)
-			require.NoError(t, err)
+func TestStatsRecordCount(t *testing.T) {
+	te := newTestEnv(t, testEnvOpts{
+		outboxMode: OutboxModeFireAndForget,
+	})
 
-			var result map[string]int64
-			require.NoError(t, json.Unmarshal(body, &result))
-			_, exists := result[ep.key]
-			assert.True(t, exists, "response should contain key %q", ep.key)
-		})
-	}
+	// Insert records directly
+	te.db.Create(&models.RepoRecord{Did: "did:example:rec", Collection: "app.bsky.feed.post", Rkey: "1", Cid: "cid1"})
+	te.db.Create(&models.RepoRecord{Did: "did:example:rec", Collection: "app.bsky.feed.post", Rkey: "2", Cid: "cid2"})
+	te.db.Create(&models.RepoRecord{Did: "did:example:rec", Collection: "app.bsky.feed.like", Rkey: "1", Cid: "cid3"})
+
+	resp, err := http.Get(te.baseURL() + "/stats/record-count")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	var body map[string]int64
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	assert.Equal(t, int64(3), body["record_count"])
+}
+
+func TestStatsOutboxBuffer(t *testing.T) {
+	te := newTestEnv(t, testEnvOpts{
+		outboxMode: OutboxModeFireAndForget,
+	})
+
+	// Push events — they'll be written to the outbox_buffers table
+	te.pushRecordEvents("did:example:outbox", 4, false)
+
+	resp, err := http.Get(te.baseURL() + "/stats/outbox-buffer")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	var body map[string]int64
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	assert.Equal(t, int64(4), body["outbox_buffer"])
+}
+
+func TestStatsResyncBuffer(t *testing.T) {
+	te := newTestEnv(t, testEnvOpts{
+		outboxMode: OutboxModeFireAndForget,
+	})
+
+	// Insert resync buffer entries directly
+	te.db.Create(&models.ResyncBuffer{Did: "did:example:resync1", Data: `{}`})
+	te.db.Create(&models.ResyncBuffer{Did: "did:example:resync2", Data: `{}`})
+
+	resp, err := http.Get(te.baseURL() + "/stats/resync-buffer")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	var body map[string]int64
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	assert.Equal(t, int64(2), body["resync_buffer"])
 }
