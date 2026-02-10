@@ -111,11 +111,11 @@ func (m *Models) GetOldestEventAge(ctx context.Context) (age time.Duration, err 
 				return time.Time{}, fmt.Errorf("failed to get event: %w", err)
 			}
 
-			// Extract versionstamp from key
-			if len(kv.Key) < prefixLen+versionstampLength+1 {
+			// Extract cursor from key: [prefix][versionstamp (10)][event_index (1)][chunk_index (1)]
+			if len(kv.Key) < prefixLen+cursorLength+1 {
 				continue
 			}
-			versionstamp := kv.Key[prefixLen : prefixLen+versionstampLength]
+			versionstamp := kv.Key[prefixLen : prefixLen+cursorLength]
 
 			if targetVersionstamp == nil {
 				targetVersionstamp = versionstamp
@@ -189,11 +189,11 @@ func (m *Models) cleanupBatch(ctx context.Context, cutoff time.Time) (deleted in
 				return nil, fmt.Errorf("failed to read event: %w", err)
 			}
 
-			// Extract versionstamp from key: [prefix][versionstamp (10)][chunk_index (1)]
-			if len(kv.Key) < prefixLen+versionstampLength+1 {
+			// Extract cursor from key: [prefix][versionstamp (10)][event_index (1)][chunk_index (1)]
+			if len(kv.Key) < prefixLen+cursorLength+1 {
 				continue
 			}
-			versionstamp := kv.Key[prefixLen : prefixLen+versionstampLength]
+			versionstamp := kv.Key[prefixLen : prefixLen+cursorLength]
 
 			// Check if this is a new event
 			if currentVersionstamp != nil && !slices.Equal(versionstamp, currentVersionstamp) {
@@ -246,7 +246,7 @@ func (m *Models) cleanupBatch(ctx context.Context, cutoff time.Time) (deleted in
 		for _, target := range targets {
 			// Delete all chunks for this event
 			for i := range target.chunkCount {
-				key := make([]byte, 0, len(m.events.Bytes())+versionstampLength+1)
+				key := make([]byte, 0, len(m.events.Bytes())+cursorLength+1)
 				key = append(key, m.events.Bytes()...)
 				key = append(key, target.versionstamp...)
 				key = append(key, byte(i))

@@ -14,8 +14,8 @@ type Models struct {
 	// Key: (versionstamp), Value: serialized FirehoseEvent
 	events directory.DirectorySubspace
 
-	// Secondary index: maps upstream sequence number to versionstamp
-	// Key: (upstream_seq as big-endian int64), Value: versionstamp (10 bytes)
+	// Secondary index: maps upstream sequence number to cursor
+	// Key: (upstream_seq as big-endian int64), Value: cursor (11 bytes: versionstamp + event_index)
 	// This allows O(1) lookup for cursor positioning instead of O(n) scan
 	cursorIndex directory.DirectorySubspace
 }

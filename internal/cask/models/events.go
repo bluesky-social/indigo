@@ -19,6 +19,12 @@ const (
 	// versionstampLength is the length of an FDB versionstamp (10 bytes)
 	// 8 bytes for commit version + 2 bytes for batch order
 	versionstampLength = 10
+
+	// cursorLength is the length of a cursor: versionstamp + event index byte.
+	// Within a single FDB transaction, all versionstamped operations receive the
+	// same 10-byte versionstamp. The event index byte differentiates multiple
+	// events written in the same batch transaction.
+	cursorLength = versionstampLength + 1
 )
 
 // WriteEvent writes a firehose event to FoundationDB with a versionstamped key.
@@ -34,35 +40,6 @@ func (m *Models) WriteEvent(ctx context.Context, event *prototypes.FirehoseEvent
 		attribute.String("event_type", event.EventType),
 	)
 
-	return m.writeEventInner(event)
-}
-
-// WriteEventBatch writes multiple firehose events to FoundationDB. Each event is written
-// in its own transaction (since all SetVersionstampedKey calls within a single transaction
-// receive the same versionstamp, events must use separate transactions to get unique keys).
-// One OTEL span covers the entire batch for efficient observability.
-func (m *Models) WriteEventBatch(ctx context.Context, events []*prototypes.FirehoseEvent) (err error) {
-	if len(events) == 0 {
-		return nil
-	}
-
-	_, span, done := foundation.Observe(ctx, m.db, "WriteEventBatch")
-	defer func() { done(err) }()
-
-	span.SetAttributes(attribute.Int("batch_size", len(events)))
-
-	for i, event := range events {
-		if err := m.writeEventInner(event); err != nil {
-			return fmt.Errorf("failed to write event %d in batch: %w", i, err)
-		}
-	}
-
-	return nil
-}
-
-// writeEventInner writes a single event to FDB without creating an OTEL span.
-// Used by both WriteEvent (with span) and WriteEventBatch (shared span).
-func (m *Models) writeEventInner(event *prototypes.FirehoseEvent) error {
 	eventBuf, err := proto.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("failed to proto marshal firehose event: %w", err)
@@ -73,26 +50,89 @@ func (m *Models) writeEventInner(event *prototypes.FirehoseEvent) error {
 		return fmt.Errorf("failed to chunk event data: %w", err)
 	}
 
-	prefix := m.events.Bytes()
 	cursorIndexKey := m.cursorIndex.Pack(tuple.Tuple{event.UpstreamSeq})
-	cursorIndexValue := make([]byte, 14)
 
 	_, err = foundation.Transaction(m.db, func(tx fdb.Transaction) (any, error) {
-		for i, chunk := range chunks {
-			eventKey := make([]byte, 0, len(prefix)+15)
-			eventKey = append(eventKey, prefix...)
-			eventKey = append(eventKey, make([]byte, 10)...) // versionstamp placeholder
-			eventKey = append(eventKey, byte(i))             // chunk index
-			eventKey = binary.LittleEndian.AppendUint32(eventKey, uint32(len(prefix)))
-
-			tx.SetVersionstampedKey(fdb.Key(eventKey), chunk)
-		}
-
-		tx.SetVersionstampedValue(cursorIndexKey, cursorIndexValue)
+		m.writeEventToTx(tx, chunks, cursorIndexKey, 0)
 		return nil, nil
 	})
 
-	return err
+	return
+}
+
+// WriteEventBatch writes multiple firehose events in a single FDB transaction.
+// Each event is assigned a unique event index byte appended after the versionstamp,
+// so all events in the batch get distinct keys despite sharing the same versionstamp.
+// One OTEL span covers the entire batch.
+func (m *Models) WriteEventBatch(ctx context.Context, events []*prototypes.FirehoseEvent) (err error) {
+	if len(events) == 0 {
+		return nil
+	}
+
+	_, span, done := foundation.Observe(ctx, m.db, "WriteEventBatch")
+	defer func() { done(err) }()
+
+	span.SetAttributes(attribute.Int("batch_size", len(events)))
+
+	// Pre-marshal and chunk all events outside the transaction
+	type preparedEvent struct {
+		chunks    [][]byte
+		cursorKey []byte
+	}
+
+	prepared := make([]preparedEvent, len(events))
+	for i, event := range events {
+		eventBuf, err := proto.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("failed to proto marshal firehose event %d: %w", i, err)
+		}
+
+		chunks, err := m.db.Chunker.ChunkData(eventBuf)
+		if err != nil {
+			return fmt.Errorf("failed to chunk event data %d: %w", i, err)
+		}
+
+		prepared[i] = preparedEvent{
+			chunks:    chunks,
+			cursorKey: m.cursorIndex.Pack(tuple.Tuple{event.UpstreamSeq}),
+		}
+	}
+
+	_, err = foundation.Transaction(m.db, func(tx fdb.Transaction) (any, error) {
+		for i, pe := range prepared {
+			m.writeEventToTx(tx, pe.chunks, pe.cursorKey, byte(i))
+		}
+		return nil, nil
+	})
+
+	return
+}
+
+// writeEventToTx writes a single event's chunks and cursor index to the given transaction.
+// The eventIndex byte differentiates events that share the same versionstamp within a batch.
+//
+// Event key structure: [prefix][versionstamp (10)][event_index (1)][chunk_index (1)][offset (4)]
+// Cursor index value:  [versionstamp (10)][event_index (1)][offset (4)]
+func (m *Models) writeEventToTx(tx fdb.Transaction, chunks [][]byte, cursorIndexKey []byte, eventIndex byte) {
+	prefix := m.events.Bytes()
+
+	for i, chunk := range chunks {
+		// Key: [prefix][VS placeholder(10)][event_index(1)][chunk_index(1)][offset(4)]
+		eventKey := make([]byte, 0, len(prefix)+16)
+		eventKey = append(eventKey, prefix...)
+		eventKey = append(eventKey, make([]byte, 10)...) // versionstamp placeholder
+		eventKey = append(eventKey, eventIndex)          // event index within batch
+		eventKey = append(eventKey, byte(i))             // chunk index
+		eventKey = binary.LittleEndian.AppendUint32(eventKey, uint32(len(prefix)))
+
+		tx.SetVersionstampedKey(fdb.Key(eventKey), chunk)
+	}
+
+	// Cursor index value: [VS placeholder(10)][event_index(1)][offset(4) = 0]
+	// After commit, FDB strips the 4-byte offset and stores 11 bytes.
+	cursorValue := make([]byte, 15)
+	cursorValue[10] = eventIndex
+	tx.SetVersionstampedValue(fdb.Key(cursorIndexKey), cursorValue)
 }
 
 // GetLatestUpstreamSeq returns the upstream sequence number from the most recent
@@ -117,7 +157,7 @@ func (m *Models) GetLatestUpstreamSeq(ctx context.Context) (seq int64, err error
 		iter := tx.GetRange(keyRange, fdb.RangeOptions{Limit: 256, Reverse: true}).Iterator()
 
 		var chunks [][]byte
-		var targetVersionstamp []byte
+		var targetCursor []byte
 
 		for iter.Advance() {
 			kv, err := iter.Get()
@@ -125,15 +165,15 @@ func (m *Models) GetLatestUpstreamSeq(ctx context.Context) (seq int64, err error
 				return nil, fmt.Errorf("failed to get event: %w", err)
 			}
 
-			// Extract versionstamp from key: [prefix][versionstamp (10)][chunk_index (1)]
-			if len(kv.Key) < prefixLen+versionstampLength+1 {
+			// Extract cursor from key: [prefix][versionstamp (10)][event_index (1)][chunk_index (1)]
+			if len(kv.Key) < prefixLen+cursorLength+1 {
 				continue
 			}
-			versionstamp := kv.Key[prefixLen : prefixLen+versionstampLength]
+			cursor := kv.Key[prefixLen : prefixLen+cursorLength]
 
-			if targetVersionstamp == nil {
-				targetVersionstamp = versionstamp
-			} else if !slices.Equal(versionstamp, targetVersionstamp) {
+			if targetCursor == nil {
+				targetCursor = cursor
+			} else if !slices.Equal(cursor, targetCursor) {
 				// We've moved to a different event, stop
 				break
 			}
@@ -165,7 +205,7 @@ func (m *Models) GetLatestUpstreamSeq(ctx context.Context) (seq int64, err error
 	return
 }
 
-// GetLatestVersionstamp returns the versionstamp of the most recent event stored in FDB.
+// GetLatestVersionstamp returns the cursor of the most recent event stored in FDB.
 // This is used to start subscribers at the "tip" when no cursor is provided.
 // Returns nil if no events exist.
 func (m *Models) GetLatestVersionstamp(ctx context.Context) (cursor []byte, err error) {
@@ -190,15 +230,15 @@ func (m *Models) GetLatestVersionstamp(ctx context.Context) (cursor []byte, err 
 			return nil, fmt.Errorf("failed to get latest event: %w", err)
 		}
 
-		// Extract versionstamp from key: [prefix][versionstamp (10)][chunk_index (1)]
+		// Extract cursor from key: [prefix][versionstamp (10)][event_index (1)][chunk_index (1)]
 		prefixLen := len(m.events.Bytes())
-		if len(kv.Key) < prefixLen+versionstampLength+1 {
+		if len(kv.Key) < prefixLen+cursorLength+1 {
 			return nil, nil // malformed key
 		}
-		return kv.Key[prefixLen : prefixLen+versionstampLength], nil
+		return kv.Key[prefixLen : prefixLen+cursorLength], nil
 	})
 
-	span.SetAttributes(attribute.String("versionstamp", hex.EncodeToString(cursor)))
+	span.SetAttributes(attribute.String("cursor", hex.EncodeToString(cursor)))
 	return
 }
 
@@ -212,7 +252,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 
 	span.SetAttributes(
 		attribute.Int("limit", limit),
-		attribute.String("versionstamp", hex.EncodeToString(cursor)),
+		attribute.String("cursor", hex.EncodeToString(cursor)),
 	)
 
 	type result struct {
@@ -231,7 +271,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 			startKey = m.events.FDBKey()
 		} else {
 			// Start after the cursor (exclusive)
-			// Cursor is the raw versionstamp bytes, append 0xFF to skip all chunks of that event
+			// Cursor is versionstamp+event_index bytes, append 0xFF to skip all chunks of that event
 			startKey = fdb.Key(append(m.events.Bytes(), cursor...))
 			startKey = append(startKey, 0xFF)
 		}
@@ -248,8 +288,8 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 		}).Iterator()
 
 		var events []*prototypes.FirehoseEvent
-		var lastVersionstamp []byte
-		var currentVersionstamp []byte
+		var lastCursor []byte
+		var currentCursor []byte
 		var currentChunks [][]byte
 		var accumulatedBytes int
 
@@ -261,15 +301,14 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 
 			accumulatedBytes += len(kv.Value)
 
-			// Extract versionstamp from key: [prefix][versionstamp (10)][chunk_index (1)]
-			if len(kv.Key) < prefixLen+versionstampLength+1 {
+			// Extract cursor from key: [prefix][versionstamp (10)][event_index (1)][chunk_index (1)]
+			if len(kv.Key) < prefixLen+cursorLength+1 {
 				continue // malformed key
 			}
-			versionstamp := kv.Key[prefixLen : prefixLen+versionstampLength]
-			// chunkIndex := kv.Key[prefixLen+versionstampLength] // not needed, chunks are in order
+			eventCursor := kv.Key[prefixLen : prefixLen+cursorLength]
 
-			// Check if this is a new event (different versionstamp)
-			if currentVersionstamp != nil && !slices.Equal(versionstamp, currentVersionstamp) {
+			// Check if this is a new event (different cursor)
+			if currentCursor != nil && !slices.Equal(eventCursor, currentCursor) {
 				// Reassemble and process the previous event
 				eventData, err := m.db.Chunker.ReassembleChunks(currentChunks)
 				if err != nil {
@@ -282,18 +321,18 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 				}
 
 				events = append(events, &event)
-				lastVersionstamp = currentVersionstamp
+				lastCursor = currentCursor
 
 				// Check limits
 				if len(events) >= limit || accumulatedBytes >= m.db.Chunker.MaxBatchBytes() {
-					return &result{events: events, nextCursor: lastVersionstamp}, nil
+					return &result{events: events, nextCursor: lastCursor}, nil
 				}
 
 				// Reset for new event
 				currentChunks = nil
 			}
 
-			currentVersionstamp = versionstamp
+			currentCursor = eventCursor
 			currentChunks = append(currentChunks, kv.Value)
 		}
 
@@ -310,10 +349,10 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 			}
 
 			events = append(events, &event)
-			lastVersionstamp = currentVersionstamp
+			lastCursor = currentCursor
 		}
 
-		return &result{events: events, nextCursor: lastVersionstamp}, nil
+		return &result{events: events, nextCursor: lastCursor}, nil
 	})
 	if err != nil {
 		return nil, nil, err
@@ -324,7 +363,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 
 	span.SetAttributes(
 		attribute.Int("events_returned", len(events)),
-		attribute.String("next_versionstamp", hex.EncodeToString(nextCursor)),
+		attribute.String("next_cursor", hex.EncodeToString(nextCursor)),
 	)
 
 	return
@@ -351,8 +390,8 @@ func (m *Models) getVersionstampForSeq(ctx context.Context, seq int64) ([]byte, 
 
 	span.SetAttributes(attribute.Int64("requested_seq", seq))
 
-	var versionstamp []byte
-	versionstamp, err = foundation.ReadTransaction(m.db, func(tx fdb.ReadTransaction) ([]byte, error) {
+	var cursor []byte
+	cursor, err = foundation.ReadTransaction(m.db, func(tx fdb.ReadTransaction) ([]byte, error) {
 		// Do a floor lookup: find the greatest key <= the requested seq.
 		// We scan from the beginning of the index up to (and including) the requested seq,
 		// in reverse order with limit 1.
@@ -372,14 +411,15 @@ func (m *Models) getVersionstampForSeq(ctx context.Context, seq int64) ([]byte, 
 			return nil, fmt.Errorf("failed to get cursor index entry: %w", err)
 		}
 
-		// The value is a 10-byte versionstamp (the 4-byte offset suffix was stripped by FDB)
-		if len(kv.Value) < versionstampLength {
-			return nil, fmt.Errorf("invalid versionstamp length in cursor index: %d", len(kv.Value))
+		// The value is an 11-byte cursor (versionstamp + event_index;
+		// the 4-byte offset suffix was stripped by FDB at commit time)
+		if len(kv.Value) < cursorLength {
+			return nil, fmt.Errorf("invalid cursor length in cursor index: %d", len(kv.Value))
 		}
-		return kv.Value[:versionstampLength], nil
+		return kv.Value[:cursorLength], nil
 	})
 
-	span.SetAttributes(attribute.String("versionstamp", hex.EncodeToString(versionstamp)))
+	span.SetAttributes(attribute.String("cursor", hex.EncodeToString(cursor)))
 
-	return versionstamp, err
+	return cursor, err
 }

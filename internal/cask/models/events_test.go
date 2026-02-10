@@ -235,8 +235,8 @@ func TestCursorIsVersionstamp(t *testing.T) {
 	_, cursor, err := m.GetEventsSince(ctx, nil, 1)
 	require.NoError(t, err)
 
-	// Cursor should be exactly 10 bytes (versionstamp length)
-	require.Len(t, cursor, versionstampLength)
+	// Cursor should be exactly 11 bytes (versionstamp + event index)
+	require.Len(t, cursor, cursorLength)
 }
 
 func TestGetVersionstampForSeq_Basic(t *testing.T) {
@@ -487,10 +487,10 @@ func TestCursorIndex_WrittenCorrectly(t *testing.T) {
 	events, vsCursor, err := m.GetEventsSince(ctx, nil, 1)
 	require.NoError(t, err)
 	require.Len(t, events, 1)
-	require.Len(t, vsCursor, versionstampLength)
+	require.Len(t, vsCursor, cursorLength)
 
 	// Now use GetVersionstampForSeq with the exact seq
-	// Should return versionstamp for event 12345
+	// Should return cursor for event 12345
 	indexCursor, err := m.GetVersionstampForSeq(ctx, 12345)
 	require.NoError(t, err)
 	require.NotEmpty(t, indexCursor)
