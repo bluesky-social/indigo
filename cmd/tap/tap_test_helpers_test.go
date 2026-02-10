@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/tap/models"
 	"github.com/gorilla/websocket"
 	"gorm.io/gorm"
@@ -33,6 +34,8 @@ type testEnv struct {
 	events *EventManager
 	outbox *Outbox
 	server *TapServer
+	repos  *RepoManager
+	idDir  *identity.MockDirectory
 	port   int
 }
 
@@ -81,9 +84,11 @@ func newTestEnv(t *testing.T, opts testEnvOpts) *testEnv {
 
 	logger := slog.Default().With("test", t.Name())
 
+	idDir := identity.NewMockDirectory()
 	events := NewEventManager(logger, db, config)
+	repos := NewRepoManager(logger, db, events, idDir)
 	outbox := NewOutbox(logger, events, config)
-	server := NewTapServer(logger, db, outbox, nil, nil, nil, config)
+	server := NewTapServer(logger, db, outbox, idDir, nil, nil, config)
 
 	// Find a free port
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -131,6 +136,8 @@ func newTestEnv(t *testing.T, opts testEnvOpts) *testEnv {
 		events: events,
 		outbox: outbox,
 		server: server,
+		repos:  repos,
+		idDir:  idDir,
 		port:   port,
 	}
 
@@ -338,4 +345,20 @@ func (r *testWebhookReceiver) waitForMessages(count int, timeout time.Duration) 
 
 func (r *testWebhookReceiver) close() {
 	r.server.Close()
+}
+
+// insertRepo inserts a repo directly into the database with the given parameters.
+func (te *testEnv) insertRepo(did string, state models.RepoState, rev string, prevData string, handle string) {
+	te.t.Helper()
+	repo := models.Repo{
+		Did:      did,
+		State:    state,
+		Status:   models.AccountStatusActive,
+		Rev:      rev,
+		PrevData: prevData,
+		Handle:   handle,
+	}
+	if err := te.db.Create(&repo).Error; err != nil {
+		te.t.Fatalf("failed to insert repo: %v", err)
+	}
 }
