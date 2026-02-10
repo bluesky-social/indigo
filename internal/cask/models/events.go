@@ -34,41 +34,52 @@ func (m *Models) WriteEvent(ctx context.Context, event *prototypes.FirehoseEvent
 		attribute.String("event_type", event.EventType),
 	)
 
+	return m.writeEventInner(event)
+}
+
+// WriteEventBatch writes multiple firehose events to FoundationDB. Each event is written
+// in its own transaction (since all SetVersionstampedKey calls within a single transaction
+// receive the same versionstamp, events must use separate transactions to get unique keys).
+// One OTEL span covers the entire batch for efficient observability.
+func (m *Models) WriteEventBatch(ctx context.Context, events []*prototypes.FirehoseEvent) (err error) {
+	if len(events) == 0 {
+		return nil
+	}
+
+	_, span, done := foundation.Observe(ctx, m.db, "WriteEventBatch")
+	defer func() { done(err) }()
+
+	span.SetAttributes(attribute.Int("batch_size", len(events)))
+
+	for i, event := range events {
+		if err := m.writeEventInner(event); err != nil {
+			return fmt.Errorf("failed to write event %d in batch: %w", i, err)
+		}
+	}
+
+	return nil
+}
+
+// writeEventInner writes a single event to FDB without creating an OTEL span.
+// Used by both WriteEvent (with span) and WriteEventBatch (shared span).
+func (m *Models) writeEventInner(event *prototypes.FirehoseEvent) error {
 	eventBuf, err := proto.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("failed to proto marshal firehose event: %w", err)
 	}
 
-	// Chunk the data (handles compression automatically for large events)
 	chunks, err := m.db.Chunker.ChunkData(eventBuf)
 	if err != nil {
 		return fmt.Errorf("failed to chunk event data: %w", err)
 	}
 
-	span.SetAttributes(
-		attribute.Int("event_size", len(eventBuf)),
-		attribute.Int("num_chunks", len(chunks)),
-	)
-
-	// The directory subspace prefix that identifies this as an event key
 	prefix := m.events.Bytes()
-
-	// Build the cursor index key: [cursor_index_prefix][upstream_seq as big-endian int64]
 	cursorIndexKey := m.cursorIndex.Pack(tuple.Tuple{event.UpstreamSeq})
-
-	// Build the cursor index value with a versionstamp placeholder.
-	// SetVersionstampedValue expects: [10 zero bytes][4-byte little-endian offset]
 	cursorIndexValue := make([]byte, 14)
 
 	_, err = foundation.Transaction(m.db, func(tx fdb.Transaction) (any, error) {
-		// Write each chunk with a versionstamped key.
-		// Key structure: [prefix][versionstamp][chunk_index]
-		// All chunks share the same versionstamp (assigned at commit time).
 		for i, chunk := range chunks {
-			// Build key with versionstamp placeholder:
-			// [prefix][10 zero bytes][chunk_index][4-byte offset]
-			// The offset points to where FDB should write the versionstamp (right after prefix)
-			eventKey := make([]byte, 0, len(prefix)+15) // prefix + 10 vs + 1 chunk idx + 4 offset
+			eventKey := make([]byte, 0, len(prefix)+15)
 			eventKey = append(eventKey, prefix...)
 			eventKey = append(eventKey, make([]byte, 10)...) // versionstamp placeholder
 			eventKey = append(eventKey, byte(i))             // chunk index
@@ -77,13 +88,11 @@ func (m *Models) WriteEvent(ctx context.Context, event *prototypes.FirehoseEvent
 			tx.SetVersionstampedKey(fdb.Key(eventKey), chunk)
 		}
 
-		// Write the cursor index with the same versionstamp as the value.
 		tx.SetVersionstampedValue(cursorIndexKey, cursorIndexValue)
-
 		return nil, nil
 	})
 
-	return
+	return err
 }
 
 // GetLatestUpstreamSeq returns the upstream sequence number from the most recent

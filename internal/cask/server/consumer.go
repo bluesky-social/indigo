@@ -19,6 +19,20 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+const (
+	maxBatchSize = 50
+	channelSize  = 256
+	flushWait    = 10 * time.Millisecond
+)
+
+// parsedEvent holds the result of reading and parsing one websocket message.
+// The proto is constructed later in the writer (adds ReceivedAt timestamp at write time).
+type parsedEvent struct {
+	rawEvent  []byte
+	eventType string
+	seq       int64
+}
+
 type Consumer struct {
 	log    *slog.Logger
 	models *models.Models
@@ -70,7 +84,8 @@ func (c *Consumer) Run(ctx context.Context) error {
 }
 
 // handleConnection reads events from the upstream firehose websocket connection and stores them
-// in the database to be fanned out amongst all other cask processes
+// in the database to be fanned out amongst all other cask processes. It uses two goroutines:
+// a reader that owns websocket reads, and a writer (main goroutine) that batches and writes to FDB.
 func (c *Consumer) handleConnection(ctx context.Context, con *websocket.Conn) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -96,105 +111,95 @@ func (c *Consumer) handleConnection(ctx context.Context, con *websocket.Conn) er
 		return nil
 	})
 
-	// Main read loop
-	for {
-		select {
-		case <-ctx.Done():
-			c.log.Info("firehose consumer stopped due to normal context cancellation")
-			return nil
-		default:
-		}
+	// Channel for parsed events from reader to writer
+	eventCh := make(chan *parsedEvent, channelSize)
+	errCh := make(chan error, 1)
 
-		if err := c.readAndStoreEvent(ctx, con); err != nil {
-			return err
+	// Reader goroutine — owns all websocket reads
+	go func() {
+		defer close(eventCh)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			pe, err := c.parseEvent(con)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			eventCh <- pe
 		}
+	}()
+
+	// Writer (main goroutine) — drains channel, batches, writes to FDB
+	writerErr := c.batchWriter(ctx, eventCh)
+
+	// Collect reader error
+	var readerErr error
+	select {
+	case readerErr = <-errCh:
+	default:
 	}
+
+	// Return first non-nil error
+	if readerErr != nil {
+		return readerErr
+	}
+	return writerErr
 }
 
-// readAndStoreEvent reads a single event from the websocket and stores it in the backing database
-func (c *Consumer) readAndStoreEvent(ctx context.Context, con *websocket.Conn) error {
+// parseEvent reads a single event from the websocket and parses it into a parsedEvent.
+// The header is parsed once; extractSeqFromBody reuses the already-positioned reader.
+func (c *Consumer) parseEvent(con *websocket.Conn) (*parsedEvent, error) {
 	mt, rawReader, err := con.NextReader()
 	if err != nil {
-		return fmt.Errorf("websocket read error: %w", err)
+		return nil, fmt.Errorf("websocket read error: %w", err)
 	}
 
 	if mt != websocket.BinaryMessage {
-		return fmt.Errorf("expected binary message, got %d", mt)
+		return nil, fmt.Errorf("expected binary message, got %d", mt)
 	}
 
-	// read the entire message into a buffer so we can store the raw bytes
+	// Read the entire message into a buffer so we can store the raw bytes
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, rawReader); err != nil {
-		return fmt.Errorf("failed to read message: %w", err)
+		return nil, fmt.Errorf("failed to read message: %w", err)
 	}
 	rawEvent := buf.Bytes()
 
 	metrics.EventSizeBytes.Observe(float64(len(rawEvent)))
 
-	// parse just the header to extract event type and sequence
+	// Parse just the header to extract event type and sequence
 	reader := bytes.NewReader(rawEvent)
 	var header events.EventHeader
 	if err := header.UnmarshalCBOR(reader); err != nil {
-		return fmt.Errorf("failed to parse event header: %w", err)
+		return nil, fmt.Errorf("failed to parse event header: %w", err)
 	}
 
-	eventType := ""
-	status := metrics.StatusError
-	defer func() {
-		metrics.EventsReceivedTotal.WithLabelValues(eventType, status).Inc()
-	}()
-
-	// extract sequence number from the event body (if it's a message)
-	seq := int64(0)
 	switch header.Op {
 	case events.EvtKindMessage:
-		eventType = header.MsgType
-		seq = c.extractSequenceNumber(rawEvent, header.MsgType)
+		seq := extractSeqFromBody(reader, header.MsgType)
+		return &parsedEvent{
+			rawEvent:  rawEvent,
+			eventType: header.MsgType,
+			seq:       seq,
+		}, nil
 	case events.EvtKindErrorFrame:
-		return fmt.Errorf("received firehose error event")
+		return nil, fmt.Errorf("received firehose error event")
+	default:
+		return &parsedEvent{
+			rawEvent:  rawEvent,
+			eventType: header.MsgType,
+		}, nil
 	}
-
-	event := &prototypes.FirehoseEvent{
-		UpstreamSeq: seq,
-		RawEvent:    rawEvent,
-		ReceivedAt:  timestamppb.Now(),
-		EventType:   eventType,
-	}
-
-	const retries = 5
-	for retry := range retries {
-		err := c.models.WriteEvent(ctx, event)
-		if err == nil {
-			if seq > 0 {
-				metrics.UpstreamSeq.Set(float64(seq))
-			}
-			break
-		}
-
-		if retry == retries-1 {
-			return fmt.Errorf("failed to write event to database: %w", err)
-		}
-
-		// exponential backoff
-		backoff := int(50*time.Millisecond) * retry * retry
-		dur := max(backoff, int(time.Second))
-		time.Sleep(time.Duration(dur))
-	}
-
-	status = metrics.StatusOK
-	return nil
 }
 
-func (c *Consumer) extractSequenceNumber(rawEvent []byte, msgType string) int64 {
-	reader := bytes.NewReader(rawEvent)
-
-	// skip the header
-	var header events.EventHeader
-	if err := header.UnmarshalCBOR(reader); err != nil {
-		return 0
-	}
-
-	// parse based on message type to extract seq
+// extractSeqFromBody extracts the sequence number from an already-positioned reader
+// (past the header). This avoids re-parsing the header.
+func extractSeqFromBody(reader *bytes.Reader, msgType string) int64 {
 	switch msgType {
 	case "#commit":
 		var evt atproto.SyncSubscribeRepos_Commit
@@ -229,6 +234,108 @@ func (c *Consumer) extractSequenceNumber(rawEvent []byte, msgType string) int64 
 	default:
 		return 0
 	}
+}
+
+// batchWriter drains the event channel, accumulates batches, and writes to FDB.
+func (c *Consumer) batchWriter(ctx context.Context, eventCh <-chan *parsedEvent) error {
+	for {
+		// 1. Block until first event arrives (or channel closes)
+		pe, ok := <-eventCh
+		if !ok {
+			return nil // channel closed, reader is done
+		}
+
+		batch := []*parsedEvent{pe}
+
+		// 2. Non-blocking drain of whatever accumulated during the last FDB write
+		drainLoop := true
+		for drainLoop && len(batch) < maxBatchSize {
+			select {
+			case pe, ok := <-eventCh:
+				if !ok {
+					drainLoop = false
+				} else {
+					batch = append(batch, pe)
+				}
+			default:
+				drainLoop = false
+			}
+		}
+
+		// 3. If batch is still small, wait briefly for more events
+		if len(batch) < maxBatchSize {
+			timer := time.NewTimer(flushWait)
+			waitLoop := true
+			for waitLoop && len(batch) < maxBatchSize {
+				select {
+				case pe, ok := <-eventCh:
+					if !ok {
+						waitLoop = false
+					} else {
+						batch = append(batch, pe)
+					}
+				case <-timer.C:
+					waitLoop = false
+				}
+			}
+			timer.Stop()
+		}
+
+		// 4. Flush batch to FDB
+		if err := c.writeBatchWithRetry(ctx, batch); err != nil {
+			return err
+		}
+	}
+}
+
+// writeBatchWithRetry writes a batch of parsed events to FDB with retry logic.
+func (c *Consumer) writeBatchWithRetry(ctx context.Context, batch []*parsedEvent) error {
+	// Build proto events
+	protoEvents := make([]*prototypes.FirehoseEvent, len(batch))
+	for i, pe := range batch {
+		protoEvents[i] = &prototypes.FirehoseEvent{
+			UpstreamSeq: pe.seq,
+			RawEvent:    pe.rawEvent,
+			ReceivedAt:  timestamppb.Now(),
+			EventType:   pe.eventType,
+		}
+	}
+
+	const retries = 5
+	for retry := range retries {
+		start := time.Now()
+		err := c.models.WriteEventBatch(ctx, protoEvents)
+		dur := time.Since(start)
+
+		if err == nil {
+			metrics.ConsumerBatchWriteDuration.Observe(dur.Seconds())
+			metrics.ConsumerBatchSize.Observe(float64(len(batch)))
+
+			// Update per-event metrics
+			for _, pe := range batch {
+				metrics.EventsReceivedTotal.WithLabelValues(pe.eventType, metrics.StatusOK).Inc()
+				if pe.seq > 0 {
+					metrics.UpstreamSeq.Set(float64(pe.seq))
+				}
+			}
+			return nil
+		}
+
+		if retry == retries-1 {
+			// Record error metrics for all events in the batch
+			for _, pe := range batch {
+				metrics.EventsReceivedTotal.WithLabelValues(pe.eventType, metrics.StatusError).Inc()
+			}
+			return fmt.Errorf("failed to write event batch to database: %w", err)
+		}
+
+		// Exponential backoff capped at 1 second
+		backoff := int(50*time.Millisecond) * retry * retry
+		dur = time.Duration(min(backoff, int(time.Second)))
+		time.Sleep(dur)
+	}
+
+	return nil // unreachable
 }
 
 // Sends periodic pings to keep the connection alive

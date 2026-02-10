@@ -551,3 +551,121 @@ func TestWriteEvent_LargeEvent(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(12345), seq)
 }
+
+func TestWriteEventBatch_Empty(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	m := testModels(t)
+
+	// Empty batch should be a no-op
+	err := m.WriteEventBatch(ctx, nil)
+	require.NoError(t, err)
+
+	err = m.WriteEventBatch(ctx, []*prototypes.FirehoseEvent{})
+	require.NoError(t, err)
+
+	// Database should still be empty
+	events, _, err := m.GetEventsSince(ctx, nil, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 0)
+}
+
+func TestWriteEventBatch_SingleEvent(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	m := testModels(t)
+
+	batch := []*prototypes.FirehoseEvent{
+		{
+			UpstreamSeq: 100,
+			EventType:   "#commit",
+			RawEvent:    []byte("single event"),
+		},
+	}
+
+	err := m.WriteEventBatch(ctx, batch)
+	require.NoError(t, err)
+
+	events, cursor, err := m.GetEventsSince(ctx, nil, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	require.NotEmpty(t, cursor)
+
+	require.Equal(t, int64(100), events[0].UpstreamSeq)
+	require.Equal(t, "#commit", events[0].EventType)
+	require.Equal(t, []byte("single event"), events[0].RawEvent)
+}
+
+func TestWriteEventBatch_MultipleEvents(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	m := testModels(t)
+
+	batch := []*prototypes.FirehoseEvent{
+		{UpstreamSeq: 100, EventType: "#commit", RawEvent: []byte("event 1")},
+		{UpstreamSeq: 101, EventType: "#identity", RawEvent: []byte("event 2")},
+		{UpstreamSeq: 102, EventType: "#account", RawEvent: []byte("event 3")},
+		{UpstreamSeq: 103, EventType: "#sync", RawEvent: []byte("event 4")},
+		{UpstreamSeq: 104, EventType: "#labels", RawEvent: []byte("event 5")},
+	}
+
+	err := m.WriteEventBatch(ctx, batch)
+	require.NoError(t, err)
+
+	events, _, err := m.GetEventsSince(ctx, nil, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 5)
+
+	// Verify ordering is preserved within the batch
+	for i, evt := range events {
+		require.Equal(t, batch[i].UpstreamSeq, evt.UpstreamSeq)
+		require.Equal(t, batch[i].EventType, evt.EventType)
+		require.Equal(t, batch[i].RawEvent, evt.RawEvent)
+	}
+}
+
+func TestWriteEventBatch_CursorIndex(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	m := testModels(t)
+
+	batch := []*prototypes.FirehoseEvent{
+		{UpstreamSeq: 200, EventType: "#commit", RawEvent: []byte("event A")},
+		{UpstreamSeq: 201, EventType: "#commit", RawEvent: []byte("event B")},
+		{UpstreamSeq: 202, EventType: "#commit", RawEvent: []byte("event C")},
+	}
+
+	err := m.WriteEventBatch(ctx, batch)
+	require.NoError(t, err)
+
+	// Verify cursor index works for batch-written events
+	// Looking up seq 200 should let us stream events after it (201, 202)
+	vsCursor, err := m.GetVersionstampForSeq(ctx, 200)
+	require.NoError(t, err)
+	require.NotEmpty(t, vsCursor)
+
+	events, _, err := m.GetEventsSince(ctx, vsCursor, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 2)
+	require.Equal(t, int64(201), events[0].UpstreamSeq)
+	require.Equal(t, int64(202), events[1].UpstreamSeq)
+
+	// Looking up seq 201 should return only event 202
+	vsCursor2, err := m.GetVersionstampForSeq(ctx, 201)
+	require.NoError(t, err)
+	require.NotEmpty(t, vsCursor2)
+
+	events, _, err = m.GetEventsSince(ctx, vsCursor2, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	require.Equal(t, int64(202), events[0].UpstreamSeq)
+
+	// GetLatestUpstreamSeq should return the last event in the batch
+	seq, err := m.GetLatestUpstreamSeq(ctx)
+	require.NoError(t, err)
+	require.Equal(t, int64(202), seq)
+}

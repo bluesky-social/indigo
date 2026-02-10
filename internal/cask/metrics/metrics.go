@@ -84,4 +84,20 @@ var (
 		Namespace: namespace,
 		Help:      "Age of the oldest event in seconds (0 if no events)",
 	})
+
+	// ConsumerBatchSize tracks the distribution of batch sizes written to FDB
+	ConsumerBatchSize = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:      "consumer_batch_size",
+		Namespace: namespace,
+		Help:      "Distribution of batch sizes written to FDB",
+		Buckets:   prometheus.ExponentialBuckets(1, 2, 7), // 1, 2, 4, 8, 16, 32, 64
+	})
+
+	// ConsumerBatchWriteDuration tracks FDB write latency per batch
+	ConsumerBatchWriteDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:      "consumer_batch_write_duration_seconds",
+		Namespace: namespace,
+		Help:      "Distribution of FDB write latency per batch",
+		Buckets:   prometheus.DefBuckets,
+	})
 )
