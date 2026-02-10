@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -13,13 +14,14 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/cmd/tap/models"
+	"github.com/gorilla/websocket"
 	"gorm.io/gorm"
 )
 
 type testEnvOpts struct {
-	outboxMode    OutboxMode
-	webhookURL    string
-	retryTimeout  time.Duration
+	outboxMode     OutboxMode
+	webhookURL     string
+	retryTimeout   time.Duration
 	eventCacheSize int
 }
 
@@ -99,7 +101,6 @@ func newTestEnv(t *testing.T, opts testEnvOpts) *testEnv {
 	// Start HTTP server
 	go func() {
 		if err := server.Start(fmt.Sprintf("127.0.0.1:%d", port)); err != nil && err != http.ErrServerClosed {
-			// Server stopped — only log if it's not a normal shutdown
 			select {
 			case <-ctx.Done():
 			default:
@@ -116,7 +117,7 @@ func newTestEnv(t *testing.T, opts testEnvOpts) *testEnv {
 			conn.Close()
 			break
 		}
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 	}
 
 	// Wait for event manager to finish loading
@@ -172,7 +173,6 @@ func (te *testEnv) pushRecordEvents(did string, count int, live bool) []uint {
 		}
 	}
 
-	// Capture IDs by checking nextID before and after
 	startID := uint(te.events.nextID.Load())
 
 	err := te.events.AddRecordEvents(te.ctx, evts, live, func(tx *gorm.DB) error {
@@ -184,7 +184,7 @@ func (te *testEnv) pushRecordEvents(did string, count int, live bool) []uint {
 
 	ids := make([]uint, count)
 	for i := 0; i < count; i++ {
-		ids[i] = startID + uint(i) + 1 // nextID is pre-incremented via Add(1)
+		ids[i] = startID + uint(i) + 1
 	}
 	return ids
 }
@@ -210,6 +210,83 @@ func (te *testEnv) pushIdentityEvent(did, handle string, status models.AccountSt
 	}
 
 	return startID + 1
+}
+
+// testConsumer is a WebSocket client that connects to the /channel endpoint
+// and collects received events for test assertions.
+type testConsumer struct {
+	conn     *websocket.Conn
+	messages []MarshallableEvt
+	mu       sync.Mutex
+	done     chan struct{}
+}
+
+func newTestConsumer(url string) (*testConsumer, error) {
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	tc := &testConsumer{
+		conn: conn,
+		done: make(chan struct{}),
+	}
+
+	go tc.readLoop()
+
+	return tc, nil
+}
+
+func (tc *testConsumer) readLoop() {
+	defer close(tc.done)
+	for {
+		_, message, err := tc.conn.ReadMessage()
+		if err != nil {
+			return
+		}
+
+		var evt MarshallableEvt
+		if err := json.Unmarshal(message, &evt); err != nil {
+			continue
+		}
+
+		tc.mu.Lock()
+		tc.messages = append(tc.messages, evt)
+		tc.mu.Unlock()
+	}
+}
+
+func (tc *testConsumer) waitForMessages(count int, timeout time.Duration) []MarshallableEvt {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		tc.mu.Lock()
+		n := len(tc.messages)
+		if n >= count {
+			result := make([]MarshallableEvt, n)
+			copy(result, tc.messages)
+			tc.mu.Unlock()
+			return result
+		}
+		tc.mu.Unlock()
+		time.Sleep(5 * time.Millisecond)
+	}
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
+	result := make([]MarshallableEvt, len(tc.messages))
+	copy(result, tc.messages)
+	return result
+}
+
+func (tc *testConsumer) sendAck(id uint) error {
+	return tc.conn.WriteJSON(WsResponse{
+		Type: WsResponseAck,
+		ID:   id,
+	})
+}
+
+func (tc *testConsumer) close() {
+	tc.conn.Close()
+	<-tc.done
 }
 
 // testWebhookReceiver is an HTTP server that collects webhook POST bodies.
@@ -250,7 +327,7 @@ func (r *testWebhookReceiver) waitForMessages(count int, timeout time.Duration) 
 			return result
 		}
 		r.mu.Unlock()
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
