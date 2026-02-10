@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	maxBatchSize = 50
+	maxBatchSize = 256
 	channelSize  = 256
 	flushWait    = 10 * time.Millisecond
 )
