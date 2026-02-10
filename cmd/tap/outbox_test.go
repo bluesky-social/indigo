@@ -165,6 +165,46 @@ func TestWebsocketAck_OrderingLiveBarrier(t *testing.T) {
 	assert.True(t, finalIDs[h2IDs[1]], "H4 should be in final batch")
 }
 
+func TestWebsocketAck_ConsecutiveLiveEvents(t *testing.T) {
+	te := newTestEnv(t, testEnvOpts{
+		outboxMode: OutboxModeWebsocketAck,
+	})
+
+	consumer, err := newTestConsumer(te.wsURL())
+	require.NoError(t, err)
+	defer consumer.close()
+
+	time.Sleep(20 * time.Millisecond)
+
+	did := "did:example:consecutive-live"
+
+	// Push 3 live events for the same DID.
+	// Without the blockedOnLive fix, the worker stalls after L1's ack:
+	// it clears blockedOnLive but has no pending notification to process L2.
+	ids := te.pushRecordEvents(did, 3, true)
+
+	// L1 should arrive immediately
+	msgs := consumer.waitForMessages(1, 100*time.Millisecond)
+	require.Len(t, msgs, 1)
+	assert.Equal(t, ids[0], msgs[0].ID)
+
+	// L2 should NOT arrive yet (blocked on L1 ack)
+	msgs = consumer.waitForMessages(2, 50*time.Millisecond)
+	assert.Len(t, msgs, 1, "L2 should not arrive before L1 is acked")
+
+	// Ack L1 → L2 should arrive
+	require.NoError(t, consumer.sendAck(ids[0]))
+	msgs = consumer.waitForMessages(2, 100*time.Millisecond)
+	require.Len(t, msgs, 2, "L2 should arrive after L1 acked")
+	assert.Equal(t, ids[1], msgs[1].ID)
+
+	// Ack L2 → L3 should arrive
+	require.NoError(t, consumer.sendAck(ids[1]))
+	msgs = consumer.waitForMessages(3, 100*time.Millisecond)
+	require.Len(t, msgs, 3, "L3 should arrive after L2 acked")
+	assert.Equal(t, ids[2], msgs[2].ID)
+}
+
 func TestWebsocketAck_NoStallOnPreconnectEvents(t *testing.T) {
 	te := newTestEnv(t, testEnvOpts{
 		outboxMode: OutboxModeFireAndForget,
