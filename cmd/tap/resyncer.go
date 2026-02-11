@@ -347,15 +347,15 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 	return true, nil
 }
 
-func (r *Resyncer) handleResyncError(ctx context.Context, did string, err error) error {
+func (r *Resyncer) handleResyncError(ctx context.Context, did string, resyncErr error) error {
 	var state models.RepoState
 	var errMsg string
-	if err == nil {
+	if resyncErr == nil {
 		state = models.RepoStateDesynchronized
 		errMsg = ""
 	} else {
 		state = models.RepoStateError
-		errMsg = err.Error()
+		errMsg = resyncErr.Error()
 	}
 
 	repo, err := r.repos.GetRepoState(ctx, did)
@@ -366,19 +366,17 @@ func (r *Resyncer) handleResyncError(ctx context.Context, did string, err error)
 	// start a 1 min & go up to 1 hr between retries
 	retryAfter := time.Now().Add(backoff(repo.RetryCount, 60) * 60)
 
-	dbErr := r.db.WithContext(ctx).Model(&models.Repo{}).
+	if err := r.db.WithContext(ctx).Model(&models.Repo{}).
 		Where("did = ?", did).
 		Updates(map[string]interface{}{
 			"state":       state,
 			"error_msg":   errMsg,
 			"retry_count": repo.RetryCount + 1,
 			"retry_after": retryAfter.Unix(),
-		}).Error
-	if dbErr != nil {
-		return dbErr
-	} else {
+		}).Error; err != nil {
 		return err
 	}
+	return resyncErr
 
 }
 
@@ -403,6 +401,8 @@ func (r *Resyncer) drainResyncBuffer(ctx context.Context, did string) error {
 		return fmt.Errorf("failed to get repo state: %w", err)
 	}
 
+	prevData := curr.PrevData
+
 	for _, evt := range bufferedEvts {
 		var commit Commit
 		if err := json.Unmarshal([]byte(evt.Data), &commit); err != nil {
@@ -411,7 +411,7 @@ func (r *Resyncer) drainResyncBuffer(ctx context.Context, did string) error {
 
 		// if this commit doesn't stack neatly on current state of tracked repo then we skip
 		// NOTE: the check against the empty string can be eliminated after we start refusing legacy commit events
-		if commit.PrevData != "" && commit.PrevData != curr.PrevData {
+		if commit.PrevData != "" && commit.PrevData != prevData {
 			continue
 		}
 
@@ -420,6 +420,8 @@ func (r *Resyncer) drainResyncBuffer(ctx context.Context, did string) error {
 		}); err != nil {
 			return err
 		}
+
+		prevData = commit.DataCid
 	}
 
 	return nil
