@@ -414,7 +414,104 @@ func TestProcessIdentity_UntrackedRepo(t *testing.T) {
 	}
 }
 
+func TestProcessIdentity_FullNetworkAutoTrack(t *testing.T) {
+	te := newTestEnv(t, testEnvOpts{})
+	fp := newTestFirehoseProcessor(te, true)
+
+	did := "did:example:fullnet-id"
+	handle := "fullnet.test"
+	evt := &comatproto.SyncSubscribeRepos_Identity{
+		Did:    did,
+		Handle: &handle,
+		Seq:    1,
+	}
+
+	if err := fp.ProcessIdentity(te.ctx, evt); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var repo models.Repo
+	if err := te.db.First(&repo, "did = ?", did).Error; err != nil {
+		t.Fatalf("expected repo to be auto-created: %v", err)
+	}
+	if repo.State != models.RepoStatePending {
+		t.Fatalf("expected state=pending, got %s", repo.State)
+	}
+}
+
+func TestProcessAccount_UnknownStatus(t *testing.T) {
+	te := newTestEnv(t, testEnvOpts{})
+	fp := newTestFirehoseProcessor(te, false)
+
+	did := "did:example:throttled"
+	te.insertRepo(did, models.RepoStateActive, "3jzfcijpj2z2a", "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454", "throttled.test")
+
+	status := "throttled" // not in the recognized status list
+	evt := &comatproto.SyncSubscribeRepos_Account{
+		Did:    did,
+		Active: false,
+		Status: &status,
+		Seq:    1,
+	}
+
+	if err := fp.ProcessAccount(te.ctx, evt); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// No outbox event should have been created — unknown status is a no-op
+	var bufCount int64
+	te.db.Model(&models.OutboxBuffer{}).Where("did = ?", did).Count(&bufCount)
+	if bufCount != 0 {
+		t.Fatalf("expected no outbox events for unknown status, got %d", bufCount)
+	}
+
+	// Status should remain active
+	var repo models.Repo
+	te.db.First(&repo, "did = ?", did)
+	if repo.Status != models.AccountStatusActive {
+		t.Fatalf("expected status unchanged at active, got %s", repo.Status)
+	}
+}
+
+func TestProcessAccount_FullNetworkInactiveSkipped(t *testing.T) {
+	te := newTestEnv(t, testEnvOpts{})
+	fp := newTestFirehoseProcessor(te, true)
+
+	did := "did:example:fullnet-inactive"
+	status := string(models.AccountStatusDeactivated)
+	evt := &comatproto.SyncSubscribeRepos_Account{
+		Did:    did,
+		Active: false,
+		Status: &status,
+		Seq:    1,
+	}
+
+	if err := fp.ProcessAccount(te.ctx, evt); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Even in full network mode, inactive accounts should NOT be auto-tracked
+	var count int64
+	te.db.Model(&models.Repo{}).Where("did = ?", did).Count(&count)
+	if count != 0 {
+		t.Fatal("expected no repo to be created for inactive untracked account")
+	}
+}
+
 // --- Cursor management tests ---
+
+func TestGetCursor_NoPriorSave(t *testing.T) {
+	te := newTestEnv(t, testEnvOpts{})
+	fp := newTestFirehoseProcessor(te, false)
+
+	cursor, err := fp.GetCursor(te.ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cursor != 0 {
+		t.Fatalf("expected cursor=0 with no prior save, got %d", cursor)
+	}
+}
 
 func TestCursorSaveAndLoad(t *testing.T) {
 	te := newTestEnv(t, testEnvOpts{})
