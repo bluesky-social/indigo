@@ -262,13 +262,8 @@ func (w *DIDWorker) processPendingEvts() {
 
 		w.mu.Lock()
 		if w.blockedOnLive {
-			if len(w.inFlightSentAt) == 0 {
-				// nothing in flight, proceed to processing
-				w.blockedOnLive = false
-			} else {
-				w.mu.Unlock()
-				return
-			}
+			w.mu.Unlock()
+			return
 		}
 
 		if len(w.pendingEvts) == 0 {
