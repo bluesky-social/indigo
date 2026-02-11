@@ -205,6 +205,47 @@ func TestWebsocketAck_ConsecutiveLiveEvents(t *testing.T) {
 	assert.Equal(t, ids[2], msgs[2].ID)
 }
 
+// TestWebsocketAck_FastPathLiveBlocksHistorical verifies that when a live event
+// is sent via the DIDWorker's fast path (first event for a DID), subsequent
+// historical events are blocked until the live event is acked.
+// Regression test for: bugfix(cmd/tap): prevent DID worker live-barrier stall
+func TestWebsocketAck_FastPathLiveBlocksHistorical(t *testing.T) {
+	te := newTestEnv(t, testEnvOpts{
+		outboxMode: OutboxModeWebsocketAck,
+	})
+
+	consumer, err := newTestConsumer(te.wsURL())
+	require.NoError(t, err)
+	defer consumer.close()
+
+	time.Sleep(20 * time.Millisecond)
+
+	did := "did:example:fast-path-live"
+
+	// L1 is the first event for this DID, so it takes the fast path in addEvent.
+	// The bugfix ensures addEvent sets blockedOnLive=true on the fast path.
+	lIDs := te.pushRecordEvents(did, 1, true)
+
+	// Wait for L1 to arrive at the consumer
+	msgs := consumer.waitForMessages(1, 100*time.Millisecond)
+	require.Len(t, msgs, 1)
+	assert.Equal(t, lIDs[0], msgs[0].ID)
+
+	// Push H1 (historical) for the same DID.
+	// H1 enters addEvent while L1 is in-flight, so it takes the slow path.
+	// processPendingEvts should see blockedOnLive=true and hold H1 back.
+	te.pushRecordEvents(did, 1, false)
+
+	// H1 should NOT arrive while L1 is unacked
+	msgs = consumer.waitForMessages(2, 50*time.Millisecond)
+	assert.Len(t, msgs, 1, "H1 should not arrive before L1 is acked")
+
+	// Ack L1 — the live barrier is lifted, H1 should now arrive
+	require.NoError(t, consumer.sendAck(lIDs[0]))
+	msgs = consumer.waitForMessages(2, 100*time.Millisecond)
+	require.Len(t, msgs, 2, "H1 should arrive after L1 acked")
+}
+
 func TestWebsocketAck_NoStallOnPreconnectEvents(t *testing.T) {
 	te := newTestEnv(t, testEnvOpts{
 		outboxMode: OutboxModeFireAndForget,
