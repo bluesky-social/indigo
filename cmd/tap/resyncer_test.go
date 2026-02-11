@@ -380,6 +380,9 @@ func TestDrainResyncBuffer_ChainedCommits(t *testing.T) {
 	var bufCount int64
 	te.db.Model(&models.ResyncBuffer{}).Where("did = ?", did).Count(&bufCount)
 
+	if repo.Rev != rev3 {
+		t.Fatalf("expected rev=%s after both commits, got %s", rev3, repo.Rev)
+	}
 	if repo.PrevData != cidC {
 		t.Fatalf("expected prev_data=%s after both commits, got %s", cidC, repo.PrevData)
 	}
