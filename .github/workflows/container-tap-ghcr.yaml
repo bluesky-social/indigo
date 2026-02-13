@@ -1,8 +1,6 @@
 name: container-tap-ghcr
 on:
   push:
-    branches:
-      - main
     tags:
       - 'tap-v*'
 env:
@@ -22,6 +20,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
 
       - name: Setup Docker buildx
         uses: docker/setup-buildx-action@v1
@@ -49,6 +52,9 @@ jobs:
         id: build-and-push
         uses: docker/build-push-action@v4
         with:
+          platforms: |
+            linux/amd64
+            linux/arm64
           context: .
           file: ./cmd/tap/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
