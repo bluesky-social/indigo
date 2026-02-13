@@ -187,15 +187,15 @@ func (fp *FirehoseProcessor) validateCommitAndFilterOps(ctx context.Context, evt
 		}
 	}
 
-	repoCommit, err := r.Commit()
+	dataCid, err := r.MST.RootCID()
 	if err != nil {
 		return nil, err
 	}
 
 	commit := &Commit{
 		Did:     evt.Repo,
-		Rev:     repoCommit.Rev,
-		DataCid: repoCommit.Data.String(),
+		Rev:     evt.Rev,
+		DataCid: dataCid.String(),
 		Ops:     parsedOps,
 	}
 
