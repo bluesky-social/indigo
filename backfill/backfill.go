@@ -80,6 +80,11 @@ type Backfiller struct {
 
 	syncLimiter *rate.Limiter
 
+	// Per-PDS rate limiting
+	pdsLimiters   map[string]*rate.Limiter
+	pdsLimitersMu sync.RWMutex
+	pdsRateLimit  rate.Limit
+
 	magicHeaderKey string
 	magicHeaderVal string
 
@@ -118,7 +123,9 @@ type BackfillOptions struct {
 	ParallelRecordCreates int
 	NSIDFilter            string
 	SyncRequestsPerSecond int
-	RelayHost             string
+	// Per-PDS rate limit (requests per second per host). If 0, defaults to 2.
+	PDSRequestsPerSecond int
+	RelayHost            string
 }
 
 func DefaultBackfillOptions() *BackfillOptions {
@@ -127,6 +134,7 @@ func DefaultBackfillOptions() *BackfillOptions {
 		ParallelRecordCreates: 100,
 		NSIDFilter:            "",
 		SyncRequestsPerSecond: 2,
+		PDSRequestsPerSecond:  2,
 		RelayHost:             "https://bsky.network",
 	}
 }
@@ -151,6 +159,11 @@ func NewBackfiller(
 		opts.RelayHost = "http://" + opts.RelayHost[5:]
 	}
 
+	pdsRate := opts.PDSRequestsPerSecond
+	if pdsRate <= 0 {
+		pdsRate = 2
+	}
+
 	return &Backfiller{
 		Name:                  name,
 		Store:                 store,
@@ -161,6 +174,8 @@ func NewBackfiller(
 		ParallelRecordCreates: opts.ParallelRecordCreates,
 		NSIDFilter:            opts.NSIDFilter,
 		syncLimiter:           rate.NewLimiter(rate.Limit(opts.SyncRequestsPerSecond), 1),
+		pdsLimiters:           make(map[string]*rate.Limiter),
+		pdsRateLimit:          rate.Limit(pdsRate),
 		RelayHost:             opts.RelayHost,
 		stop:                  make(chan chan struct{}, 1),
 		Directory:             identity.DefaultDirectory(),
@@ -325,6 +340,26 @@ func (e *FetchRepoError) Error() string {
 	return fmt.Sprintf("failed to get repo: %s (%d)", reason, e.StatusCode)
 }
 
+// getPDSLimiter returns a rate limiter for the given host, creating one if needed.
+func (b *Backfiller) getPDSLimiter(host string) *rate.Limiter {
+	b.pdsLimitersMu.RLock()
+	limiter, ok := b.pdsLimiters[host]
+	b.pdsLimitersMu.RUnlock()
+	if ok {
+		return limiter
+	}
+
+	b.pdsLimitersMu.Lock()
+	defer b.pdsLimitersMu.Unlock()
+	// Double-check after acquiring write lock
+	if limiter, ok = b.pdsLimiters[host]; ok {
+		return limiter
+	}
+	limiter = rate.NewLimiter(b.pdsRateLimit, 1)
+	b.pdsLimiters[host] = limiter
+	return limiter
+}
+
 // Fetches a repo CAR file over HTTP from the indicated host.
 func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (io.ReadCloser, error) {
 	url := fmt.Sprintf("%s/xrpc/com.atproto.sync.getRepo?did=%s", host, did)
@@ -338,37 +373,66 @@ func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (io
 		Transport: otelhttp.NewTransport(http.DefaultTransport),
 		Timeout:   600 * time.Second,
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
 
-	req.Header.Set("Accept", "application/vnd.ipld.car")
-	req.Header.Set("User-Agent", fmt.Sprintf("atproto-backfill-%s/0.0.1", b.Name))
-	if b.magicHeaderKey != "" && b.magicHeaderVal != "" {
-		req.Header.Set(b.magicHeaderKey, b.magicHeaderVal)
-	}
+	// Retry delays for 429 errors: 1s, 3s, 5s
+	retryDelays := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
+	maxAttempts := len(retryDelays) + 1
 
-	b.syncLimiter.Wait(ctx)
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(retryDelays[attempt-1]):
+			}
+		}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, &FetchRepoError{
+		req.Header.Set("Accept", "application/vnd.ipld.car")
+		req.Header.Set("User-Agent", fmt.Sprintf("atproto-backfill-%s/0.0.1", b.Name))
+		if b.magicHeaderKey != "" && b.magicHeaderVal != "" {
+			req.Header.Set(b.magicHeaderKey, b.magicHeaderVal)
+		}
+
+		// Wait on global rate limiter
+		b.syncLimiter.Wait(ctx)
+		// Wait on per-PDS rate limiter
+		b.getPDSLimiter(host).Wait(ctx)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to send request: %w", err)
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			instrumentedReader := &instrumentedReader{
+				source:  resp.Body,
+				counter: backfillBytesProcessed.WithLabelValues(b.Name),
+			}
+			return instrumentedReader, nil
+		}
+
+		resp.Body.Close()
+
+		lastErr = &FetchRepoError{
 			StatusCode: resp.StatusCode,
 			Status:     resp.Status,
 		}
+
+		// Only retry on 429 Too Many Requests
+		if resp.StatusCode != http.StatusTooManyRequests {
+			return nil, lastErr
+		}
+
+		slog.Debug("got 429, retrying", "did", did, "attempt", attempt+1, "max_attempts", maxAttempts)
 	}
 
-	instrumentedReader := instrumentedReader{
-		source:  resp.Body,
-		counter: backfillBytesProcessed.WithLabelValues(b.Name),
-	}
-
-	return &instrumentedReader, nil
+	return nil, lastErr
 }
 
 // BackfillRepo backfills a repo
