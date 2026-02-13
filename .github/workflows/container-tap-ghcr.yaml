@@ -1,5 +1,8 @@
 name: container-tap-ghcr
-on: [push]
+on:
+  push:
+    tags:
+      - 'tap-v*'
 env:
   REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
