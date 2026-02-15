@@ -90,8 +90,8 @@ func (c *Consumer) handleConnection(ctx context.Context, con *websocket.Conn) er
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	metrics.ConsumerConnected.Inc()
-	defer metrics.ConsumerConnected.Dec()
+	metrics.ConsumerConnected.Set(1)
+	defer metrics.ConsumerConnected.Set(0)
 
 	go c.pingHandler(ctx, con)
 

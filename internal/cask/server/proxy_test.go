@@ -4,12 +4,18 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 )
+
+func mustParsedURL(rawURL string) *parsedURL {
+	u, _ := url.Parse(rawURL)
+	return &parsedURL{Host: u.Host, Scheme: u.Scheme}
+}
 
 func TestProxyToUpstream_NoUpstreamConfigured(t *testing.T) {
 	s := &Server{
@@ -46,7 +52,8 @@ func TestProxyToUpstream_Success(t *testing.T) {
 		cfg: Config{
 			ProxyHost: upstream.URL,
 		},
-		httpClient: upstream.Client(),
+		proxyHostURL: mustParsedURL(upstream.URL),
+		httpClient:   upstream.Client(),
 	}
 
 	e := echo.New()
@@ -81,7 +88,8 @@ func TestProxyToUpstream_ForwardsHeaders(t *testing.T) {
 		cfg: Config{
 			ProxyHost: upstream.URL,
 		},
-		httpClient: upstream.Client(),
+		proxyHostURL: mustParsedURL(upstream.URL),
+		httpClient:   upstream.Client(),
 	}
 
 	e := echo.New()
@@ -112,7 +120,8 @@ func TestProxyToUpstream_UpstreamError(t *testing.T) {
 		cfg: Config{
 			ProxyHost: upstream.URL,
 		},
-		httpClient: upstream.Client(),
+		proxyHostURL: mustParsedURL(upstream.URL),
+		httpClient:   upstream.Client(),
 	}
 
 	e := echo.New()
@@ -140,7 +149,8 @@ func TestProxyToUpstream_AdminEndpoint(t *testing.T) {
 		cfg: Config{
 			ProxyHost: upstream.URL,
 		},
-		httpClient: upstream.Client(),
+		proxyHostURL: mustParsedURL(upstream.URL),
+		httpClient:   upstream.Client(),
 	}
 
 	e := echo.New()
@@ -172,7 +182,8 @@ func TestProxyToUpstream_PostWithBody(t *testing.T) {
 		cfg: Config{
 			ProxyHost: upstream.URL,
 		},
-		httpClient: upstream.Client(),
+		proxyHostURL: mustParsedURL(upstream.URL),
+		httpClient:   upstream.Client(),
 	}
 
 	e := echo.New()
@@ -221,7 +232,8 @@ func TestProxyToCollectionDir_Success(t *testing.T) {
 		cfg: Config{
 			CollectionDirHost: collectionDir.URL,
 		},
-		httpClient: collectionDir.Client(),
+		collectionDirHostURL: mustParsedURL(collectionDir.URL),
+		httpClient:           collectionDir.Client(),
 	}
 
 	e := echo.New()

@@ -15,44 +15,26 @@ import (
 
 // proxyToUpstream proxies a request to the upstream relay host.
 func (s *Server) proxyToUpstream(c echo.Context) error {
-	if s.cfg.ProxyHost == "" {
+	if s.proxyHostURL == nil {
 		return c.JSON(http.StatusServiceUnavailable, xrpc.XRPCError{
 			ErrStr:  "ServiceUnavailable",
 			Message: "no upstream host configured",
 		})
 	}
 
-	u, err := url.Parse(s.cfg.ProxyHost)
-	if err != nil {
-		s.log.Error("failed to parse upstream host", "error", err)
-		return c.JSON(http.StatusInternalServerError, xrpc.XRPCError{
-			ErrStr:  "InternalServerError",
-			Message: "invalid upstream host configuration",
-		})
-	}
-
-	return s.proxyRequest(c, u.Host, u.Scheme)
+	return s.proxyRequest(c, s.proxyHostURL.Host, s.proxyHostURL.Scheme)
 }
 
 // proxyToCollectionDir proxies a request to the collection directory service.
 func (s *Server) proxyToCollectionDir(c echo.Context) error {
-	if s.cfg.CollectionDirHost == "" {
+	if s.collectionDirHostURL == nil {
 		return c.JSON(http.StatusServiceUnavailable, xrpc.XRPCError{
 			ErrStr:  "ServiceUnavailable",
 			Message: "no collection directory host configured",
 		})
 	}
 
-	u, err := url.Parse(s.cfg.CollectionDirHost)
-	if err != nil {
-		s.log.Error("failed to parse collection directory host", "error", err)
-		return c.JSON(http.StatusInternalServerError, xrpc.XRPCError{
-			ErrStr:  "InternalServerError",
-			Message: "invalid collection directory host configuration",
-		})
-	}
-
-	return s.proxyRequest(c, u.Host, u.Scheme)
+	return s.proxyRequest(c, s.collectionDirHostURL.Host, s.collectionDirHostURL.Scheme)
 }
 
 // handleRequestCrawl handles com.atproto.sync.requestCrawl by first forwarding to upstream,

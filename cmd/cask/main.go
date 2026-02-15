@@ -41,12 +41,6 @@ func run(args []string) error {
 						Sources: cli.EnvVars("CASK_LOG_LEVEL", "LOG_LEVEL"),
 					},
 					&cli.StringFlag{
-						Name:    "env",
-						Usage:   "environment name for observability (dev, staging, prod)",
-						Value:   "dev",
-						Sources: cli.EnvVars("CASK_ENV", "ENVIRONMENT"),
-					},
-					&cli.StringFlag{
 						Name:    "api-listen",
 						Usage:   "address and port to listen on for HTTP APIs",
 						Value:   ":2480",

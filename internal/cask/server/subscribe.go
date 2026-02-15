@@ -285,10 +285,6 @@ func (s *Server) registerSubscriber(sub *subscriber) {
 	id := s.nextSubscriberID
 	s.nextSubscriberID++
 	sub.id = id
-
-	if s.subscribers == nil {
-		s.subscribers = make(map[uint64]*subscriber)
-	}
 	s.subscribers[id] = sub
 
 	// Update metrics

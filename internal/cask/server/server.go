@@ -38,6 +38,12 @@ type Config struct {
 	EventRetention    time.Duration // How long to keep events; 0 disables cleanup
 }
 
+// parsedURL holds a pre-parsed URL's host and scheme for proxying.
+type parsedURL struct {
+	Host   string
+	Scheme string
+}
+
 type Server struct {
 	cfg Config
 	log *slog.Logger
@@ -47,6 +53,9 @@ type Server struct {
 	httpClient      *http.Client // For upstream proxy requests (no redirect following)
 	peerClient      *http.Client // For next-crawler forwarding (robust client)
 	nextCrawlerURLs []string
+
+	proxyHostURL         *parsedURL // Pre-parsed ProxyHost URL (nil if not configured)
+	collectionDirHostURL *parsedURL // Pre-parsed CollectionDirHost URL (nil if not configured)
 
 	db             *foundation.DB
 	models         *models.Models
@@ -101,6 +110,25 @@ func New(ctx context.Context, config Config) (*Server, error) {
 		nextCrawlers = append(nextCrawlers, raw)
 	}
 
+	// Pre-parse proxy URLs at startup so we don't re-parse on every request
+	var proxyHostURL *parsedURL
+	if config.ProxyHost != "" {
+		u, err := url.Parse(config.ProxyHost)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse proxy host URL %q: %w", config.ProxyHost, err)
+		}
+		proxyHostURL = &parsedURL{Host: u.Host, Scheme: u.Scheme}
+	}
+
+	var collectionDirHostURL *parsedURL
+	if config.CollectionDirHost != "" {
+		u, err := url.Parse(config.CollectionDirHost)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse collection dir host URL %q: %w", config.CollectionDirHost, err)
+		}
+		collectionDirHostURL = &parsedURL{Host: u.Host, Scheme: u.Scheme}
+	}
+
 	// HTTP client for upstream proxy requests - disable automatic redirect following
 	upstreamClient := &http.Client{
 		Timeout: 30 * time.Second,
@@ -110,16 +138,19 @@ func New(ctx context.Context, config Config) (*Server, error) {
 	}
 
 	s := &Server{
-		cfg:             config,
-		log:             config.Logger,
-		httpClient:      upstreamClient,
-		peerClient:      util.RobustHTTPClient(),
-		nextCrawlerURLs: nextCrawlers,
-		db:              db,
-		models:          m,
-		consumerMu:      &sync.Mutex{},
-		cleanerMu:       &sync.Mutex{},
-		subscribersMu:   &sync.Mutex{},
+		cfg:                  config,
+		log:                  config.Logger,
+		httpClient:           upstreamClient,
+		peerClient:           util.RobustHTTPClient(),
+		nextCrawlerURLs:      nextCrawlers,
+		proxyHostURL:         proxyHostURL,
+		collectionDirHostURL: collectionDirHostURL,
+		db:                   db,
+		models:               m,
+		consumerMu:           &sync.Mutex{},
+		cleanerMu:            &sync.Mutex{},
+		subscribersMu:        &sync.Mutex{},
+		subscribers:          make(map[uint64]*subscriber),
 	}
 
 	s.leaderElection, err = leader.New(db, []string{"firehoseLeader"}, leader.LeaderElectionConfig{

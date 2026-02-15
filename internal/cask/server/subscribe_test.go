@@ -23,6 +23,7 @@ func testServer(t *testing.T) (*Server, *models.Models) {
 		log:           slog.Default(),
 		models:        m,
 		subscribersMu: &sync.Mutex{},
+		subscribers:   make(map[uint64]*subscriber),
 	}
 	return s, m
 }
