@@ -215,29 +215,38 @@ type DIDWorker struct {
 
 func (w *DIDWorker) run() {
 	for {
+		// Queue up all possible pending events
+		w.processPendingEvts()
+
+		w.mu.Lock()
+		queueEmpty := len(w.pendingEvts) == 0
+		noInFlight := len(w.inFlightSentAt) == 0
+		if noInFlight {
+			w.blockedOnLive = false
+		}
+		hasReadyWork := !queueEmpty && !w.blockedOnLive
+		allDone := queueEmpty && noInFlight
+		if allDone {
+			w.running = false
+		}
+		w.mu.Unlock()
+
+		// All work is done — stop the worker goroutine
+		if allDone {
+			return
+		}
+
+		// If there are still pending events, loop immediately without waiting for a notification
+		if hasReadyWork {
+			continue
+		}
+
+		// Wait for an ack or new event before retrying
 		select {
 		case <-w.ctx.Done():
 			return
 		case <-w.notifChan:
 		}
-
-		w.processPendingEvts()
-
-		// Check if goroutine should exit
-		w.mu.Lock()
-		queueEmpty := len(w.pendingEvts) == 0
-		noInFlight := len(w.inFlightSentAt) == 0
-
-		if noInFlight {
-			w.blockedOnLive = false
-		}
-
-		if queueEmpty && noInFlight {
-			w.running = false
-			w.mu.Unlock()
-			return
-		}
-		w.mu.Unlock()
 	}
 }
 
@@ -275,14 +284,14 @@ func (w *DIDWorker) processPendingEvts() {
 
 		w.mu.Lock()
 		if evt.Live {
+			w.blockedOnLive = true
+
 			hasInFlight := len(w.inFlightSentAt) > 0
 			// live event - must wait for all in-flight to clear
 			if hasInFlight {
 				w.mu.Unlock()
 				return
 			}
-
-			w.blockedOnLive = true
 		}
 		w.pendingEvts = w.pendingEvts[1:]
 		w.inFlightSentAt[eventID] = time.Now()
@@ -301,8 +310,11 @@ func (w *DIDWorker) addEvent(evt *OutboxEvt) {
 	hasInFlight := len(w.inFlightSentAt) > 0
 
 	// Fast path: no contention, send immediately without goroutine
-	if !hasInFlight {
+	if !hasInFlight && !w.blockedOnLive && len(w.pendingEvts) == 0 {
 		w.inFlightSentAt[evt.ID] = time.Now()
+		if evt.Live {
+			w.blockedOnLive = true
+		}
 		w.mu.Unlock()
 		w.outbox.sendEvent(evt)
 		return

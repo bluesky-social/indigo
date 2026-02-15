@@ -98,6 +98,21 @@ func (r *Resyncer) claimResyncJob(ctx context.Context) (string, bool, error) {
 	r.claimJobMu.Lock()
 	defer r.claimJobMu.Unlock()
 
+	// prioritize pending repos first before moving on to desyncrhonized
+	// only reprocess repos that errored after resyncing all other repos
+	for _, state := range []models.RepoState{models.RepoStatePending, models.RepoStateDesynchronized, models.RepoStateError} {
+		did, found, err := r.claimResyncJobOfState(ctx, state)
+		if err != nil {
+			return "", false, err
+		}
+		if found {
+			return did, true, nil
+		}
+	}
+	return "", false, nil
+}
+
+func (r *Resyncer) claimResyncJobOfState(ctx context.Context, state models.RepoState) (string, bool, error) {
 	var did string
 	now := time.Now().Unix()
 	result := r.db.WithContext(ctx).Raw(`
@@ -105,12 +120,12 @@ func (r *Resyncer) claimResyncJob(ctx context.Context) (string, bool, error) {
 		SET state = ?
 		WHERE did = (
 			SELECT did FROM repos
-			WHERE state IN (?, ?, ?)
+			WHERE state = ?
 			AND (retry_after = 0 OR retry_after < ?)
 			LIMIT 1
 		)
 		RETURNING did
-		`, models.RepoStateResyncing, models.RepoStatePending, models.RepoStateDesynchronized, models.RepoStateError, now).Scan(&did)
+		`, models.RepoStateResyncing, state, now).Scan(&did)
 	if result.Error != nil {
 		return "", false, result.Error
 	}
@@ -332,15 +347,15 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 	return true, nil
 }
 
-func (r *Resyncer) handleResyncError(ctx context.Context, did string, err error) error {
+func (r *Resyncer) handleResyncError(ctx context.Context, did string, resyncErr error) error {
 	var state models.RepoState
 	var errMsg string
-	if err == nil {
+	if resyncErr == nil {
 		state = models.RepoStateDesynchronized
 		errMsg = ""
 	} else {
 		state = models.RepoStateError
-		errMsg = err.Error()
+		errMsg = resyncErr.Error()
 	}
 
 	repo, err := r.repos.GetRepoState(ctx, did)
@@ -351,19 +366,17 @@ func (r *Resyncer) handleResyncError(ctx context.Context, did string, err error)
 	// start a 1 min & go up to 1 hr between retries
 	retryAfter := time.Now().Add(backoff(repo.RetryCount, 60) * 60)
 
-	dbErr := r.db.WithContext(ctx).Model(&models.Repo{}).
+	if err := r.db.WithContext(ctx).Model(&models.Repo{}).
 		Where("did = ?", did).
 		Updates(map[string]interface{}{
 			"state":       state,
 			"error_msg":   errMsg,
 			"retry_count": repo.RetryCount + 1,
 			"retry_after": retryAfter.Unix(),
-		}).Error
-	if dbErr != nil {
-		return dbErr
-	} else {
+		}).Error; err != nil {
 		return err
 	}
+	return resyncErr
 
 }
 
@@ -388,6 +401,8 @@ func (r *Resyncer) drainResyncBuffer(ctx context.Context, did string) error {
 		return fmt.Errorf("failed to get repo state: %w", err)
 	}
 
+	prevData := curr.PrevData
+
 	for _, evt := range bufferedEvts {
 		var commit Commit
 		if err := json.Unmarshal([]byte(evt.Data), &commit); err != nil {
@@ -396,7 +411,7 @@ func (r *Resyncer) drainResyncBuffer(ctx context.Context, did string) error {
 
 		// if this commit doesn't stack neatly on current state of tracked repo then we skip
 		// NOTE: the check against the empty string can be eliminated after we start refusing legacy commit events
-		if commit.PrevData != "" && commit.PrevData != curr.PrevData {
+		if commit.PrevData != "" && commit.PrevData != prevData {
 			continue
 		}
 
@@ -405,6 +420,8 @@ func (r *Resyncer) drainResyncBuffer(ctx context.Context, did string) error {
 		}); err != nil {
 			return err
 		}
+
+		prevData = commit.DataCid
 	}
 
 	return nil
