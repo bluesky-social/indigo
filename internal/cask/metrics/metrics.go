@@ -19,11 +19,11 @@ var (
 	})
 
 	// EventsSentTotal tracks the total number of events sent to subscribers
-	EventsSentTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	EventsSentTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name:      "events_sent_total",
 		Namespace: namespace,
 		Help:      "Total number of events sent to subscribers",
-	}, []string{"remote_addr", "user_agent"})
+	})
 
 	// SubscriberConnections tracks the total number of subscriber connections (including disconnects)
 	SubscriberConnections = promauto.NewCounter(prometheus.CounterOpts{

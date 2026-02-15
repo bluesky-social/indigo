@@ -67,16 +67,15 @@ func (s *Server) handleRequestCrawl(c echo.Context) error {
 		})
 	}
 
+	// Reset body for binding since we already read it
+	c.Request().Body = io.NopCloser(bytes.NewReader(body))
+
 	var input comatproto.SyncRequestCrawl_Input
 	if err := c.Bind(&input); err != nil {
-		// Reset body for binding since we already read it
-		c.Request().Body = io.NopCloser(bytes.NewReader(body))
-		if err := c.Bind(&input); err != nil {
-			return c.JSON(http.StatusBadRequest, xrpc.XRPCError{
-				ErrStr:  "BadRequest",
-				Message: fmt.Sprintf("invalid body: %s", err),
-			})
-		}
+		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{
+			ErrStr:  "BadRequest",
+			Message: fmt.Sprintf("invalid body: %s", err),
+		})
 	}
 	if input.Hostname == "" {
 		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{

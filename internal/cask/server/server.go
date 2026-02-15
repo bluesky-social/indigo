@@ -303,8 +303,9 @@ func (s *Server) onLostLeadership(ctx context.Context) {
 	s.stopCleaner()
 }
 
-// Starts the firehose consumer in a goroutine. This is invoked when the process
-// grabs the leader lock on a background goroutine.
+// Starts the firehose consumer in a reconnect loop. This is invoked when the process
+// grabs the leader lock on a background goroutine. If the upstream connection drops,
+// the consumer automatically reconnects with exponential backoff.
 func (s *Server) startConsumer() {
 	s.stopConsumer()
 
@@ -313,9 +314,23 @@ func (s *Server) startConsumer() {
 	s.consumerCancel = cancel
 	s.consumerMu.Unlock()
 
-	consumer := newFirehoseConsumer(s.log, s.models, s.cfg.FirehoseURL)
-	if err := consumer.Run(ctx); err != nil {
-		s.log.Error("firehose consumer stopped unexpectedly", "error", err)
+	backoff := 100 * time.Millisecond
+	for {
+		consumer := newFirehoseConsumer(s.log, s.models, s.cfg.FirehoseURL)
+		err := consumer.Run(ctx)
+		if ctx.Err() != nil {
+			return // intentional shutdown
+		}
+
+		s.log.Error("firehose consumer stopped, reconnecting", "error", err, "backoff", backoff)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
+
+		backoff = min(backoff*2, 30*time.Second)
 	}
 }
 

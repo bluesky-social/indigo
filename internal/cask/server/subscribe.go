@@ -239,7 +239,7 @@ func (s *Server) writeEventBatch(ctx context.Context, sub *subscriber, conn *web
 		totalBytes += len(evt.rawEvent)
 
 		sub.eventsSent.Add(1)
-		metrics.EventsSentTotal.WithLabelValues(sub.remoteAddr, sub.userAgent).Inc()
+		metrics.EventsSentTotal.Inc()
 	}
 
 	span.SetAttributes(
