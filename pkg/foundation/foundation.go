@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
@@ -45,20 +46,24 @@ type DB struct {
 	Chunker *Chunker
 }
 
+var queryDurationOnce sync.Once
+
 func New(ctx context.Context, service string, cfg *Config) (*DB, error) {
 	if cfg.RetryLimit <= 0 {
 		return nil, fmt.Errorf("invalid transaction retry limit")
 	}
 
-	queryDuration = promauto.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:      "query_duration_secs",
-			Namespace: service,
-			Help:      "Duration histogram of FoundationDB queries in seconds",
-			Buckets:   prometheus.ExponentialBuckets(0.0001, 2, 18), // 0.1ms to ~13s
-		},
-		[]string{"query", "status"},
-	)
+	queryDurationOnce.Do(func() {
+		queryDuration = promauto.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:      "query_duration_secs",
+				Namespace: service,
+				Help:      "Duration histogram of FoundationDB queries in seconds",
+				Buckets:   prometheus.ExponentialBuckets(0.0001, 2, 18), // 0.1ms to ~13s
+			},
+			[]string{"query", "status"},
+		)
+	})
 
 	if err := fdb.APIVersion(cfg.APIVersion); err != nil {
 		return nil, fmt.Errorf("failed to set fdb client api version: %w", err)

@@ -64,9 +64,18 @@ func (m *Models) WriteEvent(ctx context.Context, event *types.FirehoseEvent) (er
 // Each event is assigned a unique event index byte appended after the versionstamp,
 // so all events in the batch get distinct keys despite sharing the same versionstamp.
 // One OTEL span covers the entire batch.
+// maxEventsPerBatch is the maximum number of events that can be written in a single
+// FDB transaction. Each event is distinguished by a 1-byte event index, so the
+// maximum is 255 (byte range 0-254). This must be kept in sync with the consumer's
+// maxBatchSize constant.
+const maxEventsPerBatch = 255
+
 func (m *Models) WriteEventBatch(ctx context.Context, events []*types.FirehoseEvent) (err error) {
 	if len(events) == 0 {
 		return nil
+	}
+	if len(events) > maxEventsPerBatch {
+		return fmt.Errorf("batch size %d exceeds maximum of %d events per transaction", len(events), maxEventsPerBatch)
 	}
 
 	_, span, done := foundation.Observe(ctx, m.db, "WriteEventBatch")

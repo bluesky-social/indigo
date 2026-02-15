@@ -232,6 +232,7 @@ func (s *Server) writeEventBatch(ctx context.Context, sub *subscriber, conn *web
 
 	var totalBytes int
 	for _, evt := range events {
+		_ = conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
 		if err := conn.WriteMessage(websocket.BinaryMessage, evt.rawEvent); err != nil {
 			span.RecordError(err)
 			return totalBytes, err
