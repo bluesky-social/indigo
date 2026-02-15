@@ -62,7 +62,7 @@ build-protos:
     pushd pkg > /dev/null
 
     # generate, then clean up the protos for all connect services
-    for PKG in prototypes; do
+    for PKG in types; do
         pushd $PKG > /dev/null
 
         buf lint

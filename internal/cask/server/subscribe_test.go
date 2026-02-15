@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/internal/cask/models"
-	"github.com/bluesky-social/indigo/pkg/prototypes"
+	"github.com/bluesky-social/indigo/pkg/types"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
@@ -65,7 +65,7 @@ func TestSubscribeRepos_ReceivesEvents(t *testing.T) {
 	// Write some events to FDB
 	const numEvents = 20
 	for i := range numEvents {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(100 + i),
 			EventType:   "#commit",
 			RawEvent:    []byte("event-" + string(rune('A'+i))),
@@ -97,7 +97,7 @@ func TestSubscribeRepos_WithCursor(t *testing.T) {
 
 	// Write events with seqs 100, 101, 102, 103, 104
 	for i := range 5 {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(100 + i),
 			EventType:   "#commit",
 			RawEvent:    []byte("event-" + string(rune('A'+i))),
@@ -131,7 +131,7 @@ func TestSubscribeRepos_CursorWithGaps(t *testing.T) {
 	// Write events with gaps: 1000, 1005, 1010
 	seqs := []int64{1000, 1005, 1010}
 	for i, seq := range seqs {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: seq,
 			EventType:   "#commit",
 			RawEvent:    []byte("event-" + string(rune('A'+i))),
@@ -163,7 +163,7 @@ func TestSubscribeRepos_NoCursorStartsFromTip(t *testing.T) {
 	defer server.Close()
 
 	// Write an event BEFORE connecting
-	event := &prototypes.FirehoseEvent{
+	event := &types.FirehoseEvent{
 		UpstreamSeq: 100,
 		EventType:   "#commit",
 		RawEvent:    []byte("old-event"),
@@ -176,7 +176,7 @@ func TestSubscribeRepos_NoCursorStartsFromTip(t *testing.T) {
 	defer conn.Close() //nolint:errcheck
 
 	// Write a new event AFTER connecting
-	event2 := &prototypes.FirehoseEvent{
+	event2 := &types.FirehoseEvent{
 		UpstreamSeq: 101,
 		EventType:   "#commit",
 		RawEvent:    []byte("new-event"),
@@ -200,7 +200,7 @@ func TestSubscribeRepos_StreamsNewEvents(t *testing.T) {
 	defer server.Close()
 
 	// Write all events before connecting
-	event := &prototypes.FirehoseEvent{
+	event := &types.FirehoseEvent{
 		UpstreamSeq: 100,
 		EventType:   "#commit",
 		RawEvent:    []byte("initial"),
@@ -209,7 +209,7 @@ func TestSubscribeRepos_StreamsNewEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	for i := range 3 {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(101 + i),
 			EventType:   "#commit",
 			RawEvent:    []byte("streamed-" + string(rune('A'+i))),
@@ -244,7 +244,7 @@ func TestSubscribeRepos_MultipleSubscribers(t *testing.T) {
 	defer server.Close()
 
 	// Write an event
-	event := &prototypes.FirehoseEvent{
+	event := &types.FirehoseEvent{
 		UpstreamSeq: 100,
 		EventType:   "#commit",
 		RawEvent:    []byte("shared-event"),
@@ -278,7 +278,7 @@ func TestSubscribeRepos_LargeCatchup(t *testing.T) {
 	// This verifies that streaming works correctly and doesn't hit FDB transaction limits
 	const numEvents = 500
 	for i := range numEvents {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(1000 + i),
 			EventType:   "#commit",
 			RawEvent:    []byte("event-data-" + string(rune('A'+(i%26)))),

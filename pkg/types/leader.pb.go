@@ -4,7 +4,7 @@
 // 	protoc        (unknown)
 // source: leader.proto
 
-package prototypes
+package types
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -184,7 +184,7 @@ const file_leader_proto_rawDesc = "" +
 	"\vreceived_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"receivedAt\x12\x1d\n" +
 	"\n" +
-	"event_type\x18\x04 \x01(\tR\teventTypeB1Z/github.com/bluesky-social/indigo/pkg/prototypesb\x06proto3"
+	"event_type\x18\x04 \x01(\tR\teventTypeB,Z*github.com/bluesky-social/indigo/pkg/typesb\x06proto3"
 
 var (
 	file_leader_proto_rawDescOnce sync.Once

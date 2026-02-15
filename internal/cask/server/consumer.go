@@ -14,7 +14,7 @@ import (
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/internal/cask/metrics"
 	"github.com/bluesky-social/indigo/internal/cask/models"
-	"github.com/bluesky-social/indigo/pkg/prototypes"
+	"github.com/bluesky-social/indigo/pkg/types"
 	"github.com/gorilla/websocket"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -291,9 +291,9 @@ func (c *Consumer) batchWriter(ctx context.Context, eventCh <-chan *parsedEvent)
 // writeBatchWithRetry writes a batch of parsed events to FDB with retry logic.
 func (c *Consumer) writeBatchWithRetry(ctx context.Context, batch []*parsedEvent) error {
 	// Build proto events
-	protoEvents := make([]*prototypes.FirehoseEvent, len(batch))
+	protoEvents := make([]*types.FirehoseEvent, len(batch))
 	for i, pe := range batch {
-		protoEvents[i] = &prototypes.FirehoseEvent{
+		protoEvents[i] = &types.FirehoseEvent{
 			UpstreamSeq: pe.seq,
 			RawEvent:    pe.rawEvent,
 			ReceivedAt:  timestamppb.Now(),

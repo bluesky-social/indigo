@@ -10,7 +10,7 @@ import (
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 	"github.com/bluesky-social/indigo/pkg/foundation"
-	"github.com/bluesky-social/indigo/pkg/prototypes"
+	"github.com/bluesky-social/indigo/pkg/types"
 	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/protobuf/proto"
 )
@@ -31,7 +31,7 @@ const (
 // The event will be assigned a sequence number by FDB's versionstamp at commit time.
 // Large events are automatically chunked and optionally compressed.
 // It also writes a secondary index mapping upstream_seq -> versionstamp for O(1) cursor lookup.
-func (m *Models) WriteEvent(ctx context.Context, event *prototypes.FirehoseEvent) (err error) {
+func (m *Models) WriteEvent(ctx context.Context, event *types.FirehoseEvent) (err error) {
 	_, span, done := foundation.Observe(ctx, m.db, "WriteEvent")
 	defer func() { done(err) }()
 
@@ -64,7 +64,7 @@ func (m *Models) WriteEvent(ctx context.Context, event *prototypes.FirehoseEvent
 // Each event is assigned a unique event index byte appended after the versionstamp,
 // so all events in the batch get distinct keys despite sharing the same versionstamp.
 // One OTEL span covers the entire batch.
-func (m *Models) WriteEventBatch(ctx context.Context, events []*prototypes.FirehoseEvent) (err error) {
+func (m *Models) WriteEventBatch(ctx context.Context, events []*types.FirehoseEvent) (err error) {
 	if len(events) == 0 {
 		return nil
 	}
@@ -195,7 +195,7 @@ func (m *Models) GetLatestUpstreamSeq(ctx context.Context) (seq int64, err error
 		return 0, nil // no events yet
 	}
 
-	var event prototypes.FirehoseEvent
+	var event types.FirehoseEvent
 	if err := proto.Unmarshal(eventData, &event); err != nil {
 		return 0, fmt.Errorf("failed to unmarshal latest event: %w", err)
 	}
@@ -246,7 +246,7 @@ func (m *Models) GetLatestVersionstamp(ctx context.Context) (cursor []byte, err 
 // If cursor is nil, retrieves from the beginning.
 // Events may be chunked, so this function reassembles chunks before returning.
 // Returns events and the cursor for the last event returned.
-func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (events []*prototypes.FirehoseEvent, nextCursor []byte, err error) {
+func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (events []*types.FirehoseEvent, nextCursor []byte, err error) {
 	_, span, done := foundation.Observe(ctx, m.db, "GetEventsSince")
 	defer func() { done(err) }()
 
@@ -256,7 +256,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 	)
 
 	type result struct {
-		events     []*prototypes.FirehoseEvent
+		events     []*types.FirehoseEvent
 		nextCursor []byte
 	}
 
@@ -287,7 +287,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 			Mode: fdb.StreamingModeWantAll,
 		}).Iterator()
 
-		var events []*prototypes.FirehoseEvent
+		var events []*types.FirehoseEvent
 		var lastCursor []byte
 		var currentCursor []byte
 		var currentChunks [][]byte
@@ -315,7 +315,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 					return nil, fmt.Errorf("failed to reassemble chunks: %w", err)
 				}
 
-				var event prototypes.FirehoseEvent
+				var event types.FirehoseEvent
 				if err := proto.Unmarshal(eventData, &event); err != nil {
 					return nil, fmt.Errorf("failed to unmarshal event: %w", err)
 				}
@@ -343,7 +343,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 				return nil, fmt.Errorf("failed to reassemble chunks: %w", err)
 			}
 
-			var event prototypes.FirehoseEvent
+			var event types.FirehoseEvent
 			if err := proto.Unmarshal(eventData, &event); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal event: %w", err)
 			}

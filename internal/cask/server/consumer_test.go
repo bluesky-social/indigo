@@ -18,7 +18,7 @@ import (
 	"github.com/bluesky-social/indigo/internal/testutil"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/pkg/foundation"
-	"github.com/bluesky-social/indigo/pkg/prototypes"
+	"github.com/bluesky-social/indigo/pkg/types"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
@@ -351,7 +351,7 @@ func TestConsumer_ResumesFromCursor(t *testing.T) {
 	m := testModels(t)
 
 	// Pre-populate some events to simulate a previous run
-	require.NoError(t, m.WriteEvent(ctx, &prototypes.FirehoseEvent{
+	require.NoError(t, m.WriteEvent(ctx, &types.FirehoseEvent{
 		UpstreamSeq: 50,
 		EventType:   "#commit",
 		RawEvent:    encodeEvent(t, "#commit", eventOpts{seq: 50, repo: "did:plc:old"}),

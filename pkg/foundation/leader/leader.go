@@ -13,7 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/pkg/clock"
 	"github.com/bluesky-social/indigo/pkg/foundation"
 	"github.com/bluesky-social/indigo/pkg/metrics"
-	"github.com/bluesky-social/indigo/pkg/prototypes"
+	"github.com/bluesky-social/indigo/pkg/types"
 	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -114,13 +114,13 @@ func (le *LeaderElection) IsLeader() bool {
 }
 
 // GetLeader returns the current leader info, or nil if no leader exists.
-func (le *LeaderElection) GetLeader(ctx context.Context) (leader *prototypes.FirehoseLeader, err error) {
+func (le *LeaderElection) GetLeader(ctx context.Context) (leader *types.FirehoseLeader, err error) {
 	_, span, done := foundation.Observe(ctx, le.db, "GetLeader")
 	defer func() { done(err) }()
 
 	key := foundation.Pack(le.dir, leaderKey)
 
-	var ld prototypes.FirehoseLeader
+	var ld types.FirehoseLeader
 	err = foundation.ReadProto(le.db, &ld, func(tx fdb.ReadTransaction) ([]byte, error) {
 		return tx.Get(key).Get()
 	})
@@ -159,7 +159,7 @@ func (le *LeaderElection) TryAcquireLease(ctx context.Context) (acquired bool, e
 		}
 
 		if data != nil {
-			var existing prototypes.FirehoseLeader
+			var existing types.FirehoseLeader
 			if err := proto.Unmarshal(data, &existing); err != nil {
 				return false, fmt.Errorf("failed to unmarshal existing leader info: %w", err)
 			}
@@ -171,7 +171,7 @@ func (le *LeaderElection) TryAcquireLease(ctx context.Context) (acquired bool, e
 
 		// The leader does not exist, or the leader's lease has expired. Attempt to
 		// claim the leader status.
-		info := &prototypes.FirehoseLeader{
+		info := &types.FirehoseLeader{
 			Id:         le.cfg.ID,
 			ExpiresAt:  timestamppb.New(now.Add(le.leaseDuration)),
 			AcquiredAt: timestamppb.New(now),
@@ -231,7 +231,7 @@ func (le *LeaderElection) RenewLease(ctx context.Context) (err error) {
 			return nil, ErrNotLeader
 		}
 
-		var current prototypes.FirehoseLeader
+		var current types.FirehoseLeader
 		if err := proto.Unmarshal(data, &current); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal leader info: %w", err)
 		}
@@ -288,7 +288,7 @@ func (le *LeaderElection) ReleaseLease(ctx context.Context) (err error) {
 			return false, nil
 		}
 
-		var current prototypes.FirehoseLeader
+		var current types.FirehoseLeader
 		if err := proto.Unmarshal(data, &current); err != nil {
 			return false, fmt.Errorf("failed to unmarshal leader info: %w", err)
 		}
@@ -398,7 +398,7 @@ func (le *LeaderElection) handleShutdown(ctx context.Context) {
 	}
 }
 
-func isLeaderExpired(leader *prototypes.FirehoseLeader, now time.Time) bool {
+func isLeaderExpired(leader *types.FirehoseLeader, now time.Time) bool {
 	if leader == nil || leader.ExpiresAt == nil {
 		return true
 	}

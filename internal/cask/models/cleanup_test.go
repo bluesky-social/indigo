@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluesky-social/indigo/pkg/prototypes"
+	"github.com/bluesky-social/indigo/pkg/types"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -30,7 +30,7 @@ func TestCleanupOldEvents_NoOldEvents(t *testing.T) {
 	// Write events with recent timestamps
 	now := time.Now()
 	for i := range 5 {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(100 + i),
 			EventType:   "#commit",
 			RawEvent:    []byte("event data"),
@@ -61,7 +61,7 @@ func TestCleanupOldEvents_DeletesOldEvents(t *testing.T) {
 
 	// Write 3 old events (2 hours ago)
 	for i := range 3 {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(100 + i),
 			EventType:   "#commit",
 			RawEvent:    []byte("old event"),
@@ -73,7 +73,7 @@ func TestCleanupOldEvents_DeletesOldEvents(t *testing.T) {
 
 	// Write 2 recent events (5 minutes ago)
 	for i := range 2 {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(200 + i),
 			EventType:   "#commit",
 			RawEvent:    []byte("recent event"),
@@ -106,7 +106,7 @@ func TestCleanupOldEvents_DeletesAllEvents(t *testing.T) {
 
 	// Write events that are all old
 	for i := range 5 {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(100 + i),
 			EventType:   "#commit",
 			RawEvent:    []byte("old event"),
@@ -136,7 +136,7 @@ func TestCleanupOldEvents_DeletesCursorIndex(t *testing.T) {
 	now := time.Now()
 
 	// Write an old event
-	event := &prototypes.FirehoseEvent{
+	event := &types.FirehoseEvent{
 		UpstreamSeq: 12345,
 		EventType:   "#commit",
 		RawEvent:    []byte("old event"),
@@ -182,7 +182,7 @@ func TestGetOldestEventAge_WithEvents(t *testing.T) {
 	oldestTime := now.Add(-3 * time.Hour)
 
 	// Write oldest event first
-	event := &prototypes.FirehoseEvent{
+	event := &types.FirehoseEvent{
 		UpstreamSeq: 100,
 		EventType:   "#commit",
 		RawEvent:    []byte("oldest event"),
@@ -193,7 +193,7 @@ func TestGetOldestEventAge_WithEvents(t *testing.T) {
 
 	// Write newer events
 	for i := range 3 {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(200 + i),
 			EventType:   "#commit",
 			RawEvent:    []byte("newer event"),
@@ -221,7 +221,7 @@ func TestCleanupOldEvents_BatchProcessing(t *testing.T) {
 	// Write more events than cleanupBatchSize (100) to test batching
 	numEvents := 150
 	for i := range numEvents {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(i),
 			EventType:   "#commit",
 			RawEvent:    []byte("old event"),
@@ -260,7 +260,7 @@ func TestCleanupOldEvents_MixedAges(t *testing.T) {
 	}
 
 	for i, offset := range timestamps {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(i),
 			EventType:   "#commit",
 			RawEvent:    []byte("event"),

@@ -10,7 +10,7 @@ import (
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 	"github.com/bluesky-social/indigo/internal/cask/metrics"
 	"github.com/bluesky-social/indigo/pkg/foundation"
-	"github.com/bluesky-social/indigo/pkg/prototypes"
+	"github.com/bluesky-social/indigo/pkg/types"
 	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/protobuf/proto"
 )
@@ -136,7 +136,7 @@ func (m *Models) GetOldestEventAge(ctx context.Context) (age time.Duration, err 
 			return time.Time{}, fmt.Errorf("failed to reassemble chunks: %w", err)
 		}
 
-		var event prototypes.FirehoseEvent
+		var event types.FirehoseEvent
 		if err := proto.Unmarshal(eventData, &event); err != nil {
 			return time.Time{}, fmt.Errorf("failed to unmarshal event: %w", err)
 		}
@@ -281,7 +281,7 @@ func (m *Models) checkEventForDeletion(versionstamp []byte, chunks [][]byte, cut
 		return deleteTarget{}, false, fmt.Errorf("failed to reassemble chunks: %w", err)
 	}
 
-	var event prototypes.FirehoseEvent
+	var event types.FirehoseEvent
 	if err := proto.Unmarshal(eventData, &event); err != nil {
 		return deleteTarget{}, false, fmt.Errorf("failed to unmarshal event: %w", err)
 	}

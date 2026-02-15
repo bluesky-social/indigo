@@ -7,7 +7,7 @@ import (
 
 	"github.com/bluesky-social/indigo/internal/testutil"
 	"github.com/bluesky-social/indigo/pkg/foundation"
-	"github.com/bluesky-social/indigo/pkg/prototypes"
+	"github.com/bluesky-social/indigo/pkg/types"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -33,7 +33,7 @@ func TestWriteEvent(t *testing.T) {
 
 	m := testModels(t)
 
-	event := &prototypes.FirehoseEvent{
+	event := &types.FirehoseEvent{
 		UpstreamSeq: 12345,
 		EventType:   "#commit",
 		RawEvent:    []byte("test raw event data"),
@@ -61,7 +61,7 @@ func TestWriteEvent_Multiple(t *testing.T) {
 
 	// Write multiple events
 	for i := range 5 {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(100 + i),
 			EventType:   "#commit",
 			RawEvent:    []byte("event data"),
@@ -89,7 +89,7 @@ func TestGetEventsSince_Pagination(t *testing.T) {
 
 	// Write 10 events
 	for i := range 10 {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(i),
 			EventType:   "#commit",
 			RawEvent:    []byte("event data"),
@@ -156,7 +156,7 @@ func TestGetLatestUpstreamSeq(t *testing.T) {
 
 	// Write some events
 	for i := range 5 {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(100 + i),
 			EventType:   "#commit",
 			RawEvent:    []byte("event data"),
@@ -171,7 +171,7 @@ func TestGetLatestUpstreamSeq(t *testing.T) {
 	require.Equal(t, int64(104), seq)
 
 	// Write one more
-	event := &prototypes.FirehoseEvent{
+	event := &types.FirehoseEvent{
 		UpstreamSeq: 999,
 		EventType:   "#identity",
 		RawEvent:    []byte("identity event"),
@@ -196,7 +196,7 @@ func TestEventsOrdering(t *testing.T) {
 	upstreamSeqs := []int64{500, 100, 999, 50, 750}
 
 	for _, seq := range upstreamSeqs {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: seq,
 			EventType:   "#commit",
 			RawEvent:    []byte("event data"),
@@ -223,7 +223,7 @@ func TestCursorIsVersionstamp(t *testing.T) {
 	m := testModels(t)
 
 	// Write an event
-	event := &prototypes.FirehoseEvent{
+	event := &types.FirehoseEvent{
 		UpstreamSeq: 123,
 		EventType:   "#commit",
 		RawEvent:    []byte("test"),
@@ -247,7 +247,7 @@ func TestGetVersionstampForSeq_Basic(t *testing.T) {
 
 	// Write events with sequential upstream seqs
 	for i := range 5 {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(100 + i),
 			EventType:   "#commit",
 			RawEvent:    []byte("event data"),
@@ -280,7 +280,7 @@ func TestGetVersionstampForSeq_WithGaps(t *testing.T) {
 	// Write events with gaps: 1000, 1005, 1010
 	seqs := []int64{1000, 1005, 1010}
 	for _, seq := range seqs {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: seq,
 			EventType:   "#commit",
 			RawEvent:    []byte("event data"),
@@ -313,7 +313,7 @@ func TestGetVersionstampForSeq_CursorMatchesExactly(t *testing.T) {
 	// Write events with gaps: 1000, 1005, 1010
 	seqs := []int64{1000, 1005, 1010}
 	for _, seq := range seqs {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: seq,
 			EventType:   "#commit",
 			RawEvent:    []byte("event data"),
@@ -344,7 +344,7 @@ func TestGetVersionstampForSeq_CursorBeforeAllEvents(t *testing.T) {
 
 	// Write events starting at 100
 	for i := range 3 {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(100 + i),
 			EventType:   "#commit",
 			RawEvent:    []byte("event data"),
@@ -378,7 +378,7 @@ func TestGetVersionstampForSeq_CursorAfterAllEvents(t *testing.T) {
 
 	// Write events up to 104
 	for i := range 5 {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(100 + i),
 			EventType:   "#commit",
 			RawEvent:    []byte("event data"),
@@ -435,7 +435,7 @@ func TestGetVersionstampForSeq_Pagination(t *testing.T) {
 
 	// Write 10 events
 	for i := range 10 {
-		event := &prototypes.FirehoseEvent{
+		event := &types.FirehoseEvent{
 			UpstreamSeq: int64(100 + i),
 			EventType:   "#commit",
 			RawEvent:    []byte("event data"),
@@ -475,7 +475,7 @@ func TestCursorIndex_WrittenCorrectly(t *testing.T) {
 	m := testModels(t)
 
 	// Write an event
-	event := &prototypes.FirehoseEvent{
+	event := &types.FirehoseEvent{
 		UpstreamSeq: 12345,
 		EventType:   "#commit",
 		RawEvent:    []byte("test"),
@@ -527,7 +527,7 @@ func TestWriteEvent_LargeEvent(t *testing.T) {
 	_, err := rand.Read(largeData)
 	require.NoError(t, err)
 
-	event := &prototypes.FirehoseEvent{
+	event := &types.FirehoseEvent{
 		UpstreamSeq: 12345,
 		EventType:   "#commit",
 		RawEvent:    largeData,
@@ -562,7 +562,7 @@ func TestWriteEventBatch_Empty(t *testing.T) {
 	err := m.WriteEventBatch(ctx, nil)
 	require.NoError(t, err)
 
-	err = m.WriteEventBatch(ctx, []*prototypes.FirehoseEvent{})
+	err = m.WriteEventBatch(ctx, []*types.FirehoseEvent{})
 	require.NoError(t, err)
 
 	// Database should still be empty
@@ -577,7 +577,7 @@ func TestWriteEventBatch_SingleEvent(t *testing.T) {
 
 	m := testModels(t)
 
-	batch := []*prototypes.FirehoseEvent{
+	batch := []*types.FirehoseEvent{
 		{
 			UpstreamSeq: 100,
 			EventType:   "#commit",
@@ -604,7 +604,7 @@ func TestWriteEventBatch_MultipleEvents(t *testing.T) {
 
 	m := testModels(t)
 
-	batch := []*prototypes.FirehoseEvent{
+	batch := []*types.FirehoseEvent{
 		{UpstreamSeq: 100, EventType: "#commit", RawEvent: []byte("event 1")},
 		{UpstreamSeq: 101, EventType: "#identity", RawEvent: []byte("event 2")},
 		{UpstreamSeq: 102, EventType: "#account", RawEvent: []byte("event 3")},
@@ -633,7 +633,7 @@ func TestWriteEventBatch_CursorIndex(t *testing.T) {
 
 	m := testModels(t)
 
-	batch := []*prototypes.FirehoseEvent{
+	batch := []*types.FirehoseEvent{
 		{UpstreamSeq: 200, EventType: "#commit", RawEvent: []byte("event A")},
 		{UpstreamSeq: 201, EventType: "#commit", RawEvent: []byte("event B")},
 		{UpstreamSeq: 202, EventType: "#commit", RawEvent: []byte("event C")},
