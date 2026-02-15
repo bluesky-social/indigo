@@ -19,9 +19,17 @@ import (
 func testServer(t *testing.T) (*Server, *models.Models) {
 	t.Helper()
 	m := testModels(t)
+	b := newBroadcaster(slog.Default(), m)
+
+	// Start broadcaster in a background goroutine, stopped when the test ends.
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go b.Run(ctx)
+
 	s := &Server{
 		log:           slog.Default(),
 		models:        m,
+		broadcaster:   b,
 		subscribersMu: &sync.Mutex{},
 		subscribers:   make(map[uint64]*subscriber),
 	}

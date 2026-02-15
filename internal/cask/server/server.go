@@ -67,6 +67,10 @@ type Server struct {
 	cleanerMu     *sync.Mutex
 	cleanerCancel context.CancelFunc
 
+	// Broadcaster for fan-out to at-tip subscribers
+	broadcaster       *broadcaster
+	broadcasterCancel context.CancelFunc
+
 	// Subscriber tracking
 	subscribersMu    *sync.Mutex
 	subscribers      map[uint64]*subscriber
@@ -147,6 +151,7 @@ func New(ctx context.Context, config Config) (*Server, error) {
 		collectionDirHostURL: collectionDirHostURL,
 		db:                   db,
 		models:               m,
+		broadcaster:          newBroadcaster(config.Logger, m),
 		consumerMu:           &sync.Mutex{},
 		cleanerMu:            &sync.Mutex{},
 		subscribersMu:        &sync.Mutex{},
@@ -167,6 +172,12 @@ func New(ctx context.Context, config Config) (*Server, error) {
 }
 
 func (s *Server) Start(ctx context.Context, addr string) error {
+	// Start the broadcaster before accepting HTTP connections so it's
+	// ready to serve subscribers.
+	bctx, bcancel := context.WithCancel(context.Background())
+	s.broadcasterCancel = bcancel
+	go s.broadcaster.Run(bctx)
+
 	go func() {
 		if err := s.leaderElection.Run(ctx); err != nil && ctx.Err() == nil {
 			s.log.Error("leader election stopped unexpectedly", "error", err)
@@ -229,6 +240,11 @@ func (s *Server) router() *echo.Echo {
 // lock, we stop the consumer and release the lease. Then we close all subscriber connections
 // gracefully before shutting down the HTTP server.
 func (s *Server) Shutdown(ctx context.Context) error {
+	// Stop broadcaster before closing subscribers so in-flight fanouts complete.
+	if s.broadcasterCancel != nil {
+		s.broadcasterCancel()
+	}
+
 	s.stopConsumer()
 	s.stopCleaner()
 	s.leaderElection.Stop()

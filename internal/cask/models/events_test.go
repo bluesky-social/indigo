@@ -48,9 +48,9 @@ func TestWriteEvent(t *testing.T) {
 	require.Len(t, events, 1)
 	require.NotEmpty(t, cursor)
 
-	require.Equal(t, int64(12345), events[0].UpstreamSeq)
-	require.Equal(t, "#commit", events[0].EventType)
-	require.Equal(t, []byte("test raw event data"), events[0].RawEvent)
+	require.Equal(t, int64(12345), events[0].Event.UpstreamSeq)
+	require.Equal(t, "#commit", events[0].Event.EventType)
+	require.Equal(t, []byte("test raw event data"), events[0].Event.RawEvent)
 }
 
 func TestWriteEvent_Multiple(t *testing.T) {
@@ -77,7 +77,7 @@ func TestWriteEvent_Multiple(t *testing.T) {
 
 	// Verify they're in order (by upstream seq, which we wrote in order)
 	for i, event := range events {
-		require.Equal(t, int64(100+i), event.UpstreamSeq)
+		require.Equal(t, int64(100+i), event.Event.UpstreamSeq)
 	}
 }
 
@@ -103,26 +103,26 @@ func TestGetEventsSince_Pagination(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, events, 3)
 	require.NotEmpty(t, cursor)
-	require.Equal(t, int64(0), events[0].UpstreamSeq)
-	require.Equal(t, int64(1), events[1].UpstreamSeq)
-	require.Equal(t, int64(2), events[2].UpstreamSeq)
+	require.Equal(t, int64(0), events[0].Event.UpstreamSeq)
+	require.Equal(t, int64(1), events[1].Event.UpstreamSeq)
+	require.Equal(t, int64(2), events[2].Event.UpstreamSeq)
 
 	// Read next 3 using cursor
 	events, cursor, err = m.GetEventsSince(ctx, cursor, 3)
 	require.NoError(t, err)
 	require.Len(t, events, 3)
 	require.NotEmpty(t, cursor)
-	require.Equal(t, int64(3), events[0].UpstreamSeq)
-	require.Equal(t, int64(4), events[1].UpstreamSeq)
-	require.Equal(t, int64(5), events[2].UpstreamSeq)
+	require.Equal(t, int64(3), events[0].Event.UpstreamSeq)
+	require.Equal(t, int64(4), events[1].Event.UpstreamSeq)
+	require.Equal(t, int64(5), events[2].Event.UpstreamSeq)
 
 	// Read remaining 4
 	events, cursor, err = m.GetEventsSince(ctx, cursor, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 4)
 	require.NotEmpty(t, cursor)
-	require.Equal(t, int64(6), events[0].UpstreamSeq)
-	require.Equal(t, int64(9), events[3].UpstreamSeq)
+	require.Equal(t, int64(6), events[0].Event.UpstreamSeq)
+	require.Equal(t, int64(9), events[3].Event.UpstreamSeq)
 
 	// Reading past the end should return empty
 	events, cursor, err = m.GetEventsSince(ctx, cursor, 10)
@@ -211,7 +211,7 @@ func TestEventsOrdering(t *testing.T) {
 	require.Len(t, events, 5)
 
 	for i, event := range events {
-		require.Equal(t, upstreamSeqs[i], event.UpstreamSeq,
+		require.Equal(t, upstreamSeqs[i], event.Event.UpstreamSeq,
 			"event %d should have upstream seq %d", i, upstreamSeqs[i])
 	}
 }
@@ -266,9 +266,9 @@ func TestGetVersionstampForSeq_Basic(t *testing.T) {
 	require.Len(t, events, 3)
 	require.NotEmpty(t, cursor)
 
-	require.Equal(t, int64(102), events[0].UpstreamSeq)
-	require.Equal(t, int64(103), events[1].UpstreamSeq)
-	require.Equal(t, int64(104), events[2].UpstreamSeq)
+	require.Equal(t, int64(102), events[0].Event.UpstreamSeq)
+	require.Equal(t, int64(103), events[1].Event.UpstreamSeq)
+	require.Equal(t, int64(104), events[2].Event.UpstreamSeq)
 }
 
 func TestGetVersionstampForSeq_WithGaps(t *testing.T) {
@@ -300,8 +300,8 @@ func TestGetVersionstampForSeq_WithGaps(t *testing.T) {
 	require.Len(t, events, 2)
 	require.NotEmpty(t, cursor)
 
-	require.Equal(t, int64(1005), events[0].UpstreamSeq)
-	require.Equal(t, int64(1010), events[1].UpstreamSeq)
+	require.Equal(t, int64(1005), events[0].Event.UpstreamSeq)
+	require.Equal(t, int64(1010), events[1].Event.UpstreamSeq)
 }
 
 func TestGetVersionstampForSeq_CursorMatchesExactly(t *testing.T) {
@@ -333,7 +333,7 @@ func TestGetVersionstampForSeq_CursorMatchesExactly(t *testing.T) {
 	require.Len(t, events, 1)
 	require.NotEmpty(t, cursor)
 
-	require.Equal(t, int64(1010), events[0].UpstreamSeq)
+	require.Equal(t, int64(1010), events[0].Event.UpstreamSeq)
 }
 
 func TestGetVersionstampForSeq_CursorBeforeAllEvents(t *testing.T) {
@@ -365,9 +365,9 @@ func TestGetVersionstampForSeq_CursorBeforeAllEvents(t *testing.T) {
 	require.Len(t, events, 3)
 	require.NotEmpty(t, cursor)
 
-	require.Equal(t, int64(100), events[0].UpstreamSeq)
-	require.Equal(t, int64(101), events[1].UpstreamSeq)
-	require.Equal(t, int64(102), events[2].UpstreamSeq)
+	require.Equal(t, int64(100), events[0].Event.UpstreamSeq)
+	require.Equal(t, int64(101), events[1].Event.UpstreamSeq)
+	require.Equal(t, int64(102), events[2].Event.UpstreamSeq)
 }
 
 func TestGetVersionstampForSeq_CursorAfterAllEvents(t *testing.T) {
@@ -455,8 +455,8 @@ func TestGetVersionstampForSeq_Pagination(t *testing.T) {
 	require.Len(t, events, 3)
 	require.NotEmpty(t, cursor)
 
-	require.Equal(t, int64(100), events[0].UpstreamSeq)
-	require.Equal(t, int64(102), events[2].UpstreamSeq)
+	require.Equal(t, int64(100), events[0].Event.UpstreamSeq)
+	require.Equal(t, int64(102), events[2].Event.UpstreamSeq)
 
 	// Use returned cursor with GetEventsSince for continuation
 	events, cursor, err = m.GetEventsSince(ctx, cursor, 3)
@@ -464,8 +464,8 @@ func TestGetVersionstampForSeq_Pagination(t *testing.T) {
 	require.Len(t, events, 3)
 	require.NotEmpty(t, cursor)
 
-	require.Equal(t, int64(103), events[0].UpstreamSeq)
-	require.Equal(t, int64(105), events[2].UpstreamSeq)
+	require.Equal(t, int64(103), events[0].Event.UpstreamSeq)
+	require.Equal(t, int64(105), events[2].Event.UpstreamSeq)
 }
 
 func TestCursorIndex_WrittenCorrectly(t *testing.T) {
@@ -509,7 +509,7 @@ func TestCursorIndex_WrittenCorrectly(t *testing.T) {
 	events, returnedCursor, err := m.GetEventsSince(ctx, indexCursor2, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 1)
-	require.Equal(t, int64(12345), events[0].UpstreamSeq)
+	require.Equal(t, int64(12345), events[0].Event.UpstreamSeq)
 
 	// The cursor returned should be the same versionstamp as from direct lookup
 	require.Equal(t, vsCursor, returnedCursor)
@@ -542,9 +542,9 @@ func TestWriteEvent_LargeEvent(t *testing.T) {
 	require.Len(t, events, 1)
 	require.NotEmpty(t, cursor)
 
-	require.Equal(t, int64(12345), events[0].UpstreamSeq)
-	require.Equal(t, "#commit", events[0].EventType)
-	require.Equal(t, largeData, events[0].RawEvent)
+	require.Equal(t, int64(12345), events[0].Event.UpstreamSeq)
+	require.Equal(t, "#commit", events[0].Event.EventType)
+	require.Equal(t, largeData, events[0].Event.RawEvent)
 
 	// Verify GetLatestUpstreamSeq also works with chunked events
 	seq, err := m.GetLatestUpstreamSeq(ctx)
@@ -593,9 +593,9 @@ func TestWriteEventBatch_SingleEvent(t *testing.T) {
 	require.Len(t, events, 1)
 	require.NotEmpty(t, cursor)
 
-	require.Equal(t, int64(100), events[0].UpstreamSeq)
-	require.Equal(t, "#commit", events[0].EventType)
-	require.Equal(t, []byte("single event"), events[0].RawEvent)
+	require.Equal(t, int64(100), events[0].Event.UpstreamSeq)
+	require.Equal(t, "#commit", events[0].Event.EventType)
+	require.Equal(t, []byte("single event"), events[0].Event.RawEvent)
 }
 
 func TestWriteEventBatch_MultipleEvents(t *testing.T) {
@@ -621,9 +621,9 @@ func TestWriteEventBatch_MultipleEvents(t *testing.T) {
 
 	// Verify ordering is preserved within the batch
 	for i, evt := range events {
-		require.Equal(t, batch[i].UpstreamSeq, evt.UpstreamSeq)
-		require.Equal(t, batch[i].EventType, evt.EventType)
-		require.Equal(t, batch[i].RawEvent, evt.RawEvent)
+		require.Equal(t, batch[i].UpstreamSeq, evt.Event.UpstreamSeq)
+		require.Equal(t, batch[i].EventType, evt.Event.EventType)
+		require.Equal(t, batch[i].RawEvent, evt.Event.RawEvent)
 	}
 }
 
@@ -651,8 +651,8 @@ func TestWriteEventBatch_CursorIndex(t *testing.T) {
 	events, _, err := m.GetEventsSince(ctx, vsCursor, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 2)
-	require.Equal(t, int64(201), events[0].UpstreamSeq)
-	require.Equal(t, int64(202), events[1].UpstreamSeq)
+	require.Equal(t, int64(201), events[0].Event.UpstreamSeq)
+	require.Equal(t, int64(202), events[1].Event.UpstreamSeq)
 
 	// Looking up seq 201 should return only event 202
 	vsCursor2, err := m.GetVersionstampForSeq(ctx, 201)
@@ -662,7 +662,7 @@ func TestWriteEventBatch_CursorIndex(t *testing.T) {
 	events, _, err = m.GetEventsSince(ctx, vsCursor2, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 1)
-	require.Equal(t, int64(202), events[0].UpstreamSeq)
+	require.Equal(t, int64(202), events[0].Event.UpstreamSeq)
 
 	// GetLatestUpstreamSeq should return the last event in the batch
 	seq, err := m.GetLatestUpstreamSeq(ctx)

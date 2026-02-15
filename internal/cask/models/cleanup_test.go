@@ -92,8 +92,8 @@ func TestCleanupOldEvents_DeletesOldEvents(t *testing.T) {
 	events, _, err := m.GetEventsSince(ctx, nil, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 2)
-	require.Equal(t, int64(200), events[0].UpstreamSeq)
-	require.Equal(t, int64(201), events[1].UpstreamSeq)
+	require.Equal(t, int64(200), events[0].Event.UpstreamSeq)
+	require.Equal(t, int64(201), events[1].Event.UpstreamSeq)
 }
 
 func TestCleanupOldEvents_DeletesAllEvents(t *testing.T) {

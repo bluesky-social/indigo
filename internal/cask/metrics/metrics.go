@@ -33,6 +33,23 @@ var (
 	})
 )
 
+// Broadcaster metrics
+var (
+	// BroadcastSubscribers tracks the number of subscribers in broadcast mode
+	BroadcastSubscribers = promauto.NewGauge(prometheus.GaugeOpts{
+		Name:      "broadcast_subscribers",
+		Namespace: namespace,
+		Help:      "Current number of subscribers receiving events via broadcaster",
+	})
+
+	// SlowSubscriberDisconnects tracks subscribers kicked for full buffers
+	SlowSubscriberDisconnects = promauto.NewCounter(prometheus.CounterOpts{
+		Name:      "slow_subscriber_disconnects_total",
+		Namespace: namespace,
+		Help:      "Total number of subscribers disconnected for being too slow",
+	})
+)
+
 // Status label values
 const (
 	StatusOK    = "ok"

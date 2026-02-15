@@ -251,11 +251,19 @@ func (m *Models) GetLatestVersionstamp(ctx context.Context) (cursor []byte, err 
 	return
 }
 
+// EventResult pairs a deserialized event with the cursor that identifies it in the
+// event stream. The cursor is extracted from the FDB key and can be used for
+// cursor-based deduplication during catchup→broadcast transitions.
+type EventResult struct {
+	Event  *types.FirehoseEvent
+	Cursor []byte
+}
+
 // GetEventsSince retrieves events starting from (but not including) the given cursor.
 // If cursor is nil, retrieves from the beginning.
 // Events may be chunked, so this function reassembles chunks before returning.
-// Returns events and the cursor for the last event returned.
-func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (events []*types.FirehoseEvent, nextCursor []byte, err error) {
+// Returns events (with per-event cursors) and the cursor for the last event returned.
+func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (events []*EventResult, nextCursor []byte, err error) {
 	_, span, done := foundation.Observe(ctx, m.db, "GetEventsSince")
 	defer func() { done(err) }()
 
@@ -265,7 +273,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 	)
 
 	type result struct {
-		events     []*types.FirehoseEvent
+		events     []*EventResult
 		nextCursor []byte
 	}
 
@@ -296,7 +304,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 			Mode: fdb.StreamingModeWantAll,
 		}).Iterator()
 
-		var events []*types.FirehoseEvent
+		var events []*EventResult
 		var lastCursor []byte
 		var currentCursor []byte
 		var currentChunks [][]byte
@@ -329,7 +337,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 					return nil, fmt.Errorf("failed to unmarshal event: %w", err)
 				}
 
-				events = append(events, &event)
+				events = append(events, &EventResult{Event: &event, Cursor: currentCursor})
 				lastCursor = currentCursor
 
 				// Check limits
@@ -357,7 +365,7 @@ func (m *Models) GetEventsSince(ctx context.Context, cursor []byte, limit int) (
 				return nil, fmt.Errorf("failed to unmarshal event: %w", err)
 			}
 
-			events = append(events, &event)
+			events = append(events, &EventResult{Event: &event, Cursor: currentCursor})
 			lastCursor = currentCursor
 		}
 

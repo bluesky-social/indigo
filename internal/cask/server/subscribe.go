@@ -156,7 +156,7 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 		}
 	}
 
-	// Main event streaming loop - poll for new events
+	// Phase 1 — Catchup: poll FDB directly until we reach the tip (empty batch).
 	for {
 		select {
 		case <-ctx.Done():
@@ -169,18 +169,16 @@ func (s *Server) handleSubscribeRepos(c echo.Context) error {
 			return err
 		}
 
-		// nil cursor means empty batch - wait before polling again
 		if nextCursor == nil {
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-time.After(pollInterval):
-			}
-			continue
+			// Empty batch — subscriber is at the tip, transition to broadcast.
+			break
 		}
 
 		versionstampCursor = nextCursor
 	}
+
+	// Phase 2 — Broadcast: register with the broadcaster and stream via channel.
+	return s.streamFromBroadcaster(ctx, sub, conn, versionstampCursor)
 }
 
 // processBatch reads a batch of events from FDB and writes them to the websocket.
@@ -261,16 +259,16 @@ func (s *Server) getVersionstampForSeq(ctx context.Context, seq int64) ([]byte, 
 }
 
 func (s *Server) getEventsSince(ctx context.Context, cursor []byte, limit int) ([]*eventData, []byte, error) {
-	events, nextCursor, err := s.models.GetEventsSince(ctx, cursor, limit)
+	results, nextCursor, err := s.models.GetEventsSince(ctx, cursor, limit)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	res := make([]*eventData, 0, len(events))
-	for _, evt := range events {
+	res := make([]*eventData, 0, len(results))
+	for _, r := range results {
 		res = append(res, &eventData{
-			rawEvent:    evt.RawEvent,
-			upstreamSeq: evt.UpstreamSeq,
+			rawEvent:    r.Event.RawEvent,
+			upstreamSeq: r.Event.UpstreamSeq,
 		})
 	}
 

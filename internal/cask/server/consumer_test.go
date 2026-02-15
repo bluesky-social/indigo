@@ -333,14 +333,14 @@ func TestConsumer_BasicEvents(t *testing.T) {
 	require.Len(t, events, 3)
 
 	// Events should be in order
-	require.Equal(t, int64(100), events[0].UpstreamSeq)
-	require.Equal(t, "#commit", events[0].EventType)
+	require.Equal(t, int64(100), events[0].Event.UpstreamSeq)
+	require.Equal(t, "#commit", events[0].Event.EventType)
 
-	require.Equal(t, int64(101), events[1].UpstreamSeq)
-	require.Equal(t, "#commit", events[1].EventType)
+	require.Equal(t, int64(101), events[1].Event.UpstreamSeq)
+	require.Equal(t, "#commit", events[1].Event.EventType)
 
-	require.Equal(t, int64(102), events[2].UpstreamSeq)
-	require.Equal(t, "#identity", events[2].EventType)
+	require.Equal(t, int64(102), events[2].Event.UpstreamSeq)
+	require.Equal(t, "#identity", events[2].Event.EventType)
 }
 
 func TestConsumer_ResumesFromCursor(t *testing.T) {
@@ -466,20 +466,20 @@ func TestConsumer_AllEventTypes(t *testing.T) {
 	require.Len(t, evts, 5)
 
 	// Verify all event types were stored correctly
-	require.Equal(t, "#commit", evts[0].EventType)
-	require.Equal(t, int64(1), evts[0].UpstreamSeq)
+	require.Equal(t, "#commit", evts[0].Event.EventType)
+	require.Equal(t, int64(1), evts[0].Event.UpstreamSeq)
 
-	require.Equal(t, "#identity", evts[1].EventType)
-	require.Equal(t, int64(2), evts[1].UpstreamSeq)
+	require.Equal(t, "#identity", evts[1].Event.EventType)
+	require.Equal(t, int64(2), evts[1].Event.UpstreamSeq)
 
-	require.Equal(t, "#account", evts[2].EventType)
-	require.Equal(t, int64(3), evts[2].UpstreamSeq)
+	require.Equal(t, "#account", evts[2].Event.EventType)
+	require.Equal(t, int64(3), evts[2].Event.UpstreamSeq)
 
-	require.Equal(t, "#sync", evts[3].EventType)
-	require.Equal(t, int64(4), evts[3].UpstreamSeq)
+	require.Equal(t, "#sync", evts[3].Event.EventType)
+	require.Equal(t, int64(4), evts[3].Event.UpstreamSeq)
 
-	require.Equal(t, "#labels", evts[4].EventType)
-	require.Equal(t, int64(5), evts[4].UpstreamSeq)
+	require.Equal(t, "#labels", evts[4].Event.EventType)
+	require.Equal(t, int64(5), evts[4].Event.UpstreamSeq)
 }
 
 func TestConsumer_ContextCancellation(t *testing.T) {
@@ -560,7 +560,7 @@ func TestConsumer_LargeEventBatch(t *testing.T) {
 
 	// Verify ordering - events should be in write order
 	for i, evt := range evts {
-		require.Equal(t, int64(i+1), evt.UpstreamSeq)
+		require.Equal(t, int64(i+1), evt.Event.UpstreamSeq)
 	}
 }
 
@@ -598,10 +598,10 @@ func TestConsumer_UnknownMessageType(t *testing.T) {
 	require.Len(t, evts, 2)
 
 	// Unknown event should still be stored, but with seq=0
-	require.Equal(t, "#unknown_future_type", evts[0].EventType)
-	require.Equal(t, int64(0), evts[0].UpstreamSeq)
+	require.Equal(t, "#unknown_future_type", evts[0].Event.EventType)
+	require.Equal(t, int64(0), evts[0].Event.UpstreamSeq)
 
 	// Normal event should follow
-	require.Equal(t, "#commit", evts[1].EventType)
-	require.Equal(t, int64(100), evts[1].UpstreamSeq)
+	require.Equal(t, "#commit", evts[1].Event.EventType)
+	require.Equal(t, int64(100), evts[1].Event.UpstreamSeq)
 }
