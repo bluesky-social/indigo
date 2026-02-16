@@ -44,7 +44,7 @@ type TapConfig struct {
 	IdentityCacheSize          int
 	EventCacheSize             int
 	FullNetworkMode            bool
-	SignalCollection           string
+	SignalCollections          []string
 	DisableAcks                bool
 	WebhookURL                 string
 	CollectionFilters          []string // e.g., ["app.bsky.feed.post", "app.bsky.graph.*"]
@@ -80,7 +80,7 @@ func NewTap(config TapConfig) (*Tap, error) {
 
 	outbox := NewOutbox(logger, evtMngr, &config)
 
-	server := NewTapServer(logger, db, outbox, cdir, firehose, crawler, &config)
+	server := NewTapServer(logger, db, outbox, cdir, firehose, resyncer, crawler, &config)
 
 	t := &Tap{
 		db:     db,
