@@ -123,10 +123,10 @@ func run(args []string) error {
 						Usage:   "enumerate and sync all repos on the network",
 						Sources: cli.EnvVars("TAP_FULL_NETWORK"),
 					},
-					&cli.StringFlag{
-						Name:    "signal-collection",
-						Usage:   "enumerate repos by collection (exact NSID)",
-						Sources: cli.EnvVars("TAP_SIGNAL_COLLECTION"),
+					&cli.StringSliceFlag{
+						Name:    "signal-collections",
+						Usage:   "enumerate repos by collections (exact NSIDs)",
+						Sources: cli.EnvVars("TAP_SIGNAL_COLLECTIONS", "TAP_SIGNAL_COLLECTION"),
 					},
 					&cli.BoolFlag{
 						Name:    "disable-acks",
@@ -208,7 +208,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		IdentityCacheSize:          int(cmd.Int("ident-cache-size")),
 		EventCacheSize:             int(cmd.Int("outbox-capacity")),
 		FullNetworkMode:            cmd.Bool("full-network"),
-		SignalCollection:           cmd.String("signal-collection"),
+		SignalCollections:          cmd.StringSlice("signal-collections"),
 		DisableAcks:                cmd.Bool("disable-acks"),
 		WebhookURL:                 cmd.String("webhook-url"),
 		CollectionFilters:          cmd.StringSlice("collection-filters"),

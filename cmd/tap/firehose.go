@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -32,8 +33,10 @@ type FirehoseProcessor struct {
 
 	relayUrl           string
 	fullNetworkMode    bool
-	signalCollection   string
+	signalCollections  []string
+	signalsMu          sync.RWMutex
 	collectionFilters  []string
+	filtersMu          sync.RWMutex
 	parallelism        int
 	cursorSaveInterval time.Duration
 
@@ -48,11 +51,35 @@ func NewFirehoseProcessor(logger *slog.Logger, db *gorm.DB, events *EventManager
 		repos:              repos,
 		relayUrl:           config.RelayUrl,
 		fullNetworkMode:    config.FullNetworkMode,
-		signalCollection:   config.SignalCollection,
+		signalCollections:  config.SignalCollections,
 		collectionFilters:  config.CollectionFilters,
 		parallelism:        config.FirehoseParallelism,
 		cursorSaveInterval: config.FirehoseCursorSaveInterval,
 	}
+}
+
+func (fp *FirehoseProcessor) GetCollectionFilters() []string {
+	fp.filtersMu.RLock()
+	defer fp.filtersMu.RUnlock()
+	return append([]string{}, fp.collectionFilters...)
+}
+
+func (fp *FirehoseProcessor) SetCollectionFilters(filters []string) {
+	fp.filtersMu.Lock()
+	defer fp.filtersMu.Unlock()
+	fp.collectionFilters = filters
+}
+
+func (fp *FirehoseProcessor) GetSignalCollections() []string {
+	fp.signalsMu.RLock()
+	defer fp.signalsMu.RUnlock()
+	return append([]string{}, fp.signalCollections...)
+}
+
+func (fp *FirehoseProcessor) SetSignalCollections(signals []string) {
+	fp.signalsMu.Lock()
+	defer fp.signalsMu.Unlock()
+	fp.signalCollections = signals
 }
 
 func (fp *FirehoseProcessor) updateLastSeq(seq int64) {
@@ -80,7 +107,10 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 	if err != nil {
 		return err
 	} else if curr == nil {
-		shouldTrack := fp.fullNetworkMode || (fp.signalCollection != "" && evtHasSignalCollection(evt, fp.signalCollection))
+		fp.signalsMu.RLock()
+		signals := fp.signalCollections
+		fp.signalsMu.RUnlock()
+		shouldTrack := fp.fullNetworkMode || (len(signals) > 0 && evtHasSignalCollections(evt, signals))
 		if shouldTrack {
 			if err := fp.repos.EnsureRepo(ctx, evt.Repo); err != nil {
 				fp.logger.Error("failed to auto-track repo", "did", evt.Repo, "error", err)
@@ -149,6 +179,10 @@ func (fp *FirehoseProcessor) validateCommitAndFilterOps(ctx context.Context, evt
 
 	parsedOps := make([]CommitOp, 0)
 
+	fp.filtersMu.RLock()
+	filters := fp.collectionFilters
+	fp.filtersMu.RUnlock()
+
 	for _, op := range evt.Ops {
 		collection, rkey, err := syntax.ParseRepoPath(op.Path)
 		if err != nil {
@@ -182,7 +216,7 @@ func (fp *FirehoseProcessor) validateCommitAndFilterOps(ctx context.Context, evt
 			parsed.Record = record
 		}
 
-		if matchesCollection(parsed.Collection, fp.collectionFilters) {
+		if matchesCollection(parsed.Collection, filters) {
 			parsedOps = append(parsedOps, parsed)
 		}
 	}
