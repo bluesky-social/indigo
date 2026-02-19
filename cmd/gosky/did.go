@@ -18,7 +18,6 @@ var didCmd = &cli.Command{
 	Flags: []cli.Flag{},
 	Subcommands: []*cli.Command{
 		didGetCmd,
-		didCreateCmd,
 		didKeyCmd,
 	},
 }
@@ -63,45 +62,6 @@ var didGetCmd = &cli.Command{
 	},
 }
 
-var didCreateCmd = &cli.Command{
-	Name:      "create",
-	ArgsUsage: `<handle> <service>`,
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name: "recoverydid",
-		},
-		&cli.StringFlag{
-			Name: "signingkey",
-		},
-	},
-	Action: func(cctx *cli.Context) error {
-		s := cliutil.GetPLCClient(cctx)
-
-		args, err := needArgs(cctx, "handle", "service")
-		if err != nil {
-			return err
-		}
-		handle, service := args[0], args[1]
-
-		recoverydid := cctx.String("recoverydid")
-
-		sigkey, err := cliutil.LoadKeyFromFile(cctx.String("signingkey"))
-		if err != nil {
-			return err
-		}
-
-		fmt.Println("KEYDID: ", sigkey.Public().DID())
-
-		ndid, err := s.CreateDID(context.TODO(), sigkey, recoverydid, handle, service)
-		if err != nil {
-			return err
-		}
-
-		fmt.Println(ndid)
-		return nil
-	},
-}
-
 var didKeyCmd = &cli.Command{
 	Name: "did-key",
 	Flags: []cli.Flag{
@@ -114,7 +74,11 @@ var didKeyCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Println(sigkey.Public().DID())
+		pubkey, err := sigkey.PublicKey()
+		if err != nil {
+			return err
+		}
+		fmt.Println(pubkey.DIDKey())
 		return nil
 	},
 }
