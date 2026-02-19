@@ -188,6 +188,10 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 
 		switch ek {
 		case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
+			if op.Cid == nil {
+				s.Logger.Error("missing CID for create/update op", "repo", evt.Repo, "seq", evt.Seq, "path", op.Path)
+				break
+			}
 			// Grab the record from the merkel tree
 			rc, rec, err := rr.GetRecord(ctx, op.Path)
 			if err != nil {
