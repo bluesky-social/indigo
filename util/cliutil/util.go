@@ -9,9 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/atclient"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/plc"
-	"github.com/bluesky-social/indigo/xrpc"
 	slogGorm "github.com/orandin/slog-gorm"
 	"github.com/urfave/cli/v2"
 	"gorm.io/driver/postgres"
@@ -48,7 +49,7 @@ func NewHttpClient() *http.Client {
 	}
 }
 
-func GetXrpcClient(cctx *cli.Context, authreq bool) (*xrpc.Client, error) {
+func GetXrpcClient(cctx *cli.Context, authreq bool) (*atclient.APIClient, error) {
 	h := "http://localhost:4989"
 	if pdsurl := cctx.String("pds-host"); pdsurl != "" {
 		h = pdsurl
@@ -59,14 +60,35 @@ func GetXrpcClient(cctx *cli.Context, authreq bool) (*xrpc.Client, error) {
 		return nil, fmt.Errorf("loading auth: %w", err)
 	}
 
-	return &xrpc.Client{
-		Client: NewHttpClient(),
-		Host:   h,
-		Auth:   auth,
-	}, nil
+	c := atclient.NewAPIClient(h)
+	c.Client = NewHttpClient()
+	if auth != nil {
+		did, err := syntax.ParseDID(auth.Did)
+		if err != nil {
+			return nil, fmt.Errorf("parsing auth DID: %w", err)
+		}
+		c.Auth = &atclient.PasswordAuth{
+			Session: atclient.PasswordSessionData{
+				AccessToken:  auth.AccessJwt,
+				RefreshToken: auth.RefreshJwt,
+				AccountDID:   did,
+				Host:         h,
+			},
+		}
+		c.AccountDID = &did
+	}
+	return c, nil
 }
 
-func loadAuthFromEnv(cctx *cli.Context, req bool) (*xrpc.AuthInfo, error) {
+// AuthInfo is a type for reading legacy auth JSON files.
+type AuthInfo struct {
+	AccessJwt  string `json:"accessJwt"`
+	RefreshJwt string `json:"refreshJwt"`
+	Handle     string `json:"handle"`
+	Did        string `json:"did"`
+}
+
+func loadAuthFromEnv(cctx *cli.Context, req bool) (*AuthInfo, error) {
 	if a := cctx.String("auth"); a != "" {
 		if ai, err := ReadAuth(a); err != nil && req {
 			return nil, err
@@ -84,7 +106,7 @@ func loadAuthFromEnv(cctx *cli.Context, req bool) (*xrpc.AuthInfo, error) {
 		return nil, nil
 	}
 
-	var auth xrpc.AuthInfo
+	var auth AuthInfo
 	if err := json.Unmarshal([]byte(val), &auth); err != nil {
 		return nil, err
 	}
@@ -92,12 +114,12 @@ func loadAuthFromEnv(cctx *cli.Context, req bool) (*xrpc.AuthInfo, error) {
 	return &auth, nil
 }
 
-func ReadAuth(fname string) (*xrpc.AuthInfo, error) {
+func ReadAuth(fname string) (*AuthInfo, error) {
 	b, err := os.ReadFile(fname)
 	if err != nil {
 		return nil, err
 	}
-	var auth xrpc.AuthInfo
+	var auth AuthInfo
 	if err := json.Unmarshal(b, &auth); err != nil {
 		return nil, err
 	}

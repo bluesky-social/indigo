@@ -14,7 +14,7 @@ import (
 	"github.com/bluesky-social/indigo/automod/countstore"
 	"github.com/bluesky-social/indigo/automod/flagstore"
 	"github.com/bluesky-social/indigo/automod/setstore"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 )
 
 // runtime for executing rules, managing state, and recording moderation actions.
@@ -31,11 +31,13 @@ type Engine struct {
 	// unlike the other sub-modules, this field (Notifier) may be nil
 	Notifier Notifier
 	// use to fetch public account metadata from AppView; no auth
-	BskyClient *xrpc.Client
+	BskyClient *atclient.APIClient
 	// used to persist moderation actions in ozone moderation service; optional, admin auth
-	OzoneClient *xrpc.Client
+	OzoneClient *atclient.APIClient
 	// used to fetch private account metadata from PDS or entryway; optional, admin auth
-	AdminClient *xrpc.Client
+	AdminClient *atclient.APIClient
+	// DID of the ozone service account (used for CreatedBy fields and self-event filtering)
+	OzoneDID syntax.DID
 	// used to fetch blobs from upstream PDS instances
 	BlobClient *http.Client
 

@@ -27,7 +27,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/util/svcutil"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 
 	"github.com/hashicorp/golang-lru/v2"
 	"github.com/labstack/echo/v4"
@@ -35,6 +35,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/urfave/cli/v3"
 )
+
+// xrpcErrorResponse is used for JSON error responses in HTTP handlers.
+type xrpcErrorResponse struct {
+	ErrStr  string `json:"error"`
+	Message string `json:"message"`
+}
 
 var serveCmd = &cli.Command{
 	Name: "serve",
@@ -481,14 +487,14 @@ func (cs *collectionServer) getDidsForCollection(c echo.Context) error {
 	collection := c.QueryParam("collection")
 	_, err := syntax.ParseNSID(collection)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("bad collection nsid, %s", err.Error())})
+		return c.JSON(http.StatusBadRequest, xrpcErrorResponse{ErrStr: "BadRequest", Message: fmt.Sprintf("bad collection nsid, %s", err.Error())})
 	}
 	cursor := c.QueryParam("cursor")
 	limit := getLimit(c, 1, 500, 10_000)
 	they, nextCursor, err := cs.pcd.ReadCollection(ctx, collection, cursor, limit)
 	if err != nil {
 		slog.Error("ReadCollection", "collection", collection, "cursor", cursor, "limit", limit, "err", err)
-		return c.JSON(http.StatusInternalServerError, xrpc.XRPCError{ErrStr: "DatabaseError", Message: "failed to read DIDs for collection"})
+		return c.JSON(http.StatusInternalServerError, xrpcErrorResponse{ErrStr: "DatabaseError", Message: "failed to read DIDs for collection"})
 	}
 	cs.log.Info("getDidsForCollection", "collection", collection, "cursor", cursor, "limit", limit, "count", len(they), "nextCursor", nextCursor)
 	var out comatproto.SyncListReposByCollection_Output
@@ -636,7 +642,7 @@ func (cs *collectionServer) listCollections(c echo.Context) error {
 	if stalesecStr != "" && cs.isAdmin(c) {
 		stalesec, err := strconv.ParseInt(stalesecStr, 10, 64)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: "invalid 'stalesec' query parameter"})
+			return c.JSON(http.StatusBadRequest, xrpcErrorResponse{ErrStr: "BadRequest", Message: "invalid 'stalesec' query parameter"})
 		}
 		if stalesec == 0 {
 			stalenessAllowed = 1
@@ -648,7 +654,7 @@ func (cs *collectionServer) listCollections(c echo.Context) error {
 	stats, err := cs.getStatsCache(stalenessAllowed)
 	if err != nil {
 		slog.Error("getStatsCache", "err", err)
-		return c.JSON(http.StatusInternalServerError, xrpc.XRPCError{ErrStr: "DatabaseError", Message: "failed to read stats"})
+		return c.JSON(http.StatusInternalServerError, xrpcErrorResponse{ErrStr: "DatabaseError", Message: "failed to read stats"})
 	}
 	cursor := c.QueryParam("cursor")
 	collections, hasQueryCollections := c.QueryParams()["c"]
@@ -871,7 +877,7 @@ func (cs *collectionServer) isAdmin(c echo.Context) bool {
 func (cs *collectionServer) crawlPds(c echo.Context) error {
 	isAdmin := cs.isAdmin(c)
 	if !isAdmin {
-		return c.JSON(http.StatusForbidden, xrpc.XRPCError{ErrStr: "AdminRequired", Message: "this endpoint requires admin auth"})
+		return c.JSON(http.StatusForbidden, xrpcErrorResponse{ErrStr: "AdminRequired", Message: "this endpoint requires admin auth"})
 	}
 	hostQ := c.QueryParam("host")
 	if hostQ != "" {
@@ -883,7 +889,7 @@ func (cs *collectionServer) crawlPds(c echo.Context) error {
 	err := c.Bind(&req)
 	if err != nil {
 		cs.log.Info("bad crawl bind", "err", err)
-		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("failed to parse body: %s", err)})
+		return c.JSON(http.StatusBadRequest, xrpcErrorResponse{ErrStr: "BadRequest", Message: fmt.Sprintf("failed to parse body: %s", err)})
 	}
 	if req.Host != "" {
 		go cs.crawlThread(req.Host)
@@ -900,18 +906,14 @@ func (cs *collectionServer) crawlThread(hostIn string) {
 		cs.log.Info("going to crawl", "in", hostIn, "as", host)
 	}
 	httpClient := http.Client{}
-	rpcClient := xrpc.Client{
-		Host:   host,
-		Client: &httpClient,
-	}
+	rpcClient := atclient.NewAPIClient(host)
+	rpcClient.Client = &httpClient
 	if cs.ratelimitHeader != "" {
-		rpcClient.Headers = map[string]string{
-			"x-ratelimit-bypass": cs.ratelimitHeader,
-		}
+		rpcClient.Headers.Set("x-ratelimit-bypass", cs.ratelimitHeader)
 	}
 	crawler := Crawler{
 		Ctx:       cs.ctx,
-		RpcClient: &rpcClient,
+		RpcClient: rpcClient,
 		QPS:       cs.PerPDSCrawlQPS,
 		Results:   cs.ingestCrawl,
 		Log:       cs.log,
@@ -977,7 +979,7 @@ type HostCrawl struct {
 func (cs *collectionServer) crawlStatus(c echo.Context) error {
 	authHeader := c.Request().Header.Get("Authorization")
 	if authHeader != cs.ExepctedAuthHeader {
-		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "AdminAuthRequired", Message: "this endpoint requires admin-level auth"})
+		return c.JSON(http.StatusBadRequest, xrpcErrorResponse{ErrStr: "AdminAuthRequired", Message: "this endpoint requires admin-level auth"})
 	}
 	var out CrawlStatusResponse
 	out.HostCrawls = make(map[string]HostCrawl)

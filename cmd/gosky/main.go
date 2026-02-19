@@ -27,8 +27,8 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/gorilla/websocket"
@@ -580,12 +580,12 @@ var createFeedGeneratorCmd = &cli.Command{
 			DisplayName: name,
 		}}
 
-		ex, err := atproto.RepoGetRecord(ctx, xrpcc, "", "app.bsky.feed.generator", xrpcc.Auth.Did, rkey)
+		ex, err := atproto.RepoGetRecord(ctx, xrpcc, "", "app.bsky.feed.generator", xrpcc.AccountDID.String(), rkey)
 		if err == nil {
 			resp, err := atproto.RepoPutRecord(ctx, xrpcc, &atproto.RepoPutRecord_Input{
 				SwapRecord: ex.Cid,
 				Collection: "app.bsky.feed.generator",
-				Repo:       xrpcc.Auth.Did,
+				Repo:       xrpcc.AccountDID.String(),
 				Rkey:       rkey,
 				Record:     rec,
 			})
@@ -597,7 +597,7 @@ var createFeedGeneratorCmd = &cli.Command{
 		} else {
 			resp, err := atproto.RepoCreateRecord(ctx, xrpcc, &atproto.RepoCreateRecord_Input{
 				Collection: "app.bsky.feed.generator",
-				Repo:       xrpcc.Auth.Did,
+				Repo:       xrpcc.AccountDID.String(),
 				Rkey:       &rkey,
 				Record:     rec,
 			})
@@ -639,12 +639,10 @@ var listAllRecordsCmd = &cli.Command{
 				return err
 			}
 
-			xrpcc := &xrpc.Client{
-				Host: resp.PDSEndpoint(),
-			}
+			xrpcc := atclient.NewAPIClient(resp.PDSEndpoint())
 
 			if arg == "" {
-				arg = xrpcc.Auth.Did
+				arg = xrpcc.AccountDID.String()
 			}
 
 			rrb, err := comatproto.SyncGetRepo(ctx, xrpcc, arg, "")
@@ -748,9 +746,7 @@ var listLabelsCmd = &cli.Command{
 		delta := cctx.Duration("since")
 		since := time.Now().Add(-1 * delta).UnixMilli()
 
-		xrpcc := &xrpc.Client{
-			Host: "https://mod.bsky.app",
-		}
+		xrpcc := atclient.NewAPIClient("https://mod.bsky.app")
 
 		for {
 			out, err := atproto.TempFetchLabels(ctx, xrpcc, 100, since)
@@ -829,7 +825,7 @@ var verifyUserCmd = &cli.Command{
 
 		resp, err := atproto.RepoCreateRecord(ctx, xrpcc, &atproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.graph.verification",
-			Repo:       xrpcc.Auth.Did,
+			Repo:       xrpcc.AccountDID.String(),
 			Record:     rec,
 		})
 		if err != nil {

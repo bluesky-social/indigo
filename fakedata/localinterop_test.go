@@ -5,8 +5,8 @@ package fakedata
 import (
 	"testing"
 
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -26,22 +26,20 @@ const (
 func genTestCatalog(t *testing.T, pdsHost string) AccountCatalog {
 
 	ap := adminPassword
-	xrpccAdmin := xrpc.Client{
-		Client: util.TestingHTTPClient(),
-		Host:   pdsHost,
-	}
-	xrpccAdmin.AdminToken = &ap
+	xrpccAdmin := atclient.NewAPIClient(pdsHost)
+	xrpccAdmin.Client = util.TestingHTTPClient()
+	xrpccAdmin.Auth = &atclient.AdminAuth{Password: ap}
 
 	var catalog AccountCatalog
 	for i := 0; i < celebCount; i++ {
-		usr, err := GenAccount(&xrpccAdmin, i, "celebrity", "test", nil)
+		usr, err := GenAccount(xrpccAdmin, i, "celebrity", "test", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		catalog.Celebs = append(catalog.Celebs, *usr)
 	}
 	for i := 0; i < regularCount; i++ {
-		usr, err := GenAccount(&xrpccAdmin, i, "regular", "test", nil)
+		usr, err := GenAccount(xrpccAdmin, i, "regular", "test", nil)
 		if err != nil {
 			t.Fatal(err)
 		}

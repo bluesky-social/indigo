@@ -9,8 +9,9 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
+	"github.com/bluesky-social/indigo/atproto/atclient"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/urfave/cli/v3"
 )
@@ -26,28 +27,29 @@ func pollNewReports(ctx context.Context, cmd *cli.Command) error {
 	period := time.Duration(cmd.Int("poll-period")) * time.Second
 
 	// create a new session
-	xrpcc := &xrpc.Client{
-		Client: util.RobustHTTPClient(),
-		Host:   cmd.String("pds-host"),
-		Auth:   &xrpc.AuthInfo{Handle: cmd.String("handle")},
-	}
+	xrpcc := atclient.NewAPIClient(cmd.String("pds-host"))
+	xrpcc.Client = util.RobustHTTPClient()
 
 	auth, err := comatproto.ServerCreateSession(ctx, xrpcc, &comatproto.ServerCreateSession_Input{
-		Identifier: xrpcc.Auth.Handle,
+		Identifier: cmd.String("handle"),
 		Password:   cmd.String("password"),
 	})
 	if err != nil {
 		return err
 	}
-	xrpcc.Auth.AccessJwt = auth.AccessJwt
-	xrpcc.Auth.RefreshJwt = auth.RefreshJwt
-	xrpcc.Auth.Did = auth.Did
-	xrpcc.Auth.Handle = auth.Handle
-
-	adminToken := cmd.String("admin-password")
-	if len(adminToken) > 0 {
-		xrpcc.AdminToken = &adminToken
+	did, err := syntax.ParseDID(auth.Did)
+	if err != nil {
+		return err
 	}
+	xrpcc.Auth = &atclient.PasswordAuth{
+		Session: atclient.PasswordSessionData{
+			AccessToken:  auth.AccessJwt,
+			RefreshToken: auth.RefreshJwt,
+			AccountDID:   did,
+			Host:         cmd.String("pds-host"),
+		},
+	}
+	xrpcc.AccountDID = &did
 	logger.Info("report polling bot starting up...")
 	// can flip this bool to false to prevent spamming slack channel on startup
 	if true {
@@ -58,13 +60,14 @@ func pollNewReports(ctx context.Context, cmd *cli.Command) error {
 	}
 	for {
 		// refresh session
-		xrpcc.Auth.AccessJwt = xrpcc.Auth.RefreshJwt
+		pauth := xrpcc.Auth.(*atclient.PasswordAuth)
+		pauth.Session.AccessToken = pauth.Session.RefreshToken
 		refresh, err := comatproto.ServerRefreshSession(ctx, xrpcc)
 		if err != nil {
 			return err
 		}
-		xrpcc.Auth.AccessJwt = refresh.AccessJwt
-		xrpcc.Auth.RefreshJwt = refresh.RefreshJwt
+		pauth.Session.AccessToken = refresh.AccessJwt
+		pauth.Session.RefreshToken = refresh.RefreshJwt
 
 		// query just new reports (regardless of resolution state)
 		var limit int64 = 50

@@ -13,6 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util/cliutil"
@@ -80,8 +81,8 @@ var checkUserCmd = &cli.Command{
 
 		did := id.DID.String()
 
-		adminKey := cctx.String("admin-password")
-		xrpcc.AdminToken = &adminKey
+		tok := cctx.String("admin-password")
+		xrpcc.Auth = &atclient.AdminAuth{Password: tok}
 		xrpcc.Host = cctx.String("admin-endpoint")
 
 		rep, err := toolsozone.ModerationGetRepo(ctx, xrpcc, did)
@@ -195,9 +196,9 @@ var buildInviteTreeCmd = &cli.Command{
 
 		ctx := context.Background()
 
-		adminKey := cctx.String("admin-password")
+		tok := cctx.String("admin-password")
 
-		xrpcc.AdminToken = &adminKey
+		xrpcc.Auth = &atclient.AdminAuth{Password: tok}
 
 		var allcodes []*atproto.ServerDefs_InviteCode
 
@@ -385,8 +386,8 @@ var listReportsCmd = &cli.Command{
 
 		ctx := context.Background()
 
-		adminKey := cctx.String("admin-password")
-		xrpcc.AdminToken = &adminKey
+		tok := cctx.String("admin-password")
+		xrpcc.Auth = &atclient.AdminAuth{Password: tok}
 
 		// fetch recent moderation reports
 		resp, err := toolsozone.ModerationQueryEvents(
@@ -443,8 +444,8 @@ var disableInvitesCmd = &cli.Command{
 
 		ctx := context.Background()
 
-		adminKey := cctx.String("admin-password")
-		xrpcc.AdminToken = &adminKey
+		tok := cctx.String("admin-password")
+		xrpcc.Auth = &atclient.AdminAuth{Password: tok}
 
 		username, err := syntax.ParseAtIdentifier(cctx.Args().First())
 		if err != nil {
@@ -487,8 +488,8 @@ var enableInvitesCmd = &cli.Command{
 
 		ctx := context.Background()
 
-		adminKey := cctx.String("admin-password")
-		xrpcc.AdminToken = &adminKey
+		tok := cctx.String("admin-password")
+		xrpcc.Auth = &atclient.AdminAuth{Password: tok}
 
 		username, err := syntax.ParseAtIdentifier(cctx.Args().First())
 		if err != nil {
@@ -552,8 +553,8 @@ var listInviteTreeCmd = &cli.Command{
 		}
 		did := username.DID()
 
-		adminKey := cctx.String("admin-password")
-		xrpcc.AdminToken = &adminKey
+		tok := cctx.String("admin-password")
+		xrpcc.Auth = &atclient.AdminAuth{Password: tok}
 
 		queue := []string{did.String()}
 
@@ -634,8 +635,8 @@ var takeDownAccountCmd = &cli.Command{
 
 		ctx := context.Background()
 
-		adminKey := cctx.String("admin-password")
-		xrpcc.AdminToken = &adminKey
+		tok := cctx.String("admin-password")
+		xrpcc.Auth = &atclient.AdminAuth{Password: tok}
 
 		for _, did := range cctx.Args().Slice() {
 			if !strings.HasPrefix(did, "did:") {
@@ -700,8 +701,8 @@ var queryModerationStatusesCmd = &cli.Command{
 
 		ctx := context.Background()
 
-		adminKey := cctx.String("admin-password")
-		xrpcc.AdminToken = &adminKey
+		tok := cctx.String("admin-password")
+		xrpcc.Auth = &atclient.AdminAuth{Password: tok}
 
 		username, err := syntax.ParseAtIdentifier(cctx.Args().First())
 		if err != nil {
@@ -784,14 +785,14 @@ var createInviteCmd = &cli.Command{
 		}
 
 		ctx := context.Background()
-		adminKey := cctx.String("admin-password")
+		tok := cctx.String("admin-password")
 
 		count := cctx.Int("useCount")
 		num := cctx.Int("num")
 
 		bdir := identity.BaseDirectory{}
 		if bulkfi := cctx.String("bulk"); bulkfi != "" {
-			xrpcc.AdminToken = &adminKey
+			xrpcc.Auth = &atclient.AdminAuth{Password: tok}
 			dids, err := readDids(bulkfi)
 			if err != nil {
 				return err
@@ -841,7 +842,7 @@ var createInviteCmd = &cli.Command{
 			}
 		}
 
-		xrpcc.AdminToken = &adminKey
+		xrpcc.Auth = &atclient.AdminAuth{Password: tok}
 
 		resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
 			UseCount:    int64(count),

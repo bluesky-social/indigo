@@ -13,8 +13,8 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/brianvoe/gofakeit/v6"
 )
@@ -36,7 +36,7 @@ func MeasureIterations(name string) func(int) {
 	}
 }
 
-func GenAccount(xrpcc *xrpc.Client, index int, accountType, domainSuffix string, inviteCode *string) (*AccountContext, error) {
+func GenAccount(xrpcc *atclient.APIClient, index int, accountType, domainSuffix string, inviteCode *string) (*AccountContext, error) {
 	if domainSuffix == "" {
 		domainSuffix = "test"
 	}
@@ -63,7 +63,7 @@ func GenAccount(xrpcc *xrpc.Client, index int, accountType, domainSuffix string,
 	if err != nil {
 		return nil, err
 	}
-	auth := xrpc.AuthInfo{
+	auth := AuthInfo{
 		AccessJwt:  resp.AccessJwt,
 		RefreshJwt: resp.RefreshJwt,
 		Handle:     resp.Handle,
@@ -78,7 +78,7 @@ func GenAccount(xrpcc *xrpc.Client, index int, accountType, domainSuffix string,
 	}, nil
 }
 
-func GenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner bool) error {
+func GenProfile(xrpcc *atclient.APIClient, acc *AccountContext, genAvatar, genBanner bool) error {
 
 	desc := gofakeit.HipsterSentence(12)
 	var name string
@@ -129,7 +129,7 @@ func GenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner bo
 	return err
 }
 
-func GenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContext, maxPosts int, fracImage float64, fracMention float64) error {
+func GenPosts(xrpcc *atclient.APIClient, catalog *AccountCatalog, acc *AccountContext, maxPosts int, fracImage float64, fracMention float64) error {
 
 	var mention *appbsky.FeedPost_Entity
 	var tgt *AccountContext
@@ -214,20 +214,20 @@ func GenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContext, 
 	return nil
 }
 
-func CreateFollow(xrpcc *xrpc.Client, tgt *AccountContext) error {
+func CreateFollow(xrpcc *atclient.APIClient, tgt *AccountContext) error {
 	follow := &appbsky.GraphFollow{
 		CreatedAt: time.Now().Format(time.RFC3339),
 		Subject:   tgt.Auth.Did,
 	}
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.graph.follow",
-		Repo:       xrpcc.Auth.Did,
+		Repo:       xrpcc.AccountDID.String(),
 		Record:     &lexutil.LexiconTypeDecoder{Val: follow},
 	})
 	return err
 }
 
-func CreateLike(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) error {
+func CreateLike(xrpcc *atclient.APIClient, viewPost *appbsky.FeedDefs_FeedViewPost) error {
 	ctx := context.TODO()
 	like := appbsky.FeedLike{
 		Subject: &comatproto.RepoStrongRef{
@@ -239,13 +239,13 @@ func CreateLike(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) err
 	// TODO: may have already like? in that case should ignore error
 	_, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.like",
-		Repo:       xrpcc.Auth.Did,
+		Repo:       xrpcc.AccountDID.String(),
 		Record:     &lexutil.LexiconTypeDecoder{Val: &like},
 	})
 	return err
 }
 
-func CreateRepost(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) error {
+func CreateRepost(xrpcc *atclient.APIClient, viewPost *appbsky.FeedDefs_FeedViewPost) error {
 	repost := &appbsky.FeedRepost{
 		CreatedAt: time.Now().Format(time.RFC3339),
 		Subject: &comatproto.RepoStrongRef{
@@ -255,13 +255,13 @@ func CreateRepost(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) e
 	}
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.repost",
-		Repo:       xrpcc.Auth.Did,
+		Repo:       xrpcc.AccountDID.String(),
 		Record:     &lexutil.LexiconTypeDecoder{Val: repost},
 	})
 	return err
 }
 
-func CreateReply(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) error {
+func CreateReply(xrpcc *atclient.APIClient, viewPost *appbsky.FeedDefs_FeedViewPost) error {
 	text := gofakeit.Sentence(10)
 	if len(text) > 200 {
 		text = text[0:200]
@@ -287,13 +287,13 @@ func CreateReply(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) er
 	}
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.post",
-		Repo:       xrpcc.Auth.Did,
+		Repo:       xrpcc.AccountDID.String(),
 		Record:     &lexutil.LexiconTypeDecoder{Val: replyPost},
 	})
 	return err
 }
 
-func GenFollowsAndMutes(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContext, maxFollows int, maxMutes int) error {
+func GenFollowsAndMutes(xrpcc *atclient.APIClient, catalog *AccountCatalog, acc *AccountContext, maxFollows int, maxMutes int) error {
 
 	// TODO: have a "shape" to likelihood of doing a follow
 	var tgt *AccountContext
@@ -351,7 +351,7 @@ func GenFollowsAndMutes(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *Accoun
 	return nil
 }
 
-func GenLikesRepostsReplies(xrpcc *xrpc.Client, acc *AccountContext, fracLike, fracRepost, fracReply float64) error {
+func GenLikesRepostsReplies(xrpcc *atclient.APIClient, acc *AccountContext, fracLike, fracRepost, fracReply float64) error {
 	// fetch timeline (up to 100), and iterate over posts
 	maxTimeline := 100
 	resp, err := appbsky.FeedGetTimeline(context.TODO(), xrpcc, "", "", int64(maxTimeline))
@@ -387,7 +387,7 @@ func GenLikesRepostsReplies(xrpcc *xrpc.Client, acc *AccountContext, fracLike, f
 	return nil
 }
 
-func BrowseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
+func BrowseAccount(xrpcc *atclient.APIClient, acc *AccountContext) error {
 	// fetch notifications
 	maxNotif := 50
 	resp, err := appbsky.NotificationListNotifications(context.TODO(), xrpcc, "", int64(maxNotif), false, nil, "")

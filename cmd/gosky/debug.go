@@ -26,8 +26,8 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
@@ -510,9 +510,7 @@ var debugFeedGenCmd = &cli.Command{
 
 		fmt.Println("Service endpoint is: ", svc.URL)
 
-		fgclient := &xrpc.Client{
-			Host: svc.URL,
-		}
+		fgclient := atclient.NewAPIClient(svc.URL)
 
 		desc, err := bsky.FeedDescribeFeedGenerator(ctx, fgclient)
 		if err != nil {
@@ -623,9 +621,7 @@ var debugFeedViewCmd = &cli.Command{
 			return fmt.Errorf("No '#bsky_fg' service entry found in feedgens DID document")
 		}
 
-		fgclient := &xrpc.Client{
-			Host: svc.URL,
-		}
+		fgclient := atclient.NewAPIClient(svc.URL)
 
 		cache, err := loadCache("postcache.json")
 		if err != nil {
@@ -831,11 +827,9 @@ var debugCompareReposCmd = &cli.Command{
 		wg := sync.WaitGroup{}
 		wg.Add(2)
 
-		xrpc1 := xrpc.Client{
-			Host: cctx.String("host-1"),
-			Client: &http.Client{
-				Timeout: 15 * time.Minute,
-			},
+		xrpc1 := atclient.NewAPIClient(cctx.String("host-1"))
+		xrpc1.Client = &http.Client{
+			Timeout: 15 * time.Minute,
 		}
 
 		if !cctx.IsSet("host-1") {
@@ -848,18 +842,16 @@ var debugCompareReposCmd = &cli.Command{
 			xrpc1.Host = ident.PDSEndpoint()
 		}
 
-		xrpc2 := xrpc.Client{
-			Host: cctx.String("host-2"),
-			Client: &http.Client{
-				Timeout: 15 * time.Minute,
-			},
+		xrpc2 := atclient.NewAPIClient(cctx.String("host-2"))
+		xrpc2.Client = &http.Client{
+			Timeout: 15 * time.Minute,
 		}
 
 		var rep1 *repo.Repo
 		go func() {
 			defer wg.Done()
 			logger := log.With("host", cctx.String("host-1"))
-			repo1bytes, err := comatproto.SyncGetRepo(ctx, &xrpc1, did.String(), "")
+			repo1bytes, err := comatproto.SyncGetRepo(ctx, xrpc1, did.String(), "")
 			if err != nil {
 				logger.Error("getting repo", "err", err)
 				os.Exit(1)
@@ -878,7 +870,7 @@ var debugCompareReposCmd = &cli.Command{
 		go func() {
 			defer wg.Done()
 			logger := log.With("host", cctx.String("host-2"))
-			repo2bytes, err := comatproto.SyncGetRepo(ctx, &xrpc2, did.String(), "")
+			repo2bytes, err := comatproto.SyncGetRepo(ctx, xrpc2, did.String(), "")
 			if err != nil {
 				logger.Error("getting repo", "err", err)
 				os.Exit(1)

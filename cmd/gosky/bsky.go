@@ -52,7 +52,7 @@ var bskyFollowCmd = &cli.Command{
 
 		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.graph.follow",
-			Repo:       xrpcc.Auth.Did,
+			Repo:       xrpcc.AccountDID.String(),
 			Record:     &lexutil.LexiconTypeDecoder{Val: &follow},
 		})
 		if err != nil {
@@ -77,7 +77,7 @@ var bskyListFollowsCmd = &cli.Command{
 
 		user := cctx.Args().First()
 		if user == "" {
-			user = xrpcc.Auth.Did
+			user = xrpcc.AccountDID.String()
 		}
 
 		ctx := context.TODO()
@@ -104,13 +104,11 @@ var bskyPostCmd = &cli.Command{
 			return err
 		}
 
-		auth := xrpcc.Auth
-
 		text := strings.Join(cctx.Args().Slice(), " ")
 
 		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.post",
-			Repo:       auth.Did,
+			Repo:       xrpcc.AccountDID.String(),
 			Record: &lexutil.LexiconTypeDecoder{Val: &appbsky.FeedPost{
 				Text:      text,
 				CreatedAt: time.Now().Format(util.ISO8601),
@@ -175,7 +173,7 @@ var bskyGetFeedCmd = &cli.Command{
 		author := cctx.String("author")
 		if author != "" {
 			if author == "self" {
-				author = xrpcc.Auth.Did
+				author = xrpcc.AccountDID.String()
 			}
 
 			tl, err := appbsky.FeedGetAuthorFeed(ctx, xrpcc, author, "", "", false, 99)
@@ -226,7 +224,7 @@ var bskyActorGetSuggestionsCmd = &cli.Command{
 
 		author := cctx.Args().First()
 		if author == "" {
-			author = xrpcc.Auth.Did
+			author = xrpcc.AccountDID.String()
 		}
 
 		resp, err := appbsky.ActorGetSuggestions(ctx, xrpcc, "", 100)
@@ -275,7 +273,7 @@ var bskyLikeCmd = &cli.Command{
 
 		out, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.like",
-			Repo:       xrpcc.Auth.Did,
+			Repo:       xrpcc.AccountDID.String(),
 			Record: &lexutil.LexiconTypeDecoder{
 				Val: &appbsky.FeedLike{
 					CreatedAt: time.Now().Format(util.ISO8601),
@@ -315,7 +313,7 @@ var bskyDeletePostCmd = &cli.Command{
 		}
 
 		_, err = comatproto.RepoDeleteRecord(context.TODO(), xrpcc, &comatproto.RepoDeleteRecord_Input{
-			Repo:       xrpcc.Auth.Did,
+			Repo:       xrpcc.AccountDID.String(),
 			Collection: schema,
 			Rkey:       rkey,
 		})

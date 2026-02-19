@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	bsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 )
 
 type FeedPost struct {
@@ -121,16 +121,12 @@ type PDS struct {
 	DailyEventLimit  int64
 }
 
-func ClientForPds(pds *PDS) *xrpc.Client {
+func ClientForPds(pds *PDS) *atclient.APIClient {
 	if pds.SSL {
-		return &xrpc.Client{
-			Host: "https://" + pds.Host,
-		}
+		return atclient.NewAPIClient("https://" + pds.Host)
 	}
 
-	return &xrpc.Client{
-		Host: "http://" + pds.Host,
-	}
+	return atclient.NewAPIClient("http://" + pds.Host)
 }
 
 // The CreatedAt column corresponds to the 'cat' timestamp on label records. The UpdatedAt column is database-specific.

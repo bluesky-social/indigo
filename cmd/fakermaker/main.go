@@ -16,8 +16,9 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/fakedata"
+	"github.com/bluesky-social/indigo/atproto/atclient"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v3"
@@ -214,7 +215,7 @@ func genAccounts(ctx context.Context, cmd *cli.Command) error {
 	}
 	adminToken := cmd.String("admin-password")
 	if len(adminToken) > 0 {
-		xrpcc.AdminToken = &adminToken
+		xrpcc.Auth = &atclient.AdminAuth{Password: adminToken}
 	}
 
 	countTotal := cmd.Int("count")
@@ -449,7 +450,7 @@ func runBrowsing(ctx context.Context, cmd *cli.Command) error {
 	return eg.Wait()
 }
 
-func getXrpcClient(cmd *cli.Command, authreq bool) (*xrpc.Client, error) {
+func getXrpcClient(cmd *cli.Command, authreq bool) (*atclient.APIClient, error) {
 	h := "http://localhost:4989"
 	if pdsurl := cmd.String("pds-host"); pdsurl != "" {
 		h = pdsurl
@@ -460,14 +461,27 @@ func getXrpcClient(cmd *cli.Command, authreq bool) (*xrpc.Client, error) {
 		return nil, fmt.Errorf("loading auth: %w", err)
 	}
 
-	return &xrpc.Client{
-		Client: cliutil.NewHttpClient(),
-		Host:   h,
-		Auth:   auth,
-	}, nil
+	c := atclient.NewAPIClient(h)
+	c.Client = cliutil.NewHttpClient()
+	if auth != nil {
+		did, err := syntax.ParseDID(auth.Did)
+		if err != nil {
+			return nil, fmt.Errorf("parsing auth DID: %w", err)
+		}
+		c.Auth = &atclient.PasswordAuth{
+			Session: atclient.PasswordSessionData{
+				AccessToken:  auth.AccessJwt,
+				RefreshToken: auth.RefreshJwt,
+				AccountDID:   did,
+				Host:         h,
+			},
+		}
+		c.AccountDID = &did
+	}
+	return c, nil
 }
 
-func loadAuthFromEnv(cmd *cli.Command, req bool) (*xrpc.AuthInfo, error) {
+func loadAuthFromEnv(cmd *cli.Command, req bool) (*cliutil.AuthInfo, error) {
 	if a := cmd.String("auth"); a != "" {
 		if ai, err := cliutil.ReadAuth(a); err != nil && req {
 			return nil, err
@@ -481,14 +495,12 @@ func loadAuthFromEnv(cmd *cli.Command, req bool) (*xrpc.AuthInfo, error) {
 		if req {
 			return nil, fmt.Errorf("no auth env present, ATP_AUTH_FILE not set")
 		}
-
 		return nil, nil
 	}
 
-	var auth xrpc.AuthInfo
+	var auth cliutil.AuthInfo
 	if err := json.Unmarshal([]byte(val), &auth); err != nil {
 		return nil, err
 	}
-
 	return &auth, nil
 }

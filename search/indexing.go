@@ -16,7 +16,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/backfill"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel/attribute"
@@ -33,7 +33,7 @@ type Indexer struct {
 	profileIndex string
 	db           *gorm.DB
 	relayhost    string
-	relayXRPC    *xrpc.Client
+	relayXRPC    *atclient.APIClient
 	dir          identity.Directory
 	echo         *echo.Echo
 	logger       *slog.Logger
@@ -97,9 +97,7 @@ func NewIndexer(db *gorm.DB, escli *es.Client, dir identity.Directory, config In
 	}
 
 	relayHTTP := strings.Replace(relayWS, "ws", "http", 1)
-	relayXRPC := &xrpc.Client{
-		Host: relayHTTP,
-	}
+	relayXRPC := atclient.NewAPIClient(relayHTTP)
 
 	limiter := rate.NewLimiter(rate.Limit(config.IndexingRateLimit), 10_000)
 

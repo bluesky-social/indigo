@@ -129,7 +129,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		}
 		comment := "[automod]: auto-labeling account"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: eng.OzoneDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventLabel: &toolsozone.ModerationDefs_ModEventLabel{
 					CreateLabelVals: newLabels,
@@ -156,7 +156,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		}
 		comment := "[automod]: auto-tagging account"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: eng.OzoneDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventTag: &toolsozone.ModerationDefs_ModEventTag{
 					Add:     newTags,
@@ -192,7 +192,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		actionNewTakedownCount.WithLabelValues("account").Inc()
 		comment := "[automod]: auto account-takedown"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: eng.OzoneDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventTakedown: &toolsozone.ModerationDefs_ModEventTakedown{
 					Comment: &comment,
@@ -217,7 +217,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		actionNewEscalationCount.WithLabelValues("account").Inc()
 		comment := "[automod]: auto account-escalation"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: eng.OzoneDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventEscalate: &toolsozone.ModerationDefs_ModEventEscalate{
 					Comment: &comment,
@@ -239,7 +239,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		actionNewAcknowledgeCount.WithLabelValues("account").Inc()
 		comment := "[automod]: auto account-acknowledge"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: eng.OzoneDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventAcknowledge: &toolsozone.ModerationDefs_ModEventAcknowledge{
 					Comment: &comment,
@@ -398,7 +398,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		}
 		comment := "[automod]: auto-labeling record"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: eng.OzoneDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventLabel: &toolsozone.ModerationDefs_ModEventLabel{
 					CreateLabelVals: newLabels,
@@ -423,7 +423,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		}
 		comment := "[automod]: auto-tagging record"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: eng.OzoneDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventTag: &toolsozone.ModerationDefs_ModEventTag{
 					Add:     newTags,
@@ -452,7 +452,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		actionNewTakedownCount.WithLabelValues("record").Inc()
 		comment := "[automod]: automated record-takedown"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: eng.OzoneDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventTakedown: &toolsozone.ModerationDefs_ModEventTakedown{
 					Comment: &comment,
@@ -476,7 +476,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		actionNewEscalationCount.WithLabelValues("record").Inc()
 		comment := "[automod]: automated record-escalation"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: eng.OzoneDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventEscalate: &toolsozone.ModerationDefs_ModEventEscalate{
 					Comment: &comment,
@@ -496,7 +496,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		actionNewAcknowledgeCount.WithLabelValues("record").Inc()
 		comment := "[automod]: automated record-acknowledge"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: eng.OzoneDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventAcknowledge: &toolsozone.ModerationDefs_ModEventAcknowledge{
 					Comment: &comment,

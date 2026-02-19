@@ -18,8 +18,9 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/testing"
+	"github.com/bluesky-social/indigo/atproto/atclient"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/ipfs/go-cid"
@@ -115,12 +116,19 @@ var postingCmd = &cli.Command{
 			return err
 		}
 
-		xrpcc.Auth = &xrpc.AuthInfo{
-			AccessJwt:  resp.AccessJwt,
-			RefreshJwt: resp.RefreshJwt,
-			Handle:     resp.Handle,
-			Did:        resp.Did,
+		acctDid, err := syntax.ParseDID(resp.Did)
+		if err != nil {
+			return err
 		}
+		xrpcc.Auth = &atclient.PasswordAuth{
+			Session: atclient.PasswordSessionData{
+				AccessToken:  resp.AccessJwt,
+				RefreshToken: resp.RefreshJwt,
+				AccountDID:   acctDid,
+				Host:         cmd.String("pds-host"),
+			},
+		}
+		xrpcc.AccountDID = &acctDid
 
 		var wg sync.WaitGroup
 		for con := 0; con < concurrent; con++ {
@@ -133,7 +141,7 @@ var postingCmd = &cli.Command{
 
 					res, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 						Collection: "app.bsky.feed.post",
-						Repo:       xrpcc.Auth.Did,
+						Repo:       xrpcc.AccountDID.String(),
 						Record: &lexutil.LexiconTypeDecoder{Val: &appbsky.FeedPost{
 							Text:      hex.EncodeToString(buf),
 							CreatedAt: time.Now().Format(time.RFC3339),
@@ -226,7 +234,7 @@ var genRepoCmd = &cli.Command{
 	},
 }
 
-func getXrpcClient(cmd *cli.Command, authreq bool) (*xrpc.Client, error) {
+func getXrpcClient(cmd *cli.Command, authreq bool) (*atclient.APIClient, error) {
 	h := "http://localhost:4989"
 	if pdsurl := cmd.String("pds-host"); pdsurl != "" {
 		h = pdsurl
@@ -237,14 +245,27 @@ func getXrpcClient(cmd *cli.Command, authreq bool) (*xrpc.Client, error) {
 		return nil, fmt.Errorf("loading auth: %w", err)
 	}
 
-	return &xrpc.Client{
-		Client: cliutil.NewHttpClient(),
-		Host:   h,
-		Auth:   auth,
-	}, nil
+	c := atclient.NewAPIClient(h)
+	c.Client = cliutil.NewHttpClient()
+	if auth != nil {
+		did, err := syntax.ParseDID(auth.Did)
+		if err != nil {
+			return nil, fmt.Errorf("parsing auth DID: %w", err)
+		}
+		c.Auth = &atclient.PasswordAuth{
+			Session: atclient.PasswordSessionData{
+				AccessToken:  auth.AccessJwt,
+				RefreshToken: auth.RefreshJwt,
+				AccountDID:   did,
+				Host:         h,
+			},
+		}
+		c.AccountDID = &did
+	}
+	return c, nil
 }
 
-func loadAuthFromEnv(cmd *cli.Command, req bool) (*xrpc.AuthInfo, error) {
+func loadAuthFromEnv(cmd *cli.Command, req bool) (*cliutil.AuthInfo, error) {
 	if a := cmd.String("auth"); a != "" {
 		if ai, err := cliutil.ReadAuth(a); err != nil && req {
 			return nil, err
@@ -258,14 +279,12 @@ func loadAuthFromEnv(cmd *cli.Command, req bool) (*xrpc.AuthInfo, error) {
 		if req {
 			return nil, fmt.Errorf("no auth env present, ATP_AUTH_FILE not set")
 		}
-
 		return nil, nil
 	}
 
-	var auth xrpc.AuthInfo
+	var auth cliutil.AuthInfo
 	if err := json.Unmarshal([]byte(val), &auth); err != nil {
 		return nil, err
 	}
-
 	return &auth, nil
 }

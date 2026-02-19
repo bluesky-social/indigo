@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
@@ -19,7 +20,6 @@ import (
 	"github.com/bluesky-social/indigo/automod/setstore"
 	"github.com/bluesky-social/indigo/automod/visual"
 	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
@@ -67,39 +67,31 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		}))
 	}
 
-	var ozoneClient *xrpc.Client
+	var ozoneClient *atclient.APIClient
+	var ozoneDID syntax.DID
 	if config.OzoneAdminToken != "" && config.OzoneDID != "" {
-		ozoneClient = &xrpc.Client{
-			Client:     util.RobustHTTPClient(),
-			Host:       config.OzoneHost,
-			AdminToken: &config.OzoneAdminToken,
-			Auth:       &xrpc.AuthInfo{},
-		}
+		ozoneClient = atclient.NewAdminClient(config.OzoneHost, config.OzoneAdminToken)
+		ozoneClient.Client = util.RobustHTTPClient()
 		if config.RatelimitBypass != "" {
-			ozoneClient.Headers = make(map[string]string)
-			ozoneClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
+			ozoneClient.Headers.Set("x-ratelimit-bypass", config.RatelimitBypass)
 		}
 		od, err := syntax.ParseDID(config.OzoneDID)
 		if err != nil {
 			return nil, fmt.Errorf("ozone account DID supplied was not valid: %v", err)
 		}
-		ozoneClient.Auth.Did = od.String()
+		ozoneDID = od
+		ozoneClient.AccountDID = &od
 		logger.Info("configured ozone admin client", "did", od.String(), "ozoneHost", config.OzoneHost)
 	} else {
 		logger.Info("did not configure ozone client")
 	}
 
-	var adminClient *xrpc.Client
+	var adminClient *atclient.APIClient
 	if config.PDSAdminToken != "" {
-		adminClient = &xrpc.Client{
-			Client:     util.RobustHTTPClient(),
-			Host:       config.PDSHost,
-			AdminToken: &config.PDSAdminToken,
-			Auth:       &xrpc.AuthInfo{},
-		}
+		adminClient = atclient.NewAdminClient(config.PDSHost, config.PDSAdminToken)
+		adminClient.Client = util.RobustHTTPClient()
 		if config.RatelimitBypass != "" {
-			adminClient.Headers = make(map[string]string)
-			adminClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
+			adminClient.Headers.Set("x-ratelimit-bypass", config.RatelimitBypass)
 		}
 		logger.Info("configured PDS admin client", "pdsHost", config.PDSHost)
 	} else {
@@ -195,13 +187,10 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		}
 	}
 
-	bskyClient := xrpc.Client{
-		Client: util.RobustHTTPClient(),
-		Host:   config.BskyHost,
-	}
+	bskyClient := atclient.NewAPIClient(config.BskyHost)
+	bskyClient.Client = util.RobustHTTPClient()
 	if config.RatelimitBypass != "" {
-		bskyClient.Headers = make(map[string]string)
-		bskyClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
+		bskyClient.Headers.Set("x-ratelimit-bypass", config.RatelimitBypass)
 	}
 	blobClient := util.RobustHTTPClient()
 	eng := automod.Engine{
@@ -213,8 +202,9 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		Cache:       cache,
 		Rules:       ruleset,
 		Notifier:    notifier,
-		BskyClient:  &bskyClient,
+		BskyClient:  bskyClient,
 		OzoneClient: ozoneClient,
+		OzoneDID:    ozoneDID,
 		AdminClient: adminClient,
 		BlobClient:  blobClient,
 		Config: engine.EngineConfig{

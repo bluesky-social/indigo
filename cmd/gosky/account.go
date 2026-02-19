@@ -8,6 +8,7 @@ import (
 	"os"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/util/cliutil"
 
 	"github.com/urfave/cli/v2"
@@ -151,8 +152,11 @@ var refreshAuthTokenCmd = &cli.Command{
 			return err
 		}
 
-		a := xrpcc.Auth
-		a.AccessJwt = a.RefreshJwt
+		pauth, ok := xrpcc.Auth.(*atclient.PasswordAuth)
+		if !ok {
+			return fmt.Errorf("auth session required for token refresh")
+		}
+		pauth.Session.AccessToken = pauth.Session.RefreshToken
 
 		ctx := context.TODO()
 		nauth, err := comatproto.ServerRefreshSession(ctx, xrpcc)
@@ -204,7 +208,7 @@ var deleteAccountCmd = &cli.Command{
 		password := cctx.Args().Get(1)
 
 		err = comatproto.ServerDeleteAccount(cctx.Context, xrpcc, &comatproto.ServerDeleteAccount_Input{
-			Did:      xrpcc.Auth.Did,
+			Did:      xrpcc.AccountDID.String(),
 			Token:    token,
 			Password: password,
 		})

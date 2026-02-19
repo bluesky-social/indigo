@@ -178,7 +178,7 @@ func (eng *Engine) ProcessOzoneEvent(ctx context.Context, eventView *toolsozone.
 	}
 
 	// if this is a "self-event", created by automod itself, skip it to prevent a loop
-	if ec.Event.CreatedBy.String() == eng.OzoneClient.Auth.Did {
+	if ec.Event.CreatedBy.String() == eng.OzoneDID.String() {
 		ec.Logger.Debug("skipping ozone self-event")
 		return nil
 	}

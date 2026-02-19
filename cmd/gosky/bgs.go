@@ -8,10 +8,18 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/bluesky-social/indigo/xrpc"
-
 	"github.com/urfave/cli/v2"
 )
+
+// xrpcError is a local type for decoding XRPC error responses.
+type xrpcError struct {
+	ErrStr  string `json:"error"`
+	Message string `json:"message"`
+}
+
+func (e *xrpcError) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrStr, e.Message)
+}
 
 var bgsAdminCmd = &cli.Command{
 	Name:  "bgs",
@@ -57,7 +65,7 @@ var bgsListUpstreamsCmd = &cli.Command{
 		}
 
 		if resp.StatusCode != 200 {
-			var e xrpc.XRPCError
+			var e xrpcError
 			if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
 				return err
 			}
@@ -111,7 +119,7 @@ var bgsKickConnectionCmd = &cli.Command{
 		}
 
 		if resp.StatusCode != 200 {
-			var e xrpc.XRPCError
+			var e xrpcError
 			if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
 				return err
 			}
@@ -148,7 +156,7 @@ var bgsListDomainBansCmd = &cli.Command{
 		}
 
 		if resp.StatusCode != 200 {
-			var e xrpc.XRPCError
+			var e xrpcError
 			if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
 				return err
 			}
@@ -198,7 +206,7 @@ var bgsBanDomainCmd = &cli.Command{
 		}
 
 		if resp.StatusCode != 200 {
-			var e xrpc.XRPCError
+			var e xrpcError
 			if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
 				return err
 			}
@@ -246,7 +254,7 @@ var bgsTakedownRepoCmd = &cli.Command{
 		}
 
 		if resp.StatusCode != 200 {
-			var e xrpc.XRPCError
+			var e xrpcError
 			if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
 				return err
 			}
@@ -293,7 +301,7 @@ var bgsSetNewSubsEnabledCmd = &cli.Command{
 		}
 
 		if resp.StatusCode != 200 {
-			var e xrpc.XRPCError
+			var e xrpcError
 			if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
 				return err
 			}
@@ -350,7 +358,7 @@ var bgsCompactRepo = &cli.Command{
 		}
 
 		if resp.StatusCode != 200 {
-			var e xrpc.XRPCError
+			var e xrpcError
 			if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
 				return err
 			}
@@ -424,7 +432,7 @@ var bgsCompactAll = &cli.Command{
 		}
 
 		if resp.StatusCode != 200 {
-			var e xrpc.XRPCError
+			var e xrpcError
 			if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
 				return err
 			}
@@ -466,7 +474,7 @@ var bgsResetRepo = &cli.Command{
 		}
 
 		if resp.StatusCode != 200 {
-			var e xrpc.XRPCError
+			var e xrpcError
 			if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
 				return err
 			}
@@ -507,7 +515,7 @@ var bgsSetTrustedDomains = &cli.Command{
 		}
 
 		if resp.StatusCode != 200 {
-			var e xrpc.XRPCError
+			var e xrpcError
 			if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
 				return err
 			}

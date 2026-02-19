@@ -13,7 +13,7 @@ import (
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 
 	"github.com/urfave/cli/v3"
 	"golang.org/x/time/rate"
@@ -69,14 +69,10 @@ var offlineCrawlCmd = &cli.Command{
 			hosturl.Scheme = "https"
 			hosturl.Host = hostname
 		}
-		rpcClient := xrpc.Client{
-			Host:   hosturl.String(),
-			Client: util.RobustHTTPClient(),
-		}
+		rpcClient := atclient.NewAPIClient(hosturl.String())
+		rpcClient.Client = util.RobustHTTPClient()
 		if cmd.IsSet("ratelimit-header") {
-			rpcClient.Headers = map[string]string{
-				"x-ratelimit-bypass": cmd.String("ratelimit-header"),
-			}
+			rpcClient.Headers.Set("x-ratelimit-bypass", cmd.String("ratelimit-header"))
 		}
 		log.Info("will crawl", "url", rpcClient.Host)
 		csvOutPath := cmd.String("csv-out")
@@ -97,7 +93,7 @@ var offlineCrawlCmd = &cli.Command{
 		go DidCollectionsToCsv(fout, results)
 		crawler := Crawler{
 			Ctx:       ctx,
-			RpcClient: &rpcClient,
+			RpcClient: rpcClient,
 			QPS:       qps,
 			Results:   results,
 			Log:       log,
@@ -111,7 +107,7 @@ var offlineCrawlCmd = &cli.Command{
 
 type Crawler struct {
 	Ctx       context.Context
-	RpcClient *xrpc.Client
+	RpcClient *atclient.APIClient
 	QPS       float64
 	Results   chan<- DidCollection
 	Log       *slog.Logger
