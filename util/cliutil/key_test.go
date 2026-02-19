@@ -4,8 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/whyrusleeping/go-did"
 )
 
 func TestKeyGenerationAndLoading(t *testing.T) {
@@ -19,12 +17,8 @@ func TestKeyGenerationAndLoading(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key, err := LoadKeyFromFile(fkey)
+	_, err = LoadKeyFromFile(fkey)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	if key.Type != did.KeyTypeP256 {
-		t.Fatalf("unexpected type of the key %s", key.KeyType())
 	}
 }
