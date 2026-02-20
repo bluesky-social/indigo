@@ -54,6 +54,9 @@ func (s *ServiceAuthValidator) Validate(ctx context.Context, tokenString string,
 		// do an unvalidated extraction of 'iss' from JWT
 		insecure := jwt.NewParser(jwt.WithoutClaimsValidation())
 		t, _, err := insecure.ParseUnverified(tokenString, &jwt.MapClaims{})
+		if err != nil {
+			return "", fmt.Errorf("parse unverified %q: %w", tokenString, err)
+		}
 		claims, ok := t.Claims.(*jwt.MapClaims)
 		if !ok {
 			return "", jwt.ErrTokenInvalidClaims
@@ -73,6 +76,9 @@ func (s *ServiceAuthValidator) Validate(ctx context.Context, tokenString string,
 			slog.Error("purging identity directory", "did", did, "err", err)
 		}
 		token, err = jwt.ParseWithClaims(tokenString, &serviceAuthClaims{}, s.fetchIssuerKeyFunc(ctx), opts...)
+		if err != nil {
+			return "", fmt.Errorf("parse with claims %q: %w", tokenString, err)
+		}
 	}
 	if err != nil {
 		return "", err
