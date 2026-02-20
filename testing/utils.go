@@ -7,36 +7,16 @@ import (
 	"fmt"
 	mathrand "math/rand"
 	"os"
-	"path/filepath"
 	"strings"
-	"testing"
 	"time"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repo"
 	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
-
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
-
-func TestPLC(t *testing.T) *plc.FakeDid {
-	// TODO: just do in memory...
-	tdir, err := os.MkdirTemp("", "plcserv")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	db, err := gorm.Open(sqlite.Open(filepath.Join(tdir, "plc.sqlite")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return plc.NewFakeDid(db)
-}
 
 var words = []string{
 	"cat",
