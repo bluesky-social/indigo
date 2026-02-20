@@ -54,7 +54,14 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatpr
 		hostURL = "http://" + hostname
 	}
 
-	if err := s.relay.HostChecker.CheckHost(ctx, hostURL); err != nil {
+	if s.config.AllowInsecureHosts && admin {
+		hc := relay.NewHostClient("")
+		hc.Client = http.DefaultClient
+		err = hc.CheckHost(ctx, hostURL)
+	} else {
+		err = s.relay.HostChecker.CheckHost(ctx, hostURL)
+	}
+	if err != nil {
 		return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "HostNotFound", Message: fmt.Sprintf("host server unreachable: %s", err)})
 	}
 
