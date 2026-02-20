@@ -1,0 +1,19 @@
+FROM golang:1.25-bookworm
+
+ENV CGO_ENABLED="1"
+
+# Fix watch on mac.
+ENV ENTR_INOTIFY_WORKAROUND=1
+
+RUN apt-get update && apt-get install --yes \
+  curl \
+  dumb-init \
+  entr
+
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+ENV PATH="/go/bin:${PATH}"
+
+WORKDIR /app
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["cmd/relay/bin/denv.sh"]
