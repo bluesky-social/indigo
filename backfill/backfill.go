@@ -123,7 +123,7 @@ type BackfillOptions struct {
 	ParallelRecordCreates int
 	NSIDFilter            string
 	SyncRequestsPerSecond int
-	// Per-PDS rate limit (requests per second per host). If 0, defaults to 2.
+	// Per-PDS rate limit (requests per second per host). 0 means no limit.
 	PDSRequestsPerSecond int
 	RelayHost            string
 }
@@ -159,9 +159,11 @@ func NewBackfiller(
 		opts.RelayHost = "http://" + opts.RelayHost[5:]
 	}
 
-	pdsRate := opts.PDSRequestsPerSecond
-	if pdsRate <= 0 {
-		pdsRate = 2
+	var pdsRateLimit rate.Limit
+	if opts.PDSRequestsPerSecond > 0 {
+		pdsRateLimit = rate.Limit(opts.PDSRequestsPerSecond)
+	} else {
+		pdsRateLimit = rate.Inf
 	}
 
 	return &Backfiller{
@@ -175,7 +177,7 @@ func NewBackfiller(
 		NSIDFilter:            opts.NSIDFilter,
 		syncLimiter:           rate.NewLimiter(rate.Limit(opts.SyncRequestsPerSecond), 1),
 		pdsLimiters:           make(map[string]*rate.Limiter),
-		pdsRateLimit:          rate.Limit(pdsRate),
+		pdsRateLimit:          pdsRateLimit,
 		RelayHost:             opts.RelayHost,
 		stop:                  make(chan chan struct{}, 1),
 		Directory:             identity.DefaultDirectory(),
@@ -400,9 +402,13 @@ func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (io
 		}
 
 		// Wait on global rate limiter
-		b.syncLimiter.Wait(ctx)
+		if err := b.syncLimiter.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("sync rate limiter wait: %w", err)
+		}
 		// Wait on per-PDS rate limiter
-		b.getPDSLimiter(host).Wait(ctx)
+		if err := b.getPDSLimiter(host).Wait(ctx); err != nil {
+			return nil, fmt.Errorf("PDS rate limiter wait: %w", err)
+		}
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -417,6 +423,9 @@ func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (io
 			return instrumentedReader, nil
 		}
 
+		// TODO: read and log error response JSON body for diagnostics
+		// Drain the body so the underlying connection can be reused (relevant for HTTP/2)
+		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 
 		lastErr = &FetchRepoError{
