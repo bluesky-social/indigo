@@ -526,7 +526,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 	go func() {
 		defer r.Close()
 		defer close(recordQueue)
-		err := repo.StreamRepoRecords(ctx, r, b.NSIDFilter, onCommit, func(recordPath string, nodeCid cid.Cid, data []byte) error {
+		err := repo.StreamRepoRecords(ctx, repoDID, r, b.NSIDFilter, onCommit, func(recordPath string, nodeCid cid.Cid, data []byte) error {
 			numRecords++
 			recordQueue <- recordQueueItem{recordPath: recordPath, nodeCid: nodeCid, data: data}
 			return nil
