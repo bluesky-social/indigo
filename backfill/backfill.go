@@ -370,10 +370,20 @@ func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (io
 		url = url + fmt.Sprintf("&since=%s", since)
 	}
 
-	// GET and CAR decode the body
+	// Use a custom transport that disables HTTP/2. With many parallel backfills,
+	// HTTP/2 multiplexes all requests to the same PDS over a single TCP connection,
+	// causing head-of-line blocking and mutex contention. HTTP/1.1 gives each
+	// download its own connection.
+	transport := &http.Transport{
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+		DisableKeepAlives:     true,
+		ForceAttemptHTTP2:     false,
+	}
 	client := &http.Client{
-		Transport: otelhttp.NewTransport(http.DefaultTransport),
-		Timeout:   600 * time.Second,
+		Transport: otelhttp.NewTransport(transport),
+		// No client timeout — large repos can take a long time to stream.
+		// The per-request context and ResponseHeaderTimeout handle hangs.
 	}
 
 	// Retry delays for 429 errors: 1s, 3s, 5s
