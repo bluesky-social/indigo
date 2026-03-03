@@ -13,8 +13,10 @@ import (
 // UnspeccedGetSuggestedUsers_Output is the output of a app.bsky.unspecced.getSuggestedUsers call.
 type UnspeccedGetSuggestedUsers_Output struct {
 	Actors []*ActorDefs_ProfileView `json:"actors" cborgen:"actors"`
-	// recId: Snowflake for this recommendation, use when submitting recommendation events.
+	// recId: DEPRECATED: use recIdStr instead.
 	RecId *string `json:"recId,omitempty" cborgen:"recId,omitempty"`
+	// recIdStr: Snowflake for this recommendation, use when submitting recommendation events.
+	RecIdStr *string `json:"recIdStr,omitempty" cborgen:"recIdStr,omitempty"`
 }
 
 // UnspeccedGetSuggestedUsers calls the XRPC method "app.bsky.unspecced.getSuggestedUsers".

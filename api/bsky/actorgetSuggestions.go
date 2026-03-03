@@ -14,8 +14,10 @@ import (
 type ActorGetSuggestions_Output struct {
 	Actors []*ActorDefs_ProfileView `json:"actors" cborgen:"actors"`
 	Cursor *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
-	// recId: Snowflake for this recommendation, use when submitting recommendation events.
+	// recId: DEPRECATED: use recIdStr instead.
 	RecId *int64 `json:"recId,omitempty" cborgen:"recId,omitempty"`
+	// recIdStr: Snowflake for this recommendation, use when submitting recommendation events.
+	RecIdStr *string `json:"recIdStr,omitempty" cborgen:"recIdStr,omitempty"`
 }
 
 // ActorGetSuggestions calls the XRPC method "app.bsky.actor.getSuggestions".
