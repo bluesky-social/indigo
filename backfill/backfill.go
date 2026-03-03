@@ -402,13 +402,22 @@ func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (io
 		}
 
 		// Wait on global rate limiter
+		syncStart := time.Now()
 		if err := b.syncLimiter.Wait(ctx); err != nil {
 			return nil, fmt.Errorf("sync rate limiter wait: %w", err)
 		}
+		syncWait := time.Since(syncStart).Seconds()
+		backfillRateLimitWaitSeconds.WithLabelValues(b.Name, "global").Observe(syncWait)
+		backfillRateLimitWaitsTotal.WithLabelValues(b.Name, "global", host).Inc()
+
 		// Wait on per-PDS rate limiter
+		pdsStart := time.Now()
 		if err := b.getPDSLimiter(host).Wait(ctx); err != nil {
 			return nil, fmt.Errorf("PDS rate limiter wait: %w", err)
 		}
+		pdsWait := time.Since(pdsStart).Seconds()
+		backfillRateLimitWaitSeconds.WithLabelValues(b.Name, "pds").Observe(pdsWait)
+		backfillRateLimitWaitsTotal.WithLabelValues(b.Name, "pds", host).Inc()
 
 		resp, err := client.Do(req)
 		if err != nil {
