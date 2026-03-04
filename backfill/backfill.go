@@ -204,6 +204,7 @@ func (b *Backfiller) Start() {
 		}
 
 		// Get the next job
+		dequeueStart := time.Now()
 		job, err := b.Store.GetNextEnqueuedJob(ctx)
 		if err != nil {
 			log.Error("failed to get next enqueued job", "error", err)
@@ -213,17 +214,22 @@ func (b *Backfiller) Start() {
 			time.Sleep(1 * time.Second)
 			continue
 		}
+		backfillDispatchSeconds.WithLabelValues(b.Name, "dequeue").Observe(time.Since(dequeueStart).Seconds())
 
 		log := log.With("repo", job.Repo())
 
 		// Mark the backfill as "in progress"
+		setStateStart := time.Now()
 		err = job.SetState(ctx, StateInProgress)
 		if err != nil {
 			log.Error("failed to set job state", "error", err)
 			continue
 		}
+		backfillDispatchSeconds.WithLabelValues(b.Name, "set_state").Observe(time.Since(setStateStart).Seconds())
 
+		semStart := time.Now()
 		sem.Acquire(ctx, 1)
+		backfillDispatchSeconds.WithLabelValues(b.Name, "sem_acquire").Observe(time.Since(semStart).Seconds())
 		go func(j Job) {
 			defer sem.Release(1)
 			newState, err := b.BackfillRepo(ctx, j)
