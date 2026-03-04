@@ -411,22 +411,23 @@ func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (io
 			req.Header.Set(b.magicHeaderKey, b.magicHeaderVal)
 		}
 
-		// Wait on global rate limiter
-		syncStart := time.Now()
-		if err := b.syncLimiter.Wait(ctx); err != nil {
-			return nil, fmt.Errorf("sync rate limiter wait: %w", err)
-		}
-		syncWait := time.Since(syncStart).Seconds()
-		backfillRateLimitWaitSeconds.WithLabelValues(b.Name, "global").Observe(syncWait)
-		backfillRateLimitWaitsTotal.WithLabelValues(b.Name, "global", host).Inc()
-
-		// Wait on per-PDS rate limiter
+		// Wait on per-PDS rate limiter first, so we don't consume a global
+		// token while blocked on a busy host. This lets workers targeting
+		// less busy hosts proceed with the global token instead.
 		pdsStart := time.Now()
 		if err := b.getPDSLimiter(host).Wait(ctx); err != nil {
 			return nil, fmt.Errorf("PDS rate limiter wait: %w", err)
 		}
 		pdsWait := time.Since(pdsStart).Seconds()
 		backfillRateLimitWaitSeconds.WithLabelValues(b.Name, "pds").Observe(pdsWait)
+
+		// Then wait on global rate limiter
+		syncStart := time.Now()
+		if err := b.syncLimiter.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("sync rate limiter wait: %w", err)
+		}
+		syncWait := time.Since(syncStart).Seconds()
+		backfillRateLimitWaitSeconds.WithLabelValues(b.Name, "global").Observe(syncWait)
 		backfillRateLimitWaitsTotal.WithLabelValues(b.Name, "pds", host).Inc()
 
 		resp, err := client.Do(req)
