@@ -175,7 +175,7 @@ func NewBackfiller(
 		ParallelBackfills:     opts.ParallelBackfills,
 		ParallelRecordCreates: opts.ParallelRecordCreates,
 		NSIDFilter:            opts.NSIDFilter,
-		syncLimiter:           rate.NewLimiter(rate.Limit(opts.SyncRequestsPerSecond), 1),
+		syncLimiter:           rate.NewLimiter(rate.Limit(opts.SyncRequestsPerSecond), opts.SyncRequestsPerSecond),
 		pdsLimiters:           make(map[string]*rate.Limiter),
 		pdsRateLimit:          pdsRateLimit,
 		RelayHost:             opts.RelayHost,
@@ -357,7 +357,7 @@ func (b *Backfiller) getPDSLimiter(host string) *rate.Limiter {
 	if limiter, ok = b.pdsLimiters[host]; ok {
 		return limiter
 	}
-	limiter = rate.NewLimiter(b.pdsRateLimit, 1)
+	limiter = rate.NewLimiter(b.pdsRateLimit, int(b.pdsRateLimit))
 	b.pdsLimiters[host] = limiter
 	return limiter
 }
@@ -377,7 +377,6 @@ func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (io
 	transport := &http.Transport{
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout: 30 * time.Second,
-		ForceAttemptHTTP2:     false,
 		MaxIdleConnsPerHost:   10,
 		IdleConnTimeout:       90 * time.Second,
 	}
