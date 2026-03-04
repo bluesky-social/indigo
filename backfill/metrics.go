@@ -30,6 +30,12 @@ var backfillBytesProcessed = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "The total number of backfill bytes processed",
 }, []string{"backfiller_name"})
 
+var backfillDispatchSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "backfill_dispatch_seconds",
+	Help:    "Time spent in the dispatch loop per job (dequeue + setState + semaphore acquire)",
+	Buckets: []float64{0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1},
+}, []string{"backfiller_name", "phase"})
+
 var backfillRateLimitWaitSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "backfill_ratelimit_wait_seconds",
 	Help:    "Time spent waiting on rate limiters before fetching a repo",

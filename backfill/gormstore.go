@@ -272,7 +272,7 @@ func (s *Gormstore) GetNextEnqueuedJob(ctx context.Context) (Job, error) {
 	s.qlk.Lock()
 	defer s.qlk.Unlock()
 	if len(s.taskQueue) == 0 {
-		if err := s.loadJobs(ctx, 1000); err != nil {
+		if err := s.loadJobs(ctx, 5000); err != nil {
 			return nil, err
 		}
 
