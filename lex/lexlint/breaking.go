@@ -55,13 +55,13 @@ func breakingDefs(nsid syntax.NSID, name string, local, remote lexicon.SchemaDef
 	issues := []LintIssue{}
 
 	// NOTE: in some situations this sort of change might actually be allowed?
-	if reflect.TypeOf(local) != reflect.TypeOf(remote) {
+	if reflect.TypeOf(local.Inner) != reflect.TypeOf(remote.Inner) {
 		issues = append(issues, LintIssue{
 			NSID:            nsid,
 			LintLevel:       "error",
 			LintName:        "type-change",
 			LintDescription: "schema definition type changed",
-			Message:         fmt.Sprintf("schema type changed (%s): %T != %T", name, local, remote),
+			Message:         fmt.Sprintf("schema type changed (%s): %T != %T", name, local.Inner, remote.Inner),
 		})
 		return issues
 	}
