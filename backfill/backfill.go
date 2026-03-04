@@ -377,8 +377,9 @@ func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (io
 	transport := &http.Transport{
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout: 30 * time.Second,
-		DisableKeepAlives:     true,
 		ForceAttemptHTTP2:     false,
+		MaxIdleConnsPerHost:   10,
+		IdleConnTimeout:       90 * time.Second,
 	}
 	client := &http.Client{
 		Transport: otelhttp.NewTransport(transport),
