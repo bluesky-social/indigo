@@ -90,6 +90,8 @@ type Backfiller struct {
 
 	tryRelayRepoFetch bool
 
+	httpClient *http.Client
+
 	stop chan chan struct{}
 
 	Directory identity.Directory
@@ -166,6 +168,13 @@ func NewBackfiller(
 		pdsRateLimit = rate.Inf
 	}
 
+	transport := &http.Transport{
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+		MaxIdleConnsPerHost:   10,
+		IdleConnTimeout:       90 * time.Second,
+	}
+
 	return &Backfiller{
 		Name:                  name,
 		Store:                 store,
@@ -179,8 +188,11 @@ func NewBackfiller(
 		pdsLimiters:           make(map[string]*rate.Limiter),
 		pdsRateLimit:          pdsRateLimit,
 		RelayHost:             opts.RelayHost,
-		stop:                  make(chan chan struct{}, 1),
-		Directory:             identity.DefaultDirectory(),
+		httpClient: &http.Client{
+			Transport: otelhttp.NewTransport(transport),
+		},
+		stop:      make(chan chan struct{}, 1),
+		Directory: identity.DefaultDirectory(),
 	}
 }
 
@@ -376,21 +388,7 @@ func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (io
 		url = url + fmt.Sprintf("&since=%s", since)
 	}
 
-	// Use a custom transport that disables HTTP/2. With many parallel backfills,
-	// HTTP/2 multiplexes all requests to the same PDS over a single TCP connection,
-	// causing head-of-line blocking and mutex contention. HTTP/1.1 gives each
-	// download its own connection.
-	transport := &http.Transport{
-		TLSHandshakeTimeout:   10 * time.Second,
-		ResponseHeaderTimeout: 30 * time.Second,
-		MaxIdleConnsPerHost:   10,
-		IdleConnTimeout:       90 * time.Second,
-	}
-	client := &http.Client{
-		Transport: otelhttp.NewTransport(transport),
-		// No client timeout — large repos can take a long time to stream.
-		// The per-request context and ResponseHeaderTimeout handle hangs.
-	}
+	client := b.httpClient
 
 	// Retry delays for 429 errors: 1s, 3s, 5s
 	retryDelays := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
