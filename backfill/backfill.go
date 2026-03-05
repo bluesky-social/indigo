@@ -122,9 +122,9 @@ type BackfillOptions struct {
 	SyncRequestsPerSecond int
 	RelayHost             string
 
-	// HttpClient is an optional HTTP client to use for fetching repos from PDS servers.
+	// Client is an optional HTTP client to use for fetching repos from PDS servers.
 	// If nil, a default client will be created.
-	HttpClient *http.Client
+	Client *http.Client
 }
 
 func DefaultBackfillOptions() *BackfillOptions {
@@ -157,7 +157,7 @@ func NewBackfiller(
 		opts.RelayHost = "http://" + opts.RelayHost[5:]
 	}
 
-	httpClient := opts.HttpClient
+	httpClient := opts.Client
 	if httpClient == nil {
 		httpClient = &http.Client{
 			Transport: otelhttp.NewTransport(http.DefaultTransport),
