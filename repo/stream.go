@@ -131,7 +131,7 @@ func (bs *readStreamBlockstore) Put(ctx context.Context, blk block.Block) error 
 // and iteration continues; errors from cb do not stop the walk and are not
 // returned from this function. To signal intentional early termination, cb can
 // return ErrDoneIterating, which is handled silently without logging.
-func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, onCommit func(*SignedCommit) error, cb func(k string, c cid.Cid, v []byte) error) error {
+func StreamRepoRecords(ctx context.Context, repoDID string, r io.Reader, prefix string, onCommit func(*SignedCommit) error, cb func(k string, c cid.Cid, v []byte) error) error {
 	ctx, span := otel.Tracer("repo").Start(ctx, "RepoStream")
 	defer span.End()
 
@@ -168,7 +168,7 @@ func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, onCommit
 			return cb(k, val, data)
 		}); err != nil {
 			if err != ErrDoneIterating {
-				slog.Error("failed to get record from tree", "key", k, "cid", val, "error", err)
+				slog.Error("failed to get record from tree", "repo", repoDID, "key", k, "cid", val, "error", err)
 			}
 			return nil
 		}

@@ -74,7 +74,10 @@ func (s *Gormstore) loadJobs(ctx context.Context, limit int) error {
 		retryableIndexClause = "INDEXED BY retryable_job_idx"
 	}
 
-	enqueuedSelect := fmt.Sprintf(`SELECT repo FROM gorm_db_jobs %s WHERE state  = 'enqueued' LIMIT ?`, enqueuedIndexClause)
+	// ORDER BY RANDOM() distributes jobs across PDS hosts evenly. Without this,
+	// repos from the same PDS are clustered together in the queue, causing most
+	// workers to pile up on the same few hosts' rate limiters while other hosts sit idle.
+	enqueuedSelect := fmt.Sprintf(`SELECT repo FROM gorm_db_jobs %s WHERE state = 'enqueued' ORDER BY RANDOM() LIMIT ?`, enqueuedIndexClause)
 	retryableSelect := fmt.Sprintf(`SELECT repo FROM gorm_db_jobs %s WHERE state like 'failed%%' AND (retry_after = NULL OR retry_after < ?) LIMIT ?`, retryableIndexClause)
 
 	var todo []string
@@ -272,7 +275,7 @@ func (s *Gormstore) GetNextEnqueuedJob(ctx context.Context) (Job, error) {
 	s.qlk.Lock()
 	defer s.qlk.Unlock()
 	if len(s.taskQueue) == 0 {
-		if err := s.loadJobs(ctx, 1000); err != nil {
+		if err := s.loadJobs(ctx, 5000); err != nil {
 			return nil, err
 		}
 
