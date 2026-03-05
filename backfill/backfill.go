@@ -426,6 +426,7 @@ func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (io
 		}
 		pdsWait := time.Since(pdsStart).Seconds()
 		backfillRateLimitWaitSeconds.WithLabelValues(b.Name, "pds").Observe(pdsWait)
+		backfillRateLimitWaitSecondsByHost.WithLabelValues(b.Name, host).Add(pdsWait)
 
 		// Then wait on global rate limiter
 		syncStart := time.Now()
@@ -486,6 +487,8 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 	log.Info(fmt.Sprintf("processing backfill for %s", repoDID))
 
 	var r io.ReadCloser
+	var pdsHost string
+	resolveStart := time.Now()
 	if b.tryRelayRepoFetch {
 		rr, err := b.fetchRepo(ctx, repoDID, job.Rev(), b.RelayHost)
 		if err != nil {
@@ -500,7 +503,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 		if err != nil {
 			return "failed resolving DID to PDS repo", fmt.Errorf("resolving DID for PDS repo fetch: %w", err)
 		}
-		pdsHost := ident.PDSEndpoint()
+		pdsHost = ident.PDSEndpoint()
 		if pdsHost == "" {
 			return "DID document missing PDS endpoint", fmt.Errorf("no PDS endpoint for DID: %s", repoDID)
 		}
@@ -515,6 +518,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 			return "failed to fetch repo CAR from PDS", err
 		}
 	}
+	fetchDone := time.Since(resolveStart)
 
 	numRecords := 0
 	numRoutines := b.ParallelRecordCreates
@@ -593,8 +597,10 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 	numProcessed := b.FlushBuffer(ctx, job)
 
 	log.Info("backfill complete",
+		"pds", pdsHost,
 		"buffered_records_processed", numProcessed,
 		"records_backfilled", numRecords,
+		"resolve_and_fetch", fetchDone,
 		"duration", time.Since(start),
 	)
 

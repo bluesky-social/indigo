@@ -46,3 +46,8 @@ var backfillRateLimitWaitsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "backfill_ratelimit_waits_total",
 	Help: "Total number of rate limiter waits by limiter type and PDS host",
 }, []string{"backfiller_name", "limiter", "host"})
+
+var backfillRateLimitWaitSecondsByHost = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "backfill_ratelimit_wait_seconds_by_host",
+	Help: "Total seconds spent waiting on PDS rate limiters, by host",
+}, []string{"backfiller_name", "host"})
