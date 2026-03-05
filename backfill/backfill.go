@@ -85,6 +85,8 @@ type Backfiller struct {
 
 	tryRelayRepoFetch bool
 
+	httpClient *http.Client
+
 	stop chan chan struct{}
 
 	Directory identity.Directory
@@ -119,6 +121,10 @@ type BackfillOptions struct {
 	NSIDFilter            string
 	SyncRequestsPerSecond int
 	RelayHost             string
+
+	// Client is an optional HTTP client to use for fetching repos from PDS servers.
+	// If nil, a default client will be created.
+	Client *http.Client
 }
 
 func DefaultBackfillOptions() *BackfillOptions {
@@ -151,6 +157,14 @@ func NewBackfiller(
 		opts.RelayHost = "http://" + opts.RelayHost[5:]
 	}
 
+	httpClient := opts.Client
+	if httpClient == nil {
+		httpClient = &http.Client{
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
+			Timeout:   600 * time.Second,
+		}
+	}
+
 	return &Backfiller{
 		Name:                  name,
 		Store:                 store,
@@ -162,6 +176,7 @@ func NewBackfiller(
 		NSIDFilter:            opts.NSIDFilter,
 		syncLimiter:           rate.NewLimiter(rate.Limit(opts.SyncRequestsPerSecond), 1),
 		RelayHost:             opts.RelayHost,
+		httpClient:            httpClient,
 		stop:                  make(chan chan struct{}, 1),
 		Directory:             identity.DefaultDirectory(),
 	}
@@ -334,10 +349,6 @@ func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (io
 	}
 
 	// GET and CAR decode the body
-	client := &http.Client{
-		Transport: otelhttp.NewTransport(http.DefaultTransport),
-		Timeout:   600 * time.Second,
-	}
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -351,7 +362,7 @@ func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (io
 
 	b.syncLimiter.Wait(ctx)
 
-	resp, err := client.Do(req)
+	resp, err := b.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
