@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -45,8 +46,9 @@ type Gormstore struct {
 	lk   sync.RWMutex
 	jobs map[string]*Gormjob
 
-	qlk       sync.Mutex
-	taskQueue []string
+	qlk              sync.Mutex
+	taskQueue        []string
+	enqueuesSinceShf int // enqueues since last shuffle
 
 	db *gorm.DB
 }
@@ -123,6 +125,8 @@ func (s *Gormstore) EnqueueJob(ctx context.Context, repo string) error {
 
 	s.qlk.Lock()
 	s.taskQueue = append(s.taskQueue, repo)
+	s.enqueuesSinceShf++
+	s.maybeShuffleLocked()
 	s.qlk.Unlock()
 
 	return nil
@@ -136,9 +140,22 @@ func (s *Gormstore) EnqueueJobWithState(ctx context.Context, repo, state string)
 
 	s.qlk.Lock()
 	s.taskQueue = append(s.taskQueue, repo)
+	s.enqueuesSinceShf++
+	s.maybeShuffleLocked()
 	s.qlk.Unlock()
 
 	return nil
+}
+
+// maybeShuffleLocked shuffles the task queue every 10k enqueues to break up
+// PDS host clustering from the repo pump. Must hold qlk.
+func (s *Gormstore) maybeShuffleLocked() {
+	if s.enqueuesSinceShf >= 10_000 && len(s.taskQueue) > 100 {
+		rand.Shuffle(len(s.taskQueue), func(i, j int) {
+			s.taskQueue[i], s.taskQueue[j] = s.taskQueue[j], s.taskQueue[i]
+		})
+		s.enqueuesSinceShf = 0
+	}
 }
 
 func (s *Gormstore) createJobForRepo(repo, state string) error {
