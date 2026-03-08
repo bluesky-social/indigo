@@ -188,11 +188,21 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 
 		switch ek {
 		case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
+			if op.Cid == nil {
+				s.Logger.Error("op.Cid is nil for create/update record", "path", op.Path, "seq", evt.Seq)
+				break
+			}
+
 			// Grab the record from the merkel tree
 			rc, rec, err := rr.GetRecord(ctx, op.Path)
 			if err != nil {
 				e := fmt.Errorf("getting record %s (%s) within seq %d for %s: %w", op.Path, *op.Cid, evt.Seq, evt.Repo, err)
 				s.Logger.Error("failed to get a record from the event", "err", e)
+				break
+			}
+
+			if rec == nil {
+				s.Logger.Error("nil record returned without error", "path", op.Path, "seq", evt.Seq)
 				break
 			}
 
