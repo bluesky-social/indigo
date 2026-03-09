@@ -35,8 +35,8 @@ type FirehoseConsumer struct {
 	Engine      *automod.Engine
 	Host        string
 
-	// TODO: prefilter record collections; or predicate function?
-	// TODO: enable/disable event types; or predicate function?
+	// if set, events from these DIDs will be silently skipped
+	SkipDIDs map[string]struct{}
 
 	// lastSeq is the most recent event sequence number we've received and begun to handle.
 	// This number is periodically persisted to redis, if redis is present.
@@ -80,6 +80,9 @@ func (fc *FirehoseConsumer) Run(ctx context.Context) error {
 		},
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
 			atomic.StoreInt64(&fc.lastSeq, evt.Seq)
+			if _, skip := fc.SkipDIDs[evt.Did]; skip {
+				return nil
+			}
 			if err := fc.Engine.ProcessIdentityEvent(context.Background(), *evt); err != nil {
 				fc.Logger.Error("processing repo identity failed", "did", evt.Did, "seq", evt.Seq, "err", err)
 			}
@@ -87,6 +90,9 @@ func (fc *FirehoseConsumer) Run(ctx context.Context) error {
 		},
 		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
 			atomic.StoreInt64(&fc.lastSeq, evt.Seq)
+			if _, skip := fc.SkipDIDs[evt.Did]; skip {
+				return nil
+			}
 			if err := fc.Engine.ProcessAccountEvent(context.Background(), *evt); err != nil {
 				fc.Logger.Error("processing repo account failed", "did", evt.Did, "seq", evt.Seq, "err", err)
 			}
@@ -127,6 +133,10 @@ func (fc *FirehoseConsumer) HandleRepoCommit(ctx context.Context, evt *comatprot
 
 	if evt.TooBig {
 		logger.Warn("skipping tooBig events for now")
+		return nil
+	}
+
+	if _, skip := fc.SkipDIDs[evt.Repo]; skip {
 		return nil
 	}
 
