@@ -38,6 +38,9 @@ type FirehoseConsumer struct {
 	// if set, events from these DIDs will be silently skipped
 	SkipDIDs map[string]struct{}
 
+	// TODO: prefilter record collections; or predicate function?
+	// TODO: enable/disable event types; or predicate function?
+
 	// lastSeq is the most recent event sequence number we've received and begun to handle.
 	// This number is periodically persisted to redis, if redis is present.
 	// The value is best-effort (the stream handling itself is concurrent, so event numbers may not be monotonic),
