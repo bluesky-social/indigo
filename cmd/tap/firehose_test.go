@@ -534,3 +534,75 @@ func TestCursorSaveAndLoad(t *testing.T) {
 		t.Fatalf("expected cursor=12345, got %d", cursor)
 	}
 }
+
+func TestGetCursor_ReplayLimit(t *testing.T) {
+	relayUrl := "wss://relay.test.example"
+
+	// helper to insert a cursor row with a specific SavedAt
+	saveCursor := func(te *testEnv, seq int64, savedAt int64) {
+		t.Helper()
+		err := te.db.Save(&models.FirehoseCursor{
+			Url:     relayUrl,
+			Cursor:  seq,
+			SavedAt: savedAt,
+		}).Error
+		if err != nil {
+			t.Fatalf("failed to insert cursor: %v", err)
+		}
+	}
+
+	// helper to create a processor with a specific replay limit
+	makeProcessor := func(te *testEnv, replayLimit time.Duration) *FirehoseProcessor {
+		t.Helper()
+		config := &TapConfig{
+			RelayUrl:                   relayUrl,
+			FirehoseParallelism:        1,
+			FirehoseCursorSaveInterval: 5 * time.Second,
+			FirehoseReplayLimit:        replayLimit,
+			EventCacheSize:             1000,
+		}
+		return NewFirehoseProcessor(te.server.logger, te.db, te.events, te.repos, config)
+	}
+
+	t.Run("fresh cursor is returned", func(t *testing.T) {
+		te := newTestEnv(t, testEnvOpts{})
+		saveCursor(te, 100, time.Now().Unix())
+		fp := makeProcessor(te, 24*time.Hour)
+
+		cursor, err := fp.GetCursor(te.ctx)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cursor != 100 {
+			t.Fatalf("expected cursor=100, got %d", cursor)
+		}
+	})
+
+	t.Run("stale cursor is skipped", func(t *testing.T) {
+		te := newTestEnv(t, testEnvOpts{})
+		saveCursor(te, 100, time.Now().Add(-48*time.Hour).Unix())
+		fp := makeProcessor(te, 24*time.Hour)
+
+		cursor, err := fp.GetCursor(te.ctx)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cursor != 0 {
+			t.Fatalf("expected cursor=0 for stale cursor, got %d", cursor)
+		}
+	})
+
+	t.Run("replay limit 0 always skips", func(t *testing.T) {
+		te := newTestEnv(t, testEnvOpts{})
+		saveCursor(te, 100, time.Now().Unix())
+		fp := makeProcessor(te, 0)
+
+		cursor, err := fp.GetCursor(te.ctx)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cursor != 0 {
+			t.Fatalf("expected cursor=0 with replay limit 0, got %d", cursor)
+		}
+	})
+}
