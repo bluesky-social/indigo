@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bluesky-social/go-util/pkg/bus/cursor"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/repo"
@@ -386,7 +385,7 @@ func (fp *FirehoseProcessor) RunCursorSaver(ctx context.Context) {
 
 func (fp *FirehoseProcessor) GetCursor(ctx context.Context) (int64, error) {
 	if fp.noReplay {
-		fp.logger.Info("firehose replay disabled, skipping to live", "skippedCursor", cursor.Cursor)
+		fp.logger.Info("firehose replay disabled, skipping to live")
 		return 0, nil
 	}
 
@@ -398,7 +397,6 @@ func (fp *FirehoseProcessor) GetCursor(ctx context.Context) (int64, error) {
 		}
 		return 0, err
 	}
-
 	return cursor.Cursor, nil
 }
 
