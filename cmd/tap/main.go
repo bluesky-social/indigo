@@ -101,6 +101,12 @@ func run(args []string) error {
 						Sources: cli.EnvVars("TAP_CURSOR_SAVE_INTERVAL"),
 					},
 					&cli.DurationFlag{
+						Name:    "firehose-replay-limit",
+						Usage:   "max age of saved cursor before skipping to live (0 = always skip to live)",
+						Value:   24 * time.Hour,
+						Sources: cli.EnvVars("TAP_FIREHOSE_REPLAY_LIMIT"),
+					},
+					&cli.DurationFlag{
 						Name:    "repo-fetch-timeout",
 						Usage:   "timeout when fetching repo CARs from PDS (e.g. 180s)",
 						Value:   300 * time.Second,
@@ -204,6 +210,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		ResyncParallelism:          int(cmd.Int("resync-parallelism")),
 		OutboxParallelism:          int(cmd.Int("outbox-parallelism")),
 		FirehoseCursorSaveInterval: cmd.Duration("cursor-save-interval"),
+		FirehoseReplayLimit:        cmd.Duration("firehose-replay-limit"),
 		RepoFetchTimeout:           cmd.Duration("repo-fetch-timeout"),
 		IdentityCacheSize:          int(cmd.Int("ident-cache-size")),
 		EventCacheSize:             int(cmd.Int("outbox-capacity")),
