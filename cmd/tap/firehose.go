@@ -36,6 +36,7 @@ type FirehoseProcessor struct {
 	collectionFilters  []string
 	parallelism        int
 	cursorSaveInterval time.Duration
+	replayLimit        time.Duration
 
 	lastSeq atomic.Int64
 }
@@ -52,6 +53,7 @@ func NewFirehoseProcessor(logger *slog.Logger, db *gorm.DB, events *EventManager
 		collectionFilters:  config.CollectionFilters,
 		parallelism:        config.FirehoseParallelism,
 		cursorSaveInterval: config.FirehoseCursorSaveInterval,
+		replayLimit:        config.FirehoseReplayLimit,
 	}
 }
 
@@ -361,8 +363,9 @@ func (fp *FirehoseProcessor) saveCursor(ctx context.Context) error {
 	}
 
 	return fp.db.WithContext(ctx).Save(&models.FirehoseCursor{
-		Url:    fp.relayUrl,
-		Cursor: seq,
+		Url:     fp.relayUrl,
+		Cursor:  seq,
+		SavedAt: time.Now().Unix(),
 	}).Error
 }
 
@@ -381,16 +384,16 @@ func (fp *FirehoseProcessor) RunCursorSaver(ctx context.Context) {
 	}
 }
 
-func (fp *FirehoseProcessor) GetCursor(ctx context.Context) (int64, error) {
+func (fp *FirehoseProcessor) GetCursor(ctx context.Context) (int64, int64, error) {
 	var cursor models.FirehoseCursor
 	if err := fp.db.WithContext(ctx).Where("url = ?", fp.relayUrl).First(&cursor).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			fp.logger.Info("no pre-existing cursor in database", "relayUrl", fp.relayUrl)
-			return 0, nil
+			return 0, 0, nil
 		}
-		return 0, err
+		return 0, 0, err
 	}
-	return cursor.Cursor, nil
+	return cursor.Cursor, cursor.SavedAt, nil
 }
 
 // Connects to the firehose and processes events until context cancellation
@@ -431,9 +434,26 @@ func (fp *FirehoseProcessor) runConsumer(ctx context.Context) error {
 		default:
 		}
 
-		cursor, err := fp.GetCursor(ctx)
+		cursor, savedAt, err := fp.GetCursor(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to read cursor: %w", err)
+		}
+
+		if cursor > 0 {
+			if fp.replayLimit == 0 {
+				fp.logger.Info("firehose-replay-limit is 0, skipping to live", "skippedCursor", cursor)
+				cursor = 0
+			} else if savedAt > 0 {
+				cursorAge := time.Since(time.Unix(savedAt, 0))
+				if cursorAge > fp.replayLimit {
+					fp.logger.Warn("saved cursor is too old, skipping to live",
+						"cursorAge", cursorAge,
+						"replayLimit", fp.replayLimit,
+						"skippedCursor", cursor,
+					)
+					cursor = 0
+				}
+			}
 		}
 
 		if cursor > 0 {

@@ -504,7 +504,7 @@ func TestGetCursor_NoPriorSave(t *testing.T) {
 	te := newTestEnv(t, testEnvOpts{})
 	fp := newTestFirehoseProcessor(te, false)
 
-	cursor, err := fp.GetCursor(te.ctx)
+	cursor, _, err := fp.GetCursor(te.ctx)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -525,11 +525,14 @@ func TestCursorSaveAndLoad(t *testing.T) {
 
 	// Create a new processor and load cursor
 	fp2 := newTestFirehoseProcessor(te, false)
-	cursor, err := fp2.GetCursor(te.ctx)
+	cursor, savedAt, err := fp2.GetCursor(te.ctx)
 	if err != nil {
 		t.Fatalf("failed to get cursor: %v", err)
 	}
 	if cursor != 12345 {
 		t.Fatalf("expected cursor=12345, got %d", cursor)
+	}
+	if savedAt == 0 {
+		t.Fatal("expected savedAt to be set after save")
 	}
 }
