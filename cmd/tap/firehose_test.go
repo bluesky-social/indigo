@@ -16,6 +16,7 @@ func newTestFirehoseProcessor(te *testEnv, fullNetwork bool) *FirehoseProcessor 
 		FullNetworkMode:            fullNetwork,
 		FirehoseParallelism:        1,
 		FirehoseCursorSaveInterval: 5 * time.Second,
+		FirehoseReplayLimit:        24 * time.Hour,
 		EventCacheSize:             1000,
 	}
 	return NewFirehoseProcessor(te.server.logger, te.db, te.events, te.repos, config)
@@ -504,7 +505,7 @@ func TestGetCursor_NoPriorSave(t *testing.T) {
 	te := newTestEnv(t, testEnvOpts{})
 	fp := newTestFirehoseProcessor(te, false)
 
-	cursor, _, err := fp.GetCursor(te.ctx)
+	cursor, err := fp.GetCursor(te.ctx)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -525,14 +526,11 @@ func TestCursorSaveAndLoad(t *testing.T) {
 
 	// Create a new processor and load cursor
 	fp2 := newTestFirehoseProcessor(te, false)
-	cursor, savedAt, err := fp2.GetCursor(te.ctx)
+	cursor, err := fp2.GetCursor(te.ctx)
 	if err != nil {
 		t.Fatalf("failed to get cursor: %v", err)
 	}
 	if cursor != 12345 {
 		t.Fatalf("expected cursor=12345, got %d", cursor)
-	}
-	if savedAt == 0 {
-		t.Fatal("expected savedAt to be set after save")
 	}
 }

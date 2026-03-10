@@ -384,16 +384,26 @@ func (fp *FirehoseProcessor) RunCursorSaver(ctx context.Context) {
 	}
 }
 
-func (fp *FirehoseProcessor) GetCursor(ctx context.Context) (int64, int64, error) {
+func (fp *FirehoseProcessor) GetCursor(ctx context.Context) (int64, error) {
 	var cursor models.FirehoseCursor
 	if err := fp.db.WithContext(ctx).Where("url = ?", fp.relayUrl).First(&cursor).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			fp.logger.Info("no pre-existing cursor in database", "relayUrl", fp.relayUrl)
-			return 0, 0, nil
+			return 0, nil
 		}
-		return 0, 0, err
+		return 0, err
 	}
-	return cursor.Cursor, cursor.SavedAt, nil
+
+	if cursor.SavedAt > 0 && time.Since(time.Unix(cursor.SavedAt, 0)) > fp.replayLimit {
+		fp.logger.Warn("saved cursor is too old, skipping to live",
+			"cursorAge", time.Since(time.Unix(cursor.SavedAt, 0)),
+			"replayLimit", fp.replayLimit,
+			"skippedCursor", cursor.Cursor,
+		)
+		return 0, nil
+	}
+
+	return cursor.Cursor, nil
 }
 
 // Connects to the firehose and processes events until context cancellation
@@ -434,26 +444,9 @@ func (fp *FirehoseProcessor) runConsumer(ctx context.Context) error {
 		default:
 		}
 
-		cursor, savedAt, err := fp.GetCursor(ctx)
+		cursor, err := fp.GetCursor(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to read cursor: %w", err)
-		}
-
-		if cursor > 0 {
-			if fp.replayLimit == 0 {
-				fp.logger.Info("firehose-replay-limit is 0, skipping to live", "skippedCursor", cursor)
-				cursor = 0
-			} else if savedAt > 0 {
-				cursorAge := time.Since(time.Unix(savedAt, 0))
-				if cursorAge > fp.replayLimit {
-					fp.logger.Warn("saved cursor is too old, skipping to live",
-						"cursorAge", cursorAge,
-						"replayLimit", fp.replayLimit,
-						"skippedCursor", cursor,
-					)
-					cursor = 0
-				}
-			}
 		}
 
 		if cursor > 0 {
