@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bluesky-social/go-util/pkg/bus/cursor"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/repo"
@@ -36,7 +37,7 @@ type FirehoseProcessor struct {
 	collectionFilters  []string
 	parallelism        int
 	cursorSaveInterval time.Duration
-	replayLimit        time.Duration
+	noReplay           bool
 
 	lastSeq atomic.Int64
 }
@@ -53,7 +54,7 @@ func NewFirehoseProcessor(logger *slog.Logger, db *gorm.DB, events *EventManager
 		collectionFilters:  config.CollectionFilters,
 		parallelism:        config.FirehoseParallelism,
 		cursorSaveInterval: config.FirehoseCursorSaveInterval,
-		replayLimit:        config.FirehoseReplayLimit,
+		noReplay:           config.NoReplay,
 	}
 }
 
@@ -363,9 +364,8 @@ func (fp *FirehoseProcessor) saveCursor(ctx context.Context) error {
 	}
 
 	return fp.db.WithContext(ctx).Save(&models.FirehoseCursor{
-		Url:     fp.relayUrl,
-		Cursor:  seq,
-		SavedAt: time.Now().Unix(),
+		Url:    fp.relayUrl,
+		Cursor: seq,
 	}).Error
 }
 
@@ -385,6 +385,11 @@ func (fp *FirehoseProcessor) RunCursorSaver(ctx context.Context) {
 }
 
 func (fp *FirehoseProcessor) GetCursor(ctx context.Context) (int64, error) {
+	if fp.noReplay {
+		fp.logger.Info("firehose replay disabled, skipping to live", "skippedCursor", cursor.Cursor)
+		return 0, nil
+	}
+
 	var cursor models.FirehoseCursor
 	if err := fp.db.WithContext(ctx).Where("url = ?", fp.relayUrl).First(&cursor).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -392,15 +397,6 @@ func (fp *FirehoseProcessor) GetCursor(ctx context.Context) (int64, error) {
 			return 0, nil
 		}
 		return 0, err
-	}
-
-	if cursor.SavedAt > 0 && time.Since(time.Unix(cursor.SavedAt, 0)) > fp.replayLimit {
-		fp.logger.Warn("saved cursor is too old, skipping to live",
-			"cursorAge", time.Since(time.Unix(cursor.SavedAt, 0)),
-			"replayLimit", fp.replayLimit,
-			"skippedCursor", cursor.Cursor,
-		)
-		return 0, nil
 	}
 
 	return cursor.Cursor, nil

@@ -56,9 +56,8 @@ type RepoRecord struct {
 }
 
 type FirehoseCursor struct {
-	Url     string `gorm:"primaryKey"`
-	Cursor  int64  `gorm:"not null"`
-	SavedAt int64  `gorm:"not null;default:0"`
+	Url    string `gorm:"primaryKey"`
+	Cursor int64  `gorm:"not null"`
 }
 
 type ListReposCursor struct {

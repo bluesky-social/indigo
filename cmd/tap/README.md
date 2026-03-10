@@ -43,13 +43,13 @@ When running Tap locally, restarts are frequent (e.g. sleep/wake, code changes).
 Recommended local dev config:
 
 ```bash
-go run ./cmd/tap run --disable-acks=true --firehose-replay-limit=30s
+go run ./cmd/tap run --no-replay --disable-acks
 ```
 
 Tips:
-- **Set `--firehose-replay-limit=0`**: Always connect to the firehose head on restart instead of replaying from a stale cursor. Repos that fell behind will resync when their next firehose event arrives.
+- **Set `--no-replay`**: Always connect to the firehose head on restart instead of replaying from a stale cursor. Repos that fell behind will resync when their next firehose event arrives. This flag is incompatible with `--full-network` and is not recommended for production.
 - **Don't use `--full-network`**: Full network mode tracks every repo on the network and takes days to backfill. Instead, add specific DIDs with `/repos/add`.
-- **Use `--disable-acks=true` until you setup webhooks or event acks**: Use a simple WebSocket client like `websocat` to inspect events.
+- **Use `--disable-acks` until you setup webhooks or event acks**: Use a simple WebSocket client like `websocat` to inspect events.
 
 ## HTTP API
 
@@ -80,7 +80,7 @@ Environment variables or CLI flags:
 - `TAP_RESYNC_PARALLELISM`: concurrent resync workers (default: `5`)
 - `TAP_OUTBOX_PARALLELISM`: concurrent outbox workers (default: `1`)
 - `TAP_CURSOR_SAVE_INTERVAL`: how often to persist upstream firehose cursor (default: `1s`)
-- `TAP_FIREHOSE_REPLAY_LIMIT`: max age of saved firehose cursor before skipping to live head (default: `24h`, set to `0` to always start from live)
+- `TAP_NO_REPLAY`: skip saved cursor and connect to firehose head on startup; incompatible with `TAP_FULL_NETWORK`, not recommended for production (default: `false`)
 - `TAP_REPO_FETCH_TIMEOUT`: timeout for fetching repo CARs from PDS (default: `300s`)
 - `TAP_IDENT_CACHE_SIZE`: size of in-process identity cache (default: `2000000`)
 - `TAP_OUTBOX_CAPACITY`: rough size of outbox before back pressure is applied (default: `100000`)
