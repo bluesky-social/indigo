@@ -112,7 +112,7 @@ func (s *ServiceAuthValidator) fetchIssuerKeyFunc(ctx context.Context) func(toke
 		if err != nil {
 			return nil, fmt.Errorf("%w: resolving DID (%s): %w", jwt.ErrTokenInvalidIssuer, did, err)
 		}
-		return ident.PublicKey()
+		return ident.ServiceAuthPublicKey()
 	}
 }
 
