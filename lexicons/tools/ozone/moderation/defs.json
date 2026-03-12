@@ -38,6 +38,7 @@
             "#modEventPriorityScore",
             "#ageAssuranceEvent",
             "#ageAssuranceOverrideEvent",
+            "#ageAssurancePurgeEvent",
             "#revokeAccountCredentialsEvent",
             "#scheduleTakedownEvent",
             "#cancelScheduledTakedownEvent"
@@ -95,6 +96,7 @@
             "#modEventPriorityScore",
             "#ageAssuranceEvent",
             "#ageAssuranceOverrideEvent",
+            "#ageAssurancePurgeEvent",
             "#revokeAccountCredentialsEvent",
             "#scheduleTakedownEvent",
             "#cancelScheduledTakedownEvent"
@@ -352,10 +354,10 @@
     "subjectReviewState": {
       "type": "string",
       "knownValues": [
-        "#reviewOpen",
-        "#reviewEscalated",
-        "#reviewClosed",
-        "#reviewNone"
+        "tools.ozone.moderation.defs#reviewOpen",
+        "tools.ozone.moderation.defs#reviewEscalated",
+        "tools.ozone.moderation.defs#reviewClosed",
+        "tools.ozone.moderation.defs#reviewNone"
       ]
     },
     "reviewOpen": {
@@ -582,7 +584,20 @@
         },
         "comment": {
           "type": "string",
+          "minLength": 1,
           "description": "Comment describing the reason for the override."
+        }
+      }
+    },
+    "ageAssurancePurgeEvent": {
+      "type": "object",
+      "description": "Purges all age assurance events for the subject. Only works on DID subjects. Moderator-only.",
+      "required": ["comment"],
+      "properties": {
+        "comment": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Comment describing the reason for the purge."
         }
       }
     },
@@ -592,6 +607,7 @@
       "required": ["comment"],
       "properties": {
         "comment": {
+          "minLength": 1,
           "type": "string",
           "description": "Comment describing the reason for the revocation."
         }
