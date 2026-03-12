@@ -46,6 +46,7 @@ type ModerationEmitEvent_Input_Event struct {
 	ModerationDefs_ModEventPriorityScore         *ModerationDefs_ModEventPriorityScore
 	ModerationDefs_AgeAssuranceEvent             *ModerationDefs_AgeAssuranceEvent
 	ModerationDefs_AgeAssuranceOverrideEvent     *ModerationDefs_AgeAssuranceOverrideEvent
+	ModerationDefs_AgeAssurancePurgeEvent        *ModerationDefs_AgeAssurancePurgeEvent
 	ModerationDefs_RevokeAccountCredentialsEvent *ModerationDefs_RevokeAccountCredentialsEvent
 	ModerationDefs_ScheduleTakedownEvent         *ModerationDefs_ScheduleTakedownEvent
 	ModerationDefs_CancelScheduledTakedownEvent  *ModerationDefs_CancelScheduledTakedownEvent
@@ -136,6 +137,10 @@ func (t *ModerationEmitEvent_Input_Event) MarshalJSON() ([]byte, error) {
 		t.ModerationDefs_AgeAssuranceOverrideEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
 		return json.Marshal(t.ModerationDefs_AgeAssuranceOverrideEvent)
 	}
+	if t.ModerationDefs_AgeAssurancePurgeEvent != nil {
+		t.ModerationDefs_AgeAssurancePurgeEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssurancePurgeEvent"
+		return json.Marshal(t.ModerationDefs_AgeAssurancePurgeEvent)
+	}
 	if t.ModerationDefs_RevokeAccountCredentialsEvent != nil {
 		t.ModerationDefs_RevokeAccountCredentialsEvent.LexiconTypeID = "tools.ozone.moderation.defs#revokeAccountCredentialsEvent"
 		return json.Marshal(t.ModerationDefs_RevokeAccountCredentialsEvent)
@@ -221,6 +226,9 @@ func (t *ModerationEmitEvent_Input_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#ageAssuranceOverrideEvent":
 		t.ModerationDefs_AgeAssuranceOverrideEvent = new(ModerationDefs_AgeAssuranceOverrideEvent)
 		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceOverrideEvent)
+	case "tools.ozone.moderation.defs#ageAssurancePurgeEvent":
+		t.ModerationDefs_AgeAssurancePurgeEvent = new(ModerationDefs_AgeAssurancePurgeEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AgeAssurancePurgeEvent)
 	case "tools.ozone.moderation.defs#revokeAccountCredentialsEvent":
 		t.ModerationDefs_RevokeAccountCredentialsEvent = new(ModerationDefs_RevokeAccountCredentialsEvent)
 		return json.Unmarshal(b, t.ModerationDefs_RevokeAccountCredentialsEvent)
