@@ -44,3 +44,19 @@ func CborTypeExtractReader(r io.Reader) (string, []byte, error) {
 
 	return tcheck.Type, buf.Bytes(), nil
 }
+
+type UnknownType struct {
+	JSON json.RawMessage
+}
+
+func (t *UnknownType) MarshalJSON() ([]byte, error) {
+	return t.JSON.MarshalJSON()
+}
+
+func (t *UnknownType) UnmarshalJSON(b []byte) error {
+	return t.JSON.UnmarshalJSON(b)
+}
+
+func (t *UnknownType) MarshalCBOR(w io.Writer) error {
+	return fmt.Errorf("converting unrecognized types from JSON to CBOR is not implemented")
+}
