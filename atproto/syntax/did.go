@@ -14,6 +14,7 @@ import (
 type DID string
 
 var didRegex = regexp.MustCompile(`^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]$`)
+var didRefRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]{0,62}$`)
 
 func isASCIIAlphaNum(c rune) bool {
 	if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
@@ -90,4 +91,24 @@ func (d *DID) UnmarshalText(text []byte) error {
 	}
 	*d = did
 	return nil
+}
+
+// Parses a DID with optional fragment reference, separated by a hash symbol ('#'). Returns DID and reference parts separately; the reference is optional and may be an empty string.
+func ParseDIDRef(raw string) (DID, string, error) {
+	parts := strings.SplitN(raw, "#", 2)
+	did, err := ParseDID(parts[0])
+	if err != nil {
+		return "", "", err
+	}
+	if len(parts) < 2 {
+		return did, "", err
+	}
+
+	if parts[1] == "" {
+		return "", "", errors.New("empty DID ref name part")
+	}
+	if !didRefRegex.MatchString(parts[1]) {
+		return "", "", errors.New("DID fragment part didn't validate via regex")
+	}
+	return did, parts[1], nil
 }
