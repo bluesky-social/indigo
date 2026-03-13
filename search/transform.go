@@ -38,6 +38,7 @@ type PostDoc struct {
 	CreatedAt         *string  `json:"created_at,omitempty"`
 	Text              string   `json:"text"`
 	TextJA            *string  `json:"text_ja,omitempty"`
+	TextKO            *string  `json:"text_ko,omitempty"`
 	LangCode          []string `json:"lang_code,omitempty"`
 	LangCodeIso2      []string `json:"lang_code_iso2,omitempty"`
 	MentionDID        []string `json:"mention_did,omitempty"`
@@ -46,6 +47,7 @@ type PostDoc struct {
 	EmbedImgCount     int      `json:"embed_img_count"`
 	EmbedImgAltText   []string `json:"embed_img_alt_text,omitempty"`
 	EmbedImgAltTextJA []string `json:"embed_img_alt_text_ja,omitempty"`
+	EmbedImgAltTextKO []string `json:"embed_img_alt_text_ko,omitempty"`
 	SelfLabel         []string `json:"self_label,omitempty"`
 	URL               []string `json:"url,omitempty"`
 	Domain            []string `json:"domain,omitempty"`
@@ -148,6 +150,7 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 	var embedImgCount int
 	var embedImgAltText []string
 	var embedImgAltTextJA []string
+	var embedImgAltTextKO []string
 	if post.Embed != nil && post.Embed.EmbedImages != nil {
 		embedImgCount = len(post.Embed.EmbedImages.Images)
 		for _, img := range post.Embed.EmbedImages.Images {
@@ -155,6 +158,9 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 				embedImgAltText = append(embedImgAltText, img.Alt)
 				if containsJapanese(img.Alt) {
 					embedImgAltTextJA = append(embedImgAltTextJA, img.Alt)
+				}
+				if containsKorean(img.Alt) {
+					embedImgAltTextKO = append(embedImgAltTextKO, img.Alt)
 				}
 			}
 		}
@@ -171,6 +177,9 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 				embedImgAltText = append(embedImgAltText, img.Alt)
 				if containsJapanese(img.Alt) {
 					embedImgAltTextJA = append(embedImgAltTextJA, img.Alt)
+				}
+				if containsKorean(img.Alt) {
+					embedImgAltTextKO = append(embedImgAltTextKO, img.Alt)
 				}
 			}
 		}
@@ -207,6 +216,7 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 		EmbedImgCount:     embedImgCount,
 		EmbedImgAltText:   embedImgAltText,
 		EmbedImgAltTextJA: embedImgAltTextJA,
+		EmbedImgAltTextKO: embedImgAltTextKO,
 		SelfLabel:         selfLabels,
 		URL:               urls,
 		Domain:            domains,
@@ -216,6 +226,9 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 
 	if containsJapanese(post.Text) {
 		doc.TextJA = &post.Text
+	}
+	if containsKorean(post.Text) {
+		doc.TextKO = &post.Text
 	}
 
 	if post.CreatedAt != "" {
