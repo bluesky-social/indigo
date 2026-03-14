@@ -61,7 +61,7 @@ func (s *Splitter) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 		if ok {
 			return c.JSON(httpError.StatusCode, xrpc.XRPCError{ErrStr: "UpstreamError", Message: fmt.Sprintf("%s", httpError.Wrapped)})
 		}
-		return c.JSON(http.StatusInternalServerError, xrpc.XRPCError{ErrStr: "ProxyRequestFailed", Message: fmt.Sprintf("failed forwarding request: %s", err)})
+		return c.JSON(http.StatusBadGateway, xrpc.XRPCError{ErrStr: "ProxyRequestFailed", Message: "could not connect to relay instance"})
 	}
 
 	// if that was successful, then forward on to the other upstreams (in goroutines)
