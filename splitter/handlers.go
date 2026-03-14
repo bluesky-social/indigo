@@ -59,6 +59,7 @@ func (s *Splitter) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 
 	err := comatproto.SyncRequestCrawl(ctx, client, &body)
 	if err != nil {
+		s.logger.Warn("failed to proxy requestCrawl", "targetHost", body.Hostname, "err", err)
 		apiError, ok := err.(*atclient.APIError)
 		if ok {
 			// pass through the upstream error
