@@ -8,7 +8,7 @@ import (
 	"net/url"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 
 	"github.com/labstack/echo/v4"
 )
@@ -42,26 +42,29 @@ func (s *Splitter) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 	ctx := c.Request().Context()
 	var body comatproto.SyncRequestCrawl_Input
 	if err := c.Bind(&body); err != nil {
-		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: fmt.Sprintf("invalid body: %s", err)})
+		return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: fmt.Sprintf("invalid body: %s", err)})
 	}
 	if body.Hostname == "" {
-		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: "must include a hostname"})
+		return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: "must include a hostname"})
 	}
 
 	// first forward to the upstream
-	xrpcc := xrpc.Client{
-		Client:    s.upstreamClient,
-		Host:      s.conf.UpstreamHostHTTP(),
-		UserAgent: &s.conf.UserAgent,
+	client := &atclient.APIClient{
+		Client: s.upstreamClient,
+		Host:   s.conf.UpstreamHostHTTP(),
+		Headers: map[string][]string{
+			"User-Agent": []string{s.conf.UserAgent},
+		},
 	}
 
-	err := comatproto.SyncRequestCrawl(ctx, &xrpcc, &body)
+	err := comatproto.SyncRequestCrawl(ctx, client, &body)
 	if err != nil {
-		httpError, ok := err.(*xrpc.Error)
+		apiError, ok := err.(*atclient.APIError)
 		if ok {
-			return c.JSON(httpError.StatusCode, xrpc.XRPCError{ErrStr: "UpstreamError", Message: fmt.Sprintf("%s", httpError.Wrapped)})
+			// pass through the upstream error
+			return c.JSON(apiError.StatusCode, atclient.ErrorBody{Name: apiError.Message, Message: apiError.Message})
 		}
-		return c.JSON(http.StatusBadGateway, xrpc.XRPCError{ErrStr: "ProxyRequestFailed", Message: "could not connect to relay instance"})
+		return c.JSON(http.StatusBadGateway, atclient.ErrorBody{Name: "ProxyRequestFailed", Message: "could not connect to relay instance"})
 	}
 
 	// if that was successful, then forward on to the other upstreams (in goroutines)
@@ -71,11 +74,14 @@ func (s *Splitter) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 		go func() {
 			// new context to outlive original HTTP request
 			ctx := context.Background()
-			xrpcc := xrpc.Client{
+			client := &atclient.APIClient{
 				Client: s.peerClient,
 				Host:   crawler,
+				Headers: map[string][]string{
+					"User-Agent": []string{s.conf.UserAgent},
+				},
 			}
-			if err := comatproto.SyncRequestCrawl(ctx, &xrpcc, &body); err != nil {
+			if err := comatproto.SyncRequestCrawl(ctx, client, &body); err != nil {
 				s.logger.Warn("failed to forward requestCrawl", "crawler", crawler, "targetHost", body.Hostname, "err", err)
 			} else {
 				s.logger.Info("successfully forwarded requestCrawl", "crawler", crawler, "targetHost", body.Hostname)
@@ -115,7 +121,7 @@ func (s *Splitter) ProxyRequest(c echo.Context, hostname, scheme string) error {
 	upstreamReq, err := http.NewRequest(req.Method, u.String(), req.Body)
 	if err != nil {
 		s.logger.Warn("proxy request failed", "err", err)
-		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: "failed to proxy to upstream relay"})
+		return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: "failed to proxy to upstream relay"})
 	}
 
 	// copy subset of request headers
@@ -128,7 +134,7 @@ func (s *Splitter) ProxyRequest(c echo.Context, hostname, scheme string) error {
 
 	upstreamResp, err := s.upstreamClient.Do(upstreamReq)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, xrpc.XRPCError{ErrStr: "BadRequest", Message: "failed to proxy to upstream relay"})
+		return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: "failed to proxy to upstream relay"})
 	}
 	defer upstreamResp.Body.Close()
 
