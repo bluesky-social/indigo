@@ -25,14 +25,16 @@ var smallBlockPool = &sync.Pool{
 }
 
 type readStreamBlockstore struct {
+	strict         bool // expect + require every get to be the next block in the stream
 	otherBlocks    map[cid.Cid]*carutil.BasicBlock
 	streamComplete bool
 
 	r *carutil.Reader
 }
 
-func newStreamingBlockstore(r *carutil.Reader) *readStreamBlockstore {
+func newStreamingBlockstore(r *carutil.Reader, strict bool) *readStreamBlockstore {
 	return &readStreamBlockstore{
+		strict:      strict,
 		otherBlocks: make(map[cid.Cid]*carutil.BasicBlock, 20),
 		r:           r,
 	}
@@ -56,6 +58,10 @@ func (bs *readStreamBlockstore) readUntilBlock(ctx context.Context, cc cid.Cid) 
 
 		if blk.Cid() == cc {
 			return blk, nil
+		}
+
+		if bs.strict {
+			return nil, fmt.Errorf("%w: expected %s, got %s", ErrUnexpectedBlock, cc, blk.Cid())
 		}
 
 		bs.otherBlocks[blk.Cid()] = blk
@@ -106,6 +112,7 @@ func (bs *readStreamBlockstore) View(cc cid.Cid, cb func([]byte) error) error {
 }
 
 var ErrMissingBlock = fmt.Errorf("block was missing from archive")
+var ErrUnexpectedBlock = fmt.Errorf("next block in CAR was not the expected one")
 
 func (bs *readStreamBlockstore) Put(ctx context.Context, blk block.Block) error {
 	return fmt.Errorf("put is not needed")
@@ -132,6 +139,18 @@ func (bs *readStreamBlockstore) Put(ctx context.Context, blk block.Block) error 
 // returned from this function. To signal intentional early termination, cb can
 // return ErrDoneIterating, which is handled silently without logging.
 func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, onCommit func(*SignedCommit) error, cb func(k string, c cid.Cid, v []byte) error) error {
+	return streamRepoRecords(ctx, r, prefix, false, onCommit, cb)
+}
+
+// StreamRepoRecordsStrict is like StreamRepoRecords but requires that blocks
+// in the CAR file appear in the exact order they are accessed during repo
+// traversal, i.e. sync1.1 order. Out-of-order blocks produce an
+// ErrUnexpectedBlock error instead of being buffered.
+func StreamRepoRecordsStrict(ctx context.Context, r io.Reader, prefix string, onCommit func(*SignedCommit) error, cb func(k string, c cid.Cid, v []byte) error) error {
+	return streamRepoRecords(ctx, r, prefix, true, onCommit, cb)
+}
+
+func streamRepoRecords(ctx context.Context, r io.Reader, prefix string, strict bool, onCommit func(*SignedCommit) error, cb func(k string, c cid.Cid, v []byte) error) error {
 	ctx, span := otel.Tracer("repo").Start(ctx, "RepoStream")
 	defer span.End()
 
@@ -144,7 +163,7 @@ func StreamRepoRecords(ctx context.Context, r io.Reader, prefix string, onCommit
 		return fmt.Errorf("opening CAR block reader: %w", err)
 	}
 
-	bs := newStreamingBlockstore(br)
+	bs := newStreamingBlockstore(br, strict)
 
 	cst := util.CborStore(bs)
 
