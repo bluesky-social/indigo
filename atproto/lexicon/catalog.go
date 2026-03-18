@@ -24,8 +24,8 @@ type BaseCatalog struct {
 }
 
 // Creates a new empty BaseCatalog
-func NewBaseCatalog() BaseCatalog {
-	return BaseCatalog{
+func NewBaseCatalog() *BaseCatalog {
+	return &BaseCatalog{
 		schemas: make(map[string]Schema),
 	}
 }

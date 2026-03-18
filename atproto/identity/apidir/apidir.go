@@ -40,8 +40,8 @@ type handleBody struct {
 	DID syntax.DID `json:"did"`
 }
 
-func NewAPIDirectory(host string) APIDirectory {
-	return APIDirectory{
+func NewAPIDirectory(host string) *APIDirectory {
+	return &APIDirectory{
 		Client: &http.Client{
 			Timeout: time.Second * 10,
 			Transport: &http.Transport{

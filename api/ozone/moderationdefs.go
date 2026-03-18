@@ -104,6 +104,15 @@ type ModerationDefs_AgeAssuranceOverrideEvent struct {
 	Status string `json:"status" cborgen:"status"`
 }
 
+// ModerationDefs_AgeAssurancePurgeEvent is a "ageAssurancePurgeEvent" in the tools.ozone.moderation.defs schema.
+//
+// Purges all age assurance events for the subject. Only works on DID subjects. Moderator-only.
+type ModerationDefs_AgeAssurancePurgeEvent struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#ageAssurancePurgeEvent"`
+	// comment: Comment describing the reason for the purge.
+	Comment string `json:"comment" cborgen:"comment"`
+}
+
 // ModerationDefs_BlobView is a "blobView" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_BlobView struct {
 	Cid        string                           `json:"cid" cborgen:"cid"`
@@ -406,6 +415,7 @@ type ModerationDefs_ModEventViewDetail_Event struct {
 	ModerationDefs_ModEventPriorityScore         *ModerationDefs_ModEventPriorityScore
 	ModerationDefs_AgeAssuranceEvent             *ModerationDefs_AgeAssuranceEvent
 	ModerationDefs_AgeAssuranceOverrideEvent     *ModerationDefs_AgeAssuranceOverrideEvent
+	ModerationDefs_AgeAssurancePurgeEvent        *ModerationDefs_AgeAssurancePurgeEvent
 	ModerationDefs_RevokeAccountCredentialsEvent *ModerationDefs_RevokeAccountCredentialsEvent
 	ModerationDefs_ScheduleTakedownEvent         *ModerationDefs_ScheduleTakedownEvent
 	ModerationDefs_CancelScheduledTakedownEvent  *ModerationDefs_CancelScheduledTakedownEvent
@@ -496,6 +506,10 @@ func (t *ModerationDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) 
 		t.ModerationDefs_AgeAssuranceOverrideEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
 		return json.Marshal(t.ModerationDefs_AgeAssuranceOverrideEvent)
 	}
+	if t.ModerationDefs_AgeAssurancePurgeEvent != nil {
+		t.ModerationDefs_AgeAssurancePurgeEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssurancePurgeEvent"
+		return json.Marshal(t.ModerationDefs_AgeAssurancePurgeEvent)
+	}
 	if t.ModerationDefs_RevokeAccountCredentialsEvent != nil {
 		t.ModerationDefs_RevokeAccountCredentialsEvent.LexiconTypeID = "tools.ozone.moderation.defs#revokeAccountCredentialsEvent"
 		return json.Marshal(t.ModerationDefs_RevokeAccountCredentialsEvent)
@@ -581,6 +595,9 @@ func (t *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error 
 	case "tools.ozone.moderation.defs#ageAssuranceOverrideEvent":
 		t.ModerationDefs_AgeAssuranceOverrideEvent = new(ModerationDefs_AgeAssuranceOverrideEvent)
 		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceOverrideEvent)
+	case "tools.ozone.moderation.defs#ageAssurancePurgeEvent":
+		t.ModerationDefs_AgeAssurancePurgeEvent = new(ModerationDefs_AgeAssurancePurgeEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AgeAssurancePurgeEvent)
 	case "tools.ozone.moderation.defs#revokeAccountCredentialsEvent":
 		t.ModerationDefs_RevokeAccountCredentialsEvent = new(ModerationDefs_RevokeAccountCredentialsEvent)
 		return json.Unmarshal(b, t.ModerationDefs_RevokeAccountCredentialsEvent)
@@ -668,6 +685,7 @@ type ModerationDefs_ModEventView_Event struct {
 	ModerationDefs_ModEventPriorityScore         *ModerationDefs_ModEventPriorityScore
 	ModerationDefs_AgeAssuranceEvent             *ModerationDefs_AgeAssuranceEvent
 	ModerationDefs_AgeAssuranceOverrideEvent     *ModerationDefs_AgeAssuranceOverrideEvent
+	ModerationDefs_AgeAssurancePurgeEvent        *ModerationDefs_AgeAssurancePurgeEvent
 	ModerationDefs_RevokeAccountCredentialsEvent *ModerationDefs_RevokeAccountCredentialsEvent
 	ModerationDefs_ScheduleTakedownEvent         *ModerationDefs_ScheduleTakedownEvent
 	ModerationDefs_CancelScheduledTakedownEvent  *ModerationDefs_CancelScheduledTakedownEvent
@@ -758,6 +776,10 @@ func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
 		t.ModerationDefs_AgeAssuranceOverrideEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssuranceOverrideEvent"
 		return json.Marshal(t.ModerationDefs_AgeAssuranceOverrideEvent)
 	}
+	if t.ModerationDefs_AgeAssurancePurgeEvent != nil {
+		t.ModerationDefs_AgeAssurancePurgeEvent.LexiconTypeID = "tools.ozone.moderation.defs#ageAssurancePurgeEvent"
+		return json.Marshal(t.ModerationDefs_AgeAssurancePurgeEvent)
+	}
 	if t.ModerationDefs_RevokeAccountCredentialsEvent != nil {
 		t.ModerationDefs_RevokeAccountCredentialsEvent.LexiconTypeID = "tools.ozone.moderation.defs#revokeAccountCredentialsEvent"
 		return json.Marshal(t.ModerationDefs_RevokeAccountCredentialsEvent)
@@ -843,6 +865,9 @@ func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#ageAssuranceOverrideEvent":
 		t.ModerationDefs_AgeAssuranceOverrideEvent = new(ModerationDefs_AgeAssuranceOverrideEvent)
 		return json.Unmarshal(b, t.ModerationDefs_AgeAssuranceOverrideEvent)
+	case "tools.ozone.moderation.defs#ageAssurancePurgeEvent":
+		t.ModerationDefs_AgeAssurancePurgeEvent = new(ModerationDefs_AgeAssurancePurgeEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AgeAssurancePurgeEvent)
 	case "tools.ozone.moderation.defs#revokeAccountCredentialsEvent":
 		t.ModerationDefs_RevokeAccountCredentialsEvent = new(ModerationDefs_RevokeAccountCredentialsEvent)
 		return json.Unmarshal(b, t.ModerationDefs_RevokeAccountCredentialsEvent)
