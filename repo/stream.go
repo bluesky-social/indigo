@@ -186,9 +186,13 @@ func streamRepoRecords(ctx context.Context, r io.Reader, prefix string, strict b
 		if err := bs.View(val, func(data []byte) error {
 			return cb(k, val, data)
 		}); err != nil {
-			if err != ErrDoneIterating {
-				slog.Error("failed to get record from tree", "key", k, "cid", val, "error", err)
+			if err == ErrDoneIterating {
+				return nil
 			}
+			if strict {
+				return err
+			}
+			slog.Error("failed to get record from tree", "key", k, "cid", val, "error", err)
 			return nil
 		}
 
