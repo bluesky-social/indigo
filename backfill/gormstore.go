@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -45,8 +46,9 @@ type Gormstore struct {
 	lk   sync.RWMutex
 	jobs map[string]*Gormjob
 
-	qlk       sync.Mutex
-	taskQueue []string
+	qlk              sync.Mutex
+	taskQueue        []string
+	enqueuesSinceShf int // enqueues since last shuffle
 
 	db *gorm.DB
 }
@@ -74,7 +76,10 @@ func (s *Gormstore) loadJobs(ctx context.Context, limit int) error {
 		retryableIndexClause = "INDEXED BY retryable_job_idx"
 	}
 
-	enqueuedSelect := fmt.Sprintf(`SELECT repo FROM gorm_db_jobs %s WHERE state  = 'enqueued' LIMIT ?`, enqueuedIndexClause)
+	// ORDER BY RANDOM() distributes jobs across PDS hosts evenly. Without this,
+	// repos from the same PDS are clustered together in the queue, causing most
+	// workers to pile up on the same few hosts' rate limiters while other hosts sit idle.
+	enqueuedSelect := fmt.Sprintf(`SELECT repo FROM gorm_db_jobs %s WHERE state = 'enqueued' ORDER BY RANDOM() LIMIT ?`, enqueuedIndexClause)
 	retryableSelect := fmt.Sprintf(`SELECT repo FROM gorm_db_jobs %s WHERE state like 'failed%%' AND (retry_after = NULL OR retry_after < ?) LIMIT ?`, retryableIndexClause)
 
 	var todo []string
@@ -120,6 +125,8 @@ func (s *Gormstore) EnqueueJob(ctx context.Context, repo string) error {
 
 	s.qlk.Lock()
 	s.taskQueue = append(s.taskQueue, repo)
+	s.enqueuesSinceShf++
+	s.maybeShuffleLocked()
 	s.qlk.Unlock()
 
 	return nil
@@ -133,9 +140,22 @@ func (s *Gormstore) EnqueueJobWithState(ctx context.Context, repo, state string)
 
 	s.qlk.Lock()
 	s.taskQueue = append(s.taskQueue, repo)
+	s.enqueuesSinceShf++
+	s.maybeShuffleLocked()
 	s.qlk.Unlock()
 
 	return nil
+}
+
+// maybeShuffleLocked shuffles the task queue every 10k enqueues to break up
+// PDS host clustering from the repo pump. Must hold qlk.
+func (s *Gormstore) maybeShuffleLocked() {
+	if s.enqueuesSinceShf >= 10_000 && len(s.taskQueue) > 100 {
+		rand.Shuffle(len(s.taskQueue), func(i, j int) {
+			s.taskQueue[i], s.taskQueue[j] = s.taskQueue[j], s.taskQueue[i]
+		})
+		s.enqueuesSinceShf = 0
+	}
 }
 
 func (s *Gormstore) createJobForRepo(repo, state string) error {
@@ -272,7 +292,7 @@ func (s *Gormstore) GetNextEnqueuedJob(ctx context.Context) (Job, error) {
 	s.qlk.Lock()
 	defer s.qlk.Unlock()
 	if len(s.taskQueue) == 0 {
-		if err := s.loadJobs(ctx, 1000); err != nil {
+		if err := s.loadJobs(ctx, 5000); err != nil {
 			return nil, err
 		}
 
