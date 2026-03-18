@@ -42,7 +42,7 @@ func ProcessCaptureRules(eng *automod.Engine, capture AccountCapture) error {
 	handle := capture.AccountMeta.Identity.Handle.String()
 	dir := identity.NewMockDirectory()
 	dir.Insert(*capture.AccountMeta.Identity)
-	eng.Directory = &dir
+	eng.Directory = dir
 
 	// initial identity rules
 	identEvent := comatproto.SyncSubscribeRepos_Identity{

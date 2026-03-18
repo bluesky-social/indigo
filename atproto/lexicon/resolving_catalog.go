@@ -12,12 +12,12 @@ import (
 
 // Catalog which supplements an in-memory BaseCatalog with live resolution from the network
 type ResolvingCatalog struct {
-	Base      BaseCatalog
+	Base      *BaseCatalog
 	Directory identity.Directory
 }
 
-func NewResolvingCatalog() ResolvingCatalog {
-	return ResolvingCatalog{
+func NewResolvingCatalog() *ResolvingCatalog {
+	return &ResolvingCatalog{
 		Base:      NewBaseCatalog(),
 		Directory: identity.DefaultDirectory(),
 	}

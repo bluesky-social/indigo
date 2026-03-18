@@ -85,6 +85,5 @@ func DefaultDirectory() Directory {
 		SkipDNSDomainSuffixes: []string{".bsky.social"},
 		UserAgent:             "indigo-identity/" + versioninfo.Short(),
 	}
-	cached := NewCacheDirectory(&base, 250_000, time.Hour*24, time.Minute*2, time.Minute*5)
-	return &cached
+	return NewCacheDirectory(&base, 250_000, time.Hour*24, time.Minute*2, time.Minute*5)
 }

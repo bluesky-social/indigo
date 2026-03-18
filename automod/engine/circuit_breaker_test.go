@@ -29,7 +29,7 @@ func TestTakedownCircuitBreaker(t *testing.T) {
 	ctx := context.Background()
 	eng := EngineTestFixture()
 	dir := identity.NewMockDirectory()
-	eng.Directory = &dir
+	eng.Directory = dir
 	// note that this is a record-level action, not account-level
 	eng.Rules = RuleSet{
 		RecordRules: []RecordRuleFunc{
@@ -75,7 +75,7 @@ func TestReportCircuitBreaker(t *testing.T) {
 	ctx := context.Background()
 	eng := EngineTestFixture()
 	dir := identity.NewMockDirectory()
-	eng.Directory = &dir
+	eng.Directory = dir
 	eng.Rules = RuleSet{
 		RecordRules: []RecordRuleFunc{
 			alwaysReportRecordRule,

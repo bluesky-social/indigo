@@ -37,8 +37,8 @@ type identityEntry struct {
 var _ Directory = (*CacheDirectory)(nil)
 
 // Capacity of zero means unlimited size. Similarly, ttl of zero means unlimited duration.
-func NewCacheDirectory(inner Directory, capacity int, hitTTL, errTTL, invalidHandleTTL time.Duration) CacheDirectory {
-	return CacheDirectory{
+func NewCacheDirectory(inner Directory, capacity int, hitTTL, errTTL, invalidHandleTTL time.Duration) *CacheDirectory {
+	return &CacheDirectory{
 		ErrTTL:           errTTL,
 		InvalidHandleTTL: invalidHandleTTL,
 		Inner:            inner,

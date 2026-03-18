@@ -96,7 +96,7 @@ func TestServiceAuthMiddleware(t *testing.T) {
 
 	v := ServiceAuthValidator{
 		Audience: aud,
-		Dir:      &dir,
+		Dir:      dir,
 	}
 
 	{

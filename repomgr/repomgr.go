@@ -48,7 +48,7 @@ func NewRepoManager(cs carstore.CarStore, kmgr KeyManager) *RepoManager {
 		kmgr:      kmgr,
 		log:       slog.Default().With("system", "repomgr"),
 		noArchive: noArchive,
-		clk:       &clk,
+		clk:       clk,
 	}
 }
 

@@ -36,6 +36,7 @@ type FirehoseProcessor struct {
 	collectionFilters  []string
 	parallelism        int
 	cursorSaveInterval time.Duration
+	noReplay           bool
 
 	lastSeq atomic.Int64
 }
@@ -52,6 +53,7 @@ func NewFirehoseProcessor(logger *slog.Logger, db *gorm.DB, events *EventManager
 		collectionFilters:  config.CollectionFilters,
 		parallelism:        config.FirehoseParallelism,
 		cursorSaveInterval: config.FirehoseCursorSaveInterval,
+		noReplay:           config.NoReplay,
 	}
 }
 
@@ -187,15 +189,15 @@ func (fp *FirehoseProcessor) validateCommitAndFilterOps(ctx context.Context, evt
 		}
 	}
 
-	repoCommit, err := r.Commit()
+	dataCid, err := r.MST.RootCID()
 	if err != nil {
 		return nil, err
 	}
 
 	commit := &Commit{
 		Did:     evt.Repo,
-		Rev:     repoCommit.Rev,
-		DataCid: repoCommit.Data.String(),
+		Rev:     evt.Rev,
+		DataCid: dataCid.String(),
 		Ops:     parsedOps,
 	}
 
@@ -382,6 +384,11 @@ func (fp *FirehoseProcessor) RunCursorSaver(ctx context.Context) {
 }
 
 func (fp *FirehoseProcessor) GetCursor(ctx context.Context) (int64, error) {
+	if fp.noReplay {
+		fp.logger.Info("firehose replay disabled, skipping to live")
+		return 0, nil
+	}
+
 	var cursor models.FirehoseCursor
 	if err := fp.db.WithContext(ctx).Where("url = ?", fp.relayUrl).First(&cursor).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {

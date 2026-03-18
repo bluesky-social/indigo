@@ -100,6 +100,11 @@ func run(args []string) error {
 						Value:   1 * time.Second,
 						Sources: cli.EnvVars("TAP_CURSOR_SAVE_INTERVAL"),
 					},
+					&cli.BoolFlag{
+						Name:    "no-replay",
+						Usage:   "skip saved cursor and connect to firehose head on startup (incompatible with --full-network, not recommended for production)",
+						Sources: cli.EnvVars("TAP_NO_REPLAY"),
+					},
 					&cli.DurationFlag{
 						Name:    "repo-fetch-timeout",
 						Usage:   "timeout when fetching repo CARs from PDS (e.g. 180s)",
@@ -195,6 +200,10 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("plc-url must start with http:// or https://")
 	}
 
+	if cmd.Bool("no-replay") && cmd.Bool("full-network") {
+		return fmt.Errorf("--no-replay cannot be used with --full-network")
+	}
+
 	config := TapConfig{
 		DatabaseURL:                cmd.String("db-url"),
 		DBMaxConns:                 int(cmd.Int("max-db-conn")),
@@ -204,6 +213,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		ResyncParallelism:          int(cmd.Int("resync-parallelism")),
 		OutboxParallelism:          int(cmd.Int("outbox-parallelism")),
 		FirehoseCursorSaveInterval: cmd.Duration("cursor-save-interval"),
+		NoReplay:                   cmd.Bool("no-replay"),
 		RepoFetchTimeout:           cmd.Duration("repo-fetch-timeout"),
 		IdentityCacheSize:          int(cmd.Int("ident-cache-size")),
 		EventCacheSize:             int(cmd.Int("outbox-capacity")),

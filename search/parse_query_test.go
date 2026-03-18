@@ -22,22 +22,22 @@ func TestParseQuery(t *testing.T) {
 
 	var p PostSearchParams
 
-	p = ParsePostQuery(ctx, &dir, "", nil)
+	p = ParsePostQuery(ctx, dir, "", nil)
 	assert.Equal("*", p.Query)
 	assert.Empty(p.Filters())
 
 	q1 := "some +test \"with phrase\" -ok"
-	p = ParsePostQuery(ctx, &dir, q1, nil)
+	p = ParsePostQuery(ctx, dir, q1, nil)
 	assert.Equal(q1, p.Query)
 	assert.Empty(p.Filters())
 
 	q2 := "missing from:missing.example.com"
-	p = ParsePostQuery(ctx, &dir, q2, nil)
+	p = ParsePostQuery(ctx, dir, q2, nil)
 	assert.Equal("missing", p.Query)
 	assert.Empty(p.Filters())
 
 	q3 := "known from:known.example.com"
-	p = ParsePostQuery(ctx, &dir, q3, nil)
+	p = ParsePostQuery(ctx, dir, q3, nil)
 	assert.Equal("known", p.Query)
 	assert.NotNil(p.Author)
 	if p.Author != nil {
@@ -45,12 +45,12 @@ func TestParseQuery(t *testing.T) {
 	}
 
 	q4 := "from:known.example.com"
-	p = ParsePostQuery(ctx, &dir, q4, nil)
+	p = ParsePostQuery(ctx, dir, q4, nil)
 	assert.Equal("*", p.Query)
 	assert.Equal(1, len(p.Filters()))
 
 	q5 := `from:known.example.com "multi word phrase" coolio blorg`
-	p = ParsePostQuery(ctx, &dir, q5, nil)
+	p = ParsePostQuery(ctx, dir, q5, nil)
 	assert.Equal(`"multi word phrase" coolio blorg`, p.Query)
 	assert.NotNil(p.Author)
 	if p.Author != nil {
@@ -59,7 +59,7 @@ func TestParseQuery(t *testing.T) {
 	assert.Equal(1, len(p.Filters()))
 
 	q6 := `from:known.example.com #cool_tag some other stuff`
-	p = ParsePostQuery(ctx, &dir, q6, nil)
+	p = ParsePostQuery(ctx, dir, q6, nil)
 	assert.Equal(`some other stuff`, p.Query)
 	assert.NotNil(p.Author)
 	if p.Author != nil {
@@ -69,7 +69,7 @@ func TestParseQuery(t *testing.T) {
 	assert.Equal(2, len(p.Filters()))
 
 	q7 := "known from:@known.example.com"
-	p = ParsePostQuery(ctx, &dir, q7, nil)
+	p = ParsePostQuery(ctx, dir, q7, nil)
 	assert.Equal("known", p.Query)
 	assert.NotNil(p.Author)
 	if p.Author != nil {
@@ -78,7 +78,7 @@ func TestParseQuery(t *testing.T) {
 	assert.Equal(1, len(p.Filters()))
 
 	q8 := "known from:me"
-	p = ParsePostQuery(ctx, &dir, q8, &ident.DID)
+	p = ParsePostQuery(ctx, dir, q8, &ident.DID)
 	assert.Equal("known", p.Query)
 	assert.NotNil(p.Author)
 	if p.Author != nil {
@@ -87,7 +87,7 @@ func TestParseQuery(t *testing.T) {
 	assert.Equal(1, len(p.Filters()))
 
 	q9 := "did:plc:abc222"
-	p = ParsePostQuery(ctx, &dir, q9, nil)
+	p = ParsePostQuery(ctx, dir, q9, nil)
 	assert.Equal("*", p.Query)
 	assert.Equal(1, len(p.Filters()))
 	if p.Author != nil {

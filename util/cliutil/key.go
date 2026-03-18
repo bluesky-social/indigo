@@ -9,14 +9,17 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
+
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/whyrusleeping/go-did"
 )
 
-// LoadKeyFromFile reads the private key from file
-func LoadKeyFromFile(kfile string) (*did.PrivKey, error) {
-	kb, err := os.ReadFile(kfile)
+// Loads a secret key from JWK JSON on disk. Only supports P-256 format.
+//
+// Deprecated: use the indigo atcrypto package and multikey string serialization instead
+func LoadKeyFromFile(fpath string) (*atcrypto.PrivateKeyP256, error) {
+	kb, err := os.ReadFile(fpath)
 	if err != nil {
 		return nil, err
 	}
@@ -35,22 +38,22 @@ func LoadKeyFromFile(kfile string) (*did.PrivKey, error) {
 		return nil, fmt.Errorf("need a curve set")
 	}
 
-	var out string
 	kts := string(curve.(jwa.EllipticCurveAlgorithm))
-	switch kts {
-	case "P-256":
-		out = did.KeyTypeP256
-	default:
+	if kts != "P-256" {
 		return nil, fmt.Errorf("unrecognized key type: %s", kts)
 	}
 
-	return &did.PrivKey{
-		Raw:  &spk,
-		Type: out,
-	}, nil
+	skECDH, err := spk.ECDH()
+	if err != nil {
+		return nil, err
+	}
+
+	return atcrypto.ParsePrivateBytesP256(skECDH.Bytes())
 }
 
-// GenerateKeyToFile makes the private key and store it into the file
+// Generates a P-256 secret key and saves it to disk as JWK.
+//
+// Deprecated: use the indigo atcrypto package and multikey string serialization instead
 func GenerateKeyToFile(fname string) error {
 	raw, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {

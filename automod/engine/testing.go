@@ -60,7 +60,7 @@ func EngineTestFixture() Engine {
 	dir.Insert(id1)
 	eng := Engine{
 		Logger:    slog.Default(),
-		Directory: &dir,
+		Directory: dir,
 		Counters:  countstore.NewMemCountStore(),
 		Sets:      sets,
 		Flags:     flags,

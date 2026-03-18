@@ -48,6 +48,7 @@ Go will fetch dependencies, compile, and install `tap` or another service with a
 | `atproto/repo`: repository data structure                    | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/repo)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/repo)         |
 | `atproto/repo/mst`: Merkle Search Tree implementation        | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/repo/mst)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/repo/mst) |
 | `atproto/atcrypto`: cryptographic signing and key serialization | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/atcrypto)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/atcrypto)|
+| `go-didplc/didplc`: DID PLC implementation (external) | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/did-method-plc/go-didplc/didplc)](https://pkg.go.dev/mod/github.com/did-method-plc/go-didplc/didplc)|
 
 The TypeScript reference implementation, including PDS and bsky AppView services, is at [bluesky-social/atproto](https://github.com/bluesky-social/atproto). Source code for the Bluesky Social client app (for web and mobile) can be found at [bluesky-social/social-app](https://github.com/bluesky-social/social-app).
 

@@ -66,7 +66,7 @@ func TestCacheDirectory(t *testing.T) {
 	inner := BaseDirectory{}
 	d := NewCacheDirectory(&inner, 1000, time.Hour*1, time.Hour*1, time.Hour*1)
 	for i := 0; i < 3; i = i + 1 {
-		testDirectoryLive(t, &d)
+		testDirectoryLive(t, d)
 	}
 }
 

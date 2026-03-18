@@ -73,7 +73,7 @@ func runValidateRecord(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	slog.Info("validating", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
-	err = lexicon.ValidateRecord(&cat, record, aturi.Collection().String(), lexicon.LenientMode)
+	err = lexicon.ValidateRecord(cat, record, aturi.Collection().String(), lexicon.LenientMode)
 	if err != nil {
 		return err
 	}
