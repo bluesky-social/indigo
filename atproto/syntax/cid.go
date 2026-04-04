@@ -2,7 +2,6 @@ package syntax
 
 import (
 	"errors"
-	"regexp"
 	"strings"
 )
 
@@ -13,7 +12,9 @@ import (
 // Always use [ParseCID] instead of wrapping strings directly, especially when working with network input.
 type CID string
 
-var cidRegex = regexp.MustCompile(`^[a-zA-Z0-9+=]{8,256}$`)
+func isCIDChar(c byte) bool {
+	return isAlphanumeric(c) || c == '+' || c == '='
+}
 
 func ParseCID(raw string) (CID, error) {
 	if raw == "" {
@@ -26,8 +27,10 @@ func ParseCID(raw string) (CID, error) {
 		return "", errors.New("CID is too short (8 chars min)")
 	}
 
-	if !cidRegex.MatchString(raw) {
-		return "", errors.New("CID syntax didn't validate via regex")
+	for i := 0; i < len(raw); i++ {
+		if !isCIDChar(raw[i]) {
+			return "", errors.New("CID syntax didn't validate")
+		}
 	}
 	if strings.HasPrefix(raw, "Qmb") {
 		return "", errors.New("CIDv0 not allowed in this version of atproto")

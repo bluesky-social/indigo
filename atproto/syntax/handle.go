@@ -3,13 +3,10 @@ package syntax
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 )
 
 var (
-	handleRegex = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$`)
-
 	// special handle string constant indicating that handle resolution failed
 	HandleInvalid = Handle("handle.invalid")
 )
@@ -28,9 +25,43 @@ func ParseHandle(raw string) (Handle, error) {
 	if len(raw) > 253 {
 		return "", errors.New("handle is too long (253 chars max)")
 	}
-	if !handleRegex.MatchString(raw) {
-		return "", fmt.Errorf("handle syntax didn't validate via regex: %s", raw)
+
+	// Walk through dot-separated labels.
+	labelCount := 0
+	start := 0
+	for i := 0; i <= len(raw); i++ {
+		if i == len(raw) || raw[i] == '.' {
+			label := raw[start:i]
+			if len(label) == 0 || len(label) > 63 {
+				return "", fmt.Errorf("handle syntax didn't vaidate: %s", raw)
+			}
+			if !isAlphanumeric(label[0]) {
+				return "", fmt.Errorf("handle syntax didn't vaidate: %s", raw)
+			}
+			if !isAlphanumeric(label[len(label)-1]) {
+				return "", fmt.Errorf("handle syntax didn't vaidate: %s", raw)
+			}
+			for j := 1; j < len(label)-1; j++ {
+				if !isAlphanumericOrHyphen(label[j]) {
+					return "", fmt.Errorf("handle syntax didn't vaidate: %s", raw)
+				}
+			}
+			labelCount++
+			start = i + 1
+		}
 	}
+
+	if labelCount < 2 {
+		return "", fmt.Errorf("handle syntax didn't vaidate: %s", raw)
+	}
+
+	// TLD (last label) must start with a letter.
+	lastDot := strings.LastIndexByte(raw, '.')
+	tld := raw[lastDot+1:]
+	if !isAlpha(tld[0]) {
+		return "", fmt.Errorf("handle syntax didn't vaidate: %s", raw)
+	}
+
 	return Handle(raw), nil
 }
 

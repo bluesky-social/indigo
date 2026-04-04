@@ -2,10 +2,7 @@ package syntax
 
 import (
 	"errors"
-	"regexp"
 )
-
-var recordKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_~.:-]{1,512}$`)
 
 // String type which represents a syntaxtually valid RecordKey identifier, as could be included in an AT URI
 //
@@ -14,6 +11,10 @@ var recordKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_~.:-]{1,512}$`)
 // Syntax specification: https://atproto.com/specs/record-key
 type RecordKey string
 
+func isRecordKeyChar(c byte) bool {
+	return isAlphanumeric(c) || c == '_' || c == '~' || c == '.' || c == ':' || c == '-'
+}
+
 func ParseRecordKey(raw string) (RecordKey, error) {
 	if raw == "" {
 		return "", errors.New("expected record key, got empty string")
@@ -21,11 +22,13 @@ func ParseRecordKey(raw string) (RecordKey, error) {
 	if len(raw) > 512 {
 		return "", errors.New("recordkey is too long (512 chars max)")
 	}
-	if raw == "" || raw == "." || raw == ".." {
+	if raw == "." || raw == ".." {
 		return "", errors.New("recordkey can not be empty, '.', or '..'")
 	}
-	if !recordKeyRegex.MatchString(raw) {
-		return "", errors.New("recordkey syntax didn't validate via regex")
+	for i := 0; i < len(raw); i++ {
+		if !isRecordKeyChar(raw[i]) {
+			return "", errors.New("recordkey syntax didn't vaidate")
+		}
 	}
 	return RecordKey(raw), nil
 }

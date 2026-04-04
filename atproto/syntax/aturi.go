@@ -3,11 +3,8 @@ package syntax
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 )
-
-var aturiRegex = regexp.MustCompile(`^at:\/\/(?P<authority>[a-zA-Z0-9._:%-]+)(\/(?P<collection>[a-zA-Z0-9-.]+)(\/(?P<rkey>[a-zA-Z0-9_~.:-]{1,512}))?)?$`)
 
 // String type which represents a syntaxtually valid AT URI, as would pass Lexicon syntax validation for the 'at-uri' field (no query or fragment parts)
 //
@@ -20,27 +17,81 @@ func ParseATURI(raw string) (ATURI, error) {
 	if len(raw) > 8192 {
 		return "", errors.New("ATURI is too long (8192 chars max)")
 	}
-	parts := aturiRegex.FindStringSubmatch(raw)
-	if parts == nil || len(parts) < 2 || parts[0] == "" {
-		return "", errors.New("AT-URI syntax didn't validate via regex")
+	if len(raw) < 5 || raw[:5] != "at://" {
+		return "", errors.New("AT-URI syntax didn't vaidate")
 	}
-	// verify authority as either a DID or NSID
-	_, err := ParseAtIdentifier(parts[1])
+
+	// Reject query and fragment.
+	for i := 5; i < len(raw); i++ {
+		if raw[i] == '?' || raw[i] == '#' {
+			return "", errors.New("AT-URI syntax didn't vaidate")
+		}
+	}
+
+	rest := raw[5:]
+	if len(rest) == 0 {
+		return "", errors.New("AT-URI syntax didn't vaidate")
+	}
+
+	// Find the first slash to separate authority from path.
+	slash1 := strings.IndexByte(rest, '/')
+	var authority string
+	if slash1 < 0 {
+		authority = rest
+	} else {
+		authority = rest[:slash1]
+	}
+
+	// verify authority as either a DID or Handle
+	_, err := ParseAtIdentifier(authority)
 	if err != nil {
-		return "", fmt.Errorf("AT-URI authority section neither a DID nor Handle: %s", parts[1])
+		return "", fmt.Errorf("AT-URI authority section neither a DID nor Handle: %s", authority)
 	}
-	if len(parts) >= 4 && parts[3] != "" {
-		_, err := ParseNSID(parts[3])
-		if err != nil {
-			return "", fmt.Errorf("AT-URI first path segment not an NSID: %s", parts[3])
-		}
+
+	// No path — just authority.
+	if slash1 < 0 {
+		return ATURI(raw), nil
 	}
-	if len(parts) >= 6 && parts[5] != "" {
-		_, err := ParseRecordKey(parts[5])
-		if err != nil {
-			return "", fmt.Errorf("AT-URI second path segment not a RecordKey: %s", parts[5])
-		}
+
+	afterAuth := rest[slash1+1:]
+	if len(afterAuth) == 0 {
+		return "", errors.New("AT-URI syntax didn't vaidate")
 	}
+
+	// Find second slash to separate collection from rkey.
+	slash2 := strings.IndexByte(afterAuth, '/')
+	var collection string
+	if slash2 < 0 {
+		collection = afterAuth
+	} else {
+		collection = afterAuth[:slash2]
+	}
+
+	_, err = ParseNSID(collection)
+	if err != nil {
+		return "", fmt.Errorf("AT-URI first path segment not an NSID: %s", collection)
+	}
+
+	// No record key.
+	if slash2 < 0 {
+		return ATURI(raw), nil
+	}
+
+	afterColl := afterAuth[slash2+1:]
+	if len(afterColl) == 0 {
+		return "", errors.New("AT-URI syntax didn't vaidate")
+	}
+
+	// Reject additional path segments.
+	if strings.IndexByte(afterColl, '/') >= 0 {
+		return "", errors.New("AT-URI syntax didn't vaidate")
+	}
+
+	_, err = ParseRecordKey(afterColl)
+	if err != nil {
+		return "", fmt.Errorf("AT-URI second path segment not a RecordKey: %s", afterColl)
+	}
+
 	return ATURI(raw), nil
 }
 

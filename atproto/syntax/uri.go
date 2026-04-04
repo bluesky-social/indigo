@@ -2,7 +2,6 @@ package syntax
 
 import (
 	"errors"
-	"regexp"
 )
 
 // Represents an arbitrary URI in string format, as would pass Lexicon syntax validation.
@@ -19,10 +18,44 @@ func ParseURI(raw string) (URI, error) {
 	if len(raw) > 8192 {
 		return "", errors.New("URI is too long (8192 chars max)")
 	}
-	var uriRegex = regexp.MustCompile(`^[a-z][a-z.-]{0,80}:[[:graph:]]+$`)
-	if !uriRegex.MatchString(raw) {
-		return "", errors.New("URI syntax didn't validate via regex")
+
+	// Scheme: starts with lowercase letter, then lowercase letters/digits/'+'/'.'/'-', then ':'.
+	// Per RFC 3986 section 3.1: scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+	if !isLowerAlpha(raw[0]) {
+		return "", errors.New("URI syntax didn't vaidate")
 	}
+
+	i := 1
+	for i < len(raw) && raw[i] != ':' {
+		c := raw[i]
+		if !isLowerAlpha(c) && !isDigit(c) && c != '+' && c != '.' && c != '-' {
+			return "", errors.New("URI syntax didn't vaidate")
+		}
+		i++
+		if i-1 > 80 {
+			return "", errors.New("URI syntax didn't vaidate")
+		}
+	}
+	if i >= len(raw) {
+		return "", errors.New("URI syntax didn't vaidate")
+	}
+
+	// Skip ':'.
+	i++
+	if i >= len(raw) {
+		return "", errors.New("URI syntax didn't vaidate")
+	}
+
+	// Body must be non-whitespace, non-control characters. This accepts non-ASCII
+	// bytes (e.g. UTF-8 encoded internationalized URIs), which is slightly broader
+	// than the previous [[:graph:]] regex that only matched Unicode graphic chars.
+	for j := i; j < len(raw); j++ {
+		c := raw[j]
+		if c <= ' ' || c == 0x7F {
+			return "", errors.New("URI syntax didn't vaidate")
+		}
+	}
+
 	return URI(raw), nil
 }
 

@@ -3,18 +3,34 @@ package syntax
 import (
 	"encoding/base32"
 	"errors"
-	"regexp"
-	"strings"
 	"sync"
 	"time"
 )
+
+func Base32Sort() *base32.Encoding {
+	return base32.NewEncoding(Base32SortAlphabet).WithPadding(base32.NoPadding)
+}
 
 const (
 	Base32SortAlphabet = "234567abcdefghijklmnopqrstuvwxyz"
 )
 
-func Base32Sort() *base32.Encoding {
-	return base32.NewEncoding(Base32SortAlphabet).WithPadding(base32.NoPadding)
+// isTIDFirstChar checks if the character is valid as the first TID character.
+// Only [234567abcdefghij] — the lower half of the alphabet (high bit clear).
+func isTIDFirstChar(c byte) bool {
+	return (c >= '2' && c <= '7') || (c >= 'a' && c <= 'j')
+}
+
+// isTIDChar checks if the character is valid in a TID (any base32-sort char).
+func isTIDChar(c byte) bool {
+	return (c >= '2' && c <= '7') || (c >= 'a' && c <= 'z')
+}
+
+func base32SortDecode(c byte) byte {
+	if c >= '2' && c <= '7' {
+		return c - '2'
+	}
+	return c - 'a' + 6
 }
 
 // Represents a TID in string format, as would pass Lexicon syntax validation.
@@ -24,8 +40,6 @@ func Base32Sort() *base32.Encoding {
 // Syntax specification: https://atproto.com/specs/record-key
 type TID string
 
-var tidRegex = regexp.MustCompile(`^[234567abcdefghij][234567abcdefghijklmnopqrstuvwxyz]{12}$`)
-
 func ParseTID(raw string) (TID, error) {
 	if raw == "" {
 		return "", errors.New("expected TID, got empty string")
@@ -33,8 +47,13 @@ func ParseTID(raw string) (TID, error) {
 	if len(raw) != 13 {
 		return "", errors.New("TID is wrong length (expected 13 chars)")
 	}
-	if !tidRegex.MatchString(raw) {
-		return "", errors.New("TID syntax didn't validate via regex")
+	if !isTIDFirstChar(raw[0]) {
+		return "", errors.New("TID syntax didn't vaidate")
+	}
+	for i := 1; i < 13; i++ {
+		if !isTIDChar(raw[i]) {
+			return "", errors.New("TID syntax didn't vaidate")
+		}
 	}
 	return TID(raw), nil
 }
@@ -48,12 +67,12 @@ func NewTIDNow(clockId uint) TID {
 
 func NewTIDFromInteger(v uint64) TID {
 	v = (0x7FFF_FFFF_FFFF_FFFF & v)
-	s := ""
-	for i := 0; i < 13; i++ {
-		s = string(Base32SortAlphabet[v&0x1F]) + s
-		v = v >> 5
+	var buf [13]byte
+	for i := 12; i >= 0; i-- {
+		buf[i] = Base32SortAlphabet[v&0x1F]
+		v >>= 5
 	}
-	return TID(s)
+	return TID(buf[:])
 }
 
 // Constructs a new TID from a UNIX timestamp (in milliseconds) and clock ID value.
@@ -69,17 +88,12 @@ func NewTIDFromTime(ts time.Time, clockId uint) TID {
 
 // Returns full integer representation of this TID (not used often)
 func (t TID) Integer() uint64 {
-	s := t.String()
-	if len(s) != 13 {
+	if len(t) != 13 {
 		return 0
 	}
 	var v uint64
 	for i := 0; i < 13; i++ {
-		c := strings.IndexByte(Base32SortAlphabet, s[i])
-		if c < 0 {
-			return 0
-		}
-		v = (v << 5) | uint64(c&0x1F)
+		v = (v << 5) | uint64(base32SortDecode(t[i]))
 	}
 	return v
 }

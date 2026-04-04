@@ -2,7 +2,6 @@ package syntax
 
 import (
 	"errors"
-	"regexp"
 )
 
 // Represents a Language specifier in string format, as would pass Lexicon syntax validation.
@@ -12,8 +11,6 @@ import (
 // The syntax is BCP-47. This is a partial/naive parsing implementation, designed for fast validation and exact-string passthrough with no normaliztion. For actually working with BCP-47 language specifiers in atproto code bases, we recommend the golang.org/x/text/language package.
 type Language string
 
-var langRegex = regexp.MustCompile(`^(i|[a-z]{2,3})(-[a-zA-Z0-9]+)*$`)
-
 func ParseLanguage(raw string) (Language, error) {
 	if raw == "" {
 		return "", errors.New("expected language code, got empty string")
@@ -21,9 +18,44 @@ func ParseLanguage(raw string) (Language, error) {
 	if len(raw) > 128 {
 		return "", errors.New("Language is too long (128 chars max)")
 	}
-	if !langRegex.MatchString(raw) {
-		return "", errors.New("Language syntax didn't validate via regex")
+
+	// Primary subtag: "i" or 2-3 lowercase letters.
+	i := 0
+	for i < len(raw) && raw[i] != '-' {
+		if !isLowerAlpha(raw[i]) {
+			return "", errors.New("Language syntax didn't vaidate")
+		}
+		i++
 	}
+
+	if i == 0 {
+		return "", errors.New("Language syntax didn't vaidate")
+	}
+	if i == 1 && raw[0] != 'i' {
+		return "", errors.New("Language syntax didn't vaidate")
+	}
+	if i > 3 {
+		return "", errors.New("Language syntax didn't vaidate")
+	}
+
+	// Subsequent subtags: hyphen-separated alphanumeric.
+	for i < len(raw) {
+		if raw[i] != '-' {
+			return "", errors.New("Language syntax didn't vaidate")
+		}
+		i++ // skip hyphen
+		start := i
+		for i < len(raw) && raw[i] != '-' {
+			if !isAlphanumeric(raw[i]) {
+				return "", errors.New("Language syntax didn't vaidate")
+			}
+			i++
+		}
+		if i == start {
+			return "", errors.New("Language syntax didn't vaidate")
+		}
+	}
+
 	return Language(raw), nil
 }
 
