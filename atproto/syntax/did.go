@@ -45,16 +45,6 @@ func ParseDID(raw string) (DID, error) {
 		return "", errors.New("expected DID, got empty string")
 	}
 
-	// fast-path for did:plc, avoiding full validation
-	if len(raw) == 32 && raw[0] == 'd' && raw[1] == 'i' && raw[2] == 'd' && raw[3] == ':' && raw[4] == 'p' && raw[5] == 'l' && raw[6] == 'c' && raw[7] == ':' {
-		for i := 8; i < 32; i++ {
-			if !isAlphanumeric(raw[i]) {
-				return "", errors.New("DID syntax didn't vaidate")
-			}
-		}
-		return DID(raw), nil
-	}
-
 	if len(raw) > 2*1024 {
 		return "", errors.New("DID is too long (2048 chars max)")
 	}
