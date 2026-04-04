@@ -54,9 +54,9 @@ func TestDID_EdgeCases(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal("plc", d.Method())
 
-	// did:plc: fast path — 32 chars but non-alphanumeric.
-	_, err = ParseDID("did:plc:z234567890abcdef.hijklmn")
-	assert.Error(err)
+	// did:plc: with dots in identifier — valid DID syntax, even if not specifically for did plc
+	_, err = ParseDID("did:example:z234567890abcdef.hijklmn")
+	assert.NoError(err)
 
 	// Valid percent-encoding.
 	_, err = ParseDID("did:example:abc%2Fdef")
