@@ -1,6 +1,7 @@
 package syntax
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -401,4 +402,350 @@ func TestLanguage_EdgeCases(t *testing.T) {
 	// Empty subtag after hyphen — invalid.
 	_, err = ParseLanguage("en-")
 	assert.Error(err)
+
+	// Too long.
+	_, err = ParseLanguage(strings.Repeat("en-", 50))
+	assert.Error(err)
+
+	// Non-alphanumeric in subtag.
+	_, err = ParseLanguage("en-US_foo")
+	assert.Error(err)
+
+	// Hyphen where subtag expected (not hyphen separator).
+	_, err = ParseLanguage("en-US-")
+	assert.Error(err)
+}
+
+func TestURI_MoreEdgeCases(t *testing.T) {
+	assert := assert.New(t)
+
+	// Scheme too long (>80 chars before colon).
+	longScheme := strings.Repeat("a", 82) + "://example.com"
+	_, err := ParseURI(longScheme)
+	assert.Error(err)
+
+	// DEL character in body — invalid.
+	_, err = ParseURI("https://example.com/\x7f")
+	assert.Error(err)
+}
+
+// Test JSON marshal/unmarshal for types not covered by json_test.go.
+func TestMarshalUnmarshalCoverage(t *testing.T) {
+	assert := assert.New(t)
+
+	// CID
+	type CIDWrapper struct {
+		C CID `json:"c"`
+	}
+	cidJSON := `{"c":"bafyreidfayvfkwc6e3jbv7my3lqofezflhzhqdrxtmu6nzgpmvaqfuo2qq"}`
+	var cw CIDWrapper
+	err := json.Unmarshal([]byte(cidJSON), &cw)
+	assert.NoError(err)
+	assert.Equal(CID("bafyreidfayvfkwc6e3jbv7my3lqofezflhzhqdrxtmu6nzgpmvaqfuo2qq"), cw.C)
+	out, err := json.Marshal(cw)
+	assert.NoError(err)
+	assert.Contains(string(out), "bafyreidfayvfkwc6e3jbv7my3lqofezflhzhqdrxtmu6nzgpmvaqfuo2qq")
+
+	// CID unmarshal error.
+	badCID := `{"c":"bad!"}`
+	err = json.Unmarshal([]byte(badCID), &cw)
+	assert.Error(err)
+
+	// Datetime
+	type DTWrapper struct {
+		D Datetime `json:"d"`
+	}
+	dtJSON := `{"d":"2024-01-15T12:00:00Z"}`
+	var dw DTWrapper
+	err = json.Unmarshal([]byte(dtJSON), &dw)
+	assert.NoError(err)
+	out, err = json.Marshal(dw)
+	assert.NoError(err)
+	assert.Contains(string(out), "2024-01-15T12:00:00Z")
+
+	// Datetime unmarshal error.
+	badDT := `{"d":"not-a-date"}`
+	err = json.Unmarshal([]byte(badDT), &dw)
+	assert.Error(err)
+
+	// Language
+	type LangWrapper struct {
+		L Language `json:"l"`
+	}
+	langJSON := `{"l":"en-US"}`
+	var lw LangWrapper
+	err = json.Unmarshal([]byte(langJSON), &lw)
+	assert.NoError(err)
+	out, err = json.Marshal(lw)
+	assert.NoError(err)
+	assert.Contains(string(out), "en-US")
+
+	// Language unmarshal error.
+	badLang := `{"l":"NOPE"}`
+	err = json.Unmarshal([]byte(badLang), &lw)
+	assert.Error(err)
+
+	// TID
+	type TIDWrapper struct {
+		T TID `json:"t"`
+	}
+	tidJSON := `{"t":"3jt5tsfbx2s2a"}`
+	var tw TIDWrapper
+	err = json.Unmarshal([]byte(tidJSON), &tw)
+	assert.NoError(err)
+	out, err = json.Marshal(tw)
+	assert.NoError(err)
+	assert.Contains(string(out), "3jt5tsfbx2s2a")
+
+	// TID unmarshal error.
+	badTID := `{"t":"nope"}`
+	err = json.Unmarshal([]byte(badTID), &tw)
+	assert.Error(err)
+
+	// URI
+	type URIWrapper struct {
+		U URI `json:"u"`
+	}
+	uriJSON := `{"u":"https://example.com"}`
+	var uw URIWrapper
+	err = json.Unmarshal([]byte(uriJSON), &uw)
+	assert.NoError(err)
+	out, err = json.Marshal(uw)
+	assert.NoError(err)
+	assert.Contains(string(out), "https://example.com")
+
+	// URI unmarshal error.
+	badURI := `{"u":""}`
+	err = json.Unmarshal([]byte(badURI), &uw)
+	assert.Error(err)
+}
+
+func TestAtIdentifierConvenienceGetters(t *testing.T) {
+	assert := assert.New(t)
+
+	// Handle() on a DID returns empty.
+	did, err := ParseAtIdentifier("did:plc:abc123")
+	assert.NoError(err)
+	assert.Equal(Handle(""), did.Handle())
+	assert.Equal(DID("did:plc:abc123"), did.DID())
+
+	// DID() on a Handle returns empty.
+	handle, err := ParseAtIdentifier("example.com")
+	assert.NoError(err)
+	assert.Equal(DID(""), handle.DID())
+	assert.Equal(Handle("example.com"), handle.Handle())
+}
+
+func TestHandleIsInvalidHandle(t *testing.T) {
+	assert := assert.New(t)
+
+	h, err := ParseHandle("handle.invalid")
+	assert.NoError(err)
+	assert.True(h.IsInvalidHandle())
+
+	h2, err := ParseHandle("alice.bsky.social")
+	assert.NoError(err)
+	assert.False(h2.IsInvalidHandle())
+}
+
+func TestHandleAllowedTLD(t *testing.T) {
+	assert := assert.New(t)
+
+	// Allowed.
+	h, _ := ParseHandle("alice.bsky.social")
+	assert.True(h.AllowedTLD())
+
+	h, _ = ParseHandle("alice.test")
+	assert.True(h.AllowedTLD())
+
+	// Disallowed TLDs.
+	for _, tld := range []string{"local", "arpa", "invalid", "localhost", "internal", "example", "onion", "alt"} {
+		h, err := ParseHandle("alice." + tld)
+		assert.NoError(err, "should parse: alice.%s", tld)
+		assert.False(h.AllowedTLD(), "should be disallowed: %s", tld)
+	}
+}
+
+func TestClockFromTID(t *testing.T) {
+	assert := assert.New(t)
+
+	tid := NewTID(1234567890, 42)
+	clk := ClockFromTID(tid)
+	assert.Equal(uint(42), clk.ClockID)
+
+	// Next TID from reconstructed clock should be greater.
+	next := clk.Next()
+	assert.Greater(next.String(), tid.String())
+}
+
+func TestBase32Sort(t *testing.T) {
+	enc := Base32Sort()
+	assert.NotNil(t, enc)
+}
+
+func TestATURINormalizeCollectionOnly(t *testing.T) {
+	assert := assert.New(t)
+
+	// AT-URI with collection but no record key — exercises the middle branch of Normalize.
+	a, err := ParseATURI("at://did:plc:abc123/app.bsky.feed.post")
+	assert.NoError(err)
+	norm := a.Normalize()
+	assert.Equal(ATURI("at://did:plc:abc123/app.bsky.feed.post"), norm)
+}
+
+func TestDatetimeTimeBadValue(t *testing.T) {
+	// Datetime.Time() on an invalid (hand-constructed) Datetime returns zero time.
+	bad := Datetime("not-a-datetime")
+	assert.True(t, bad.Time().IsZero())
+}
+
+func TestDatetimeTooLong(t *testing.T) {
+	_, err := ParseDatetime(strings.Repeat("2", 65))
+	assert.Error(t, err)
+}
+
+// Test UnmarshalText error paths for types whose success path is tested via json_test.go.
+func TestUnmarshalTextErrors(t *testing.T) {
+	assert := assert.New(t)
+
+	var d DID
+	assert.Error(d.UnmarshalText([]byte("bad")))
+
+	var n NSID
+	assert.Error(n.UnmarshalText([]byte("bad")))
+
+	var a ATURI
+	assert.Error(a.UnmarshalText([]byte("bad")))
+
+	var r RecordKey
+	assert.Error(r.UnmarshalText([]byte("")))
+
+	var ai AtIdentifier
+	assert.Error(ai.UnmarshalText([]byte("")))
+}
+
+func TestParseURI_InvalidBodyChar(t *testing.T) {
+	assert := assert.New(t)
+
+	// Control character in body.
+	_, err := ParseURI("https://example.com/\x01")
+	assert.Error(err)
+
+	// Tab in body.
+	_, err = ParseURI("https://example.com/\t")
+	assert.Error(err)
+}
+
+func TestDatetimeSyntax_MoreBranches(t *testing.T) {
+	assert := assert.New(t)
+
+	// Invalid year digit.
+	_, err := ParseDatetime("20x4-01-15T12:00:00Z")
+	assert.Error(err)
+
+	// Invalid month digit.
+	_, err = ParseDatetime("2024-x1-15T12:00:00Z")
+	assert.Error(err)
+
+	// Invalid day digit.
+	_, err = ParseDatetime("2024-01-x5T12:00:00Z")
+	assert.Error(err)
+
+	// Invalid hour digit.
+	_, err = ParseDatetime("2024-01-15Tx2:00:00Z")
+	assert.Error(err)
+
+	// Invalid minute digit.
+	_, err = ParseDatetime("2024-01-15T12:x0:00Z")
+	assert.Error(err)
+
+	// Invalid second digit.
+	_, err = ParseDatetime("2024-01-15T12:00:x0Z")
+	assert.Error(err)
+
+	// Missing hyphen after year.
+	_, err = ParseDatetime("2024X01-15T12:00:00Z")
+	assert.Error(err)
+
+	// Missing hyphen after month.
+	_, err = ParseDatetime("2024-01X15T12:00:00Z")
+	assert.Error(err)
+
+	// Missing colon after hour.
+	_, err = ParseDatetime("2024-01-15T12X00:00Z")
+	assert.Error(err)
+
+	// Missing colon after minute.
+	_, err = ParseDatetime("2024-01-15T12:00X00Z")
+	assert.Error(err)
+
+	// Dot with no fractional digits.
+	_, err = ParseDatetime("2024-01-15T12:00:00.Z")
+	assert.Error(err)
+
+	// Invalid timezone hour digits.
+	_, err = ParseDatetime("2024-01-15T12:00:00+xx:00")
+	assert.Error(err)
+
+	// Invalid timezone colon.
+	_, err = ParseDatetime("2024-01-15T12:00:00+00x00")
+	assert.Error(err)
+
+	// Invalid timezone minute digits.
+	_, err = ParseDatetime("2024-01-15T12:00:00+00:xx")
+	assert.Error(err)
+
+	// Truncated timezone.
+	_, err = ParseDatetime("2024-01-15T12:00:00+00")
+	assert.Error(err)
+
+	// Invalid timezone char (not Z, +, or -).
+	_, err = ParseDatetime("2024-01-15T12:00:00X")
+	assert.Error(err)
+
+	// Trailing chars after valid datetime.
+	_, err = ParseDatetime("2024-01-15T12:00:00Zextra")
+	assert.Error(err)
+}
+
+func TestHasTimezone_CompactOffset(t *testing.T) {
+	// Exercise the +hhmm (without colon) branch in hasTimezone.
+	// This is used by ParseDatetimeLenient.
+	assert := assert.New(t)
+
+	// +0000 suffix — lenient should fix it.
+	d, err := ParseDatetimeLenient("2024-01-15T12:00:00+0000")
+	assert.NoError(err)
+	assert.Contains(d.String(), "+00:00")
+
+	// -0000 suffix — lenient should fix it.
+	d, err = ParseDatetimeLenient("2024-01-15T12:00:00-0000")
+	assert.NoError(err)
+	assert.Contains(d.String(), "+00:00")
+
+	// +0530 — compact non-zero offset. This exercises the len>=5 branch in hasTimezone.
+	// This is not fixable by lenient parsing (no colon in offset), so it should error.
+	_, err = ParseDatetimeLenient("2024-01-15T12:00:00+0530")
+	assert.Error(err)
+
+	// A string with no timezone at all (hasTimezone returns false).
+	d, err = ParseDatetimeLenient("2024-01-15T12:00:00")
+	assert.NoError(err)
+	assert.Contains(d.String(), "Z")
+
+	// Empty string — hasTimezone returns false.
+	_, err = ParseDatetimeLenient("")
+	assert.Error(err)
+}
+
+func TestParseURI_SchemeInvalidChar(t *testing.T) {
+	// Invalid character mid-scheme (not lowercase, digit, +, ., or -).
+	_, err := ParseURI("h@tp://example.com")
+	assert.Error(t, err)
+}
+
+func TestParseLanguage_NonAlphanumericMidSubtag(t *testing.T) {
+	// Non-alphanumeric char mid-subtag.
+	_, err := ParseLanguage("en-U!S")
+	assert.Error(t, err)
 }
