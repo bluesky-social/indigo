@@ -2,11 +2,8 @@ package syntax
 
 import (
 	"errors"
-	"regexp"
 	"strings"
 )
-
-var nsidRegex = regexp.MustCompile(`^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(\.[a-zA-Z]([a-zA-Z0-9]{0,62})?)$`)
 
 // String type which represents a syntaxtually valid Namespace Identifier (NSID), as would pass Lexicon syntax validation.
 //
@@ -22,9 +19,60 @@ func ParseNSID(raw string) (NSID, error) {
 	if len(raw) > 317 {
 		return "", errors.New("NSID is too long (317 chars max)")
 	}
-	if !nsidRegex.MatchString(raw) {
-		return "", errors.New("NSID syntax didn't validate via regex")
+
+	// Single-pass validation: walk segments separated by '.'.
+	segCount := 0
+	start := 0
+	lastDot := -1
+	for i := 0; i <= len(raw); i++ {
+		if i == len(raw) || raw[i] == '.' {
+			seg := raw[start:i]
+			segCount++
+
+			if i < len(raw) {
+				// Domain segment (not the last one).
+				if len(seg) == 0 || len(seg) > 63 {
+					return "", errors.New("NSID syntax didn't validate")
+				}
+				if !isAlphanumeric(seg[0]) {
+					return "", errors.New("NSID syntax didn't validate")
+				}
+				if !isAlphanumeric(seg[len(seg)-1]) {
+					return "", errors.New("NSID syntax didn't validate")
+				}
+				for j := 1; j < len(seg)-1; j++ {
+					if !isAlphanumericOrHyphen(seg[j]) {
+						return "", errors.New("NSID syntax didn't validate")
+					}
+				}
+				// First segment must start with a letter.
+				if segCount == 1 && !isAlpha(seg[0]) {
+					return "", errors.New("NSID syntax didn't validate")
+				}
+				lastDot = i
+			}
+			start = i + 1
+		}
 	}
+
+	if segCount < 3 {
+		return "", errors.New("NSID syntax didn't validate")
+	}
+
+	// Validate name segment (last): must start with letter, alphanumeric only.
+	name := raw[lastDot+1:]
+	if len(name) == 0 || len(name) > 63 {
+		return "", errors.New("NSID syntax didn't validate")
+	}
+	if !isAlpha(name[0]) {
+		return "", errors.New("NSID syntax didn't validate")
+	}
+	for j := 1; j < len(name); j++ {
+		if !isAlphanumeric(name[j]) {
+			return "", errors.New("NSID syntax didn't validate")
+		}
+	}
+
 	return NSID(raw), nil
 }
 
