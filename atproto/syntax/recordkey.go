@@ -27,7 +27,7 @@ func ParseRecordKey(raw string) (RecordKey, error) {
 	}
 	for i := 0; i < len(raw); i++ {
 		if !isRecordKeyChar(raw[i]) {
-			return "", errors.New("recordkey syntax didn't vaidate")
+			return "", errors.New("recordkey syntax didn't validate")
 		}
 	}
 	return RecordKey(raw), nil

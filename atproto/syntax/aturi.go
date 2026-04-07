@@ -18,19 +18,19 @@ func ParseATURI(raw string) (ATURI, error) {
 		return "", errors.New("ATURI is too long (8192 chars max)")
 	}
 	if len(raw) < 5 || raw[:5] != "at://" {
-		return "", errors.New("AT-URI syntax didn't vaidate")
+		return "", errors.New("AT-URI syntax didn't validate")
 	}
 
 	// Reject query and fragment.
 	for i := 5; i < len(raw); i++ {
 		if raw[i] == '?' || raw[i] == '#' {
-			return "", errors.New("AT-URI syntax didn't vaidate")
+			return "", errors.New("AT-URI syntax didn't validate")
 		}
 	}
 
 	rest := raw[5:]
 	if len(rest) == 0 {
-		return "", errors.New("AT-URI syntax didn't vaidate")
+		return "", errors.New("AT-URI syntax didn't validate")
 	}
 
 	// Find the first slash to separate authority from path.
@@ -55,7 +55,7 @@ func ParseATURI(raw string) (ATURI, error) {
 
 	afterAuth := rest[slash1+1:]
 	if len(afterAuth) == 0 {
-		return "", errors.New("AT-URI syntax didn't vaidate")
+		return "", errors.New("AT-URI syntax didn't validate")
 	}
 
 	// Find second slash to separate collection from rkey.
@@ -79,12 +79,12 @@ func ParseATURI(raw string) (ATURI, error) {
 
 	afterColl := afterAuth[slash2+1:]
 	if len(afterColl) == 0 {
-		return "", errors.New("AT-URI syntax didn't vaidate")
+		return "", errors.New("AT-URI syntax didn't validate")
 	}
 
 	// Reject additional path segments.
 	if strings.IndexByte(afterColl, '/') >= 0 {
-		return "", errors.New("AT-URI syntax didn't vaidate")
+		return "", errors.New("AT-URI syntax didn't validate")
 	}
 
 	_, err = ParseRecordKey(afterColl)

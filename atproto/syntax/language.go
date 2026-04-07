@@ -23,36 +23,36 @@ func ParseLanguage(raw string) (Language, error) {
 	i := 0
 	for i < len(raw) && raw[i] != '-' {
 		if !isLowerAlpha(raw[i]) {
-			return "", errors.New("Language syntax didn't vaidate")
+			return "", errors.New("Language syntax didn't validate")
 		}
 		i++
 	}
 
 	if i == 0 {
-		return "", errors.New("Language syntax didn't vaidate")
+		return "", errors.New("Language syntax didn't validate")
 	}
 	if i == 1 && raw[0] != 'i' {
-		return "", errors.New("Language syntax didn't vaidate")
+		return "", errors.New("Language syntax didn't validate")
 	}
 	if i > 3 {
-		return "", errors.New("Language syntax didn't vaidate")
+		return "", errors.New("Language syntax didn't validate")
 	}
 
 	// Subsequent subtags: hyphen-separated alphanumeric.
 	for i < len(raw) {
 		if raw[i] != '-' {
-			return "", errors.New("Language syntax didn't vaidate")
+			return "", errors.New("Language syntax didn't validate")
 		}
 		i++ // skip hyphen
 		start := i
 		for i < len(raw) && raw[i] != '-' {
 			if !isAlphanumeric(raw[i]) {
-				return "", errors.New("Language syntax didn't vaidate")
+				return "", errors.New("Language syntax didn't validate")
 			}
 			i++
 		}
 		if i == start {
-			return "", errors.New("Language syntax didn't vaidate")
+			return "", errors.New("Language syntax didn't validate")
 		}
 	}
 

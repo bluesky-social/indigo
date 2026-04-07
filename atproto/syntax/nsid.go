@@ -32,22 +32,22 @@ func ParseNSID(raw string) (NSID, error) {
 			if i < len(raw) {
 				// Domain segment (not the last one).
 				if len(seg) == 0 || len(seg) > 63 {
-					return "", errors.New("NSID syntax didn't vaidate")
+					return "", errors.New("NSID syntax didn't validate")
 				}
 				if !isAlphanumeric(seg[0]) {
-					return "", errors.New("NSID syntax didn't vaidate")
+					return "", errors.New("NSID syntax didn't validate")
 				}
 				if !isAlphanumeric(seg[len(seg)-1]) {
-					return "", errors.New("NSID syntax didn't vaidate")
+					return "", errors.New("NSID syntax didn't validate")
 				}
 				for j := 1; j < len(seg)-1; j++ {
 					if !isAlphanumericOrHyphen(seg[j]) {
-						return "", errors.New("NSID syntax didn't vaidate")
+						return "", errors.New("NSID syntax didn't validate")
 					}
 				}
 				// First segment must start with a letter.
 				if segCount == 1 && !isAlpha(seg[0]) {
-					return "", errors.New("NSID syntax didn't vaidate")
+					return "", errors.New("NSID syntax didn't validate")
 				}
 				lastDot = i
 			}
@@ -56,20 +56,20 @@ func ParseNSID(raw string) (NSID, error) {
 	}
 
 	if segCount < 3 {
-		return "", errors.New("NSID syntax didn't vaidate")
+		return "", errors.New("NSID syntax didn't validate")
 	}
 
 	// Validate name segment (last): must start with letter, alphanumeric only.
 	name := raw[lastDot+1:]
 	if len(name) == 0 || len(name) > 63 {
-		return "", errors.New("NSID syntax didn't vaidate")
+		return "", errors.New("NSID syntax didn't validate")
 	}
 	if !isAlpha(name[0]) {
-		return "", errors.New("NSID syntax didn't vaidate")
+		return "", errors.New("NSID syntax didn't validate")
 	}
 	for j := 1; j < len(name); j++ {
 		if !isAlphanumeric(name[j]) {
-			return "", errors.New("NSID syntax didn't vaidate")
+			return "", errors.New("NSID syntax didn't validate")
 		}
 	}
 

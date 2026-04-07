@@ -48,11 +48,11 @@ func ParseTID(raw string) (TID, error) {
 		return "", errors.New("TID is wrong length (expected 13 chars)")
 	}
 	if !isTIDFirstChar(raw[0]) {
-		return "", errors.New("TID syntax didn't vaidate")
+		return "", errors.New("TID syntax didn't validate")
 	}
 	for i := 1; i < 13; i++ {
 		if !isTIDChar(raw[i]) {
-			return "", errors.New("TID syntax didn't vaidate")
+			return "", errors.New("TID syntax didn't validate")
 		}
 	}
 	return TID(raw), nil

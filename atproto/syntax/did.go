@@ -51,45 +51,45 @@ func ParseDID(raw string) (DID, error) {
 
 	// Must start with "did:".
 	if len(raw) < 5 || raw[0] != 'd' || raw[1] != 'i' || raw[2] != 'd' || raw[3] != ':' {
-		return "", errors.New("DID syntax didn't vaidate")
+		return "", errors.New("DID syntax didn't validate")
 	}
 
 	// Method segment: lowercase alpha only, terminated by ':'.
 	i := 4
 	for i < len(raw) && raw[i] != ':' {
 		if !isLowerAlpha(raw[i]) {
-			return "", errors.New("DID syntax didn't vaidate")
+			return "", errors.New("DID syntax didn't validate")
 		}
 		i++
 	}
 	if i == 4 || i >= len(raw) {
-		return "", errors.New("DID syntax didn't vaidate")
+		return "", errors.New("DID syntax didn't validate")
 	}
 
 	// Skip ':' after method.
 	i++
 	if i >= len(raw) {
-		return "", errors.New("DID syntax didn't vaidate")
+		return "", errors.New("DID syntax didn't validate")
 	}
 
 	// Identifier: [a-zA-Z0-9._:%-]* ending with [a-zA-Z0-9._-].
 	for j := i; j < len(raw); j++ {
 		if !isDIDIdentChar(raw[j]) {
-			return "", errors.New("DID syntax didn't vaidate")
+			return "", errors.New("DID syntax didn't validate")
 		}
 	}
 
 	// Last char cannot be '%' or ':'.
 	last := raw[len(raw)-1]
 	if last == '%' || last == ':' {
-		return "", errors.New("DID syntax didn't vaidate")
+		return "", errors.New("DID syntax didn't validate")
 	}
 
 	// Validate percent-encoding: every '%' must be followed by exactly two hex digits.
 	for j := i; j < len(raw); j++ {
 		if raw[j] == '%' {
 			if j+2 >= len(raw) || !isHexDigit(raw[j+1]) || !isHexDigit(raw[j+2]) {
-				return "", errors.New("DID syntax didn't vaidate")
+				return "", errors.New("DID syntax didn't validate")
 			}
 		}
 	}

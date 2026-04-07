@@ -33,17 +33,17 @@ func ParseHandle(raw string) (Handle, error) {
 		if i == len(raw) || raw[i] == '.' {
 			label := raw[start:i]
 			if len(label) == 0 || len(label) > 63 {
-				return "", fmt.Errorf("handle syntax didn't vaidate: %s", raw)
+				return "", fmt.Errorf("handle syntax didn't validate: %s", raw)
 			}
 			if !isAlphanumeric(label[0]) {
-				return "", fmt.Errorf("handle syntax didn't vaidate: %s", raw)
+				return "", fmt.Errorf("handle syntax didn't validate: %s", raw)
 			}
 			if !isAlphanumeric(label[len(label)-1]) {
-				return "", fmt.Errorf("handle syntax didn't vaidate: %s", raw)
+				return "", fmt.Errorf("handle syntax didn't validate: %s", raw)
 			}
 			for j := 1; j < len(label)-1; j++ {
 				if !isAlphanumericOrHyphen(label[j]) {
-					return "", fmt.Errorf("handle syntax didn't vaidate: %s", raw)
+					return "", fmt.Errorf("handle syntax didn't validate: %s", raw)
 				}
 			}
 			labelCount++
@@ -52,14 +52,14 @@ func ParseHandle(raw string) (Handle, error) {
 	}
 
 	if labelCount < 2 {
-		return "", fmt.Errorf("handle syntax didn't vaidate: %s", raw)
+		return "", fmt.Errorf("handle syntax didn't validate: %s", raw)
 	}
 
 	// TLD (last label) must start with a letter.
 	lastDot := strings.LastIndexByte(raw, '.')
 	tld := raw[lastDot+1:]
 	if !isAlpha(tld[0]) {
-		return "", fmt.Errorf("handle syntax didn't vaidate: %s", raw)
+		return "", fmt.Errorf("handle syntax didn't validate: %s", raw)
 	}
 
 	return Handle(raw), nil

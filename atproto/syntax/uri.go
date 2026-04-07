@@ -22,28 +22,28 @@ func ParseURI(raw string) (URI, error) {
 	// Scheme: starts with lowercase letter, then lowercase letters/digits/'+'/'.'/'-', then ':'.
 	// Per RFC 3986 section 3.1: scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
 	if !isLowerAlpha(raw[0]) {
-		return "", errors.New("URI syntax didn't vaidate")
+		return "", errors.New("URI syntax didn't validate")
 	}
 
 	i := 1
 	for i < len(raw) && raw[i] != ':' {
 		c := raw[i]
 		if !isLowerAlpha(c) && !isDigit(c) && c != '+' && c != '.' && c != '-' {
-			return "", errors.New("URI syntax didn't vaidate")
+			return "", errors.New("URI syntax didn't validate")
 		}
 		i++
 		if i-1 > 80 {
-			return "", errors.New("URI syntax didn't vaidate")
+			return "", errors.New("URI syntax didn't validate")
 		}
 	}
 	if i >= len(raw) {
-		return "", errors.New("URI syntax didn't vaidate")
+		return "", errors.New("URI syntax didn't validate")
 	}
 
 	// Skip ':'.
 	i++
 	if i >= len(raw) {
-		return "", errors.New("URI syntax didn't vaidate")
+		return "", errors.New("URI syntax didn't validate")
 	}
 
 	// Body must be non-whitespace, non-control characters. This accepts non-ASCII
@@ -52,7 +52,7 @@ func ParseURI(raw string) (URI, error) {
 	for j := i; j < len(raw); j++ {
 		c := raw[j]
 		if c <= ' ' || c == 0x7F {
-			return "", errors.New("URI syntax didn't vaidate")
+			return "", errors.New("URI syntax didn't validate")
 		}
 	}
 

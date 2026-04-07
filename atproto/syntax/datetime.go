@@ -30,46 +30,46 @@ var astroZero = time.Date(0000, 1, 1, 0, 0, 0, 0, time.UTC)
 func validateDatetimeSyntax(raw string) error {
 	n := len(raw)
 	if n < 20 { // Minimum: "0000-01-01T00:00:00Z"
-		return errors.New("Datetime syntax didn't vaidate")
+		return errors.New("Datetime syntax didn't validate")
 	}
 
 	// YYYY-MM-DD
 	if !isDigit(raw[0]) || !isDigit(raw[1]) || !isDigit(raw[2]) || !isDigit(raw[3]) {
-		return errors.New("Datetime syntax didn't vaidate")
+		return errors.New("Datetime syntax didn't validate")
 	}
 	if raw[4] != '-' {
-		return errors.New("Datetime syntax didn't vaidate")
+		return errors.New("Datetime syntax didn't validate")
 	}
 	if !isDigit(raw[5]) || !isDigit(raw[6]) {
-		return errors.New("Datetime syntax didn't vaidate")
+		return errors.New("Datetime syntax didn't validate")
 	}
 	if raw[7] != '-' {
-		return errors.New("Datetime syntax didn't vaidate")
+		return errors.New("Datetime syntax didn't validate")
 	}
 	if !isDigit(raw[8]) || !isDigit(raw[9]) {
-		return errors.New("Datetime syntax didn't vaidate")
+		return errors.New("Datetime syntax didn't validate")
 	}
 
 	// T
 	if raw[10] != 'T' {
-		return errors.New("Datetime syntax didn't vaidate")
+		return errors.New("Datetime syntax didn't validate")
 	}
 
 	// hh:mm:ss
 	if !isDigit(raw[11]) || !isDigit(raw[12]) {
-		return errors.New("Datetime syntax didn't vaidate")
+		return errors.New("Datetime syntax didn't validate")
 	}
 	if raw[13] != ':' {
-		return errors.New("Datetime syntax didn't vaidate")
+		return errors.New("Datetime syntax didn't validate")
 	}
 	if !isDigit(raw[14]) || !isDigit(raw[15]) {
-		return errors.New("Datetime syntax didn't vaidate")
+		return errors.New("Datetime syntax didn't validate")
 	}
 	if raw[16] != ':' {
-		return errors.New("Datetime syntax didn't vaidate")
+		return errors.New("Datetime syntax didn't validate")
 	}
 	if !isDigit(raw[17]) || !isDigit(raw[18]) {
-		return errors.New("Datetime syntax didn't vaidate")
+		return errors.New("Datetime syntax didn't validate")
 	}
 
 	i := 19
@@ -83,13 +83,13 @@ func validateDatetimeSyntax(raw string) error {
 		}
 		fracLen := i - fracStart
 		if fracLen == 0 || fracLen > 20 {
-			return errors.New("Datetime syntax didn't vaidate")
+			return errors.New("Datetime syntax didn't validate")
 		}
 	}
 
 	// Timezone: Z or [+-]hh:mm
 	if i >= n {
-		return errors.New("Datetime syntax didn't vaidate")
+		return errors.New("Datetime syntax didn't validate")
 	}
 	switch raw[i] {
 	case 'Z':
@@ -97,24 +97,24 @@ func validateDatetimeSyntax(raw string) error {
 	case '+', '-':
 		i++
 		if i+5 > n {
-			return errors.New("Datetime syntax didn't vaidate")
+			return errors.New("Datetime syntax didn't validate")
 		}
 		if !isDigit(raw[i]) || !isDigit(raw[i+1]) {
-			return errors.New("Datetime syntax didn't vaidate")
+			return errors.New("Datetime syntax didn't validate")
 		}
 		if raw[i+2] != ':' {
-			return errors.New("Datetime syntax didn't vaidate")
+			return errors.New("Datetime syntax didn't validate")
 		}
 		if !isDigit(raw[i+3]) || !isDigit(raw[i+4]) {
-			return errors.New("Datetime syntax didn't vaidate")
+			return errors.New("Datetime syntax didn't validate")
 		}
 		i += 5
 	default:
-		return errors.New("Datetime syntax didn't vaidate")
+		return errors.New("Datetime syntax didn't validate")
 	}
 
 	if i != n {
-		return errors.New("Datetime syntax didn't vaidate")
+		return errors.New("Datetime syntax didn't validate")
 	}
 
 	return nil
