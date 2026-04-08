@@ -124,7 +124,7 @@ func TestBasicOperation(ot *testing.T) {
 
 			var recs []cid.Cid
 			head := ncid
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				ds, err := cs.NewDeltaSession(ctx, 1, &rev)
 				if err != nil {
 					t.Fatal(err)
@@ -210,8 +210,8 @@ func TestRepeatedCompactions(t *testing.T) {
 
 	var lastRec string
 
-	for loop := 0; loop < 50; loop++ {
-		for i := 0; i < 20; i++ {
+	for loop := range 50 {
+		for i := range 20 {
 			ds, err := cs.NewDeltaSession(ctx, 1, &rev)
 			if err != nil {
 				t.Fatal(err)
@@ -537,7 +537,7 @@ func TestDuplicateBlockAcrossShards(ot *testing.T) {
 			var recs []cid.Cid
 			head := cids[1]
 			rev := revs[1]
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				ds, err := cs.NewDeltaSession(ctx, 2, &rev)
 				if err != nil {
 					t.Fatal(err)

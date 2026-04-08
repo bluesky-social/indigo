@@ -395,7 +395,7 @@ func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (io
 	maxAttempts := len(retryDelays) + 1
 
 	var lastErr error
-	for attempt := 0; attempt < maxAttempts; attempt++ {
+	for attempt := range maxAttempts {
 		if attempt > 0 {
 			select {
 			case <-ctx.Done():
@@ -547,10 +547,8 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 
 	// Consumer routines
 	wg := sync.WaitGroup{}
-	for i := 0; i < numRoutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range numRoutines {
+		wg.Go(func() {
 			for item := range recordQueue {
 
 				raw := item.data
@@ -564,20 +562,18 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 				backfillRecordsProcessed.WithLabelValues(b.Name).Inc()
 				recordResults <- recordResult{recordPath: item.recordPath, err: err}
 			}
-		}()
+		})
 	}
 
 	resultWG := sync.WaitGroup{}
-	resultWG.Add(1)
 	// Handle results
-	go func() {
-		defer resultWG.Done()
+	resultWG.Go(func() {
 		for result := range recordResults {
 			if result.err != nil {
 				log.Error("Error processing record", "record", result.recordPath, "error", result.err)
 			}
 		}
-	}()
+	})
 
 	wg.Wait()
 	close(recordResults)

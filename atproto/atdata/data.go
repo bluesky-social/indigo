@@ -95,7 +95,7 @@ func forCBOR(obj map[string]any) map[string]any {
 		case Bytes:
 			out[k] = []byte(v)
 		case Blob:
-			out[k] = map[string]interface{}{
+			out[k] = map[string]any{
 				"$type":    "blob",
 				"mimeType": v.MimeType,
 				"ref":      cid.Cid(v.Ref),
@@ -127,7 +127,7 @@ func forCBORArray(arr []any) []any {
 		case Bytes:
 			out[i] = []byte(v)
 		case Blob:
-			out[i] = map[string]interface{}{
+			out[i] = map[string]any{
 				"$type":    "blob",
 				"mimeType": v.MimeType,
 				"ref":      cid.Cid(v.Ref),

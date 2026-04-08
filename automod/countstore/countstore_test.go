@@ -64,7 +64,7 @@ func TestMemCountStoreConcurrent(t *testing.T) {
 	// and reads are interleaved with writes.
 	var wg sync.WaitGroup
 	fnInc := func(name, val string, times int) {
-		for i := 0; i < times; i++ {
+		for range times {
 			assert.NoError(cs.Increment(ctx, name, val))
 			assert.NoError(cs.IncrementDistinct(ctx, name, name, val))
 			time.Sleep(time.Nanosecond)
@@ -72,7 +72,7 @@ func TestMemCountStoreConcurrent(t *testing.T) {
 		wg.Done()
 	}
 	fnRead := func(name, val string, times int) {
-		for i := 0; i < times; i++ {
+		for range times {
 			_, err := cs.GetCount(ctx, name, val, PeriodTotal)
 			assert.NoError(err)
 			time.Sleep(time.Nanosecond)

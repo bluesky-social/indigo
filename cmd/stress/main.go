@@ -123,11 +123,11 @@ var postingCmd = &cli.Command{
 		}
 
 		var wg sync.WaitGroup
-		for con := 0; con < concurrent; con++ {
+		for con := range concurrent {
 			wg.Add(1)
 			go func(worker int) {
 				defer wg.Done()
-				for i := 0; i < count; i++ {
+				for i := range count {
 					buf := make([]byte, 100)
 					rand.Read(buf)
 
