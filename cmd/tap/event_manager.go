@@ -192,7 +192,7 @@ func (em *EventManager) AddCommit(ctx context.Context, commit *Commit, dbCallbac
 func updateRepoCommitMeta(dbOrTx *gorm.DB, commit *Commit) error {
 	return dbOrTx.Model(&models.Repo{}).
 		Where("did = ?", commit.Did).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"rev":       commit.Rev,
 			"prev_data": commit.DataCid,
 		}).Error

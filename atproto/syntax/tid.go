@@ -49,7 +49,7 @@ func NewTIDNow(clockId uint) TID {
 func NewTIDFromInteger(v uint64) TID {
 	v = (0x7FFF_FFFF_FFFF_FFFF & v)
 	s := ""
-	for i := 0; i < 13; i++ {
+	for range 13 {
 		s = string(Base32SortAlphabet[v&0x1F]) + s
 		v = v >> 5
 	}
@@ -74,7 +74,7 @@ func (t TID) Integer() uint64 {
 		return 0
 	}
 	var v uint64
-	for i := 0; i < 13; i++ {
+	for i := range 13 {
 		c := strings.IndexByte(Base32SortAlphabet, s[i])
 		if c < 0 {
 			return 0

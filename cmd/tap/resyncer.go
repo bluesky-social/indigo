@@ -332,7 +332,7 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 
 	if err := r.db.WithContext(ctx).Model(&models.Repo{}).
 		Where("did = ?", did).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"state":       models.RepoStateActive,
 			"rev":         rev,
 			"prev_data":   commit.Data.String(),
@@ -368,7 +368,7 @@ func (r *Resyncer) handleResyncError(ctx context.Context, did string, resyncErr 
 
 	if err := r.db.WithContext(ctx).Model(&models.Repo{}).
 		Where("did = ?", did).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"state":       state,
 			"error_msg":   errMsg,
 			"retry_count": repo.RetryCount + 1,

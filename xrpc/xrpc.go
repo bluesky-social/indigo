@@ -132,7 +132,7 @@ func makeParams(p map[string]any) string {
 	return params.Encode()
 }
 
-func (c *Client) Do(ctx context.Context, kind string, inpenc string, method string, params map[string]interface{}, bodyobj interface{}, out interface{}) error {
+func (c *Client) Do(ctx context.Context, kind string, inpenc string, method string, params map[string]any, bodyobj any, out any) error {
 	var body io.Reader
 	if bodyobj != nil {
 		if rr, ok := bodyobj.(io.Reader); ok {

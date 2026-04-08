@@ -31,7 +31,7 @@ func RegisterType(id string, val cbg.CBORMarshaler) {
 	lexTypesMap[id] = t
 }
 
-func NewFromType(typ string) (interface{}, error) {
+func NewFromType(typ string) (any, error) {
 	t, ok := lexTypesMap[typ]
 	if !ok {
 		return nil, fmt.Errorf("%w: %q", ErrUnrecognizedType, typ)

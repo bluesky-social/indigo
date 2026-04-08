@@ -635,7 +635,7 @@ func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*e
 		return err
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		lastSeq, err := dp.PlaybackLogfiles(ctx, since, cb, logs)
 		if err != nil {
 			return err

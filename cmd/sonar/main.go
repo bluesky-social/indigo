@@ -102,9 +102,7 @@ func runSonar(ctx context.Context, cmd *cli.Command) error {
 	pool := sequential.NewScheduler(u.Host, s.HandleStreamEvent)
 
 	// Start a goroutine to manage the cursor file, saving the current cursor every 5 seconds.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		ticker := time.NewTicker(5 * time.Second)
 		logger := logger.With("source", "cursor_file_manager")
 
@@ -125,12 +123,10 @@ func runSonar(ctx context.Context, cmd *cli.Command) error {
 				}
 			}
 		}
-	}()
+	})
 
 	// Start a goroutine to manage the liveness checker, shutting down if no events are received for 15 seconds
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		ticker := time.NewTicker(15 * time.Second)
 		lastSeq := int64(0)
 
@@ -154,7 +150,7 @@ func runSonar(ctx context.Context, cmd *cli.Command) error {
 				}
 			}
 		}
-	}()
+	})
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
@@ -165,9 +161,7 @@ func runSonar(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	// Startup metrics server
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		logger = logger.With("source", "metrics_server")
 
 		logger.Info("metrics server listening", "port", cmd.Int("port"))
@@ -176,7 +170,7 @@ func runSonar(ctx context.Context, cmd *cli.Command) error {
 			log.Fatalf("failed to start metrics server: %+v", err)
 		}
 		logger.Info("metrics server shut down successfully")
-	}()
+	})
 
 	if s.Progress.LastSeq >= 0 {
 		u.RawQuery = fmt.Sprintf("cursor=%d", s.Progress.LastSeq)
@@ -192,13 +186,11 @@ func runSonar(ctx context.Context, cmd *cli.Command) error {
 	}
 	defer c.Close()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		err = events.HandleRepoStream(ctx, c, pool, logger)
 		logger.Info("HandleRepoStream returned unexpectedly", "err", err)
 		cancel()
-	}()
+	})
 
 	select {
 	case <-signals:

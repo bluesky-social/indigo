@@ -105,12 +105,12 @@ func (p *PostSearchParams) Update(other *PostSearchParams) {
 }
 
 // Filters turns search params in to actual elasticsearch/opensearch filter DSL
-func (p *PostSearchParams) Filters() []map[string]interface{} {
-	var filters []map[string]interface{}
+func (p *PostSearchParams) Filters() []map[string]any {
+	var filters []map[string]any
 
 	if p.Author != nil {
-		filters = append(filters, map[string]interface{}{
-			"term": map[string]interface{}{"did": map[string]interface{}{
+		filters = append(filters, map[string]any{
+			"term": map[string]any{"did": map[string]any{
 				"value":            p.Author.String(),
 				"case_insensitive": true,
 			}},
@@ -118,8 +118,8 @@ func (p *PostSearchParams) Filters() []map[string]interface{} {
 	}
 
 	if p.Mentions != nil {
-		filters = append(filters, map[string]interface{}{
-			"term": map[string]interface{}{"mention_did": map[string]interface{}{
+		filters = append(filters, map[string]any{
+			"term": map[string]any{"mention_did": map[string]any{
 				"value":            p.Mentions.String(),
 				"case_insensitive": true,
 			}},
@@ -128,8 +128,8 @@ func (p *PostSearchParams) Filters() []map[string]interface{} {
 
 	if p.Lang != nil {
 		// TODO: extracting just the 2-char code would be good
-		filters = append(filters, map[string]interface{}{
-			"term": map[string]interface{}{"lang_code_iso2": map[string]interface{}{
+		filters = append(filters, map[string]any{
+			"term": map[string]any{"lang_code_iso2": map[string]any{
 				"value":            p.Lang.String(),
 				"case_insensitive": true,
 			}},
@@ -137,9 +137,9 @@ func (p *PostSearchParams) Filters() []map[string]interface{} {
 	}
 
 	if p.Since != nil {
-		filters = append(filters, map[string]interface{}{
-			"range": map[string]interface{}{
-				"created_at": map[string]interface{}{
+		filters = append(filters, map[string]any{
+			"range": map[string]any{
+				"created_at": map[string]any{
 					"gte": p.Since.String(),
 				},
 			},
@@ -147,9 +147,9 @@ func (p *PostSearchParams) Filters() []map[string]interface{} {
 	}
 
 	if p.Until != nil {
-		filters = append(filters, map[string]interface{}{
-			"range": map[string]interface{}{
-				"created_at": map[string]interface{}{
+		filters = append(filters, map[string]any{
+			"range": map[string]any{
+				"created_at": map[string]any{
 					"lt": p.Until.String(),
 				},
 			},
@@ -157,8 +157,8 @@ func (p *PostSearchParams) Filters() []map[string]interface{} {
 	}
 
 	if p.URL != "" {
-		filters = append(filters, map[string]interface{}{
-			"term": map[string]interface{}{"url": map[string]interface{}{
+		filters = append(filters, map[string]any{
+			"term": map[string]any{"url": map[string]any{
 				"value":            NormalizeLossyURL(p.URL),
 				"case_insensitive": true,
 			}},
@@ -166,8 +166,8 @@ func (p *PostSearchParams) Filters() []map[string]interface{} {
 	}
 
 	if p.Domain != "" {
-		filters = append(filters, map[string]interface{}{
-			"term": map[string]interface{}{"domain": map[string]interface{}{
+		filters = append(filters, map[string]any{
+			"term": map[string]any{"domain": map[string]any{
 				"value":            p.Domain,
 				"case_insensitive": true,
 			}},
@@ -175,9 +175,9 @@ func (p *PostSearchParams) Filters() []map[string]interface{} {
 	}
 
 	for _, tag := range p.Tags {
-		filters = append(filters, map[string]interface{}{
-			"term": map[string]interface{}{
-				"tag": map[string]interface{}{
+		filters = append(filters, map[string]any{
+			"term": map[string]any{
+				"tag": map[string]any{
 					"value":            tag,
 					"case_insensitive": true,
 				},
@@ -189,16 +189,16 @@ func (p *PostSearchParams) Filters() []map[string]interface{} {
 }
 
 // Filters turns search params in to actual elasticsearch/opensearch filter DSL
-func (p *ActorSearchParams) Filters() []map[string]interface{} {
-	var filters []map[string]interface{}
+func (p *ActorSearchParams) Filters() []map[string]any {
+	var filters []map[string]any
 
 	if p.Follows != nil && len(p.Follows) > 0 {
 		follows := make([]string, len(p.Follows))
 		for i, did := range p.Follows {
 			follows[i] = did.String()
 		}
-		filters = append(filters, map[string]interface{}{
-			"terms": map[string]interface{}{
+		filters = append(filters, map[string]any{
+			"terms": map[string]any{
 				"did": follows,
 			},
 		})
@@ -227,8 +227,8 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 	if containsJapanese(params.Query) {
 		idx = "everything_ja"
 	}
-	basic := map[string]interface{}{
-		"simple_query_string": map[string]interface{}{
+	basic := map[string]any{
+		"simple_query_string": map[string]any{
 			"query":            params.Query,
 			"fields":           []string{idx},
 			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
@@ -240,16 +240,16 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 	filters := params.Filters()
 	// filter out future posts (TODO: temporary hack)
 	now := syntax.DatetimeNow()
-	filters = append(filters, map[string]interface{}{
-		"range": map[string]interface{}{
-			"created_at": map[string]interface{}{
+	filters = append(filters, map[string]any{
+		"range": map[string]any{
+			"created_at": map[string]any{
 				"lte": now,
 			},
 		},
 	})
-	query := map[string]interface{}{
-		"query": map[string]interface{}{
-			"bool": map[string]interface{}{
+	query := map[string]any{
+		"query": map[string]any{
+			"bool": map[string]any{
 				"must":   basic,
 				"filter": filters,
 			},
@@ -276,8 +276,8 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 
 	filters := params.Filters()
 
-	fulltext := map[string]interface{}{
-		"simple_query_string": map[string]interface{}{
+	fulltext := map[string]any{
+		"simple_query_string": map[string]any{
 			"query":            params.Query,
 			"fields":           []string{"everything"},
 			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
@@ -292,8 +292,8 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 	// syntax), then have the primary query be an "OR" of the basic fulltext
 	// query and the typeahead query
 	if len(strings.Split(params.Query, " ")) == 1 {
-		typeahead := map[string]interface{}{
-			"multi_match": map[string]interface{}{
+		typeahead := map[string]any{
+			"multi_match": map[string]any{
 				"query":    params.Query,
 				"type":     "bool_prefix",
 				"operator": "and",
@@ -304,9 +304,9 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 				},
 			},
 		}
-		primary = map[string]interface{}{
-			"bool": map[string]interface{}{
-				"should": []interface{}{
+		primary = map[string]any{
+			"bool": map[string]any{
+				"should": []any{
 					fulltext,
 					typeahead,
 				},
@@ -314,13 +314,13 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 		}
 	}
 
-	query := map[string]interface{}{
-		"query": map[string]interface{}{
-			"bool": map[string]interface{}{
+	query := map[string]any{
+		"query": map[string]any{
+			"bool": map[string]any{
 				"must": primary,
-				"should": []interface{}{
-					map[string]interface{}{"term": map[string]interface{}{"has_avatar": true}},
-					map[string]interface{}{"term": map[string]interface{}{"has_banner": true}},
+				"should": []any{
+					map[string]any{"term": map[string]any{"has_avatar": true}},
+					map[string]any{"term": map[string]any{"has_banner": true}},
 				},
 				"minimum_should_match": 0,
 				"boost":                0.5,
@@ -331,7 +331,7 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 	}
 
 	if len(filters) > 0 {
-		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["filter"] = filters
+		query["query"].(map[string]any)["bool"].(map[string]any)["filter"] = filters
 	}
 
 	return doSearch(ctx, escli, index, query)
@@ -347,11 +347,11 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index stri
 
 	filters := params.Filters()
 
-	query := map[string]interface{}{
-		"query": map[string]interface{}{
-			"bool": map[string]interface{}{
-				"must": map[string]interface{}{
-					"multi_match": map[string]interface{}{
+	query := map[string]any{
+		"query": map[string]any{
+			"bool": map[string]any{
+				"must": map[string]any{
+					"multi_match": map[string]any{
 						"query":    params.Query,
 						"type":     "bool_prefix",
 						"operator": "and",
@@ -369,7 +369,7 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index stri
 	}
 
 	if len(filters) > 0 {
-		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["filter"] = filters
+		query["query"].(map[string]any)["bool"].(map[string]any)["filter"] = filters
 	}
 
 	return doSearch(ctx, escli, index, query)
@@ -380,9 +380,9 @@ func DoSearchGeneric(ctx context.Context, escli *es.Client, index, q string) (*E
 	ctx, span := tracer.Start(ctx, "DoSearchGeneric")
 	defer span.End()
 
-	query := map[string]interface{}{
-		"query": map[string]interface{}{
-			"query_string": map[string]interface{}{
+	query := map[string]any{
+		"query": map[string]any{
+			"query_string": map[string]any{
 				"query":                  q,
 				"default_operator":       "and",
 				"analyze_wildcard":       true,
@@ -396,7 +396,7 @@ func DoSearchGeneric(ctx context.Context, escli *es.Client, index, q string) (*E
 	return doSearch(ctx, escli, index, query)
 }
 
-func doSearch(ctx context.Context, escli *es.Client, index string, query interface{}) (*EsSearchResponse, error) {
+func doSearch(ctx context.Context, escli *es.Client, index string, query any) (*EsSearchResponse, error) {
 	ctx, span := tracer.Start(ctx, "doSearch")
 	defer span.End()
 

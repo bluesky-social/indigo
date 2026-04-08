@@ -122,8 +122,8 @@ func (b *BasicBlock) String() string {
 }
 
 // Loggable returns a go-log loggable item.
-func (b *BasicBlock) Loggable() map[string]interface{} {
-	return map[string]interface{}{
+func (b *BasicBlock) Loggable() map[string]any {
+	return map[string]any{
 		"block": b.Cid().String(),
 	}
 }

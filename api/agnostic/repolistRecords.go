@@ -34,7 +34,7 @@ type RepoListRecords_Record struct {
 func RepoListRecords(ctx context.Context, c util.LexClient, collection string, cursor string, limit int64, repo string, reverse bool) (*RepoListRecords_Output, error) {
 	var out RepoListRecords_Output
 
-	params := map[string]interface{}{
+	params := map[string]any{
 		"collection": collection,
 		"repo":       repo,
 	}
