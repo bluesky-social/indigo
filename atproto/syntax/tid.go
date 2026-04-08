@@ -48,12 +48,12 @@ func NewTIDNow(clockId uint) TID {
 
 func NewTIDFromInteger(v uint64) TID {
 	v = (0x7FFF_FFFF_FFFF_FFFF & v)
-	s := ""
-	for i := 0; i < 13; i++ {
-		s = string(Base32SortAlphabet[v&0x1F]) + s
+	var buf [13]byte
+	for i := 12; i >= 0; i-- {
+		buf[i] = Base32SortAlphabet[v&0x1F]
 		v = v >> 5
 	}
-	return TID(s)
+	return TID(buf[:])
 }
 
 // Constructs a new TID from a UNIX timestamp (in milliseconds) and clock ID value.
