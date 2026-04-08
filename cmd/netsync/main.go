@@ -343,15 +343,13 @@ func Netsync(ctx context.Context, cmd *cli.Command) error {
 		Handler: mux,
 	}
 
-	state.wg.Add(1)
-	go func() {
-		defer state.wg.Done()
+	state.wg.Go(func() {
 		if err := metricsServer.ListenAndServe(); err != http.ErrServerClosed {
 			logger.Error("failed to start metrics server", "err", err)
 			os.Exit(1)
 		}
 		logger.Info("metrics server shut down successfully")
-	}()
+	})
 
 	// Start workers
 	for i := 0; i < state.workerCount; i++ {
@@ -366,9 +364,7 @@ func Netsync(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	// Check for empty queue
-	state.wg.Add(1)
-	go func() {
-		defer state.wg.Done()
+	state.wg.Go(func() {
 		t := time.NewTicker(30 * time.Second)
 		for {
 			select {
@@ -392,7 +388,7 @@ func Netsync(ctx context.Context, cmd *cli.Command) error {
 				state.lk.RUnlock()
 			}
 		}
-	}()
+	})
 
 	// Trap SIGINT to trigger a shutdown.
 	logger.Info("listening for signals")

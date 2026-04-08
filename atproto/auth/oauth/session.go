@@ -85,7 +85,7 @@ type ClientSession struct {
 // body object will be url-encoded (expected to be either RefreshTokenRequest or RevocationRequest)
 // expects sess.lk to be held by caller
 // if a non-nil *http.Response is returned, the caller is responsible for closing the response body
-func (sess *ClientSession) postToAuthServer(ctx context.Context, url string, body interface{}) (*http.Response, error) {
+func (sess *ClientSession) postToAuthServer(ctx context.Context, url string, body any) (*http.Response, error) {
 	vals, err := query.Values(body)
 	if err != nil {
 		return nil, err

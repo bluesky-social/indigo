@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/atdata"
@@ -663,13 +664,7 @@ func (s *SchemaInteger) Validate(d any) error {
 		return fmt.Errorf("integer val outside specified range: %d", v)
 	}
 	if len(s.Enum) != 0 {
-		inEnum := false
-		for _, e := range s.Enum {
-			if e == v {
-				inEnum = true
-				break
-			}
-		}
+		inEnum := slices.Contains(s.Enum, v)
 		if !inEnum {
 			return fmt.Errorf("integer val not in required enum: %d", v)
 		}
@@ -735,13 +730,7 @@ func (s *SchemaString) Validate(d any, flags ValidateFlags) error {
 		return fmt.Errorf("string length outside specified range: %d", len(v))
 	}
 	if len(s.Enum) != 0 {
-		inEnum := false
-		for _, e := range s.Enum {
-			if e == v {
-				inEnum = true
-				break
-			}
-		}
+		inEnum := slices.Contains(s.Enum, v)
 		if !inEnum {
 			return fmt.Errorf("string val not in required enum: %s", v)
 		}
@@ -927,12 +916,7 @@ func (s *SchemaObject) CheckSchema() error {
 
 // Checks if a field name 'k' is one of the Nullable fields for this object
 func (s *SchemaObject) IsNullable(k string) bool {
-	for _, el := range s.Nullable {
-		if el == k {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s.Nullable, k)
 }
 
 type SchemaBlob struct {

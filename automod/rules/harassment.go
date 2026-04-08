@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
@@ -78,11 +79,8 @@ func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky
 				continue
 			}
 			if targetAccount.Private != nil {
-				for _, t := range targetAccount.Private.AccountTags {
-					if t == "harassment-protection" {
-						targetIsProtected = true
-						break
-					}
+				if slices.Contains(targetAccount.Private.AccountTags, "harassment-protection") {
+					targetIsProtected = true
 				}
 			}
 		}
@@ -145,14 +143,10 @@ func HarassmentProtectionOzoneEventRule(c *automod.OzoneEventContext) error {
 		return nil
 	}
 
-	for _, t := range c.Event.Event.ModerationDefs_ModEventTag.Add {
-		if t == "harassment-protection" {
-			c.Logger.Info("adding harassment protection to account", "ozoneComment", c.Event.Event.ModerationDefs_ModEventTag.Comment, "did", c.Account.Identity.DID, "handle", c.Account.Identity.Handle)
-			// to make slack message clearer; bluring flags and tags is a bit weird
-			c.AddAccountFlag("harassment-protection")
-			//c.Notify("slack")
-			break
-		}
+	if slices.Contains(c.Event.Event.ModerationDefs_ModEventTag.Add, "harassment-protection") {
+		c.Logger.Info("adding harassment protection to account", "ozoneComment", c.Event.Event.ModerationDefs_ModEventTag.Comment, "did", c.Account.Identity.DID, "handle", c.Account.Identity.Handle)
+		// to make slack message clearer; bluring flags and tags is a bit weird
+		c.AddAccountFlag("harassment-protection")
 	}
 	return nil
 }

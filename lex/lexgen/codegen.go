@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"slices"
 	"sort"
 	"strings"
 
@@ -172,12 +173,7 @@ func (gen *CodeGenerator) WriteType(ft *FlatType) error {
 }
 
 func isRequired(required []string, fname string) bool {
-	for _, k := range required {
-		if k == fname {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(required, fname)
 }
 
 func (gen *CodeGenerator) fieldType(fname string, def *lexicon.SchemaDef, optional bool) (string, error) {
