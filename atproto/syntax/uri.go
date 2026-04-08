@@ -5,6 +5,8 @@ import (
 	"regexp"
 )
 
+var uriRegex = regexp.MustCompile(`^[a-z][a-z.-]{0,80}:[[:graph:]]+$`)
+
 // Represents an arbitrary URI in string format, as would pass Lexicon syntax validation.
 //
 // The syntax is minimal and permissive, designed for fast verification and exact-string passthrough, not schema-specific parsing or validation. For example, will not validate AT-URI or DID strings.
@@ -19,7 +21,6 @@ func ParseURI(raw string) (URI, error) {
 	if len(raw) > 8192 {
 		return "", errors.New("URI is too long (8192 chars max)")
 	}
-	var uriRegex = regexp.MustCompile(`^[a-z][a-z.-]{0,80}:[[:graph:]]+$`)
 	if !uriRegex.MatchString(raw) {
 		return "", errors.New("URI syntax didn't validate via regex")
 	}
