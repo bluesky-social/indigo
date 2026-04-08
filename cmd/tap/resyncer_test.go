@@ -169,7 +169,7 @@ func TestHandleResyncError_ExponentialBackoff(t *testing.T) {
 
 	var prevRetryAfter int64
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		// Reset state to active so GetRepoState works for handleResyncError
 		te.db.Model(&models.Repo{}).Where("did = ?", did).Update("state", models.RepoStateActive)
 

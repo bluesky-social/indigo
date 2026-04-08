@@ -123,7 +123,7 @@ func TestTIDClock(t *testing.T) {
 
 	clk := NewTIDClock(0)
 	last := NewTID(0, 0)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		next := clk.Next()
 		assert.Greater(next, last)
 		last = next

@@ -113,10 +113,8 @@ func TestRedisCoalesce(t *testing.T) {
 	// Cancel the context after 2 seconds, if we're coalescing correctly, we should only make 1 request
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 	defer cancel()
-	for i := 0; i < routines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range routines {
+		wg.Go(func() {
 			ident, err := dir.LookupDID(ctx, did)
 			if err != nil {
 				slog.Error("Failed lookup", "error", err)
@@ -130,7 +128,7 @@ func TestRedisCoalesce(t *testing.T) {
 			}
 			assert.NoError(err)
 			assert.Equal(did, ident.DID)
-		}()
+		})
 	}
 	wg.Wait()
 }

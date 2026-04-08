@@ -45,7 +45,7 @@ func (s *RedisFlagStore) Add(ctx context.Context, key string, flags []string) er
 	if len(flags) == 0 {
 		return nil
 	}
-	l := []interface{}{}
+	l := []any{}
 	for _, v := range flags {
 		l = append(l, v)
 	}
@@ -57,7 +57,7 @@ func (s *RedisFlagStore) Remove(ctx context.Context, key string, flags []string)
 	if len(flags) == 0 {
 		return nil
 	}
-	l := []interface{}{}
+	l := []any{}
 	for _, v := range flags {
 		l = append(l, v)
 	}

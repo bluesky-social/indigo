@@ -58,7 +58,7 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 		log: slog.Default().With("system", "parallel-scheduler"),
 	}
 
-	for i := 0; i < maxC; i++ {
+	for range maxC {
 		go p.worker()
 	}
 

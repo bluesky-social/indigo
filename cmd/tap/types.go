@@ -23,22 +23,22 @@ type Commit struct {
 }
 
 type CommitOp struct {
-	Collection string                 `json:"collection"`
-	Rkey       string                 `json:"rkey"`
-	Action     string                 `json:"action"`
-	Record     map[string]interface{} `json:"record,omitempty"`
-	Cid        string                 `json:"cid,omitempty"`
+	Collection string         `json:"collection"`
+	Rkey       string         `json:"rkey"`
+	Action     string         `json:"action"`
+	Record     map[string]any `json:"record,omitempty"`
+	Cid        string         `json:"cid,omitempty"`
 }
 
 type RecordEvt struct {
-	Live       bool                   `json:"live"`
-	Did        string                 `json:"did"`
-	Rev        string                 `json:"rev"`
-	Collection string                 `json:"collection"`
-	Rkey       string                 `json:"rkey"`
-	Action     string                 `json:"action"`
-	Record     map[string]interface{} `json:"record,omitempty"`
-	Cid        string                 `json:"cid,omitempty"`
+	Live       bool           `json:"live"`
+	Did        string         `json:"did"`
+	Rev        string         `json:"rev"`
+	Collection string         `json:"collection"`
+	Rkey       string         `json:"rkey"`
+	Action     string         `json:"action"`
+	Record     map[string]any `json:"record,omitempty"`
+	Cid        string         `json:"cid,omitempty"`
 }
 
 func (e *RecordEvt) MarshalWithId(id uint) ([]byte, error) {

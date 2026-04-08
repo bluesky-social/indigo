@@ -81,7 +81,7 @@ func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.
 
 	n := 100
 	inEvts := make([]*events.XRPCStreamEvent, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
 		inEvts[i] = &events.XRPCStreamEvent{
@@ -102,7 +102,7 @@ func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.
 	}
 
 	// Add events in parallel
-	for i := 0; i < n; i++ {
+	for i := range n {
 		err = evtman.AddEvent(ctx, inEvts[i])
 		if err != nil {
 			t.Fatal(err)
@@ -141,7 +141,7 @@ func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.
 	evtman2 := events.NewEventManager(dp2)
 
 	inEvts = make([]*events.XRPCStreamEvent, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
 		inEvts[i] = &events.XRPCStreamEvent{
@@ -160,7 +160,7 @@ func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.
 		}
 	}
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		err = evtman2.AddEvent(ctx, inEvts[i])
 		if err != nil {
 			t.Fatal(err)
