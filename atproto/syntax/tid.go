@@ -74,7 +74,7 @@ func (t TID) Integer() uint64 {
 		return 0
 	}
 	var v uint64
-	for i := 0; i < 13; i++ {
+	for i := range 13 {
 		c := strings.IndexByte(Base32SortAlphabet, s[i])
 		if c < 0 {
 			return 0

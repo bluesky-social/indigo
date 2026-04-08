@@ -40,7 +40,7 @@ var words = []string{
 
 func MakeRandomPost() string {
 	var out []string
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		out = append(out, words[mathrand.Intn(len(words))])
 	}
 
@@ -145,7 +145,7 @@ func GenerateFakeRepo(r *repo.Repo, size int) (cid.Cid, error) {
 	ctx := context.TODO()
 
 	var root cid.Cid
-	for i := 0; i < size; i++ {
+	for range size {
 		switch RandAction() {
 		case "post":
 			_, _, err := r.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{

@@ -62,19 +62,19 @@ func TestBlobParse(t *testing.T) {
 	assert.Equal(goObjLegacy, jsonObjLegacy)
 
 	// reproduce JSON serialization
-	var jsonAll interface{}
+	var jsonAll any
 	assert.NoError(json.Unmarshal([]byte(jsonStr), &jsonAll))
 	goJsonBytes, err := json.Marshal(goObj)
 	assert.NoError(err)
-	var goJsonAll interface{}
+	var goJsonAll any
 	assert.NoError(json.Unmarshal(goJsonBytes, &goJsonAll))
 	assert.Equal(jsonAll, goJsonAll)
 
-	var jsonAllLegacy interface{}
+	var jsonAllLegacy any
 	assert.NoError(json.Unmarshal([]byte(jsonStrLegacy), &jsonAllLegacy))
 	goJsonBytesLegacy, err := json.Marshal(goObjLegacy)
 	assert.NoError(err)
-	var goJsonAllLegacy interface{}
+	var goJsonAllLegacy any
 	assert.NoError(json.Unmarshal(goJsonBytesLegacy, &goJsonAllLegacy))
 	assert.Equal(jsonAllLegacy, goJsonAllLegacy)
 }

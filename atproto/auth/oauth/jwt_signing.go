@@ -41,7 +41,7 @@ func init() {
 	supportedAlgs = []string{signingMethodES256.Alg()}
 }
 
-func (sm *signingMethodAtproto) Verify(signingString string, sig []byte, key interface{}) error {
+func (sm *signingMethodAtproto) Verify(signingString string, sig []byte, key any) error {
 	pub, ok := key.(atcrypto.PublicKey)
 	if !ok {
 		return jwt.ErrInvalidKeyType
@@ -59,7 +59,7 @@ func (sm *signingMethodAtproto) Verify(signingString string, sig []byte, key int
 	return pub.HashAndVerifyLenient([]byte(signingString), sig)
 }
 
-func (sm *signingMethodAtproto) Sign(signingString string, key interface{}) ([]byte, error) {
+func (sm *signingMethodAtproto) Sign(signingString string, key any) ([]byte, error) {
 	priv, ok := key.(atcrypto.PrivateKey)
 	if !ok {
 		return nil, jwt.ErrInvalidKeyType

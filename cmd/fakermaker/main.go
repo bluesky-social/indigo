@@ -245,7 +245,7 @@ func genAccounts(ctx context.Context, cmd *cli.Command) error {
 	var usr *fakedata.AccountContext
 	var line []byte
 	t1 := fakedata.MeasureIterations("register celebrity accounts")
-	for i := 0; i < countCelebrities; i++ {
+	for i := range countCelebrities {
 		if usr, err = fakedata.GenAccount(xrpcc, i, "celebrity", domainSuffix, inviteCode); err != nil {
 			return err
 		}
@@ -258,7 +258,7 @@ func genAccounts(ctx context.Context, cmd *cli.Command) error {
 	t1(countCelebrities)
 
 	t2 := fakedata.MeasureIterations("register regular accounts")
-	for i := 0; i < countRegulars; i++ {
+	for i := range countRegulars {
 		if usr, err = fakedata.GenAccount(xrpcc, i, "regular", domainSuffix, inviteCode); err != nil {
 			return err
 		}
@@ -285,7 +285,7 @@ func genProfiles(ctx context.Context, cmd *cli.Command) error {
 
 	accChan := make(chan fakedata.AccountContext, len(catalog.Celebs)+len(catalog.Regulars))
 	eg := new(errgroup.Group)
-	for i := 0; i < jobs; i++ {
+	for range jobs {
 		eg.Go(func() error {
 			for acc := range accChan {
 				xrpcc, err := fakedata.AccountXrpcClient(pdsHost, &acc)
@@ -320,7 +320,7 @@ func genGraph(ctx context.Context, cmd *cli.Command) error {
 
 	accChan := make(chan fakedata.AccountContext, len(catalog.Celebs)+len(catalog.Regulars))
 	eg := new(errgroup.Group)
-	for i := 0; i < jobs; i++ {
+	for range jobs {
 		eg.Go(func() error {
 			for acc := range accChan {
 				xrpcc, err := fakedata.AccountXrpcClient(pdsHost, &acc)
@@ -356,7 +356,7 @@ func genPosts(ctx context.Context, cmd *cli.Command) error {
 
 	accChan := make(chan fakedata.AccountContext, len(catalog.Celebs)+len(catalog.Regulars))
 	eg := new(errgroup.Group)
-	for i := 0; i < jobs; i++ {
+	for range jobs {
 		eg.Go(func() error {
 			for acc := range accChan {
 				xrpcc, err := fakedata.AccountXrpcClient(pdsHost, &acc)
@@ -392,7 +392,7 @@ func genInteractions(ctx context.Context, cmd *cli.Command) error {
 
 	accChan := make(chan fakedata.AccountContext, len(catalog.Celebs)+len(catalog.Regulars))
 	eg := new(errgroup.Group)
-	for i := 0; i < jobs; i++ {
+	for range jobs {
 		eg.Go(func() error {
 			for acc := range accChan {
 				xrpcc, err := fakedata.AccountXrpcClient(pdsHost, &acc)
@@ -427,7 +427,7 @@ func runBrowsing(ctx context.Context, cmd *cli.Command) error {
 
 	accChan := make(chan fakedata.AccountContext, len(catalog.Celebs)+len(catalog.Regulars))
 	eg := new(errgroup.Group)
-	for i := 0; i < jobs; i++ {
+	for range jobs {
 		eg.Go(func() error {
 			for acc := range accChan {
 				xrpcc, err := fakedata.AccountXrpcClient(pdsHost, &acc)

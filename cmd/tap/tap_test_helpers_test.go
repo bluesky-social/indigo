@@ -167,7 +167,7 @@ func (te *testEnv) pushRecordEvents(did string, count int, live bool) []uint {
 	te.t.Helper()
 
 	evts := make([]*RecordEvt, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		evts[i] = &RecordEvt{
 			Live:       live,
 			Did:        did,
@@ -175,7 +175,7 @@ func (te *testEnv) pushRecordEvents(did string, count int, live bool) []uint {
 			Collection: "app.bsky.feed.post",
 			Rkey:       fmt.Sprintf("rkey-%d-%d", time.Now().UnixNano(), i),
 			Action:     "create",
-			Record:     map[string]interface{}{"text": fmt.Sprintf("test post %d", i)},
+			Record:     map[string]any{"text": fmt.Sprintf("test post %d", i)},
 			Cid:        fmt.Sprintf("cid-%d-%d", time.Now().UnixNano(), i),
 		}
 	}
@@ -190,7 +190,7 @@ func (te *testEnv) pushRecordEvents(did string, count int, live bool) []uint {
 	}
 
 	ids := make([]uint, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		ids[i] = startID + uint(i) + 1
 	}
 	return ids

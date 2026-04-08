@@ -321,7 +321,7 @@ var adminCrawlCmd = &cli.Command{
 		reqBlob, err := json.Marshal(postReqeust)
 		reqReader := bytes.NewReader(reqBlob)
 
-		for try := 0; try < 3; try++ {
+		for try := range 3 {
 			req, err := http.NewRequest("POST", requestCrawlUrl.String(), reqReader)
 			if err != nil {
 				return fmt.Errorf("could not create request, %w", err)

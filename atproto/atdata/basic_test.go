@@ -14,21 +14,21 @@ func TestSimpleValidation(t *testing.T) {
 	assert := assert.New(t)
 
 	s := "a string"
-	assert.NoError(Validate(map[string]interface{}{
+	assert.NoError(Validate(map[string]any{
 		"a": 5,
 		"b": 123,
 		"c": s,
 		"d": &s,
 	}))
-	assert.NoError(Validate(map[string]interface{}{
+	assert.NoError(Validate(map[string]any{
 		"$type": "com.example.thing",
 		"a":     5,
 	}))
-	assert.Error(Validate(map[string]interface{}{
+	assert.Error(Validate(map[string]any{
 		"$type": 123,
 		"a":     5,
 	}))
-	assert.Error(Validate(map[string]interface{}{
+	assert.Error(Validate(map[string]any{
 		"$type": "",
 		"a":     5,
 	}))
@@ -39,7 +39,7 @@ func TestSyntaxSerialize(t *testing.T) {
 
 	atid, err := syntax.ParseAtIdentifier("did:web:example.com")
 	assert.NoError(err)
-	obj := map[string]interface{}{
+	obj := map[string]any{
 		"at-identifier": atid,
 		"at-uri":        syntax.ATURI("at://did:abc:123/io.nsid.someFunc/record-key"),
 		"cid-string":    syntax.CID("bafyreidfayvfuwqa7qlnopdjiqrxzs6blmoeu4rujcjtnci5beludirz2a"),
@@ -63,17 +63,17 @@ func TestExtractBlobs(t *testing.T) {
 	assert := assert.New(t)
 
 	cid1, _ := cid.Parse("bafkreiccldh766hwcnuxnf2wh6jgzepf2nlu2lvcllt63eww5p6chi4ity")
-	obj := map[string]interface{}{
+	obj := map[string]any{
 		"a": 5,
 		"b": 123,
-		"c": map[string]interface{}{
+		"c": map[string]any{
 			"blb": Blob{
 				Size:     567,
 				MimeType: "image/jpeg",
 				Ref:      CIDLink(cid1),
 			},
 		},
-		"d": []interface{}{
+		"d": []any{
 			123,
 			Blob{
 				Size:     123,

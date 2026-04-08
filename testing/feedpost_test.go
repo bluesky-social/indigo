@@ -119,9 +119,9 @@ func TestFeedPostParse(t *testing.T) {
 	outJsonBytes, err := json.Marshal(fp)
 	assert.NoError(err)
 	fmt.Println(string(outJsonBytes))
-	var outJsonObj map[string]interface{}
+	var outJsonObj map[string]any
 	assert.NoError(json.Unmarshal(outJsonBytes, &outJsonObj))
-	var expectedJsonObj map[string]interface{}
+	var expectedJsonObj map[string]any
 	assert.NoError(json.Unmarshal([]byte(expectedJson), &expectedJsonObj))
 	assert.Equal(expectedJsonObj, outJsonObj)
 }

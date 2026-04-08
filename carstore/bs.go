@@ -639,7 +639,7 @@ func (cs *FileCarStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 
 	offset := hnw
 	//brefs := make([]*blockRef, 0, len(ds.blks))
-	brefs := make([]map[string]interface{}, 0, len(blks))
+	brefs := make([]map[string]any, 0, len(blks))
 	for k, blk := range blks {
 		nw, err := LdWrite(buf, k.Bytes(), blk.RawData())
 		if err != nil {
@@ -655,7 +655,7 @@ func (cs *FileCarStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 		*/
 		// adding things to the db by map is the only way to get gorm to not
 		// add the 'returning' clause, which costs a lot of time
-		brefs = append(brefs, map[string]interface{}{
+		brefs = append(brefs, map[string]any{
 			"cid":    models.DbCID{CID: k},
 			"offset": offset,
 		})
@@ -1356,7 +1356,7 @@ func (cs *FileCarStore) compactBucket(ctx context.Context, user models.Uid, b *c
 					return fmt.Errorf("failed to write block: %w", err)
 				}
 
-				nbrefs = append(nbrefs, map[string]interface{}{
+				nbrefs = append(nbrefs, map[string]any{
 					"cid":    models.DbCID{CID: blk.Cid()},
 					"offset": offset,
 				})

@@ -32,7 +32,7 @@ func (idx *Indexer) BulkIndexPageranks(ctx context.Context, pagerankFile string)
 	defer f.Close()
 
 	// Run 5 pagerank indexers in parallel
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		go idx.runPagerankIndexer(ctx)
 	}
 
@@ -41,16 +41,14 @@ func (idx *Indexer) BulkIndexPageranks(ctx context.Context, pagerankFile string)
 	queue := make(chan string, 20_000)
 	wg := &sync.WaitGroup{}
 	workerCount := 20
-	for i := 0; i < workerCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range workerCount {
+		wg.Go(func() {
 			for line := range queue {
 				if err := idx.processPagerankCSVLine(line); err != nil {
 					logger.Error("failed to process line", "err", err)
 				}
 			}
-		}()
+		})
 	}
 
 	// Create a scanner to read the file line by line
@@ -95,7 +93,7 @@ func (idx *Indexer) BulkIndexPosts(ctx context.Context, postsFile string) error 
 	defer f.Close()
 
 	// Run 5 post indexers in parallel
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		go idx.runPostIndexer(ctx)
 	}
 
@@ -104,16 +102,14 @@ func (idx *Indexer) BulkIndexPosts(ctx context.Context, postsFile string) error 
 	queue := make(chan string, 20_000)
 	wg := &sync.WaitGroup{}
 	workerCount := 20
-	for i := 0; i < workerCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range workerCount {
+		wg.Go(func() {
 			for line := range queue {
 				if err := idx.processPostCSVLine(line); err != nil {
 					logger.Error("failed to process line", "err", err)
 				}
 			}
-		}()
+		})
 	}
 
 	// Create a scanner to read the file line by line
@@ -157,7 +153,7 @@ func (idx *Indexer) BulkIndexProfiles(ctx context.Context, profilesFile string) 
 	}
 	defer f.Close()
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		go idx.runProfileIndexer(ctx)
 	}
 
@@ -166,16 +162,14 @@ func (idx *Indexer) BulkIndexProfiles(ctx context.Context, profilesFile string) 
 	queue := make(chan string, 20_000)
 	wg := &sync.WaitGroup{}
 	workerCount := 20
-	for i := 0; i < workerCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range workerCount {
+		wg.Go(func() {
 			for line := range queue {
 				if err := idx.processProfileCSVLine(line); err != nil {
 					logger.Error("failed to process line", "err", err)
 				}
 			}
-		}()
+		})
 	}
 
 	// Create a scanner to read the file line by line
