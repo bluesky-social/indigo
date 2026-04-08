@@ -97,17 +97,15 @@ func BenchmarkDBPersist(b *testing.B) {
 	errChan := make(chan error, numRoutines)
 
 	// Add events in parallel
-	for i := 0; i < numRoutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range numRoutines {
+		wg.Go(func() {
 			for i := 0; i < b.N; i++ {
 				err = evtman.AddEvent(ctx, inEvts[i])
 				if err != nil {
 					errChan <- err
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -192,7 +190,7 @@ func BenchmarkPlayback(b *testing.B) {
 	}
 
 	inEvts := make([]*events.XRPCStreamEvent, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
 		inEvts[i] = &events.XRPCStreamEvent{
@@ -217,17 +215,15 @@ func BenchmarkPlayback(b *testing.B) {
 	errChan := make(chan error, numRoutines)
 
 	// Add events in parallel
-	for i := 0; i < numRoutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < n; i++ {
+	for range numRoutines {
+		wg.Go(func() {
+			for i := range n {
 				err = evtman.AddEvent(ctx, inEvts[i])
 				if err != nil {
 					errChan <- err
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

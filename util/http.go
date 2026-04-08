@@ -16,19 +16,19 @@ type LeveledSlog struct {
 }
 
 // re-writes HTTP client ERROR to WARN level (because of retries)
-func (l LeveledSlog) Error(msg string, keysAndValues ...interface{}) {
+func (l LeveledSlog) Error(msg string, keysAndValues ...any) {
 	l.inner.Warn(msg, keysAndValues...)
 }
 
-func (l LeveledSlog) Warn(msg string, keysAndValues ...interface{}) {
+func (l LeveledSlog) Warn(msg string, keysAndValues ...any) {
 	l.inner.Warn(msg, keysAndValues...)
 }
 
-func (l LeveledSlog) Info(msg string, keysAndValues ...interface{}) {
+func (l LeveledSlog) Info(msg string, keysAndValues ...any) {
 	l.inner.Info(msg, keysAndValues...)
 }
 
-func (l LeveledSlog) Debug(msg string, keysAndValues ...interface{}) {
+func (l LeveledSlog) Debug(msg string, keysAndValues ...any) {
 	l.inner.Debug(msg, keysAndValues...)
 }
 

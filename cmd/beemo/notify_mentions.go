@@ -67,7 +67,7 @@ func notifyMentions(ctx context.Context, cmd *cli.Command) error {
 	minimumWords := cmd.Int("minimum-words")
 
 	mentionDIDs := []syntax.DID{}
-	for _, raw := range strings.Split(cmd.String("mention-dids"), ",") {
+	for raw := range strings.SplitSeq(cmd.String("mention-dids"), ",") {
 		did, err := syntax.ParseDID(raw)
 		if err != nil {
 			return err

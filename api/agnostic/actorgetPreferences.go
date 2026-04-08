@@ -19,7 +19,7 @@ type ActorGetPreferences_Output struct {
 func ActorGetPreferences(ctx context.Context, c util.LexClient) (*ActorGetPreferences_Output, error) {
 	var out ActorGetPreferences_Output
 
-	params := map[string]interface{}{}
+	params := map[string]any{}
 	if err := c.LexDo(ctx, util.Query, "", "app.bsky.actor.getPreferences", params, nil, &out); err != nil {
 		return nil, err
 	}

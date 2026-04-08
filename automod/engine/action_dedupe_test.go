@@ -48,7 +48,7 @@ func TestAccountReportDedupe(t *testing.T) {
 		CID:        &cid1,
 		RecordCBOR: p1cbor,
 	}
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		assert.NoError(eng.ProcessRecordOp(ctx, op))
 	}
 

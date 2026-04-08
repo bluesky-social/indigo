@@ -126,7 +126,7 @@ func TestIngestWithGap(t *testing.T) {
 
 	var since *string
 	ctx := context.TODO()
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		slice, _, nrev, tid := doPost(t, cs2, did, since, i)
 
 		ops := []*atproto.SyncSubscribeRepos_RepoOp{
@@ -144,7 +144,7 @@ func TestIngestWithGap(t *testing.T) {
 	}
 
 	// now do a few outside of the standard event stream flow
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		_, _, nrev, _ := doPost(t, cs2, did, since, i)
 		since = &nrev
 	}

@@ -93,7 +93,7 @@ func TestLowSMany(t *testing.T) {
 
 	msg := make([]byte, 1024)
 
-	for i := 0; i < 128; i++ {
+	for range 128 {
 		privP256, err := GeneratePrivateKeyP256()
 		assert.NoError(err)
 		privK256, err := GeneratePrivateKeyK256()

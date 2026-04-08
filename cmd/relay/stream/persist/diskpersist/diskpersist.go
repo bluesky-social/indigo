@@ -705,7 +705,7 @@ func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*s
 	// playback data from all the log files we found, then check the db to see if more were written during playback.
 	// repeat a few times but not unboundedly.
 	// don't decrease '10' below 2 because we should always do two passes through this if the above before-chunk query was used.
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if needslogs {
 			if err := dp.meta.Order("seq_start asc").Find(&logs, "seq_start >= ?", since).Error; err != nil {
 				return err

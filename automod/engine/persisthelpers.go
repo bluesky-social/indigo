@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -15,18 +16,9 @@ import (
 func dedupeLabelActions(labels, existing, existingNegated []string) []string {
 	newLabels := []string{}
 	for _, val := range dedupeStrings(labels) {
-		exists := false
-		for _, e := range existingNegated {
-			if val == e {
-				exists = true
-				break
-			}
-		}
-		for _, e := range existing {
-			if val == e {
-				exists = true
-				break
-			}
+		exists := slices.Contains(existingNegated, val)
+		if slices.Contains(existing, val) {
+			exists = true
 		}
 		if !exists {
 			newLabels = append(newLabels, val)
@@ -38,13 +30,7 @@ func dedupeLabelActions(labels, existing, existingNegated []string) []string {
 func dedupeTagActions(tags, existing []string) []string {
 	newTags := []string{}
 	for _, val := range dedupeStrings(tags) {
-		exists := false
-		for _, e := range existing {
-			if val == e {
-				exists = true
-				break
-			}
-		}
+		exists := slices.Contains(existing, val)
 		if !exists {
 			newTags = append(newTags, val)
 		}
@@ -55,13 +41,7 @@ func dedupeTagActions(tags, existing []string) []string {
 func dedupeFlagActions(flags, existing []string) []string {
 	newFlags := []string{}
 	for _, val := range dedupeStrings(flags) {
-		exists := false
-		for _, e := range existing {
-			if val == e {
-				exists = true
-				break
-			}
-		}
+		exists := slices.Contains(existing, val)
 		if !exists {
 			newFlags = append(newFlags, val)
 		}

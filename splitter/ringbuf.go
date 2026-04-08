@@ -70,7 +70,7 @@ func (er *EventRingBuffer) Flush(context.Context) error {
 
 func (er *EventRingBuffer) Playback(ctx context.Context, since int64, cb func(*events.XRPCStreamEvent) error) error {
 	// run playback a few times to get as close to 'live' as possible before returning
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		n, err := er.playbackRound(ctx, since, cb)
 		if err != nil {
 			return err
