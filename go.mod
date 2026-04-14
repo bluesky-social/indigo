@@ -13,7 +13,7 @@ require (
 	github.com/earthboundkid/versioninfo/v2 v2.24.1
 	github.com/go-redis/cache/v9 v9.0.0
 	github.com/gocql/gocql v1.7.0
-	github.com/golang-jwt/jwt/v5 v5.2.2
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/go-querystring v1.1.0
 	github.com/gorilla/sessions v1.2.1
 	github.com/gorilla/websocket v1.5.1
