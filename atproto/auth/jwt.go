@@ -19,10 +19,11 @@ import (
 // TODO: check for uniqueness of JTI (random nonce) to prevent token replay
 
 type ServiceAuthValidator struct {
-	// Service DID reference for this validator: a DID with optional #-separated fragment
-	Audience        string
-	Dir             identity.Directory
-	TimestampLeeway time.Duration
+	// Audience ('aud') DID references accepted for this validator. Each entry is a DID with optional #-separated fragment, and any entry can match.
+	// Warning: if array is empty, any audience is allowed.
+	AllowedAudiences []string
+	Dir              identity.Directory
+	TimestampLeeway  time.Duration
 }
 
 type serviceAuthClaims struct {
@@ -40,7 +41,7 @@ func (s *ServiceAuthValidator) Validate(ctx context.Context, tokenString string,
 
 	opts := []jwt.ParserOption{
 		jwt.WithValidMethods(supportedAlgs),
-		jwt.WithAudience(s.Audience),
+		jwt.WithAudience(s.AllowedAudiences...),
 		jwt.WithExpirationRequired(),
 		jwt.WithIssuedAt(),
 		jwt.WithLeeway(leeway),
