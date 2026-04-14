@@ -29,10 +29,10 @@ type ServiceAuthValidator struct {
 type serviceAuthClaims struct {
 	jwt.RegisteredClaims
 
-	LexMethod string `json:"lxm,omitempty"`
+	LexMethod string `json:"lxm"`
 }
 
-func (s *ServiceAuthValidator) Validate(ctx context.Context, tokenString string, lexMethod *syntax.NSID) (syntax.DID, error) {
+func (s *ServiceAuthValidator) Validate(ctx context.Context, tokenString string, lexMethod syntax.NSID) (syntax.DID, error) {
 
 	leeway := s.TimestampLeeway
 	if leeway == 0 {
@@ -92,7 +92,7 @@ func (s *ServiceAuthValidator) Validate(ctx context.Context, tokenString string,
 		return "", jwt.ErrTokenInvalidClaims
 	}
 
-	if lexMethod != nil && claims.LexMethod != lexMethod.String() {
+	if claims.LexMethod != lexMethod.String() {
 		return "", fmt.Errorf("%w: Lexicon endpoint (LXM)", jwt.ErrTokenInvalidClaims)
 	}
 
@@ -131,7 +131,7 @@ func randomNonce() string {
 	return base64.RawURLEncoding.EncodeToString(buf)
 }
 
-func SignServiceAuth(iss syntax.DID, aud string, ttl time.Duration, lexMethod *syntax.NSID, priv atcrypto.PrivateKey) (string, error) {
+func SignServiceAuth(iss syntax.DID, aud string, ttl time.Duration, lexMethod syntax.NSID, priv atcrypto.PrivateKey) (string, error) {
 	claims := serviceAuthClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
@@ -140,9 +140,7 @@ func SignServiceAuth(iss syntax.DID, aud string, ttl time.Duration, lexMethod *s
 			Audience:  []string{aud},
 			ID:        randomNonce(),
 		},
-	}
-	if lexMethod != nil {
-		claims.LexMethod = lexMethod.String()
+		LexMethod: lexMethod.String(),
 	}
 
 	var sm *signingMethodAtproto

@@ -113,30 +113,15 @@ func testSigningValidation(t *testing.T, priv atcrypto.PrivateKey) {
 		Dir:              dir,
 	}
 
-	t1, err := SignServiceAuth(iss, aud, time.Minute, nil, priv)
+	t1, err := SignServiceAuth(iss, aud, time.Minute, lxm, priv)
 	if err != nil {
 		t.Fatal(err)
 	}
-	d1, err := v.Validate(ctx, t1, nil)
+	d1, err := v.Validate(ctx, t1, lxm)
 	assert.NoError(err)
 	assert.Equal(d1, iss)
-	_, err = v.Validate(ctx, t1, &lxm)
+	_, err = v.Validate(ctx, t1, "wrong.lxm.value")
 	assert.Error(err)
-
-	t2, err := SignServiceAuth(iss, aud, time.Minute, &lxm, priv)
-	if err != nil {
-		t.Fatal(err)
-	}
-	d2, err := v.Validate(ctx, t2, nil)
-	assert.NoError(err)
-	assert.Equal(d2, iss)
-	_, err = v.Validate(ctx, t2, &lxm)
-	assert.NoError(err)
-
-	_, err = v.Validate(ctx, t2, nil)
-	assert.NoError(err)
-	_, err = v.Validate(ctx, t2, &lxm)
-	assert.NoError(err)
 }
 
 func TestP256SigningValidation(t *testing.T) {
