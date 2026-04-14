@@ -47,42 +47,44 @@ func (s *ServiceAuthValidator) Validate(ctx context.Context, tokenString string,
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, &serviceAuthClaims{}, s.fetchIssuerKeyFunc(ctx), opts...)
+
+	// if signature validation fails, purge the directory and try again
+	// TODO: probably need to cache or rate-limit this?
 	if err != nil && errors.Is(err, jwt.ErrTokenSignatureInvalid) {
-		// if signature validation fails, purge the directory and try again
-		// TODO: probably need to cache or rate-limit this?
 
 		// do an unvalidated extraction of 'iss' from JWT
 		insecure := jwt.NewParser(jwt.WithoutClaimsValidation())
-		t, _, err := insecure.ParseUnverified(tokenString, &jwt.MapClaims{})
-		if err != nil {
-			return "", fmt.Errorf("parse unverified %q: %w", tokenString, err)
+		t, _, purgeErr := insecure.ParseUnverified(tokenString, &jwt.MapClaims{})
+		if purgeErr != nil {
+			return "", purgeErr
 		}
 		claims, ok := t.Claims.(*jwt.MapClaims)
 		if !ok {
 			return "", jwt.ErrTokenInvalidClaims
 		}
-		iss, err := claims.GetIssuer()
-		if err != nil {
-			return "", err
+		iss, purgeErr := claims.GetIssuer()
+		if purgeErr != nil {
+			return "", purgeErr
 		}
-		did, err := syntax.ParseDID(iss)
-		if err != nil {
-			return "", fmt.Errorf("%w: invalid DID: %w", jwt.ErrTokenInvalidIssuer, err)
+		did, purgeErr := syntax.ParseDID(iss)
+		if purgeErr != nil {
+			return "", fmt.Errorf("%w: invalid DID: %w", jwt.ErrTokenInvalidIssuer, purgeErr)
 		}
 
 		slog.Info("purging directory and retrying service auth signature validation", "did", did)
-		err = s.Dir.Purge(ctx, did.AtIdentifier())
-		if err != nil {
-			slog.Error("purging identity directory", "did", did, "err", err)
+		purgeErr = s.Dir.Purge(ctx, did.AtIdentifier())
+		if purgeErr != nil {
+			slog.Error("purging identity directory", "did", did, "err", purgeErr)
 		}
 		token, err = jwt.ParseWithClaims(tokenString, &serviceAuthClaims{}, s.fetchIssuerKeyFunc(ctx), opts...)
-		if err != nil {
-			return "", fmt.Errorf("parse with claims %q: %w", tokenString, err)
-		}
+		// 'err' checked again just below
 	}
+
+	// all other errors (or second signature error)
 	if err != nil {
 		return "", err
 	}
+
 	claims, ok := token.Claims.(*serviceAuthClaims)
 	if !ok {
 		// TODO: is the error message returned descriptive enough?
