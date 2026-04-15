@@ -61,6 +61,9 @@ type EngineConfig struct {
 	IdentityEventTimeout time.Duration
 	// timeout for event processing (total, including all setup, rules, and teardown)
 	OzoneEventTimeout time.Duration
+
+	// number of blobs fetched and processed concurrently per record (there may be many records processed in parallel). If zero, a sane default is used (`DEFAULT_BLOB_PROCESSING_CONCURRENCY`). If negative, no limit.
+	BlobProcessingConcurrency int
 }
 
 // Entrypoint for external code pushing #identity events in to the engine.
