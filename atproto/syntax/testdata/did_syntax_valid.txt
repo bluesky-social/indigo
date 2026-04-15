@@ -15,6 +15,8 @@ did:method:-:_:.:%ab
 did:method:.
 did:method:_
 did:method::.
+did:m123:val
+did:3:val
 
 # allows some real DID values
 did:onion:2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid
