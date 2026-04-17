@@ -1,11 +1,16 @@
 {
   "lexicon": 1,
-  "id": "chat.bsky.convo.unmuteConvo",
+  "id": "chat.bsky.group.enableJoinLink",
   "defs": {
     "main": {
       "type": "procedure",
-      "description": "Unmutes a conversation, allowing notifications related to it.",
-      "errors": [{ "name": "InvalidConvo" }],
+      "description": "[NOTE: This is under active development and should be considered unstable while this note is here]. Re-enables a previously disabled join link for the group convo.",
+      "errors": [
+        { "name": "InvalidConvo" },
+        { "name": "InsufficientRole" },
+        { "name": "NoJoinLink" },
+        { "name": "LinkAlreadyEnabled" }
+      ],
       "input": {
         "encoding": "application/json",
         "schema": {
@@ -20,11 +25,11 @@
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["convo"],
+          "required": ["joinLink"],
           "properties": {
-            "convo": {
+            "joinLink": {
               "type": "ref",
-              "ref": "chat.bsky.convo.defs#convoView"
+              "ref": "chat.bsky.group.defs#joinLinkView"
             }
           }
         }

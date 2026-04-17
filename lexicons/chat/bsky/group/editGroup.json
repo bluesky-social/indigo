@@ -1,19 +1,28 @@
 {
   "lexicon": 1,
-  "id": "chat.bsky.convo.updateRead",
+  "id": "chat.bsky.group.editGroup",
   "defs": {
     "main": {
       "type": "procedure",
-      "description": "Updates the read state of a conversation from, optionally specifying the last read message.",
-      "errors": [{ "name": "InvalidConvo" }],
+      "description": "[NOTE: This is under active development and should be considered unstable while this note is here]. Edits group settings.",
+      "errors": [
+        { "name": "ConvoLocked" },
+        { "name": "InvalidConvo" },
+        { "name": "InsufficientRole" }
+      ],
       "input": {
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["convoId"],
+          "required": ["convoId", "name"],
           "properties": {
             "convoId": { "type": "string" },
-            "messageId": { "type": "string" }
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxGraphemes": 128,
+              "maxLength": 1280
+            }
           }
         }
       },
