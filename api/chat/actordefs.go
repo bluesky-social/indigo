@@ -5,20 +5,81 @@
 package chat
 
 import (
+	"encoding/json"
+	"fmt"
+
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
+
+// ActorDefs_DirectConvoMember is a "directConvoMember" in the chat.bsky.actor.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here].
+type ActorDefs_DirectConvoMember struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.actor.defs#directConvoMember"`
+}
+
+// ActorDefs_GroupConvoMember is a "groupConvoMember" in the chat.bsky.actor.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here].
+type ActorDefs_GroupConvoMember struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.actor.defs#groupConvoMember"`
+	// addedBy: Who added this member. Only present if the member was added (instead of joining via link).
+	AddedBy *ActorDefs_ProfileViewBasic `json:"addedBy,omitempty" cborgen:"addedBy,omitempty"`
+	// role: The member's role within this conversation. Only present in group conversation member lists.
+	Role *string `json:"role" cborgen:"role"`
+}
 
 // ActorDefs_ProfileViewBasic is a "profileViewBasic" in the chat.bsky.actor.defs schema.
 type ActorDefs_ProfileViewBasic struct {
 	Associated *appbsky.ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
 	Avatar     *string                              `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	// chatDisabled: Set to true when the actor cannot actively participate in conversations
-	ChatDisabled *bool                                `json:"chatDisabled,omitempty" cborgen:"chatDisabled,omitempty"`
-	Did          string                               `json:"did" cborgen:"did"`
-	DisplayName  *string                              `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
-	Handle       string                               `json:"handle" cborgen:"handle"`
+	ChatDisabled *bool   `json:"chatDisabled,omitempty" cborgen:"chatDisabled,omitempty"`
+	CreatedAt    *string `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	Did          string  `json:"did" cborgen:"did"`
+	DisplayName  *string `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
+	Handle       string  `json:"handle" cborgen:"handle"`
+	// kind: Union field that has data specific to different kinds of convos.
+	Kind         *ActorDefs_ProfileViewBasic_Kind     `json:"kind,omitempty" cborgen:"kind,omitempty"`
 	Labels       []*comatproto.LabelDefs_Label        `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	Verification *appbsky.ActorDefs_VerificationState `json:"verification,omitempty" cborgen:"verification,omitempty"`
 	Viewer       *appbsky.ActorDefs_ViewerState       `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+}
+
+// Union field that has data specific to different kinds of convos.
+type ActorDefs_ProfileViewBasic_Kind struct {
+	ActorDefs_DirectConvoMember *ActorDefs_DirectConvoMember
+	ActorDefs_GroupConvoMember  *ActorDefs_GroupConvoMember
+}
+
+func (t *ActorDefs_ProfileViewBasic_Kind) MarshalJSON() ([]byte, error) {
+	if t.ActorDefs_DirectConvoMember != nil {
+		t.ActorDefs_DirectConvoMember.LexiconTypeID = "chat.bsky.actor.defs#directConvoMember"
+		return json.Marshal(t.ActorDefs_DirectConvoMember)
+	}
+	if t.ActorDefs_GroupConvoMember != nil {
+		t.ActorDefs_GroupConvoMember.LexiconTypeID = "chat.bsky.actor.defs#groupConvoMember"
+		return json.Marshal(t.ActorDefs_GroupConvoMember)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *ActorDefs_ProfileViewBasic_Kind) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "chat.bsky.actor.defs#directConvoMember":
+		t.ActorDefs_DirectConvoMember = new(ActorDefs_DirectConvoMember)
+		return json.Unmarshal(b, t.ActorDefs_DirectConvoMember)
+	case "chat.bsky.actor.defs#groupConvoMember":
+		t.ActorDefs_GroupConvoMember = new(ActorDefs_GroupConvoMember)
+		return json.Unmarshal(b, t.ActorDefs_GroupConvoMember)
+	default:
+		return nil
+	}
 }

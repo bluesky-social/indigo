@@ -23,7 +23,8 @@ type EmbedImages_Image struct {
 	// alt: Alt text description of the image, for accessibility.
 	Alt         string                 `json:"alt" cborgen:"alt"`
 	AspectRatio *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`
-	Image       *lexutil.LexBlob       `json:"image" cborgen:"image"`
+	// image: The raw image file. May be up to 2 MB, formerly limited to 1 MB.
+	Image *lexutil.LexBlob `json:"image" cborgen:"image"`
 }
 
 // EmbedImages_View is a "view" in the app.bsky.embed.images schema.
