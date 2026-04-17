@@ -16,6 +16,10 @@ import (
 //
 // A draft containing an array of draft posts.
 type DraftDefs_Draft struct {
+	// deviceId: UUIDv4 identifier of the device that created this draft.
+	DeviceId *string `json:"deviceId,omitempty" cborgen:"deviceId,omitempty"`
+	// deviceName: The device and/or platform on which the draft was created.
+	DeviceName *string `json:"deviceName,omitempty" cborgen:"deviceName,omitempty"`
 	// langs: Indicates human language of posts primary text content.
 	Langs []string `json:"langs,omitempty" cborgen:"langs,omitempty"`
 	// postgateEmbeddingRules: Embedding rules for the postgates to be created when this draft is published.
@@ -71,7 +75,7 @@ type DraftDefs_DraftPost struct {
 	EmbedVideos    []*DraftDefs_DraftEmbedVideo    `json:"embedVideos,omitempty" cborgen:"embedVideos,omitempty"`
 	// labels: Self-label values for this post. Effectively content warnings.
 	Labels *DraftDefs_DraftPost_Labels `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	// text: The primary post content.
+	// text: The primary post content. It has a higher limit than post contents to allow storing a larger text that can later be refined into smaller posts.
 	Text string `json:"text" cborgen:"text"`
 }
 

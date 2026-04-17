@@ -19,16 +19,33 @@ type ConvoGetLog_Output struct {
 }
 
 type ConvoGetLog_Output_Logs_Elem struct {
-	ConvoDefs_LogBeginConvo     *ConvoDefs_LogBeginConvo
-	ConvoDefs_LogAcceptConvo    *ConvoDefs_LogAcceptConvo
-	ConvoDefs_LogLeaveConvo     *ConvoDefs_LogLeaveConvo
-	ConvoDefs_LogMuteConvo      *ConvoDefs_LogMuteConvo
-	ConvoDefs_LogUnmuteConvo    *ConvoDefs_LogUnmuteConvo
-	ConvoDefs_LogCreateMessage  *ConvoDefs_LogCreateMessage
-	ConvoDefs_LogDeleteMessage  *ConvoDefs_LogDeleteMessage
-	ConvoDefs_LogReadMessage    *ConvoDefs_LogReadMessage
-	ConvoDefs_LogAddReaction    *ConvoDefs_LogAddReaction
-	ConvoDefs_LogRemoveReaction *ConvoDefs_LogRemoveReaction
+	ConvoDefs_LogBeginConvo           *ConvoDefs_LogBeginConvo
+	ConvoDefs_LogAcceptConvo          *ConvoDefs_LogAcceptConvo
+	ConvoDefs_LogLeaveConvo           *ConvoDefs_LogLeaveConvo
+	ConvoDefs_LogMuteConvo            *ConvoDefs_LogMuteConvo
+	ConvoDefs_LogUnmuteConvo          *ConvoDefs_LogUnmuteConvo
+	ConvoDefs_LogCreateMessage        *ConvoDefs_LogCreateMessage
+	ConvoDefs_LogDeleteMessage        *ConvoDefs_LogDeleteMessage
+	ConvoDefs_LogReadMessage          *ConvoDefs_LogReadMessage
+	ConvoDefs_LogAddReaction          *ConvoDefs_LogAddReaction
+	ConvoDefs_LogRemoveReaction       *ConvoDefs_LogRemoveReaction
+	ConvoDefs_LogReadConvo            *ConvoDefs_LogReadConvo
+	ConvoDefs_LogAddMember            *ConvoDefs_LogAddMember
+	ConvoDefs_LogRemoveMember         *ConvoDefs_LogRemoveMember
+	ConvoDefs_LogMemberJoin           *ConvoDefs_LogMemberJoin
+	ConvoDefs_LogMemberLeave          *ConvoDefs_LogMemberLeave
+	ConvoDefs_LogLockConvo            *ConvoDefs_LogLockConvo
+	ConvoDefs_LogUnlockConvo          *ConvoDefs_LogUnlockConvo
+	ConvoDefs_LogLockConvoPermanently *ConvoDefs_LogLockConvoPermanently
+	ConvoDefs_LogEditGroup            *ConvoDefs_LogEditGroup
+	ConvoDefs_LogCreateJoinLink       *ConvoDefs_LogCreateJoinLink
+	ConvoDefs_LogEditJoinLink         *ConvoDefs_LogEditJoinLink
+	ConvoDefs_LogEnableJoinLink       *ConvoDefs_LogEnableJoinLink
+	ConvoDefs_LogDisableJoinLink      *ConvoDefs_LogDisableJoinLink
+	ConvoDefs_LogIncomingJoinRequest  *ConvoDefs_LogIncomingJoinRequest
+	ConvoDefs_LogApproveJoinRequest   *ConvoDefs_LogApproveJoinRequest
+	ConvoDefs_LogRejectJoinRequest    *ConvoDefs_LogRejectJoinRequest
+	ConvoDefs_LogOutgoingJoinRequest  *ConvoDefs_LogOutgoingJoinRequest
 }
 
 func (t *ConvoGetLog_Output_Logs_Elem) MarshalJSON() ([]byte, error) {
@@ -72,6 +89,74 @@ func (t *ConvoGetLog_Output_Logs_Elem) MarshalJSON() ([]byte, error) {
 		t.ConvoDefs_LogRemoveReaction.LexiconTypeID = "chat.bsky.convo.defs#logRemoveReaction"
 		return json.Marshal(t.ConvoDefs_LogRemoveReaction)
 	}
+	if t.ConvoDefs_LogReadConvo != nil {
+		t.ConvoDefs_LogReadConvo.LexiconTypeID = "chat.bsky.convo.defs#logReadConvo"
+		return json.Marshal(t.ConvoDefs_LogReadConvo)
+	}
+	if t.ConvoDefs_LogAddMember != nil {
+		t.ConvoDefs_LogAddMember.LexiconTypeID = "chat.bsky.convo.defs#logAddMember"
+		return json.Marshal(t.ConvoDefs_LogAddMember)
+	}
+	if t.ConvoDefs_LogRemoveMember != nil {
+		t.ConvoDefs_LogRemoveMember.LexiconTypeID = "chat.bsky.convo.defs#logRemoveMember"
+		return json.Marshal(t.ConvoDefs_LogRemoveMember)
+	}
+	if t.ConvoDefs_LogMemberJoin != nil {
+		t.ConvoDefs_LogMemberJoin.LexiconTypeID = "chat.bsky.convo.defs#logMemberJoin"
+		return json.Marshal(t.ConvoDefs_LogMemberJoin)
+	}
+	if t.ConvoDefs_LogMemberLeave != nil {
+		t.ConvoDefs_LogMemberLeave.LexiconTypeID = "chat.bsky.convo.defs#logMemberLeave"
+		return json.Marshal(t.ConvoDefs_LogMemberLeave)
+	}
+	if t.ConvoDefs_LogLockConvo != nil {
+		t.ConvoDefs_LogLockConvo.LexiconTypeID = "chat.bsky.convo.defs#logLockConvo"
+		return json.Marshal(t.ConvoDefs_LogLockConvo)
+	}
+	if t.ConvoDefs_LogUnlockConvo != nil {
+		t.ConvoDefs_LogUnlockConvo.LexiconTypeID = "chat.bsky.convo.defs#logUnlockConvo"
+		return json.Marshal(t.ConvoDefs_LogUnlockConvo)
+	}
+	if t.ConvoDefs_LogLockConvoPermanently != nil {
+		t.ConvoDefs_LogLockConvoPermanently.LexiconTypeID = "chat.bsky.convo.defs#logLockConvoPermanently"
+		return json.Marshal(t.ConvoDefs_LogLockConvoPermanently)
+	}
+	if t.ConvoDefs_LogEditGroup != nil {
+		t.ConvoDefs_LogEditGroup.LexiconTypeID = "chat.bsky.convo.defs#logEditGroup"
+		return json.Marshal(t.ConvoDefs_LogEditGroup)
+	}
+	if t.ConvoDefs_LogCreateJoinLink != nil {
+		t.ConvoDefs_LogCreateJoinLink.LexiconTypeID = "chat.bsky.convo.defs#logCreateJoinLink"
+		return json.Marshal(t.ConvoDefs_LogCreateJoinLink)
+	}
+	if t.ConvoDefs_LogEditJoinLink != nil {
+		t.ConvoDefs_LogEditJoinLink.LexiconTypeID = "chat.bsky.convo.defs#logEditJoinLink"
+		return json.Marshal(t.ConvoDefs_LogEditJoinLink)
+	}
+	if t.ConvoDefs_LogEnableJoinLink != nil {
+		t.ConvoDefs_LogEnableJoinLink.LexiconTypeID = "chat.bsky.convo.defs#logEnableJoinLink"
+		return json.Marshal(t.ConvoDefs_LogEnableJoinLink)
+	}
+	if t.ConvoDefs_LogDisableJoinLink != nil {
+		t.ConvoDefs_LogDisableJoinLink.LexiconTypeID = "chat.bsky.convo.defs#logDisableJoinLink"
+		return json.Marshal(t.ConvoDefs_LogDisableJoinLink)
+	}
+	if t.ConvoDefs_LogIncomingJoinRequest != nil {
+		t.ConvoDefs_LogIncomingJoinRequest.LexiconTypeID = "chat.bsky.convo.defs#logIncomingJoinRequest"
+		return json.Marshal(t.ConvoDefs_LogIncomingJoinRequest)
+	}
+	if t.ConvoDefs_LogApproveJoinRequest != nil {
+		t.ConvoDefs_LogApproveJoinRequest.LexiconTypeID = "chat.bsky.convo.defs#logApproveJoinRequest"
+		return json.Marshal(t.ConvoDefs_LogApproveJoinRequest)
+	}
+	if t.ConvoDefs_LogRejectJoinRequest != nil {
+		t.ConvoDefs_LogRejectJoinRequest.LexiconTypeID = "chat.bsky.convo.defs#logRejectJoinRequest"
+		return json.Marshal(t.ConvoDefs_LogRejectJoinRequest)
+	}
+	if t.ConvoDefs_LogOutgoingJoinRequest != nil {
+		t.ConvoDefs_LogOutgoingJoinRequest.LexiconTypeID = "chat.bsky.convo.defs#logOutgoingJoinRequest"
+		return json.Marshal(t.ConvoDefs_LogOutgoingJoinRequest)
+	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
 
@@ -112,6 +197,57 @@ func (t *ConvoGetLog_Output_Logs_Elem) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#logRemoveReaction":
 		t.ConvoDefs_LogRemoveReaction = new(ConvoDefs_LogRemoveReaction)
 		return json.Unmarshal(b, t.ConvoDefs_LogRemoveReaction)
+	case "chat.bsky.convo.defs#logReadConvo":
+		t.ConvoDefs_LogReadConvo = new(ConvoDefs_LogReadConvo)
+		return json.Unmarshal(b, t.ConvoDefs_LogReadConvo)
+	case "chat.bsky.convo.defs#logAddMember":
+		t.ConvoDefs_LogAddMember = new(ConvoDefs_LogAddMember)
+		return json.Unmarshal(b, t.ConvoDefs_LogAddMember)
+	case "chat.bsky.convo.defs#logRemoveMember":
+		t.ConvoDefs_LogRemoveMember = new(ConvoDefs_LogRemoveMember)
+		return json.Unmarshal(b, t.ConvoDefs_LogRemoveMember)
+	case "chat.bsky.convo.defs#logMemberJoin":
+		t.ConvoDefs_LogMemberJoin = new(ConvoDefs_LogMemberJoin)
+		return json.Unmarshal(b, t.ConvoDefs_LogMemberJoin)
+	case "chat.bsky.convo.defs#logMemberLeave":
+		t.ConvoDefs_LogMemberLeave = new(ConvoDefs_LogMemberLeave)
+		return json.Unmarshal(b, t.ConvoDefs_LogMemberLeave)
+	case "chat.bsky.convo.defs#logLockConvo":
+		t.ConvoDefs_LogLockConvo = new(ConvoDefs_LogLockConvo)
+		return json.Unmarshal(b, t.ConvoDefs_LogLockConvo)
+	case "chat.bsky.convo.defs#logUnlockConvo":
+		t.ConvoDefs_LogUnlockConvo = new(ConvoDefs_LogUnlockConvo)
+		return json.Unmarshal(b, t.ConvoDefs_LogUnlockConvo)
+	case "chat.bsky.convo.defs#logLockConvoPermanently":
+		t.ConvoDefs_LogLockConvoPermanently = new(ConvoDefs_LogLockConvoPermanently)
+		return json.Unmarshal(b, t.ConvoDefs_LogLockConvoPermanently)
+	case "chat.bsky.convo.defs#logEditGroup":
+		t.ConvoDefs_LogEditGroup = new(ConvoDefs_LogEditGroup)
+		return json.Unmarshal(b, t.ConvoDefs_LogEditGroup)
+	case "chat.bsky.convo.defs#logCreateJoinLink":
+		t.ConvoDefs_LogCreateJoinLink = new(ConvoDefs_LogCreateJoinLink)
+		return json.Unmarshal(b, t.ConvoDefs_LogCreateJoinLink)
+	case "chat.bsky.convo.defs#logEditJoinLink":
+		t.ConvoDefs_LogEditJoinLink = new(ConvoDefs_LogEditJoinLink)
+		return json.Unmarshal(b, t.ConvoDefs_LogEditJoinLink)
+	case "chat.bsky.convo.defs#logEnableJoinLink":
+		t.ConvoDefs_LogEnableJoinLink = new(ConvoDefs_LogEnableJoinLink)
+		return json.Unmarshal(b, t.ConvoDefs_LogEnableJoinLink)
+	case "chat.bsky.convo.defs#logDisableJoinLink":
+		t.ConvoDefs_LogDisableJoinLink = new(ConvoDefs_LogDisableJoinLink)
+		return json.Unmarshal(b, t.ConvoDefs_LogDisableJoinLink)
+	case "chat.bsky.convo.defs#logIncomingJoinRequest":
+		t.ConvoDefs_LogIncomingJoinRequest = new(ConvoDefs_LogIncomingJoinRequest)
+		return json.Unmarshal(b, t.ConvoDefs_LogIncomingJoinRequest)
+	case "chat.bsky.convo.defs#logApproveJoinRequest":
+		t.ConvoDefs_LogApproveJoinRequest = new(ConvoDefs_LogApproveJoinRequest)
+		return json.Unmarshal(b, t.ConvoDefs_LogApproveJoinRequest)
+	case "chat.bsky.convo.defs#logRejectJoinRequest":
+		t.ConvoDefs_LogRejectJoinRequest = new(ConvoDefs_LogRejectJoinRequest)
+		return json.Unmarshal(b, t.ConvoDefs_LogRejectJoinRequest)
+	case "chat.bsky.convo.defs#logOutgoingJoinRequest":
+		t.ConvoDefs_LogOutgoingJoinRequest = new(ConvoDefs_LogOutgoingJoinRequest)
+		return json.Unmarshal(b, t.ConvoDefs_LogOutgoingJoinRequest)
 	default:
 		return nil
 	}
