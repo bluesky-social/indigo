@@ -14,19 +14,61 @@ import (
 
 // ConvoDefs_ConvoView is a "convoView" in the chat.bsky.convo.defs schema.
 type ConvoDefs_ConvoView struct {
-	Id           string                            `json:"id" cborgen:"id"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#convoView"`
+	Id            string `json:"id" cborgen:"id"`
+	// kind: Union field that has data specific to different kinds of convos.
+	Kind         *ConvoDefs_ConvoView_Kind         `json:"kind,omitempty" cborgen:"kind,omitempty"`
 	LastMessage  *ConvoDefs_ConvoView_LastMessage  `json:"lastMessage,omitempty" cborgen:"lastMessage,omitempty"`
 	LastReaction *ConvoDefs_ConvoView_LastReaction `json:"lastReaction,omitempty" cborgen:"lastReaction,omitempty"`
-	Members      []*ActorDefs_ProfileViewBasic     `json:"members" cborgen:"members"`
-	Muted        bool                              `json:"muted" cborgen:"muted"`
-	Rev          string                            `json:"rev" cborgen:"rev"`
-	Status       *string                           `json:"status,omitempty" cborgen:"status,omitempty"`
-	UnreadCount  int64                             `json:"unreadCount" cborgen:"unreadCount"`
+	// members: Members of this conversation. For direct convos, it will be an immutable list of the 2 members. For group convos, it will a list of important members (the first few members, the viewer, the member who invited the viewer, the member who sent the last message, the member who sent the last reaction), but will not contain the full list of members. NOTE: TBD an endpoint to list all members.
+	Members []*ActorDefs_ProfileViewBasic `json:"members" cborgen:"members"`
+	Muted   bool                          `json:"muted" cborgen:"muted"`
+	Rev     string                        `json:"rev" cborgen:"rev"`
+	// status: Convo status for the viewer member (not the convo itself).
+	Status      *string `json:"status,omitempty" cborgen:"status,omitempty"`
+	UnreadCount int64   `json:"unreadCount" cborgen:"unreadCount"`
+}
+
+// Union field that has data specific to different kinds of convos.
+type ConvoDefs_ConvoView_Kind struct {
+	ConvoDefs_DirectConvo *ConvoDefs_DirectConvo
+	ConvoDefs_GroupConvo  *ConvoDefs_GroupConvo
+}
+
+func (t *ConvoDefs_ConvoView_Kind) MarshalJSON() ([]byte, error) {
+	if t.ConvoDefs_DirectConvo != nil {
+		t.ConvoDefs_DirectConvo.LexiconTypeID = "chat.bsky.convo.defs#directConvo"
+		return json.Marshal(t.ConvoDefs_DirectConvo)
+	}
+	if t.ConvoDefs_GroupConvo != nil {
+		t.ConvoDefs_GroupConvo.LexiconTypeID = "chat.bsky.convo.defs#groupConvo"
+		return json.Marshal(t.ConvoDefs_GroupConvo)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *ConvoDefs_ConvoView_Kind) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "chat.bsky.convo.defs#directConvo":
+		t.ConvoDefs_DirectConvo = new(ConvoDefs_DirectConvo)
+		return json.Unmarshal(b, t.ConvoDefs_DirectConvo)
+	case "chat.bsky.convo.defs#groupConvo":
+		t.ConvoDefs_GroupConvo = new(ConvoDefs_GroupConvo)
+		return json.Unmarshal(b, t.ConvoDefs_GroupConvo)
+	default:
+		return nil
+	}
 }
 
 type ConvoDefs_ConvoView_LastMessage struct {
 	ConvoDefs_MessageView        *ConvoDefs_MessageView
 	ConvoDefs_DeletedMessageView *ConvoDefs_DeletedMessageView
+	ConvoDefs_SystemMessageView  *ConvoDefs_SystemMessageView
 }
 
 func (t *ConvoDefs_ConvoView_LastMessage) MarshalJSON() ([]byte, error) {
@@ -37,6 +79,10 @@ func (t *ConvoDefs_ConvoView_LastMessage) MarshalJSON() ([]byte, error) {
 	if t.ConvoDefs_DeletedMessageView != nil {
 		t.ConvoDefs_DeletedMessageView.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return json.Marshal(t.ConvoDefs_DeletedMessageView)
+	}
+	if t.ConvoDefs_SystemMessageView != nil {
+		t.ConvoDefs_SystemMessageView.LexiconTypeID = "chat.bsky.convo.defs#systemMessageView"
+		return json.Marshal(t.ConvoDefs_SystemMessageView)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -54,6 +100,9 @@ func (t *ConvoDefs_ConvoView_LastMessage) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#deletedMessageView":
 		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
 		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
+	case "chat.bsky.convo.defs#systemMessageView":
+		t.ConvoDefs_SystemMessageView = new(ConvoDefs_SystemMessageView)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageView)
 	default:
 		return nil
 	}
@@ -95,14 +144,47 @@ type ConvoDefs_DeletedMessageView struct {
 	SentAt        string                       `json:"sentAt" cborgen:"sentAt"`
 }
 
+// ConvoDefs_DirectConvo is a "directConvo" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here].
+type ConvoDefs_DirectConvo struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#directConvo"`
+}
+
+// ConvoDefs_GroupConvo is a "groupConvo" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here].
+type ConvoDefs_GroupConvo struct {
+	LexiconTypeID string                  `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#groupConvo"`
+	JoinLink      *GroupDefs_JoinLinkView `json:"joinLink,omitempty" cborgen:"joinLink,omitempty"`
+	// lockStatus: The lock status of the conversation.
+	LockStatus *string `json:"lockStatus" cborgen:"lockStatus"`
+	// name: The display name of the group conversation.
+	Name string `json:"name" cborgen:"name"`
+}
+
 // ConvoDefs_LogAcceptConvo is a "logAcceptConvo" in the chat.bsky.convo.defs schema.
+//
+// Event indicating the viewer accepted a convo, and it can be moved out of the request inbox. Can be direct or group.
 type ConvoDefs_LogAcceptConvo struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logAcceptConvo"`
 	ConvoId       string `json:"convoId" cborgen:"convoId"`
 	Rev           string `json:"rev" cborgen:"rev"`
 }
 
+// ConvoDefs_LogAddMember is a "logAddMember" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a member was added to a group convo. The member who was added gets a logBeginConvo (to create the convo) but also a logAddMember (to show the system message as the first message the user sees).
+type ConvoDefs_LogAddMember struct {
+	LexiconTypeID string                                `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logAddMember"`
+	ConvoId       string                                `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_SystemMessageDataAddMember `json:"message" cborgen:"message"`
+	Rev           string                                `json:"rev" cborgen:"rev"`
+}
+
 // ConvoDefs_LogAddReaction is a "logAddReaction" in the chat.bsky.convo.defs schema.
+//
+// Event indicating a reaction was added to a message.
 type ConvoDefs_LogAddReaction struct {
 	LexiconTypeID string                            `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logAddReaction"`
 	ConvoId       string                            `json:"convoId" cborgen:"convoId"`
@@ -146,14 +228,39 @@ func (t *ConvoDefs_LogAddReaction_Message) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// ConvoDefs_LogApproveJoinRequest is a "logApproveJoinRequest" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join request was approved by the viewer. Only the owner gets this. The approved member gets a logBeginConvo.
+type ConvoDefs_LogApproveJoinRequest struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logApproveJoinRequest"`
+	ConvoId       string `json:"convoId" cborgen:"convoId"`
+	// member: Prospective member who requested to join.
+	Member *ActorDefs_ProfileViewBasic `json:"member" cborgen:"member"`
+	Rev    string                      `json:"rev" cborgen:"rev"`
+}
+
 // ConvoDefs_LogBeginConvo is a "logBeginConvo" in the chat.bsky.convo.defs schema.
+//
+// Event indicating a convo containing the viewer was started. Can be direct or group. When a member is added to a group convo, they also get this event.
 type ConvoDefs_LogBeginConvo struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logBeginConvo"`
 	ConvoId       string `json:"convoId" cborgen:"convoId"`
 	Rev           string `json:"rev" cborgen:"rev"`
 }
 
+// ConvoDefs_LogCreateJoinLink is a "logCreateJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join link was created for a group convo.
+type ConvoDefs_LogCreateJoinLink struct {
+	LexiconTypeID string                                     `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logCreateJoinLink"`
+	ConvoId       string                                     `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_SystemMessageDataCreateJoinLink `json:"message" cborgen:"message"`
+	Rev           string                                     `json:"rev" cborgen:"rev"`
+}
+
 // ConvoDefs_LogCreateMessage is a "logCreateMessage" in the chat.bsky.convo.defs schema.
+//
+// Event indicating a user-originated message was created. Is not emitted for system messages.
 type ConvoDefs_LogCreateMessage struct {
 	LexiconTypeID string                              `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logCreateMessage"`
 	ConvoId       string                              `json:"convoId" cborgen:"convoId"`
@@ -197,6 +304,8 @@ func (t *ConvoDefs_LogCreateMessage_Message) UnmarshalJSON(b []byte) error {
 }
 
 // ConvoDefs_LogDeleteMessage is a "logDeleteMessage" in the chat.bsky.convo.defs schema.
+//
+// Event indicating a user-originated message was deleted. Is not emitted for system messages.
 type ConvoDefs_LogDeleteMessage struct {
 	LexiconTypeID string                              `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logDeleteMessage"`
 	ConvoId       string                              `json:"convoId" cborgen:"convoId"`
@@ -239,21 +348,180 @@ func (t *ConvoDefs_LogDeleteMessage_Message) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// ConvoDefs_LogDisableJoinLink is a "logDisableJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join link was disabled for a group convo.
+type ConvoDefs_LogDisableJoinLink struct {
+	LexiconTypeID string                                      `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logDisableJoinLink"`
+	ConvoId       string                                      `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_SystemMessageDataDisableJoinLink `json:"message" cborgen:"message"`
+	Rev           string                                      `json:"rev" cborgen:"rev"`
+}
+
+// ConvoDefs_LogEditGroup is a "logEditGroup" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating info about group convo was edited.
+type ConvoDefs_LogEditGroup struct {
+	LexiconTypeID string                                `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logEditGroup"`
+	ConvoId       string                                `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_SystemMessageDataEditGroup `json:"message" cborgen:"message"`
+	Rev           string                                `json:"rev" cborgen:"rev"`
+}
+
+// ConvoDefs_LogEditJoinLink is a "logEditJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a settings about a join link for a group convo were edited.
+type ConvoDefs_LogEditJoinLink struct {
+	LexiconTypeID string                                   `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logEditJoinLink"`
+	ConvoId       string                                   `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_SystemMessageDataEditJoinLink `json:"message" cborgen:"message"`
+	Rev           string                                   `json:"rev" cborgen:"rev"`
+}
+
+// ConvoDefs_LogEnableJoinLink is a "logEnableJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join link was enabled for a group convo.
+type ConvoDefs_LogEnableJoinLink struct {
+	LexiconTypeID string                                     `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logEnableJoinLink"`
+	ConvoId       string                                     `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_SystemMessageDataEnableJoinLink `json:"message" cborgen:"message"`
+	Rev           string                                     `json:"rev" cborgen:"rev"`
+}
+
+// ConvoDefs_LogIncomingJoinRequest is a "logIncomingJoinRequest" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join request was made to a group the viewer owns. Only the owner gets this.
+type ConvoDefs_LogIncomingJoinRequest struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logIncomingJoinRequest"`
+	ConvoId       string `json:"convoId" cborgen:"convoId"`
+	// member: Prospective member who requested to join.
+	Member *ActorDefs_ProfileViewBasic `json:"member" cborgen:"member"`
+	Rev    string                      `json:"rev" cborgen:"rev"`
+}
+
 // ConvoDefs_LogLeaveConvo is a "logLeaveConvo" in the chat.bsky.convo.defs schema.
+//
+// Event indicating the viewer left a convo. Can be direct or group.
 type ConvoDefs_LogLeaveConvo struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logLeaveConvo"`
 	ConvoId       string `json:"convoId" cborgen:"convoId"`
 	Rev           string `json:"rev" cborgen:"rev"`
 }
 
+// ConvoDefs_LogLockConvo is a "logLockConvo" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a group convo was locked.
+type ConvoDefs_LogLockConvo struct {
+	LexiconTypeID string                                `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logLockConvo"`
+	ConvoId       string                                `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_SystemMessageDataLockConvo `json:"message" cborgen:"message"`
+	Rev           string                                `json:"rev" cborgen:"rev"`
+}
+
+// ConvoDefs_LogLockConvoPermanently is a "logLockConvoPermanently" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a group convo was locked permanently.
+type ConvoDefs_LogLockConvoPermanently struct {
+	LexiconTypeID string                                           `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logLockConvoPermanently"`
+	ConvoId       string                                           `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_SystemMessageDataLockConvoPermanently `json:"message" cborgen:"message"`
+	Rev           string                                           `json:"rev" cborgen:"rev"`
+}
+
+// ConvoDefs_LogMemberJoin is a "logMemberJoin" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a member joined a group convo via join link. The member who was added gets a logBeginConvo (to create the convo) but also a logMemberJoin (to show the system message as the first message the user sees).
+type ConvoDefs_LogMemberJoin struct {
+	LexiconTypeID string                                 `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logMemberJoin"`
+	ConvoId       string                                 `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_SystemMessageDataMemberJoin `json:"message" cborgen:"message"`
+	Rev           string                                 `json:"rev" cborgen:"rev"`
+}
+
+// ConvoDefs_LogMemberLeave is a "logMemberLeave" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a member voluntarily left a group convo. The member who was removed gets a logLeaveConvo (to leave the convo) but not a logMemberLeave (because they already left, so can't see the system message).
+type ConvoDefs_LogMemberLeave struct {
+	LexiconTypeID string                                  `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logMemberLeave"`
+	ConvoId       string                                  `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_SystemMessageDataMemberLeave `json:"message" cborgen:"message"`
+	Rev           string                                  `json:"rev" cborgen:"rev"`
+}
+
 // ConvoDefs_LogMuteConvo is a "logMuteConvo" in the chat.bsky.convo.defs schema.
+//
+// Event indicating the viewer muted a convo. Can be direct or group.
 type ConvoDefs_LogMuteConvo struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logMuteConvo"`
 	ConvoId       string `json:"convoId" cborgen:"convoId"`
 	Rev           string `json:"rev" cborgen:"rev"`
 }
 
+// ConvoDefs_LogOutgoingJoinRequest is a "logOutgoingJoinRequest" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join request was made by the viewer.
+type ConvoDefs_LogOutgoingJoinRequest struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logOutgoingJoinRequest"`
+	ConvoId       string `json:"convoId" cborgen:"convoId"`
+	Rev           string `json:"rev" cborgen:"rev"`
+}
+
+// ConvoDefs_LogReadConvo is a "logReadConvo" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a convo was read up to a certain message.
+type ConvoDefs_LogReadConvo struct {
+	LexiconTypeID string                          `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logReadConvo"`
+	ConvoId       string                          `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_LogReadConvo_Message `json:"message" cborgen:"message"`
+	Rev           string                          `json:"rev" cborgen:"rev"`
+}
+
+type ConvoDefs_LogReadConvo_Message struct {
+	ConvoDefs_MessageView        *ConvoDefs_MessageView
+	ConvoDefs_DeletedMessageView *ConvoDefs_DeletedMessageView
+	ConvoDefs_SystemMessageView  *ConvoDefs_SystemMessageView
+}
+
+func (t *ConvoDefs_LogReadConvo_Message) MarshalJSON() ([]byte, error) {
+	if t.ConvoDefs_MessageView != nil {
+		t.ConvoDefs_MessageView.LexiconTypeID = "chat.bsky.convo.defs#messageView"
+		return json.Marshal(t.ConvoDefs_MessageView)
+	}
+	if t.ConvoDefs_DeletedMessageView != nil {
+		t.ConvoDefs_DeletedMessageView.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
+		return json.Marshal(t.ConvoDefs_DeletedMessageView)
+	}
+	if t.ConvoDefs_SystemMessageView != nil {
+		t.ConvoDefs_SystemMessageView.LexiconTypeID = "chat.bsky.convo.defs#systemMessageView"
+		return json.Marshal(t.ConvoDefs_SystemMessageView)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *ConvoDefs_LogReadConvo_Message) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "chat.bsky.convo.defs#messageView":
+		t.ConvoDefs_MessageView = new(ConvoDefs_MessageView)
+		return json.Unmarshal(b, t.ConvoDefs_MessageView)
+	case "chat.bsky.convo.defs#deletedMessageView":
+		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
+		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
+	case "chat.bsky.convo.defs#systemMessageView":
+		t.ConvoDefs_SystemMessageView = new(ConvoDefs_SystemMessageView)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageView)
+	default:
+		return nil
+	}
+}
+
 // ConvoDefs_LogReadMessage is a "logReadMessage" in the chat.bsky.convo.defs schema.
+//
+// DEPRECATED: use logReadConvo instead. Event indicating a convo was read up to a certain message.
 type ConvoDefs_LogReadMessage struct {
 	LexiconTypeID string                            `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logReadMessage"`
 	ConvoId       string                            `json:"convoId" cborgen:"convoId"`
@@ -264,6 +532,7 @@ type ConvoDefs_LogReadMessage struct {
 type ConvoDefs_LogReadMessage_Message struct {
 	ConvoDefs_MessageView        *ConvoDefs_MessageView
 	ConvoDefs_DeletedMessageView *ConvoDefs_DeletedMessageView
+	ConvoDefs_SystemMessageView  *ConvoDefs_SystemMessageView
 }
 
 func (t *ConvoDefs_LogReadMessage_Message) MarshalJSON() ([]byte, error) {
@@ -274,6 +543,10 @@ func (t *ConvoDefs_LogReadMessage_Message) MarshalJSON() ([]byte, error) {
 	if t.ConvoDefs_DeletedMessageView != nil {
 		t.ConvoDefs_DeletedMessageView.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return json.Marshal(t.ConvoDefs_DeletedMessageView)
+	}
+	if t.ConvoDefs_SystemMessageView != nil {
+		t.ConvoDefs_SystemMessageView.LexiconTypeID = "chat.bsky.convo.defs#systemMessageView"
+		return json.Marshal(t.ConvoDefs_SystemMessageView)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -291,12 +564,38 @@ func (t *ConvoDefs_LogReadMessage_Message) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#deletedMessageView":
 		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
 		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
+	case "chat.bsky.convo.defs#systemMessageView":
+		t.ConvoDefs_SystemMessageView = new(ConvoDefs_SystemMessageView)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageView)
 	default:
 		return nil
 	}
 }
 
+// ConvoDefs_LogRejectJoinRequest is a "logRejectJoinRequest" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join request was rejected by the viewer. Only the owner gets this.
+type ConvoDefs_LogRejectJoinRequest struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logRejectJoinRequest"`
+	ConvoId       string `json:"convoId" cborgen:"convoId"`
+	// member: Prospective member who requested to join.
+	Member *ActorDefs_ProfileViewBasic `json:"member" cborgen:"member"`
+	Rev    string                      `json:"rev" cborgen:"rev"`
+}
+
+// ConvoDefs_LogRemoveMember is a "logRemoveMember" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a member was removed from a group convo. The member who was removed gets a logLeaveConvo (to leave the convo) but not a logRemoveMember (because they already left, so can't see the system message).
+type ConvoDefs_LogRemoveMember struct {
+	LexiconTypeID string                                   `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logRemoveMember"`
+	ConvoId       string                                   `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_SystemMessageDataRemoveMember `json:"message" cborgen:"message"`
+	Rev           string                                   `json:"rev" cborgen:"rev"`
+}
+
 // ConvoDefs_LogRemoveReaction is a "logRemoveReaction" in the chat.bsky.convo.defs schema.
+//
+// Event indicating a reaction was removed from a message.
 type ConvoDefs_LogRemoveReaction struct {
 	LexiconTypeID string                               `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logRemoveReaction"`
 	ConvoId       string                               `json:"convoId" cborgen:"convoId"`
@@ -340,7 +639,19 @@ func (t *ConvoDefs_LogRemoveReaction_Message) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// ConvoDefs_LogUnlockConvo is a "logUnlockConvo" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a group convo was unlocked.
+type ConvoDefs_LogUnlockConvo struct {
+	LexiconTypeID string                                  `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logUnlockConvo"`
+	ConvoId       string                                  `json:"convoId" cborgen:"convoId"`
+	Message       *ConvoDefs_SystemMessageDataUnlockConvo `json:"message" cborgen:"message"`
+	Rev           string                                  `json:"rev" cborgen:"rev"`
+}
+
 // ConvoDefs_LogUnmuteConvo is a "logUnmuteConvo" in the chat.bsky.convo.defs schema.
+//
+// Event indicating the viewer unmuted a convo. Can be direct or group.
 type ConvoDefs_LogUnmuteConvo struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logUnmuteConvo"`
 	ConvoId       string `json:"convoId" cborgen:"convoId"`
@@ -454,4 +765,240 @@ type ConvoDefs_ReactionView struct {
 // ConvoDefs_ReactionViewSender is a "reactionViewSender" in the chat.bsky.convo.defs schema.
 type ConvoDefs_ReactionViewSender struct {
 	Did string `json:"did" cborgen:"did"`
+}
+
+// ConvoDefs_SystemMessageDataAddMember is a "systemMessageDataAddMember" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating a user was added to the group convo.
+type ConvoDefs_SystemMessageDataAddMember struct {
+	LexiconTypeID string                      `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#systemMessageDataAddMember"`
+	AddedBy       *ActorDefs_ProfileViewBasic `json:"addedBy" cborgen:"addedBy"`
+	// member: Current view of the member who was added.
+	Member *ActorDefs_ProfileViewBasic `json:"member" cborgen:"member"`
+	// role: Role the user was added to the group with. The role from 'member' will reflect the current data, not historical.
+	Role *string `json:"role" cborgen:"role"`
+}
+
+// ConvoDefs_SystemMessageDataCreateJoinLink is a "systemMessageDataCreateJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group join link was created.
+type ConvoDefs_SystemMessageDataCreateJoinLink struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#systemMessageDataCreateJoinLink"`
+}
+
+// ConvoDefs_SystemMessageDataDisableJoinLink is a "systemMessageDataDisableJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group join link was disabled.
+type ConvoDefs_SystemMessageDataDisableJoinLink struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#systemMessageDataDisableJoinLink"`
+}
+
+// ConvoDefs_SystemMessageDataEditGroup is a "systemMessageDataEditGroup" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group info was edited.
+type ConvoDefs_SystemMessageDataEditGroup struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#systemMessageDataEditGroup"`
+	// newName: Group name that replaced the old.
+	NewName *string `json:"newName,omitempty" cborgen:"newName,omitempty"`
+	// oldName: Group name that was replaced.
+	OldName *string `json:"oldName,omitempty" cborgen:"oldName,omitempty"`
+}
+
+// ConvoDefs_SystemMessageDataEditJoinLink is a "systemMessageDataEditJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group join link was edited.
+type ConvoDefs_SystemMessageDataEditJoinLink struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#systemMessageDataEditJoinLink"`
+}
+
+// ConvoDefs_SystemMessageDataEnableJoinLink is a "systemMessageDataEnableJoinLink" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group join link was enabled.
+type ConvoDefs_SystemMessageDataEnableJoinLink struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#systemMessageDataEnableJoinLink"`
+}
+
+// ConvoDefs_SystemMessageDataLockConvo is a "systemMessageDataLockConvo" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group convo was locked.
+type ConvoDefs_SystemMessageDataLockConvo struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#systemMessageDataLockConvo"`
+	// lockedBy: Current view of the member who locked the group.
+	LockedBy *ActorDefs_ProfileViewBasic `json:"lockedBy" cborgen:"lockedBy"`
+}
+
+// ConvoDefs_SystemMessageDataLockConvoPermanently is a "systemMessageDataLockConvoPermanently" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group convo was locked permanently.
+type ConvoDefs_SystemMessageDataLockConvoPermanently struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#systemMessageDataLockConvoPermanently"`
+	// lockedBy: Current view of the member who locked the group.
+	LockedBy *ActorDefs_ProfileViewBasic `json:"lockedBy" cborgen:"lockedBy"`
+}
+
+// ConvoDefs_SystemMessageDataMemberJoin is a "systemMessageDataMemberJoin" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating a user joined the group convo via join link.
+type ConvoDefs_SystemMessageDataMemberJoin struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#systemMessageDataMemberJoin"`
+	// approvedBy: If join link was configured to require approval, this will be set to who approved the request. Undefined if approval was not required.
+	ApprovedBy *ActorDefs_ProfileViewBasic `json:"approvedBy,omitempty" cborgen:"approvedBy,omitempty"`
+	// member: Current view of the member who joined.
+	Member *ActorDefs_ProfileViewBasic `json:"member" cborgen:"member"`
+	// role: Role the user was added to the group with. The role from 'member' will reflect the current data, not historical.
+	Role *string `json:"role" cborgen:"role"`
+}
+
+// ConvoDefs_SystemMessageDataMemberLeave is a "systemMessageDataMemberLeave" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating a user voluntarily left the group convo.
+type ConvoDefs_SystemMessageDataMemberLeave struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#systemMessageDataMemberLeave"`
+	// member: Current view of the member who left the group.
+	Member *ActorDefs_ProfileViewBasic `json:"member" cborgen:"member"`
+}
+
+// ConvoDefs_SystemMessageDataRemoveMember is a "systemMessageDataRemoveMember" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating a user was removed from the group convo.
+type ConvoDefs_SystemMessageDataRemoveMember struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#systemMessageDataRemoveMember"`
+	// member: Current view of the member who was removed.
+	Member    *ActorDefs_ProfileViewBasic `json:"member" cborgen:"member"`
+	RemovedBy *ActorDefs_ProfileViewBasic `json:"removedBy" cborgen:"removedBy"`
+}
+
+// ConvoDefs_SystemMessageDataUnlockConvo is a "systemMessageDataUnlockConvo" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. System message indicating the group convo was unlocked.
+type ConvoDefs_SystemMessageDataUnlockConvo struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#systemMessageDataUnlockConvo"`
+	// unlockedBy: Current view of the member who unlocked the group.
+	UnlockedBy *ActorDefs_ProfileViewBasic `json:"unlockedBy" cborgen:"unlockedBy"`
+}
+
+// ConvoDefs_SystemMessageView is a "systemMessageView" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here].
+type ConvoDefs_SystemMessageView struct {
+	LexiconTypeID string                            `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#systemMessageView"`
+	Data          *ConvoDefs_SystemMessageView_Data `json:"data" cborgen:"data"`
+	Id            string                            `json:"id" cborgen:"id"`
+	Rev           string                            `json:"rev" cborgen:"rev"`
+	SentAt        string                            `json:"sentAt" cborgen:"sentAt"`
+}
+
+type ConvoDefs_SystemMessageView_Data struct {
+	ConvoDefs_SystemMessageDataAddMember            *ConvoDefs_SystemMessageDataAddMember
+	ConvoDefs_SystemMessageDataRemoveMember         *ConvoDefs_SystemMessageDataRemoveMember
+	ConvoDefs_SystemMessageDataMemberJoin           *ConvoDefs_SystemMessageDataMemberJoin
+	ConvoDefs_SystemMessageDataMemberLeave          *ConvoDefs_SystemMessageDataMemberLeave
+	ConvoDefs_SystemMessageDataLockConvo            *ConvoDefs_SystemMessageDataLockConvo
+	ConvoDefs_SystemMessageDataUnlockConvo          *ConvoDefs_SystemMessageDataUnlockConvo
+	ConvoDefs_SystemMessageDataLockConvoPermanently *ConvoDefs_SystemMessageDataLockConvoPermanently
+	ConvoDefs_SystemMessageDataEditGroup            *ConvoDefs_SystemMessageDataEditGroup
+	ConvoDefs_SystemMessageDataCreateJoinLink       *ConvoDefs_SystemMessageDataCreateJoinLink
+	ConvoDefs_SystemMessageDataEditJoinLink         *ConvoDefs_SystemMessageDataEditJoinLink
+	ConvoDefs_SystemMessageDataEnableJoinLink       *ConvoDefs_SystemMessageDataEnableJoinLink
+	ConvoDefs_SystemMessageDataDisableJoinLink      *ConvoDefs_SystemMessageDataDisableJoinLink
+}
+
+func (t *ConvoDefs_SystemMessageView_Data) MarshalJSON() ([]byte, error) {
+	if t.ConvoDefs_SystemMessageDataAddMember != nil {
+		t.ConvoDefs_SystemMessageDataAddMember.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataAddMember"
+		return json.Marshal(t.ConvoDefs_SystemMessageDataAddMember)
+	}
+	if t.ConvoDefs_SystemMessageDataRemoveMember != nil {
+		t.ConvoDefs_SystemMessageDataRemoveMember.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataRemoveMember"
+		return json.Marshal(t.ConvoDefs_SystemMessageDataRemoveMember)
+	}
+	if t.ConvoDefs_SystemMessageDataMemberJoin != nil {
+		t.ConvoDefs_SystemMessageDataMemberJoin.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataMemberJoin"
+		return json.Marshal(t.ConvoDefs_SystemMessageDataMemberJoin)
+	}
+	if t.ConvoDefs_SystemMessageDataMemberLeave != nil {
+		t.ConvoDefs_SystemMessageDataMemberLeave.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataMemberLeave"
+		return json.Marshal(t.ConvoDefs_SystemMessageDataMemberLeave)
+	}
+	if t.ConvoDefs_SystemMessageDataLockConvo != nil {
+		t.ConvoDefs_SystemMessageDataLockConvo.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataLockConvo"
+		return json.Marshal(t.ConvoDefs_SystemMessageDataLockConvo)
+	}
+	if t.ConvoDefs_SystemMessageDataUnlockConvo != nil {
+		t.ConvoDefs_SystemMessageDataUnlockConvo.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataUnlockConvo"
+		return json.Marshal(t.ConvoDefs_SystemMessageDataUnlockConvo)
+	}
+	if t.ConvoDefs_SystemMessageDataLockConvoPermanently != nil {
+		t.ConvoDefs_SystemMessageDataLockConvoPermanently.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataLockConvoPermanently"
+		return json.Marshal(t.ConvoDefs_SystemMessageDataLockConvoPermanently)
+	}
+	if t.ConvoDefs_SystemMessageDataEditGroup != nil {
+		t.ConvoDefs_SystemMessageDataEditGroup.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataEditGroup"
+		return json.Marshal(t.ConvoDefs_SystemMessageDataEditGroup)
+	}
+	if t.ConvoDefs_SystemMessageDataCreateJoinLink != nil {
+		t.ConvoDefs_SystemMessageDataCreateJoinLink.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataCreateJoinLink"
+		return json.Marshal(t.ConvoDefs_SystemMessageDataCreateJoinLink)
+	}
+	if t.ConvoDefs_SystemMessageDataEditJoinLink != nil {
+		t.ConvoDefs_SystemMessageDataEditJoinLink.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataEditJoinLink"
+		return json.Marshal(t.ConvoDefs_SystemMessageDataEditJoinLink)
+	}
+	if t.ConvoDefs_SystemMessageDataEnableJoinLink != nil {
+		t.ConvoDefs_SystemMessageDataEnableJoinLink.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataEnableJoinLink"
+		return json.Marshal(t.ConvoDefs_SystemMessageDataEnableJoinLink)
+	}
+	if t.ConvoDefs_SystemMessageDataDisableJoinLink != nil {
+		t.ConvoDefs_SystemMessageDataDisableJoinLink.LexiconTypeID = "chat.bsky.convo.defs#systemMessageDataDisableJoinLink"
+		return json.Marshal(t.ConvoDefs_SystemMessageDataDisableJoinLink)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *ConvoDefs_SystemMessageView_Data) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "chat.bsky.convo.defs#systemMessageDataAddMember":
+		t.ConvoDefs_SystemMessageDataAddMember = new(ConvoDefs_SystemMessageDataAddMember)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageDataAddMember)
+	case "chat.bsky.convo.defs#systemMessageDataRemoveMember":
+		t.ConvoDefs_SystemMessageDataRemoveMember = new(ConvoDefs_SystemMessageDataRemoveMember)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageDataRemoveMember)
+	case "chat.bsky.convo.defs#systemMessageDataMemberJoin":
+		t.ConvoDefs_SystemMessageDataMemberJoin = new(ConvoDefs_SystemMessageDataMemberJoin)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageDataMemberJoin)
+	case "chat.bsky.convo.defs#systemMessageDataMemberLeave":
+		t.ConvoDefs_SystemMessageDataMemberLeave = new(ConvoDefs_SystemMessageDataMemberLeave)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageDataMemberLeave)
+	case "chat.bsky.convo.defs#systemMessageDataLockConvo":
+		t.ConvoDefs_SystemMessageDataLockConvo = new(ConvoDefs_SystemMessageDataLockConvo)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageDataLockConvo)
+	case "chat.bsky.convo.defs#systemMessageDataUnlockConvo":
+		t.ConvoDefs_SystemMessageDataUnlockConvo = new(ConvoDefs_SystemMessageDataUnlockConvo)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageDataUnlockConvo)
+	case "chat.bsky.convo.defs#systemMessageDataLockConvoPermanently":
+		t.ConvoDefs_SystemMessageDataLockConvoPermanently = new(ConvoDefs_SystemMessageDataLockConvoPermanently)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageDataLockConvoPermanently)
+	case "chat.bsky.convo.defs#systemMessageDataEditGroup":
+		t.ConvoDefs_SystemMessageDataEditGroup = new(ConvoDefs_SystemMessageDataEditGroup)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageDataEditGroup)
+	case "chat.bsky.convo.defs#systemMessageDataCreateJoinLink":
+		t.ConvoDefs_SystemMessageDataCreateJoinLink = new(ConvoDefs_SystemMessageDataCreateJoinLink)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageDataCreateJoinLink)
+	case "chat.bsky.convo.defs#systemMessageDataEditJoinLink":
+		t.ConvoDefs_SystemMessageDataEditJoinLink = new(ConvoDefs_SystemMessageDataEditJoinLink)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageDataEditJoinLink)
+	case "chat.bsky.convo.defs#systemMessageDataEnableJoinLink":
+		t.ConvoDefs_SystemMessageDataEnableJoinLink = new(ConvoDefs_SystemMessageDataEnableJoinLink)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageDataEnableJoinLink)
+	case "chat.bsky.convo.defs#systemMessageDataDisableJoinLink":
+		t.ConvoDefs_SystemMessageDataDisableJoinLink = new(ConvoDefs_SystemMessageDataDisableJoinLink)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageDataDisableJoinLink)
+	default:
+		return nil
+	}
 }

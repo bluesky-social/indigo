@@ -17,12 +17,18 @@ type ConvoListConvos_Output struct {
 }
 
 // ConvoListConvos calls the XRPC method "chat.bsky.convo.listConvos".
-func ConvoListConvos(ctx context.Context, c lexutil.LexClient, cursor string, limit int64, readState string, status string) (*ConvoListConvos_Output, error) {
+//
+// kind: Filter by conversation kind.
+// status: Filter convos by their status. It is discouraged to call with "request" and preferred to call chat.bsky.convo.listConvoRequests, which also includes group join requests made by the user.
+func ConvoListConvos(ctx context.Context, c lexutil.LexClient, cursor string, kind string, limit int64, readState string, status string) (*ConvoListConvos_Output, error) {
 	var out ConvoListConvos_Output
 
 	params := map[string]interface{}{}
 	if cursor != "" {
 		params["cursor"] = cursor
+	}
+	if kind != "" {
+		params["kind"] = kind
 	}
 	if limit != 0 {
 		params["limit"] = limit

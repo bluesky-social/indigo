@@ -20,6 +20,7 @@ type ModerationGetMessageContext_Output struct {
 type ModerationGetMessageContext_Output_Messages_Elem struct {
 	ConvoDefs_MessageView        *ConvoDefs_MessageView
 	ConvoDefs_DeletedMessageView *ConvoDefs_DeletedMessageView
+	ConvoDefs_SystemMessageView  *ConvoDefs_SystemMessageView
 }
 
 func (t *ModerationGetMessageContext_Output_Messages_Elem) MarshalJSON() ([]byte, error) {
@@ -30,6 +31,10 @@ func (t *ModerationGetMessageContext_Output_Messages_Elem) MarshalJSON() ([]byte
 	if t.ConvoDefs_DeletedMessageView != nil {
 		t.ConvoDefs_DeletedMessageView.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
 		return json.Marshal(t.ConvoDefs_DeletedMessageView)
+	}
+	if t.ConvoDefs_SystemMessageView != nil {
+		t.ConvoDefs_SystemMessageView.LexiconTypeID = "chat.bsky.convo.defs#systemMessageView"
+		return json.Marshal(t.ConvoDefs_SystemMessageView)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -47,6 +52,9 @@ func (t *ModerationGetMessageContext_Output_Messages_Elem) UnmarshalJSON(b []byt
 	case "chat.bsky.convo.defs#deletedMessageView":
 		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
 		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
+	case "chat.bsky.convo.defs#systemMessageView":
+		t.ConvoDefs_SystemMessageView = new(ConvoDefs_SystemMessageView)
+		return json.Unmarshal(b, t.ConvoDefs_SystemMessageView)
 	default:
 		return nil
 	}

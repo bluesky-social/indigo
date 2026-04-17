@@ -46,6 +46,19 @@ type ActorDefs_ContentLabelPref struct {
 	Visibility string  `json:"visibility" cborgen:"visibility"`
 }
 
+// ActorDefs_DeclaredAgePref is a "declaredAgePref" in the app.bsky.actor.defs schema.
+//
+// Read-only preference containing value(s) inferred from the user's declared birthdate. Absence of this preference object in the response indicates that the user has not made a declaration.
+type ActorDefs_DeclaredAgePref struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#declaredAgePref"`
+	// isOverAge13: Indicates if the user has declared that they are over 13 years of age.
+	IsOverAge13 *bool `json:"isOverAge13,omitempty" cborgen:"isOverAge13,omitempty"`
+	// isOverAge16: Indicates if the user has declared that they are over 16 years of age.
+	IsOverAge16 *bool `json:"isOverAge16,omitempty" cborgen:"isOverAge16,omitempty"`
+	// isOverAge18: Indicates if the user has declared that they are over 18 years of age.
+	IsOverAge18 *bool `json:"isOverAge18,omitempty" cborgen:"isOverAge18,omitempty"`
+}
+
 // ActorDefs_FeedViewPref is a "feedViewPref" in the app.bsky.actor.defs schema.
 type ActorDefs_FeedViewPref struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#feedViewPref"`
@@ -94,6 +107,17 @@ type ActorDefs_LabelerPrefItem struct {
 type ActorDefs_LabelersPref struct {
 	LexiconTypeID string                       `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#labelersPref"`
 	Labelers      []*ActorDefs_LabelerPrefItem `json:"labelers" cborgen:"labelers"`
+}
+
+// ActorDefs_LiveEventPreferences is a "liveEventPreferences" in the app.bsky.actor.defs schema.
+//
+// Preferences for live events.
+type ActorDefs_LiveEventPreferences struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#liveEventPreferences"`
+	// hiddenFeedIds: A list of feed IDs that the user has hidden from live events.
+	HiddenFeedIds []string `json:"hiddenFeedIds,omitempty" cborgen:"hiddenFeedIds,omitempty"`
+	// hideAllFeeds: Whether to hide all feeds from live events.
+	HideAllFeeds *bool `json:"hideAllFeeds,omitempty" cborgen:"hideAllFeeds,omitempty"`
 }
 
 // ActorDefs_MutedWord is a "mutedWord" in the app.bsky.actor.defs schema.
@@ -232,6 +256,7 @@ type ActorDefs_Preferences_Elem struct {
 	ActorDefs_SavedFeedsPref              *ActorDefs_SavedFeedsPref
 	ActorDefs_SavedFeedsPrefV2            *ActorDefs_SavedFeedsPrefV2
 	ActorDefs_PersonalDetailsPref         *ActorDefs_PersonalDetailsPref
+	ActorDefs_DeclaredAgePref             *ActorDefs_DeclaredAgePref
 	ActorDefs_FeedViewPref                *ActorDefs_FeedViewPref
 	ActorDefs_ThreadViewPref              *ActorDefs_ThreadViewPref
 	ActorDefs_InterestsPref               *ActorDefs_InterestsPref
@@ -241,6 +266,7 @@ type ActorDefs_Preferences_Elem struct {
 	ActorDefs_LabelersPref                *ActorDefs_LabelersPref
 	ActorDefs_PostInteractionSettingsPref *ActorDefs_PostInteractionSettingsPref
 	ActorDefs_VerificationPrefs           *ActorDefs_VerificationPrefs
+	ActorDefs_LiveEventPreferences        *ActorDefs_LiveEventPreferences
 }
 
 func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
@@ -263,6 +289,10 @@ func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
 	if t.ActorDefs_PersonalDetailsPref != nil {
 		t.ActorDefs_PersonalDetailsPref.LexiconTypeID = "app.bsky.actor.defs#personalDetailsPref"
 		return json.Marshal(t.ActorDefs_PersonalDetailsPref)
+	}
+	if t.ActorDefs_DeclaredAgePref != nil {
+		t.ActorDefs_DeclaredAgePref.LexiconTypeID = "app.bsky.actor.defs#declaredAgePref"
+		return json.Marshal(t.ActorDefs_DeclaredAgePref)
 	}
 	if t.ActorDefs_FeedViewPref != nil {
 		t.ActorDefs_FeedViewPref.LexiconTypeID = "app.bsky.actor.defs#feedViewPref"
@@ -300,6 +330,10 @@ func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
 		t.ActorDefs_VerificationPrefs.LexiconTypeID = "app.bsky.actor.defs#verificationPrefs"
 		return json.Marshal(t.ActorDefs_VerificationPrefs)
 	}
+	if t.ActorDefs_LiveEventPreferences != nil {
+		t.ActorDefs_LiveEventPreferences.LexiconTypeID = "app.bsky.actor.defs#liveEventPreferences"
+		return json.Marshal(t.ActorDefs_LiveEventPreferences)
+	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
 
@@ -325,6 +359,9 @@ func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.actor.defs#personalDetailsPref":
 		t.ActorDefs_PersonalDetailsPref = new(ActorDefs_PersonalDetailsPref)
 		return json.Unmarshal(b, t.ActorDefs_PersonalDetailsPref)
+	case "app.bsky.actor.defs#declaredAgePref":
+		t.ActorDefs_DeclaredAgePref = new(ActorDefs_DeclaredAgePref)
+		return json.Unmarshal(b, t.ActorDefs_DeclaredAgePref)
 	case "app.bsky.actor.defs#feedViewPref":
 		t.ActorDefs_FeedViewPref = new(ActorDefs_FeedViewPref)
 		return json.Unmarshal(b, t.ActorDefs_FeedViewPref)
@@ -352,6 +389,9 @@ func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.actor.defs#verificationPrefs":
 		t.ActorDefs_VerificationPrefs = new(ActorDefs_VerificationPrefs)
 		return json.Unmarshal(b, t.ActorDefs_VerificationPrefs)
+	case "app.bsky.actor.defs#liveEventPreferences":
+		t.ActorDefs_LiveEventPreferences = new(ActorDefs_LiveEventPreferences)
+		return json.Unmarshal(b, t.ActorDefs_LiveEventPreferences)
 	default:
 		return nil
 	}
@@ -362,6 +402,7 @@ type ActorDefs_ProfileAssociated struct {
 	ActivitySubscription *ActorDefs_ProfileAssociatedActivitySubscription `json:"activitySubscription,omitempty" cborgen:"activitySubscription,omitempty"`
 	Chat                 *ActorDefs_ProfileAssociatedChat                 `json:"chat,omitempty" cborgen:"chat,omitempty"`
 	Feedgens             *int64                                           `json:"feedgens,omitempty" cborgen:"feedgens,omitempty"`
+	Germ                 *ActorDefs_ProfileAssociatedGerm                 `json:"germ,omitempty" cborgen:"germ,omitempty"`
 	Labeler              *bool                                            `json:"labeler,omitempty" cborgen:"labeler,omitempty"`
 	Lists                *int64                                           `json:"lists,omitempty" cborgen:"lists,omitempty"`
 	StarterPacks         *int64                                           `json:"starterPacks,omitempty" cborgen:"starterPacks,omitempty"`
@@ -374,7 +415,14 @@ type ActorDefs_ProfileAssociatedActivitySubscription struct {
 
 // ActorDefs_ProfileAssociatedChat is a "profileAssociatedChat" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileAssociatedChat struct {
-	AllowIncoming string `json:"allowIncoming" cborgen:"allowIncoming"`
+	AllowGroupInvites *string `json:"allowGroupInvites,omitempty" cborgen:"allowGroupInvites,omitempty"`
+	AllowIncoming     string  `json:"allowIncoming" cborgen:"allowIncoming"`
+}
+
+// ActorDefs_ProfileAssociatedGerm is a "profileAssociatedGerm" in the app.bsky.actor.defs schema.
+type ActorDefs_ProfileAssociatedGerm struct {
+	MessageMeUrl string `json:"messageMeUrl" cborgen:"messageMeUrl"`
+	ShowButtonTo string `json:"showButtonTo" cborgen:"showButtonTo"`
 }
 
 // ActorDefs_ProfileView is a "profileView" in the app.bsky.actor.defs schema.
@@ -463,15 +511,20 @@ type ActorDefs_SavedFeedsPrefV2 struct {
 
 // ActorDefs_StatusView is a "statusView" in the app.bsky.actor.defs schema.
 type ActorDefs_StatusView struct {
+	Cid *string `json:"cid,omitempty" cborgen:"cid,omitempty"`
 	// embed: An optional embed associated with the status.
 	Embed *ActorDefs_StatusView_Embed `json:"embed,omitempty" cborgen:"embed,omitempty"`
 	// expiresAt: The date when this status will expire. The application might choose to no longer return the status after expiration.
 	ExpiresAt *string `json:"expiresAt,omitempty" cborgen:"expiresAt,omitempty"`
 	// isActive: True if the status is not expired, false if it is expired. Only present if expiration was set.
-	IsActive *bool                       `json:"isActive,omitempty" cborgen:"isActive,omitempty"`
-	Record   *lexutil.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	IsActive *bool `json:"isActive,omitempty" cborgen:"isActive,omitempty"`
+	// isDisabled: True if the user's go-live access has been disabled by a moderator, false otherwise.
+	IsDisabled *bool                         `json:"isDisabled,omitempty" cborgen:"isDisabled,omitempty"`
+	Labels     []*comatproto.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Record     *lexutil.LexiconTypeDecoder   `json:"record" cborgen:"record"`
 	// status: The status for the account.
-	Status string `json:"status" cborgen:"status"`
+	Status string  `json:"status" cborgen:"status"`
+	Uri    *string `json:"uri,omitempty" cborgen:"uri,omitempty"`
 }
 
 // An optional embed associated with the status.
