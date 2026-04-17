@@ -19,6 +19,8 @@ type EmbedVideo struct {
 	Alt         *string                `json:"alt,omitempty" cborgen:"alt,omitempty"`
 	AspectRatio *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`
 	Captions    []*EmbedVideo_Caption  `json:"captions,omitempty" cborgen:"captions,omitempty"`
+	// presentation: A hint to the client about how to present the video.
+	Presentation *string `json:"presentation,omitempty" cborgen:"presentation,omitempty"`
 	// video: The mp4 video file. May be up to 100mb, formerly limited to 50mb.
 	Video *lexutil.LexBlob `json:"video" cborgen:"video"`
 }
@@ -36,5 +38,7 @@ type EmbedVideo_View struct {
 	AspectRatio   *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`
 	Cid           string                 `json:"cid" cborgen:"cid"`
 	Playlist      string                 `json:"playlist" cborgen:"playlist"`
-	Thumbnail     *string                `json:"thumbnail,omitempty" cborgen:"thumbnail,omitempty"`
+	// presentation: A hint to the client about how to present the video.
+	Presentation *string `json:"presentation,omitempty" cborgen:"presentation,omitempty"`
+	Thumbnail    *string `json:"thumbnail,omitempty" cborgen:"thumbnail,omitempty"`
 }

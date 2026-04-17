@@ -23,6 +23,8 @@ type AgeassuranceDefs_Config struct {
 type AgeassuranceDefs_ConfigRegion struct {
 	// countryCode: The ISO 3166-1 alpha-2 country code this configuration applies to.
 	CountryCode string `json:"countryCode" cborgen:"countryCode"`
+	// minAccessAge: The minimum age (as a whole integer) required to use Bluesky in this region.
+	MinAccessAge int64 `json:"minAccessAge" cborgen:"minAccessAge"`
 	// regionCode: The ISO 3166-2 region code this configuration applies to. If omitted, the configuration applies to the entire country.
 	RegionCode *string `json:"regionCode,omitempty" cborgen:"regionCode,omitempty"`
 	// rules: The ordered list of Age Assurance rules that apply to this region. Rules should be applied in order, and the first matching rule determines the access level granted. The rules array should always include a default rule as the last item.

@@ -12,6 +12,7 @@ import (
 
 // FeedSendInteractions_Input is the input argument to a app.bsky.feed.sendInteractions call.
 type FeedSendInteractions_Input struct {
+	Feed         *string                 `json:"feed,omitempty" cborgen:"feed,omitempty"`
 	Interactions []*FeedDefs_Interaction `json:"interactions" cborgen:"interactions"`
 }
 

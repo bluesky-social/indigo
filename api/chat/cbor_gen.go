@@ -25,8 +25,13 @@ func (t *ActorDeclaration) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 3
 
-	if _, err := cw.Write([]byte{162}); err != nil {
+	if t.AllowGroupInvites == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -71,6 +76,38 @@ func (t *ActorDeclaration) MarshalCBOR(w io.Writer) error {
 	if _, err := cw.WriteString(string(t.AllowIncoming)); err != nil {
 		return err
 	}
+
+	// t.AllowGroupInvites (string) (string)
+	if t.AllowGroupInvites != nil {
+
+		if len("allowGroupInvites") > 1000000 {
+			return xerrors.Errorf("Value in field \"allowGroupInvites\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("allowGroupInvites"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("allowGroupInvites")); err != nil {
+			return err
+		}
+
+		if t.AllowGroupInvites == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.AllowGroupInvites) > 1000000 {
+				return xerrors.Errorf("Value in field t.AllowGroupInvites was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.AllowGroupInvites))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.AllowGroupInvites)); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -99,7 +136,7 @@ func (t *ActorDeclaration) UnmarshalCBOR(r io.Reader) (err error) {
 
 	n := extra
 
-	nameBuf := make([]byte, 13)
+	nameBuf := make([]byte, 17)
 	for i := uint64(0); i < n; i++ {
 		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
 		if err != nil {
@@ -136,6 +173,27 @@ func (t *ActorDeclaration) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.AllowIncoming = string(sval)
+			}
+			// t.AllowGroupInvites (string) (string)
+		case "allowGroupInvites":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.AllowGroupInvites = (*string)(&sval)
+				}
 			}
 
 		default:
