@@ -117,7 +117,14 @@ func (s *ServiceAuthValidator) fetchIssuerKeyFunc(ctx context.Context) func(toke
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid DID: %w", jwt.ErrTokenInvalidIssuer, err)
 		}
-		// NOTE: this will do handle resolution by default
+
+		// verify that 'kid' is either empty or matches the default ("#atproto").
+		// NOTE: this SDK can not yet be configured to support (and resolve) alternative key identifiers.
+		kid, ok := token.Header["kid"]
+		if ok && kid != "#atproto" {
+			return nil, fmt.Errorf("%w: unsupported key identifier (%s)", jwt.ErrTokenInvalidIssuer, kid)
+		}
+
 		ident, err := s.Dir.LookupDID(ctx, did)
 		if err != nil {
 			return nil, fmt.Errorf("%w: resolving DID (%s): %w", jwt.ErrTokenInvalidIssuer, did, err)
