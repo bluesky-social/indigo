@@ -22,6 +22,7 @@ type ServiceAuthValidator struct {
 	// Audience ('aud') DID references accepted for this validator. Each entry is a DID with optional #-separated fragment, and any entry can match.
 	// Warning: if array is empty, any audience is allowed.
 	AcceptAudiences []string
+	// Identity directory for key lookups. Note that token validation only requires DID resolution, not handle validation, so it may improve performance to use an `identity.Directory` with handle resolution disabled.
 	Dir             identity.Directory
 	TimestampLeeway time.Duration
 }
