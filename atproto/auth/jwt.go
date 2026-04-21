@@ -21,9 +21,9 @@ import (
 type ServiceAuthValidator struct {
 	// Audience ('aud') DID references accepted for this validator. Each entry is a DID with optional #-separated fragment, and any entry can match.
 	// Warning: if array is empty, any audience is allowed.
-	AllowedAudiences []string
-	Dir              identity.Directory
-	TimestampLeeway  time.Duration
+	AcceptAudiences []string
+	Dir             identity.Directory
+	TimestampLeeway time.Duration
 }
 
 type serviceAuthClaims struct {
@@ -41,7 +41,7 @@ func (s *ServiceAuthValidator) Validate(ctx context.Context, tokenString string,
 
 	opts := []jwt.ParserOption{
 		jwt.WithValidMethods(supportedAlgs),
-		jwt.WithAudience(s.AllowedAudiences...),
+		jwt.WithAudience(s.AcceptAudiences...),
 		jwt.WithExpirationRequired(),
 		jwt.WithIssuedAt(),
 		jwt.WithLeeway(leeway),

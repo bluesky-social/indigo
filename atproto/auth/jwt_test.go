@@ -111,8 +111,8 @@ func testSigningValidation(t *testing.T, priv atcrypto.PrivateKey) {
 
 	// allows flexible aud match (full ref or bare DID)
 	v := ServiceAuthValidator{
-		AllowedAudiences: []string{aud1, aud2},
-		Dir:              dir,
+		AcceptAudiences: []string{aud1, aud2},
+		Dir:             dir,
 	}
 
 	t1, err := SignServiceAuth(iss, aud1, time.Minute, lxm, priv)
@@ -132,11 +132,10 @@ func testSigningValidation(t *testing.T, priv atcrypto.PrivateKey) {
 	_, err = v.Validate(ctx, t2, lxm)
 	assert.NoError(err)
 
-
 	// only supports exact/full aud match
 	v2 := ServiceAuthValidator{
-		AllowedAudiences: []string{aud1},
-		Dir:              dir,
+		AcceptAudiences: []string{aud1},
+		Dir:             dir,
 	}
 	t3, err := SignServiceAuth(iss, aud1, time.Minute, lxm, priv)
 	if err != nil {
