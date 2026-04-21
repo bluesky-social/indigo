@@ -196,11 +196,11 @@ func NewBackfiller(
 	}
 }
 
-// Start starts the backfill processor routine
-func (b *Backfiller) Start() {
+// StartWithLogger starts the backfill processor routine with a custom logger
+func (b *Backfiller) StartWithLogger(log *slog.Logger) {
 	ctx := context.Background()
 
-	log := slog.With("source", "backfiller", "name", b.Name)
+	log = log.With("source", "backfiller", "name", b.Name)
 	log.Info("starting backfill processor")
 
 	sem := semaphore.NewWeighted(int64(b.ParallelBackfills))
@@ -263,6 +263,11 @@ func (b *Backfiller) Start() {
 			backfillJobsProcessed.WithLabelValues(b.Name).Inc()
 		}(job)
 	}
+}
+
+// Start starts the backfill processor routine
+func (b *Backfiller) Start() {
+	b.StartWithLogger(slog.Default())
 }
 
 // Stop stops the backfill processor
@@ -351,7 +356,7 @@ type FetchRepoError struct {
 }
 
 func (e *FetchRepoError) Error() string {
-	reason := "unknown error"
+	var reason string
 	if e.StatusCode == http.StatusBadRequest {
 		reason = "repo not found"
 	} else {
