@@ -94,6 +94,8 @@ type Backfiller struct {
 
 	stop chan chan struct{}
 
+	log *slog.Logger
+
 	Directory identity.Directory
 }
 
@@ -196,19 +198,22 @@ func NewBackfiller(
 	}
 }
 
-// Start starts the backfill processor routine
-func (b *Backfiller) Start() {
+// StartWithLogger starts the backfill processor routine with a custom logger
+func (b *Backfiller) StartWithLogger(log *slog.Logger) {
 	ctx := context.Background()
 
-	log := slog.With("source", "backfiller", "name", b.Name)
-	log.Info("starting backfill processor")
+	if log == nil {
+		log = slog.Default()
+	}
+	b.log = log.With("source", "backfiller", "name", b.Name)
+	b.log.Info("starting backfill processor")
 
 	sem := semaphore.NewWeighted(int64(b.ParallelBackfills))
 
 	for {
 		select {
 		case stopped := <-b.stop:
-			log.Info("stopping backfill processor")
+			b.log.Info("stopping backfill processor")
 			sem.Acquire(ctx, int64(b.ParallelBackfills))
 			close(stopped)
 			return
@@ -219,7 +224,7 @@ func (b *Backfiller) Start() {
 		dequeueStart := time.Now()
 		job, err := b.Store.GetNextEnqueuedJob(ctx)
 		if err != nil {
-			log.Error("failed to get next enqueued job", "error", err)
+			b.log.Error("failed to get next enqueued job", "error", err)
 			time.Sleep(1 * time.Second)
 			continue
 		} else if job == nil {
@@ -228,7 +233,7 @@ func (b *Backfiller) Start() {
 		}
 		backfillDispatchSeconds.WithLabelValues(b.Name, "dequeue").Observe(time.Since(dequeueStart).Seconds())
 
-		log := log.With("repo", job.Repo())
+		log := b.log.With("repo", job.Repo())
 
 		// Mark the backfill as "in progress"
 		setStateStart := time.Now()
@@ -265,15 +270,23 @@ func (b *Backfiller) Start() {
 	}
 }
 
+// Start starts the backfill processor routine
+func (b *Backfiller) Start() {
+	b.StartWithLogger(slog.Default())
+}
+
 // Stop stops the backfill processor
 func (b *Backfiller) Stop(ctx context.Context) error {
-	log := slog.With("source", "backfiller", "name", b.Name)
-	log.Info("stopping backfill processor")
+	if b.log != nil {
+		b.log.Info("stopping backfill processor")
+	}
 	stopped := make(chan struct{})
 	b.stop <- stopped
 	select {
 	case <-stopped:
-		log.Info("backfill processor stopped")
+		if b.log != nil {
+			b.log.Info("backfill processor stopped")
+		}
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -351,7 +364,7 @@ type FetchRepoError struct {
 }
 
 func (e *FetchRepoError) Error() string {
-	reason := "unknown error"
+	var reason string
 	if e.StatusCode == http.StatusBadRequest {
 		reason = "repo not found"
 	} else {

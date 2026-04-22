@@ -71,7 +71,7 @@ func (s *Gormstore) loadJobs(ctx context.Context, limit int) error {
 	retryableIndexClause := ""
 
 	// If the DB is a SQLite DB, we can use INDEXED BY to speed up the query
-	if s.db.Dialector.Name() == "sqlite" {
+	if s.db.Name() == "sqlite" {
 		enqueuedIndexClause = "INDEXED BY enqueued_job_idx"
 		retryableIndexClause = "INDEXED BY retryable_job_idx"
 	}
