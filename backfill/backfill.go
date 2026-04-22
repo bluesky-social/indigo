@@ -202,6 +202,9 @@ func NewBackfiller(
 func (b *Backfiller) StartWithLogger(log *slog.Logger) {
 	ctx := context.Background()
 
+	if log == nil {
+		log = slog.Default()
+	}
 	b.log = log.With("source", "backfiller", "name", b.Name)
 	b.log.Info("starting backfill processor")
 
