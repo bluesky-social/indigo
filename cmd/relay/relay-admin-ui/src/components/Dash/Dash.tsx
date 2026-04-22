@@ -63,12 +63,6 @@ const Dash: FC<{}> = () => {
   const [modalConfirm, setModalConfirm] = useState<() => void>(() => { });
   const [modalCancel, setModalCancel] = useState<() => void>(() => { });
 
-  const [editingPerSecondRateLimit, setEditingPerSecondRateLimimt] =
-    useState<PDS | null>(null);
-  const [editingPerHourRateLimit, setEditingPerHourRateLimit] =
-    useState<PDS | null>(null);
-  const [editingPerDayRateLimit, setEditingPerDayRateLimit] =
-    useState<PDS | null>(null);
   const [editingRepoLimit, setEditingRepoLimit] =
     useState<PDS | null>(null);
 
@@ -1000,178 +994,16 @@ const Dash: FC<{}> = () => {
                         {pds.Cursor?.toLocaleString()}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
-                        <span
-                          className={
-                            editingPerSecondRateLimit?.ID === pds.ID
-                              ? "hidden"
-                              : ""
-                          }
-                        >
-                          {pds.PerSecondEventRate.Max?.toLocaleString()}
-                          /sec
-                        </span>
-                        <input
-                          type="number"
-                          name={`per-second-rate-limit-${pds.ID}`}
-                          id={`per-second-rate-limit-${pds.ID}`}
-                          className={
-                            `inline-block w-24 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6` +
-                            (editingPerSecondRateLimit?.ID === pds.ID
-                              ? ""
-                              : " hidden")
-                          }
-                          defaultValue={pds.PerSecondEventRate.Max?.toLocaleString()}
-                        />
-                        <a
-                          href="#"
-                          onClick={() => setEditingPerSecondRateLimimt(pds)}
-                          className={editingPerSecondRateLimit ? "hidden" : ""}
-                        >
-                          <PencilSquareIcon
-                            className="h-5 w-5 text-gray-500 ml-1 inline-block align-sub"
-                            aria-hidden="true"
-                          />
-                        </a>
-                        <a
-                          href="#"
-                          onClick={() => {
-                            const newRateLimit = document.getElementById(
-                              `per-second-rate-limit-${pds.ID}`
-                            ) as HTMLInputElement;
-                            if (newRateLimit) {
-                              pds.PerSecondEventRate.Max = +newRateLimit.value;
-                              updateRateLimits(pds);
-                            }
-                            setEditingPerSecondRateLimimt(null);
-                          }}
-                          className={
-                            "rounded-md p-2  ml-1 hover:text-green-600 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50" +
-                            (editingPerSecondRateLimit?.ID === pds.ID
-                              ? ""
-                              : " hidden")
-                          }
-                        >
-                          <CheckIcon
-                            className="h-5 w-5 text-green-500 inline-block align-sub"
-                            aria-hidden="true"
-                          />
-                        </a>
+                        {pds.PerSecondEventRate.Max?.toLocaleString()}
+                        /sec
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
-                        <span
-                          className={
-                            editingPerHourRateLimit?.ID === pds.ID
-                              ? "hidden"
-                              : ""
-                          }
-                        >
-                          {pds.PerHourEventRate.Max?.toLocaleString()}
-                          /hour
-                        </span>
-                        <input
-                          type="number"
-                          name={`per-hour-rate-limit-${pds.ID}`}
-                          id={`per-hour-rate-limit-${pds.ID}`}
-                          className={
-                            `inline-block w-24 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6` +
-                            (editingPerHourRateLimit?.ID === pds.ID
-                              ? ""
-                              : " hidden")
-                          }
-                          defaultValue={pds.PerHourEventRate.Max?.toLocaleString()}
-                        />
-                        <a
-                          href="#"
-                          onClick={() => setEditingPerHourRateLimit(pds)}
-                          className={editingPerHourRateLimit ? "hidden" : ""}
-                        >
-                          <PencilSquareIcon
-                            className="h-5 w-5 text-gray-500 ml-1 inline-block align-sub"
-                            aria-hidden="true"
-                          />
-                        </a>
-                        <a
-                          href="#"
-                          onClick={() => {
-                            const newRateLimit = document.getElementById(
-                              `per-hour-rate-limit-${pds.ID}`
-                            ) as HTMLInputElement;
-                            if (newRateLimit) {
-                              pds.PerHourEventRate.Max = +newRateLimit.value;
-                              updateRateLimits(pds);
-                            }
-                            setEditingPerHourRateLimit(null);
-                          }}
-                          className={
-                            "rounded-md p-2  ml-1 hover:text-green-600 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50" +
-                            (editingPerHourRateLimit?.ID === pds.ID
-                              ? ""
-                              : " hidden")
-                          }
-                        >
-                          <CheckIcon
-                            className="h-5 w-5 text-green-500 inline-block align-sub"
-                            aria-hidden="true"
-                          />
-                        </a>
+                        {pds.PerHourEventRate.Max?.toLocaleString()}
+                        /sec
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
-                        <span
-                          className={
-                            editingPerDayRateLimit?.ID === pds.ID
-                              ? "hidden"
-                              : ""
-                          }
-                        >
-                          {pds.PerDayEventRate.Max?.toLocaleString()}
-                          /day
-                        </span>
-                        <input
-                          type="number"
-                          name={`per-day-limit-${pds.ID}`}
-                          id={`per-day-rate-limit-${pds.ID}`}
-                          className={
-                            `inline-block w-24 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6` +
-                            (editingPerDayRateLimit?.ID === pds.ID
-                              ? ""
-                              : " hidden")
-                          }
-                          defaultValue={pds.PerDayEventRate.Max?.toLocaleString()}
-                        />
-                        <a
-                          href="#"
-                          onClick={() => setEditingPerDayRateLimit(pds)}
-                          className={editingPerDayRateLimit ? "hidden" : ""}
-                        >
-                          <PencilSquareIcon
-                            className="h-5 w-5 text-gray-500 ml-1 inline-block align-sub"
-                            aria-hidden="true"
-                          />
-                        </a>
-                        <a
-                          href="#"
-                          onClick={() => {
-                            const newRateLimit = document.getElementById(
-                              `per-day-rate-limit-${pds.ID}`
-                            ) as HTMLInputElement;
-                            if (newRateLimit) {
-                              pds.PerDayEventRate.Max = +newRateLimit.value;
-                              updateRateLimits(pds);
-                            }
-                            setEditingPerDayRateLimit(null);
-                          }}
-                          className={
-                            "rounded-md p-2  ml-1 hover:text-green-600 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50" +
-                            (editingPerDayRateLimit?.ID === pds.ID
-                              ? ""
-                              : " hidden")
-                          }
-                        >
-                          <CheckIcon
-                            className="h-5 w-5 text-green-500 inline-block align-sub"
-                            aria-hidden="true"
-                          />
-                        </a>
+                        {pds.PerDayEventRate.Max?.toLocaleString()}
+                        /sec
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
                         <span
