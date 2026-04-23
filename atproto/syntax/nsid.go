@@ -7,6 +7,7 @@ import (
 )
 
 var nsidRegex = regexp.MustCompile(`^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(\.[a-zA-Z]([a-zA-Z0-9]{0,62})?)$`)
+var nsidRefRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]{0,62}$`)
 
 // String type which represents a syntaxtually valid Namespace Identifier (NSID), as would pass Lexicon syntax validation.
 //
@@ -75,4 +76,32 @@ func (n *NSID) UnmarshalText(text []byte) error {
 	}
 	*n = nsid
 	return nil
+}
+
+// Parses an NSID and/or reference to a sub-schema name, separated by a hash symbol ('#'). Returns NSID and name parts separately (one or the other might be an empty string).
+//
+// "Relative" references (just a hash and ref name, without an NSID) are used in Lexicon schemas.
+//
+// The input must contain at least an NSID *or* a name reference (with a hash). May be a bare NSID, or just a "relative" name reference (eg, "#thing").
+func ParseNSIDRef(raw string) (NSID, string, error) {
+	parts := strings.SplitN(raw, "#", 2)
+	if len(parts) < 2 {
+		nsid, err := ParseNSID(raw)
+		return nsid, "", err
+	}
+	if parts[1] == "" {
+		return "", "", errors.New("empty NSID ref name part")
+	}
+	if !nsidRefRegex.MatchString(parts[1]) {
+		return "", "", errors.New("NSID fragment part didn't validate via regex")
+	}
+
+	if parts[0] == "" {
+		return "", parts[1], nil
+	}
+	nsid, err := ParseNSID(parts[0])
+	if err != nil {
+		return "", "", err
+	}
+	return nsid, parts[1], nil
 }
