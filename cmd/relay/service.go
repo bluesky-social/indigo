@@ -87,6 +87,7 @@ func (svc *Service) StartAPI(bind string) error {
 func (svc *Service) startWithListener(listen net.Listener) error {
 	e := echo.New()
 	e.HideBanner = true
+	e.HidePort = true
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
@@ -189,6 +190,7 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 	// Echo instance it's already got a port, and then use its StartServer
 	// method to re-use that listener.
 	e.Listener = listen
+	svc.logger.Info("starting web server", "listen", e.Listener.Addr().String())
 	srv := &http.Server{}
 	// TODO: attach echo to Service, for shutdown?
 	return e.StartServer(srv)
