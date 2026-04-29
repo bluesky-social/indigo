@@ -43,6 +43,22 @@ func NewHostClient(userAgent string) *HostClient {
 	}
 }
 
+// NewHostClientUnsafe creates a HostClient without SSRF protections,
+// allowing connections to private/Docker network IPs and non-standard ports.
+// Only use for testing environments.
+func NewHostClientUnsafe(userAgent string) *HostClient {
+	if userAgent == "" {
+		userAgent = "indigo-relay (atproto-relay)"
+	}
+	c := http.Client{
+		Timeout: 5 * time.Second,
+	}
+	return &HostClient{
+		Client:    &c,
+		UserAgent: userAgent,
+	}
+}
+
 func (hc *HostClient) apiClient(host string) *atclient.APIClient {
 	client := atclient.APIClient{
 		Client: hc.Client,

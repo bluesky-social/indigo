@@ -69,7 +69,12 @@ func NewRelay(db *gorm.DB, evtman *eventmgr.EventManager, dir identity.Directory
 
 	uc, _ := lru.New[string, *models.Account](2_000_000)
 
-	hc := NewHostClient(config.UserAgent)
+	var hc *HostClient
+	if config.SkipAccountHostCheck {
+		hc = NewHostClientUnsafe(config.UserAgent)
+	} else {
+		hc = NewHostClient(config.UserAgent)
+	}
 
 	// NOTE: discarded second argument is not an `error` type
 

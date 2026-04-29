@@ -132,6 +132,11 @@ func run(args []string) error {
 					Sources: cli.EnvVars("RELAY_ALLOW_INSECURE_HOSTS"),
 				},
 				&cli.BoolFlag{
+					Name:    "skip-host-check",
+					Usage:   "skip SSRF protections and account-host validation (for testing with private/Docker networks)",
+					Sources: cli.EnvVars("RELAY_SKIP_HOST_CHECK"),
+				},
+				&cli.BoolFlag{
 					Name:    "lenient-sync-validation",
 					Usage:   "when messages fail atproto 'Sync 1.1' validation, just log, don't drop",
 					Sources: cli.EnvVars("RELAY_LENIENT_SYNC_VALIDATION"),
@@ -257,6 +262,7 @@ func runRelay(ctx context.Context, cmd *cli.Command) error {
 	relayConfig.HostPerDayLimit = cmd.Int64("new-hosts-per-day-limit")
 	relayConfig.TrustedDomains = cmd.StringSlice("trusted-domains")
 	relayConfig.LenientSyncValidation = cmd.Bool("lenient-sync-validation")
+	relayConfig.SkipAccountHostCheck = cmd.Bool("skip-host-check")
 
 	svcConfig := DefaultServiceConfig()
 	svcConfig.AllowInsecureHosts = cmd.Bool("allow-insecure-hosts")
