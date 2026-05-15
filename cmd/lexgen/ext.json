@@ -1,0 +1,14 @@
+[
+  {
+    "package": "atproto",
+    "prefix": "com.atproto",
+    "outdir": "api/atproto",
+    "import": "github.com/bluesky-social/indigo/api/atproto"
+  },
+  {
+    "package": "standardsite",
+    "prefix": "site.standard",
+    "outdir": "api-ext/standardsite",
+    "import": "github.com/bluesky-social/indigo/api-ext/standardsite"
+  }
+]
