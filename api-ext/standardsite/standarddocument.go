@@ -24,8 +24,8 @@ type Document struct {
 	// bskyPostRef: Strong reference to a Bluesky post. Useful to keep track of comments off-platform.
 	BskyPostRef *comatproto.RepoStrongRef `json:"bskyPostRef,omitempty" cborgen:"bskyPostRef,omitempty"`
 	// content: Open union used to define the record's content. Each entry must specify a $type and may be extended with other lexicons to support additional content formats.
-	Content      *lexutil.LexiconTypeDecoder `json:"content,omitempty" cborgen:"content,omitempty"`
-	Contributors []*Document_Contributor     `json:"contributors,omitempty" cborgen:"contributors,omitempty"`
+	Content      *Document_Content       `json:"content,omitempty" cborgen:"content,omitempty"`
+	Contributors []*Document_Contributor `json:"contributors,omitempty" cborgen:"contributors,omitempty"`
 	// coverImage: Image to used for thumbnail or cover image. Less than 1MB is size.
 	CoverImage *lexutil.LexBlob `json:"coverImage,omitempty" cborgen:"coverImage,omitempty"`
 	// description: A brief description or excerpt from the document.
@@ -33,7 +33,7 @@ type Document struct {
 	// labels: Self-label values for this post. Effectively content warnings.
 	Labels *Document_Labels `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	// links: Array of values describing relationships between this document and external resources
-	Links *lexutil.LexiconTypeDecoder `json:"links,omitempty" cborgen:"links,omitempty"`
+	Links *Document_Links `json:"links,omitempty" cborgen:"links,omitempty"`
 	// path: Combine with site or publication url to construct a canonical URL to the document. Prepend with a leading slash.
 	Path *string `json:"path,omitempty" cborgen:"path,omitempty"`
 	// publishedAt: Timestamp of the documents publish time.
@@ -48,6 +48,61 @@ type Document struct {
 	Title string `json:"title" cborgen:"title"`
 	// updatedAt: Timestamp of the documents last edit.
 	UpdatedAt *string `json:"updatedAt,omitempty" cborgen:"updatedAt,omitempty"`
+}
+
+// Open union used to define the record's content. Each entry must specify a $type and may be extended with other lexicons to support additional content formats.
+type Document_Content struct {
+	Document_Placeholder *Document_Placeholder
+}
+
+func (t *Document_Content) MarshalJSON() ([]byte, error) {
+	if t.Document_Placeholder != nil {
+		t.Document_Placeholder.LexiconTypeID = "site.standard.document#placeholder"
+		return json.Marshal(t.Document_Placeholder)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *Document_Content) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "site.standard.document#placeholder":
+		t.Document_Placeholder = new(Document_Placeholder)
+		return json.Unmarshal(b, t.Document_Placeholder)
+	default:
+		return nil
+	}
+}
+
+func (t *Document_Content) MarshalCBOR(w io.Writer) error {
+
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if t.Document_Placeholder != nil {
+		return t.Document_Placeholder.MarshalCBOR(w)
+	}
+	return fmt.Errorf("can not marshal empty union as CBOR")
+}
+
+func (t *Document_Content) UnmarshalCBOR(r io.Reader) error {
+	typ, b, err := lexutil.CborTypeExtractReader(r)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "site.standard.document#placeholder":
+		t.Document_Placeholder = new(Document_Placeholder)
+		return t.Document_Placeholder.UnmarshalCBOR(bytes.NewReader(b))
+	default:
+		return nil
+	}
 }
 
 // Document_Contributor is a "contributor" in the site.standard.document schema.
@@ -110,4 +165,66 @@ func (t *Document_Labels) UnmarshalCBOR(r io.Reader) error {
 	default:
 		return nil
 	}
+}
+
+// Array of values describing relationships between this document and external resources
+type Document_Links struct {
+	Document_Placeholder *Document_Placeholder
+}
+
+func (t *Document_Links) MarshalJSON() ([]byte, error) {
+	if t.Document_Placeholder != nil {
+		t.Document_Placeholder.LexiconTypeID = "site.standard.document#placeholder"
+		return json.Marshal(t.Document_Placeholder)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *Document_Links) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "site.standard.document#placeholder":
+		t.Document_Placeholder = new(Document_Placeholder)
+		return json.Unmarshal(b, t.Document_Placeholder)
+	default:
+		return nil
+	}
+}
+
+func (t *Document_Links) MarshalCBOR(w io.Writer) error {
+
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if t.Document_Placeholder != nil {
+		return t.Document_Placeholder.MarshalCBOR(w)
+	}
+	return fmt.Errorf("can not marshal empty union as CBOR")
+}
+
+func (t *Document_Links) UnmarshalCBOR(r io.Reader) error {
+	typ, b, err := lexutil.CborTypeExtractReader(r)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "site.standard.document#placeholder":
+		t.Document_Placeholder = new(Document_Placeholder)
+		return t.Document_Placeholder.UnmarshalCBOR(bytes.NewReader(b))
+	default:
+		return nil
+	}
+}
+
+// Document_Placeholder is a "placeholder" in the site.standard.document schema.
+//
+// Placeholder type used to seed open unions until concrete content/link lexicons are defined. Should not be used in real records.
+type Document_Placeholder struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=site.standard.document#placeholder"`
 }

@@ -6,6 +6,7 @@ import (
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	chat "github.com/bluesky-social/indigo/api/chat"
+	standardsite "github.com/bluesky-social/indigo/api-ext/standardsite"
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/labeling"
 	atrepo "github.com/bluesky-social/indigo/atproto/repo"
@@ -85,6 +86,21 @@ func main() {
 
 	if err := genCfg.WriteMapEncodersToFile("api/chat/cbor_gen.go", "chat",
 		chat.ActorDeclaration{},
+	); err != nil {
+		panic(err)
+	}
+
+	if err := genCfg.WriteMapEncodersToFile("api-ext/standardsite/cbor_gen.go", "standardsite",
+		standardsite.Document{},
+		standardsite.Document_Contributor{},
+		standardsite.Document_Placeholder{},
+		standardsite.Publication{},
+		standardsite.Publication_Preferences{},
+		standardsite.GraphRecommend{},
+		standardsite.GraphSubscription{},
+		standardsite.ThemeBasic{},
+		standardsite.ThemeColor_Rgb{},
+		standardsite.ThemeColor_Rgba{},
 	); err != nil {
 		panic(err)
 	}

@@ -1,5 +1,10 @@
 {
   "defs": {
+    "placeholder": {
+      "description": "Placeholder type used to seed open unions until concrete content/link lexicons are defined. Should not be used in real records.",
+      "properties": {},
+      "type": "object"
+    },
     "contributor": {
       "properties": {
         "did": {
@@ -35,7 +40,9 @@
           "content": {
             "closed": false,
             "description": "Open union used to define the record's content. Each entry must specify a $type and may be extended with other lexicons to support additional content formats.",
-            "refs": [],
+            "refs": [
+              "#placeholder"
+            ],
             "type": "union"
           },
           "contributors": {
@@ -68,7 +75,9 @@
           },
           "links": {
             "description": "Array of values describing relationships between this document and external resources",
-            "refs": [],
+            "refs": [
+              "#placeholder"
+            ],
             "type": "union"
           },
           "path": {
