@@ -24,6 +24,14 @@
           "type": "blob",
           "accept": ["image/*"],
           "maxSize": 1000000
+        },
+        "associatedRefs": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef"
+          },
+          "description": "StrongRefs (uri+cid) of the Atmosphere records that backed this view, suitable for embedding into a post's external.associatedRefs."
         }
       }
     },
@@ -44,7 +52,80 @@
         "uri": { "type": "string", "format": "uri" },
         "title": { "type": "string" },
         "description": { "type": "string" },
-        "thumb": { "type": "string", "format": "uri" }
+        "thumb": { "type": "string", "format": "uri" },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "When the external content was created, if available. Example: a publication date, for an article."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "When the external content was updated, if available."
+        },
+        "readingTime": {
+          "type": "integer",
+          "description": "Estimated reading time in minutes, if applicable and available."
+        },
+        "source": { "type": "ref", "ref": "#viewExternalSource" },
+        "associatedRefs": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef"
+          },
+          "description": "StrongRefs (uri+cid) of the Atmosphere records that backed this view, suitable for embedding into a post's external.associatedRefs."
+        }
+      }
+    },
+    "viewExternalSource": {
+      "type": "object",
+      "description": "The source of an external embed, such as a standard.site publication.",
+      "properties": {
+        "uri": { "type": "string", "format": "uri" },
+        "icon": {
+          "type": "string",
+          "format": "uri",
+          "description": "Fully-qualified URL where an icon representing the source can be fetched. For example, CDN location provided by the App View."
+        },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "theme": {
+          "type": "ref",
+          "ref": "#viewExternalSourceTheme"
+        }
+      }
+    },
+    "viewExternalSourceTheme": {
+      "type": "object",
+      "description": "The theme colors of an external source, such as a site.standard.publication. These colors may be used when rendering an embed from that source.",
+      "properties": {
+        "background": {
+          "type": "ref",
+          "ref": "#colorRGB"
+        },
+        "foreground": {
+          "type": "ref",
+          "ref": "#colorRGB"
+        },
+        "accent": {
+          "type": "ref",
+          "ref": "#colorRGB"
+        },
+        "accentForeground": {
+          "type": "ref",
+          "ref": "#colorRGB"
+        }
+      }
+    },
+    "colorRGB": {
+      "type": "object",
+      "description": "RGB color definition, inspired by site.standard.theme.color#rgb",
+      "required": ["r", "g", "b"],
+      "properties": {
+        "r": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "g": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "b": { "type": "integer", "minimum": 0, "maximum": 255 }
       }
     }
   }
