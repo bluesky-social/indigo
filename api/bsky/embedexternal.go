@@ -5,6 +5,7 @@
 package bsky
 
 import (
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
@@ -20,12 +21,23 @@ type EmbedExternal struct {
 	External      *EmbedExternal_External `json:"external" cborgen:"external"`
 }
 
+// EmbedExternal_ColorRGB is a "colorRGB" in the app.bsky.embed.external schema.
+//
+// RGB color definition, inspired by site.standard.theme.color#rgb
+type EmbedExternal_ColorRGB struct {
+	B int64 `json:"b" cborgen:"b"`
+	G int64 `json:"g" cborgen:"g"`
+	R int64 `json:"r" cborgen:"r"`
+}
+
 // EmbedExternal_External is a "external" in the app.bsky.embed.external schema.
 type EmbedExternal_External struct {
-	Description string           `json:"description" cborgen:"description"`
-	Thumb       *lexutil.LexBlob `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
-	Title       string           `json:"title" cborgen:"title"`
-	Uri         string           `json:"uri" cborgen:"uri"`
+	// associatedRefs: StrongRefs (uri+cid) of the Atmosphere records that backed this view, suitable for embedding into a post's external.associatedRefs.
+	AssociatedRefs []*comatproto.RepoStrongRef `json:"associatedRefs,omitempty" cborgen:"associatedRefs,omitempty"`
+	Description    string                      `json:"description" cborgen:"description"`
+	Thumb          *lexutil.LexBlob            `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
+	Title          string                      `json:"title" cborgen:"title"`
+	Uri            string                      `json:"uri" cborgen:"uri"`
 }
 
 // EmbedExternal_View is a "view" in the app.bsky.embed.external schema.
@@ -36,8 +48,40 @@ type EmbedExternal_View struct {
 
 // EmbedExternal_ViewExternal is a "viewExternal" in the app.bsky.embed.external schema.
 type EmbedExternal_ViewExternal struct {
-	Description string  `json:"description" cborgen:"description"`
-	Thumb       *string `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
-	Title       string  `json:"title" cborgen:"title"`
-	Uri         string  `json:"uri" cborgen:"uri"`
+	// associatedRefs: StrongRefs (uri+cid) of the Atmosphere records that backed this view, suitable for embedding into a post's external.associatedRefs.
+	AssociatedRefs []*comatproto.RepoStrongRef `json:"associatedRefs,omitempty" cborgen:"associatedRefs,omitempty"`
+	// createdAt: When the external content was created, if available. Example: a publication date, for an article.
+	CreatedAt   *string                       `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	Description string                        `json:"description" cborgen:"description"`
+	Labels      []*comatproto.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	// readingTime: Estimated reading time in minutes, if applicable and available.
+	ReadingTime *int64                            `json:"readingTime,omitempty" cborgen:"readingTime,omitempty"`
+	Source      *EmbedExternal_ViewExternalSource `json:"source,omitempty" cborgen:"source,omitempty"`
+	Thumb       *string                           `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
+	Title       string                            `json:"title" cborgen:"title"`
+	// updatedAt: When the external content was updated, if available.
+	UpdatedAt *string `json:"updatedAt,omitempty" cborgen:"updatedAt,omitempty"`
+	Uri       string  `json:"uri" cborgen:"uri"`
+}
+
+// EmbedExternal_ViewExternalSource is a "viewExternalSource" in the app.bsky.embed.external schema.
+//
+// The source of an external embed, such as a standard.site publication.
+type EmbedExternal_ViewExternalSource struct {
+	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
+	// icon: Fully-qualified URL where an icon representing the source can be fetched. For example, CDN location provided by the App View.
+	Icon  *string                                `json:"icon,omitempty" cborgen:"icon,omitempty"`
+	Name  *string                                `json:"name,omitempty" cborgen:"name,omitempty"`
+	Theme *EmbedExternal_ViewExternalSourceTheme `json:"theme,omitempty" cborgen:"theme,omitempty"`
+	Uri   *string                                `json:"uri,omitempty" cborgen:"uri,omitempty"`
+}
+
+// EmbedExternal_ViewExternalSourceTheme is a "viewExternalSourceTheme" in the app.bsky.embed.external schema.
+//
+// The theme colors of an external source, such as a site.standard.publication. These colors may be used when rendering an embed from that source.
+type EmbedExternal_ViewExternalSourceTheme struct {
+	AccentForegroundRGB *EmbedExternal_ColorRGB `json:"accentForegroundRGB,omitempty" cborgen:"accentForegroundRGB,omitempty"`
+	AccentRGB           *EmbedExternal_ColorRGB `json:"accentRGB,omitempty" cborgen:"accentRGB,omitempty"`
+	BackgroundRGB       *EmbedExternal_ColorRGB `json:"backgroundRGB,omitempty" cborgen:"backgroundRGB,omitempty"`
+	ForegroundRGB       *EmbedExternal_ColorRGB `json:"foregroundRGB,omitempty" cborgen:"foregroundRGB,omitempty"`
 }
