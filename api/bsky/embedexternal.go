@@ -32,7 +32,7 @@ type EmbedExternal_ColorRGB struct {
 
 // EmbedExternal_External is a "external" in the app.bsky.embed.external schema.
 type EmbedExternal_External struct {
-	// associatedRefs: StrongRefs (uri+cid) of the Atmosphere records that backed this view, suitable for embedding into a post's external.associatedRefs.
+	// associatedRefs: StrongRefs (uri+cid) of the Atmosphere records that backed this view.
 	AssociatedRefs []*comatproto.RepoStrongRef `json:"associatedRefs,omitempty" cborgen:"associatedRefs,omitempty"`
 	Description    string                      `json:"description" cborgen:"description"`
 	Thumb          *lexutil.LexBlob            `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
@@ -48,7 +48,7 @@ type EmbedExternal_View struct {
 
 // EmbedExternal_ViewExternal is a "viewExternal" in the app.bsky.embed.external schema.
 type EmbedExternal_ViewExternal struct {
-	// associatedRefs: StrongRefs (uri+cid) of the Atmosphere records that backed this view, suitable for embedding into a post's external.associatedRefs.
+	// associatedRefs: StrongRefs (uri+cid) of the Atmosphere records that backed this view.
 	AssociatedRefs []*comatproto.RepoStrongRef `json:"associatedRefs,omitempty" cborgen:"associatedRefs,omitempty"`
 	// createdAt: When the external content was created, if available. Example: a publication date, for an article.
 	CreatedAt   *string                       `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
@@ -71,9 +71,10 @@ type EmbedExternal_ViewExternalSource struct {
 	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
 	// icon: Fully-qualified URL where an icon representing the source can be fetched. For example, CDN location provided by the App View.
 	Icon  *string                                `json:"icon,omitempty" cborgen:"icon,omitempty"`
-	Name  *string                                `json:"name,omitempty" cborgen:"name,omitempty"`
 	Theme *EmbedExternal_ViewExternalSourceTheme `json:"theme,omitempty" cborgen:"theme,omitempty"`
-	Uri   *string                                `json:"uri,omitempty" cborgen:"uri,omitempty"`
+	Title *string                                `json:"title,omitempty" cborgen:"title,omitempty"`
+	// uri: URI of the source, if available. Example: the https:// URL of a site.standard.publication record.
+	Uri *string `json:"uri,omitempty" cborgen:"uri,omitempty"`
 }
 
 // EmbedExternal_ViewExternalSourceTheme is a "viewExternalSourceTheme" in the app.bsky.embed.external schema.

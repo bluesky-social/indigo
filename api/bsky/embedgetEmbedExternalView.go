@@ -14,7 +14,7 @@ import (
 // EmbedGetEmbedExternalView_Output is the output of a app.bsky.embed.getEmbedExternalView call.
 type EmbedGetEmbedExternalView_Output struct {
 	AssociatedRecords []*lexutil.LexiconTypeDecoder `json:"associatedRecords,omitempty" cborgen:"associatedRecords,omitempty"`
-	// associatedRefs: StrongRefs (uri+cid) of the Atmosphere records that backed this view, suitable for embedding into a post's external.associatedRefs.
+	// associatedRefs: StrongRefs (URI+CID) of the Atmosphere records that backed this view, suitable for embedding into a post's external.associatedRefs.
 	AssociatedRefs []*comatproto.RepoStrongRef `json:"associatedRefs,omitempty" cborgen:"associatedRefs,omitempty"`
 	View           *EmbedExternal_View         `json:"view,omitempty" cborgen:"view,omitempty"`
 }
@@ -22,7 +22,7 @@ type EmbedGetEmbedExternalView_Output struct {
 // EmbedGetEmbedExternalView calls the XRPC method "app.bsky.embed.getEmbedExternalView".
 //
 // uris: AT-URIs of any Atmosphere records that can be resolved and used to construct #externalView views. Example: a site.standard.document and optionally its associated site.standard.publication.
-// url: The canonical web URL the embed represents (typically the URL the user pasted into the composer). Used as the returned view's `uri`.
+// url: The canonical web URL the embed represents (typically the URL the user pasted into the composer). Used as the returned view's `uri`. May be used for validation in the future.
 func EmbedGetEmbedExternalView(ctx context.Context, c lexutil.LexClient, uris []string, url string) (*EmbedGetEmbedExternalView_Output, error) {
 	var out EmbedGetEmbedExternalView_Output
 
