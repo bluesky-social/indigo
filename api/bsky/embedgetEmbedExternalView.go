@@ -16,7 +16,8 @@ type EmbedGetEmbedExternalView_Output struct {
 	AssociatedRecords []*lexutil.LexiconTypeDecoder `json:"associatedRecords,omitempty" cborgen:"associatedRecords,omitempty"`
 	// associatedRefs: StrongRefs (URI+CID) of the Atmosphere records that backed this view, suitable for embedding into a post's external.associatedRefs.
 	AssociatedRefs []*comatproto.RepoStrongRef `json:"associatedRefs,omitempty" cborgen:"associatedRefs,omitempty"`
-	View           *EmbedExternal_View         `json:"view,omitempty" cborgen:"view,omitempty"`
+	// view: Hydrated view of the embed. Present whenever at least one record was hydrated. `view.external.title` and `view.external.description` may be empty strings when the resolved records didn't supply them; clients should treat that as 'no enrichment for this field.'
+	View *EmbedExternal_View `json:"view,omitempty" cborgen:"view,omitempty"`
 }
 
 // EmbedGetEmbedExternalView calls the XRPC method "app.bsky.embed.getEmbedExternalView".
