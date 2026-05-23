@@ -51,14 +51,17 @@ func matchesCollection(collection string, filters []string) bool {
 
 	return false
 }
-func evtHasSignalCollection(evt *comatproto.SyncSubscribeRepos_Commit, signalColl string) bool {
+func evtHasSignalCollections(evt *comatproto.SyncSubscribeRepos_Commit, signalColls []string) bool {
 	for _, op := range evt.Ops {
 		collection, _, err := syntax.ParseRepoPath(op.Path)
 		if err != nil {
 			continue
 		}
-		if collection.String() == signalColl {
-			return true
+		collStr := collection.String()
+		for _, signal := range signalColls {
+			if collStr == signal {
+				return true
+			}
 		}
 	}
 	return false

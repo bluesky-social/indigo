@@ -19,26 +19,31 @@ type Crawler struct {
 	db     *gorm.DB
 	logger *slog.Logger
 
-	fullNetworkMode  bool
-	relayUrl         string
-	signalCollection string
+	fullNetworkMode   bool
+	relayUrl          string
+	signalCollections []string
 }
 
 func NewCrawler(logger *slog.Logger, db *gorm.DB, config *TapConfig) *Crawler {
 	return &Crawler{
-		logger:           logger.With("component", "crawler"),
-		db:               db,
-		fullNetworkMode:  config.FullNetworkMode,
-		relayUrl:         config.RelayUrl,
-		signalCollection: config.SignalCollection,
+		logger:            logger.With("component", "crawler"),
+		db:                db,
+		fullNetworkMode:   config.FullNetworkMode,
+		relayUrl:          config.RelayUrl,
+		signalCollections: config.SignalCollections,
 	}
 }
 
 func (c *Crawler) Run(ctx context.Context) {
 	for {
 		var err error
-		if c.signalCollection != "" {
-			err = c.EnumerateNetworkByCollection(ctx, c.signalCollection)
+		if len(c.signalCollections) > 0 {
+			for _, coll := range c.signalCollections {
+				if e := c.EnumerateNetworkByCollection(ctx, coll); e != nil {
+					err = e
+					break
+				}
+			}
 		} else if c.fullNetworkMode {
 			err = c.EnumerateNetwork(ctx)
 		}
@@ -60,8 +65,8 @@ func (c *Crawler) Run(ctx context.Context) {
 }
 
 func (c *Crawler) GetCursor(ctx context.Context) (string, error) {
-	if c.signalCollection != "" {
-		return c.getCollectionCursor(ctx, c.signalCollection)
+	if len(c.signalCollections) > 0 {
+		return c.getCollectionCursor(ctx, c.signalCollections[0])
 	} else if c.fullNetworkMode {
 		return c.getListReposCursor(ctx)
 	}

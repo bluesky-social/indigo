@@ -32,6 +32,7 @@ type Resyncer struct {
 
 	repoFetchTimeout  time.Duration
 	collectionFilters []string
+	filtersMu         sync.RWMutex
 	parallelism       int
 
 	pdsBackoff   map[string]time.Time
@@ -49,6 +50,18 @@ func NewResyncer(logger *slog.Logger, db *gorm.DB, repos *RepoManager, events *E
 		parallelism:       config.ResyncParallelism,
 		pdsBackoff:        make(map[string]time.Time),
 	}
+}
+
+func (r *Resyncer) GetCollectionFilters() []string {
+	r.filtersMu.RLock()
+	defer r.filtersMu.RUnlock()
+	return append([]string{}, r.collectionFilters...)
+}
+
+func (r *Resyncer) SetCollectionFilters(filters []string) {
+	r.filtersMu.Lock()
+	defer r.filtersMu.Unlock()
+	r.collectionFilters = filters
 }
 
 func (r *Resyncer) run(ctx context.Context) {
@@ -246,6 +259,10 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 	}
 	r.logger.Info("pre-loaded existing records", "did", did, "count", len(existingCids))
 
+	r.filtersMu.RLock()
+	filters := r.collectionFilters
+	r.filtersMu.RUnlock()
+
 	evtBatch := make([]*RecordEvt, 0, batchSize)
 
 	err = repo.MST.Walk(func(recPathBytes []byte, recCid cid.Cid) error {
@@ -267,7 +284,7 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 		cidStr := recCid.String()
 
 		// Filter collections - only process if matches filters
-		if !matchesCollection(collStr, r.collectionFilters) {
+		if !matchesCollection(collStr, filters) {
 			return nil
 		}
 
