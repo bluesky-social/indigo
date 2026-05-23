@@ -48,7 +48,7 @@ func JsonDecodeValue(b []byte) (any, error) {
 
 	t, ok := lexTypesMap[tstr]
 	if !ok {
-		return nil, fmt.Errorf("%w: %q", ErrUnrecognizedType, tstr)
+		t = reflect.TypeOf(UnknownType{})
 	}
 
 	val := reflect.New(t)
@@ -76,6 +76,10 @@ func CborDecodeValue(b []byte) (CBOR, error) {
 
 	t, ok := lexTypesMap[tstr]
 	if !ok {
+		// It is possible to gracefully handle this case, like in JsonDecodeValue,
+		// but since cbg.CBORUnmarshaller takes io.Reader as an input,
+		// that requires a function that would correctly advance the reader
+		// to the end of a value (and return the bytes).
 		return nil, fmt.Errorf("%w: %q", ErrUnrecognizedType, tstr)
 	}
 
@@ -112,6 +116,12 @@ func (ltd *LexiconTypeDecoder) MarshalJSON() ([]byte, error) {
 	if ltd == nil || ltd.Val == nil {
 		return nil, fmt.Errorf("LexiconTypeDecoder MarshalJSON called on a nil")
 	}
+
+	if v, ok := ltd.Val.(*UnknownType); ok {
+		// Shortcut for passing through unrecognized values
+		return v.MarshalJSON()
+	}
+
 	v := reflect.ValueOf(ltd.Val)
 	t := v.Type()
 	sf, ok := t.Elem().FieldByName("LexiconTypeID")
