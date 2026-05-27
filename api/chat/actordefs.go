@@ -22,13 +22,20 @@ type ActorDefs_DirectConvoMember struct {
 
 // ActorDefs_GroupConvoMember is a "groupConvoMember" in the chat.bsky.actor.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here].
+// [NOTE: This is under active development and should be considered unstable while this note is here]. A current group convo member.
 type ActorDefs_GroupConvoMember struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.actor.defs#groupConvoMember"`
 	// addedBy: Who added this member. Only present if the member was added (instead of joining via link).
 	AddedBy *ActorDefs_ProfileViewBasic `json:"addedBy,omitempty" cborgen:"addedBy,omitempty"`
 	// role: The member's role within this conversation. Only present in group conversation member lists.
 	Role *string `json:"role" cborgen:"role"`
+}
+
+// ActorDefs_PastGroupConvoMember is a "pastGroupConvoMember" in the chat.bsky.actor.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. A past group convo member.
+type ActorDefs_PastGroupConvoMember struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.actor.defs#pastGroupConvoMember"`
 }
 
 // ActorDefs_ProfileViewBasic is a "profileViewBasic" in the chat.bsky.actor.defs schema.
@@ -50,8 +57,9 @@ type ActorDefs_ProfileViewBasic struct {
 
 // Union field that has data specific to different kinds of convos.
 type ActorDefs_ProfileViewBasic_Kind struct {
-	ActorDefs_DirectConvoMember *ActorDefs_DirectConvoMember
-	ActorDefs_GroupConvoMember  *ActorDefs_GroupConvoMember
+	ActorDefs_DirectConvoMember    *ActorDefs_DirectConvoMember
+	ActorDefs_GroupConvoMember     *ActorDefs_GroupConvoMember
+	ActorDefs_PastGroupConvoMember *ActorDefs_PastGroupConvoMember
 }
 
 func (t *ActorDefs_ProfileViewBasic_Kind) MarshalJSON() ([]byte, error) {
@@ -62,6 +70,10 @@ func (t *ActorDefs_ProfileViewBasic_Kind) MarshalJSON() ([]byte, error) {
 	if t.ActorDefs_GroupConvoMember != nil {
 		t.ActorDefs_GroupConvoMember.LexiconTypeID = "chat.bsky.actor.defs#groupConvoMember"
 		return json.Marshal(t.ActorDefs_GroupConvoMember)
+	}
+	if t.ActorDefs_PastGroupConvoMember != nil {
+		t.ActorDefs_PastGroupConvoMember.LexiconTypeID = "chat.bsky.actor.defs#pastGroupConvoMember"
+		return json.Marshal(t.ActorDefs_PastGroupConvoMember)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -79,6 +91,9 @@ func (t *ActorDefs_ProfileViewBasic_Kind) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.actor.defs#groupConvoMember":
 		t.ActorDefs_GroupConvoMember = new(ActorDefs_GroupConvoMember)
 		return json.Unmarshal(b, t.ActorDefs_GroupConvoMember)
+	case "chat.bsky.actor.defs#pastGroupConvoMember":
+		t.ActorDefs_PastGroupConvoMember = new(ActorDefs_PastGroupConvoMember)
+		return json.Unmarshal(b, t.ActorDefs_PastGroupConvoMember)
 	default:
 		return nil
 	}
