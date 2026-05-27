@@ -1,13 +1,18 @@
 {
   "lexicon": 1,
-  "id": "chat.bsky.convo.listConvoRequests",
+  "id": "chat.bsky.group.listMutualGroups",
   "defs": {
     "main": {
       "type": "query",
-      "description": "[NOTE: This is under active development and should be considered unstable while this note is here]. Returns a page of incoming conversation requests for the user. Direct convo requests are returned as convoView; group join requests made by the user are returned as joinRequestConvoView.",
+      "description": "[NOTE: This is under active development and should be considered unstable while this note is here]. Returns a page of group conversations that both the requester and the specified actor are members of.",
       "parameters": {
         "type": "params",
+        "required": ["subject"],
         "properties": {
+          "subject": {
+            "type": "string",
+            "format": "did"
+          },
           "limit": {
             "type": "integer",
             "minimum": 1,
@@ -21,17 +26,14 @@
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["requests"],
+          "required": ["convos"],
           "properties": {
             "cursor": { "type": "string" },
-            "requests": {
+            "convos": {
               "type": "array",
               "items": {
-                "type": "union",
-                "refs": [
-                  "chat.bsky.convo.defs#convoView",
-                  "chat.bsky.group.defs#joinRequestConvoView"
-                ]
+                "type": "ref",
+                "ref": "chat.bsky.convo.defs#convoView"
               }
             }
           }

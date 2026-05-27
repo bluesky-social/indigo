@@ -16,6 +16,8 @@ import (
 type ConvoGetMessages_Output struct {
 	Cursor   *string                                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Messages []*ConvoGetMessages_Output_Messages_Elem `json:"messages" cborgen:"messages"`
+	// relatedProfiles: Set of all members who authored or reacted to the returned messages. Members referred to by system messages are also included.
+	RelatedProfiles []*ActorDefs_ProfileViewBasic `json:"relatedProfiles,omitempty" cborgen:"relatedProfiles,omitempty"`
 }
 
 type ConvoGetMessages_Output_Messages_Elem struct {

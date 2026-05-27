@@ -18,19 +18,14 @@ type ModerationGetMessageContext_Output struct {
 }
 
 type ModerationGetMessageContext_Output_Messages_Elem struct {
-	ConvoDefs_MessageView        *ConvoDefs_MessageView
-	ConvoDefs_DeletedMessageView *ConvoDefs_DeletedMessageView
-	ConvoDefs_SystemMessageView  *ConvoDefs_SystemMessageView
+	ConvoDefs_MessageView       *ConvoDefs_MessageView
+	ConvoDefs_SystemMessageView *ConvoDefs_SystemMessageView
 }
 
 func (t *ModerationGetMessageContext_Output_Messages_Elem) MarshalJSON() ([]byte, error) {
 	if t.ConvoDefs_MessageView != nil {
 		t.ConvoDefs_MessageView.LexiconTypeID = "chat.bsky.convo.defs#messageView"
 		return json.Marshal(t.ConvoDefs_MessageView)
-	}
-	if t.ConvoDefs_DeletedMessageView != nil {
-		t.ConvoDefs_DeletedMessageView.LexiconTypeID = "chat.bsky.convo.defs#deletedMessageView"
-		return json.Marshal(t.ConvoDefs_DeletedMessageView)
 	}
 	if t.ConvoDefs_SystemMessageView != nil {
 		t.ConvoDefs_SystemMessageView.LexiconTypeID = "chat.bsky.convo.defs#systemMessageView"
@@ -49,9 +44,6 @@ func (t *ModerationGetMessageContext_Output_Messages_Elem) UnmarshalJSON(b []byt
 	case "chat.bsky.convo.defs#messageView":
 		t.ConvoDefs_MessageView = new(ConvoDefs_MessageView)
 		return json.Unmarshal(b, t.ConvoDefs_MessageView)
-	case "chat.bsky.convo.defs#deletedMessageView":
-		t.ConvoDefs_DeletedMessageView = new(ConvoDefs_DeletedMessageView)
-		return json.Unmarshal(b, t.ConvoDefs_DeletedMessageView)
 	case "chat.bsky.convo.defs#systemMessageView":
 		t.ConvoDefs_SystemMessageView = new(ConvoDefs_SystemMessageView)
 		return json.Unmarshal(b, t.ConvoDefs_SystemMessageView)
@@ -62,8 +54,11 @@ func (t *ModerationGetMessageContext_Output_Messages_Elem) UnmarshalJSON(b []byt
 
 // ModerationGetMessageContext calls the XRPC method "chat.bsky.moderation.getMessageContext".
 //
+// after: Number of user messages after the target to include. System messages between the target and the latest returned user message are also included, capped per gap by `maxInterleavedSystemMessages`. If there are no user messages after the target, up to `maxInterleavedSystemMessages` system messages immediately following the target are returned instead.
+// before: Number of user messages before the target to include. System messages between the earliest returned user message and the target are also included, capped per gap by `maxInterleavedSystemMessages`. If there are no user messages before the target, up to `maxInterleavedSystemMessages` system messages immediately preceding the target are returned instead.
 // convoId: Conversation that the message is from. NOTE: this field will eventually be required.
-func ModerationGetMessageContext(ctx context.Context, c lexutil.LexClient, after int64, before int64, convoId string, messageId string) (*ModerationGetMessageContext_Output, error) {
+// maxInterleavedSystemMessages: Maximum number of system messages to include per gap between consecutive returned messages (and per side when there are no user messages on that side). Within a gap, the system messages closest to the earlier message are kept.
+func ModerationGetMessageContext(ctx context.Context, c lexutil.LexClient, after int64, before int64, convoId string, maxInterleavedSystemMessages int64, messageId string) (*ModerationGetMessageContext_Output, error) {
 	var out ModerationGetMessageContext_Output
 
 	params := map[string]interface{}{}
@@ -75,6 +70,9 @@ func ModerationGetMessageContext(ctx context.Context, c lexutil.LexClient, after
 	}
 	if convoId != "" {
 		params["convoId"] = convoId
+	}
+	if maxInterleavedSystemMessages != 0 {
+		params["maxInterleavedSystemMessages"] = maxInterleavedSystemMessages
 	}
 	params["messageId"] = messageId
 	if err := c.LexDo(ctx, lexutil.Query, "", "chat.bsky.moderation.getMessageContext", params, nil, &out); err != nil {
