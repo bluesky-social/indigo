@@ -19,8 +19,8 @@ type ConvoListConvoRequests_Output struct {
 }
 
 type ConvoListConvoRequests_Output_Requests_Elem struct {
-	ConvoDefs_ConvoView       *ConvoDefs_ConvoView
-	GroupDefs_JoinRequestView *GroupDefs_JoinRequestView
+	ConvoDefs_ConvoView            *ConvoDefs_ConvoView
+	GroupDefs_JoinRequestConvoView *GroupDefs_JoinRequestConvoView
 }
 
 func (t *ConvoListConvoRequests_Output_Requests_Elem) MarshalJSON() ([]byte, error) {
@@ -28,9 +28,9 @@ func (t *ConvoListConvoRequests_Output_Requests_Elem) MarshalJSON() ([]byte, err
 		t.ConvoDefs_ConvoView.LexiconTypeID = "chat.bsky.convo.defs#convoView"
 		return json.Marshal(t.ConvoDefs_ConvoView)
 	}
-	if t.GroupDefs_JoinRequestView != nil {
-		t.GroupDefs_JoinRequestView.LexiconTypeID = "chat.bsky.group.defs#joinRequestView"
-		return json.Marshal(t.GroupDefs_JoinRequestView)
+	if t.GroupDefs_JoinRequestConvoView != nil {
+		t.GroupDefs_JoinRequestConvoView.LexiconTypeID = "chat.bsky.group.defs#joinRequestConvoView"
+		return json.Marshal(t.GroupDefs_JoinRequestConvoView)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -45,9 +45,9 @@ func (t *ConvoListConvoRequests_Output_Requests_Elem) UnmarshalJSON(b []byte) er
 	case "chat.bsky.convo.defs#convoView":
 		t.ConvoDefs_ConvoView = new(ConvoDefs_ConvoView)
 		return json.Unmarshal(b, t.ConvoDefs_ConvoView)
-	case "chat.bsky.group.defs#joinRequestView":
-		t.GroupDefs_JoinRequestView = new(GroupDefs_JoinRequestView)
-		return json.Unmarshal(b, t.GroupDefs_JoinRequestView)
+	case "chat.bsky.group.defs#joinRequestConvoView":
+		t.GroupDefs_JoinRequestConvoView = new(GroupDefs_JoinRequestConvoView)
+		return json.Unmarshal(b, t.GroupDefs_JoinRequestConvoView)
 	default:
 		return nil
 	}

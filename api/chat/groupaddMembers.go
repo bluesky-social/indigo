@@ -18,7 +18,8 @@ type GroupAddMembers_Input struct {
 
 // GroupAddMembers_Output is the output of a chat.bsky.group.addMembers call.
 type GroupAddMembers_Output struct {
-	Convo *ConvoDefs_ConvoView `json:"convo" cborgen:"convo"`
+	AddedMembers []*ActorDefs_ProfileViewBasic `json:"addedMembers,omitempty" cborgen:"addedMembers,omitempty"`
+	Convo        *ConvoDefs_ConvoView          `json:"convo" cborgen:"convo"`
 }
 
 // GroupAddMembers calls the XRPC method "chat.bsky.group.addMembers".

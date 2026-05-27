@@ -4,12 +4,19 @@
 
 package chat
 
-// GroupDefs_GroupPublicView is a "groupPublicView" in the chat.bsky.group.defs schema.
-type GroupDefs_GroupPublicView struct {
-	MemberCount     int64                       `json:"memberCount" cborgen:"memberCount"`
-	Name            string                      `json:"name" cborgen:"name"`
-	Owner           *ActorDefs_ProfileViewBasic `json:"owner" cborgen:"owner"`
-	RequireApproval bool                        `json:"requireApproval" cborgen:"requireApproval"`
+// GroupDefs_JoinLinkPreviewView is a "joinLinkPreviewView" in the chat.bsky.group.defs schema.
+type GroupDefs_JoinLinkPreviewView struct {
+	Code string `json:"code" cborgen:"code"`
+	// convo: Present only if the request is authenticated and the user is a member of the group.
+	Convo           *ConvoDefs_ConvoView           `json:"convo,omitempty" cborgen:"convo,omitempty"`
+	EnabledStatus   *string                        `json:"enabledStatus" cborgen:"enabledStatus"`
+	JoinRule        *string                        `json:"joinRule" cborgen:"joinRule"`
+	MemberCount     int64                          `json:"memberCount" cborgen:"memberCount"`
+	MemberLimit     int64                          `json:"memberLimit" cborgen:"memberLimit"`
+	Name            string                         `json:"name" cborgen:"name"`
+	Owner           *ActorDefs_ProfileViewBasic    `json:"owner" cborgen:"owner"`
+	RequireApproval bool                           `json:"requireApproval" cborgen:"requireApproval"`
+	Viewer          *GroupDefs_JoinLinkViewerState `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 // GroupDefs_JoinLinkView is a "joinLinkView" in the chat.bsky.group.defs schema.
@@ -21,10 +28,27 @@ type GroupDefs_JoinLinkView struct {
 	RequireApproval bool    `json:"requireApproval" cborgen:"requireApproval"`
 }
 
+// GroupDefs_JoinLinkViewerState is a "joinLinkViewerState" in the chat.bsky.group.defs schema.
+type GroupDefs_JoinLinkViewerState struct {
+	RequestedAt *string `json:"requestedAt,omitempty" cborgen:"requestedAt,omitempty"`
+}
+
+// GroupDefs_JoinRequestConvoView is a "joinRequestConvoView" in the chat.bsky.group.defs schema.
+//
+// A join request from the perspective of the requester, including enough group context to render the request in a list (e.g. group name, owner, member count).
+type GroupDefs_JoinRequestConvoView struct {
+	LexiconTypeID string                      `json:"$type" cborgen:"$type,const=chat.bsky.group.defs#joinRequestConvoView"`
+	ConvoId       string                      `json:"convoId" cborgen:"convoId"`
+	MemberCount   int64                       `json:"memberCount" cborgen:"memberCount"`
+	MemberLimit   int64                       `json:"memberLimit" cborgen:"memberLimit"`
+	Name          string                      `json:"name" cborgen:"name"`
+	Owner         *ActorDefs_ProfileViewBasic `json:"owner" cborgen:"owner"`
+	RequestedAt   string                      `json:"requestedAt" cborgen:"requestedAt"`
+}
+
 // GroupDefs_JoinRequestView is a "joinRequestView" in the chat.bsky.group.defs schema.
 type GroupDefs_JoinRequestView struct {
-	LexiconTypeID string                      `json:"$type" cborgen:"$type,const=chat.bsky.group.defs#joinRequestView"`
-	ConvoId       string                      `json:"convoId" cborgen:"convoId"`
-	RequestedAt   string                      `json:"requestedAt" cborgen:"requestedAt"`
-	RequestedBy   *ActorDefs_ProfileViewBasic `json:"requestedBy" cborgen:"requestedBy"`
+	ConvoId     string                      `json:"convoId" cborgen:"convoId"`
+	RequestedAt string                      `json:"requestedAt" cborgen:"requestedAt"`
+	RequestedBy *ActorDefs_ProfileViewBasic `json:"requestedBy" cborgen:"requestedBy"`
 }
