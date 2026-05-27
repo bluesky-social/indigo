@@ -8,13 +8,14 @@
       "errors": [
         { "name": "AccountSuspended" },
         { "name": "BlockedActor" },
-        { "name": "GroupInvitesDisabled" },
+        { "name": "BlockedSubject" },
         { "name": "ConvoLocked" },
         { "name": "InsufficientRole" },
         { "name": "InvalidConvo" },
         { "name": "MemberLimitReached" },
         { "name": "NotFollowedBySender" },
-        { "name": "RecipientNotFound" }
+        { "name": "RecipientNotFound" },
+        { "name": "UserForbidsGroups" }
       ],
       "input": {
         "encoding": "application/json",
@@ -40,6 +41,13 @@
             "convo": {
               "type": "ref",
               "ref": "chat.bsky.convo.defs#convoView"
+            },
+            "addedMembers": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "chat.bsky.actor.defs#profileViewBasic"
+              }
             }
           }
         }
