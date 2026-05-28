@@ -589,14 +589,14 @@ type ActorDefs_VerificationState struct {
 type ActorDefs_VerificationView struct {
 	// createdAt: Timestamp when the verification was created.
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
-	// displayName: The display name of the issuer.
-	DisplayName *string `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
-	// handle: The handle of the issuer.
-	Handle *string `json:"handle,omitempty" cborgen:"handle,omitempty"`
 	// isValid: True if the verification passes validation, otherwise false.
 	IsValid bool `json:"isValid" cborgen:"isValid"`
 	// issuer: The user who issued this verification.
 	Issuer string `json:"issuer" cborgen:"issuer"`
+	// issuerDisplayName: The display name of the issuer.
+	IssuerDisplayName *string `json:"issuerDisplayName,omitempty" cborgen:"issuerDisplayName,omitempty"`
+	// issuerHandle: The handle of the issuer.
+	IssuerHandle *string `json:"issuerHandle,omitempty" cborgen:"issuerHandle,omitempty"`
 	// uri: The AT-URI of the verification record.
 	Uri string `json:"uri" cborgen:"uri"`
 }
