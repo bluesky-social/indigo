@@ -166,6 +166,13 @@ type ModerationDefs_CancelScheduledTakedownEvent struct {
 	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 }
 
+// ModerationDefs_ConvoView is a "convoView" in the tools.ozone.moderation.defs schema.
+type ModerationDefs_ConvoView struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#convoView"`
+	ConvoId       string `json:"convoId" cborgen:"convoId"`
+	Did           string `json:"did" cborgen:"did"`
+}
+
 // ModerationDefs_IdentityEvent is a "identityEvent" in the tools.ozone.moderation.defs schema.
 //
 // Logs identity related events on a repo subject. Normally captured by automod from the firehose and emitted to ozone for historical tracking.
@@ -325,6 +332,8 @@ type ModerationDefs_ModEventTag struct {
 	Add []string `json:"add" cborgen:"add"`
 	// comment: Additional comment about added/removed tags.
 	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	// durationInHours: Indicates how long the tags being added should remain before automatically being removed. Only applies to tags being added.
+	DurationInHours *int64 `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 	// remove: Tags to be removed to the subject. Ignores a tag If it doesn't exist, won't be duplicated.
 	Remove []string `json:"remove" cborgen:"remove"`
 }
@@ -617,6 +626,7 @@ type ModerationDefs_ModEventViewDetail_Subject struct {
 	ModerationDefs_RepoViewNotFound   *ModerationDefs_RepoViewNotFound
 	ModerationDefs_RecordView         *ModerationDefs_RecordView
 	ModerationDefs_RecordViewNotFound *ModerationDefs_RecordViewNotFound
+	ModerationDefs_ConvoView          *ModerationDefs_ConvoView
 }
 
 func (t *ModerationDefs_ModEventViewDetail_Subject) MarshalJSON() ([]byte, error) {
@@ -635,6 +645,10 @@ func (t *ModerationDefs_ModEventViewDetail_Subject) MarshalJSON() ([]byte, error
 	if t.ModerationDefs_RecordViewNotFound != nil {
 		t.ModerationDefs_RecordViewNotFound.LexiconTypeID = "tools.ozone.moderation.defs#recordViewNotFound"
 		return json.Marshal(t.ModerationDefs_RecordViewNotFound)
+	}
+	if t.ModerationDefs_ConvoView != nil {
+		t.ModerationDefs_ConvoView.LexiconTypeID = "tools.ozone.moderation.defs#convoView"
+		return json.Marshal(t.ModerationDefs_ConvoView)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -658,6 +672,9 @@ func (t *ModerationDefs_ModEventViewDetail_Subject) UnmarshalJSON(b []byte) erro
 	case "tools.ozone.moderation.defs#recordViewNotFound":
 		t.ModerationDefs_RecordViewNotFound = new(ModerationDefs_RecordViewNotFound)
 		return json.Unmarshal(b, t.ModerationDefs_RecordViewNotFound)
+	case "tools.ozone.moderation.defs#convoView":
+		t.ModerationDefs_ConvoView = new(ModerationDefs_ConvoView)
+		return json.Unmarshal(b, t.ModerationDefs_ConvoView)
 	default:
 		return nil
 	}
@@ -886,6 +903,7 @@ type ModerationDefs_ModEventView_Subject struct {
 	AdminDefs_RepoRef    *comatproto.AdminDefs_RepoRef
 	RepoStrongRef        *comatproto.RepoStrongRef
 	ConvoDefs_MessageRef *chatbsky.ConvoDefs_MessageRef
+	ConvoDefs_ConvoRef   *chatbsky.ConvoDefs_ConvoRef
 }
 
 func (t *ModerationDefs_ModEventView_Subject) MarshalJSON() ([]byte, error) {
@@ -900,6 +918,10 @@ func (t *ModerationDefs_ModEventView_Subject) MarshalJSON() ([]byte, error) {
 	if t.ConvoDefs_MessageRef != nil {
 		t.ConvoDefs_MessageRef.LexiconTypeID = "chat.bsky.convo.defs#messageRef"
 		return json.Marshal(t.ConvoDefs_MessageRef)
+	}
+	if t.ConvoDefs_ConvoRef != nil {
+		t.ConvoDefs_ConvoRef.LexiconTypeID = "chat.bsky.convo.defs#convoRef"
+		return json.Marshal(t.ConvoDefs_ConvoRef)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -920,6 +942,9 @@ func (t *ModerationDefs_ModEventView_Subject) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#messageRef":
 		t.ConvoDefs_MessageRef = new(chatbsky.ConvoDefs_MessageRef)
 		return json.Unmarshal(b, t.ConvoDefs_MessageRef)
+	case "chat.bsky.convo.defs#convoRef":
+		t.ConvoDefs_ConvoRef = new(chatbsky.ConvoDefs_ConvoRef)
+		return json.Unmarshal(b, t.ConvoDefs_ConvoRef)
 	default:
 		return nil
 	}
@@ -1215,6 +1240,7 @@ type ModerationDefs_SubjectStatusView_Subject struct {
 	AdminDefs_RepoRef    *comatproto.AdminDefs_RepoRef
 	RepoStrongRef        *comatproto.RepoStrongRef
 	ConvoDefs_MessageRef *chatbsky.ConvoDefs_MessageRef
+	ConvoDefs_ConvoRef   *chatbsky.ConvoDefs_ConvoRef
 }
 
 func (t *ModerationDefs_SubjectStatusView_Subject) MarshalJSON() ([]byte, error) {
@@ -1229,6 +1255,10 @@ func (t *ModerationDefs_SubjectStatusView_Subject) MarshalJSON() ([]byte, error)
 	if t.ConvoDefs_MessageRef != nil {
 		t.ConvoDefs_MessageRef.LexiconTypeID = "chat.bsky.convo.defs#messageRef"
 		return json.Marshal(t.ConvoDefs_MessageRef)
+	}
+	if t.ConvoDefs_ConvoRef != nil {
+		t.ConvoDefs_ConvoRef.LexiconTypeID = "chat.bsky.convo.defs#convoRef"
+		return json.Marshal(t.ConvoDefs_ConvoRef)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -1249,6 +1279,9 @@ func (t *ModerationDefs_SubjectStatusView_Subject) UnmarshalJSON(b []byte) error
 	case "chat.bsky.convo.defs#messageRef":
 		t.ConvoDefs_MessageRef = new(chatbsky.ConvoDefs_MessageRef)
 		return json.Unmarshal(b, t.ConvoDefs_MessageRef)
+	case "chat.bsky.convo.defs#convoRef":
+		t.ConvoDefs_ConvoRef = new(chatbsky.ConvoDefs_ConvoRef)
+		return json.Unmarshal(b, t.ConvoDefs_ConvoRef)
 	default:
 		return nil
 	}

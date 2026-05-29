@@ -14,8 +14,9 @@ import (
 
 // ConvoDefs_ConvoRef is a "convoRef" in the chat.bsky.convo.defs schema.
 type ConvoDefs_ConvoRef struct {
-	ConvoId string `json:"convoId" cborgen:"convoId"`
-	Did     string `json:"did" cborgen:"did"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#convoRef"`
+	ConvoId       string `json:"convoId" cborgen:"convoId"`
+	Did           string `json:"did" cborgen:"did"`
 }
 
 // ConvoDefs_ConvoView is a "convoView" in the chat.bsky.convo.defs schema.
@@ -174,6 +175,8 @@ type ConvoDefs_GroupConvo struct {
 	MemberLimit int64 `json:"memberLimit" cborgen:"memberLimit"`
 	// name: The display name of the group conversation.
 	Name string `json:"name" cborgen:"name"`
+	// unreadJoinRequestCount: The number of unread join requests for the group conversation. Only present for the owner.
+	UnreadJoinRequestCount *int64 `json:"unreadJoinRequestCount,omitempty" cborgen:"unreadJoinRequestCount,omitempty"`
 }
 
 // ConvoDefs_LogAcceptConvo is a "logAcceptConvo" in the chat.bsky.convo.defs schema.
@@ -496,7 +499,7 @@ type ConvoDefs_LogMuteConvo struct {
 
 // ConvoDefs_LogOutgoingJoinRequest is a "logOutgoingJoinRequest" in the chat.bsky.convo.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join request was made by the viewer.
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a join request was made by the requester. Only requester actor gets this.
 type ConvoDefs_LogOutgoingJoinRequest struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logOutgoingJoinRequest"`
 	ConvoId       string `json:"convoId" cborgen:"convoId"`
@@ -554,6 +557,15 @@ func (t *ConvoDefs_LogReadConvo_Message) UnmarshalJSON(b []byte) error {
 	default:
 		return nil
 	}
+}
+
+// ConvoDefs_LogReadJoinRequests is a "logReadJoinRequests" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating the group owner marked join requests as read. Only the owner gets this.
+type ConvoDefs_LogReadJoinRequests struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logReadJoinRequests"`
+	ConvoId       string `json:"convoId" cborgen:"convoId"`
+	Rev           string `json:"rev" cborgen:"rev"`
 }
 
 // ConvoDefs_LogReadMessage is a "logReadMessage" in the chat.bsky.convo.defs schema.
@@ -703,6 +715,26 @@ type ConvoDefs_LogUnmuteConvo struct {
 	Rev           string `json:"rev" cborgen:"rev"`
 }
 
+// ConvoDefs_LogWithdrawIncomingJoinRequest is a "logWithdrawIncomingJoinRequest" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating a prospective member withdrew their join request. Only the owner gets this.
+type ConvoDefs_LogWithdrawIncomingJoinRequest struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logWithdrawIncomingJoinRequest"`
+	ConvoId       string `json:"convoId" cborgen:"convoId"`
+	// member: Prospective member who withdrew their join request.
+	Member *ActorDefs_ProfileViewBasic `json:"member" cborgen:"member"`
+	Rev    string                      `json:"rev" cborgen:"rev"`
+}
+
+// ConvoDefs_LogWithdrawOutgoingJoinRequest is a "logWithdrawOutgoingJoinRequest" in the chat.bsky.convo.defs schema.
+//
+// [NOTE: This is under active development and should be considered unstable while this note is here]. Event indicating the viewer withdrew their own join request. Only requester actor gets this.
+type ConvoDefs_LogWithdrawOutgoingJoinRequest struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#logWithdrawOutgoingJoinRequest"`
+	ConvoId       string `json:"convoId" cborgen:"convoId"`
+	Rev           string `json:"rev" cborgen:"rev"`
+}
+
 // ConvoDefs_MessageAndReactionView is a "messageAndReactionView" in the chat.bsky.convo.defs schema.
 type ConvoDefs_MessageAndReactionView struct {
 	LexiconTypeID string                  `json:"$type" cborgen:"$type,const=chat.bsky.convo.defs#messageAndReactionView"`
@@ -719,13 +751,18 @@ type ConvoDefs_MessageInput struct {
 }
 
 type ConvoDefs_MessageInput_Embed struct {
-	EmbedRecord *appbsky.EmbedRecord
+	EmbedRecord   *appbsky.EmbedRecord
+	EmbedJoinLink *EmbedJoinLink
 }
 
 func (t *ConvoDefs_MessageInput_Embed) MarshalJSON() ([]byte, error) {
 	if t.EmbedRecord != nil {
 		t.EmbedRecord.LexiconTypeID = "app.bsky.embed.record"
 		return json.Marshal(t.EmbedRecord)
+	}
+	if t.EmbedJoinLink != nil {
+		t.EmbedJoinLink.LexiconTypeID = "chat.bsky.embed.joinLink"
+		return json.Marshal(t.EmbedJoinLink)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -740,6 +777,9 @@ func (t *ConvoDefs_MessageInput_Embed) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.record":
 		t.EmbedRecord = new(appbsky.EmbedRecord)
 		return json.Unmarshal(b, t.EmbedRecord)
+	case "chat.bsky.embed.joinLink":
+		t.EmbedJoinLink = new(EmbedJoinLink)
+		return json.Unmarshal(b, t.EmbedJoinLink)
 	default:
 		return nil
 	}
@@ -774,13 +814,18 @@ type ConvoDefs_MessageViewSender struct {
 }
 
 type ConvoDefs_MessageView_Embed struct {
-	EmbedRecord_View *appbsky.EmbedRecord_View
+	EmbedRecord_View   *appbsky.EmbedRecord_View
+	EmbedJoinLink_View *EmbedJoinLink_View
 }
 
 func (t *ConvoDefs_MessageView_Embed) MarshalJSON() ([]byte, error) {
 	if t.EmbedRecord_View != nil {
 		t.EmbedRecord_View.LexiconTypeID = "app.bsky.embed.record#view"
 		return json.Marshal(t.EmbedRecord_View)
+	}
+	if t.EmbedJoinLink_View != nil {
+		t.EmbedJoinLink_View.LexiconTypeID = "chat.bsky.embed.joinLink#view"
+		return json.Marshal(t.EmbedJoinLink_View)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -795,6 +840,9 @@ func (t *ConvoDefs_MessageView_Embed) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.record#view":
 		t.EmbedRecord_View = new(appbsky.EmbedRecord_View)
 		return json.Unmarshal(b, t.EmbedRecord_View)
+	case "chat.bsky.embed.joinLink#view":
+		t.EmbedJoinLink_View = new(EmbedJoinLink_View)
+		return json.Unmarshal(b, t.EmbedJoinLink_View)
 	default:
 		return nil
 	}

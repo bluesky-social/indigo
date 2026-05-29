@@ -19,33 +19,36 @@ type ConvoGetLog_Output struct {
 }
 
 type ConvoGetLog_Output_Logs_Elem struct {
-	ConvoDefs_LogBeginConvo           *ConvoDefs_LogBeginConvo
-	ConvoDefs_LogAcceptConvo          *ConvoDefs_LogAcceptConvo
-	ConvoDefs_LogLeaveConvo           *ConvoDefs_LogLeaveConvo
-	ConvoDefs_LogMuteConvo            *ConvoDefs_LogMuteConvo
-	ConvoDefs_LogUnmuteConvo          *ConvoDefs_LogUnmuteConvo
-	ConvoDefs_LogCreateMessage        *ConvoDefs_LogCreateMessage
-	ConvoDefs_LogDeleteMessage        *ConvoDefs_LogDeleteMessage
-	ConvoDefs_LogReadMessage          *ConvoDefs_LogReadMessage
-	ConvoDefs_LogAddReaction          *ConvoDefs_LogAddReaction
-	ConvoDefs_LogRemoveReaction       *ConvoDefs_LogRemoveReaction
-	ConvoDefs_LogReadConvo            *ConvoDefs_LogReadConvo
-	ConvoDefs_LogAddMember            *ConvoDefs_LogAddMember
-	ConvoDefs_LogRemoveMember         *ConvoDefs_LogRemoveMember
-	ConvoDefs_LogMemberJoin           *ConvoDefs_LogMemberJoin
-	ConvoDefs_LogMemberLeave          *ConvoDefs_LogMemberLeave
-	ConvoDefs_LogLockConvo            *ConvoDefs_LogLockConvo
-	ConvoDefs_LogUnlockConvo          *ConvoDefs_LogUnlockConvo
-	ConvoDefs_LogLockConvoPermanently *ConvoDefs_LogLockConvoPermanently
-	ConvoDefs_LogEditGroup            *ConvoDefs_LogEditGroup
-	ConvoDefs_LogCreateJoinLink       *ConvoDefs_LogCreateJoinLink
-	ConvoDefs_LogEditJoinLink         *ConvoDefs_LogEditJoinLink
-	ConvoDefs_LogEnableJoinLink       *ConvoDefs_LogEnableJoinLink
-	ConvoDefs_LogDisableJoinLink      *ConvoDefs_LogDisableJoinLink
-	ConvoDefs_LogIncomingJoinRequest  *ConvoDefs_LogIncomingJoinRequest
-	ConvoDefs_LogApproveJoinRequest   *ConvoDefs_LogApproveJoinRequest
-	ConvoDefs_LogRejectJoinRequest    *ConvoDefs_LogRejectJoinRequest
-	ConvoDefs_LogOutgoingJoinRequest  *ConvoDefs_LogOutgoingJoinRequest
+	ConvoDefs_LogBeginConvo                  *ConvoDefs_LogBeginConvo
+	ConvoDefs_LogAcceptConvo                 *ConvoDefs_LogAcceptConvo
+	ConvoDefs_LogLeaveConvo                  *ConvoDefs_LogLeaveConvo
+	ConvoDefs_LogMuteConvo                   *ConvoDefs_LogMuteConvo
+	ConvoDefs_LogUnmuteConvo                 *ConvoDefs_LogUnmuteConvo
+	ConvoDefs_LogCreateMessage               *ConvoDefs_LogCreateMessage
+	ConvoDefs_LogDeleteMessage               *ConvoDefs_LogDeleteMessage
+	ConvoDefs_LogReadMessage                 *ConvoDefs_LogReadMessage
+	ConvoDefs_LogAddReaction                 *ConvoDefs_LogAddReaction
+	ConvoDefs_LogRemoveReaction              *ConvoDefs_LogRemoveReaction
+	ConvoDefs_LogReadConvo                   *ConvoDefs_LogReadConvo
+	ConvoDefs_LogAddMember                   *ConvoDefs_LogAddMember
+	ConvoDefs_LogRemoveMember                *ConvoDefs_LogRemoveMember
+	ConvoDefs_LogMemberJoin                  *ConvoDefs_LogMemberJoin
+	ConvoDefs_LogMemberLeave                 *ConvoDefs_LogMemberLeave
+	ConvoDefs_LogLockConvo                   *ConvoDefs_LogLockConvo
+	ConvoDefs_LogUnlockConvo                 *ConvoDefs_LogUnlockConvo
+	ConvoDefs_LogLockConvoPermanently        *ConvoDefs_LogLockConvoPermanently
+	ConvoDefs_LogEditGroup                   *ConvoDefs_LogEditGroup
+	ConvoDefs_LogCreateJoinLink              *ConvoDefs_LogCreateJoinLink
+	ConvoDefs_LogEditJoinLink                *ConvoDefs_LogEditJoinLink
+	ConvoDefs_LogEnableJoinLink              *ConvoDefs_LogEnableJoinLink
+	ConvoDefs_LogDisableJoinLink             *ConvoDefs_LogDisableJoinLink
+	ConvoDefs_LogIncomingJoinRequest         *ConvoDefs_LogIncomingJoinRequest
+	ConvoDefs_LogApproveJoinRequest          *ConvoDefs_LogApproveJoinRequest
+	ConvoDefs_LogRejectJoinRequest           *ConvoDefs_LogRejectJoinRequest
+	ConvoDefs_LogOutgoingJoinRequest         *ConvoDefs_LogOutgoingJoinRequest
+	ConvoDefs_LogWithdrawIncomingJoinRequest *ConvoDefs_LogWithdrawIncomingJoinRequest
+	ConvoDefs_LogWithdrawOutgoingJoinRequest *ConvoDefs_LogWithdrawOutgoingJoinRequest
+	ConvoDefs_LogReadJoinRequests            *ConvoDefs_LogReadJoinRequests
 }
 
 func (t *ConvoGetLog_Output_Logs_Elem) MarshalJSON() ([]byte, error) {
@@ -157,6 +160,18 @@ func (t *ConvoGetLog_Output_Logs_Elem) MarshalJSON() ([]byte, error) {
 		t.ConvoDefs_LogOutgoingJoinRequest.LexiconTypeID = "chat.bsky.convo.defs#logOutgoingJoinRequest"
 		return json.Marshal(t.ConvoDefs_LogOutgoingJoinRequest)
 	}
+	if t.ConvoDefs_LogWithdrawIncomingJoinRequest != nil {
+		t.ConvoDefs_LogWithdrawIncomingJoinRequest.LexiconTypeID = "chat.bsky.convo.defs#logWithdrawIncomingJoinRequest"
+		return json.Marshal(t.ConvoDefs_LogWithdrawIncomingJoinRequest)
+	}
+	if t.ConvoDefs_LogWithdrawOutgoingJoinRequest != nil {
+		t.ConvoDefs_LogWithdrawOutgoingJoinRequest.LexiconTypeID = "chat.bsky.convo.defs#logWithdrawOutgoingJoinRequest"
+		return json.Marshal(t.ConvoDefs_LogWithdrawOutgoingJoinRequest)
+	}
+	if t.ConvoDefs_LogReadJoinRequests != nil {
+		t.ConvoDefs_LogReadJoinRequests.LexiconTypeID = "chat.bsky.convo.defs#logReadJoinRequests"
+		return json.Marshal(t.ConvoDefs_LogReadJoinRequests)
+	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
 
@@ -248,6 +263,15 @@ func (t *ConvoGetLog_Output_Logs_Elem) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#logOutgoingJoinRequest":
 		t.ConvoDefs_LogOutgoingJoinRequest = new(ConvoDefs_LogOutgoingJoinRequest)
 		return json.Unmarshal(b, t.ConvoDefs_LogOutgoingJoinRequest)
+	case "chat.bsky.convo.defs#logWithdrawIncomingJoinRequest":
+		t.ConvoDefs_LogWithdrawIncomingJoinRequest = new(ConvoDefs_LogWithdrawIncomingJoinRequest)
+		return json.Unmarshal(b, t.ConvoDefs_LogWithdrawIncomingJoinRequest)
+	case "chat.bsky.convo.defs#logWithdrawOutgoingJoinRequest":
+		t.ConvoDefs_LogWithdrawOutgoingJoinRequest = new(ConvoDefs_LogWithdrawOutgoingJoinRequest)
+		return json.Unmarshal(b, t.ConvoDefs_LogWithdrawOutgoingJoinRequest)
+	case "chat.bsky.convo.defs#logReadJoinRequests":
+		t.ConvoDefs_LogReadJoinRequests = new(ConvoDefs_LogReadJoinRequests)
+		return json.Unmarshal(b, t.ConvoDefs_LogReadJoinRequests)
 	default:
 		return nil
 	}
