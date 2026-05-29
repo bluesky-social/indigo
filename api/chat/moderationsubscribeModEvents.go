@@ -222,3 +222,15 @@ type ModerationSubscribeModEvents_EventGroupChatUpdated struct {
 	// updateType: What changed.
 	UpdateType string `json:"updateType" cborgen:"updateType"`
 }
+
+// ModerationSubscribeModEvents_EventRateLimitExceeded is a "eventRateLimitExceeded" in the chat.bsky.moderation.subscribeModEvents schema.
+//
+// Fired when a user exceeds a rate limit.
+type ModerationSubscribeModEvents_EventRateLimitExceeded struct {
+	// actorDid: The DID of the user who hit the rate limit.
+	ActorDid  string `json:"actorDid" cborgen:"actorDid"`
+	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
+	// endpoint: The NSID of the endpoint that was rate limited.
+	Endpoint string `json:"endpoint" cborgen:"endpoint"`
+	Rev      string `json:"rev" cborgen:"rev"`
+}

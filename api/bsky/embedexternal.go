@@ -48,6 +48,8 @@ type EmbedExternal_View struct {
 
 // EmbedExternal_ViewExternal is a "viewExternal" in the app.bsky.embed.external schema.
 type EmbedExternal_ViewExternal struct {
+	// associatedProfiles: Profiles of the owners of the Atmosphere records that backed this view.
+	AssociatedProfiles []*ActorDefs_ProfileViewBasic `json:"associatedProfiles,omitempty" cborgen:"associatedProfiles,omitempty"`
 	// associatedRefs: StrongRefs (uri+cid) of the Atmosphere records that backed this view.
 	AssociatedRefs []*comatproto.RepoStrongRef `json:"associatedRefs,omitempty" cborgen:"associatedRefs,omitempty"`
 	// createdAt: When the external content was created, if available. Example: a publication date, for an article.
@@ -72,9 +74,9 @@ type EmbedExternal_ViewExternalSource struct {
 	// icon: Fully-qualified URL where an icon representing the source can be fetched. For example, CDN location provided by the App View.
 	Icon  *string                                `json:"icon,omitempty" cborgen:"icon,omitempty"`
 	Theme *EmbedExternal_ViewExternalSourceTheme `json:"theme,omitempty" cborgen:"theme,omitempty"`
-	Title *string                                `json:"title,omitempty" cborgen:"title,omitempty"`
+	Title string                                 `json:"title" cborgen:"title"`
 	// uri: URI of the source, if available. Example: the https:// URL of a site.standard.publication record.
-	Uri *string `json:"uri,omitempty" cborgen:"uri,omitempty"`
+	Uri string `json:"uri" cborgen:"uri"`
 }
 
 // EmbedExternal_ViewExternalSourceTheme is a "viewExternalSourceTheme" in the app.bsky.embed.external schema.

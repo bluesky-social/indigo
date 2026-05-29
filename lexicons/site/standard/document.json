@@ -1,10 +1,5 @@
 {
   "defs": {
-    "placeholder": {
-      "description": "Placeholder type used to seed open unions until concrete content/link lexicons are defined. Should not be used in real records.",
-      "properties": {},
-      "type": "object"
-    },
     "contributor": {
       "properties": {
         "did": {
@@ -22,9 +17,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "did"
-      ],
+      "required": ["did"],
       "type": "object"
     },
     "main": {
@@ -40,9 +33,7 @@
           "content": {
             "closed": false,
             "description": "Open union used to define the record's content. Each entry must specify a $type and may be extended with other lexicons to support additional content formats.",
-            "refs": [
-              "#placeholder"
-            ],
+            "refs": [],
             "type": "union"
           },
           "contributors": {
@@ -53,9 +44,7 @@
             "type": "array"
           },
           "coverImage": {
-            "accept": [
-              "image/*"
-            ],
+            "accept": ["image/*"],
             "description": "Image to used for thumbnail or cover image. Less than 1MB is size.",
             "maxSize": 1000000,
             "type": "blob"
@@ -68,16 +57,12 @@
           },
           "labels": {
             "description": "Self-label values for this post. Effectively content warnings.",
-            "refs": [
-              "com.atproto.label.defs#selfLabels"
-            ],
+            "refs": ["com.atproto.label.defs#selfLabels"],
             "type": "union"
           },
           "links": {
             "description": "Array of values describing relationships between this document and external resources",
-            "refs": [
-              "#placeholder"
-            ],
+            "refs": [],
             "type": "union"
           },
           "path": {
@@ -119,11 +104,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "site",
-          "title",
-          "publishedAt"
-        ],
+        "required": ["site", "title", "publishedAt"],
         "type": "object"
       },
       "type": "record"
