@@ -3,3 +3,264 @@
 // Lexicon schema: tools.ozone.report.defs
 
 package ozone
+
+import (
+	"encoding/json"
+	"fmt"
+
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+)
+
+// ReportDefs_AssignmentActivity is a "assignmentActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a moderator being assigned to a report.
+type ReportDefs_AssignmentActivity struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.report.defs#assignmentActivity"`
+	// previousStatus: The report's status before this activity. Populated automatically from the report row; not required in input.
+	PreviousStatus *string `json:"previousStatus,omitempty" cborgen:"previousStatus,omitempty"`
+}
+
+// ReportDefs_AssignmentView is a "assignmentView" in the tools.ozone.report.defs schema.
+type ReportDefs_AssignmentView struct {
+	Did   string  `json:"did" cborgen:"did"`
+	EndAt *string `json:"endAt,omitempty" cborgen:"endAt,omitempty"`
+	Id    int64   `json:"id" cborgen:"id"`
+	// moderator: The moderator assigned to this report
+	Moderator *TeamDefs_Member     `json:"moderator,omitempty" cborgen:"moderator,omitempty"`
+	Queue     *QueueDefs_QueueView `json:"queue,omitempty" cborgen:"queue,omitempty"`
+	ReportId  int64                `json:"reportId" cborgen:"reportId"`
+	StartAt   string               `json:"startAt" cborgen:"startAt"`
+}
+
+// ReportDefs_CloseActivity is a "closeActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a report being closed.
+type ReportDefs_CloseActivity struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.report.defs#closeActivity"`
+	// previousStatus: The report's status before this activity. Populated automatically from the report row; not required in input.
+	PreviousStatus *string `json:"previousStatus,omitempty" cborgen:"previousStatus,omitempty"`
+}
+
+// ReportDefs_EscalationActivity is a "escalationActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a report being escalated.
+type ReportDefs_EscalationActivity struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.report.defs#escalationActivity"`
+	// previousStatus: The report's status before this activity. Populated automatically from the report row; not required in input.
+	PreviousStatus *string `json:"previousStatus,omitempty" cborgen:"previousStatus,omitempty"`
+}
+
+// ReportDefs_HistoricalStats is a "historicalStats" in the tools.ozone.report.defs schema.
+//
+// A single daily snapshot of report statistics for a calendar date.
+type ReportDefs_HistoricalStats struct {
+	// actionRate: Percentage of reports actioned (actionedCount / inboundCount * 100), rounded to nearest integer.
+	ActionRate *int64 `json:"actionRate,omitempty" cborgen:"actionRate,omitempty"`
+	// actionedCount: Number of reports closed during this day.
+	ActionedCount *int64 `json:"actionedCount,omitempty" cborgen:"actionedCount,omitempty"`
+	// avgHandlingTimeSec: Average time in seconds from report creation (or moderator assignment) to close.
+	AvgHandlingTimeSec *int64 `json:"avgHandlingTimeSec,omitempty" cborgen:"avgHandlingTimeSec,omitempty"`
+	// computedAt: When this snapshot was last computed.
+	ComputedAt *string `json:"computedAt,omitempty" cborgen:"computedAt,omitempty"`
+	// date: The calendar date this snapshot covers (YYYY-MM-DD).
+	Date string `json:"date" cborgen:"date"`
+	// escalatedCount: Number of reports escalated during this day.
+	EscalatedCount *int64 `json:"escalatedCount,omitempty" cborgen:"escalatedCount,omitempty"`
+	// inboundCount: Reports received during this day.
+	InboundCount *int64 `json:"inboundCount,omitempty" cborgen:"inboundCount,omitempty"`
+	// pendingCount: Number of reports not closed at time of computation.
+	PendingCount *int64 `json:"pendingCount,omitempty" cborgen:"pendingCount,omitempty"`
+}
+
+// ReportDefs_LiveStats is a "liveStats" in the tools.ozone.report.defs schema.
+//
+// Live statistics for reports for the current calendar day, filterable by queue, moderator, or report type.
+type ReportDefs_LiveStats struct {
+	// actionRate: Percentage of reports actioned (actionedCount / inboundCount * 100), rounded to nearest integer.
+	ActionRate *int64 `json:"actionRate,omitempty" cborgen:"actionRate,omitempty"`
+	// actionedCount: Number of reports closed today.
+	ActionedCount *int64 `json:"actionedCount,omitempty" cborgen:"actionedCount,omitempty"`
+	// avgHandlingTimeSec: Average time in seconds from report creation (or moderator assignment) to close.
+	AvgHandlingTimeSec *int64 `json:"avgHandlingTimeSec,omitempty" cborgen:"avgHandlingTimeSec,omitempty"`
+	// escalatedCount: Number of reports escalated today.
+	EscalatedCount *int64 `json:"escalatedCount,omitempty" cborgen:"escalatedCount,omitempty"`
+	// inboundCount: Reports received today.
+	InboundCount *int64 `json:"inboundCount,omitempty" cborgen:"inboundCount,omitempty"`
+	// lastUpdated: When these statistics were last computed.
+	LastUpdated *string `json:"lastUpdated,omitempty" cborgen:"lastUpdated,omitempty"`
+	// pendingCount: Number of reports currently not closed.
+	PendingCount *int64 `json:"pendingCount,omitempty" cborgen:"pendingCount,omitempty"`
+}
+
+// ReportDefs_NoteActivity is a "noteActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a note on a report. Use internalNote for moderator-only notes or publicNote for reporter-visible notes (or both).
+type ReportDefs_NoteActivity struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.report.defs#noteActivity"`
+}
+
+// ReportDefs_QueueActivity is a "queueActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a report being routed to a queue.
+type ReportDefs_QueueActivity struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.report.defs#queueActivity"`
+	// previousStatus: The report's status before this activity. Populated automatically from the report row; not required in input.
+	PreviousStatus *string `json:"previousStatus,omitempty" cborgen:"previousStatus,omitempty"`
+}
+
+// ReportDefs_ReopenActivity is a "reopenActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a closed report being reopened. Only valid when the report is in 'closed' status.
+type ReportDefs_ReopenActivity struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.report.defs#reopenActivity"`
+	// previousStatus: The report's status before this activity. Populated automatically from the report row; not required in input.
+	PreviousStatus *string `json:"previousStatus,omitempty" cborgen:"previousStatus,omitempty"`
+}
+
+// ReportDefs_ReportActivityView is a "reportActivityView" in the tools.ozone.report.defs schema.
+//
+// A single activity entry on a report.
+type ReportDefs_ReportActivityView struct {
+	// activity: The typed activity object describing what occurred.
+	Activity *ReportDefs_ReportActivityView_Activity `json:"activity" cborgen:"activity"`
+	// createdAt: When this activity was created
+	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
+	// createdBy: DID of the actor who created this activity, or the service DID for automated activities.
+	CreatedBy string `json:"createdBy" cborgen:"createdBy"`
+	// id: Activity ID
+	Id int64 `json:"id" cborgen:"id"`
+	// internalNote: Optional moderator-only note. Not visible to reporters.
+	InternalNote *string `json:"internalNote,omitempty" cborgen:"internalNote,omitempty"`
+	// isAutomated: True if this activity was created by an automated process (e.g. queue router) rather than a direct human action.
+	IsAutomated bool `json:"isAutomated" cborgen:"isAutomated"`
+	// meta: Extensible JSON payload for loose activity-specific metadata (e.g. assignmentId).
+	Meta *interface{} `json:"meta,omitempty" cborgen:"meta,omitempty"`
+	// moderator: Full member record of the moderator who created this activity
+	Moderator *TeamDefs_Member `json:"moderator,omitempty" cborgen:"moderator,omitempty"`
+	// publicNote: Optional public note, potentially visible to the reporter.
+	PublicNote *string `json:"publicNote,omitempty" cborgen:"publicNote,omitempty"`
+	// reportId: ID of the report this activity belongs to
+	ReportId int64 `json:"reportId" cborgen:"reportId"`
+}
+
+// The typed activity object describing what occurred.
+type ReportDefs_ReportActivityView_Activity struct {
+	ReportDefs_QueueActivity      *ReportDefs_QueueActivity
+	ReportDefs_AssignmentActivity *ReportDefs_AssignmentActivity
+	ReportDefs_EscalationActivity *ReportDefs_EscalationActivity
+	ReportDefs_CloseActivity      *ReportDefs_CloseActivity
+	ReportDefs_ReopenActivity     *ReportDefs_ReopenActivity
+	ReportDefs_NoteActivity       *ReportDefs_NoteActivity
+}
+
+func (t *ReportDefs_ReportActivityView_Activity) MarshalJSON() ([]byte, error) {
+	if t.ReportDefs_QueueActivity != nil {
+		t.ReportDefs_QueueActivity.LexiconTypeID = "tools.ozone.report.defs#queueActivity"
+		return json.Marshal(t.ReportDefs_QueueActivity)
+	}
+	if t.ReportDefs_AssignmentActivity != nil {
+		t.ReportDefs_AssignmentActivity.LexiconTypeID = "tools.ozone.report.defs#assignmentActivity"
+		return json.Marshal(t.ReportDefs_AssignmentActivity)
+	}
+	if t.ReportDefs_EscalationActivity != nil {
+		t.ReportDefs_EscalationActivity.LexiconTypeID = "tools.ozone.report.defs#escalationActivity"
+		return json.Marshal(t.ReportDefs_EscalationActivity)
+	}
+	if t.ReportDefs_CloseActivity != nil {
+		t.ReportDefs_CloseActivity.LexiconTypeID = "tools.ozone.report.defs#closeActivity"
+		return json.Marshal(t.ReportDefs_CloseActivity)
+	}
+	if t.ReportDefs_ReopenActivity != nil {
+		t.ReportDefs_ReopenActivity.LexiconTypeID = "tools.ozone.report.defs#reopenActivity"
+		return json.Marshal(t.ReportDefs_ReopenActivity)
+	}
+	if t.ReportDefs_NoteActivity != nil {
+		t.ReportDefs_NoteActivity.LexiconTypeID = "tools.ozone.report.defs#noteActivity"
+		return json.Marshal(t.ReportDefs_NoteActivity)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *ReportDefs_ReportActivityView_Activity) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "tools.ozone.report.defs#queueActivity":
+		t.ReportDefs_QueueActivity = new(ReportDefs_QueueActivity)
+		return json.Unmarshal(b, t.ReportDefs_QueueActivity)
+	case "tools.ozone.report.defs#assignmentActivity":
+		t.ReportDefs_AssignmentActivity = new(ReportDefs_AssignmentActivity)
+		return json.Unmarshal(b, t.ReportDefs_AssignmentActivity)
+	case "tools.ozone.report.defs#escalationActivity":
+		t.ReportDefs_EscalationActivity = new(ReportDefs_EscalationActivity)
+		return json.Unmarshal(b, t.ReportDefs_EscalationActivity)
+	case "tools.ozone.report.defs#closeActivity":
+		t.ReportDefs_CloseActivity = new(ReportDefs_CloseActivity)
+		return json.Unmarshal(b, t.ReportDefs_CloseActivity)
+	case "tools.ozone.report.defs#reopenActivity":
+		t.ReportDefs_ReopenActivity = new(ReportDefs_ReopenActivity)
+		return json.Unmarshal(b, t.ReportDefs_ReopenActivity)
+	case "tools.ozone.report.defs#noteActivity":
+		t.ReportDefs_NoteActivity = new(ReportDefs_NoteActivity)
+		return json.Unmarshal(b, t.ReportDefs_NoteActivity)
+	default:
+		return nil
+	}
+}
+
+// ReportDefs_ReportAssignment is a "reportAssignment" in the tools.ozone.report.defs schema.
+//
+// Information about the moderator currently assigned to a report.
+type ReportDefs_ReportAssignment struct {
+	// assignedAt: When the report was assigned
+	AssignedAt string `json:"assignedAt" cborgen:"assignedAt"`
+	// did: DID of the assigned moderator
+	Did string `json:"did" cborgen:"did"`
+	// moderator: Full member record of the assigned moderator
+	Moderator *TeamDefs_Member `json:"moderator,omitempty" cborgen:"moderator,omitempty"`
+}
+
+// ReportDefs_ReportView is a "reportView" in the tools.ozone.report.defs schema.
+type ReportDefs_ReportView struct {
+	// actionEventIds: Array of moderation event IDs representing actions taken on this report (sorted DESC, most recent first)
+	ActionEventIds []int64 `json:"actionEventIds,omitempty" cborgen:"actionEventIds,omitempty"`
+	// actionNote: Note sent to reporter when report was actioned
+	ActionNote *string `json:"actionNote,omitempty" cborgen:"actionNote,omitempty"`
+	// actions: Optional: expanded action events
+	Actions []*ModerationDefs_ModEventView `json:"actions,omitempty" cborgen:"actions,omitempty"`
+	// assignment: Information about moderator currently assigned to this report (if any)
+	Assignment *ReportDefs_ReportAssignment `json:"assignment,omitempty" cborgen:"assignment,omitempty"`
+	// comment: Comment provided by the reporter
+	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	// createdAt: When the report was created
+	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
+	// eventId: ID of the moderation event that created this report
+	EventId int64 `json:"eventId" cborgen:"eventId"`
+	// id: Report ID
+	Id int64 `json:"id" cborgen:"id"`
+	// isMuted: Whether this report is muted. A report is muted if the reporter was muted or the subject was muted at the time the report was created.
+	IsMuted *bool `json:"isMuted,omitempty" cborgen:"isMuted,omitempty"`
+	// queue: The queue this report is assigned to (if any)
+	Queue *QueueDefs_QueueView `json:"queue,omitempty" cborgen:"queue,omitempty"`
+	// queuedAt: When the report was assigned to its current queue
+	QueuedAt *string `json:"queuedAt,omitempty" cborgen:"queuedAt,omitempty"`
+	// relatedReportCount: Number of other pending reports on the same subject
+	RelatedReportCount *int64 `json:"relatedReportCount,omitempty" cborgen:"relatedReportCount,omitempty"`
+	// reportType: Type of report
+	ReportType *string `json:"reportType" cborgen:"reportType"`
+	// reportedBy: DID of the user who made the report
+	ReportedBy string `json:"reportedBy" cborgen:"reportedBy"`
+	// reporter: Full subject view of the reporter account
+	Reporter *ModerationDefs_SubjectView `json:"reporter" cborgen:"reporter"`
+	// status: Current status of the report
+	Status string `json:"status" cborgen:"status"`
+	// subject: The subject that was reported with full details
+	Subject *ModerationDefs_SubjectView `json:"subject" cborgen:"subject"`
+	// subjectStatus: Current status of the reported subject
+	SubjectStatus *ModerationDefs_SubjectStatusView `json:"subjectStatus,omitempty" cborgen:"subjectStatus,omitempty"`
+	// updatedAt: When the report was last updated
+	UpdatedAt *string `json:"updatedAt,omitempty" cborgen:"updatedAt,omitempty"`
+}
