@@ -86,6 +86,7 @@ func main() {
 
 	if err := genCfg.WriteMapEncodersToFile("api/chat/cbor_gen.go", "chat",
 		chat.ActorDeclaration{},
+		chat.EmbedJoinLink{},
 	); err != nil {
 		panic(err)
 	}

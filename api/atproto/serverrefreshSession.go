@@ -12,12 +12,15 @@ import (
 
 // ServerRefreshSession_Output is the output of a com.atproto.server.refreshSession call.
 type ServerRefreshSession_Output struct {
-	AccessJwt  string       `json:"accessJwt" cborgen:"accessJwt"`
-	Active     *bool        `json:"active,omitempty" cborgen:"active,omitempty"`
-	Did        string       `json:"did" cborgen:"did"`
-	DidDoc     *interface{} `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
-	Handle     string       `json:"handle" cborgen:"handle"`
-	RefreshJwt string       `json:"refreshJwt" cborgen:"refreshJwt"`
+	AccessJwt       string       `json:"accessJwt" cborgen:"accessJwt"`
+	Active          *bool        `json:"active,omitempty" cborgen:"active,omitempty"`
+	Did             string       `json:"did" cborgen:"did"`
+	DidDoc          *interface{} `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
+	Email           *string      `json:"email,omitempty" cborgen:"email,omitempty"`
+	EmailAuthFactor *bool        `json:"emailAuthFactor,omitempty" cborgen:"emailAuthFactor,omitempty"`
+	EmailConfirmed  *bool        `json:"emailConfirmed,omitempty" cborgen:"emailConfirmed,omitempty"`
+	Handle          string       `json:"handle" cborgen:"handle"`
+	RefreshJwt      string       `json:"refreshJwt" cborgen:"refreshJwt"`
 	// status: Hosting status of the account. If not specified, then assume 'active'.
 	Status *string `json:"status,omitempty" cborgen:"status,omitempty"`
 }

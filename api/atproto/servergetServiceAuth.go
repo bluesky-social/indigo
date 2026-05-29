@@ -17,7 +17,7 @@ type ServerGetServiceAuth_Output struct {
 
 // ServerGetServiceAuth calls the XRPC method "com.atproto.server.getServiceAuth".
 //
-// aud: The DID of the service that the token will be used to authenticate with
+// aud: The DID or `did#serviceId` reference of the service that the token will be used to authenticate with.
 // exp: The time in Unix Epoch seconds that the JWT expires. Defaults to 60 seconds in the future. The service may enforce certain time bounds on tokens depending on the requested scope.
 // lxm: Lexicon (XRPC) method to bind the requested token to
 func ServerGetServiceAuth(ctx context.Context, c lexutil.LexClient, aud string, exp int64, lxm string) (*ServerGetServiceAuth_Output, error) {
