@@ -31,7 +31,9 @@ type FirehoseProcessor struct {
 	repos  *RepoManager
 
 	relayUrl           string
+	lightRailUrl       string
 	fullNetworkMode    bool
+	lightRailMode      bool
 	signalCollection   string
 	collectionFilters  []string
 	parallelism        int
@@ -48,7 +50,9 @@ func NewFirehoseProcessor(logger *slog.Logger, db *gorm.DB, events *EventManager
 		events:             events,
 		repos:              repos,
 		relayUrl:           config.RelayUrl,
+		lightRailUrl:       config.LightRailUrl,
 		fullNetworkMode:    config.FullNetworkMode,
+		lightRailMode:      config.LightRailUrl != "",
 		signalCollection:   config.SignalCollection,
 		collectionFilters:  config.CollectionFilters,
 		parallelism:        config.FirehoseParallelism,
