@@ -31,9 +31,7 @@ type FirehoseProcessor struct {
 	repos  *RepoManager
 
 	relayUrl                   string
-	lightRailUrl               string
 	fullNetworkMode            bool
-	lightRailMode              bool
 	signalCollection           string
 	lightRailSignalCollections []string
 	collectionFilters          []string
@@ -51,9 +49,7 @@ func NewFirehoseProcessor(logger *slog.Logger, db *gorm.DB, events *EventManager
 		events:                     events,
 		repos:                      repos,
 		relayUrl:                   config.RelayUrl,
-		lightRailUrl:               config.LightRailUrl,
 		fullNetworkMode:            config.FullNetworkMode,
-		lightRailMode:              config.LightRailUrl != "",
 		signalCollection:           config.SignalCollection,
 		lightRailSignalCollections: config.LightRailSignalCollections,
 		collectionFilters:          config.CollectionFilters,
@@ -88,7 +84,7 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 	if err != nil {
 		return err
 	} else if curr == nil {
-		shouldTrack := fp.fullNetworkMode || (fp.signalCollection != "" && evtHasSignalCollection(evt, fp.signalCollection)) || (fp.lightRailMode && evtHasLightRailSignalCollection(evt, fp.lightRailSignalCollections))
+		shouldTrack := fp.fullNetworkMode || (fp.signalCollection != "" && evtHasSignalCollection(evt, fp.signalCollection)) || (len(fp.lightRailSignalCollections) > 0 && evtHasLightRailSignalCollection(evt, fp.lightRailSignalCollections))
 		if shouldTrack {
 			if err := fp.repos.EnsureRepo(ctx, evt.Repo); err != nil {
 				fp.logger.Error("failed to auto-track repo", "did", evt.Repo, "error", err)

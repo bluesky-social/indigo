@@ -82,11 +82,6 @@ func run(args []string) error {
 						Value:   "",
 						Sources: cli.EnvVars("TAP_LIGHT_RAIL_URL"),
 					},
-					&cli.StringFlag{
-						Name:    "jetstream-url",
-						Usage:   "JetStream HTTP/HTTPS url",
-						Sources: cli.EnvVars("TAP_JETSTREAM_URL"),
-					},
 					&cli.IntFlag{
 						Name:    "firehose-parallelism",
 						Usage:   "number of parallel firehose event processors",
@@ -226,6 +221,17 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("--no-replay cannot be used with --full-network")
 	}
 
+	// light-rail enumeration requires both the URL and the collections
+	lightRailCollections := cmd.StringSlice("light-rail-signal-collections")
+	if (lightRailUrl != "") != (len(lightRailCollections) > 0) {
+		return fmt.Errorf("--light-rail-url and --light-rail-signal-collections must be set together")
+	}
+	// light-rail is its own enumeration mode and cannot be combined with the
+	// relay-based --signal-collection / --full-network modes.
+	if lightRailUrl != "" && (cmd.String("signal-collection") != "" || cmd.Bool("full-network")) {
+		return fmt.Errorf("--light-rail-url cannot be used with --signal-collection or --full-network")
+	}
+
 	config := TapConfig{
 		DatabaseURL:                cmd.String("db-url"),
 		DBMaxConns:                 int(cmd.Int("max-db-conn")),
@@ -242,7 +248,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		EventCacheSize:             int(cmd.Int("outbox-capacity")),
 		FullNetworkMode:            cmd.Bool("full-network"),
 		SignalCollection:           cmd.String("signal-collection"),
-		LightRailSignalCollections: cmd.StringSlice("light-rail-signal-collections"),
+		LightRailSignalCollections: lightRailCollections,
 		DisableAcks:                cmd.Bool("disable-acks"),
 		WebhookURL:                 cmd.String("webhook-url"),
 		CollectionFilters:          cmd.StringSlice("collection-filters"),
