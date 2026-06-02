@@ -64,6 +64,15 @@ func evtHasSignalCollection(evt *comatproto.SyncSubscribeRepos_Commit, signalCol
 	return false
 }
 
+func evtHasLightRailSignalCollection(evt *comatproto.SyncSubscribeRepos_Commit, signalColl []string) bool {
+	for _, coll := range signalColl {
+		if evtHasSignalCollection(evt, coll) {
+			return true
+		}
+	}
+	return false
+}
+
 func isRateLimitError(err error) bool {
 	var xrpcErr *atclient.APIError
 	if errors.As(err, &xrpcErr) {

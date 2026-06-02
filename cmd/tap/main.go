@@ -225,8 +225,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 	if cmd.Bool("no-replay") && cmd.Bool("full-network") {
 		return fmt.Errorf("--no-replay cannot be used with --full-network")
 	}
-	test := cmd.StringSlice("light-rail-signal-collections")
-	fmt.Printf("light-rail-signal-collections: %v\n", test)
+
 	config := TapConfig{
 		DatabaseURL:                cmd.String("db-url"),
 		DBMaxConns:                 int(cmd.Int("max-db-conn")),
