@@ -23,7 +23,7 @@ type Crawler struct {
 	logger *slog.Logger
 
 	fullNetworkMode            bool
-	relayUrl                   string
+	listCollectionService      string
 	lightRailUrl               string
 	lightRailMode              bool
 	signalCollection           string
@@ -31,15 +31,20 @@ type Crawler struct {
 }
 
 func NewCrawler(logger *slog.Logger, db *gorm.DB, config *TapConfig) *Crawler {
+	var url string
+	if config.LightRailUrl != "" {
+		url = config.LightRailUrl
+	} else {
+		url = config.RelayUrl
+	}
 
 	return &Crawler{
 		logger:                     logger.With("component", "crawler"),
 		db:                         db,
 		fullNetworkMode:            config.FullNetworkMode,
-		relayUrl:                   config.RelayUrl,
+		listCollectionService:      url,
 		signalCollection:           config.SignalCollection,
 		lightRailMode:              config.LightRailUrl != "",
-		lightRailUrl:               config.LightRailUrl,
 		lightRailSignalCollections: config.LightRailSignalCollections,
 	}
 }
@@ -90,7 +95,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 		return err
 	}
 
-	client := atclient.NewAPIClient(c.relayUrl)
+	client := atclient.NewAPIClient(c.listCollectionService)
 	client.Headers.Set("User-Agent", userAgent())
 	client.Client = &http.Client{
 		Timeout: 30 * time.Second,
@@ -138,7 +143,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 		cursor = *repoList.Cursor
 
 		if err := c.db.WithContext(ctx).Save(&models.ListReposCursor{
-			Url:    c.relayUrl,
+			Url:    c.listCollectionService,
 			Cursor: cursor,
 		}).Error; err != nil {
 			c.logger.Error("failed to save list repos cursor", "error", err)
@@ -151,7 +156,7 @@ func (c *Crawler) EnumerateNetwork(ctx context.Context) error {
 
 func (c *Crawler) getListReposCursor(ctx context.Context) (string, error) {
 	var dbCursor models.ListReposCursor
-	err := c.db.WithContext(ctx).Where("url = ?", c.relayUrl).First(&dbCursor).Error
+	err := c.db.WithContext(ctx).Where("url = ?", c.listCollectionService).First(&dbCursor).Error
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return "", fmt.Errorf("failed to read list repos cursor: %w", err)
@@ -177,13 +182,8 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var client *atclient.APIClient
-	if c.lightRailMode {
-		c.logger.Info("using light rail client", "url", c.lightRailUrl)
-		client = atclient.NewAPIClient(c.lightRailUrl)
-	} else {
-		client = atclient.NewAPIClient(c.relayUrl)
-	}
+
+	client := atclient.NewAPIClient(c.listCollectionService)
 	client.Headers.Set("User-Agent", userAgent())
 	client.Client = &http.Client{
 		Timeout: 30 * time.Second,
@@ -232,7 +232,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context) error {
 		cursor = *repoList.Cursor
 
 		if err := c.db.WithContext(ctx).Save(&models.CollectionCursor{
-			Url:        c.relayUrl,
+			Url:        c.listCollectionService,
 			Collection: collectionCursor,
 			Cursor:     cursor,
 		}).Error; err != nil {
@@ -246,7 +246,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context) error {
 
 func (c *Crawler) getCollectionCursor(ctx context.Context, collection string) (string, error) {
 	var dbCursor models.CollectionCursor
-	err := c.db.WithContext(ctx).Where("url = ? AND collection = ?", c.relayUrl, collection).First(&dbCursor).Error
+	err := c.db.WithContext(ctx).Where("url = ? AND collection = ?", c.listCollectionService, collection).First(&dbCursor).Error
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return "", fmt.Errorf("failed to read collection cursor: %w", err)
