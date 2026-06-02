@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
+
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atclient"
@@ -19,18 +22,25 @@ type Crawler struct {
 	db     *gorm.DB
 	logger *slog.Logger
 
-	fullNetworkMode  bool
-	relayUrl         string
-	signalCollection string
+	fullNetworkMode            bool
+	relayUrl                   string
+	lightRailUrl               string
+	lightRailMode              bool
+	signalCollection           string
+	lightRailSignalCollections []string
 }
 
 func NewCrawler(logger *slog.Logger, db *gorm.DB, config *TapConfig) *Crawler {
+
 	return &Crawler{
-		logger:           logger.With("component", "crawler"),
-		db:               db,
-		fullNetworkMode:  config.FullNetworkMode,
-		relayUrl:         config.RelayUrl,
-		signalCollection: config.SignalCollection,
+		logger:                     logger.With("component", "crawler"),
+		db:                         db,
+		fullNetworkMode:            config.FullNetworkMode,
+		relayUrl:                   config.RelayUrl,
+		signalCollection:           config.SignalCollection,
+		lightRailMode:              config.LightRailUrl != "",
+		lightRailUrl:               config.LightRailUrl,
+		lightRailSignalCollections: config.LightRailSignalCollections,
 	}
 }
 
@@ -38,7 +48,9 @@ func (c *Crawler) Run(ctx context.Context) {
 	for {
 		var err error
 		if c.signalCollection != "" {
-			err = c.EnumerateNetworkByCollection(ctx, c.signalCollection)
+			err = c.EnumerateNetworkByCollection(ctx)
+		} else if len(c.lightRailSignalCollections) > 0 {
+			err = c.EnumerateNetworkByCollection(ctx)
 		} else if c.fullNetworkMode {
 			err = c.EnumerateNetwork(ctx)
 		}
@@ -150,17 +162,28 @@ func (c *Crawler) getListReposCursor(ctx context.Context) (string, error) {
 }
 
 // EnumerateNetworkByCollection discovers repositories that have records in the specified collection.
-func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection string) error {
+func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context) error {
 	ctx, span := tracer.Start(ctx, "EnumerateNetworkByCollection")
-	span.SetAttributes(attribute.String("collection", collection))
+	var collectionCursor string
+	if c.lightRailMode {
+		collectionCursor = strings.Join(c.lightRailSignalCollections, ",")
+	} else {
+		collectionCursor = c.signalCollection
+	}
+	span.SetAttributes(attribute.String("collection", collectionCursor))
 	defer span.End()
 
-	cursor, err := c.getCollectionCursor(ctx, collection)
+	cursor, err := c.getCollectionCursor(ctx, collectionCursor)
 	if err != nil {
 		return err
 	}
-
-	client := atclient.NewAPIClient(c.relayUrl)
+	var client *atclient.APIClient
+	if c.lightRailMode {
+		c.logger.Info("using light rail client", "url", c.lightRailUrl)
+		client = atclient.NewAPIClient(c.lightRailUrl)
+	} else {
+		client = atclient.NewAPIClient(c.relayUrl)
+	}
 	client.Headers.Set("User-Agent", userAgent())
 	client.Client = &http.Client{
 		Timeout: 30 * time.Second,
@@ -172,8 +195,12 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 			return ctx.Err()
 		default:
 		}
-
-		repoList, err := comatproto.SyncListReposByCollection(ctx, client, collection, cursor, 1000)
+		var repoList *comatproto.SyncListReposByCollection_Output
+		if c.lightRailMode {
+			repoList, err = LightRailSyncListReposByCollection(ctx, client, c.lightRailSignalCollections, cursor, 1000)
+		} else {
+			repoList, err = comatproto.SyncListReposByCollection(ctx, client, c.signalCollection, cursor, 1000)
+		}
 		if err != nil {
 			return fmt.Errorf("failed to list repos by collection: %w", err)
 		}
@@ -192,12 +219,12 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 		}
 
 		if err := c.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&repos).Error; err != nil {
-			c.logger.Error("failed to save repos batch", "error", err, "collection", collection, "count", len(repos))
+			c.logger.Error("failed to save repos batch", "error", err, "collection", collectionCursor, "count", len(repos))
 			return err
 		}
 
 		crawlerReposDiscovered.Add(float64(len(repos)))
-		c.logger.Info("enumerated repos by collection batch", "collection", collection, "count", len(repos))
+		c.logger.Info("enumerated repos by collection batch", "collection", collectionCursor, "count", len(repos))
 
 		if repoList.Cursor == nil || *repoList.Cursor == "" {
 			break
@@ -206,14 +233,14 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context, collection s
 
 		if err := c.db.WithContext(ctx).Save(&models.CollectionCursor{
 			Url:        c.relayUrl,
-			Collection: collection,
+			Collection: collectionCursor,
 			Cursor:     cursor,
 		}).Error; err != nil {
 			c.logger.Error("failed to save collection cursor", "error", err)
 		}
 	}
 
-	c.logger.Info("collection enumeration complete", "collection", collection)
+	c.logger.Info("collection enumeration complete", "collection", collectionCursor)
 	return nil
 }
 
@@ -227,4 +254,25 @@ func (c *Crawler) getCollectionCursor(ctx context.Context, collection string) (s
 		return "", nil
 	}
 	return dbCursor.Cursor, nil
+}
+
+// LightRailSyncListReposByCollection calls the XRPC method "com.atproto.sync.listReposByCollection" on a lightrail service that supports multiple collections
+//
+// limit: Maximum size of response set. Recommend setting a large maximum (1000+) when enumerating large DID lists.
+func LightRailSyncListReposByCollection(ctx context.Context, c lexutil.LexClient, collection []string, cursor string, limit int64) (*comatproto.SyncListReposByCollection_Output, error) {
+	var out comatproto.SyncListReposByCollection_Output
+
+	params := map[string]interface{}{}
+	params["collection"] = collection
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if err := c.LexDo(ctx, lexutil.Query, "", "com.atproto.sync.listReposByCollection", params, nil, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
 }
