@@ -24,18 +24,14 @@ type Crawler struct {
 
 	fullNetworkMode            bool
 	listCollectionService      string
-	lightRailUrl               string
-	lightRailMode              bool
 	signalCollection           string
 	lightRailSignalCollections []string
 }
 
 func NewCrawler(logger *slog.Logger, db *gorm.DB, config *TapConfig) *Crawler {
-	var url string
+	url := config.RelayUrl
 	if config.LightRailUrl != "" {
 		url = config.LightRailUrl
-	} else {
-		url = config.RelayUrl
 	}
 
 	return &Crawler{
@@ -44,7 +40,6 @@ func NewCrawler(logger *slog.Logger, db *gorm.DB, config *TapConfig) *Crawler {
 		fullNetworkMode:            config.FullNetworkMode,
 		listCollectionService:      url,
 		signalCollection:           config.SignalCollection,
-		lightRailMode:              config.LightRailUrl != "",
 		lightRailSignalCollections: config.LightRailSignalCollections,
 	}
 }
@@ -79,6 +74,8 @@ func (c *Crawler) Run(ctx context.Context) {
 func (c *Crawler) GetCursor(ctx context.Context) (string, error) {
 	if c.signalCollection != "" {
 		return c.getCollectionCursor(ctx, c.signalCollection)
+	} else if len(c.lightRailSignalCollections) > 0 {
+		return c.getCollectionCursor(ctx, strings.Join(c.lightRailSignalCollections, ","))
 	} else if c.fullNetworkMode {
 		return c.getListReposCursor(ctx)
 	}
@@ -169,8 +166,9 @@ func (c *Crawler) getListReposCursor(ctx context.Context) (string, error) {
 // EnumerateNetworkByCollection discovers repositories that have records in the specified collection.
 func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context) error {
 	ctx, span := tracer.Start(ctx, "EnumerateNetworkByCollection")
+	lightRail := len(c.lightRailSignalCollections) > 0
 	var collectionCursor string
-	if c.lightRailMode {
+	if lightRail {
 		collectionCursor = strings.Join(c.lightRailSignalCollections, ",")
 	} else {
 		collectionCursor = c.signalCollection
@@ -196,7 +194,7 @@ func (c *Crawler) EnumerateNetworkByCollection(ctx context.Context) error {
 		default:
 		}
 		var repoList *comatproto.SyncListReposByCollection_Output
-		if c.lightRailMode {
+		if lightRail {
 			repoList, err = LightRailSyncListReposByCollection(ctx, client, c.lightRailSignalCollections, cursor, 1000)
 		} else {
 			repoList, err = comatproto.SyncListReposByCollection(ctx, client, c.signalCollection, cursor, 1000)
