@@ -72,7 +72,7 @@ func (fp *JetstreamProcessor) Run(ctx context.Context) error {
 func (jp *JetstreamProcessor) ProcessCommit(ctx context.Context, evt *jetstream.JetstreamEvent) error {
 	firehoseEventsReceived.Inc()
 
-	ctx, span := tracer.Start(ctx, "ProcessCommit")
+	ctx, span := jetstreamTracer.Start(ctx, "ProcessCommit")
 	defer span.End()
 
 	defer jp.updateLastSeq(evt.TimeUS)
@@ -99,6 +99,7 @@ func (jp *JetstreamProcessor) ProcessCommit(ctx context.Context, evt *jetstream.
 		return nil
 	}
 
+	//TODO this gets hit way more than I'd expect
 	if curr.Rev != "" && evt.Commit.Rev <= curr.Rev {
 		jp.logger.Debug("skipping replayed event", "did", evt.Did, "eventRev", evt.Commit.Rev, "currentRev", curr.Rev)
 		firehoseEventsSkipped.Inc()
@@ -157,7 +158,7 @@ func (jp *JetstreamProcessor) ProcessCommit(ctx context.Context, evt *jetstream.
 func (jp *JetstreamProcessor) ProcessSync(ctx context.Context, evt *jetstream.JetstreamEvent) error {
 	firehoseEventsReceived.Inc()
 
-	ctx, span := tracer.Start(ctx, "ProcessSync")
+	ctx, span := jetstreamTracer.Start(ctx, "ProcessSync")
 	defer span.End()
 
 	defer jp.updateLastSeq(evt.TimeUS)
@@ -183,8 +184,8 @@ func (jp *JetstreamProcessor) ProcessSync(ctx context.Context, evt *jetstream.Je
 		return nil
 	}
 
-	if curr.Rev != "" && evt.Commit.RKey <= curr.Rev {
-		jp.logger.Debug("skipping replayed event", "did", evt.Did, "eventRev", evt.Commit.Rev, "currentRev", curr.Rev)
+	if curr.Rev != "" && evt.Sync.Rev <= curr.Rev {
+		jp.logger.Debug("skipping replayed event", "did", evt.Did, "eventRev", evt.Sync.Rev, "currentRev", curr.Rev)
 		firehoseEventsSkipped.Inc()
 		return nil
 	}
@@ -335,6 +336,27 @@ func (jp *JetstreamProcessor) GetCursor(ctx context.Context) (int64, error) {
 	return cursor.Cursor, nil
 }
 
+func (jp *JetstreamProcessor) wantedCollections() []string {
+
+	set := make(map[string]struct{})
+	if jp.signalCollection != "" {
+		set[jp.signalCollection] = struct{}{}
+	}
+	for _, c := range jp.lightRailSignalCollections {
+		set[c] = struct{}{}
+	}
+	for _, c := range jp.collectionFilters {
+		set[c] = struct{}{}
+	}
+
+	out := make([]string, 0, len(set))
+	for c := range set {
+		out = append(out, c)
+	}
+	slices.Sort(out)
+	return out
+}
+
 // Connects to the jetstream and processes events until context cancellation
 // On error, restarts the connection
 func (jp *JetstreamProcessor) runConsumer(ctx context.Context) error {
@@ -354,26 +376,18 @@ func (jp *JetstreamProcessor) runConsumer(ctx context.Context) error {
 
 	//Probably add a note in the readme not to use jetstream if you want full network mode. May save some bandwidth
 	// but in for a penny in for a pound
-	// var wantedCollections []string
 	if !jp.fullNetworkMode {
-		if jp.signalCollection != "" {
-			query.Add("wantedCollections", jp.signalCollection)
-		} else if len(jp.lightRailSignalCollections) > 0 {
-			for _, collection := range jp.lightRailSignalCollections {
-				query.Add("wantedCollections", collection)
-			}
-		} else if len(jp.collectionFilters) > 0 {
-			for _, filter := range jp.collectionFilters {
-				query.Add("wantedCollections", filter)
-			}
+		for _, collection := range jp.wantedCollections() {
+			query.Add("wantedCollections", collection)
 		}
 	}
-
-	u.RawQuery = query.Encode()
 
 	rsc := &jetstream.RepoJetStreamCallbacks{
 		Commit: func(evt *jetstream.JetstreamEvent) error {
 			return jp.ProcessCommit(ctx, evt)
+		},
+		Sync: func(evt *jetstream.JetstreamEvent) error {
+			return jp.ProcessSync(ctx, evt)
 		},
 		Identity: func(evt *jetstream.JetstreamEvent) error {
 			return jp.ProcessIdentity(ctx, evt)
