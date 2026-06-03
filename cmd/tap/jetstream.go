@@ -354,19 +354,21 @@ func (jp *JetstreamProcessor) runConsumer(ctx context.Context) error {
 
 	//Probably add a note in the readme not to use jetstream if you want full network mode. May save some bandwidth
 	// but in for a penny in for a pound
+	// var wantedCollections []string
 	if !jp.fullNetworkMode {
 		if jp.signalCollection != "" {
-			query.Set("wantedCollection", jp.signalCollection)
+			query.Add("wantedCollections", jp.signalCollection)
 		} else if len(jp.lightRailSignalCollections) > 0 {
 			for _, collection := range jp.lightRailSignalCollections {
-				query.Set("wantedCollection", collection)
+				query.Add("wantedCollections", collection)
 			}
 		} else if len(jp.collectionFilters) > 0 {
 			for _, filter := range jp.collectionFilters {
-				query.Set("wantedCollection", filter)
+				query.Add("wantedCollections", filter)
 			}
 		}
 	}
+
 	u.RawQuery = query.Encode()
 
 	rsc := &jetstream.RepoJetStreamCallbacks{
@@ -395,8 +397,11 @@ func (jp *JetstreamProcessor) runConsumer(ctx context.Context) error {
 		}
 
 		if cursor > 0 {
-			u.RawQuery = fmt.Sprintf("cursor=%d", cursor)
+			query.Set("cursor", fmt.Sprintf("%d", cursor))
+		} else {
+			query.Del("cursor")
 		}
+		u.RawQuery = query.Encode()
 		urlStr := u.String()
 
 		jp.logger.Info("connecting to jetstream", "url", urlStr, "cursor", cursor, "retries", retries)
