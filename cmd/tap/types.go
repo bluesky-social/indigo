@@ -17,8 +17,8 @@ const (
 type Commit struct {
 	Did      string     `json:"did"`
 	Rev      string     `json:"rev"`
-	DataCid  string     `json:"data_cid"`
-	PrevData string     `json:"prev_data"`
+	DataCid  string     `json:"data_cid,omitempty"`
+	PrevData string     `json:"prev_data,omitempty"`
 	Ops      []CommitOp `json:"ops"`
 }
 
