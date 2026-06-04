@@ -76,6 +76,11 @@ func run(args []string) error {
 						Value:   "https://relay1.us-east.bsky.network",
 						Sources: cli.EnvVars("TAP_RELAY_URL"),
 					},
+					&cli.StringFlag{
+						Name:    "jetstream-url",
+						Usage:   "JetStream HTTP/HTTPS url",
+						Sources: cli.EnvVars("TAP_JETSTREAM_URL"),
+					},
 					&cli.IntFlag{
 						Name:    "firehose-parallelism",
 						Usage:   "number of parallel firehose event processors",
@@ -209,6 +214,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		DBMaxConns:                 int(cmd.Int("max-db-conn")),
 		PLCURL:                     plcUrl,
 		RelayUrl:                   relayUrl,
+		JetstreamUrl:               cmd.String("jetstream-url"),
 		FirehoseParallelism:        int(cmd.Int("firehose-parallelism")),
 		ResyncParallelism:          int(cmd.Int("resync-parallelism")),
 		OutboxParallelism:          int(cmd.Int("outbox-parallelism")),
@@ -241,9 +247,16 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 
 	if !config.OutboxOnly {
 		go func() {
-			logger.Info("starting firehose consumer")
-			if err := tap.firehose.Run(ctx); err != nil {
-				svcErr <- err
+			if config.JetstreamUrl != "" {
+				logger.Info("starting jetstream consumer", "url", config.JetstreamUrl)
+				if err := tap.jetstream.Run(ctx); err != nil {
+					svcErr <- err
+				}
+			} else {
+				logger.Info("starting firehose consumer")
+				if err := tap.firehose.Run(ctx); err != nil {
+					svcErr <- err
+				}
 			}
 		}()
 	}
