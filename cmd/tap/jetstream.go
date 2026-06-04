@@ -42,18 +42,17 @@ type JetstreamProcessor struct {
 
 func NewJetstreamProcessor(logger *slog.Logger, db *gorm.DB, events *EventManager, repos *RepoManager, config *TapConfig) *JetstreamProcessor {
 	return &JetstreamProcessor{
-		logger:                     logger.With("component", "jetstream"),
-		db:                         db,
-		events:                     events,
-		repos:                      repos,
-		jetstreamUrl:               config.JetstreamUrl,
-		fullNetworkMode:            config.FullNetworkMode,
-		signalCollection:           config.SignalCollection,
-		lightRailSignalCollections: config.LightRailSignalCollections,
-		collectionFilters:          config.CollectionFilters,
-		parallelism:                config.FirehoseParallelism,
-		cursorSaveInterval:         config.FirehoseCursorSaveInterval,
-		noReplay:                   config.NoReplay,
+		logger:             logger.With("component", "jetstream"),
+		db:                 db,
+		events:             events,
+		repos:              repos,
+		jetstreamUrl:       config.JetstreamUrl,
+		fullNetworkMode:    config.FullNetworkMode,
+		signalCollection:   config.SignalCollection,
+		collectionFilters:  config.CollectionFilters,
+		parallelism:        config.FirehoseParallelism,
+		cursorSaveInterval: config.FirehoseCursorSaveInterval,
+		noReplay:           config.NoReplay,
 	}
 }
 
