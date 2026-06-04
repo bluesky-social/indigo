@@ -5,7 +5,7 @@ Tap simplifies AT sync by handling the firehose connection, verification, backfi
 
 Features and design decisions:
 
-- verifies repo structure, MST integrity, and identity signatures
+- verifies repo structure, MST integrity, and identity signatures fully when not ran in Jetstream mode
 - automatic backfill: fetches full repo history from PDS when adding new repos
 - filtered output: by DID list, by collection, or full network mode
 - ordering guarantees: live events wait for historical backfill to complete
@@ -34,7 +34,7 @@ curl -X POST http://localhost:2480/repos/add \
   -d '{"dids": ["did:plc:ewvi7nxzyoun6zhxrhs64oiz"]}' # @atproto.com repo
 ```
 
-Each repo will be backfilled from its PDS, then live events will stream as they arrive from the relay.
+Each repo will be backfilled from its PDS, then live events will stream as they arrive from the relay or Jetstream.
 
 ## Local Development
 
@@ -50,6 +50,7 @@ Tips:
 - **Set `--no-replay`**: Always connect to the firehose head on restart instead of replaying from a stale cursor. Repos that fell behind will resync when their next firehose event arrives. This flag is incompatible with `--full-network` and is not recommended for production.
 - **Don't use `--full-network`**: Full network mode tracks every repo on the network and takes days to backfill. Instead, add specific DIDs with `/repos/add`.
 - **Use `--disable-acks` until you setup webhooks or event acks**: Use a simple WebSocket client like `websocat` to inspect events.
+- **Set** `--jetstream-url` to use Jetstream mode instead of the firehose. **WARNING**: in this mode live events are not fully verified, but is much lower bandwidth. Can read more on the [differences between the firehose and Jetstream here](https://atproto.com/blog/jetstream#tradeoffs-and-use-cases). `https://jetstream1.us-east.bsky.network` is a public Jetstream node hosted by Bluesky that you can use.
 
 ## HTTP API
 
@@ -76,6 +77,7 @@ Environment variables or CLI flags:
 - `TAP_BIND`: HTTP server address (default: `:2480`)
 - `TAP_PLC_URL`: PLC directory HTTP/HTTPS URL (default: `https://plc.directory`)
 - `TAP_RELAY_URL`: AT Protocol relay HTTP/HTTPS URL (default: `https://relay1.us-east.bsky.network`)
+- `TAP_JETSTREAM_URL`: If set uses the Jetstream over the firehose/relay. Other firehose settings apply to the jetstream connection (default: ``, but `https://jetstream1.us-east.bsky.network` is a public node hosted by Bluesky that you can use)
 - `TAP_FIREHOSE_PARALLELISM`: concurrent firehose event processors (default: `10`)
 - `TAP_RESYNC_PARALLELISM`: concurrent resync workers (default: `5`)
 - `TAP_OUTBOX_PARALLELISM`: concurrent outbox workers (default: `1`)
