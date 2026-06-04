@@ -1,7 +1,7 @@
 `tap`: atproto sync utility
 ========================================
 
-Tap simplifies AT sync by handling the firehose connection, verification, backfill, and filtering. Your application connects to a Tap and receives simple JSON events for only the repos and collections you care about, no need to worry about binary formats for validating cryptographic signatures.
+Tap simplifies AT sync by handling the firehose/jetstream connection, verification, backfill, and filtering. Your application connects to a Tap and receives simple JSON events for only the repos and collections you care about, no need to worry about binary formats for validating cryptographic signatures.
 
 Features and design decisions:
 
