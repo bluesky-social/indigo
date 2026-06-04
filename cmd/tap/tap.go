@@ -89,7 +89,7 @@ func NewTap(config TapConfig) (*Tap, error) {
 
 	outbox := NewOutbox(logger, evtMngr, &config)
 
-	server := NewTapServer(logger, db, outbox, cdir, firehose, crawler, &config)
+	server := NewTapServer(logger, db, outbox, cdir, firehose, jetstream, crawler, &config)
 
 	t := &Tap{
 		db:     db,

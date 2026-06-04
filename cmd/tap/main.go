@@ -205,6 +205,14 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("plc-url must start with http:// or https://")
 	}
 
+	// fail early if jetstream url is set but not a supported scheme
+	jetstreamUrl := cmd.String("jetstream-url")
+	if jetstreamUrl != "" &&
+		!strings.HasPrefix(jetstreamUrl, "http://") && !strings.HasPrefix(jetstreamUrl, "https://") &&
+		!strings.HasPrefix(jetstreamUrl, "ws://") && !strings.HasPrefix(jetstreamUrl, "wss://") {
+		return fmt.Errorf("jetstream-url must start with http://, https://, ws://, or wss://")
+	}
+
 	if cmd.Bool("no-replay") && cmd.Bool("full-network") {
 		return fmt.Errorf("--no-replay cannot be used with --full-network")
 	}
@@ -214,7 +222,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		DBMaxConns:                 int(cmd.Int("max-db-conn")),
 		PLCURL:                     plcUrl,
 		RelayUrl:                   relayUrl,
-		JetstreamUrl:               cmd.String("jetstream-url"),
+		JetstreamUrl:               jetstreamUrl,
 		FirehoseParallelism:        int(cmd.Int("firehose-parallelism")),
 		ResyncParallelism:          int(cmd.Int("resync-parallelism")),
 		OutboxParallelism:          int(cmd.Int("outbox-parallelism")),
