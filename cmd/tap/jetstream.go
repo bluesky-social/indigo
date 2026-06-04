@@ -374,10 +374,14 @@ func (jp *JetstreamProcessor) runConsumer(ctx context.Context) error {
 	query := u.Query()
 	query.Add("compress", "true")
 
-	//Probably add a note in the readme not to use jetstream if you want full network mode. May save some bandwidth
-	// but in for a penny in for a pound
-	if !jp.fullNetworkMode {
-		for _, collection := range jp.wantedCollections() {
+	if jp.fullNetworkMode {
+		jp.logger.Warn("jetstream running in full-network mode, subscribing to all collections (firehose may be preferred since it is always the full network events)")
+	} else {
+		wanted := jp.wantedCollections()
+		if len(wanted) == 0 {
+			jp.logger.Warn("jetstream has no wanted collections configured, subscribing to all collections (high bandwidth); set --signal-collection, --light-rail-signal-collections, or --collection-filters to filter")
+		}
+		for _, collection := range wanted {
 			query.Add("wantedCollections", collection)
 		}
 	}
