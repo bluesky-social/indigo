@@ -28,14 +28,13 @@ type JetstreamProcessor struct {
 	events *EventManager
 	repos  *RepoManager
 
-	jetstreamUrl               string
-	fullNetworkMode            bool
-	signalCollection           string
-	lightRailSignalCollections []string
-	collectionFilters          []string
-	parallelism                int
-	cursorSaveInterval         time.Duration
-	noReplay                   bool
+	jetstreamUrl       string
+	fullNetworkMode    bool
+	signalCollection   string
+	collectionFilters  []string
+	parallelism        int
+	cursorSaveInterval time.Duration
+	noReplay           bool
 
 	lastTimeUs atomic.Int64
 }
@@ -82,7 +81,7 @@ func (jp *JetstreamProcessor) ProcessCommit(ctx context.Context, evt *jetstream.
 		return err
 	} else if curr == nil {
 		collection := evt.Commit.Collection
-		shouldTrack := jp.fullNetworkMode || jp.signalCollection != "" && jp.signalCollection == collection || slices.Contains(jp.lightRailSignalCollections, collection)
+		shouldTrack := jp.fullNetworkMode || jp.signalCollection != "" && jp.signalCollection == collection
 		if shouldTrack {
 			if err := jp.repos.EnsureRepo(ctx, evt.Did); err != nil {
 				jp.logger.Error("failed to auto-track repo", "did", evt.Did, "error", err)
@@ -342,9 +341,7 @@ func (jp *JetstreamProcessor) wantedCollections() []string {
 	if jp.signalCollection != "" {
 		set[jp.signalCollection] = struct{}{}
 	}
-	for _, c := range jp.lightRailSignalCollections {
-		set[c] = struct{}{}
-	}
+
 	for _, c := range jp.collectionFilters {
 		set[c] = struct{}{}
 	}
@@ -435,16 +432,8 @@ func (jp *JetstreamProcessor) runConsumer(ctx context.Context) error {
 			continue
 		}
 
-		jp.logger.Info("connected to firehose")
+		jp.logger.Info("connected to jetstream")
 		retries = 0
-
-		// TODO
-		// Move all of this to a jetstream folder probably
-		// Make a new type like XRPCStreamEvent, but for the jetstream
-		// write a NewScheduler that takes the new type
-		// Finish writing the new consumer
-		// finish the top actions
-		// profit $$$
 
 		scheduler := jetstream.NewScheduler(
 			jp.parallelism,
