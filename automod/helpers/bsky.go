@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"fmt"
+	"strings"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -71,6 +72,10 @@ func ExtractFacets(post *appbsky.FeedPost) ([]PostFacet, error) {
 }
 
 func ExtractPostBlobCIDsPost(post *appbsky.FeedPost) []string {
+	if post.Embed == nil {
+		return []string{}
+	}
+
 	var out []string
 	if post.Embed.EmbedImages != nil {
 		for _, img := range post.Embed.EmbedImages.Images {
@@ -85,6 +90,14 @@ func ExtractPostBlobCIDsPost(post *appbsky.FeedPost) []string {
 			}
 		}
 	}
+	if post.Embed.EmbedGallery != nil {
+		for _, item := range post.Embed.EmbedGallery.Items {
+			if item.EmbedGallery_Image != nil && item.EmbedGallery_Image.Image != nil {
+				out = append(out, item.EmbedGallery_Image.Image.Ref.String())
+			}
+		}
+	}
+
 	return DedupeStrings(out)
 }
 
@@ -100,12 +113,13 @@ func ExtractBlobCIDsProfile(profile *appbsky.ActorProfile) []string {
 }
 
 func ExtractTextTokensPost(post *appbsky.FeedPost) []string {
-	s := post.Text
+	s := strings.Builder{}
+	s.WriteString(post.Text)
 	if post.Embed != nil {
 		if post.Embed.EmbedImages != nil {
 			for _, img := range post.Embed.EmbedImages.Images {
 				if img.Alt != "" {
-					s += " " + img.Alt
+					s.WriteString(" " + img.Alt)
 				}
 			}
 		}
@@ -114,13 +128,20 @@ func ExtractTextTokensPost(post *appbsky.FeedPost) []string {
 			if media.EmbedImages != nil {
 				for _, img := range media.EmbedImages.Images {
 					if img.Alt != "" {
-						s += " " + img.Alt
+						s.WriteString(" " + img.Alt)
 					}
 				}
 			}
 		}
+		if post.Embed.EmbedGallery != nil {
+			for _, item := range post.Embed.EmbedGallery.Items {
+				if item.EmbedGallery_Image != nil && item.EmbedGallery_Image.Alt != "" {
+					s.WriteString(" " + item.EmbedGallery_Image.Alt)
+				}
+			}
+		}
 	}
-	return keyword.TokenizeText(s)
+	return keyword.TokenizeText(s.String())
 }
 
 func ExtractTextTokensProfile(profile *appbsky.ActorProfile) []string {
