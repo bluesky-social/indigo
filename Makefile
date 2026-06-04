@@ -24,7 +24,6 @@ build: ## Build all executables
 	go build ./cmd/fakermaker
 	go build ./cmd/hepa
 	go build -o ./sonar-cli ./cmd/sonar
-	go build ./cmd/palomar
 	go build ./cmd/tap
 
 .PHONY: all
@@ -79,11 +78,6 @@ cborgen: ## Run codegen tool for CBOR serialization
 .env:
 	if [ ! -f ".env" ]; then cp example.dev.env .env; fi
 
-.PHONY: run-dev-opensearch
-run-dev-opensearch: .env ## Runs a local opensearch instance
-	docker build -f cmd/palomar/Dockerfile.opensearch . -t opensearch-palomar
-	docker run -p 9200:9200 -p 9600:9600 -e "discovery.type=single-node" -e "plugins.security.disabled=true" -e "OPENSEARCH_INITIAL_ADMIN_PASSWORD=0penSearch-Pal0mar" opensearch-palomar
-
 .PHONY: run-dev-relay
 run-dev-relay: .env ## Runs relay for local dev
 	LOG_LEVEL=info go run ./cmd/relay --admin-password localdev serve
@@ -106,10 +100,6 @@ build-relay-admin-ui: ## Build relay admin web UI
 run-relay-image:
 	docker run -p 2470:2470 relay /relay serve --admin-password localdev
 # --crawl-insecure-ws
-
-.PHONY: run-dev-search
-run-dev-search: .env ## Runs search daemon for local dev
-	GOLOG_LOG_LEVEL=info go run ./cmd/palomar run
 
 .PHONY: sonar-up
 sonar-up: # Runs sonar docker container
