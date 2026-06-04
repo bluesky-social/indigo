@@ -26,7 +26,6 @@ Go will fetch dependencies, compile, and install `tap` or another service with a
 - **relay** ([README](./cmd/relay/README.md)): relay reference implementation
 - **rainbow** ([README](./cmd/rainbow/README.md)): firehose "splitter" or "fan-out" service
 - **hepa** ([README](./cmd/hepa/README.md)): auto-moderation bot for [Ozone](https://ozone.tools)
-- **palomar** ([README](./cmd/palomar/README.md)): fulltext search service for <https://bsky.app>
 
 **Developer Tools:**
 
