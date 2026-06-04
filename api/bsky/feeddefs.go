@@ -137,6 +137,7 @@ type FeedDefs_PostView struct {
 type FeedDefs_PostView_Embed struct {
 	EmbedImages_View          *EmbedImages_View
 	EmbedVideo_View           *EmbedVideo_View
+	EmbedGallery_View         *EmbedGallery_View
 	EmbedExternal_View        *EmbedExternal_View
 	EmbedRecord_View          *EmbedRecord_View
 	EmbedRecordWithMedia_View *EmbedRecordWithMedia_View
@@ -150,6 +151,10 @@ func (t *FeedDefs_PostView_Embed) MarshalJSON() ([]byte, error) {
 	if t.EmbedVideo_View != nil {
 		t.EmbedVideo_View.LexiconTypeID = "app.bsky.embed.video#view"
 		return json.Marshal(t.EmbedVideo_View)
+	}
+	if t.EmbedGallery_View != nil {
+		t.EmbedGallery_View.LexiconTypeID = "app.bsky.embed.gallery#view"
+		return json.Marshal(t.EmbedGallery_View)
 	}
 	if t.EmbedExternal_View != nil {
 		t.EmbedExternal_View.LexiconTypeID = "app.bsky.embed.external#view"
@@ -179,6 +184,9 @@ func (t *FeedDefs_PostView_Embed) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.video#view":
 		t.EmbedVideo_View = new(EmbedVideo_View)
 		return json.Unmarshal(b, t.EmbedVideo_View)
+	case "app.bsky.embed.gallery#view":
+		t.EmbedGallery_View = new(EmbedGallery_View)
+		return json.Unmarshal(b, t.EmbedGallery_View)
 	case "app.bsky.embed.external#view":
 		t.EmbedExternal_View = new(EmbedExternal_View)
 		return json.Unmarshal(b, t.EmbedExternal_View)

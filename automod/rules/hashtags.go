@@ -43,7 +43,8 @@ func TooManyHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) e
 	}
 	tagTextRatio := float64(tagChars) / float64(len(post.Text))
 	// if there is an image, allow some more tags
-	if len(tags) > 4 && tagTextRatio > 0.6 && post.Embed.EmbedImages == nil {
+	hasImages := (post.Embed.EmbedImages != nil && len(post.Embed.EmbedImages.Images) > 0) || (post.Embed.EmbedGallery != nil && len(post.Embed.EmbedGallery.Items) > 0)
+	if len(tags) > 4 && tagTextRatio > 0.6 && !hasImages {
 		c.AddRecordFlag("many-hashtags")
 		c.Notify("slack")
 	} else if len(tags) > 7 && tagTextRatio > 0.8 {
