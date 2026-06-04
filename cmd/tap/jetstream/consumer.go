@@ -170,13 +170,6 @@ func HandleJetStream(ctx context.Context, con *websocket.Conn, sched *Scheduler,
 	}
 	defer decoder.Close()
 
-	// cr := new(cbg.CborReader)
-
-	// ir := &instrumentedReader{
-	// 	addr:         remoteAddr,
-	// 	bytesCounter: jetStreamBytesFromStreamCounter.WithLabelValues(remoteAddr),
-	// }
-
 	lastSeq := int64(-1)
 	for {
 		select {
@@ -189,17 +182,6 @@ func HandleJetStream(ctx context.Context, con *websocket.Conn, sched *Scheduler,
 		if err != nil {
 			return fmt.Errorf("con err at read: %w", err)
 		}
-		// mt, rawReader, err := con.NextReader()
-		// if err != nil {
-		// 	return fmt.Errorf("con err at read: %w", err)
-		// }
-
-		// switch mt {
-		// default:
-		// 	return fmt.Errorf("expected binary message from subscription endpoint")
-		// case websocket.BinaryMessage:
-		// 	// ok
-		// }
 
 		decoded, err := decoder.DecodeAll(message, nil)
 		if err != nil {
