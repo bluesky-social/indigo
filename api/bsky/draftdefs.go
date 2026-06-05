@@ -41,6 +41,38 @@ type DraftDefs_DraftEmbedExternal struct {
 	Uri string `json:"uri" cborgen:"uri"`
 }
 
+// DraftDefs_DraftEmbedGallery is a "draftEmbedGallery" in the app.bsky.draft.defs schema.
+type DraftDefs_DraftEmbedGallery struct {
+	Items []DraftDefs_DraftEmbedGalleryItems_Elem `json:"items" cborgen:"items"`
+}
+
+type DraftDefs_DraftEmbedGalleryItems_Elem struct {
+	DraftDefs_DraftEmbedImage *DraftDefs_DraftEmbedImage
+}
+
+func (t *DraftDefs_DraftEmbedGalleryItems_Elem) MarshalJSON() ([]byte, error) {
+	if t.DraftDefs_DraftEmbedImage != nil {
+		t.DraftDefs_DraftEmbedImage.LexiconTypeID = "app.bsky.draft.defs#draftEmbedImage"
+		return json.Marshal(t.DraftDefs_DraftEmbedImage)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *DraftDefs_DraftEmbedGalleryItems_Elem) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "app.bsky.draft.defs#draftEmbedImage":
+		t.DraftDefs_DraftEmbedImage = new(DraftDefs_DraftEmbedImage)
+		return json.Unmarshal(b, t.DraftDefs_DraftEmbedImage)
+	default:
+		return nil
+	}
+}
+
 // DraftDefs_DraftEmbedImage is a "draftEmbedImage" in the app.bsky.draft.defs schema.
 type DraftDefs_DraftEmbedImage struct {
 	LexiconTypeID string                        `json:"$type" cborgen:"$type,const=app.bsky.draft.defs#draftEmbedImage"`
@@ -71,42 +103,14 @@ type DraftDefs_DraftEmbedVideo struct {
 // One of the posts that compose a draft.
 type DraftDefs_DraftPost struct {
 	EmbedExternals []*DraftDefs_DraftEmbedExternal `json:"embedExternals,omitempty" cborgen:"embedExternals,omitempty"`
-	// embedGallery: The schema-level maxLength of 20 is a future-proof ceiling. Clients should currently enforce a soft limit of 10 items in authoring UIs.
-	EmbedGallery []*DraftDefs_DraftPost_EmbedGallery_Elem `json:"embedGallery,omitempty" cborgen:"embedGallery,omitempty"`
-	EmbedImages  []*DraftDefs_DraftEmbedImage             `json:"embedImages,omitempty" cborgen:"embedImages,omitempty"`
-	EmbedRecords []*DraftDefs_DraftEmbedRecord            `json:"embedRecords,omitempty" cborgen:"embedRecords,omitempty"`
-	EmbedVideos  []*DraftDefs_DraftEmbedVideo             `json:"embedVideos,omitempty" cborgen:"embedVideos,omitempty"`
+	EmbedGallery   *DraftDefs_DraftEmbedGallery    `json:"embedGallery,omitempty" cborgen:"embedGallery,omitempty"`
+	EmbedImages    []*DraftDefs_DraftEmbedImage    `json:"embedImages,omitempty" cborgen:"embedImages,omitempty"`
+	EmbedRecords   []*DraftDefs_DraftEmbedRecord   `json:"embedRecords,omitempty" cborgen:"embedRecords,omitempty"`
+	EmbedVideos    []*DraftDefs_DraftEmbedVideo    `json:"embedVideos,omitempty" cborgen:"embedVideos,omitempty"`
 	// labels: Self-label values for this post. Effectively content warnings.
 	Labels *DraftDefs_DraftPost_Labels `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	// text: The primary post content. It has a higher limit than post contents to allow storing a larger text that can later be refined into smaller posts.
 	Text string `json:"text" cborgen:"text"`
-}
-
-type DraftDefs_DraftPost_EmbedGallery_Elem struct {
-	DraftDefs_DraftEmbedImage *DraftDefs_DraftEmbedImage
-}
-
-func (t *DraftDefs_DraftPost_EmbedGallery_Elem) MarshalJSON() ([]byte, error) {
-	if t.DraftDefs_DraftEmbedImage != nil {
-		t.DraftDefs_DraftEmbedImage.LexiconTypeID = "app.bsky.draft.defs#draftEmbedImage"
-		return json.Marshal(t.DraftDefs_DraftEmbedImage)
-	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
-}
-
-func (t *DraftDefs_DraftPost_EmbedGallery_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := lexutil.TypeExtract(b)
-	if err != nil {
-		return err
-	}
-
-	switch typ {
-	case "app.bsky.draft.defs#draftEmbedImage":
-		t.DraftDefs_DraftEmbedImage = new(DraftDefs_DraftEmbedImage)
-		return json.Unmarshal(b, t.DraftDefs_DraftEmbedImage)
-	default:
-		return nil
-	}
 }
 
 // Self-label values for this post. Effectively content warnings.
