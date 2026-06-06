@@ -8,13 +8,12 @@ require (
 	github.com/PuerkitoBio/purell v1.2.1
 	github.com/RussellLuo/slidingwindow v0.0.0-20200528002341-535bb99d338b
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
-	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
 	github.com/brianvoe/gofakeit/v6 v6.25.0
 	github.com/cockroachdb/pebble v1.1.2
 	github.com/earthboundkid/versioninfo/v2 v2.24.1
 	github.com/go-redis/cache/v9 v9.0.0
 	github.com/gocql/gocql v1.7.0
-	github.com/golang-jwt/jwt/v5 v5.2.2
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/go-querystring v1.1.0
 	github.com/gorilla/sessions v1.2.1
 	github.com/gorilla/websocket v1.5.1
@@ -31,9 +30,7 @@ require (
 	github.com/ipfs/go-libipfs v0.7.0
 	github.com/ipld/go-car v0.6.1-0.20230509095817-92d28eb23ba4
 	github.com/ipld/go-car/v2 v2.13.1
-	github.com/jackc/pgx/v5 v5.5.0
 	github.com/joho/godotenv v1.5.1
-	github.com/labstack/echo-contrib v0.15.0
 	github.com/labstack/echo/v4 v4.11.3
 	github.com/lestrrat-go/jwx/v2 v2.0.12
 	github.com/minio/sha256-simd v1.0.1
@@ -61,7 +58,6 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.21.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.21.0
 	go.opentelemetry.io/otel/sdk v1.21.0
-	go.opentelemetry.io/otel/trace v1.21.0
 	go.uber.org/automaxprocs v1.5.3
 	golang.org/x/sync v0.7.0
 	golang.org/x/text v0.14.0
@@ -92,6 +88,7 @@ require (
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
+	github.com/jackc/pgx/v5 v5.5.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/klauspost/compress v1.17.3 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
@@ -105,6 +102,7 @@ require (
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11 // indirect
+	go.opentelemetry.io/otel/trace v1.21.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect

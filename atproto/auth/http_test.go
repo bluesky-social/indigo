@@ -95,8 +95,8 @@ func TestServiceAuthMiddleware(t *testing.T) {
 	})
 
 	v := ServiceAuthValidator{
-		Audience: aud,
-		Dir:      dir,
+		AcceptAudiences: []string{aud},
+		Dir:             dir,
 	}
 
 	{
@@ -120,7 +120,7 @@ func TestServiceAuthMiddleware(t *testing.T) {
 
 	{
 		// mandatory middleware, valid auth
-		tok, err := SignServiceAuth(iss, aud, time.Minute, &lxm, priv)
+		tok, err := SignServiceAuth(iss, aud, time.Minute, lxm, priv)
 		require.NoError(err)
 		req := httptest.NewRequest(http.MethodGet, "/xrpc/com.example.api", nil)
 		req.Header.Set("Authorization", "Bearer "+tok)
@@ -143,7 +143,7 @@ func TestServiceAuthMiddleware(t *testing.T) {
 
 	{
 		// wrong path
-		tok, err := SignServiceAuth(iss, aud, time.Minute, &lxm, priv)
+		tok, err := SignServiceAuth(iss, aud, time.Minute, lxm, priv)
 		require.NoError(err)
 		req := httptest.NewRequest(http.MethodGet, "/xrpc/com.example.other.api", nil)
 		req.Header.Set("Authorization", "Bearer "+tok)

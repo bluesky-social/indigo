@@ -85,7 +85,8 @@ func testSigningValidation(t *testing.T, priv atcrypto.PrivateKey) {
 	ctx := context.Background()
 
 	iss := syntax.DID("did:example:iss")
-	aud := "did:example:aud#svc"
+	aud1 := "did:example:aud#svc"
+	aud2 := "did:example:aud"
 	lxm := syntax.NSID("com.example.api")
 
 	priv, err := atcrypto.GeneratePrivateKeyP256()
@@ -108,35 +109,46 @@ func testSigningValidation(t *testing.T, priv atcrypto.PrivateKey) {
 		},
 	})
 
+	// allows flexible aud match (full ref or bare DID)
 	v := ServiceAuthValidator{
-		Audience: aud,
-		Dir:      dir,
+		AcceptAudiences: []string{aud1, aud2},
+		Dir:             dir,
 	}
 
-	t1, err := SignServiceAuth(iss, aud, time.Minute, nil, priv)
+	t1, err := SignServiceAuth(iss, aud1, time.Minute, lxm, priv)
 	if err != nil {
 		t.Fatal(err)
 	}
-	d1, err := v.Validate(ctx, t1, nil)
+	d1, err := v.Validate(ctx, t1, lxm)
 	assert.NoError(err)
 	assert.Equal(d1, iss)
-	_, err = v.Validate(ctx, t1, &lxm)
+	_, err = v.Validate(ctx, t1, "wrong.lxm.value")
 	assert.Error(err)
 
-	t2, err := SignServiceAuth(iss, aud, time.Minute, &lxm, priv)
+	t2, err := SignServiceAuth(iss, aud2, time.Minute, lxm, priv)
 	if err != nil {
 		t.Fatal(err)
 	}
-	d2, err := v.Validate(ctx, t2, nil)
-	assert.NoError(err)
-	assert.Equal(d2, iss)
-	_, err = v.Validate(ctx, t2, &lxm)
+	_, err = v.Validate(ctx, t2, lxm)
 	assert.NoError(err)
 
-	_, err = v.Validate(ctx, t2, nil)
+	// only supports exact/full aud match
+	v2 := ServiceAuthValidator{
+		AcceptAudiences: []string{aud1},
+		Dir:             dir,
+	}
+	t3, err := SignServiceAuth(iss, aud1, time.Minute, lxm, priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = v2.Validate(ctx, t3, lxm)
 	assert.NoError(err)
-	_, err = v.Validate(ctx, t2, &lxm)
-	assert.NoError(err)
+	t4, err := SignServiceAuth(iss, aud2, time.Minute, lxm, priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = v2.Validate(ctx, t4, lxm)
+	assert.Error(err)
 }
 
 func TestP256SigningValidation(t *testing.T) {

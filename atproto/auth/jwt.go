@@ -19,8 +19,10 @@ import (
 // TODO: check for uniqueness of JTI (random nonce) to prevent token replay
 
 type ServiceAuthValidator struct {
-	// Service DID reference for this validator: a DID with optional #-separated fragment
-	Audience        string
+	// Audience ('aud') DID references accepted for this validator. Each entry is a DID with optional #-separated fragment, and any entry can match.
+	// Warning: if array is empty, any audience is allowed.
+	AcceptAudiences []string
+	// Identity directory for key lookups. Note that token validation only requires DID resolution, not handle validation, so it may improve performance to use an `identity.Directory` with handle resolution disabled.
 	Dir             identity.Directory
 	TimestampLeeway time.Duration
 }
@@ -28,10 +30,10 @@ type ServiceAuthValidator struct {
 type serviceAuthClaims struct {
 	jwt.RegisteredClaims
 
-	LexMethod string `json:"lxm,omitempty"`
+	LexMethod string `json:"lxm"`
 }
 
-func (s *ServiceAuthValidator) Validate(ctx context.Context, tokenString string, lexMethod *syntax.NSID) (syntax.DID, error) {
+func (s *ServiceAuthValidator) Validate(ctx context.Context, tokenString string, lexMethod syntax.NSID) (syntax.DID, error) {
 
 	leeway := s.TimestampLeeway
 	if leeway == 0 {
@@ -40,7 +42,7 @@ func (s *ServiceAuthValidator) Validate(ctx context.Context, tokenString string,
 
 	opts := []jwt.ParserOption{
 		jwt.WithValidMethods(supportedAlgs),
-		jwt.WithAudience(s.Audience),
+		jwt.WithAudience(s.AcceptAudiences...),
 		jwt.WithExpirationRequired(),
 		jwt.WithIssuedAt(),
 		jwt.WithLeeway(leeway),
@@ -91,7 +93,7 @@ func (s *ServiceAuthValidator) Validate(ctx context.Context, tokenString string,
 		return "", jwt.ErrTokenInvalidClaims
 	}
 
-	if lexMethod != nil && claims.LexMethod != lexMethod.String() {
+	if claims.LexMethod != lexMethod.String() {
 		return "", fmt.Errorf("%w: Lexicon endpoint (LXM)", jwt.ErrTokenInvalidClaims)
 	}
 
@@ -115,7 +117,14 @@ func (s *ServiceAuthValidator) fetchIssuerKeyFunc(ctx context.Context) func(toke
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid DID: %w", jwt.ErrTokenInvalidIssuer, err)
 		}
-		// NOTE: this will do handle resolution by default
+
+		// verify that 'kid' is either empty or matches the default ("#atproto").
+		// NOTE: this SDK can not yet be configured to support (and resolve) alternative key identifiers.
+		kid, ok := token.Header["kid"]
+		if ok && kid != "#atproto" {
+			return nil, fmt.Errorf("%w: unsupported key identifier (%s)", jwt.ErrTokenInvalidIssuer, kid)
+		}
+
 		ident, err := s.Dir.LookupDID(ctx, did)
 		if err != nil {
 			return nil, fmt.Errorf("%w: resolving DID (%s): %w", jwt.ErrTokenInvalidIssuer, did, err)
@@ -130,7 +139,7 @@ func randomNonce() string {
 	return base64.RawURLEncoding.EncodeToString(buf)
 }
 
-func SignServiceAuth(iss syntax.DID, aud string, ttl time.Duration, lexMethod *syntax.NSID, priv atcrypto.PrivateKey) (string, error) {
+func SignServiceAuth(iss syntax.DID, aud string, ttl time.Duration, lexMethod syntax.NSID, priv atcrypto.PrivateKey) (string, error) {
 	claims := serviceAuthClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
@@ -139,9 +148,7 @@ func SignServiceAuth(iss syntax.DID, aud string, ttl time.Duration, lexMethod *s
 			Audience:  []string{aud},
 			ID:        randomNonce(),
 		},
-	}
-	if lexMethod != nil {
-		claims.LexMethod = lexMethod.String()
+		LexMethod: lexMethod.String(),
 	}
 
 	var sm *signingMethodAtproto

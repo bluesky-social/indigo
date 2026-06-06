@@ -56,13 +56,13 @@ func (v *ServiceAuthValidator) Middleware(handler http.HandlerFunc, mandatory bo
 				return
 			}
 
-			var lxm *syntax.NSID
+			var lxm syntax.NSID
 			uparts := strings.Split(r.URL.Path, "/")
 			// TODO: should this "fail closed"? eg, reject if not a valid XRPC endpoint
 			if len(uparts) >= 3 && uparts[1] == "xrpc" {
 				nsid, err := syntax.ParseNSID(uparts[2])
 				if nil == err {
-					lxm = &nsid
+					lxm = nsid
 				}
 			}
 
