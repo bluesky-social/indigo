@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -158,6 +159,12 @@ func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) identity
 		Err:      err,
 	}
 	var he *handleEntry
+
+	// Don't cache context cancelled / deadline exceeded errors
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return entry
+	}
+
 	// if *not* an error, then also update the handle cache
 	if nil == err && !ident.Handle.IsInvalidHandle() {
 		he = &handleEntry{
@@ -167,6 +174,7 @@ func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) identity
 		}
 	}
 
+	// Cache other failures and results.
 	d.identityCache.Add(did, entry)
 	if he != nil {
 		d.handleCache.Add(ident.Handle, *he)
