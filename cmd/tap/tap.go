@@ -36,6 +36,7 @@ type TapConfig struct {
 	DBMaxConns                 int
 	PLCURL                     string
 	RelayUrl                   string
+	LightRailUrl               string
 	FirehoseParallelism        int
 	ResyncParallelism          int
 	OutboxParallelism          int
@@ -46,6 +47,7 @@ type TapConfig struct {
 	EventCacheSize             int
 	FullNetworkMode            bool
 	SignalCollection           string
+	LightRailSignalCollections []string
 	DisableAcks                bool
 	WebhookURL                 string
 	CollectionFilters          []string // e.g., ["app.bsky.feed.post", "app.bsky.graph.*"]
