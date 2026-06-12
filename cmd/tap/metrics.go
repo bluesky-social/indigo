@@ -25,6 +25,26 @@ var (
 	})
 )
 
+// Jetstream metrics
+var (
+	jetstreamEventsReceived = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tap_jetstream_events_received_total",
+		Help: "Total number of events received from jetstream",
+	})
+	jetstreamEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tap_jetstream_events_processed_total",
+		Help: "Total number of events successfully processed",
+	})
+	jetstreamEventsSkipped = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tap_jetstream_events_skipped_total",
+		Help: "Total number of events skipped (not tracked)",
+	})
+	jetstreamLastSeq = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "tap_jetstream_last_seq",
+		Help: "Sequence number of last processed jetstream event",
+	})
+)
+
 // Buffer metrics
 var (
 	eventCacheSize = promauto.NewGauge(prometheus.GaugeOpts{
