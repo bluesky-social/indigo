@@ -67,3 +67,44 @@ func TestDIDNoPanic(t *testing.T) {
 		_ = bad.AtIdentifier().String()
 	}
 }
+
+func TestParseDIDRef(t *testing.T) {
+	assert := assert.New(t)
+
+	invalidRefs := []string{
+		"#",
+		"#name",
+		"name",
+		"did:web:example.com#",
+		"did:web:example.com##name",
+		"did:web:example.com#9090",
+		"did:web:example.com#_name",
+		"did:web:example.com#-name",
+		"did:web:example.com#one.two",
+		"did:web:example.com#one:two",
+		"did:web:example.com#one/two",
+		"did:web:example.com#näme",
+	}
+
+	validRefs := [][]string{
+		{"did:web:example.com#name", "did:web:example.com", "name"},
+		{"did:web:example.com#name123", "did:web:example.com", "name123"},
+		{"did:web:example.com#one_two", "did:web:example.com", "one_two"},
+		{"did:web:example.com#one-two", "did:web:example.com", "one-two"},
+		{"did:web:example.com#one-", "did:web:example.com", "one-"},
+		{"did:web:example.com#one_", "did:web:example.com", "one_"},
+		{"did:web:example.com", "did:web:example.com", ""},
+	}
+
+	for _, row := range invalidRefs {
+		_, _, err := ParseDIDRef(row)
+		assert.Error(err, row)
+	}
+
+	for _, row := range validRefs {
+		did, ref, err := ParseDIDRef(row[0])
+		assert.Equal(row[1], did.String())
+		assert.Equal(row[2], ref)
+		assert.NoError(err)
+	}
+}
