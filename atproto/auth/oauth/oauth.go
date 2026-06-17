@@ -353,6 +353,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		ResponseType:        "code",
 		CodeChallenge:       codeChallenge,
 		CodeChallengeMethod: "S256",
+		Prompt:              authOpts.prompt,
 	}
 
 	if app.Config.IsConfidential() {
@@ -578,7 +579,7 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string, opts
 		return "", fmt.Errorf("fetching auth server metadata: %w", err)
 	}
 
-	info, err := app.SendAuthRequest(ctx, authserverMeta, app.Config.Scopes, identifier)
+	info, err := app.SendAuthRequest(ctx, authserverMeta, app.Config.Scopes, identifier, opts...)
 	if err != nil {
 		return "", fmt.Errorf("auth request failed: %w", err)
 	}
