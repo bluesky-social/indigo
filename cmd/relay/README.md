@@ -104,7 +104,7 @@ Some notable configuration env vars:
 - `RELAY_LENIENT_SYNC_VALIDATION`: if `true`, allow legacy upstreams which don't implement atproto sync v1.1
 - `RELAY_TRUSTED_DOMAINS`: patterns of PDS hosts which get larger quotas by default, eg `*.host.bsky.network`
 - `RELAY_ACCOUNT_LIMIT_ALERT_THRESHOLD`: fraction of a PDS repo limit that triggers an alert; default is `0.80`
-- `RELAY_ACCOUNT_LIMIT_ALERT_INTERVAL`: how often to check for PDS hosts approaching their repo limits; default is `5m`
+- `RELAY_ACCOUNT_LIMIT_ALERT_INTERVAL`: how often to check for PDS hosts approaching their repo limits, with up to one minute of jitter in either direction; default is `5m`
 - `RELAY_ACCOUNT_LIMIT_ALERT_REPEAT_INTERVAL`: minimum interval between repeat alerts for a host that remains over threshold; default is `6h`
 - `RELAY_SLACK_ALERT_CHANNEL`: Slack channel ID or name for PDS repo-limit alerts
 - `RELAY_SLACK_ALERT_TOKEN`: Slack bot token with permission to post repo-limit alerts; prefer env configuration over CLI args for secrets

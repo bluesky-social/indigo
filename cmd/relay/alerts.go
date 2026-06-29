@@ -7,15 +7,26 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/rand"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/cmd/relay/relay"
 	"github.com/bluesky-social/indigo/util/cliutil"
+
+	"github.com/labstack/echo/v4"
 )
 
 const accountLimitAlertHostsPerMessage = 50
+
+type AccountLimitAlertKind string
+
+const (
+	AccountLimitAlertKindWarning  = AccountLimitAlertKind("warning")
+	AccountLimitAlertKindRecovery = AccountLimitAlertKind("recovery")
+)
 
 type AlertMessage struct {
 	Text string
@@ -29,18 +40,72 @@ type accountLimitUsageLister interface {
 	ListHostsApproachingAccountLimit(ctx context.Context, threshold float64, limit int) ([]relay.HostAccountLimitUsage, error)
 }
 
+type AccountLimitAlertSentState struct {
+	Kind         AccountLimitAlertKind `json:"kind"`
+	HostID       uint64                `json:"hostID"`
+	Hostname     string                `json:"hostname"`
+	AccountCount int64                 `json:"accountCount"`
+	AccountLimit int64                 `json:"accountLimit"`
+	Usage        float64               `json:"usage"`
+	SentAt       time.Time             `json:"sentAt"`
+}
+
+func accountLimitAlertSentState(kind AccountLimitAlertKind, usage relay.HostAccountLimitUsage, sentAt time.Time) AccountLimitAlertSentState {
+	return AccountLimitAlertSentState{
+		Kind:         kind,
+		HostID:       usage.ID,
+		Hostname:     usage.Hostname,
+		AccountCount: usage.AccountCount,
+		AccountLimit: usage.AccountLimit,
+		Usage:        usage.Usage,
+		SentAt:       sentAt,
+	}
+}
+
+func (s *AccountLimitAlertSentState) normalize(now time.Time) error {
+	switch s.Kind {
+	case AccountLimitAlertKindWarning, AccountLimitAlertKindRecovery:
+	default:
+		return fmt.Errorf("invalid account limit alert kind: %s", s.Kind)
+	}
+	if s.HostID == 0 {
+		return fmt.Errorf("account limit alert host ID is required")
+	}
+	hostname, _, err := relay.ParseHostname(s.Hostname)
+	if err != nil {
+		return fmt.Errorf("invalid account limit alert hostname: %w", err)
+	}
+	s.Hostname = hostname
+	if s.SentAt.IsZero() {
+		s.SentAt = now
+	}
+	if s.AccountLimit < 0 {
+		return fmt.Errorf("account limit alert account limit must not be negative")
+	}
+	if s.AccountCount < 0 {
+		return fmt.Errorf("account limit alert account count must not be negative")
+	}
+	if s.Usage < 0 {
+		return fmt.Errorf("account limit alert usage must not be negative")
+	}
+	return nil
+}
+
 type AccountLimitAlertMonitorConfig struct {
 	Threshold       float64
 	CheckInterval   time.Duration
+	CheckJitter     time.Duration
 	RepeatInterval  time.Duration
 	Environment     string
 	HostsPerMessage int
+	SentCallback    func(context.Context, AccountLimitAlertSentState)
 }
 
 func DefaultAccountLimitAlertMonitorConfig() AccountLimitAlertMonitorConfig {
 	return AccountLimitAlertMonitorConfig{
 		Threshold:       0.80,
 		CheckInterval:   5 * time.Minute,
+		CheckJitter:     time.Minute,
 		RepeatInterval:  6 * time.Hour,
 		HostsPerMessage: accountLimitAlertHostsPerMessage,
 	}
@@ -52,6 +117,9 @@ func (c AccountLimitAlertMonitorConfig) Validate() error {
 	}
 	if c.CheckInterval <= 0 {
 		return fmt.Errorf("account limit alert interval must be positive")
+	}
+	if c.CheckJitter < 0 {
+		return fmt.Errorf("account limit alert jitter must not be negative")
 	}
 	if c.RepeatInterval <= 0 {
 		return fmt.Errorf("account limit alert repeat interval must be positive")
@@ -68,6 +136,7 @@ type AccountLimitAlertMonitor struct {
 	alerter Alerter
 	config  AccountLimitAlertMonitorConfig
 
+	lk             sync.Mutex
 	now            func() time.Time
 	lastAlert      map[uint64]time.Time
 	aboveThreshold map[uint64]relay.HostAccountLimitUsage
@@ -98,22 +167,56 @@ func NewAccountLimitAlertMonitor(logger *slog.Logger, lister accountLimitUsageLi
 }
 
 func (m *AccountLimitAlertMonitor) Run(ctx context.Context) {
-	if err := m.Check(ctx); err != nil {
-		m.logger.Error("account limit alert check failed", "err", err)
+	delay := initialCheckDelay(m.config.CheckJitter, rand.Int63n)
+	for {
+		if !waitForAlertCheck(ctx, delay) {
+			return
+		}
+		if err := m.Check(ctx); err != nil {
+			m.logger.Error("account limit alert check failed", "err", err)
+		}
+		delay = jitteredCheckInterval(m.config.CheckInterval, m.config.CheckJitter, rand.Int63n)
+	}
+}
+
+func waitForAlertCheck(ctx context.Context, delay time.Duration) bool {
+	if delay <= 0 {
+		return ctx.Err() == nil
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
+}
+
+func initialCheckDelay(jitter time.Duration, randInt63n func(int64) int64) time.Duration {
+	if jitter <= 0 {
+		return 0
+	}
+	if randInt63n == nil {
+		randInt63n = rand.Int63n
+	}
+	return time.Duration(randInt63n(int64(jitter) + 1))
+}
+
+func jitteredCheckInterval(interval, jitter time.Duration, randInt63n func(int64) int64) time.Duration {
+	if jitter <= 0 {
+		return interval
+	}
+	if randInt63n == nil {
+		randInt63n = rand.Int63n
 	}
 
-	ticker := time.NewTicker(m.config.CheckInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			if err := m.Check(ctx); err != nil {
-				m.logger.Error("account limit alert check failed", "err", err)
-			}
-		}
+	offset := time.Duration(randInt63n(int64(jitter)*2+1)) - jitter
+	delay := interval + offset
+	if delay < time.Second {
+		return time.Second
 	}
+	return delay
 }
 
 func (m *AccountLimitAlertMonitor) Check(ctx context.Context) error {
@@ -123,6 +226,7 @@ func (m *AccountLimitAlertMonitor) Check(ctx context.Context) error {
 	}
 
 	now := m.now()
+	m.lk.Lock()
 	currentAbove := make(map[uint64]relay.HostAccountLimitUsage, len(usages))
 	due := make([]relay.HostAccountLimitUsage, 0, len(usages))
 	for _, usage := range usages {
@@ -142,16 +246,18 @@ func (m *AccountLimitAlertMonitor) Check(ctx context.Context) error {
 		}
 	}
 
+	for id, usage := range currentAbove {
+		m.aboveThreshold[id] = usage
+	}
+	m.lk.Unlock()
+
 	for _, usage := range recovered {
 		if err := m.alerter.SendAlert(ctx, AlertMessage{Text: formatAccountLimitRecoveryAlert(m.config, usage)}); err != nil {
 			return err
 		}
-		delete(m.aboveThreshold, usage.ID)
-		delete(m.lastAlert, usage.ID)
-	}
-
-	for id, usage := range currentAbove {
-		m.aboveThreshold[id] = usage
+		if err := m.recordAccountLimitAlertSent(ctx, accountLimitAlertSentState(AccountLimitAlertKindRecovery, usage, now), true); err != nil {
+			return err
+		}
 	}
 
 	for start := 0; start < len(due); start += m.config.HostsPerMessage {
@@ -164,10 +270,67 @@ func (m *AccountLimitAlertMonitor) Check(ctx context.Context) error {
 			return err
 		}
 		for _, usage := range batch {
-			m.lastAlert[usage.ID] = now
+			if err := m.recordAccountLimitAlertSent(ctx, accountLimitAlertSentState(AccountLimitAlertKindWarning, usage, now), true); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+func (m *AccountLimitAlertMonitor) RecordAccountLimitAlertSent(state AccountLimitAlertSentState) error {
+	return m.recordAccountLimitAlertSent(context.Background(), state, false)
+}
+
+func (m *AccountLimitAlertMonitor) recordAccountLimitAlertSent(ctx context.Context, state AccountLimitAlertSentState, notifySiblings bool) error {
+	now := m.now()
+	if err := state.normalize(now); err != nil {
+		return err
+	}
+
+	usage := relay.HostAccountLimitUsage{
+		ID:           state.HostID,
+		Hostname:     state.Hostname,
+		AccountCount: state.AccountCount,
+		AccountLimit: state.AccountLimit,
+		Usage:        state.Usage,
+	}
+
+	m.lk.Lock()
+	switch state.Kind {
+	case AccountLimitAlertKindWarning:
+		if last, ok := m.lastAlert[state.HostID]; !ok || state.SentAt.After(last) {
+			m.lastAlert[state.HostID] = state.SentAt
+		}
+		m.aboveThreshold[state.HostID] = usage
+	case AccountLimitAlertKindRecovery:
+		if last, ok := m.lastAlert[state.HostID]; ok && last.After(state.SentAt) {
+			m.lk.Unlock()
+			return nil
+		}
+		delete(m.lastAlert, state.HostID)
+		delete(m.aboveThreshold, state.HostID)
+	}
+	m.lk.Unlock()
+
+	if notifySiblings && m.config.SentCallback != nil {
+		m.config.SentCallback(ctx, state)
+	}
+	return nil
+}
+
+func (s *Service) handleAdminRecordAccountLimitAlertSent(c echo.Context) error {
+	var body AccountLimitAlertSentState
+	if err := c.Bind(&body); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid body: %s", err))
+	}
+	if s.accountLimitAlertRecorder == nil {
+		return c.JSON(http.StatusOK, map[string]any{"success": "true"})
+	}
+	if err := s.accountLimitAlertRecorder.RecordAccountLimitAlertSent(body); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	return c.JSON(http.StatusOK, map[string]any{"success": "true"})
 }
 
 func formatAccountLimitRecoveryAlert(config AccountLimitAlertMonitorConfig, usage relay.HostAccountLimitUsage) string {
