@@ -34,7 +34,7 @@ func (r *Relay) ListHostsApproachingAccountLimit(ctx context.Context, threshold 
 	var hosts []models.Host
 	query := r.db.WithContext(ctx).
 		Model(&models.Host{}).
-		Where("account_limit > 0 AND account_count >= account_limit * ? AND status <> ?", threshold, models.HostStatusBanned).
+		Where("account_limit > 0 AND account_count * 1.0 / account_limit >= ? AND status <> ?", threshold, models.HostStatusBanned).
 		Order("account_count * 1.0 / account_limit DESC, id ASC")
 	if limit > 0 {
 		query = query.Limit(limit)
@@ -96,7 +96,7 @@ func (r *Relay) claimDueAccountLimitWarnings(ctx context.Context, threshold floa
 	var hosts []models.Host
 	query := r.db.WithContext(ctx).
 		Model(&models.Host{}).
-		Where("account_limit > 0 AND account_count >= account_limit * ? AND status <> ? AND account_limit_alerts_silenced = ?", threshold, models.HostStatusBanned, false).
+		Where("account_limit > 0 AND account_count * 1.0 / account_limit >= ? AND status <> ? AND account_limit_alerts_silenced = ?", threshold, models.HostStatusBanned, false).
 		Where("(account_limit_alert_state <> ? OR account_limit_alert_state IS NULL OR account_limit_alert_sent_at IS NULL OR account_limit_alert_sent_at <= ?)", models.HostAccountLimitAlertStateWarning, cutoff).
 		Order("account_count * 1.0 / account_limit DESC, id ASC")
 	if limit > 0 {
@@ -108,8 +108,13 @@ func (r *Relay) claimDueAccountLimitWarnings(ctx context.Context, threshold floa
 
 	out := make([]HostAccountLimitUsage, 0, len(hosts))
 	for _, host := range hosts {
+		usage := hostAccountLimitUsage(host, now)
+		if usage.Usage < threshold {
+			continue
+		}
+
 		result := r.db.WithContext(ctx).Model(&models.Host{}).
-			Where("id = ? AND account_limit > 0 AND account_count >= account_limit * ? AND status <> ? AND account_limit_alerts_silenced = ?", host.ID, threshold, models.HostStatusBanned, false).
+			Where("id = ? AND account_limit > 0 AND account_count * 1.0 / account_limit >= ? AND status <> ? AND account_limit_alerts_silenced = ?", host.ID, threshold, models.HostStatusBanned, false).
 			Where("(account_limit_alert_state <> ? OR account_limit_alert_state IS NULL OR account_limit_alert_sent_at IS NULL OR account_limit_alert_sent_at <= ?)", models.HostAccountLimitAlertStateWarning, cutoff).
 			Updates(map[string]any{
 				"account_limit_alert_state":   models.HostAccountLimitAlertStateWarning,
@@ -121,7 +126,7 @@ func (r *Relay) claimDueAccountLimitWarnings(ctx context.Context, threshold floa
 		if result.RowsAffected == 0 {
 			continue
 		}
-		out = append(out, hostAccountLimitUsage(host, now))
+		out = append(out, usage)
 	}
 	return out, nil
 }
@@ -130,7 +135,7 @@ func (r *Relay) claimDueAccountLimitRecoveries(ctx context.Context, threshold fl
 	var hosts []models.Host
 	query := r.db.WithContext(ctx).
 		Model(&models.Host{}).
-		Where("account_limit > 0 AND account_count < account_limit * ? AND status <> ? AND account_limit_alerts_silenced = ? AND account_limit_alert_state = ?", threshold, models.HostStatusBanned, false, models.HostAccountLimitAlertStateWarning).
+		Where("account_limit > 0 AND account_count * 1.0 / account_limit < ? AND status <> ? AND account_limit_alerts_silenced = ? AND account_limit_alert_state = ?", threshold, models.HostStatusBanned, false, models.HostAccountLimitAlertStateWarning).
 		Order("account_count * 1.0 / account_limit DESC, id ASC")
 	if limit > 0 {
 		query = query.Limit(limit)
@@ -141,8 +146,13 @@ func (r *Relay) claimDueAccountLimitRecoveries(ctx context.Context, threshold fl
 
 	out := make([]HostAccountLimitUsage, 0, len(hosts))
 	for _, host := range hosts {
+		usage := hostAccountLimitUsage(host, now)
+		if usage.Usage >= threshold {
+			continue
+		}
+
 		result := r.db.WithContext(ctx).Model(&models.Host{}).
-			Where("id = ? AND account_limit > 0 AND account_count < account_limit * ? AND status <> ? AND account_limit_alerts_silenced = ? AND account_limit_alert_state = ?", host.ID, threshold, models.HostStatusBanned, false, models.HostAccountLimitAlertStateWarning).
+			Where("id = ? AND account_limit > 0 AND account_count * 1.0 / account_limit < ? AND status <> ? AND account_limit_alerts_silenced = ? AND account_limit_alert_state = ?", host.ID, threshold, models.HostStatusBanned, false, models.HostAccountLimitAlertStateWarning).
 			Updates(map[string]any{
 				"account_limit_alert_state":   models.HostAccountLimitAlertStateOK,
 				"account_limit_alert_sent_at": now,
@@ -153,7 +163,7 @@ func (r *Relay) claimDueAccountLimitRecoveries(ctx context.Context, threshold fl
 		if result.RowsAffected == 0 {
 			continue
 		}
-		out = append(out, hostAccountLimitUsage(host, now))
+		out = append(out, usage)
 	}
 	return out, nil
 }
