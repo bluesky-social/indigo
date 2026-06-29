@@ -55,8 +55,8 @@ func TestAccountLimitAlertMonitorSendsAndRepeatsAfterCooldown(t *testing.T) {
 
 	require.NoError(t, monitor.Check(context.Background()))
 	require.Len(t, alerter.messages, 1)
-	assert.Contains(t, alerter.messages[0].Text, "pds.example.com: 80.0% used (80/100 repos)")
-	assert.Contains(t, alerter.messages[0].Text, "in test")
+	assert.Contains(t, alerter.messages[0].Title, "in test")
+	assert.Contains(t, alerter.messages[0].Text, "`pds.example.com`: *80.0%* used (`80 / 100` repos)")
 
 	now = now.Add(30 * time.Minute)
 	require.NoError(t, monitor.Check(context.Background()))
@@ -205,8 +205,8 @@ func TestAccountLimitAlertMonitorSendsRecoveryAndAlertsAgain(t *testing.T) {
 	now = now.Add(10 * time.Minute)
 	require.NoError(t, monitor.Check(context.Background()))
 	require.Len(t, alerter.messages, 2)
-	assert.Contains(t, alerter.messages[1].Text, "Relay PDS repo limit recovered")
-	assert.Contains(t, alerter.messages[1].Text, "pds.example.com is no longer above the 80.0% repo-limit alert threshold")
+	assert.Contains(t, alerter.messages[1].Title, "PDS repo limit recovered")
+	assert.Contains(t, alerter.messages[1].Text, "`pds.example.com` is no longer above the 80.0% repo-limit alert threshold")
 
 	lister.usages = []relay.HostAccountLimitUsage{
 		{ID: 1, Hostname: "pds.example.com", AccountCount: 81, AccountLimit: 100, Usage: 0.81},
@@ -214,7 +214,7 @@ func TestAccountLimitAlertMonitorSendsRecoveryAndAlertsAgain(t *testing.T) {
 	now = now.Add(10 * time.Minute)
 	require.NoError(t, monitor.Check(context.Background()))
 	require.Len(t, alerter.messages, 3)
-	assert.Contains(t, alerter.messages[2].Text, "pds.example.com: 81.0% used (81/100 repos)")
+	assert.Contains(t, alerter.messages[2].Text, "`pds.example.com`: *81.0%* used (`81 / 100` repos)")
 }
 
 func TestAccountLimitAlertMonitorBatchesMessagesWithoutQueryCap(t *testing.T) {
@@ -255,13 +255,37 @@ func TestSlackAlerterDoesNotPutTokenInPayload(t *testing.T) {
 	alerter.endpoint = server.URL
 	alerter.client = server.Client()
 
-	require.NoError(t, alerter.SendAlert(context.Background(), AlertMessage{Text: "hello"}))
+	require.NoError(t, alerter.SendAlert(context.Background(), AlertMessage{
+		Title:    "PDS repo limit warning in test",
+		Text:     "`pds.example.com`: *85.0%* used (`85 / 100` repos)",
+		Severity: AlertSeverityWarning,
+		Fields: []AlertField{
+			{Title: "Threshold", Value: "80.0%"},
+			{Title: "Highest usage", Value: "85.0%"},
+		},
+		Actions: []AlertAction{
+			{Text: "Open relay dashboard", URL: "https://relay.example.com/dash"},
+		},
+	}))
 	assert.Equal(t, "Bearer "+token, gotAuth)
 
 	payloadBytes, err := json.Marshal(gotPayload)
 	require.NoError(t, err)
 	assert.False(t, strings.Contains(string(payloadBytes), token))
 	assert.Equal(t, "C123", gotPayload["channel"])
-	assert.Equal(t, "hello", gotPayload["text"])
-	assert.Equal(t, false, gotPayload["mrkdwn"])
+	assert.Contains(t, gotPayload["text"], "PDS repo limit warning in test")
+
+	attachments, ok := gotPayload["attachments"].([]any)
+	require.True(t, ok)
+	require.Len(t, attachments, 1)
+	attachment, ok := attachments[0].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "#ECB22E", attachment["color"])
+	blocks, ok := attachment["blocks"].([]any)
+	require.True(t, ok)
+	require.NotEmpty(t, blocks)
+
+	payload := string(payloadBytes)
+	assert.Contains(t, payload, "Open relay dashboard")
+	assert.Contains(t, payload, "https://relay.example.com/dash")
 }
