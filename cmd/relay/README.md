@@ -116,6 +116,15 @@ Be sure to double-check bandwidth usage and pricing if running a public relay! B
 
 The relay admin interface has flexibility for many situations, but in some operational incidents it may be necessary to run SQL commands to do cleanups. This should be done when the relay is not actively operating. It is also recommended to run SQL commands in a transaction that can be rolled back in case of a typo or mistake.
 
+Account-limit alerts can be silenced for individual PDS hosts through the admin API. This state is persisted on the host row and forwarded to sibling relays:
+
+    curl -u admin:$RELAY_ADMIN_PASSWORD \
+      -H 'Content-Type: application/json' \
+      -d '{"host":"pds.example.com","account_limit_alerts_silenced":true}' \
+      http://localhost:2470/admin/pds/changeLimits
+
+Set `account_limit_alerts_silenced` to `false` to resume alerting.
+
 On the public web, you should probably run the relay behind a load-balancer or reverse proxy like `haproxy` or `caddy`, which manages TLS and can have various HTTP limits and behaviors configured. Remember that WebSocket support is required.
 
 The relay does not resolve atproto handles, but it does do DNS resolutions for hostnames, and may do a burst of resolutions at startup. Note that the go runtime may have an internal DNS implementation enabled (this is the default for the Dockerfile). The relay *will* do a large number of DID resolutions, particularly calls to the PLC directory, and particularly after a process restart when the in-process identity cache is warming up.

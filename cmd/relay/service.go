@@ -24,12 +24,6 @@ type Service struct {
 	config ServiceConfig
 
 	siblingClient http.Client
-
-	accountLimitAlertRecorder accountLimitAlertRecorder
-}
-
-type accountLimitAlertRecorder interface {
-	RecordAccountLimitAlertSent(state AccountLimitAlertSentState) error
 }
 
 type ServiceConfig struct {
@@ -71,10 +65,6 @@ func NewService(r *relay.Relay, config *ServiceConfig) (*Service, error) {
 	}
 
 	return svc, nil
-}
-
-func (svc *Service) SetAccountLimitAlertRecorder(recorder accountLimitAlertRecorder) {
-	svc.accountLimitAlertRecorder = recorder
 }
 
 func (svc *Service) StartMetrics(listen string) error {

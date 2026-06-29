@@ -11,19 +11,35 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/cmd/relay/relay"
+	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-type fakeAccountLimitUsageLister struct {
-	usages    []relay.HostAccountLimitUsage
+type fakeAccountLimitAlertClaimer struct {
+	claims    []relay.HostAccountLimitAlertClaims
 	lastLimit int
+	calls     int
+	records   []string
 }
 
-func (f *fakeAccountLimitUsageLister) ListHostsApproachingAccountLimit(ctx context.Context, threshold float64, limit int) ([]relay.HostAccountLimitUsage, error) {
+func (f *fakeAccountLimitAlertClaimer) ClaimDueAccountLimitAlerts(ctx context.Context, threshold float64, repeatInterval time.Duration, limit int) (*relay.HostAccountLimitAlertClaims, error) {
 	f.lastLimit = limit
-	return f.usages, nil
+	if len(f.claims) == 0 {
+		return &relay.HostAccountLimitAlertClaims{}, nil
+	}
+	idx := f.calls
+	if idx >= len(f.claims) {
+		idx = len(f.claims) - 1
+	}
+	f.calls++
+	return &f.claims[idx], nil
+}
+
+func (f *fakeAccountLimitAlertClaimer) RecordHostAccountLimitAlertSent(ctx context.Context, hostname string, state models.HostAccountLimitAlertState, sentAt time.Time) error {
+	f.records = append(f.records, hostname+":"+string(state))
+	return nil
 }
 
 type recordingAlerter struct {
@@ -35,10 +51,14 @@ func (r *recordingAlerter) SendAlert(ctx context.Context, msg AlertMessage) erro
 	return nil
 }
 
-func TestAccountLimitAlertMonitorSendsAndRepeatsAfterCooldown(t *testing.T) {
-	lister := &fakeAccountLimitUsageLister{
-		usages: []relay.HostAccountLimitUsage{
-			{ID: 1, Hostname: "pds.example.com", AccountCount: 80, AccountLimit: 100, Usage: 0.8},
+func TestAccountLimitAlertMonitorSendsClaimedWarning(t *testing.T) {
+	claimer := &fakeAccountLimitAlertClaimer{
+		claims: []relay.HostAccountLimitAlertClaims{
+			{
+				Warnings: []relay.HostAccountLimitUsage{
+					{ID: 1, Hostname: "pds.example.com", AccountCount: 80, AccountLimit: 100, Usage: 0.8, AlertSentAt: time.Unix(1000, 0)},
+				},
+			},
 		},
 	}
 	alerter := &recordingAlerter{}
@@ -47,24 +67,13 @@ func TestAccountLimitAlertMonitorSendsAndRepeatsAfterCooldown(t *testing.T) {
 	config.RepeatInterval = time.Hour
 	config.Environment = "test"
 
-	monitor, err := NewAccountLimitAlertMonitor(slog.Default(), lister, alerter, config)
+	monitor, err := NewAccountLimitAlertMonitor(slog.Default(), claimer, alerter, config)
 	require.NoError(t, err)
-
-	now := time.Unix(1000, 0)
-	monitor.now = func() time.Time { return now }
 
 	require.NoError(t, monitor.Check(context.Background()))
 	require.Len(t, alerter.messages, 1)
 	assert.Contains(t, alerter.messages[0].Title, "in test")
 	assert.Contains(t, alerter.messages[0].Text, "`pds.example.com`: *80.0%* used (`80 / 100` repos)")
-
-	now = now.Add(30 * time.Minute)
-	require.NoError(t, monitor.Check(context.Background()))
-	require.Len(t, alerter.messages, 1)
-
-	now = now.Add(31 * time.Minute)
-	require.NoError(t, monitor.Check(context.Background()))
-	require.Len(t, alerter.messages, 2)
 }
 
 func TestJitteredCheckInterval(t *testing.T) {
@@ -106,9 +115,13 @@ func TestInitialCheckDelay(t *testing.T) {
 }
 
 func TestAccountLimitAlertMonitorCirculatesLocalSentState(t *testing.T) {
-	lister := &fakeAccountLimitUsageLister{
-		usages: []relay.HostAccountLimitUsage{
-			{ID: 1, Hostname: "pds.example.com", AccountCount: 80, AccountLimit: 100, Usage: 0.8},
+	claimer := &fakeAccountLimitAlertClaimer{
+		claims: []relay.HostAccountLimitAlertClaims{
+			{
+				Warnings: []relay.HostAccountLimitUsage{
+					{ID: 1, Hostname: "pds.example.com", AccountCount: 80, AccountLimit: 100, Usage: 0.8, AlertSentAt: time.Unix(1000, 0)},
+				},
+			},
 		},
 	}
 	alerter := &recordingAlerter{}
@@ -118,7 +131,7 @@ func TestAccountLimitAlertMonitorCirculatesLocalSentState(t *testing.T) {
 		sent = append(sent, state)
 	}
 
-	monitor, err := NewAccountLimitAlertMonitor(slog.Default(), lister, alerter, config)
+	monitor, err := NewAccountLimitAlertMonitor(slog.Default(), claimer, alerter, config)
 	require.NoError(t, err)
 	require.NoError(t, monitor.Check(context.Background()))
 
@@ -128,111 +141,49 @@ func TestAccountLimitAlertMonitorCirculatesLocalSentState(t *testing.T) {
 	assert.Equal(t, "pds.example.com", sent[0].Hostname)
 }
 
-func TestAccountLimitAlertMonitorRemoteWarningSuppressesLocalWarning(t *testing.T) {
-	lister := &fakeAccountLimitUsageLister{
-		usages: []relay.HostAccountLimitUsage{
-			{ID: 1, Hostname: "pds.example.com", AccountCount: 80, AccountLimit: 100, Usage: 0.8},
-		},
-	}
-	alerter := &recordingAlerter{}
-	config := DefaultAccountLimitAlertMonitorConfig()
-
-	monitor, err := NewAccountLimitAlertMonitor(slog.Default(), lister, alerter, config)
-	require.NoError(t, err)
-	require.NoError(t, monitor.RecordAccountLimitAlertSent(AccountLimitAlertSentState{
-		Kind:         AccountLimitAlertKindWarning,
-		HostID:       1,
-		Hostname:     "pds.example.com",
-		AccountCount: 80,
-		AccountLimit: 100,
-		Usage:        0.8,
-		SentAt:       time.Now(),
-	}))
-
-	require.NoError(t, monitor.Check(context.Background()))
-	require.Empty(t, alerter.messages)
-}
-
-func TestAccountLimitAlertMonitorRemoteRecoverySuppressesLocalRecovery(t *testing.T) {
-	lister := &fakeAccountLimitUsageLister{}
-	alerter := &recordingAlerter{}
-	config := DefaultAccountLimitAlertMonitorConfig()
-
-	monitor, err := NewAccountLimitAlertMonitor(slog.Default(), lister, alerter, config)
-	require.NoError(t, err)
-	require.NoError(t, monitor.RecordAccountLimitAlertSent(AccountLimitAlertSentState{
-		Kind:         AccountLimitAlertKindWarning,
-		HostID:       1,
-		Hostname:     "pds.example.com",
-		AccountCount: 80,
-		AccountLimit: 100,
-		Usage:        0.8,
-		SentAt:       time.Now(),
-	}))
-	require.NoError(t, monitor.RecordAccountLimitAlertSent(AccountLimitAlertSentState{
-		Kind:         AccountLimitAlertKindRecovery,
-		HostID:       1,
-		Hostname:     "pds.example.com",
-		AccountCount: 80,
-		AccountLimit: 100,
-		Usage:        0.8,
-		SentAt:       time.Now(),
-	}))
-
-	require.NoError(t, monitor.Check(context.Background()))
-	require.Empty(t, alerter.messages)
-}
-
-func TestAccountLimitAlertMonitorSendsRecoveryAndAlertsAgain(t *testing.T) {
-	lister := &fakeAccountLimitUsageLister{
-		usages: []relay.HostAccountLimitUsage{
-			{ID: 1, Hostname: "pds.example.com", AccountCount: 80, AccountLimit: 100, Usage: 0.8},
+func TestAccountLimitAlertMonitorSendsClaimedRecovery(t *testing.T) {
+	claimer := &fakeAccountLimitAlertClaimer{
+		claims: []relay.HostAccountLimitAlertClaims{
+			{
+				Recoveries: []relay.HostAccountLimitUsage{
+					{ID: 1, Hostname: "pds.example.com", AccountCount: 20, AccountLimit: 100, Usage: 0.2, AlertSentAt: time.Unix(1000, 0)},
+				},
+			},
 		},
 	}
 	alerter := &recordingAlerter{}
 	config := DefaultAccountLimitAlertMonitorConfig()
 	config.RepeatInterval = time.Hour
 
-	monitor, err := NewAccountLimitAlertMonitor(slog.Default(), lister, alerter, config)
+	monitor, err := NewAccountLimitAlertMonitor(slog.Default(), claimer, alerter, config)
 	require.NoError(t, err)
-	now := time.Unix(1000, 0)
-	monitor.now = func() time.Time { return now }
 
 	require.NoError(t, monitor.Check(context.Background()))
 	require.Len(t, alerter.messages, 1)
-
-	lister.usages = nil
-	now = now.Add(10 * time.Minute)
-	require.NoError(t, monitor.Check(context.Background()))
-	require.Len(t, alerter.messages, 2)
-	assert.Contains(t, alerter.messages[1].Title, "PDS repo limit recovered")
-	assert.Contains(t, alerter.messages[1].Text, "`pds.example.com` is no longer above the 80.0% repo-limit alert threshold")
-
-	lister.usages = []relay.HostAccountLimitUsage{
-		{ID: 1, Hostname: "pds.example.com", AccountCount: 81, AccountLimit: 100, Usage: 0.81},
-	}
-	now = now.Add(10 * time.Minute)
-	require.NoError(t, monitor.Check(context.Background()))
-	require.Len(t, alerter.messages, 3)
-	assert.Contains(t, alerter.messages[2].Text, "`pds.example.com`: *81.0%* used (`81 / 100` repos)")
+	assert.Contains(t, alerter.messages[0].Title, "PDS repo limit recovered")
+	assert.Contains(t, alerter.messages[0].Text, "`pds.example.com` is no longer above the 80.0% repo-limit alert threshold")
 }
 
 func TestAccountLimitAlertMonitorBatchesMessagesWithoutQueryCap(t *testing.T) {
-	lister := &fakeAccountLimitUsageLister{
-		usages: []relay.HostAccountLimitUsage{
-			{ID: 1, Hostname: "one.example.com", AccountCount: 80, AccountLimit: 100, Usage: 0.8},
-			{ID: 2, Hostname: "two.example.com", AccountCount: 81, AccountLimit: 100, Usage: 0.81},
+	claimer := &fakeAccountLimitAlertClaimer{
+		claims: []relay.HostAccountLimitAlertClaims{
+			{
+				Warnings: []relay.HostAccountLimitUsage{
+					{ID: 1, Hostname: "one.example.com", AccountCount: 80, AccountLimit: 100, Usage: 0.8, AlertSentAt: time.Unix(1000, 0)},
+					{ID: 2, Hostname: "two.example.com", AccountCount: 81, AccountLimit: 100, Usage: 0.81, AlertSentAt: time.Unix(1000, 0)},
+				},
+			},
 		},
 	}
 	alerter := &recordingAlerter{}
 	config := DefaultAccountLimitAlertMonitorConfig()
 	config.HostsPerMessage = 1
 
-	monitor, err := NewAccountLimitAlertMonitor(slog.Default(), lister, alerter, config)
+	monitor, err := NewAccountLimitAlertMonitor(slog.Default(), claimer, alerter, config)
 	require.NoError(t, err)
 	require.NoError(t, monitor.Check(context.Background()))
 
-	assert.Equal(t, 0, lister.lastLimit)
+	assert.Equal(t, 0, claimer.lastLimit)
 	require.Len(t, alerter.messages, 2)
 	assert.Contains(t, alerter.messages[0].Text, "one.example.com")
 	assert.Contains(t, alerter.messages[1].Text, "two.example.com")

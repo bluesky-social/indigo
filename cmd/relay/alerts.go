@@ -11,10 +11,10 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/cmd/relay/relay"
+	"github.com/bluesky-social/indigo/cmd/relay/relay/models"
 	"github.com/bluesky-social/indigo/util/cliutil"
 
 	"github.com/labstack/echo/v4"
@@ -58,8 +58,9 @@ type Alerter interface {
 	SendAlert(ctx context.Context, msg AlertMessage) error
 }
 
-type accountLimitUsageLister interface {
-	ListHostsApproachingAccountLimit(ctx context.Context, threshold float64, limit int) ([]relay.HostAccountLimitUsage, error)
+type accountLimitAlertClaimer interface {
+	ClaimDueAccountLimitAlerts(ctx context.Context, threshold float64, repeatInterval time.Duration, limit int) (*relay.HostAccountLimitAlertClaims, error)
+	RecordHostAccountLimitAlertSent(ctx context.Context, hostname string, state models.HostAccountLimitAlertState, sentAt time.Time) error
 }
 
 type AccountLimitAlertSentState struct {
@@ -161,19 +162,16 @@ func (c AccountLimitAlertMonitorConfig) Validate() error {
 
 type AccountLimitAlertMonitor struct {
 	logger  *slog.Logger
-	lister  accountLimitUsageLister
+	claimer accountLimitAlertClaimer
 	alerter Alerter
 	config  AccountLimitAlertMonitorConfig
 
-	lk             sync.Mutex
-	now            func() time.Time
-	lastAlert      map[uint64]time.Time
-	aboveThreshold map[uint64]relay.HostAccountLimitUsage
+	now func() time.Time
 }
 
-func NewAccountLimitAlertMonitor(logger *slog.Logger, lister accountLimitUsageLister, alerter Alerter, config AccountLimitAlertMonitorConfig) (*AccountLimitAlertMonitor, error) {
-	if lister == nil {
-		return nil, fmt.Errorf("account limit alert lister is required")
+func NewAccountLimitAlertMonitor(logger *slog.Logger, claimer accountLimitAlertClaimer, alerter Alerter, config AccountLimitAlertMonitorConfig) (*AccountLimitAlertMonitor, error) {
+	if claimer == nil {
+		return nil, fmt.Errorf("account limit alert claimer is required")
 	}
 	if alerter == nil {
 		return nil, fmt.Errorf("account limit alerter is required")
@@ -185,13 +183,11 @@ func NewAccountLimitAlertMonitor(logger *slog.Logger, lister accountLimitUsageLi
 		return nil, err
 	}
 	return &AccountLimitAlertMonitor{
-		logger:         logger.With("system", "account-limit-alerts"),
-		lister:         lister,
-		alerter:        alerter,
-		config:         config,
-		now:            time.Now,
-		lastAlert:      make(map[uint64]time.Time),
-		aboveThreshold: make(map[uint64]relay.HostAccountLimitUsage),
+		logger:  logger.With("system", "account-limit-alerts"),
+		claimer: claimer,
+		alerter: alerter,
+		config:  config,
+		now:     time.Now,
 	}, nil
 }
 
@@ -249,103 +245,38 @@ func jitteredCheckInterval(interval, jitter time.Duration, randInt63n func(int64
 }
 
 func (m *AccountLimitAlertMonitor) Check(ctx context.Context) error {
-	usages, err := m.lister.ListHostsApproachingAccountLimit(ctx, m.config.Threshold, 0)
+	claims, err := m.claimer.ClaimDueAccountLimitAlerts(ctx, m.config.Threshold, m.config.RepeatInterval, 0)
 	if err != nil {
 		return err
 	}
 
-	now := m.now()
-	m.lk.Lock()
-	currentAbove := make(map[uint64]relay.HostAccountLimitUsage, len(usages))
-	due := make([]relay.HostAccountLimitUsage, 0, len(usages))
-	for _, usage := range usages {
-		currentAbove[usage.ID] = usage
-		last, alertedBefore := m.lastAlert[usage.ID]
-		_, wasAbove := m.aboveThreshold[usage.ID]
-		repeatDue := !alertedBefore || now.Sub(last) >= m.config.RepeatInterval
-		if !wasAbove || repeatDue {
-			due = append(due, usage)
-		}
-	}
-
-	recovered := make([]relay.HostAccountLimitUsage, 0)
-	for id := range m.aboveThreshold {
-		if _, ok := currentAbove[id]; !ok {
-			recovered = append(recovered, m.aboveThreshold[id])
-		}
-	}
-
-	for id, usage := range currentAbove {
-		m.aboveThreshold[id] = usage
-	}
-	m.lk.Unlock()
-
-	for _, usage := range recovered {
+	for _, usage := range claims.Recoveries {
 		if err := m.alerter.SendAlert(ctx, formatAccountLimitRecoveryAlert(m.config, usage)); err != nil {
 			return err
 		}
-		if err := m.recordAccountLimitAlertSent(ctx, accountLimitAlertSentState(AccountLimitAlertKindRecovery, usage, now), true); err != nil {
-			return err
-		}
+		m.forwardAccountLimitAlertSent(ctx, accountLimitAlertSentState(AccountLimitAlertKindRecovery, usage, usage.AlertSentAt))
 	}
 
-	for start := 0; start < len(due); start += m.config.HostsPerMessage {
+	for start := 0; start < len(claims.Warnings); start += m.config.HostsPerMessage {
 		end := start + m.config.HostsPerMessage
-		if end > len(due) {
-			end = len(due)
+		if end > len(claims.Warnings) {
+			end = len(claims.Warnings)
 		}
-		batch := due[start:end]
+		batch := claims.Warnings[start:end]
 		if err := m.alerter.SendAlert(ctx, formatAccountLimitAlert(m.config, batch)); err != nil {
 			return err
 		}
 		for _, usage := range batch {
-			if err := m.recordAccountLimitAlertSent(ctx, accountLimitAlertSentState(AccountLimitAlertKindWarning, usage, now), true); err != nil {
-				return err
-			}
+			m.forwardAccountLimitAlertSent(ctx, accountLimitAlertSentState(AccountLimitAlertKindWarning, usage, usage.AlertSentAt))
 		}
 	}
 	return nil
 }
 
-func (m *AccountLimitAlertMonitor) RecordAccountLimitAlertSent(state AccountLimitAlertSentState) error {
-	return m.recordAccountLimitAlertSent(context.Background(), state, false)
-}
-
-func (m *AccountLimitAlertMonitor) recordAccountLimitAlertSent(ctx context.Context, state AccountLimitAlertSentState, notifySiblings bool) error {
-	now := m.now()
-	if err := state.normalize(now); err != nil {
-		return err
-	}
-
-	usage := relay.HostAccountLimitUsage{
-		ID:           state.HostID,
-		Hostname:     state.Hostname,
-		AccountCount: state.AccountCount,
-		AccountLimit: state.AccountLimit,
-		Usage:        state.Usage,
-	}
-
-	m.lk.Lock()
-	switch state.Kind {
-	case AccountLimitAlertKindWarning:
-		if last, ok := m.lastAlert[state.HostID]; !ok || state.SentAt.After(last) {
-			m.lastAlert[state.HostID] = state.SentAt
-		}
-		m.aboveThreshold[state.HostID] = usage
-	case AccountLimitAlertKindRecovery:
-		if last, ok := m.lastAlert[state.HostID]; ok && last.After(state.SentAt) {
-			m.lk.Unlock()
-			return nil
-		}
-		delete(m.lastAlert, state.HostID)
-		delete(m.aboveThreshold, state.HostID)
-	}
-	m.lk.Unlock()
-
-	if notifySiblings && m.config.SentCallback != nil {
+func (m *AccountLimitAlertMonitor) forwardAccountLimitAlertSent(ctx context.Context, state AccountLimitAlertSentState) {
+	if m.config.SentCallback != nil {
 		m.config.SentCallback(ctx, state)
 	}
-	return nil
 }
 
 func (s *Service) handleAdminRecordAccountLimitAlertSent(c echo.Context) error {
@@ -353,10 +284,14 @@ func (s *Service) handleAdminRecordAccountLimitAlertSent(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid body: %s", err))
 	}
-	if s.accountLimitAlertRecorder == nil {
-		return c.JSON(http.StatusOK, map[string]any{"success": "true"})
+	if err := body.normalize(time.Now().UTC()); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	if err := s.accountLimitAlertRecorder.RecordAccountLimitAlertSent(body); err != nil {
+	state := models.HostAccountLimitAlertStateWarning
+	if body.Kind == AccountLimitAlertKindRecovery {
+		state = models.HostAccountLimitAlertStateOK
+	}
+	if err := s.relay.RecordHostAccountLimitAlertSent(c.Request().Context(), body.Hostname, state, body.SentAt); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 	return c.JSON(http.StatusOK, map[string]any{"success": "true"})
