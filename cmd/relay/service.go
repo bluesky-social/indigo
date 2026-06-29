@@ -183,6 +183,9 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 	admin.POST("/pds/unblock", svc.handleUnblockHost)
 	// removed: admin.POST("/pds/addTrustedDomain", svc.handleAdminAddTrustedDomain)
 
+	// Alert-related Admin API
+	admin.POST("/alerts/accountLimitSent", svc.handleAdminRecordAccountLimitAlertSent)
+
 	// Consumer-related Admin API
 	admin.GET("/consumers/list", svc.handleAdminListConsumers)
 

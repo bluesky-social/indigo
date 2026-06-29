@@ -21,6 +21,9 @@ interface PDS {
   PerDayEventRate: RateLimit;
   RepoCount: number;
   RepoLimit: number;
+  AccountLimitAlertsSilenced: boolean;
+  AccountLimitAlertState: string;
+  AccountLimitAlertSentAt?: string;
 }
 
 type PDSKey = keyof PDS;

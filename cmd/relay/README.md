@@ -103,12 +103,27 @@ Some notable configuration env vars:
 - `RELAY_REPLAY_WINDOW`: the duration of output "backfill window", eg `24h`
 - `RELAY_LENIENT_SYNC_VALIDATION`: if `true`, allow legacy upstreams which don't implement atproto sync v1.1
 - `RELAY_TRUSTED_DOMAINS`: patterns of PDS hosts which get larger quotas by default, eg `*.host.bsky.network`
+- `RELAY_ACCOUNT_LIMIT_ALERT_THRESHOLD`: fraction of a PDS repo limit that triggers an alert; default is `0.80`
+- `RELAY_ACCOUNT_LIMIT_ALERT_INTERVAL`: how often to check for PDS hosts approaching their repo limits, with up to one minute of jitter in either direction; default is `5m`
+- `RELAY_ACCOUNT_LIMIT_ALERT_REPEAT_INTERVAL`: minimum interval between repeat alerts for a host that remains over threshold; default is `6h`
+- `RELAY_ACCOUNT_LIMIT_ALERT_DASHBOARD_URL`: optional absolute URL to include as a relay dashboard button in account-limit alerts
+- `RELAY_SLACK_ALERT_CHANNEL`: Slack channel ID or name for PDS repo-limit alerts
+- `RELAY_SLACK_ALERT_TOKEN`: Slack bot token with permission to post repo-limit alerts; prefer env configuration over CLI args for secrets
 
 There is a health check endpoint at `/xrpc/_health`. Prometheus metrics are exposed by default on port 2471, path `/metrics`. The service logs fairly verbosely to stdout; use `LOG_LEVEL` to control log volume (`warn`, `info`, etc).
 
 Be sure to double-check bandwidth usage and pricing if running a public relay! Bandwidth prices can vary widely between providers, and popular cloud services (AWS, Google Cloud, Azure) are very expensive compared to alternatives like OVH or Hetzner.
 
 The relay admin interface has flexibility for many situations, but in some operational incidents it may be necessary to run SQL commands to do cleanups. This should be done when the relay is not actively operating. It is also recommended to run SQL commands in a transaction that can be rolled back in case of a typo or mistake.
+
+Account-limit alerts can be silenced for individual PDS hosts through the admin API. This state is persisted on the host row and forwarded to sibling relays:
+
+    curl -u admin:$RELAY_ADMIN_PASSWORD \
+      -H 'Content-Type: application/json' \
+      -d '{"host":"pds.example.com","account_limit_alerts_silenced":true}' \
+      http://localhost:2470/admin/pds/changeLimits
+
+Set `account_limit_alerts_silenced` to `false` to resume alerting.
 
 On the public web, you should probably run the relay behind a load-balancer or reverse proxy like `haproxy` or `caddy`, which manages TLS and can have various HTTP limits and behaviors configured. Remember that WebSocket support is required.
 
