@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -159,6 +161,34 @@ func run(args []string) error {
 					Sources: cli.EnvVars("ENVIRONMENT"),
 					Usage:   "declared hosting environment (prod, qa, etc); used in metrics",
 				},
+				&cli.Float64Flag{
+					Name:    "account-limit-alert-threshold",
+					Value:   0.80,
+					Sources: cli.EnvVars("RELAY_ACCOUNT_LIMIT_ALERT_THRESHOLD"),
+					Usage:   "fraction of a PDS repo limit that triggers an alert",
+				},
+				&cli.DurationFlag{
+					Name:    "account-limit-alert-interval",
+					Value:   5 * time.Minute,
+					Sources: cli.EnvVars("RELAY_ACCOUNT_LIMIT_ALERT_INTERVAL"),
+					Usage:   "how often to check for PDS hosts approaching their repo limits",
+				},
+				&cli.DurationFlag{
+					Name:    "account-limit-alert-repeat-interval",
+					Value:   6 * time.Hour,
+					Sources: cli.EnvVars("RELAY_ACCOUNT_LIMIT_ALERT_REPEAT_INTERVAL"),
+					Usage:   "minimum interval between repeated alerts for a PDS host that remains over the alert threshold",
+				},
+				&cli.StringFlag{
+					Name:    "slack-alert-channel",
+					Sources: cli.EnvVars("RELAY_SLACK_ALERT_CHANNEL", "RELAY_ALERT_SLACK_CHANNEL"),
+					Usage:   "Slack channel ID or name for PDS repo-limit alerts",
+				},
+				&cli.StringFlag{
+					Name:    "slack-alert-token",
+					Sources: cli.EnvVars("RELAY_SLACK_ALERT_TOKEN", "RELAY_ALERT_SLACK_TOKEN"),
+					Usage:   "Slack bot token for PDS repo-limit alerts; environment variables are recommended",
+				},
 				&cli.BoolFlag{
 					Name: "enable-db-tracing",
 				},
@@ -209,6 +239,66 @@ func configLogger(cmd *cli.Command, writer io.Writer) *slog.Logger {
 	return logger
 }
 
+func safeDatabaseURLForLog(dburl string) string {
+	if strings.HasPrefix(dburl, "sqlite://") || strings.HasPrefix(dburl, "sqlite=") {
+		return dburl
+	}
+	if strings.HasPrefix(dburl, "postgres=") {
+		return "postgres=<redacted>"
+	}
+
+	u, err := url.Parse(dburl)
+	if err != nil || u.Scheme == "" {
+		return "<redacted>"
+	}
+	if u.User != nil {
+		username := u.User.Username()
+		if username == "" {
+			u.User = url.UserPassword("xxxxx", "xxxxx")
+		} else {
+			u.User = url.UserPassword(username, "xxxxx")
+		}
+	}
+	if u.RawQuery != "" {
+		q := u.Query()
+		for k := range q {
+			lowerKey := strings.ToLower(k)
+			if strings.Contains(lowerKey, "pass") || strings.Contains(lowerKey, "token") || strings.Contains(lowerKey, "secret") {
+				q.Set(k, "xxxxx")
+			}
+		}
+		u.RawQuery = q.Encode()
+	}
+	return u.String()
+}
+
+func configureAccountLimitAlertMonitor(cmd *cli.Command, logger *slog.Logger, r *relay.Relay) (*AccountLimitAlertMonitor, error) {
+	slackToken := strings.TrimSpace(cmd.String("slack-alert-token"))
+	slackChannel := strings.TrimSpace(cmd.String("slack-alert-channel"))
+	if slackToken == "" && slackChannel == "" {
+		return nil, nil
+	}
+	if slackToken == "" || slackChannel == "" {
+		return nil, fmt.Errorf("both slack alert token and slack alert channel are required when relay account-limit alerting is configured")
+	}
+
+	alerter, err := NewSlackAlerter(slackToken, slackChannel)
+	if err != nil {
+		return nil, err
+	}
+	config := DefaultAccountLimitAlertMonitorConfig()
+	config.Threshold = cmd.Float64("account-limit-alert-threshold")
+	config.CheckInterval = cmd.Duration("account-limit-alert-interval")
+	config.RepeatInterval = cmd.Duration("account-limit-alert-repeat-interval")
+	config.Environment = cmd.String("env")
+
+	monitor, err := NewAccountLimitAlertMonitor(logger, r, alerter, config)
+	if err != nil {
+		return nil, err
+	}
+	return monitor, nil
+}
+
 func runRelay(ctx context.Context, cmd *cli.Command) error {
 	logger := configLogger(cmd, os.Stdout)
 
@@ -218,7 +308,7 @@ func runRelay(ctx context.Context, cmd *cli.Command) error {
 
 	dburl := cmd.String("db-url")
 	maxConn := cmd.Int("max-db-conn")
-	logger.Info("configuring database", "url", dburl, "maxConn", maxConn)
+	logger.Info("configuring database", "url", safeDatabaseURLForLog(dburl), "maxConn", maxConn)
 	db, err := cliutil.SetupDatabase(dburl, maxConn)
 	if err != nil {
 		return err
@@ -288,6 +378,34 @@ func runRelay(ctx context.Context, cmd *cli.Command) error {
 	}
 	persister.SetUidSource(r)
 
+	alertMonitor, err := configureAccountLimitAlertMonitor(cmd, logger, r)
+	if err != nil {
+		return err
+	}
+	alertCtx, cancelAlerts := context.WithCancel(ctx)
+	alertDone := make(chan struct{})
+	if alertMonitor != nil {
+		logger.Info("starting PDS account-limit alert monitor", "threshold", cmd.Float64("account-limit-alert-threshold"), "interval", cmd.Duration("account-limit-alert-interval"), "repeatInterval", cmd.Duration("account-limit-alert-repeat-interval"), "slackChannel", cmd.String("slack-alert-channel"))
+		go func() {
+			defer close(alertDone)
+			alertMonitor.Run(alertCtx)
+		}()
+	} else {
+		close(alertDone)
+	}
+	var stopAlertsOnce sync.Once
+	stopAlerts := func() {
+		stopAlertsOnce.Do(func() {
+			cancelAlerts()
+			select {
+			case <-alertDone:
+			case <-time.After(5 * time.Second):
+				logger.Warn("timed out waiting for account-limit alert monitor to stop")
+			}
+		})
+	}
+	defer stopAlerts()
+
 	// start metrics endpoint
 	go func() {
 		if err := svc.StartMetrics(cmd.String("metrics-listen")); err != nil {
@@ -321,6 +439,7 @@ func runRelay(ctx context.Context, cmd *cli.Command) error {
 	select {
 	case <-signals:
 		logger.Info("received shutdown signal")
+		stopAlerts()
 		errs := svc.Shutdown()
 		for err := range errs {
 			logger.Error("error during shutdown", "err", err)
@@ -330,6 +449,7 @@ func runRelay(ctx context.Context, cmd *cli.Command) error {
 			logger.Error("error during startup", "err", err)
 		}
 		logger.Info("shutting down")
+		stopAlerts()
 		errs := svc.Shutdown()
 		for err := range errs {
 			logger.Error("error during shutdown", "err", err)
