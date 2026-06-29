@@ -24,6 +24,12 @@ type Service struct {
 	config ServiceConfig
 
 	siblingClient http.Client
+
+	accountLimitAlertRecorder accountLimitAlertRecorder
+}
+
+type accountLimitAlertRecorder interface {
+	RecordAccountLimitAlertSent(state AccountLimitAlertSentState) error
 }
 
 type ServiceConfig struct {
@@ -65,6 +71,10 @@ func NewService(r *relay.Relay, config *ServiceConfig) (*Service, error) {
 	}
 
 	return svc, nil
+}
+
+func (svc *Service) SetAccountLimitAlertRecorder(recorder accountLimitAlertRecorder) {
+	svc.accountLimitAlertRecorder = recorder
 }
 
 func (svc *Service) StartMetrics(listen string) error {
@@ -182,6 +192,9 @@ func (svc *Service) startWithListener(listen net.Listener) error {
 	admin.POST("/pds/block", svc.handleBlockHost)
 	admin.POST("/pds/unblock", svc.handleUnblockHost)
 	// removed: admin.POST("/pds/addTrustedDomain", svc.handleAdminAddTrustedDomain)
+
+	// Alert-related Admin API
+	admin.POST("/alerts/accountLimitSent", svc.handleAdminRecordAccountLimitAlertSent)
 
 	// Consumer-related Admin API
 	admin.GET("/consumers/list", svc.handleAdminListConsumers)

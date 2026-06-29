@@ -272,7 +272,7 @@ func safeDatabaseURLForLog(dburl string) string {
 	return u.String()
 }
 
-func configureAccountLimitAlertMonitor(cmd *cli.Command, logger *slog.Logger, r *relay.Relay) (*AccountLimitAlertMonitor, error) {
+func configureAccountLimitAlertMonitor(cmd *cli.Command, logger *slog.Logger, r *relay.Relay, sentCallback func(context.Context, AccountLimitAlertSentState)) (*AccountLimitAlertMonitor, error) {
 	slackToken := strings.TrimSpace(cmd.String("slack-alert-token"))
 	slackChannel := strings.TrimSpace(cmd.String("slack-alert-channel"))
 	if slackToken == "" && slackChannel == "" {
@@ -291,6 +291,7 @@ func configureAccountLimitAlertMonitor(cmd *cli.Command, logger *slog.Logger, r 
 	config.CheckInterval = cmd.Duration("account-limit-alert-interval")
 	config.RepeatInterval = cmd.Duration("account-limit-alert-repeat-interval")
 	config.Environment = cmd.String("env")
+	config.SentCallback = sentCallback
 
 	monitor, err := NewAccountLimitAlertMonitor(logger, r, alerter, config)
 	if err != nil {
@@ -378,9 +379,14 @@ func runRelay(ctx context.Context, cmd *cli.Command) error {
 	}
 	persister.SetUidSource(r)
 
-	alertMonitor, err := configureAccountLimitAlertMonitor(cmd, logger, r)
+	alertMonitor, err := configureAccountLimitAlertMonitor(cmd, logger, r, func(ctx context.Context, state AccountLimitAlertSentState) {
+		go svc.ForwardSiblingAccountLimitAlertSent(ctx, state)
+	})
 	if err != nil {
 		return err
+	}
+	if alertMonitor != nil {
+		svc.SetAccountLimitAlertRecorder(alertMonitor)
 	}
 	alertCtx, cancelAlerts := context.WithCancel(ctx)
 	alertDone := make(chan struct{})

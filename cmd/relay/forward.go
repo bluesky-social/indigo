@@ -2,6 +2,10 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -82,5 +86,60 @@ func (s *Service) ForwardSiblingRequest(c echo.Context, body []byte) {
 		}
 		upstreamResp.Body.Close()
 		s.logger.Info("successfully forwarded admin HTTP request", "method", req.Method, "url", u.String())
+	}
+}
+
+func (s *Service) ForwardSiblingAccountLimitAlertSent(ctx context.Context, state AccountLimitAlertSentState) {
+	if len(s.config.SiblingRelayHosts) == 0 {
+		return
+	}
+	if len(s.config.AdminPasswords) == 0 {
+		s.logger.Warn("not forwarding account limit alert sent state because no admin password is configured")
+		return
+	}
+
+	body, err := json.Marshal(state)
+	if err != nil {
+		s.logger.Error("marshaling account limit alert sent state failed", "err", err)
+		return
+	}
+	authHeader := "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:"+s.config.AdminPasswords[0]))
+
+	for _, rawHost := range s.config.SiblingRelayHosts {
+		hostname, noSSL, err := relay.ParseHostname(rawHost)
+		if err != nil {
+			s.logger.Error("invalid sibling hostname configured", "host", rawHost, "err", err)
+			return
+		}
+
+		scheme := "https"
+		if noSSL {
+			scheme = "http"
+		}
+		u := fmt.Sprintf("%s://%s/admin/alerts/accountLimitSent", scheme, hostname)
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
+		if err != nil {
+			s.logger.Error("creating alert state forward request failed", "sibling", hostname, "err", err)
+			continue
+		}
+		req.Header.Set("Authorization", authHeader)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("User-Agent", s.relay.Config.UserAgent)
+		req.Header.Add("Via", "HTTP/1.1 atproto-relay")
+
+		resp, err := s.siblingClient.Do(req)
+		if err != nil {
+			s.logger.Warn("forwarded account limit alert state failed", "sibling", hostname, "kind", state.Kind, "host", state.Hostname, "err", err)
+			continue
+		}
+		if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
+			respBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+			resp.Body.Close()
+			s.logger.Warn("forwarded account limit alert state failed", "sibling", hostname, "kind", state.Kind, "host", state.Hostname, "statusCode", resp.StatusCode, "body", string(respBytes))
+			continue
+		}
+		resp.Body.Close()
+		s.logger.Info("successfully forwarded account limit alert state", "sibling", hostname, "kind", state.Kind, "host", state.Hostname)
 	}
 }
