@@ -180,6 +180,11 @@ func run(args []string) error {
 					Usage:   "minimum interval between repeated alerts for a PDS host that remains over the alert threshold",
 				},
 				&cli.StringFlag{
+					Name:    "account-limit-alert-dashboard-url",
+					Sources: cli.EnvVars("RELAY_ACCOUNT_LIMIT_ALERT_DASHBOARD_URL", "RELAY_ALERT_DASHBOARD_URL"),
+					Usage:   "optional absolute URL to include as a relay dashboard button in account-limit alerts",
+				},
+				&cli.StringFlag{
 					Name:    "slack-alert-channel",
 					Sources: cli.EnvVars("RELAY_SLACK_ALERT_CHANNEL", "RELAY_ALERT_SLACK_CHANNEL"),
 					Usage:   "Slack channel ID or name for PDS repo-limit alerts",
@@ -291,6 +296,7 @@ func configureAccountLimitAlertMonitor(cmd *cli.Command, logger *slog.Logger, r 
 	config.CheckInterval = cmd.Duration("account-limit-alert-interval")
 	config.RepeatInterval = cmd.Duration("account-limit-alert-repeat-interval")
 	config.Environment = cmd.String("env")
+	config.DashboardURL = strings.TrimSpace(cmd.String("account-limit-alert-dashboard-url"))
 	config.SentCallback = sentCallback
 
 	monitor, err := NewAccountLimitAlertMonitor(logger, r, alerter, config)

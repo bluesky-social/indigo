@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +30,28 @@ const (
 )
 
 type AlertMessage struct {
+	Title    string
+	Text     string
+	Severity AlertSeverity
+	Fields   []AlertField
+	Actions  []AlertAction
+}
+
+type AlertSeverity string
+
+const (
+	AlertSeverityWarning  = AlertSeverity("warning")
+	AlertSeverityRecovery = AlertSeverity("recovery")
+)
+
+type AlertField struct {
+	Title string
+	Value string
+}
+
+type AlertAction struct {
 	Text string
+	URL  string
 }
 
 type Alerter interface {
@@ -97,6 +119,7 @@ type AccountLimitAlertMonitorConfig struct {
 	CheckJitter     time.Duration
 	RepeatInterval  time.Duration
 	Environment     string
+	DashboardURL    string
 	HostsPerMessage int
 	SentCallback    func(context.Context, AccountLimitAlertSentState)
 }
@@ -126,6 +149,12 @@ func (c AccountLimitAlertMonitorConfig) Validate() error {
 	}
 	if c.HostsPerMessage <= 0 {
 		return fmt.Errorf("account limit alert hosts per message must be positive")
+	}
+	if strings.TrimSpace(c.DashboardURL) != "" {
+		u, err := url.Parse(c.DashboardURL)
+		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+			return fmt.Errorf("account limit alert dashboard URL must be an absolute http or https URL")
+		}
 	}
 	return nil
 }
@@ -252,7 +281,7 @@ func (m *AccountLimitAlertMonitor) Check(ctx context.Context) error {
 	m.lk.Unlock()
 
 	for _, usage := range recovered {
-		if err := m.alerter.SendAlert(ctx, AlertMessage{Text: formatAccountLimitRecoveryAlert(m.config, usage)}); err != nil {
+		if err := m.alerter.SendAlert(ctx, formatAccountLimitRecoveryAlert(m.config, usage)); err != nil {
 			return err
 		}
 		if err := m.recordAccountLimitAlertSent(ctx, accountLimitAlertSentState(AccountLimitAlertKindRecovery, usage, now), true); err != nil {
@@ -266,7 +295,7 @@ func (m *AccountLimitAlertMonitor) Check(ctx context.Context) error {
 			end = len(due)
 		}
 		batch := due[start:end]
-		if err := m.alerter.SendAlert(ctx, AlertMessage{Text: formatAccountLimitAlert(m.config, batch)}); err != nil {
+		if err := m.alerter.SendAlert(ctx, formatAccountLimitAlert(m.config, batch)); err != nil {
 			return err
 		}
 		for _, usage := range batch {
@@ -333,42 +362,74 @@ func (s *Service) handleAdminRecordAccountLimitAlertSent(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{"success": "true"})
 }
 
-func formatAccountLimitRecoveryAlert(config AccountLimitAlertMonitorConfig, usage relay.HostAccountLimitUsage) string {
+func formatAccountLimitRecoveryAlert(config AccountLimitAlertMonitorConfig, usage relay.HostAccountLimitUsage) AlertMessage {
 	env := strings.TrimSpace(config.Environment)
-	header := "Relay PDS repo limit recovered"
+	title := "PDS repo limit recovered"
 	if env != "" {
-		header = fmt.Sprintf("%s in %s", header, env)
+		title = fmt.Sprintf("%s in %s", title, env)
 	}
-	return fmt.Sprintf(
-		"%s\n%s is no longer above the %.1f%% repo-limit alert threshold (last alert state: %.1f%% used, %d/%d repos)",
-		header,
-		usage.Hostname,
-		config.Threshold*100,
-		usage.Usage*100,
-		usage.AccountCount,
-		usage.AccountLimit,
-	)
+	msg := AlertMessage{
+		Title:    title,
+		Severity: AlertSeverityRecovery,
+		Text: fmt.Sprintf(
+			"`%s` is no longer above the %.1f%% repo-limit alert threshold.",
+			usage.Hostname,
+			config.Threshold*100,
+		),
+		Fields: []AlertField{
+			{Title: "Last alert state", Value: fmt.Sprintf("%.1f%% used", usage.Usage*100)},
+			{Title: "Last repo count", Value: fmt.Sprintf("%d / %d", usage.AccountCount, usage.AccountLimit)},
+			{Title: "Threshold", Value: fmt.Sprintf("%.1f%%", config.Threshold*100)},
+		},
+	}
+	if env != "" {
+		msg.Fields = append(msg.Fields, AlertField{Title: "Environment", Value: env})
+	}
+	if strings.TrimSpace(config.DashboardURL) != "" {
+		msg.Actions = append(msg.Actions, AlertAction{Text: "Open relay dashboard", URL: strings.TrimSpace(config.DashboardURL)})
+	}
+	return msg
 }
 
-func formatAccountLimitAlert(config AccountLimitAlertMonitorConfig, usages []relay.HostAccountLimitUsage) string {
+func formatAccountLimitAlert(config AccountLimitAlertMonitorConfig, usages []relay.HostAccountLimitUsage) AlertMessage {
 	env := strings.TrimSpace(config.Environment)
-	header := fmt.Sprintf("Relay PDS repo limit warning: %.1f%% threshold exceeded", config.Threshold*100)
+	title := "PDS repo limit warning"
 	if env != "" {
-		header = fmt.Sprintf("%s in %s", header, env)
+		title = fmt.Sprintf("%s in %s", title, env)
 	}
 
 	lines := make([]string, 0, len(usages)+1)
-	lines = append(lines, header)
+	lines = append(lines, fmt.Sprintf("%d PDS host(s) are above the %.1f%% repo-limit alert threshold.", len(usages), config.Threshold*100))
+	highestUsage := float64(0)
 	for _, usage := range usages {
+		if usage.Usage > highestUsage {
+			highestUsage = usage.Usage
+		}
 		lines = append(lines, fmt.Sprintf(
-			"%s: %.1f%% used (%d/%d repos)",
+			"- `%s`: *%.1f%%* used (`%d / %d` repos)",
 			usage.Hostname,
 			usage.Usage*100,
 			usage.AccountCount,
 			usage.AccountLimit,
 		))
 	}
-	return strings.Join(lines, "\n")
+	msg := AlertMessage{
+		Title:    title,
+		Severity: AlertSeverityWarning,
+		Text:     strings.Join(lines, "\n"),
+		Fields: []AlertField{
+			{Title: "Threshold", Value: fmt.Sprintf("%.1f%%", config.Threshold*100)},
+			{Title: "Hosts", Value: fmt.Sprintf("%d", len(usages))},
+			{Title: "Highest usage", Value: fmt.Sprintf("%.1f%%", highestUsage*100)},
+		},
+	}
+	if env != "" {
+		msg.Fields = append(msg.Fields, AlertField{Title: "Environment", Value: env})
+	}
+	if strings.TrimSpace(config.DashboardURL) != "" {
+		msg.Actions = append(msg.Actions, AlertAction{Text: "Open relay dashboard", URL: strings.TrimSpace(config.DashboardURL)})
+	}
+	return msg
 }
 
 type SlackAlerter struct {
@@ -376,6 +437,37 @@ type SlackAlerter struct {
 	endpoint string
 	token    string
 	channel  string
+}
+
+type slackText struct {
+	Type  string `json:"type"`
+	Text  string `json:"text"`
+	Emoji bool   `json:"emoji,omitempty"`
+}
+
+type slackBlock struct {
+	Type     string      `json:"type"`
+	Text     *slackText  `json:"text,omitempty"`
+	Fields   []slackText `json:"fields,omitempty"`
+	Elements []any       `json:"elements,omitempty"`
+}
+
+type slackElement struct {
+	Type     string    `json:"type"`
+	Text     slackText `json:"text"`
+	URL      string    `json:"url,omitempty"`
+	Style    string    `json:"style,omitempty"`
+	ActionID string    `json:"action_id,omitempty"`
+}
+
+type slackContextElement struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+type slackAttachment struct {
+	Color  string       `json:"color"`
+	Blocks []slackBlock `json:"blocks"`
 }
 
 func NewSlackAlerter(token, channel string) (*SlackAlerter, error) {
@@ -399,15 +491,15 @@ func NewSlackAlerter(token, channel string) (*SlackAlerter, error) {
 
 func (s *SlackAlerter) SendAlert(ctx context.Context, msg AlertMessage) error {
 	payload := struct {
-		Channel     string `json:"channel"`
-		Text        string `json:"text"`
-		Mrkdwn      bool   `json:"mrkdwn"`
-		UnfurlLinks bool   `json:"unfurl_links"`
-		UnfurlMedia bool   `json:"unfurl_media"`
+		Channel     string            `json:"channel"`
+		Text        string            `json:"text"`
+		Attachments []slackAttachment `json:"attachments,omitempty"`
+		UnfurlLinks bool              `json:"unfurl_links"`
+		UnfurlMedia bool              `json:"unfurl_media"`
 	}{
 		Channel:     s.channel,
-		Text:        msg.Text,
-		Mrkdwn:      false,
+		Text:        slackFallbackText(msg),
+		Attachments: []slackAttachment{slackAttachmentForAlert(msg)},
 		UnfurlLinks: false,
 		UnfurlMedia: false,
 	}
@@ -455,4 +547,85 @@ func (s *SlackAlerter) SendAlert(ctx context.Context, msg AlertMessage) error {
 		return fmt.Errorf("slack alert request failed: %s", slackResp.Error)
 	}
 	return nil
+}
+
+func slackFallbackText(msg AlertMessage) string {
+	if strings.TrimSpace(msg.Title) == "" {
+		return msg.Text
+	}
+	if strings.TrimSpace(msg.Text) == "" {
+		return msg.Title
+	}
+	return msg.Title + "\n" + msg.Text
+}
+
+func slackAttachmentForAlert(msg AlertMessage) slackAttachment {
+	blocks := []slackBlock{}
+	if strings.TrimSpace(msg.Title) != "" {
+		blocks = append(blocks, slackBlock{
+			Type: "header",
+			Text: &slackText{Type: "plain_text", Text: msg.Title, Emoji: true},
+		})
+	}
+	if strings.TrimSpace(msg.Text) != "" {
+		blocks = append(blocks, slackBlock{
+			Type: "section",
+			Text: &slackText{Type: "mrkdwn", Text: msg.Text},
+		})
+	}
+	if len(msg.Fields) > 0 {
+		fields := make([]slackText, 0, len(msg.Fields))
+		for i, field := range msg.Fields {
+			if i >= 10 {
+				break
+			}
+			fields = append(fields, slackText{
+				Type: "mrkdwn",
+				Text: fmt.Sprintf("*%s*\n%s", field.Title, field.Value),
+			})
+		}
+		blocks = append(blocks, slackBlock{Type: "section", Fields: fields})
+	}
+	if len(msg.Actions) > 0 {
+		elements := make([]any, 0, len(msg.Actions))
+		for i, action := range msg.Actions {
+			if i >= 5 {
+				break
+			}
+			if strings.TrimSpace(action.Text) == "" || strings.TrimSpace(action.URL) == "" {
+				continue
+			}
+			elements = append(elements, slackElement{
+				Type:     "button",
+				Text:     slackText{Type: "plain_text", Text: action.Text, Emoji: true},
+				URL:      action.URL,
+				Style:    "primary",
+				ActionID: fmt.Sprintf("relay_alert_action_%d", i),
+			})
+		}
+		if len(elements) > 0 {
+			blocks = append(blocks, slackBlock{Type: "actions", Elements: elements})
+		}
+	}
+	blocks = append(blocks, slackBlock{
+		Type: "context",
+		Elements: []any{
+			slackContextElement{Type: "mrkdwn", Text: "indigo relay account-limit monitor"},
+		},
+	})
+	return slackAttachment{
+		Color:  slackColorForSeverity(msg.Severity),
+		Blocks: blocks,
+	}
+}
+
+func slackColorForSeverity(severity AlertSeverity) string {
+	switch severity {
+	case AlertSeverityRecovery:
+		return "#2EB67D"
+	case AlertSeverityWarning:
+		return "#ECB22E"
+	default:
+		return "#439FE0"
+	}
 }

@@ -106,6 +106,7 @@ Some notable configuration env vars:
 - `RELAY_ACCOUNT_LIMIT_ALERT_THRESHOLD`: fraction of a PDS repo limit that triggers an alert; default is `0.80`
 - `RELAY_ACCOUNT_LIMIT_ALERT_INTERVAL`: how often to check for PDS hosts approaching their repo limits, with up to one minute of jitter in either direction; default is `5m`
 - `RELAY_ACCOUNT_LIMIT_ALERT_REPEAT_INTERVAL`: minimum interval between repeat alerts for a host that remains over threshold; default is `6h`
+- `RELAY_ACCOUNT_LIMIT_ALERT_DASHBOARD_URL`: optional absolute URL to include as a relay dashboard button in account-limit alerts
 - `RELAY_SLACK_ALERT_CHANNEL`: Slack channel ID or name for PDS repo-limit alerts
 - `RELAY_SLACK_ALERT_TOKEN`: Slack bot token with permission to post repo-limit alerts; prefer env configuration over CLI args for secrets
 
