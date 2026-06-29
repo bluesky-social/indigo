@@ -133,6 +133,26 @@ func TestClaimDueAccountLimitAlertsSkipsSilencedHosts(t *testing.T) {
 	require.Empty(t, claims.Recoveries)
 }
 
+func TestClaimDueAccountLimitAlertsDoesNotWarnAfterUnsilencingHostBelowThreshold(t *testing.T) {
+	ctx := context.Background()
+	r, db := testRelayWithHostDB(t)
+	host := models.Host{
+		Hostname:                   "below-threshold.example.com",
+		AccountCount:               123667,
+		AccountLimit:               10000000,
+		Status:                     models.HostStatusActive,
+		AccountLimitAlertsSilenced: true,
+	}
+	require.NoError(t, db.Create(&host).Error)
+
+	require.NoError(t, r.UpdateHostAccountLimitAlertsSilenced(ctx, host.ID, false))
+
+	claims, err := r.ClaimDueAccountLimitAlerts(ctx, 0.85, time.Hour, 0)
+	require.NoError(t, err)
+	require.Empty(t, claims.Warnings)
+	require.Empty(t, claims.Recoveries)
+}
+
 func TestUpdateHostAccountLimitAlertsSilencedResetsAlertState(t *testing.T) {
 	ctx := context.Background()
 	r, db := testRelayWithHostDB(t)

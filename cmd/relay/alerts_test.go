@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -187,6 +188,40 @@ func TestAccountLimitAlertMonitorBatchesMessagesWithoutQueryCap(t *testing.T) {
 	require.Len(t, alerter.messages, 2)
 	assert.Contains(t, alerter.messages[0].Text, "one.example.com")
 	assert.Contains(t, alerter.messages[1].Text, "two.example.com")
+}
+
+func TestAccountLimitAlertMonitorBatchesMessagesBySlackTextLimit(t *testing.T) {
+	var warnings []relay.HostAccountLimitUsage
+	for i := 0; i < 80; i++ {
+		hostname := strings.Repeat("long-hostname-", 12) + fmt.Sprintf("%02d.example.com", i)
+		warnings = append(warnings, relay.HostAccountLimitUsage{
+			ID:           uint64(i + 1),
+			Hostname:     hostname,
+			AccountCount: 90,
+			AccountLimit: 100,
+			Usage:        0.9,
+			AlertSentAt:  time.Unix(1000, 0),
+		})
+	}
+	claimer := &fakeAccountLimitAlertClaimer{
+		claims: []relay.HostAccountLimitAlertClaims{
+			{Warnings: warnings},
+		},
+	}
+	alerter := &recordingAlerter{}
+	config := DefaultAccountLimitAlertMonitorConfig()
+
+	monitor, err := NewAccountLimitAlertMonitor(slog.Default(), claimer, alerter, config)
+	require.NoError(t, err)
+	require.NoError(t, monitor.Check(context.Background()))
+
+	require.Greater(t, len(alerter.messages), 1)
+	seenHosts := 0
+	for _, msg := range alerter.messages {
+		assert.LessOrEqual(t, len([]rune(msg.Text)), accountLimitAlertMaxTextChars)
+		seenHosts += strings.Count(msg.Text, ".example.com")
+	}
+	assert.Equal(t, len(warnings), seenHosts)
 }
 
 func TestSlackAlerterDoesNotPutTokenInPayload(t *testing.T) {
