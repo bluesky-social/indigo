@@ -21,6 +21,7 @@ import (
 )
 
 const accountLimitAlertHostsPerMessage = 50
+const accountLimitAlertMaxTextChars = 2800
 
 type AccountLimitAlertKind string
 
@@ -257,12 +258,7 @@ func (m *AccountLimitAlertMonitor) Check(ctx context.Context) error {
 		m.forwardAccountLimitAlertSent(ctx, accountLimitAlertSentState(AccountLimitAlertKindRecovery, usage, usage.AlertSentAt))
 	}
 
-	for start := 0; start < len(claims.Warnings); start += m.config.HostsPerMessage {
-		end := start + m.config.HostsPerMessage
-		if end > len(claims.Warnings) {
-			end = len(claims.Warnings)
-		}
-		batch := claims.Warnings[start:end]
+	for _, batch := range accountLimitAlertBatches(m.config, claims.Warnings) {
 		if err := m.alerter.SendAlert(ctx, formatAccountLimitAlert(m.config, batch)); err != nil {
 			return err
 		}
@@ -271,6 +267,24 @@ func (m *AccountLimitAlertMonitor) Check(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func accountLimitAlertBatches(config AccountLimitAlertMonitorConfig, usages []relay.HostAccountLimitUsage) [][]relay.HostAccountLimitUsage {
+	batches := make([][]relay.HostAccountLimitUsage, 0)
+	for _, usage := range usages {
+		if len(batches) == 0 {
+			batches = append(batches, []relay.HostAccountLimitUsage{usage})
+			continue
+		}
+		last := batches[len(batches)-1]
+		candidate := append(append([]relay.HostAccountLimitUsage{}, last...), usage)
+		if len(last) >= config.HostsPerMessage || len([]rune(formatAccountLimitAlert(config, candidate).Text)) > accountLimitAlertMaxTextChars {
+			batches = append(batches, []relay.HostAccountLimitUsage{usage})
+			continue
+		}
+		batches[len(batches)-1] = candidate
+	}
+	return batches
 }
 
 func (m *AccountLimitAlertMonitor) forwardAccountLimitAlertSent(ctx context.Context, state AccountLimitAlertSentState) {
