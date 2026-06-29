@@ -219,6 +219,10 @@ type hostInfo struct {
 	PerHourEventRate       rateLimit `json:"PerHourEventRate"`
 	PerDayEventRate        rateLimit `json:"PerDayEventRate"`
 	UserCount              int64     `json:"UserCount"`
+
+	AccountLimitAlertsSilenced bool       `json:"AccountLimitAlertsSilenced"`
+	AccountLimitAlertState     string     `json:"AccountLimitAlertState"`
+	AccountLimitAlertSentAt    *time.Time `json:"AccountLimitAlertSentAt,omitempty"`
 }
 
 func (s *Service) handleListHosts(c echo.Context) error {
@@ -252,6 +256,10 @@ func (s *Service) handleListHosts(c echo.Context) error {
 
 			HasActiveConnection: isActive,
 			UserCount:           host.AccountCount,
+
+			AccountLimitAlertsSilenced: host.AccountLimitAlertsSilenced,
+			AccountLimitAlertState:     string(host.AccountLimitAlertState),
+			AccountLimitAlertSentAt:    host.AccountLimitAlertSentAt,
 		}
 
 		// fetch current rate limits
@@ -470,8 +478,9 @@ func (s *Service) handleAdminUnbanDomain(c echo.Context) error {
 }
 
 type RateLimitChangeRequest struct {
-	Hostname  string `json:"host"`
-	RepoLimit *int64 `json:"repo_limit"`
+	Hostname                   string `json:"host"`
+	RepoLimit                  *int64 `json:"repo_limit"`
+	AccountLimitAlertsSilenced *bool  `json:"account_limit_alerts_silenced"`
 }
 
 func (s *Service) handleAdminChangeHostRateLimits(c echo.Context) error {
@@ -487,9 +496,8 @@ func (s *Service) handleAdminChangeHostRateLimits(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid hostname: %s", err))
 	}
 
-	// catch empty/nil body
-	if body.RepoLimit == nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "missing repo_limit parameter")
+	if body.RepoLimit == nil && body.AccountLimitAlertsSilenced == nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "missing repo_limit or account_limit_alerts_silenced parameter")
 	}
 
 	host, err := s.relay.GetHost(ctx, hostname)
@@ -498,8 +506,15 @@ func (s *Service) handleAdminChangeHostRateLimits(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("unknown hostname: %s", err))
 	}
 
-	if err := s.relay.UpdateHostAccountLimit(ctx, host.ID, *body.RepoLimit); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to update limits: %s", err))
+	if body.RepoLimit != nil {
+		if err := s.relay.UpdateHostAccountLimit(ctx, host.ID, *body.RepoLimit); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to update limits: %s", err))
+		}
+	}
+	if body.AccountLimitAlertsSilenced != nil {
+		if err := s.relay.UpdateHostAccountLimitAlertsSilenced(ctx, host.ID, *body.AccountLimitAlertsSilenced); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to update account limit alert silence state: %s", err))
+		}
 	}
 
 	// forward on to any sibling instances

@@ -391,9 +391,6 @@ func runRelay(ctx context.Context, cmd *cli.Command) error {
 	if err != nil {
 		return err
 	}
-	if alertMonitor != nil {
-		svc.SetAccountLimitAlertRecorder(alertMonitor)
-	}
 	alertCtx, cancelAlerts := context.WithCancel(ctx)
 	alertDone := make(chan struct{})
 	if alertMonitor != nil {

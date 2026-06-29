@@ -22,6 +22,13 @@ const (
 	HostStatusBanned    = HostStatus("banned")
 )
 
+type HostAccountLimitAlertState string
+
+const (
+	HostAccountLimitAlertStateOK      = HostAccountLimitAlertState("ok")
+	HostAccountLimitAlertStateWarning = HostAccountLimitAlertState("warning")
+)
+
 type Host struct {
 	ID uint64 `gorm:"column:id;primarykey" json:"id"`
 
@@ -48,6 +55,15 @@ type Host struct {
 
 	// represents the number of accounts on the host, minus any in "deleted" state
 	AccountCount int64 `gorm:"column:account_count;default:0" json:"accountCount"`
+
+	// if true, account-limit alerting is disabled for this host
+	AccountLimitAlertsSilenced bool `gorm:"column:account_limit_alerts_silenced;default:false" json:"accountLimitAlertsSilenced"`
+
+	// persisted account-limit alert state, used to avoid duplicate alerts across process restarts
+	AccountLimitAlertState HostAccountLimitAlertState `gorm:"column:account_limit_alert_state;default:ok" json:"accountLimitAlertState"`
+
+	// last account-limit warning or recovery alert send time
+	AccountLimitAlertSentAt *time.Time `gorm:"column:account_limit_alert_sent_at" json:"accountLimitAlertSentAt,omitempty"`
 }
 
 func (Host) TableName() string {

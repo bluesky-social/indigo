@@ -412,6 +412,55 @@ const Dash: FC<{}> = () => {
     });
   };
 
+  const updateAccountLimitAlertsSilenced = (pds: PDS, silenced: boolean) => {
+    const applyOptimisticSilenceState = (list: PDS[] | null): PDS[] | null => {
+      if (!list) {
+        return list;
+      }
+      return list.map((item) => {
+        if (item.ID !== pds.ID) {
+          return item;
+        }
+        return {
+          ...item,
+          AccountLimitAlertsSilenced: silenced,
+          AccountLimitAlertState: silenced ? "ok" : item.AccountLimitAlertState,
+          AccountLimitAlertSentAt: silenced ? undefined : item.AccountLimitAlertSentAt,
+        };
+      });
+    };
+
+    setPDSList(applyOptimisticSilenceState);
+    setFullPDSList(applyOptimisticSilenceState);
+
+    fetch(`${RELAY_HOST}/admin/pds/changeLimits`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ` + btoa("admin:" + adminToken),
+      },
+      body: JSON.stringify({
+        host: pds.Host,
+        account_limit_alerts_silenced: silenced,
+      }),
+    }).then((res) => {
+      if (res.status !== 200) {
+        setAlertWithTimeout(
+          "failure",
+          `Failed to ${silenced ? "silence" : "unsilence"} account limit alerts: ${res.statusText} (${res.status})`,
+          true
+        );
+      } else {
+        setAlertWithTimeout(
+          "success",
+          `Successfully ${silenced ? "silenced" : "unsilenced"} account limit alerts`,
+          true
+        );
+      }
+      refreshPDSList();
+    });
+  };
+
   const handleBlockClick = (pds: PDS, shouldBlock: boolean) => {
     setModalAction({
       type: shouldBlock ? "block" : "disconnect",
@@ -862,6 +911,14 @@ const Dash: FC<{}> = () => {
                 </th>
                 <th
                   scope="col"
+                  className="px-3 py-3.5 text-center text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
+                >
+                  <a href="#" className="group inline-flex">
+                    Alerts
+                  </a>
+                </th>
+                <th
+                  scope="col"
                   className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
                 >
                   <a
@@ -1061,6 +1118,39 @@ const Dash: FC<{}> = () => {
                             aria-hidden="true"
                           />
                         </a>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
+                        <button
+                          className={
+                            "rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-offset-2 " +
+                            (pds.AccountLimitAlertsSilenced
+                              ? "text-amber-600 hover:text-green-600 hover:bg-green-100 focus:ring-green-600 focus:ring-offset-green-50"
+                              : "text-green-600 hover:text-amber-600 hover:bg-amber-100 focus:ring-amber-600 focus:ring-offset-amber-50")
+                          }
+                          title={
+                            pds.AccountLimitAlertsSilenced
+                              ? "Resume account limit alerts"
+                              : "Silence account limit alerts"
+                          }
+                          onClick={() => {
+                            updateAccountLimitAlertsSilenced(
+                              pds,
+                              !pds.AccountLimitAlertsSilenced
+                            );
+                          }}
+                        >
+                          {pds.AccountLimitAlertsSilenced ? (
+                            <ShieldExclamationIcon
+                              className="h-5 w-5 inline-block"
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <ShieldCheckIcon
+                              className="h-5 w-5 inline-block"
+                              aria-hidden="true"
+                            />
+                          )}
+                        </button>
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
                         {new Date(Date.parse(pds.CreatedAt)).toLocaleString()}
