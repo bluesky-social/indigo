@@ -50,6 +50,7 @@ Tips:
 - **Set `--no-replay`**: Always connect to the firehose head on restart instead of replaying from a stale cursor. Repos that fell behind will resync when their next firehose event arrives. This flag is incompatible with `--full-network` and is not recommended for production.
 - **Don't use `--full-network`**: Full network mode tracks every repo on the network and takes days to backfill. Instead, add specific DIDs with `/repos/add`.
 - **Use `--disable-acks` until you setup webhooks or event acks**: Use a simple WebSocket client like `websocat` to inspect events.
+- **Use `--light-rail-url` and `--light-rail-signal-collections` to enumerate repos by multiple collections like `--light-rail-url https://lightrail.microcosm.blue --light-rail-signal-collections community.lexicon.calendar.rsvp,community.lexicon.calendar.event`
 
 ## HTTP API
 
@@ -76,6 +77,7 @@ Environment variables or CLI flags:
 - `TAP_BIND`: HTTP server address (default: `:2480`)
 - `TAP_PLC_URL`: PLC directory HTTP/HTTPS URL (default: `https://plc.directory`)
 - `TAP_RELAY_URL`: AT Protocol relay HTTP/HTTPS URL (default: `https://relay1.us-east.bsky.network`)
+- `TAP_LIGHT_RAIL_URL`: Light Rail HTTP/HTTPS URL (default: ``, but `https://lightrail.microcosm.blue` is a instance you can use)
 - `TAP_FIREHOSE_PARALLELISM`: concurrent firehose event processors (default: `10`)
 - `TAP_RESYNC_PARALLELISM`: concurrent resync workers (default: `5`)
 - `TAP_OUTBOX_PARALLELISM`: concurrent outbox workers (default: `1`)
@@ -86,6 +88,7 @@ Environment variables or CLI flags:
 - `TAP_OUTBOX_CAPACITY`: rough size of outbox before back pressure is applied (default: `100000`)
 - `TAP_FULL_NETWORK`: track all repos on the network (default: `false`)
 - `TAP_SIGNAL_COLLECTION`: track all repos with at least one record in this collection (e.g. `app.bsky.actor.profile`)
+- `TAP_LIGHT_RAIL_SIGNAL_COLLECTIONS`: track all repos with at least one record in these collections. Can not be used with `TAP_SIGNAL_COLLECTION` (e.g. `community.lexicon.calendar.rsvp,community.lexicon.calendar.event`)
 - `TAP_COLLECTION_FILTERS`: comma-separated collection filters, wildcards accepted (e.g., `app.bsky.feed.post,app.bsky.graph.*`)
 - `TAP_DISABLE_ACKS`: fire-and-forget mode, no client acks (default: `false`)
 - `TAP_WEBHOOK_URL`: webhook URL for event delivery (disables WebSocket mode)
