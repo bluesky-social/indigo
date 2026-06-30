@@ -177,6 +177,9 @@ func (pp *PebblePersist) GetLast(ctx context.Context) (seq, millis int64, evt *e
 	}
 	evt, err = eventFromPebbleIter(iter)
 	keyblob := iter.Key()
+	if err != nil {
+		return 0, 0, nil, err
+	}
 	seq = int64(binary.BigEndian.Uint64(keyblob[:8]))
 	millis = int64(binary.BigEndian.Uint64(keyblob[8:16]))
 	return seq, millis, evt, nil
