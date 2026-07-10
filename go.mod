@@ -5,10 +5,8 @@ go 1.26
 toolchain go1.26.1
 
 require (
-	github.com/PuerkitoBio/purell v1.2.1
 	github.com/RussellLuo/slidingwindow v0.0.0-20200528002341-535bb99d338b
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
-	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
 	github.com/brianvoe/gofakeit/v6 v6.25.0
 	github.com/cockroachdb/pebble v1.1.2
 	github.com/earthboundkid/versioninfo/v2 v2.24.1
@@ -31,15 +29,12 @@ require (
 	github.com/ipfs/go-libipfs v0.7.0
 	github.com/ipld/go-car v0.6.1-0.20230509095817-92d28eb23ba4
 	github.com/ipld/go-car/v2 v2.13.1
-	github.com/jackc/pgx/v5 v5.5.0
 	github.com/joho/godotenv v1.5.1
-	github.com/labstack/echo-contrib v0.15.0
 	github.com/labstack/echo/v4 v4.11.3
 	github.com/lestrrat-go/jwx/v2 v2.0.12
 	github.com/minio/sha256-simd v1.0.1
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multihash v0.2.3
-	github.com/opensearch-project/opensearch-go/v2 v2.3.0
 	github.com/orandin/slog-gorm v1.3.2
 	github.com/polydawn/refmt v0.89.1-0.20221221234430-40501e09de1f
 	github.com/prometheus/client_golang v1.17.0
@@ -61,12 +56,11 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.21.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.21.0
 	go.opentelemetry.io/otel/sdk v1.21.0
-	go.opentelemetry.io/otel/trace v1.21.0
 	go.uber.org/automaxprocs v1.5.3
-	golang.org/x/sync v0.7.0
-	golang.org/x/text v0.14.0
+	golang.org/x/sync v0.20.0
+	golang.org/x/text v0.37.0
 	golang.org/x/time v0.3.0
-	golang.org/x/tools v0.15.0
+	golang.org/x/tools v0.44.0
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028
 	gorm.io/driver/postgres v1.5.7
 	gorm.io/driver/sqlite v1.5.5
@@ -92,6 +86,7 @@ require (
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
+	github.com/jackc/pgx/v5 v5.5.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/klauspost/compress v1.17.3 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
@@ -105,8 +100,9 @@ require (
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11 // indirect
+	go.opentelemetry.io/otel/trace v1.21.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
-	golang.org/x/crypto v0.21.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 )
@@ -169,14 +165,13 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	gitlab.com/yawning/tuplehash v0.0.0-20230713102510-df83abbf9a02 // indirect
-	go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.45.0
 	go.opentelemetry.io/otel/metric v1.21.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/mod v0.14.0 // indirect
-	golang.org/x/net v0.23.0
-	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/mod v0.35.0 // indirect
+	golang.org/x/net v0.54.0
+	golang.org/x/sys v0.45.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231120223509-83a465c0220f // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231120223509-83a465c0220f // indirect
 	google.golang.org/grpc v1.59.0 // indirect
