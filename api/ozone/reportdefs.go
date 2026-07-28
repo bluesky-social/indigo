@@ -139,6 +139,8 @@ type ReportDefs_ReportActivityView struct {
 	Moderator *TeamDefs_Member `json:"moderator,omitempty" cborgen:"moderator,omitempty"`
 	// publicNote: Optional public note, potentially visible to the reporter.
 	PublicNote *string `json:"publicNote,omitempty" cborgen:"publicNote,omitempty"`
+	// report: Full view of the report this activity belongs to.
+	Report *ReportDefs_ReportView `json:"report,omitempty" cborgen:"report,omitempty"`
 	// reportId: ID of the report this activity belongs to
 	ReportId int64 `json:"reportId" cborgen:"reportId"`
 }
@@ -241,6 +243,8 @@ type ReportDefs_ReportView struct {
 	EventId int64 `json:"eventId" cborgen:"eventId"`
 	// id: Report ID
 	Id int64 `json:"id" cborgen:"id"`
+	// isAutomated: Whether this report was emitted by automated tooling.
+	IsAutomated *bool `json:"isAutomated,omitempty" cborgen:"isAutomated,omitempty"`
 	// isMuted: Whether this report is muted. A report is muted if the reporter was muted or the subject was muted at the time the report was created.
 	IsMuted *bool `json:"isMuted,omitempty" cborgen:"isMuted,omitempty"`
 	// queue: The queue this report is assigned to (if any)
