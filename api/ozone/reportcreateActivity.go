@@ -16,14 +16,16 @@ import (
 type ReportCreateActivity_Input struct {
 	// activity: The type of activity to record.
 	Activity *ReportCreateActivity_Input_Activity `json:"activity" cborgen:"activity"`
+	// eventId: ID of the report moderation event. Resolves to the report created from that event. Exactly one of reportId or eventId must be provided.
+	EventId *int64 `json:"eventId,omitempty" cborgen:"eventId,omitempty"`
 	// internalNote: Optional moderator-only note. Not visible to reporters.
 	InternalNote *string `json:"internalNote,omitempty" cborgen:"internalNote,omitempty"`
 	// isAutomated: Set true when this activity is triggered by an automated process. Defaults to false.
 	IsAutomated *bool `json:"isAutomated,omitempty" cborgen:"isAutomated,omitempty"`
 	// publicNote: Optional public-facing note, potentially visible to the reporter.
 	PublicNote *string `json:"publicNote,omitempty" cborgen:"publicNote,omitempty"`
-	// reportId: ID of the report to record activity on
-	ReportId int64 `json:"reportId" cborgen:"reportId"`
+	// reportId: ID of the report to record activity on. Exactly one of reportId or eventId must be provided.
+	ReportId *int64 `json:"reportId,omitempty" cborgen:"reportId,omitempty"`
 }
 
 // The type of activity to record.
