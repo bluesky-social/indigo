@@ -39,6 +39,8 @@ type Effects struct {
 	AccountReports []ModReport
 	// If "true", a rule decided that the entire account should have a takedown.
 	AccountTakedown bool
+	// Ozone policy names/keywords attributed to the account takedown, as a result of rule execution.
+	AccountTakedownPolicies []string
 	// If "true", a rule decided that the reported account should be escalated.
 	AccountEscalate bool
 	// If "true", a rule decided that the reports on account should be resolved as acknowledged.
@@ -55,6 +57,8 @@ type Effects struct {
 	RecordReports []ModReport
 	// Same as "AccountTakedown", but at record-level
 	RecordTakedown bool
+	// Same as "AccountTakedownPolicies", but at record-level
+	RecordTakedownPolicies []string
 	// Same as "AccountEscalate", but at record-level
 	RecordEscalate bool
 	// Same as "AccountAcknowledge", but at record-level
@@ -147,8 +151,13 @@ func (e *Effects) ReportAccount(reason, comment string) {
 }
 
 // Enqueues the entire account to be taken down at the end of rule processing.
-func (e *Effects) TakedownAccount() {
+//
+// Optionally, Ozone policy names/keywords which drove the decision can be provided, and will be attributed on the emitted takedown event.
+func (e *Effects) TakedownAccount(policies ...string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.AccountTakedown = true
+	e.AccountTakedownPolicies = append(e.AccountTakedownPolicies, policies...)
 }
 
 // Enqueues the account to be "escalated" for mod review at the end of rule processing.
@@ -217,8 +226,13 @@ func (e *Effects) ReportRecord(reason, comment string) {
 }
 
 // Enqueues the record to be taken down at the end of rule processing.
-func (e *Effects) TakedownRecord() {
+//
+// Optionally, Ozone policy names/keywords which drove the decision can be provided, and will be attributed on the emitted takedown event.
+func (e *Effects) TakedownRecord(policies ...string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.RecordTakedown = true
+	e.RecordTakedownPolicies = append(e.RecordTakedownPolicies, policies...)
 }
 
 // Enqueues the record to be "escalated" for mod review at the end of rule processing.

@@ -38,6 +38,18 @@ func dedupeTagActions(tags, existing []string) []string {
 	return newTags
 }
 
+// Maximum number of distinct policies allowed on a single takedown event, matching the lexicon limit on tools.ozone.moderation.defs#modEventTakedown.policies.
+const maxTakedownPolicies = 5
+
+// De-duplicates takedown policy attributions, preserving first-seen order. Returns an error if more than maxTakedownPolicies distinct values remain: truncating would falsely imply the subset fully described the decision, and Ozone would reject the oversized array anyway.
+func dedupeTakedownPolicies(policies []string) ([]string, error) {
+	deduped := dedupeStrings(policies)
+	if len(deduped) > maxTakedownPolicies {
+		return nil, fmt.Errorf("takedown attributed to %d distinct policies, more than the maximum of %d: %v", len(deduped), maxTakedownPolicies, deduped)
+	}
+	return deduped, nil
+}
+
 func dedupeFlagActions(flags, existing []string) []string {
 	newFlags := []string{}
 	for _, val := range dedupeStrings(flags) {

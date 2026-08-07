@@ -254,8 +254,8 @@ func (c *AccountContext) ReportAccount(reason, comment string) {
 	c.effects.ReportAccount(reason, comment)
 }
 
-func (c *AccountContext) TakedownAccount() {
-	c.effects.TakedownAccount()
+func (c *AccountContext) TakedownAccount(policies ...string) {
+	c.effects.TakedownAccount(policies...)
 }
 
 func (c *AccountContext) EscalateAccount() {
@@ -286,8 +286,8 @@ func (c *RecordContext) ReportRecord(reason, comment string) {
 	c.effects.ReportRecord(reason, comment)
 }
 
-func (c *RecordContext) TakedownRecord() {
-	c.effects.TakedownRecord()
+func (c *RecordContext) TakedownRecord(policies ...string) {
+	c.effects.TakedownRecord(policies...)
 }
 
 func (c *RecordContext) EscalateRecord() {
