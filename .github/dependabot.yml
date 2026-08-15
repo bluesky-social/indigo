@@ -17,6 +17,11 @@ updates:
         group-by: dependency-name
         patterns:
           - "*"
+    ignore:
+      # Node 26 reaches LTS on 2026-10-28. Remove via bluesky-social/.github#18.
+      - dependency-name: node
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: docker-compose
     directories:
