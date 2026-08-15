@@ -15,7 +15,7 @@ RUN GIT_VERSION=$(git describe --tags --long --always) && \
     go build -tags timetzdata -o /relay ./cmd/relay
 
 ### Build Frontend stage
-FROM node:18-alpine as web-builder
+FROM node:22-alpine AS web-builder
 
 WORKDIR /app
 
