@@ -26,7 +26,7 @@ RUN yarn install --frozen-lockfile
 RUN yarn build
 
 ### Run stage
-FROM alpine:3.22
+FROM alpine:3.24
 
 RUN apk add --no-cache --update dumb-init ca-certificates runit
 ENTRYPOINT ["dumb-init", "--"]

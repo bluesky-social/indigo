@@ -15,7 +15,7 @@ RUN GIT_VERSION=$(git describe --tags --long --always) && \
     go build -tags timetzdata -o /bluepages ./cmd/bluepages
 
 ### Run stage
-FROM alpine:3.22
+FROM alpine:3.24
 
 RUN apk add --no-cache --update dumb-init ca-certificates runit
 
