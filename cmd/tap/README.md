@@ -163,7 +163,7 @@ Events are delivered as JSON:
   "identity": {
     "did": "did:plc:abc123",
     "handle": "alice.bsky.social",
-    "isActive": true,
+    "is_active": true,
     "status": "active"
   }
 }
