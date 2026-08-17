@@ -41,6 +41,16 @@ func (eng *Engine) persistCounters(ctx context.Context, eff *Effects) error {
 func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	ctx := c.Ctx
 
+	// validate takedown policy attribution before consuming any quota or talking to the mod service; an oversized union is a hard error, not truncated
+	var newTakedownPolicies []string
+	if c.effects.AccountTakedown {
+		var err error
+		newTakedownPolicies, err = dedupeTakedownPolicies(c.effects.AccountTakedownPolicies)
+		if err != nil {
+			return fmt.Errorf("validating account takedown policies: %w", err)
+		}
+	}
+
 	// de-dupe actions
 	newLabels := dedupeLabelActions(c.effects.AccountLabels, c.Account.AccountLabels, c.Account.AccountNegatedLabels)
 	rmdLabels := []string{}
@@ -195,7 +205,8 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventTakedown: &toolsozone.ModerationDefs_ModEventTakedown{
-					Comment: &comment,
+					Comment:  &comment,
+					Policies: newTakedownPolicies,
 				},
 			},
 			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
@@ -269,6 +280,22 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 // NOTE: this method currently does *not* persist record-level flags to any storage, and does not de-dupe most actions, on the assumption that the record is new (from firehose) and has no existing mod state.
 func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	ctx := c.Ctx
+
+	// validate takedown policy attribution for both the account and record unions up front, before the account-level delegation below can consume quota or emit any events; an oversized union is a hard error, not truncated
+	if c.effects.AccountTakedown {
+		if _, err := dedupeTakedownPolicies(c.effects.AccountTakedownPolicies); err != nil {
+			return fmt.Errorf("validating account takedown policies: %w", err)
+		}
+	}
+	var newTakedownPolicies []string
+	if c.effects.RecordTakedown {
+		var err error
+		newTakedownPolicies, err = dedupeTakedownPolicies(c.effects.RecordTakedownPolicies)
+		if err != nil {
+			return fmt.Errorf("validating record takedown policies: %w", err)
+		}
+	}
+
 	if err := eng.persistAccountModActions(&c.AccountContext); err != nil {
 		return err
 	}
@@ -455,7 +482,8 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventTakedown: &toolsozone.ModerationDefs_ModEventTakedown{
-					Comment: &comment,
+					Comment:  &comment,
+					Policies: newTakedownPolicies,
 				},
 			},
 			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
