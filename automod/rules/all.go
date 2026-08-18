@@ -4,6 +4,7 @@ import (
 	"github.com/bluesky-social/indigo/automod"
 )
 
+// IMPORTANT: reminder that these are the indigo-edition rules, not production rules
 func DefaultRules() automod.RuleSet {
 	rules := automod.RuleSet{
 		PostRules: []automod.PostRuleFunc{
@@ -20,20 +21,27 @@ func DefaultRules() automod.RuleSet {
 			ReplySingleBadWordPostRule,
 			AggressivePromotionRule,
 			IdenticalReplyPostRule,
+			//IdenticalReplyPostSameParentRule,
 			DistinctMentionsRule,
 			YoungAccountDistinctMentionsRule,
 			MisleadingLinkUnicodeReversalPostRule,
 			SimpleBotPostRule,
+			HarassmentTargetInteractionPostRule,
+			HarassmentTrivialPostRule,
+			NostrSpamPostRule,
+			TrivialSpamPostRule,
 		},
 		ProfileRules: []automod.ProfileRuleFunc{
 			GtubeProfileRule,
 			BadWordProfileRule,
 			BotLinkProfileRule,
+			CelebSpamProfileRule,
 		},
 		RecordRules: []automod.RecordRuleFunc{
 			InteractionChurnRule,
 			BadWordRecordKeyRule,
 			BadWordOtherRecordRule,
+			TooManyRepostRule,
 		},
 		RecordDeleteRules: []automod.RecordRuleFunc{
 			DeleteInteractionRule,
@@ -43,12 +51,13 @@ func DefaultRules() automod.RuleSet {
 			BadWordHandleRule,
 			BadWordDIDRule,
 			NewAccountBotEmailRule,
+			CelebSpamIdentityRule,
 		},
 		BlobRules: []automod.BlobRuleFunc{
 			//BlobVerifyRule,
 		},
-		NotificationRules: []automod.NotificationRuleFunc{
-			// none
+		OzoneEventRules: []automod.OzoneEventRuleFunc{
+			HarassmentProtectionOzoneEventRule,
 		},
 	}
 	return rules

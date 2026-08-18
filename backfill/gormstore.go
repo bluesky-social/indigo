@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/ipfs/go-cid"
 	"gorm.io/gorm"
 )
@@ -33,10 +35,10 @@ type Gormjob struct {
 type GormDBJob struct {
 	gorm.Model
 	Repo       string `gorm:"unique;index"`
-	State      string `gorm:"index"`
+	State      string `gorm:"index:enqueued_job_idx,where:state = 'enqueued';index:retryable_job_idx,where:state like 'failed%'"`
 	Rev        string
 	RetryCount int
-	RetryAfter *time.Time
+	RetryAfter *time.Time `gorm:"index:retryable_job_idx,sort:desc"`
 }
 
 // Gormstore is a gorm-backed implementation of the Backfill Store interface
@@ -44,8 +46,9 @@ type Gormstore struct {
 	lk   sync.RWMutex
 	jobs map[string]*Gormjob
 
-	qlk       sync.Mutex
-	taskQueue []string
+	qlk              sync.Mutex
+	taskQueue        []string
+	enqueuesSinceShf int // enqueues since last shuffle
 
 	db *gorm.DB
 }
@@ -64,10 +67,32 @@ func (s *Gormstore) LoadJobs(ctx context.Context) error {
 }
 
 func (s *Gormstore) loadJobs(ctx context.Context, limit int) error {
+	enqueuedIndexClause := ""
+	retryableIndexClause := ""
+
+	// If the DB is a SQLite DB, we can use INDEXED BY to speed up the query
+	if s.db.Name() == "sqlite" {
+		enqueuedIndexClause = "INDEXED BY enqueued_job_idx"
+		retryableIndexClause = "INDEXED BY retryable_job_idx"
+	}
+
+	// ORDER BY RANDOM() distributes jobs across PDS hosts evenly. Without this,
+	// repos from the same PDS are clustered together in the queue, causing most
+	// workers to pile up on the same few hosts' rate limiters while other hosts sit idle.
+	enqueuedSelect := fmt.Sprintf(`SELECT repo FROM gorm_db_jobs %s WHERE state = 'enqueued' ORDER BY RANDOM() LIMIT ?`, enqueuedIndexClause)
+	retryableSelect := fmt.Sprintf(`SELECT repo FROM gorm_db_jobs %s WHERE state like 'failed%%' AND (retry_after = NULL OR retry_after < ?) LIMIT ?`, retryableIndexClause)
+
 	var todo []string
-	if err := s.db.Model(GormDBJob{}).Limit(limit).Select("repo").
-		Where("state = 'enqueued' OR (state like 'failed%' AND (retry_after = NULL OR retry_after < ?))", time.Now()).Scan(&todo).Error; err != nil {
+	if err := s.db.Raw(enqueuedSelect, limit).Scan(&todo).Error; err != nil {
 		return err
+	}
+
+	if len(todo) < limit {
+		var moreTodo []string
+		if err := s.db.Raw(retryableSelect, time.Now(), limit-len(todo)).Scan(&moreTodo).Error; err != nil {
+			return err
+		}
+		todo = append(todo, moreTodo...)
 	}
 
 	s.taskQueue = append(s.taskQueue, todo...)
@@ -100,6 +125,8 @@ func (s *Gormstore) EnqueueJob(ctx context.Context, repo string) error {
 
 	s.qlk.Lock()
 	s.taskQueue = append(s.taskQueue, repo)
+	s.enqueuesSinceShf++
+	s.maybeShuffleLocked()
 	s.qlk.Unlock()
 
 	return nil
@@ -113,9 +140,22 @@ func (s *Gormstore) EnqueueJobWithState(ctx context.Context, repo, state string)
 
 	s.qlk.Lock()
 	s.taskQueue = append(s.taskQueue, repo)
+	s.enqueuesSinceShf++
+	s.maybeShuffleLocked()
 	s.qlk.Unlock()
 
 	return nil
+}
+
+// maybeShuffleLocked shuffles the task queue every 10k enqueues to break up
+// PDS host clustering from the repo pump. Must hold qlk.
+func (s *Gormstore) maybeShuffleLocked() {
+	if s.enqueuesSinceShf >= 10_000 && len(s.taskQueue) > 100 {
+		rand.Shuffle(len(s.taskQueue), func(i, j int) {
+			s.taskQueue[i], s.taskQueue[j] = s.taskQueue[j], s.taskQueue[i]
+		})
+		s.enqueuesSinceShf = 0
+	}
 }
 
 func (s *Gormstore) createJobForRepo(repo, state string) error {
@@ -153,14 +193,17 @@ func (s *Gormstore) createJobForRepo(repo, state string) error {
 	return nil
 }
 
-func (j *Gormjob) BufferOps(ctx context.Context, since *string, rev string, ops []*bufferedOp) (bool, error) {
+func (j *Gormjob) BufferOps(ctx context.Context, since *string, rev string, ops []*BufferedOp) (bool, error) {
 	j.lk.Lock()
 	defer j.lk.Unlock()
 
 	switch j.state {
 	case StateComplete:
 		return false, nil
-	case StateInProgress, StateEnqueued:
+	case StateEnqueued:
+		// if the repo is enqueue, but not actively being backfilled, just ignore events for it for now
+		return true, nil
+	case StateInProgress:
 		// keep going and buffer the op
 	default:
 		if strings.HasPrefix(j.state, "failed") {
@@ -249,7 +292,7 @@ func (s *Gormstore) GetNextEnqueuedJob(ctx context.Context) (Job, error) {
 	s.qlk.Lock()
 	defer s.qlk.Unlock()
 	if len(s.taskQueue) == 0 {
-		if err := s.loadJobs(ctx, 1000); err != nil {
+		if err := s.loadJobs(ctx, 5000); err != nil {
 			return nil, err
 		}
 
@@ -294,8 +337,11 @@ func (j *Gormjob) SetRev(ctx context.Context, r string) error {
 	j.rev = r
 	j.updatedAt = time.Now()
 
-	// Persist the job to the database
 	j.dbj.Rev = r
+	j.dbj.UpdatedAt = j.updatedAt
+
+	// Persist the job to the database
+
 	return j.db.Save(j.dbj).Error
 }
 
@@ -328,7 +374,7 @@ func (j *Gormjob) SetState(ctx context.Context, state string) error {
 	return j.db.Save(j.dbj).Error
 }
 
-func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind, rev, path string, rec *[]byte, cid *cid.Cid) error) error {
+func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind repomgr.EventKind, rev, path string, rec *[]byte, cid *cid.Cid) error) error {
 	// TODO: this will block any events for this repo while this flush is ongoing, is that okay?
 	j.lk.Lock()
 	defer j.lk.Unlock()
@@ -358,7 +404,7 @@ func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind, rev, path 
 		}
 
 		for _, op := range opset.ops {
-			if err := fn(op.kind, opset.rev, op.path, op.rec, op.cid); err != nil {
+			if err := fn(op.Kind, opset.rev, op.Path, op.Record, op.Cid); err != nil {
 				return err
 			}
 		}

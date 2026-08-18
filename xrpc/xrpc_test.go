@@ -8,24 +8,24 @@ import (
 func TestMakeParams(t *testing.T) {
 	testCases := []struct {
 		name     string
-		input    map[string]interface{}
+		input    map[string]any
 		expected string
 	}{
 		{
 			name:     "Empty input",
-			input:    map[string]interface{}{},
+			input:    map[string]any{},
 			expected: "",
 		},
 		{
 			name: "Single value",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"key": "value",
 			},
 			expected: "key=value",
 		},
 		{
 			name: "Multiple values",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -33,14 +33,14 @@ func TestMakeParams(t *testing.T) {
 		},
 		{
 			name: "Slice of strings",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"key": []string{"value1", "value2", "value3"},
 			},
 			expected: "key=value1&key=value2&key=value3",
 		},
 		{
 			name: "Mixed values",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"key1": "value1",
 				"key2": []string{"value2", "value3"},
 			},

@@ -2,7 +2,7 @@ package syntax
 
 import (
 	"encoding/base32"
-	"fmt"
+	"errors"
 	"regexp"
 	"strings"
 	"sync"
@@ -27,11 +27,14 @@ type TID string
 var tidRegex = regexp.MustCompile(`^[234567abcdefghij][234567abcdefghijklmnopqrstuvwxyz]{12}$`)
 
 func ParseTID(raw string) (TID, error) {
+	if raw == "" {
+		return "", errors.New("expected TID, got empty string")
+	}
 	if len(raw) != 13 {
-		return "", fmt.Errorf("TID is wrong length (expected 13 chars)")
+		return "", errors.New("TID is wrong length (expected 13 chars)")
 	}
 	if !tidRegex.MatchString(raw) {
-		return "", fmt.Errorf("TID syntax didn't validate via regex")
+		return "", errors.New("TID syntax didn't validate via regex")
 	}
 	return TID(raw), nil
 }
@@ -45,17 +48,17 @@ func NewTIDNow(clockId uint) TID {
 
 func NewTIDFromInteger(v uint64) TID {
 	v = (0x7FFF_FFFF_FFFF_FFFF & v)
-	s := ""
-	for i := 0; i < 13; i++ {
-		s = string(Base32SortAlphabet[v&0x1F]) + s
+	var buf [13]byte
+	for i := 12; i >= 0; i-- {
+		buf[i] = Base32SortAlphabet[v&0x1F]
 		v = v >> 5
 	}
-	return TID(s)
+	return TID(buf[:])
 }
 
 // Constructs a new TID from a UNIX timestamp (in milliseconds) and clock ID value.
 func NewTID(unixMicros int64, clockId uint) TID {
-	var v uint64 = (uint64(unixMicros&0x1F_FFFF_FFFF_FFFF) << 10) | uint64(clockId&0x3FF)
+	v := (uint64(unixMicros&0x1F_FFFF_FFFF_FFFF) << 10) | uint64(clockId&0x3FF)
 	return NewTIDFromInteger(v)
 }
 
@@ -71,7 +74,7 @@ func (t TID) Integer() uint64 {
 		return 0
 	}
 	var v uint64
-	for i := 0; i < 13; i++ {
+	for i := range 13 {
 		c := strings.IndexByte(Base32SortAlphabet, s[i])
 		if c < 0 {
 			return 0
@@ -123,6 +126,15 @@ type TIDClock struct {
 func NewTIDClock(clockId uint) *TIDClock {
 	return &TIDClock{
 		ClockID: clockId,
+	}
+}
+
+func ClockFromTID(t TID) TIDClock {
+	um := t.Integer()
+	um = (um >> 10) & 0x1FFF_FFFF_FFFF_FFFF
+	return TIDClock{
+		ClockID:       t.ClockID(),
+		lastUnixMicro: int64(um),
 	}
 }
 

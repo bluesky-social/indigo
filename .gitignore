@@ -17,26 +17,30 @@ _build/
 src/build/
 *.log
 *.db
+*.db-shm
+*.db-wal
 /data/
 test-coverage.out
 
 # executables
-/athome
 /beemo
-/bigsky
+/bluepages
 /fakermaker
 /gosky
-/laputa
+/hepa
 /lexgen
 /palomar
+/rainbow
+/relay
+/sonar
 /sonar-cli
 /stress
-/supercollider
-/hepa
+/tap
 
 # Don't ignore this file itself, or other specific dotfiles
 !.gitignore
 !.github/
+!.golangci.yaml
 
 # Don't commit your (default location) creds
 bsky.auth
@@ -46,3 +50,7 @@ sonar_cursor.json
 out/
 state.json
 netsync-out/
+
+# Relay dash output
+/public/
+/cmd/relay/public

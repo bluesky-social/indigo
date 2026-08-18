@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,10 +15,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/api"
+	_ "github.com/joho/godotenv/autoload"
+
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
@@ -26,26 +29,20 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
-	"golang.org/x/time/rate"
 
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/gorilla/websocket"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car"
-
-	_ "github.com/joho/godotenv/autoload"
-
-	"github.com/carlmjohnson/versioninfo"
-	logging "github.com/ipfs/go-log"
 	"github.com/polydawn/refmt/cbor"
 	rejson "github.com/polydawn/refmt/json"
 	"github.com/polydawn/refmt/shared"
-	cli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
+	"golang.org/x/time/rate"
 )
-
-var log = logging.Logger("gosky")
 
 func main() {
 	run(os.Args)
@@ -78,7 +75,14 @@ func run(args []string) {
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
+		&cli.StringFlag{
+			Name:    "log-level",
+			Usage:   "log verbosity level (debug, info, warn, error)",
+			Value:   "info",
+			EnvVars: []string{"GOSKY_LOG_LEVEL", "LOG_LEVEL", "BSKYLOG_LOG_LEVEL", "GOLOG_LOG_LEVEL"},
+		},
 	}
+
 	app.Commands = []*cli.Command{
 		accountCmd,
 		adminCmd,
@@ -95,6 +99,7 @@ func run(args []string) {
 		readRepoStreamCmd,
 		parseRkey,
 		listLabelsCmd,
+		verifyUserCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -153,6 +158,7 @@ var readRepoStreamCmd = &cli.Command{
 	},
 	ArgsUsage: `[<repo> [cursor]]`,
 	Action: func(cctx *cli.Context) error {
+		log := configLogger(cctx, os.Stderr)
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT)
 		defer stop()
 
@@ -184,8 +190,7 @@ var readRepoStreamCmd = &cli.Command{
 			_ = con.Close()
 		}()
 
-		didr := cliutil.GetDidResolver(cctx)
-		hr := &api.ProdHandleResolver{}
+		bdir := identity.BaseDirectory{}
 		resolveHandles := cctx.Bool("resolve-handles")
 
 		cache, _ := lru.New[string, *cachedHandle](10000)
@@ -197,17 +202,21 @@ var readRepoStreamCmd = &cli.Command{
 				}
 			}
 
-			h, _, err := api.ResolveDidToHandle(ctx, didr, hr, did)
+			ident, err := bdir.LookupDID(ctx, syntax.DID(did))
 			if err != nil {
 				return "", err
 			}
 
+			if ident.Handle.IsInvalidHandle() {
+				return "", fmt.Errorf("invalid handle")
+			}
+
 			cache.Add(did, &cachedHandle{
-				Handle: h,
+				Handle: ident.Handle.String(),
 				Valid:  time.Now().Add(time.Minute * 10),
 			})
 
-			return h, nil
+			return ident.Handle.String(), nil
 		}
 		var limiter *rate.Limiter
 		if cctx.Float64("max-throughput") > 0 {
@@ -245,10 +254,6 @@ var readRepoStreamCmd = &cli.Command{
 					}
 					fmt.Println(string(b))
 				} else {
-					pstr := "<nil>"
-					if evt.Prev != nil && evt.Prev.Defined() {
-						pstr = evt.Prev.String()
-					}
 					var handle string
 					if resolveHandles {
 						h, err := resolveDid(ctx, evt.Repo)
@@ -258,7 +263,7 @@ var readRepoStreamCmd = &cli.Command{
 							handle = h
 						}
 					}
-					fmt.Printf("(%d) RepoAppend: %s %s (%s -> %s)\n", evt.Seq, evt.Repo, handle, pstr, evt.Commit.String())
+					fmt.Printf("(%d) RepoAppend: %s %s (%s)\n", evt.Seq, evt.Repo, handle, evt.Commit.String())
 
 					if unpack {
 						recs, err := unpackRecords(evt.Blocks, evt.Ops)
@@ -278,28 +283,15 @@ var readRepoStreamCmd = &cli.Command{
 
 				return nil
 			},
-			RepoMigrate: func(migrate *comatproto.SyncSubscribeRepos_Migrate) error {
+			RepoSync: func(sync *comatproto.SyncSubscribeRepos_Sync) error {
 				if jsonfmt {
-					b, err := json.Marshal(migrate)
+					b, err := json.Marshal(sync)
 					if err != nil {
 						return err
 					}
 					fmt.Println(string(b))
 				} else {
-					fmt.Printf("(%d) RepoMigrate: %s moving to: %s\n", migrate.Seq, migrate.Did, *migrate.MigrateTo)
-				}
-
-				return nil
-			},
-			RepoHandle: func(handle *comatproto.SyncSubscribeRepos_Handle) error {
-				if jsonfmt {
-					b, err := json.Marshal(handle)
-					if err != nil {
-						return err
-					}
-					fmt.Println(string(b))
-				} else {
-					fmt.Printf("(%d) RepoHandle: %s (changed to: %s)\n", handle.Seq, handle.Did, handle.Handle)
+					fmt.Printf("(%d) Sync: %s\n", sync.Seq, sync.Did)
 				}
 
 				return nil
@@ -318,27 +310,13 @@ var readRepoStreamCmd = &cli.Command{
 
 				return nil
 			},
-			RepoTombstone: func(tomb *comatproto.SyncSubscribeRepos_Tombstone) error {
-				if jsonfmt {
-					b, err := json.Marshal(tomb)
-					if err != nil {
-						return err
-					}
-					fmt.Println(string(b))
-				} else {
-					fmt.Printf("(%d) Tombstone: %s\n", tomb.Seq, tomb.Did)
-				}
-
-				return nil
-
-			},
 			// TODO: all the other event types
 			Error: func(errf *events.ErrorFrame) error {
 				return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
 			},
 		}
 		seqScheduler := sequential.NewScheduler(con.RemoteAddr().String(), rsc.EventHandler)
-		return events.HandleRepoStream(ctx, con, seqScheduler)
+		return events.HandleRepoStream(ctx, con, seqScheduler, log)
 	},
 }
 
@@ -462,6 +440,18 @@ var getRecordCmd = &cli.Command{
 				return fmt.Errorf("unrecognized link")
 			}
 
+			atid, err := syntax.ParseAtIdentifier(did)
+			if err != nil {
+				return err
+			}
+
+			resp, err := identity.DefaultDirectory().Lookup(ctx, atid)
+			if err != nil {
+				return err
+			}
+
+			xrpcc.Host = resp.PDSEndpoint()
+
 			out, err := comatproto.RepoGetRecord(ctx, xrpcc, "", collection, did, rkey)
 			if err != nil {
 				return err
@@ -490,7 +480,7 @@ var getRecordCmd = &cli.Command{
 
 		rc, rec, err := rr.GetRecord(ctx, cctx.Args().First())
 		if err != nil {
-			return err
+			return fmt.Errorf("get record failed: %w", err)
 		}
 
 		if cctx.Bool("raw") {
@@ -644,9 +634,13 @@ var listAllRecordsCmd = &cli.Command{
 
 		var repob []byte
 		if strings.HasPrefix(arg, "did:") {
-			xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+			resp, err := identity.DefaultDirectory().LookupDID(ctx, syntax.DID(arg))
 			if err != nil {
 				return err
+			}
+
+			xrpcc := &xrpc.Client{
+				Host: resp.PDSEndpoint(),
 			}
 
 			if arg == "" {
@@ -670,11 +664,6 @@ var listAllRecordsCmd = &cli.Command{
 			repob = fb
 		}
 
-		rr, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(repob))
-		if err != nil {
-			return err
-		}
-
 		collection := "app.bsky.feed.post"
 		if cctx.Bool("all") {
 			collection = ""
@@ -682,24 +671,19 @@ var listAllRecordsCmd = &cli.Command{
 		vals := cctx.Bool("values")
 		cids := cctx.Bool("cids")
 
-		if err := rr.ForEach(ctx, collection, func(k string, v cid.Cid) error {
+		if err := repo.StreamRepoRecords(ctx, arg, bytes.NewReader(repob), collection, nil, func(k string, cc cid.Cid, v []byte) error {
 			if !strings.HasPrefix(k, collection) {
 				return repo.ErrDoneIterating
 			}
 
 			fmt.Print(k)
 			if cids {
-				fmt.Println(" - ", v)
+				fmt.Println(" - ", cc)
 			} else {
 				fmt.Println()
 			}
 			if vals {
-				b, err := rr.Blockstore().Get(ctx, v)
-				if err != nil {
-					return err
-				}
-
-				convb, err := cborToJson(b.RawData())
+				convb, err := cborToJson(v)
 				if err != nil {
 					return err
 				}
@@ -765,7 +749,7 @@ var listLabelsCmd = &cli.Command{
 		since := time.Now().Add(-1 * delta).UnixMilli()
 
 		xrpcc := &xrpc.Client{
-			Host: "https://api.bsky.app",
+			Host: "https://mod.bsky.app",
 		}
 
 		for {
@@ -796,4 +780,86 @@ var listLabelsCmd = &cli.Command{
 		}
 		return nil
 	},
+}
+
+var verifyUserCmd = &cli.Command{
+	Name:  "verify-user",
+	Usage: "create a feed generator record",
+	Flags: []cli.Flag{},
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.TODO()
+		arg := cctx.Args().First()
+
+		idf, err := syntax.ParseAtIdentifier(arg)
+		if err != nil {
+			return err
+		}
+
+		ident, err := identity.DefaultDirectory().Lookup(ctx, idf)
+		if err != nil {
+			return err
+		}
+
+		profrec, err := atproto.RepoGetRecord(ctx, xrpcc, "", "app.bsky.actor.profile", ident.DID.String(), "self")
+		if err != nil {
+			return err
+		}
+
+		ap, ok := profrec.Value.Val.(*bsky.ActorProfile)
+		if !ok {
+			return fmt.Errorf("got wrong record type back")
+		}
+
+		var dn string
+		if ap.DisplayName != nil {
+			dn = *ap.DisplayName
+		}
+
+		rec := &lexutil.LexiconTypeDecoder{Val: &bsky.GraphVerification{
+			CreatedAt:   time.Now().Format(util.ISO8601),
+			DisplayName: dn,
+			Handle:      ident.Handle.String(),
+			Subject:     ident.DID.String(),
+		}}
+
+		resp, err := atproto.RepoCreateRecord(ctx, xrpcc, &atproto.RepoCreateRecord_Input{
+			Collection: "app.bsky.graph.verification",
+			Repo:       xrpcc.Auth.Did,
+			Record:     rec,
+		})
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(resp.Uri)
+
+		return nil
+	},
+}
+
+func configLogger(cmd *cli.Context, writer *os.File) *slog.Logger {
+	var level slog.Level
+	switch cmd.String("log-level") {
+	case "debug":
+		level = slog.LevelDebug
+	case "info":
+		level = slog.LevelInfo
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
+	logger := slog.New(slog.NewJSONHandler(writer, &slog.HandlerOptions{
+		Level: level,
+	}))
+
+	return logger
 }

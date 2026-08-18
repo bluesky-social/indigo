@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -9,6 +8,7 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/helpers"
 )
 
 var _ automod.PostRuleFunc = AggressivePromotionRule
@@ -17,21 +17,16 @@ var _ automod.PostRuleFunc = AggressivePromotionRule
 //
 // this rule depends on ReplyCountPostRule() to set counts
 func AggressivePromotionRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if c.Account.Private == nil || c.Account.Identity == nil {
+	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(&c.AccountContext, 7*24*time.Hour) {
 		return nil
 	}
-	// TODO: helper for account age
-	age := time.Since(c.Account.Private.IndexedAt)
-	if age > 7*24*time.Hour {
-		return nil
-	}
-	if post.Reply == nil || IsSelfThread(c, post) {
+	if post.Reply == nil || helpers.IsSelfThread(c, post) {
 		return nil
 	}
 
-	allURLs := ExtractTextURLs(post.Text)
+	allURLs := helpers.ExtractTextURLs(post.Text)
 	if c.Account.Profile.Description != nil {
-		profileURLs := ExtractTextURLs(*c.Account.Profile.Description)
+		profileURLs := helpers.ExtractTextURLs(*c.Account.Profile.Description)
 		allURLs = append(allURLs, profileURLs...)
 	}
 	hasPromo := false
@@ -58,7 +53,7 @@ func AggressivePromotionRule(c *automod.RecordContext, post *appbsky.FeedPost) e
 	uniqueReplies := c.GetCountDistinct("reply-to", did, countstore.PeriodDay)
 	if uniqueReplies >= 10 {
 		c.AddAccountFlag("promo-multi-reply")
-		c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible aggressive self-promotion"))
+		c.ReportAccount(automod.ReportReasonSpam, "possible aggressive self-promotion")
 		c.Notify("slack")
 	}
 

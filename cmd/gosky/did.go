@@ -9,7 +9,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util/cliutil"
 
-	cli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
 )
 
 var didCmd = &cli.Command{
@@ -18,7 +18,6 @@ var didCmd = &cli.Command{
 	Flags: []cli.Flag{},
 	Subcommands: []*cli.Command{
 		didGetCmd,
-		didCreateCmd,
 		didKeyCmd,
 	},
 }
@@ -33,15 +32,13 @@ var didGetCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		s := cliutil.GetDidResolver(cctx)
-
 		ctx := context.TODO()
 		did := cctx.Args().First()
 
-		dir := identity.DefaultDirectory()
+		bdir := identity.BaseDirectory{}
 
 		if cctx.Bool("handle") {
-			id, err := dir.LookupDID(ctx, syntax.DID(did))
+			id, err := bdir.LookupDID(ctx, syntax.DID(did))
 			if err != nil {
 				return err
 			}
@@ -50,7 +47,7 @@ var didGetCmd = &cli.Command{
 			return nil
 		}
 
-		doc, err := s.GetDocument(context.TODO(), did)
+		doc, err := bdir.ResolveDID(ctx, syntax.DID(did))
 		if err != nil {
 			return err
 		}
@@ -61,45 +58,6 @@ var didGetCmd = &cli.Command{
 		}
 
 		fmt.Println(string(b))
-		return nil
-	},
-}
-
-var didCreateCmd = &cli.Command{
-	Name:      "create",
-	ArgsUsage: `<handle> <service>`,
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name: "recoverydid",
-		},
-		&cli.StringFlag{
-			Name: "signingkey",
-		},
-	},
-	Action: func(cctx *cli.Context) error {
-		s := cliutil.GetPLCClient(cctx)
-
-		args, err := needArgs(cctx, "handle", "service")
-		if err != nil {
-			return err
-		}
-		handle, service := args[0], args[1]
-
-		recoverydid := cctx.String("recoverydid")
-
-		sigkey, err := cliutil.LoadKeyFromFile(cctx.String("signingkey"))
-		if err != nil {
-			return err
-		}
-
-		fmt.Println("KEYDID: ", sigkey.Public().DID())
-
-		ndid, err := s.CreateDID(context.TODO(), sigkey, recoverydid, handle, service)
-		if err != nil {
-			return err
-		}
-
-		fmt.Println(ndid)
 		return nil
 	},
 }
@@ -116,7 +74,11 @@ var didKeyCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Println(sigkey.Public().DID())
+		pubkey, err := sigkey.PublicKey()
+		if err != nil {
+			return err
+		}
+		fmt.Println(pubkey.DIDKey())
 		return nil
 	},
 }

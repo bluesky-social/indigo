@@ -2,18 +2,18 @@ package parallel
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers"
-	logging "github.com/ipfs/go-log"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var log = logging.Logger("parallel-scheduler")
-
-// Scheduler is a parallel scheduler that will run work on a fixed number of workers
+// Scheduler is a parallel scheduler that will run work on a fixed number of workers.
+//
+// Notably, this scheduler uses a per-DID task tracker to ensure that events are not processed concurrently for the same account. This does *not* mean that all events for the same DID are consistently processed by the same worker.
 type Scheduler struct {
 	maxConcurrency int
 	maxQueue       int
@@ -32,7 +32,9 @@ type Scheduler struct {
 	itemsAdded     prometheus.Counter
 	itemsProcessed prometheus.Counter
 	itemsActive    prometheus.Counter
-	workesActive   prometheus.Gauge
+	workersActive  prometheus.Gauge
+
+	log *slog.Logger
 }
 
 func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events.XRPCStreamEvent) error) *Scheduler {
@@ -51,20 +53,22 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 		itemsAdded:     schedulers.WorkItemsAdded.WithLabelValues(ident, "parallel"),
 		itemsProcessed: schedulers.WorkItemsProcessed.WithLabelValues(ident, "parallel"),
 		itemsActive:    schedulers.WorkItemsActive.WithLabelValues(ident, "parallel"),
-		workesActive:   schedulers.WorkersActive.WithLabelValues(ident, "parallel"),
+		workersActive:  schedulers.WorkersActive.WithLabelValues(ident, "parallel"),
+
+		log: slog.Default().With("system", "parallel-scheduler"),
 	}
 
-	for i := 0; i < maxC; i++ {
+	for range maxC {
 		go p.worker()
 	}
 
-	p.workesActive.Set(float64(maxC))
+	p.workersActive.Set(float64(maxC))
 
 	return p
 }
 
 func (p *Scheduler) Shutdown() {
-	log.Infof("shutting down parallel scheduler for %s", p.ident)
+	p.log.Info("shutting down parallel scheduler", "ident", p.ident)
 
 	for i := 0; i < p.maxConcurrency; i++ {
 		p.feeder <- &consumerTask{
@@ -78,7 +82,7 @@ func (p *Scheduler) Shutdown() {
 		<-p.out
 	}
 
-	log.Info("parallel scheduler shutdown complete")
+	p.log.Info("parallel scheduler shutdown complete")
 }
 
 type consumerTask struct {
@@ -123,14 +127,14 @@ func (p *Scheduler) worker() {
 
 			p.itemsActive.Inc()
 			if err := p.do(context.TODO(), work.val); err != nil {
-				log.Errorf("event handler failed: %s", err)
+				p.log.Error("event handler failed", "err", err)
 			}
 			p.itemsProcessed.Inc()
 
 			p.lk.Lock()
 			rem, ok := p.active[work.repo]
 			if !ok {
-				log.Errorf("should always have an 'active' entry if a worker is processing a job")
+				p.log.Error("should always have an 'active' entry if a worker is processing a job")
 			}
 
 			if len(rem) == 0 {

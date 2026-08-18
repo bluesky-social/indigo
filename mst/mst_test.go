@@ -13,7 +13,8 @@ import (
 	"testing"
 
 	"github.com/bluesky-social/indigo/util"
-	cid "github.com/ipfs/go-cid"
+
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car/v2"
@@ -32,16 +33,16 @@ func randCid() cid.Cid {
 }
 
 func TestBasicMst(t *testing.T) {
-	rand.Seed(6123123)
 
 	ctx := context.Background()
 	cst := util.CborStore(blockstore.NewBlockstore(datastore.NewMapDatastore()))
 	mst := createMST(cst, cid.Undef, []nodeEntry{}, -1)
 
+	// NOTE: these were previously generated randomly, but the random seed behavior changed
 	vals := map[string]cid.Cid{
-		"cats/cats":  randCid(),
-		"dogs/dogs":  randCid(),
-		"cats/bears": randCid(),
+		"cats/cats":  mustCid(t, "bafkreicwamkg77pijyudfbdmskelsnuztr6gp62lqfjv3e3urbs3gxnv2m"),
+		"dogs/dogs":  mustCid(t, "bafkreihwoet2mghoduxannw3uqsq44a3if37i5omnlqmjcfuhcdegzpyn4"),
+		"cats/bears": mustCid(t, "bafkreiealwcgkpqxmr75a2vubzdertnbrip65nclv6gbsss4w7ef7fh6oy"),
 	}
 
 	for k, v := range vals {
@@ -205,12 +206,12 @@ func randKey(s int64) string {
 
 func TestDiffInsertionsLarge(t *testing.T) {
 	a := map[string]string{}
-	for i := int64(0); i < 1000; i++ {
+	for i := range int64(1000) {
 		a[randKey(i)] = randStr(72385739 - i)
 	}
 
 	b := maps.Clone(a)
-	for i := int64(0); i < 30; i++ {
+	for i := range int64(30) {
 		b[randKey(5000+i)] = randStr(2293825 - i)
 	}
 
@@ -220,12 +221,12 @@ func TestDiffInsertionsLarge(t *testing.T) {
 
 func TestDiffNoOverlap(t *testing.T) {
 	a := map[string]string{}
-	for i := int64(0); i < 10; i++ {
+	for i := range int64(10) {
 		a[randKey(i)] = randStr(72385739 - i)
 	}
 
 	b := map[string]string{}
-	for i := int64(0); i < 10; i++ {
+	for i := range int64(10) {
 		b[randKey(5000+i)] = randStr(2293825 - i)
 	}
 
@@ -235,17 +236,17 @@ func TestDiffNoOverlap(t *testing.T) {
 
 func TestDiffSmallOverlap(t *testing.T) {
 	a := map[string]string{}
-	for i := int64(0); i < 10; i++ {
+	for i := range int64(10) {
 		a[randKey(i)] = randStr(72385739 - i)
 	}
 
 	b := maps.Clone(a)
 
-	for i := int64(0); i < 1000; i++ {
+	for i := range int64(1000) {
 		a[randKey(i)] = randStr(682823 - i)
 	}
 
-	for i := int64(0); i < 1000; i++ {
+	for i := range int64(1000) {
 		b[randKey(5000+i)] = randStr(2293825 - i)
 	}
 
@@ -255,17 +256,17 @@ func TestDiffSmallOverlap(t *testing.T) {
 
 func TestDiffSmallOverlapSmall(t *testing.T) {
 	a := map[string]string{}
-	for i := int64(0); i < 4; i++ {
+	for i := range int64(4) {
 		a[randKey(i)] = randStr(72385739 - i)
 	}
 
 	b := maps.Clone(a)
 
-	for i := int64(0); i < 20; i++ {
+	for i := range int64(20) {
 		a[randKey(i)] = randStr(682823 - i)
 	}
 
-	for i := int64(0); i < 20; i++ {
+	for i := range int64(20) {
 		b[randKey(5000+i)] = randStr(2293825 - i)
 	}
 
@@ -478,7 +479,7 @@ func compareDiffs(a, b []*DiffOp) bool {
 		return false
 	}
 
-	for i := 0; i < len(a); i++ {
+	for i := range a {
 		aa := a[i]
 		bb := b[i]
 
@@ -528,10 +529,10 @@ func FuzzKeyHasAllValidChars(f *testing.F) {
 	for _, seed := range [][]byte{{}} {
 		f.Add(seed)
 	}
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		f.Add([]byte{byte(i)})
 	}
-	rx := regexp.MustCompile("^[a-zA-Z0-9_:.-]+$")
+	rx := regexp.MustCompile("^[a-zA-Z0-9_:.~-]+$")
 	f.Fuzz(func(t *testing.T, in []byte) {
 		s := string(in)
 		if a, b := rx.MatchString(s), keyHasAllValidChars(s); a != b {
@@ -551,12 +552,12 @@ func BenchmarkDiffTrees(b *testing.B) {
 	b.ReportAllocs()
 	const size = 10000
 	ma := map[string]string{}
-	for i := 0; i < size; i++ {
+	for i := range size {
 		ma[fmt.Sprintf("num/%02d", i)] = fmt.Sprint(i)
 	}
 	// And then mess with half of the items of the first half of it.
 	mb := maps.Clone(ma)
-	for i := 0; i < size/2; i++ {
+	for i := range size / 2 {
 		switch i % 4 {
 		case 0, 1:
 		case 2:

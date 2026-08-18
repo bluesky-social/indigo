@@ -1,6 +1,7 @@
 package syntax
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -17,11 +18,11 @@ type ATURI string
 
 func ParseATURI(raw string) (ATURI, error) {
 	if len(raw) > 8192 {
-		return "", fmt.Errorf("ATURI is too long (8192 chars max)")
+		return "", errors.New("ATURI is too long (8192 chars max)")
 	}
 	parts := aturiRegex.FindStringSubmatch(raw)
 	if parts == nil || len(parts) < 2 || parts[0] == "" {
-		return "", fmt.Errorf("AT-URI syntax didn't validate via regex")
+		return "", errors.New("AT-URI syntax didn't validate via regex")
 	}
 	// verify authority as either a DID or NSID
 	_, err := ParseAtIdentifier(parts[1])
@@ -50,13 +51,13 @@ func (n ATURI) Authority() AtIdentifier {
 	parts := strings.SplitN(string(n), "/", 4)
 	if len(parts) < 3 {
 		// something has gone wrong (would not validate)
-		return AtIdentifier{}
+		return ""
 	}
 	atid, err := ParseAtIdentifier(parts[2])
 	if err != nil {
-		return AtIdentifier{}
+		return ""
 	}
-	return *atid
+	return atid
 }
 
 // Returns path segment, without leading slash, as would be used in an atproto repository key. Or empty string if there is no path.
@@ -101,7 +102,7 @@ func (n ATURI) RecordKey() RecordKey {
 
 func (n ATURI) Normalize() ATURI {
 	auth := n.Authority()
-	if auth.Inner == nil {
+	if auth == "" {
 		// invalid AT-URI; return the current value (!)
 		return n
 	}

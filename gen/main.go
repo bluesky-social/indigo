@@ -3,10 +3,14 @@ package main
 import (
 	"reflect"
 
-	"github.com/bluesky-social/indigo/api"
+	standardsite "github.com/bluesky-social/indigo/api-ext/standardsite"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/data"
+	chat "github.com/bluesky-social/indigo/api/chat"
+	"github.com/bluesky-social/indigo/atproto/atdata"
+	"github.com/bluesky-social/indigo/atproto/labeling"
+	atrepo "github.com/bluesky-social/indigo/atproto/repo"
+	atmst "github.com/bluesky-social/indigo/atproto/repo/mst"
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/mst"
@@ -34,10 +38,6 @@ func main() {
 		panic(err)
 	}
 
-	if err := genCfg.WriteMapEncodersToFile("api/cbor_gen.go", "api", api.CreateOp{}); err != nil {
-		panic(err)
-	}
-
 	if err := genCfg.WriteMapEncodersToFile("util/labels/cbor_gen.go", "labels", labels.UnsignedLabel{}); err != nil {
 		panic(err)
 	}
@@ -47,6 +47,7 @@ func main() {
 		bsky.FeedPost_ReplyRef{}, bsky.FeedPost_TextSlice{}, bsky.EmbedImages{},
 		bsky.EmbedExternal{}, bsky.EmbedExternal_External{},
 		bsky.EmbedImages_Image{}, bsky.GraphFollow{}, bsky.ActorProfile{},
+		bsky.EmbedGallery{}, bsky.EmbedGallery_Image{},
 		bsky.EmbedRecord{}, bsky.FeedLike{}, bsky.RichtextFacet{},
 		bsky.RichtextFacet_ByteSlice{},
 		bsky.RichtextFacet_Link{}, bsky.RichtextFacet_Mention{}, bsky.RichtextFacet_Tag{},
@@ -57,13 +58,23 @@ func main() {
 		bsky.GraphListitem{},
 		bsky.FeedGenerator{},
 		bsky.GraphListblock{},
-		bsky.EmbedImages_AspectRatio{},
+		bsky.EmbedDefs_AspectRatio{},
 		bsky.FeedThreadgate{},
 		bsky.FeedThreadgate_ListRule{},
 		bsky.FeedThreadgate_MentionRule{},
+		bsky.FeedThreadgate_FollowerRule{},
 		bsky.FeedThreadgate_FollowingRule{},
+		bsky.GraphStarterpack_FeedItem{},
+		bsky.GraphStarterpack{},
 		bsky.LabelerService{},
 		bsky.LabelerDefs_LabelerPolicies{},
+		bsky.EmbedVideo{}, bsky.EmbedVideo_Caption{},
+		bsky.FeedPostgate{},
+		bsky.FeedPostgate_DisableRule{},
+		bsky.GraphVerification{},
+		bsky.ActorStatus{},
+		bsky.ActorContentVisibilityDeclaration{},
+		bsky.NotificationDeclaration{},
 		/*bsky.EmbedImages_View{},
 		bsky.EmbedRecord_View{}, bsky.EmbedRecordWithMedia_View{},
 		bsky.EmbedExternal_View{}, bsky.EmbedImages_ViewImage{},
@@ -75,15 +86,37 @@ func main() {
 		panic(err)
 	}
 
+	if err := genCfg.WriteMapEncodersToFile("api/chat/cbor_gen.go", "chat",
+		chat.ActorDeclaration{},
+		chat.EmbedJoinLink{},
+	); err != nil {
+		panic(err)
+	}
+
+	if err := genCfg.WriteMapEncodersToFile("api-ext/standardsite/cbor_gen.go", "standardsite",
+		standardsite.Document{},
+		standardsite.Document_Contributor{},
+		standardsite.Document_Placeholder{},
+		standardsite.Publication{},
+		standardsite.Publication_Preferences{},
+		standardsite.GraphRecommend{},
+		standardsite.GraphSubscription{},
+		standardsite.ThemeBasic{},
+		standardsite.ThemeColor_Rgb{},
+		standardsite.ThemeColor_Rgba{},
+	); err != nil {
+		panic(err)
+	}
+
 	if err := genCfg.WriteMapEncodersToFile("api/atproto/cbor_gen.go", "atproto",
+		atproto.LexiconSchema{},
 		atproto.RepoStrongRef{},
 		atproto.SyncSubscribeRepos_Commit{},
-		atproto.SyncSubscribeRepos_Handle{},
+		atproto.SyncSubscribeRepos_Sync{},
 		atproto.SyncSubscribeRepos_Identity{},
+		atproto.SyncSubscribeRepos_Account{},
 		atproto.SyncSubscribeRepos_Info{},
-		atproto.SyncSubscribeRepos_Migrate{},
 		atproto.SyncSubscribeRepos_RepoOp{},
-		atproto.SyncSubscribeRepos_Tombstone{},
 		atproto.LabelDefs_SelfLabels{},
 		atproto.LabelDefs_SelfLabel{},
 		atproto.LabelDefs_Label{},
@@ -103,7 +136,19 @@ func main() {
 		panic(err)
 	}
 
-	if err := genCfg.WriteMapEncodersToFile("atproto/data/cbor_gen.go", "data", data.GenericRecord{}, data.LegacyBlobSchema{}, data.BlobSchema{}); err != nil {
+	if err := genCfg.WriteMapEncodersToFile("atproto/atdata/cbor_gen.go", "atdata", atdata.GenericRecord{}, atdata.LegacyBlobSchema{}, atdata.BlobSchema{}); err != nil {
+		panic(err)
+	}
+
+	if err := genCfg.WriteMapEncodersToFile("atproto/repo/cbor_gen.go", "repo", atrepo.Commit{}); err != nil {
+		panic(err)
+	}
+
+	if err := genCfg.WriteMapEncodersToFile("atproto/repo/mst/cbor_gen.go", "mst", atmst.NodeData{}, atmst.EntryData{}); err != nil {
+		panic(err)
+	}
+
+	if err := genCfg.WriteMapEncodersToFile("atproto/labeling/cbor_gen.go", "labeling", labeling.Label{}); err != nil {
 		panic(err)
 	}
 }

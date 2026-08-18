@@ -6,7 +6,7 @@ import (
 
 	"github.com/bluesky-social/indigo/util"
 	cid "github.com/ipfs/go-cid"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	cbor "github.com/ipfs/go-ipld-cbor"
 )
 
 type DiffOp struct {
@@ -18,7 +18,7 @@ type DiffOp struct {
 }
 
 // TODO: this code isn't great, should be rewritten on top of the baseline datastructures once functional and correct
-func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) ([]*DiffOp, error) {
+func DiffTrees(ctx context.Context, bs cbor.IpldBlockstore, from, to cid.Cid) ([]*DiffOp, error) {
 	cst := util.CborStore(bs)
 
 	if from == cid.Undef {
@@ -185,7 +185,7 @@ func nodeEntriesEqual(a, b *nodeEntry) bool {
 	return false
 }
 
-func identityDiff(ctx context.Context, bs blockstore.Blockstore, root cid.Cid) ([]*DiffOp, error) {
+func identityDiff(ctx context.Context, bs cbor.IpldBlockstore, root cid.Cid) ([]*DiffOp, error) {
 	cst := util.CborStore(bs)
 	tt := LoadMST(cst, root)
 

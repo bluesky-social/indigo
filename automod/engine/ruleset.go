@@ -3,11 +3,14 @@ package engine
 import (
 	"bytes"
 	"fmt"
-	"sync"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+
+	"golang.org/x/sync/errgroup"
 )
+
+var DEFAULT_BLOB_PROCESSING_CONCURRENCY = 8
 
 // Holds configuration of which rules of various types should be run, and helps dispatch events to those rules.
 type RuleSet struct {
@@ -16,8 +19,9 @@ type RuleSet struct {
 	RecordRules       []RecordRuleFunc
 	RecordDeleteRules []RecordRuleFunc
 	IdentityRules     []IdentityRuleFunc
+	AccountRules      []AccountRuleFunc
 	BlobRules         []BlobRuleFunc
-	NotificationRules []NotificationRuleFunc
+	OzoneEventRules   []OzoneEventRuleFunc
 }
 
 // Executes all the various record-related rules. Only dispatches execution, does no other de-dupe or pre/post processing.
@@ -88,11 +92,22 @@ func (r *RuleSet) CallIdentityRules(c *AccountContext) error {
 	return nil
 }
 
-func (r *RuleSet) CallNotificationRules(c *NotificationContext) error {
-	for _, f := range r.NotificationRules {
+// Executes rules for account update events.
+func (r *RuleSet) CallAccountRules(c *AccountContext) error {
+	for _, f := range r.AccountRules {
 		err := f(c)
 		if err != nil {
-			c.Logger.Error("notification rule execution failed", "err", err)
+			c.Logger.Error("account rule execution failed", "err", err)
+		}
+	}
+	return nil
+}
+
+func (r *RuleSet) CallOzoneEventRules(c *OzoneEventContext) error {
+	for _, f := range r.OzoneEventRules {
+		err := f(c)
+		if err != nil {
+			c.Logger.Error("ozone event rule execution failed", "err", err)
 		}
 	}
 	return nil
@@ -109,60 +124,36 @@ func (r *RuleSet) fetchAndProcessBlobs(c *RecordContext) error {
 		return nil
 	}
 
-	errChan := make(chan error, len(blobs))
-	var wg sync.WaitGroup
+	concurrency := c.engine.Config.BlobProcessingConcurrency
+	if concurrency == 0 {
+		concurrency = DEFAULT_BLOB_PROCESSING_CONCURRENCY
+	}
+
+	var wg errgroup.Group
+	wg.SetLimit(concurrency)
 	for _, blob := range blobs {
-		wg.Add(1)
-		go func(blob lexutil.LexBlob) {
-			defer wg.Done()
+		blob := blob
+		wg.Go(func() error {
 			data, err := c.fetchBlob(blob)
 			if err != nil {
-				errChan <- err
-				return
+				return err
 			}
-			err = r.processBlob(c, blob, data)
-			if err != nil {
-				errChan <- err
-				return
-			}
-		}(blob)
-
+			return r.processBlob(c, blob, data)
+		})
 	}
-	wg.Wait()
-	close(errChan)
-
-	// check for errors
-	for err := range errChan {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return wg.Wait()
 }
 
 func (r *RuleSet) processBlob(c *RecordContext, blob lexutil.LexBlob, data []byte) error {
-	errChan := make(chan error, len(r.BlobRules))
-	var wg sync.WaitGroup
-	for _, f := range r.BlobRules {
-		wg.Add(1)
-		go func(brf BlobRuleFunc) {
-			defer wg.Done()
-			err := brf(c, blob, data)
-			if err != nil {
-				errChan <- err
-				return
-			}
-		}(f)
+
+	// note that this errgroup.Group is *not* bounded: it runs all blob rules in parallel
+	var wg errgroup.Group
+	for _, brf := range r.BlobRules {
+		brf := brf
+		wg.Go(func() error {
+			return brf(c, blob, data)
+		})
 	}
 
-	wg.Wait()
-	close(errChan)
-
-	// check for errors
-	for err := range errChan {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return wg.Wait()
 }

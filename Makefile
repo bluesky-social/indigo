@@ -3,7 +3,7 @@ SHELL = /bin/bash
 .SHELLFLAGS = -o pipefail -c
 
 # base path for Lexicon document tree (for lexgen)
-LEXDIR?=../atproto/lexicons
+LEXDIR?=./lexicons
 
 # https://github.com/golang/go/wiki/LoopvarExperiment
 export GOEXPERIMENT := loopvar
@@ -17,16 +17,14 @@ help: ## Print info about all commands
 .PHONY: build
 build: ## Build all executables
 	go build ./cmd/gosky
-	go build ./cmd/laputa
-	go build ./cmd/bigsky
+	go build ./cmd/relay
 	go build ./cmd/beemo
 	go build ./cmd/lexgen
 	go build ./cmd/stress
 	go build ./cmd/fakermaker
 	go build ./cmd/hepa
-	go build ./cmd/supercollider
-	go build -o ./sonar-cli ./cmd/sonar 
-	go build ./cmd/palomar
+	go build -o ./sonar-cli ./cmd/sonar
+	go build ./cmd/tap
 
 .PHONY: all
 all: build
@@ -42,6 +40,10 @@ test-short: ## Run tests, skipping slower integration tests
 .PHONY: test-interop
 test-interop: ## Run tests, including local interop (requires services running)
 	go clean -testcache && go test -tags=localinterop ./...
+
+.PHONY: test-search
+test-search: ## Run tests, including local search indexing (requires services running)
+	go clean -testcache && go test -tags=localsearch ./...
 
 .PHONY: coverage-html
 coverage-html: ## Generate test coverage report and open in browser
@@ -63,9 +65,11 @@ check: ## Compile everything, checking syntax (does not output binaries)
 
 .PHONY: lexgen
 lexgen: ## Run codegen tool for lexicons (lexicon JSON to Go packages)
-	go run ./cmd/lexgen/ --package bsky --prefix app.bsky --outdir api/bsky $(LEXDIR)
-	go run ./cmd/lexgen/ --package atproto --prefix com.atproto --outdir api/atproto $(LEXDIR)
-	go run ./cmd/lexgen/ --package ozone --prefix tools.ozone --outdir api/ozone $(LEXDIR)
+	go run ./cmd/lexgen/ --build-file cmd/lexgen/bsky.json $(LEXDIR)
+
+.PHONY: lexgen-ext
+lexgen-ext: ## Run codegen tool for lexicons (lexicon JSON to Go packages)
+	go run ./cmd/lexgen/ --build-file cmd/lexgen/ext.json $(LEXDIR)
 
 .PHONY: cborgen
 cborgen: ## Run codegen tool for CBOR serialization
@@ -74,61 +78,40 @@ cborgen: ## Run codegen tool for CBOR serialization
 .env:
 	if [ ! -f ".env" ]; then cp example.dev.env .env; fi
 
-.PHONY: run-postgres
-run-postgres: .env ## Runs a local postgres instance
-	docker compose -f cmd/bigsky/docker-compose.yml up -d
+.PHONY: run-dev-relay
+run-dev-relay: .env ## Runs relay for local dev
+	LOG_LEVEL=info go run ./cmd/relay --admin-password localdev serve
 
-.PHONY: run-dev-bgs
-run-dev-bgs: .env ## Runs 'bigsky' BGS for local dev
-	GOLOG_LOG_LEVEL=info go run ./cmd/bigsky --admin-key localdev 
-# --crawl-insecure-ws 
+.PHONY: run-dev-ident
+run-dev-ident: .env ## Runs 'bluepages' identity directory for local dev
+	GOLOG_LOG_LEVEL=info go run ./cmd/bluepages serve
 
-.PHONY: build-bgs-image
-build-bgs-image: ## Builds 'bigsky' BGS docker image
-	docker build -t bigsky -f cmd/bigsky/Dockerfile .
+.PHONY: build-relay-image
+build-relay-image: ## Builds relay docker image
+	docker build -t relay -f cmd/relay/Dockerfile .
 
-.PHONY: run-bgs-image
-run-bgs-image:
-	docker run -p 2470:2470 bigsky /bigsky --admin-key localdev
-# --crawl-insecure-ws 
+.PHONY: build-relay-admin-ui
+build-relay-admin-ui: ## Build relay admin web UI
+	cd  cmd/relay/relay-admin-ui; yarn install --frozen-lockfile; yarn build
+	mkdir -p public
+	cp -r cmd/relay/relay-admin-ui/dist/* public/
 
-.PHONY: run-dev-search
-run-dev-search: .env ## Runs search daemon for local dev
-	GOLOG_LOG_LEVEL=info go run ./cmd/palomar run
+.PHONY: run-relay-image
+run-relay-image:
+	docker run -p 2470:2470 relay /relay serve --admin-password localdev
+# --crawl-insecure-ws
 
 .PHONY: sonar-up
 sonar-up: # Runs sonar docker container
 	docker compose -f cmd/sonar/docker-compose.yml up --build -d || docker-compose -f cmd/sonar/docker-compose.yml up --build -d
 
-.PHONY: sc-reload
-sc-reload: # Reloads supercollider
-	go run cmd/supercollider/main.go \
-		reload \
-		--port 6125 --total-events 2000000 \
-		--hostname alpha.supercollider.jazco.io \
-		--key-file out/alpha.pem \
-		--output-file out/alpha_in.cbor
-
-.PHONY: sc-fire
-sc-fire: # Fires supercollider
-	go run cmd/supercollider/main.go \
-		fire \
-		--port 6125 --events-per-second 10000 \
-		--hostname alpha.supercollider.jazco.io \
-		--key-file out/alpha.pem \
-		--input-file out/alpha_in.cbor
-
 .PHONY: run-netsync
 run-netsync: .env ## Runs netsync for local dev
-	go run ./cmd/netsync --checkout-limit 30 --worker-count 60 --out-dir ../netsync-out
+	go run ./cmd/netsync --checkout-limit 100 --worker-count 100 --out-dir ../netsync-out
 
 SCYLLA_VERSION := latest
 SCYLLA_CPU := 0
 SCYLLA_NODES := 127.0.0.1:9042
-
-.PHONY: netsync-playback
-netsync-playback: .env ## Runs netsync for local dev
-	go run ./cmd/netsync --worker-count 96 --out-dir ../netsync-out_2023_08_25 playback --scylla-nodes $(SCYLLA_NODES)
 
 .PHONY: run-scylla
 run-scylla:

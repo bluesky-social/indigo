@@ -13,13 +13,14 @@ type RedisFlagStore struct {
 }
 
 func NewRedisFlagStore(redisURL string) (*RedisFlagStore, error) {
+	ctx := context.Background()
 	opt, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, err
 	}
 	rdb := redis.NewClient(opt)
 	// check redis connection
-	_, err = rdb.Ping(context.TODO()).Result()
+	_, err = rdb.Ping(ctx).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +45,7 @@ func (s *RedisFlagStore) Add(ctx context.Context, key string, flags []string) er
 	if len(flags) == 0 {
 		return nil
 	}
-	l := []interface{}{}
+	l := []any{}
 	for _, v := range flags {
 		l = append(l, v)
 	}
@@ -56,7 +57,7 @@ func (s *RedisFlagStore) Remove(ctx context.Context, key string, flags []string)
 	if len(flags) == 0 {
 		return nil
 	}
-	l := []interface{}{}
+	l := []any{}
 	for _, v := range flags {
 		l = append(l, v)
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util/cliutil"
+	"github.com/bluesky-social/indigo/xrpc"
 
 	cli "github.com/urfave/cli/v2"
 )
@@ -33,6 +34,7 @@ var syncGetRepoCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
+		log := configLogger(cctx, os.Stderr)
 		ctx := context.Background()
 		arg := cctx.Args().First()
 		if arg == "" {
@@ -43,7 +45,7 @@ var syncGetRepoCmd = &cli.Command{
 			return err
 		}
 		dir := identity.DefaultDirectory()
-		ident, err := dir.Lookup(ctx, *atid)
+		ident, err := dir.Lookup(ctx, atid)
 		if err != nil {
 			return err
 		}
@@ -53,11 +55,10 @@ var syncGetRepoCmd = &cli.Command{
 			carPath = ident.DID.String() + ".car"
 		}
 
-		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
-		if err != nil {
-			return err
+		xrpcc := &xrpc.Client{
+			Host: ident.PDSEndpoint(),
 		}
-		xrpcc.Host = ident.PDSEndpoint()
+
 		if xrpcc.Host == "" {
 			return fmt.Errorf("no PDS endpoint for identity")
 		}
@@ -66,7 +67,7 @@ var syncGetRepoCmd = &cli.Command{
 			xrpcc.Host = h
 		}
 
-		log.Infof("downloading from %s to: %s", xrpcc.Host, carPath)
+		log.Info("downloading", "from", xrpcc.Host, "to", carPath)
 		repoBytes, err := comatproto.SyncGetRepo(ctx, xrpcc, ident.DID.String(), "")
 		if err != nil {
 			return err
@@ -98,7 +99,7 @@ var syncGetRootCmd = &cli.Command{
 		}
 
 		dir := identity.DefaultDirectory()
-		ident, err := dir.Lookup(ctx, *atid)
+		ident, err := dir.Lookup(ctx, atid)
 		if err != nil {
 			return err
 		}

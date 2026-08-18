@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"context"
 	"log/slog"
 	"net/url"
 	"strings"
@@ -10,9 +9,10 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/helpers"
 )
 
-func isMisleadingURLFacet(facet PostFacet, logger *slog.Logger) bool {
+func isMisleadingURLFacet(facet helpers.PostFacet, logger *slog.Logger) bool {
 	linkURL, err := url.Parse(*facet.URL)
 	if err != nil {
 		logger.Warn("invalid link metadata URL", "url", facet.URL)
@@ -85,7 +85,7 @@ func MisleadingURLPostRule(c *automod.RecordContext, post *appbsky.FeedPost) err
 	if c.Account.Identity.Handle == "nowbreezing.ntw.app" {
 		return nil
 	}
-	facets, err := ExtractFacets(post)
+	facets, err := helpers.ExtractFacets(post)
 	if err != nil {
 		c.Logger.Warn("invalid facets", "err", err)
 		// TODO: or some other "this record is corrupt" indicator?
@@ -106,9 +106,7 @@ func MisleadingURLPostRule(c *automod.RecordContext, post *appbsky.FeedPost) err
 var _ automod.PostRuleFunc = MisleadingMentionPostRule
 
 func MisleadingMentionPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	// TODO: do we really need to route context around? probably
-	ctx := context.TODO()
-	facets, err := ExtractFacets(post)
+	facets, err := helpers.ExtractFacets(post)
 	if err != nil {
 		c.Logger.Warn("invalid facets", "err", err)
 		// TODO: or some other "this record is corrupt" indicator?
@@ -127,7 +125,7 @@ func MisleadingMentionPostRule(c *automod.RecordContext, post *appbsky.FeedPost)
 				continue
 			}
 
-			mentioned, err := c.Directory().LookupHandle(ctx, handle)
+			mentioned, err := c.Directory().LookupHandle(c.Ctx, handle)
 			if err != nil {
 				c.Logger.Warn("could not resolve handle", "handle", handle)
 				c.AddRecordFlag("broken-mention")

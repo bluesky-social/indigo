@@ -4,12 +4,32 @@
 
 Some Bluesky software is developed in Typescript, and lives in the [bluesky-social/atproto](https://github.com/bluesky-social/atproto) repository. Some is developed in Go, and lives here.
 
+**If you are not a Go developer and you want to run one of these tools**, you can do:
+
+```bash
+# with [Homebrew](brew.sh) installed
+brew install go
+# for example, to run tap
+go install github.com/bluesky-social/indigo/cmd/tap
+tap
+```
+
+Go will fetch dependencies, compile, and install `tap` or another service with a one-line `go install` command.
+
+*Soon*, we plan to decouple the tools in this repo so you can install them individually like [goat](https://formulae.brew.sh/formula/goat).
+
 ## What is in here?
 
 **Go Services:**
 
-- **bigsky** ([README](./cmd/bigsky/README.md)): "Big Graph Service" (BGS) reference implementation, running at `bsky.network`
-- **palomar** ([README](./cmd/palomar/README.md)): fulltext search service for <https://bsky.app>
+- **tap** ([README](./cmd/tap/README.md)): synchronization and backfill tool for atproto apps
+- **relay** ([README](./cmd/relay/README.md)): relay reference implementation
+- **rainbow** ([README](./cmd/rainbow/README.md)): firehose "splitter" or "fan-out" service
+- **hepa** ([README](./cmd/hepa/README.md)): auto-moderation bot for [Ozone](https://ozone.tools)
+
+**Developer Tools:**
+
+- **goat** ([README](https://github.com/bluesky-social/goat)): CLI for interacting with network: CAR files, firehose, APIs, etc (moved to [separate repo](https://github.com/bluesky-social/goat))
 
 **Go Packages:**
 
@@ -19,12 +39,15 @@ Some Bluesky software is developed in Typescript, and lives in the [bluesky-soci
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `api/atproto`: generated types for `com.atproto.*` Lexicons  | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/api/atproto)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/api/atproto)           |
 | `api/bsky`: generated types for `app.bsky.*` Lexicons        | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/api/bsky)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/api/bsky)                 |
-| `atproto/crypto`: crytographic signing and key serialization | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/crypto)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/crypto)     |
+| `atproto/atclient`: HTTP API client                          | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/atclient)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/atclient) |
+| `atproto/auth/oauth`: AT OAuth client                        | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/auth/oauth)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/auth/oauth)|
 | `atproto/identity`: DID and handle resolution                | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/identity)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/identity) |
 | `atproto/syntax`: string types and parsers for identifiers   | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/syntax)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/syntax)     |
-| `mst`: Merkle Search Tree implementation                     | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/mst)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/mst)                           |
-| `repo`: account data storage                                 | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/repo)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/repo)                         |
-| `xrpc`: HTTP API client                                      | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/xrpc)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/xrpc)                         |
+| `atproto/lexicon`: schema validation of data                 | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/lexicon)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/lexicon)   |
+| `atproto/repo`: repository data structure                    | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/repo)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/repo)         |
+| `atproto/repo/mst`: Merkle Search Tree implementation        | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/repo/mst)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/repo/mst) |
+| `atproto/atcrypto`: cryptographic signing and key serialization | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/atcrypto)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/atcrypto)|
+| `go-didplc/didplc`: DID PLC implementation (external) | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/did-method-plc/go-didplc/didplc)](https://pkg.go.dev/mod/github.com/did-method-plc/go-didplc/didplc)|
 
 The TypeScript reference implementation, including PDS and bsky AppView services, is at [bluesky-social/atproto](https://github.com/bluesky-social/atproto). Source code for the Bluesky Social client app (for web and mobile) can be found at [bluesky-social/social-app](https://github.com/bluesky-social/social-app).
 
@@ -41,7 +64,7 @@ The Makefile provides wrapper commands for basic development:
 
 Individual commands can be run like:
 
-    go run ./cmd/bigsky
+    go run ./cmd/relay
 
 The [HACKING](./HACKING.md) file has a list of commands and packages in this repository and some other development tips.
 
@@ -49,7 +72,7 @@ The [HACKING](./HACKING.md) file has a list of commands and packages in this rep
 
 _not to be confused with the [AT command set](https://en.wikipedia.org/wiki/Hayes_command_set) or [Adenosine triphosphate](https://en.wikipedia.org/wiki/Adenosine_triphosphate)_
 
-The Authenticated Transfer Protocol ("ATP" or "atproto") is a decentralized social media protocol, developed by [Bluesky PBC](https://bsky.social). Learn more at:
+The Authenticated Transfer Protocol ("ATP" or "atproto") is a decentralized social media protocol, developed by [Bluesky Social PBC](https://bsky.social). Learn more at:
 
 - [Overview and Guides](https://atproto.com/guides/overview) 👈 Best starting point
 - [Github Discussions](https://github.com/bluesky-social/atproto/discussions) 👈 Great place to ask questions
@@ -88,8 +111,6 @@ Remember, we serve a wide community of users. Our day-to-day involves us constan
 
 Bluesky is an open social network built on the AT Protocol, a flexible technology that will never lock developers out of the ecosystems that they help build. With atproto, third-party can be as seamless as first-party through custom feeds, federated services, clients, and more.
 
-If you're a developer interested in building on atproto, we'd love to email you a Bluesky invite code. Simply share your GitHub (or similar) profile with us via [this form](https://forms.gle/BF21oxVNZiDjDhXF9).
-
 ## License
 
 This project is dual-licensed under MIT and Apache 2.0 terms:
@@ -98,3 +119,5 @@ This project is dual-licensed under MIT and Apache 2.0 terms:
 - Apache License, Version 2.0, ([LICENSE-APACHE](https://github.com/bluesky-social/indigo/blob/main/LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
 
 Downstream projects and end users may chose either license individually, or both together, at their discretion. The motivation for this dual-licensing is the additional software patent assurance provided by Apache 2.0.
+
+Bluesky Social PBC has committed to a software patent non-aggression pledge. For details see [the original announcement](https://bsky.social/about/blog/10-01-2025-patent-pledge).

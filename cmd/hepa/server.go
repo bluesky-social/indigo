@@ -6,15 +6,14 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"strings"
-	"sync/atomic"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/cachestore"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/engine"
 	"github.com/bluesky-social/indigo/automod/flagstore"
 	"github.com/bluesky-social/indigo/automod/rules"
 	"github.com/bluesky-social/indigo/automod/setstore"
@@ -27,36 +26,37 @@ import (
 )
 
 type Server struct {
-	bgshost             string
-	firehoseParallelism int
-	logger              *slog.Logger
-	engine              *automod.Engine
-	rdb                 *redis.Client
+	Engine      *automod.Engine
+	RedisClient *redis.Client
 
-	// lastSeq is the most recent event sequence number we've received and begun to handle.
-	// This number is periodically persisted to redis, if redis is present.
-	// The value is best-effort (the stream handling itself is concurrent, so event numbers may not be monotonic),
-	// but nonetheless, you must use atomics when updating or reading this (to avoid data races).
-	lastSeq int64
+	logger *slog.Logger
 }
 
 type Config struct {
-	BGSHost             string
-	BskyHost            string
-	ModHost             string
-	ModAdminToken       string
-	ModUsername         string
-	ModPassword         string
-	SetsFileJSON        string
-	RedisURL            string
-	SlackWebhookURL     string
-	HiveAPIToken        string
-	AbyssHost           string
-	AbyssPassword       string
-	RulesetName         string
-	RatelimitBypass     string
-	FirehoseParallelism int
-	Logger              *slog.Logger
+	Logger               *slog.Logger
+	BskyHost             string
+	OzoneHost            string
+	OzoneDID             string
+	OzoneAdminToken      string
+	PDSHost              string
+	PDSAdminToken        string
+	SetsFileJSON         string
+	RedisURL             string
+	SlackWebhookURL      string
+	HiveAPIToken         string
+	AbyssHost            string
+	AbyssPassword        string
+	RulesetName          string
+	RatelimitBypass      string
+	PreScreenHost        string
+	PreScreenToken       string
+	ReportDupePeriod     time.Duration
+	QuotaModReportDay    int
+	QuotaModTakedownDay  int
+	QuotaModActionDay    int
+	RecordEventTimeout   time.Duration
+	IdentityEventTimeout time.Duration
+	OzoneEventTimeout    time.Duration
 }
 
 func NewServer(dir identity.Directory, config Config) (*Server, error) {
@@ -67,36 +67,43 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		}))
 	}
 
-	bgsws := config.BGSHost
-	if !strings.HasPrefix(bgsws, "ws") {
-		return nil, fmt.Errorf("specified bgs host must include 'ws://' or 'wss://'")
-	}
-
-	// TODO: this isn't a very robust way to handle a persistent client
-	var xrpcc *xrpc.Client
-	if config.ModAdminToken != "" {
-		xrpcc = &xrpc.Client{
+	var ozoneClient *xrpc.Client
+	if config.OzoneAdminToken != "" && config.OzoneDID != "" {
+		ozoneClient = &xrpc.Client{
 			Client:     util.RobustHTTPClient(),
-			Host:       config.ModHost,
-			AdminToken: &config.ModAdminToken,
+			Host:       config.OzoneHost,
+			AdminToken: &config.OzoneAdminToken,
 			Auth:       &xrpc.AuthInfo{},
 		}
 		if config.RatelimitBypass != "" {
-			xrpcc.Headers = make(map[string]string)
-			xrpcc.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
+			ozoneClient.Headers = make(map[string]string)
+			ozoneClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
 		}
-
-		auth, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
-			Identifier: config.ModUsername,
-			Password:   config.ModPassword,
-		})
+		od, err := syntax.ParseDID(config.OzoneDID)
 		if err != nil {
-			return nil, fmt.Errorf("connecting to mod service: %v", err)
+			return nil, fmt.Errorf("ozone account DID supplied was not valid: %v", err)
 		}
-		xrpcc.Auth.AccessJwt = auth.AccessJwt
-		xrpcc.Auth.RefreshJwt = auth.RefreshJwt
-		xrpcc.Auth.Did = auth.Did
-		xrpcc.Auth.Handle = auth.Handle
+		ozoneClient.Auth.Did = od.String()
+		logger.Info("configured ozone admin client", "did", od.String(), "ozoneHost", config.OzoneHost)
+	} else {
+		logger.Info("did not configure ozone client")
+	}
+
+	var adminClient *xrpc.Client
+	if config.PDSAdminToken != "" {
+		adminClient = &xrpc.Client{
+			Client:     util.RobustHTTPClient(),
+			Host:       config.PDSHost,
+			AdminToken: &config.PDSAdminToken,
+			Auth:       &xrpc.AuthInfo{},
+		}
+		if config.RatelimitBypass != "" {
+			adminClient.Headers = make(map[string]string)
+			adminClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
+		}
+		logger.Info("configured PDS admin client", "pdsHost", config.PDSHost)
+	} else {
+		logger.Info("did not configure PDS admin client")
 	}
 
 	sets := setstore.NewMemSetStore()
@@ -131,7 +138,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		}
 		counters = cnt
 
-		csh, err := cachestore.NewRedisCacheStore(config.RedisURL, 30*time.Minute)
+		csh, err := cachestore.NewRedisCacheStore(config.RedisURL, 6*time.Hour)
 		if err != nil {
 			return nil, fmt.Errorf("initializing redis cachestore: %v", err)
 		}
@@ -144,15 +151,21 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		flags = flg
 	} else {
 		counters = countstore.NewMemCountStore()
-		cache = cachestore.NewMemCacheStore(5_000, 30*time.Minute)
+		cache = cachestore.NewMemCacheStore(5_000, 1*time.Hour)
 		flags = flagstore.NewMemFlagStore()
 	}
 
+	// IMPORTANT: reminder that these are the indigo-edition rules, not production rules
 	extraBlobRules := []automod.BlobRuleFunc{}
 	if config.HiveAPIToken != "" && config.RulesetName != "no-hive" {
 		logger.Info("configuring Hive AI image labeler")
 		hc := visual.NewHiveAIClient(config.HiveAPIToken)
 		extraBlobRules = append(extraBlobRules, hc.HiveLabelBlobRule)
+
+		if config.PreScreenHost != "" {
+			psc := visual.NewPreScreenClient(config.PreScreenHost, config.PreScreenToken)
+			hc.PreScreenClient = psc
+		}
 	}
 
 	if config.AbyssHost != "" && config.AbyssPassword != "" {
@@ -191,7 +204,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		bskyClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
 	}
 	blobClient := util.RobustHTTPClient()
-	engine := automod.Engine{
+	eng := automod.Engine{
 		Logger:      logger,
 		Directory:   dir,
 		Counters:    counters,
@@ -200,17 +213,25 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		Cache:       cache,
 		Rules:       ruleset,
 		Notifier:    notifier,
-		AdminClient: xrpcc,
 		BskyClient:  &bskyClient,
+		OzoneClient: ozoneClient,
+		AdminClient: adminClient,
 		BlobClient:  blobClient,
+		Config: engine.EngineConfig{
+			ReportDupePeriod:     config.ReportDupePeriod,
+			QuotaModReportDay:    config.QuotaModReportDay,
+			QuotaModTakedownDay:  config.QuotaModTakedownDay,
+			QuotaModActionDay:    config.QuotaModActionDay,
+			RecordEventTimeout:   config.RecordEventTimeout,
+			IdentityEventTimeout: config.IdentityEventTimeout,
+			OzoneEventTimeout:    config.OzoneEventTimeout,
+		},
 	}
 
 	s := &Server{
-		bgshost:             config.BGSHost,
-		firehoseParallelism: config.FirehoseParallelism,
-		logger:              logger,
-		engine:              &engine,
-		rdb:                 rdb,
+		logger:      logger,
+		Engine:      &eng,
+		RedisClient: rdb,
 	}
 
 	return s, nil
@@ -219,105 +240,4 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 func (s *Server) RunMetrics(listen string) error {
 	http.Handle("/metrics", promhttp.Handler())
 	return http.ListenAndServe(listen, nil)
-}
-
-var cursorKey = "hepa/seq"
-
-func (s *Server) ReadLastCursor(ctx context.Context) (int64, error) {
-	// if redis isn't configured, just skip
-	if s.rdb == nil {
-		s.logger.Info("redis not configured, skipping cursor read")
-		return 0, nil
-	}
-
-	val, err := s.rdb.Get(ctx, cursorKey).Int64()
-	if err == redis.Nil {
-		s.logger.Info("no pre-existing cursor in redis")
-		return 0, nil
-	}
-	s.logger.Info("successfully found prior subscription cursor seq in redis", "seq", val)
-	return val, err
-}
-
-func (s *Server) PersistCursor(ctx context.Context) error {
-	// if redis isn't configured, just skip
-	if s.rdb == nil {
-		return nil
-	}
-	lastSeq := atomic.LoadInt64(&s.lastSeq)
-	if lastSeq <= 0 {
-		return nil
-	}
-	err := s.rdb.Set(ctx, cursorKey, lastSeq, 14*24*time.Hour).Err()
-	return err
-}
-
-// Periodically refreshes the engine's admin XRPC client JWT auth token.
-//
-// Expects to be run in a goroutine, and to be the only running code which touches the auth fields (aka, there is no locking).
-// TODO: this is a hack until we have an XRPC client which handles these details automatically.
-func (s *Server) RunRefreshAdminClient(ctx context.Context) error {
-	if s.engine.AdminClient == nil {
-		return nil
-	}
-	ac := s.engine.AdminClient
-	ticker := time.NewTicker(1 * time.Hour)
-	for {
-		select {
-		case <-ticker.C:
-			// uses a temporary xrpc client instead of the existing one because we need to put refreshJwt in the position of accessJwt, and that would cause an error for any concurrent requests
-			tmpClient := xrpc.Client{
-				Host: ac.Host,
-				Auth: &xrpc.AuthInfo{
-					Did:        ac.Auth.Did,
-					Handle:     ac.Auth.Handle,
-					AccessJwt:  ac.Auth.RefreshJwt,
-					RefreshJwt: ac.Auth.RefreshJwt,
-				},
-			}
-			refresh, err := comatproto.ServerRefreshSession(ctx, &tmpClient)
-			if err != nil {
-				// don't return an error, just log, and attempt again on the next tick
-				s.logger.Error("failed to refresh admin client session", "err", err, "host", ac.Host)
-			} else {
-				s.engine.AdminClient.Auth.RefreshJwt = refresh.RefreshJwt
-				s.engine.AdminClient.Auth.AccessJwt = refresh.AccessJwt
-				s.logger.Info("refreshed admin client session")
-			}
-		case <-ctx.Done():
-			return nil
-		}
-	}
-}
-
-// this method runs in a loop, persisting the current cursor state every 5 seconds
-func (s *Server) RunPersistCursor(ctx context.Context) error {
-
-	// if redis isn't configured, just skip
-	if s.rdb == nil {
-		return nil
-	}
-	ticker := time.NewTicker(5 * time.Second)
-	for {
-		select {
-		case <-ctx.Done():
-			lastSeq := atomic.LoadInt64(&s.lastSeq)
-			if lastSeq >= 1 {
-				s.logger.Info("persisting final cursor seq value", "seq", lastSeq)
-				err := s.PersistCursor(ctx)
-				if err != nil {
-					s.logger.Error("failed to persist cursor", "err", err, "seq", lastSeq)
-				}
-			}
-			return nil
-		case <-ticker.C:
-			lastSeq := atomic.LoadInt64(&s.lastSeq)
-			if lastSeq >= 1 {
-				err := s.PersistCursor(ctx)
-				if err != nil {
-					s.logger.Error("failed to persist cursor", "err", err, "seq", lastSeq)
-				}
-			}
-		}
-	}
 }

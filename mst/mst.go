@@ -105,24 +105,24 @@ func checkTreeInvariant(ents []nodeEntry) {
 // the CBOR codec.
 func CBORTypes() []reflect.Type {
 	return []reflect.Type{
-		reflect.TypeOf(nodeData{}),
-		reflect.TypeOf(treeEntry{}),
+		reflect.TypeOf(NodeData{}),
+		reflect.TypeOf(TreeEntry{}),
 	}
 }
 
 // MST tree node as gets serialized to CBOR. Note that the CBOR fields are all
 // single-character.
-type nodeData struct {
-	Left    *cid.Cid    `cborgen:"l"` // [optional] pointer to lower-level subtree to the "left" of this path/key
-	Entries []treeEntry `cborgen:"e"` // ordered list of entries at this node
+type NodeData struct {
+	Left    *cid.Cid    `cborgen:"l"` // [nullable] pointer to lower-level subtree to the "left" of this path/key
+	Entries []TreeEntry `cborgen:"e"` // ordered list of entries at this node
 }
 
-// treeEntry are elements of nodeData's Entries.
-type treeEntry struct {
+// TreeEntry are elements of NodeData's Entries.
+type TreeEntry struct {
 	PrefixLen int64    `cborgen:"p"` // count of characters shared with previous path/key in tree
 	KeySuffix []byte   `cborgen:"k"` // remaining part of path/key (appended to "previous key")
 	Val       cid.Cid  `cborgen:"v"` // CID pointer at this path/key
-	Tree      *cid.Cid `cborgen:"t"` // [optional] pointer to lower-level subtree to the "right" of this path/key entry
+	Tree      *cid.Cid `cborgen:"t"` // [nullable] pointer to lower-level subtree to the "right" of this path/key entry
 }
 
 // MerkleSearchTree represents an MST tree node (NodeData type). It can be in
@@ -189,7 +189,7 @@ func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]nodeEntry, error
 	// otherwise this is a virtual/pointer struct and we need to hydrate from
 	// blockstore before returning entries
 	if mst.pointer != cid.Undef {
-		var nd nodeData
+		var nd NodeData
 		if err := mst.cst.Get(ctx, mst.pointer, &nd); err != nil {
 			return nil, err
 		}
@@ -210,7 +210,7 @@ func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]nodeEntry, error
 }
 
 // golang-specific helper that calls in to deserializeNodeData
-func entriesFromNodeData(ctx context.Context, nd *nodeData, cst cbor.IpldStore) ([]nodeEntry, error) {
+func entriesFromNodeData(ctx context.Context, nd *NodeData, cst cbor.IpldStore) ([]nodeEntry, error) {
 	layer := -1
 	if len(nd.Entries) > 0 {
 		// NOTE(bnewbold): can compute the layer on the first KeySuffix, because for the first entry that field is a complete key
@@ -936,7 +936,20 @@ func (mst *MerkleSearchTree) findGtOrEqualLeafIndex(ctx context.Context, key str
 // WalkLeavesFrom walks the leaves of the tree, calling the cb callback on each
 // key that's greater than or equal to the provided from key.
 // If cb returns an error, the walk is aborted and the error is returned.
+// NB: this method caches the tree structure in memory to make subsequent tree
+// operations significantly faster
 func (mst *MerkleSearchTree) WalkLeavesFrom(ctx context.Context, from string, cb func(key string, val cid.Cid) error) error {
+	return mst.walkLeavesFrom(ctx, from, false, cb)
+}
+
+// WalkLeavesFromNocache works the same as WalkLeavesFrom but does not cache
+// internal tree structure, intended for "once through" passes of MSTs,
+// especially in streaming contexts
+func (mst *MerkleSearchTree) WalkLeavesFromNocache(ctx context.Context, from string, cb func(key string, val cid.Cid) error) error {
+	return mst.walkLeavesFrom(ctx, from, true, cb)
+}
+
+func (mst *MerkleSearchTree) walkLeavesFrom(ctx context.Context, from string, nocache bool, cb func(key string, val cid.Cid) error) error {
 	index, err := mst.findGtOrEqualLeafIndex(ctx, from)
 	if err != nil {
 		return err
@@ -950,7 +963,7 @@ func (mst *MerkleSearchTree) WalkLeavesFrom(ctx context.Context, from string, cb
 	if index > 0 {
 		prev := entries[index-1]
 		if !prev.isUndefined() && prev.isTree() {
-			if err := prev.Tree.WalkLeavesFrom(ctx, from, cb); err != nil {
+			if err := prev.Tree.walkLeavesFrom(ctx, from, nocache, cb); err != nil {
 				return fmt.Errorf("walk leaves %d: %w", index, err)
 			}
 		}
@@ -962,8 +975,11 @@ func (mst *MerkleSearchTree) WalkLeavesFrom(ctx context.Context, from string, cb
 				return err
 			}
 		} else {
-			if err := e.Tree.WalkLeavesFrom(ctx, from, cb); err != nil {
+			if err := e.Tree.walkLeavesFrom(ctx, from, nocache, cb); err != nil {
 				return fmt.Errorf("walk leaves from (%d): %w", i, err)
+			}
+			if nocache {
+				e.Tree = nil
 			}
 		}
 	}

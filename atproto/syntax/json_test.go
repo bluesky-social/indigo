@@ -11,12 +11,12 @@ func TestJSONEncoding(t *testing.T) {
 	assert := assert.New(t)
 
 	type AllTogether struct {
-		Handle Handle        `json:"handle"`
-		Aturi  ATURI         `json:"aturi"`
-		Did    DID           `json:"did"`
-		Atid   *AtIdentifier `json:"atid"`
-		Rkey   RecordKey     `json:"rkey"`
-		Col    *NSID         `json:"col"` // demonstrating a pointer
+		Handle Handle       `json:"handle"`
+		Aturi  ATURI        `json:"aturi"`
+		Did    DID          `json:"did"`
+		Atid   AtIdentifier `json:"atid"`
+		Rkey   RecordKey    `json:"rkey"`
+		Col    *NSID        `json:"col"` // demonstrating a pointer
 	}
 	fullJSON := `{
 		"handle": "handle.example.com",

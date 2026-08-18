@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
+
 	"github.com/gorilla/websocket"
-	cli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
 )
 
 // TODO: WIP - turns out to be more complicated than i initially thought
@@ -19,6 +21,7 @@ var streamCompareCmd = &cli.Command{
 	Flags:     []cli.Flag{},
 	ArgsUsage: `<hostA> <hostB>`,
 	Action: func(cctx *cli.Context) error {
+		log := configLogger(cctx, os.Stderr)
 		d := websocket.DefaultDialer
 
 		args, err := needArgs(cctx, "hostA", "hostB")
@@ -58,9 +61,9 @@ var streamCompareCmd = &cli.Command{
 				},
 			}
 			seqScheduler := sequential.NewScheduler("streamA", rsc.EventHandler)
-			err = events.HandleRepoStream(ctx, cona, seqScheduler)
+			err = events.HandleRepoStream(ctx, cona, seqScheduler, log)
 			if err != nil {
-				log.Errorf("stream A failed: %s", err)
+				log.Error("stream A failed", "err", err)
 			}
 		}()
 
@@ -82,9 +85,9 @@ var streamCompareCmd = &cli.Command{
 			}
 
 			seqScheduler := sequential.NewScheduler("streamB", rsc.EventHandler)
-			err = events.HandleRepoStream(ctx, conb, seqScheduler)
+			err = events.HandleRepoStream(ctx, conb, seqScheduler, log)
 			if err != nil {
-				log.Errorf("stream B failed: %s", err)
+				log.Error("stream B failed", "err", err)
 			}
 		}()
 
@@ -127,21 +130,17 @@ func evtOp(evt *events.XRPCStreamEvent) string {
 		return "ERROR"
 	case evt.RepoCommit != nil:
 		return "#commit"
-	case evt.RepoHandle != nil:
-		return "#handle"
+	case evt.RepoSync != nil:
+		return "#sync"
 	case evt.RepoInfo != nil:
 		return "#info"
-	case evt.RepoMigrate != nil:
-		return "#migrate"
-	case evt.RepoTombstone != nil:
-		return "#tombstone"
 	default:
 		return "unknown"
 	}
 }
 
 func sameCommit(a, b *comatproto.SyncSubscribeRepos_Commit) bool {
-	return a.Repo == b.Repo && cidStr(a.Prev) == cidStr(b.Prev)
+	return a.Repo == b.Repo && a.Rev == b.Rev
 }
 
 func findEvt(evt *events.XRPCStreamEvent, list []*events.XRPCStreamEvent) int {
@@ -157,10 +156,6 @@ func findEvt(evt *events.XRPCStreamEvent, list []*events.XRPCStreamEvent) int {
 			if sameCommit(evt.RepoCommit, oe.RepoCommit) {
 				return i
 			}
-		case evt.RepoHandle != nil:
-			panic("not handling handle updates yet")
-		case evt.RepoMigrate != nil:
-			panic("not handling repo migrates yet")
 		default:
 			panic("unhandled event type: " + evtop)
 		}

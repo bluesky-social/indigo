@@ -10,14 +10,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	cli "github.com/urfave/cli/v2"
+
+	"github.com/urfave/cli/v2"
 )
 
 var adminCmd = &cli.Command{
@@ -28,6 +28,10 @@ var adminCmd = &cli.Command{
 			Name:     "admin-password",
 			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
 			Required: true,
+		},
+		&cli.StringFlag{
+			Name:  "admin-endpoint",
+			Value: "https://mod.bsky.app",
 		},
 	},
 	Subcommands: []*cli.Command{
@@ -69,7 +73,7 @@ var checkUserCmd = &cli.Command{
 			return err
 		}
 
-		id, err := dir.Lookup(ctx, *ident)
+		id, err := dir.Lookup(ctx, ident)
 		if err != nil {
 			return fmt.Errorf("resolve identifier %q: %w", cctx.Args().First(), err)
 		}
@@ -78,7 +82,7 @@ var checkUserCmd = &cli.Command{
 
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
-		xrpcc.Host = id.PDSEndpoint()
+		xrpcc.Host = cctx.String("admin-endpoint")
 
 		rep, err := toolsozone.ModerationGetRepo(ctx, xrpcc, did)
 		if err != nil {
@@ -385,26 +389,32 @@ var listReportsCmd = &cli.Command{
 		xrpcc.AdminToken = &adminKey
 
 		// fetch recent moderation reports
-		// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, includeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string) (*AdminQueryModerationEvents_Output, error)
 		resp, err := toolsozone.ModerationQueryEvents(
 			ctx,
 			xrpcc,
-			nil,
-			nil,
-			"",
-			"",
-			"",
-			"",
-			"",
-			false,
-			false,
-			100,
-			nil,
-			nil,
-			nil,
-			"",
-			"",
-			[]string{"tools.ozone.moderation.defs#modEventReport"},
+			nil,   // addedLabels []string
+			nil,   // addedTags []string
+			"",    // ageAssuranceState
+			"",    // batchId string
+			nil,   // collections []string
+			"",    // comment string
+			"",    // createdAfter string
+			"",    // createdBefore string
+			"",    // createdBy string
+			"",    // cursor string
+			false, // hasComment bool
+			false, // includeAllUserRecords bool
+			100,   // limit int64
+			nil,   // modTool
+			nil,   // policies []string
+			nil,   // removedLabels []string
+			nil,   // removedTags []string
+			nil,   // reportTypes []string
+			"",    // sortDirection string
+			"",    // subject string
+			"",    // subjectType string
+			[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
+			false, // withStrike bool
 		)
 		if err != nil {
 			return err
@@ -436,25 +446,27 @@ var disableInvitesCmd = &cli.Command{
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		phr := &api.ProdHandleResolver{}
-		handle := cctx.Args().First()
-		if !strings.HasPrefix(handle, "did:") {
-			resp, err := phr.ResolveHandleToDid(ctx, handle)
+		username, err := syntax.ParseAtIdentifier(cctx.Args().First())
+		if err != nil {
+			return fmt.Errorf("must provide a valid DID or handle")
+		}
+		if username.IsHandle() {
+			bdir := identity.BaseDirectory{}
+			did, err := bdir.ResolveHandle(ctx, username.Handle())
 			if err != nil {
 				return err
 			}
-
-			handle = resp
+			username = did.AtIdentifier()
 		}
 
 		if err := atproto.AdminDisableAccountInvites(ctx, xrpcc, &atproto.AdminDisableAccountInvites_Input{
-			Account: handle,
+			Account: username.String(),
 		}); err != nil {
 			return err
 		}
 
 		if err := atproto.AdminDisableInviteCodes(ctx, xrpcc, &atproto.AdminDisableInviteCodes_Input{
-			Accounts: []string{handle},
+			Accounts: []string{username.String()},
 		}); err != nil {
 			return err
 		}
@@ -478,19 +490,21 @@ var enableInvitesCmd = &cli.Command{
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		handle := cctx.Args().First()
-		if !strings.HasPrefix(handle, "did:") {
-			phr := &api.ProdHandleResolver{}
-			resp, err := phr.ResolveHandleToDid(ctx, handle)
+		username, err := syntax.ParseAtIdentifier(cctx.Args().First())
+		if err != nil {
+			return fmt.Errorf("must provide a valid DID or handle")
+		}
+		if username.IsHandle() {
+			bdir := identity.BaseDirectory{}
+			did, err := bdir.ResolveHandle(ctx, username.Handle())
 			if err != nil {
 				return err
 			}
-
-			handle = resp
+			username = did.AtIdentifier()
 		}
 
 		return atproto.AdminEnableAccountInvites(ctx, xrpcc, &atproto.AdminEnableAccountInvites_Input{
-			Account: handle,
+			Account: username.String(),
 		})
 	},
 }
@@ -524,22 +538,24 @@ var listInviteTreeCmd = &cli.Command{
 
 		ctx := context.Background()
 
-		phr := &api.ProdHandleResolver{}
-
-		did := cctx.Args().First()
-		if !strings.HasPrefix(did, "did:") {
-			rdid, err := phr.ResolveHandleToDid(ctx, cctx.Args().First())
-			if err != nil {
-				return fmt.Errorf("resolve handle %q: %w", cctx.Args().First(), err)
-			}
-
-			did = rdid
+		username, err := syntax.ParseAtIdentifier(cctx.Args().First())
+		if err != nil {
+			return fmt.Errorf("must provide a valid DID or handle")
 		}
+		if username.IsHandle() {
+			bdir := identity.BaseDirectory{}
+			did, err := bdir.ResolveHandle(ctx, username.Handle())
+			if err != nil {
+				return err
+			}
+			username = did.AtIdentifier()
+		}
+		did := username.DID()
 
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		queue := []string{did}
+		queue := []string{did.String()}
 
 		for len(queue) > 0 {
 			next := queue[0]
@@ -623,25 +639,25 @@ var takeDownAccountCmd = &cli.Command{
 
 		for _, did := range cctx.Args().Slice() {
 			if !strings.HasPrefix(did, "did:") {
-				phr := &api.ProdHandleResolver{}
-				resp, err := phr.ResolveHandleToDid(ctx, did)
+				dir := identity.DefaultDirectory()
+				resp, err := dir.LookupHandle(ctx, syntax.Handle(did))
 				if err != nil {
 					return err
 				}
 
-				did = resp
+				did = resp.DID.String()
 			}
 
 			reason := cctx.String("reason")
 			adminUser := cctx.String("admin-user")
 			if !strings.HasPrefix(adminUser, "did:") {
-				phr := &api.ProdHandleResolver{}
-				resp, err := phr.ResolveHandleToDid(ctx, adminUser)
+				dir := identity.DefaultDirectory()
+				resp, err := dir.LookupHandle(ctx, syntax.Handle(adminUser))
 				if err != nil {
 					return err
 				}
 
-				adminUser = resp
+				adminUser = resp.DID.String()
 			}
 
 			resp, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
@@ -687,36 +703,49 @@ var queryModerationStatusesCmd = &cli.Command{
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		did := cctx.Args().First()
-		if !strings.HasPrefix(did, "did:") {
-			phr := &api.ProdHandleResolver{}
-			resp, err := phr.ResolveHandleToDid(ctx, did)
+		username, err := syntax.ParseAtIdentifier(cctx.Args().First())
+		if err != nil {
+			return fmt.Errorf("must provide a valid DID or handle")
+		}
+		if username.IsHandle() {
+			bdir := identity.BaseDirectory{}
+			did, err := bdir.ResolveHandle(ctx, username.Handle())
 			if err != nil {
 				return err
 			}
-
-			did = resp
+			username = did.AtIdentifier()
 		}
+		did := username.DID()
+
+		// TODO: is the did supposed to be used in the query below?
+		_ = did
 
 		resp, err := toolsozone.ModerationQueryEvents(
 			ctx,
 			xrpcc,
-			nil,
-			nil,
-			"",
-			"",
-			"",
-			"",
-			"",
-			false,
-			false,
-			100,
-			nil,
-			nil,
-			nil,
-			"",
-			"",
-			[]string{"tools.ozone.moderation.defs#modEventReport"},
+			nil,   // addedLabels []string
+			nil,   // addedTags []string
+			"",    // ageAssuranceState
+			"",    // batchId string
+			nil,   // collections []string
+			"",    // comment string
+			"",    // createdAfter string
+			"",    // createdBefore string
+			"",    // createdBy string
+			"",    // cursor string
+			false, // hasComment bool
+			false, // includeAllUserRecords bool
+			100,   // limit int64
+			nil,   // modTool
+			nil,   // policies []string
+			nil,   // removedLabels []string
+			nil,   // removedTags []string
+			nil,   // reportTypes []string
+			"",    // sortDirection string
+			"",    // subject string
+			"",    // subjectType string
+			[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
+			false, // withStrike bool
 		)
 		if err != nil {
 			return err
@@ -754,12 +783,13 @@ var createInviteCmd = &cli.Command{
 			return err
 		}
 
+		ctx := context.Background()
 		adminKey := cctx.String("admin-password")
 
 		count := cctx.Int("useCount")
 		num := cctx.Int("num")
 
-		phr := &api.ProdHandleResolver{}
+		bdir := identity.BaseDirectory{}
 		if bulkfi := cctx.String("bulk"); bulkfi != "" {
 			xrpcc.AdminToken = &adminKey
 			dids, err := readDids(bulkfi)
@@ -768,13 +798,13 @@ var createInviteCmd = &cli.Command{
 			}
 
 			for i, d := range dids {
-				if !strings.HasPrefix(d, "did:plc:") {
-					out, err := phr.ResolveHandleToDid(context.TODO(), d)
+				if !strings.HasPrefix(d, "did:") {
+					out, err := bdir.ResolveHandle(ctx, syntax.Handle(d))
 					if err != nil {
 						return fmt.Errorf("failed to resolve %q: %w", d, err)
 					}
 
-					dids[i] = out
+					dids[i] = out.String()
 				}
 			}
 
@@ -800,12 +830,12 @@ var createInviteCmd = &cli.Command{
 		var usrdid []string
 		if forUser := cctx.Args().Get(0); forUser != "" {
 			if !strings.HasPrefix(forUser, "did:") {
-				resp, err := phr.ResolveHandleToDid(context.TODO(), forUser)
+				resp, err := bdir.ResolveHandle(ctx, syntax.Handle(forUser))
 				if err != nil {
 					return fmt.Errorf("resolving handle: %w", err)
 				}
 
-				usrdid = []string{resp}
+				usrdid = []string{resp.String()}
 			} else {
 				usrdid = []string{forUser}
 			}

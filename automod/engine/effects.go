@@ -1,17 +1,8 @@
 package engine
 
 import (
+	"slices"
 	"sync"
-	"time"
-)
-
-var (
-	// time period within which automod will not re-report an account for the same reasonType
-	ReportDupePeriod = 1 * 24 * time.Hour
-	// number of reports automod can file per day, for all subjects and types combined (circuit breaker)
-	QuotaModReportDay = 2000
-	// number of takedowns automod can action per day, for all subjects combined (circuit breaker)
-	QuotaModTakedownDay = 200
 )
 
 type CounterRef struct {
@@ -38,20 +29,36 @@ type Effects struct {
 	CounterDistinctIncrements []CounterDistinctRef // TODO: better variable names
 	// Label values which should be applied to the overall account, as a result of rule execution.
 	AccountLabels []string
-	// Moderation flags (similar to labels, but private) which should be applied to the overall account, as a result of rule execution.
+	// Label values which should be removed from the overall account, as a result of rule execution.
+	RemovedAccountLabels []string
+	// Moderation tags (similar to labels, but private) which should be applied to the overall account, as a result of rule execution.
+	AccountTags []string
+	// automod flags (metadata) which should be applied to the account as a result of rule execution.
 	AccountFlags []string
 	// Reports which should be filed against this account, as a result of rule execution.
 	AccountReports []ModReport
-	// If "true", indicates that a rule indicates that the entire account should have a takedown.
+	// If "true", a rule decided that the entire account should have a takedown.
 	AccountTakedown bool
+	// If "true", a rule decided that the reported account should be escalated.
+	AccountEscalate bool
+	// If "true", a rule decided that the reports on account should be resolved as acknowledged.
+	AccountAcknowledge bool
 	// Same as "AccountLabels", but at record-level
 	RecordLabels []string
+	// Same as "RemovedRecordLabels", but at record-level
+	RemovedRecordLabels []string
+	// Same as "AccountTags", but at record-level
+	RecordTags []string
 	// Same as "AccountFlags", but at record-level
 	RecordFlags []string
 	// Same as "AccountReports", but at record-level
 	RecordReports []ModReport
 	// Same as "AccountTakedown", but at record-level
 	RecordTakedown bool
+	// Same as "AccountEscalate", but at record-level
+	RecordEscalate bool
+	// Same as "AccountAcknowledge", but at record-level
+	RecordAcknowledge bool
 	// Set of Blob CIDs to takedown (eg, purge from CDN) when doing a record takedown
 	BlobTakedowns []string
 	// If "true", indicates that a rule indicates that the action causing the event should be blocked or prevented
@@ -88,22 +95,38 @@ func (e *Effects) IncrementDistinct(name, bucket, val string) {
 func (e *Effects) AddAccountLabel(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.AccountLabels {
-		if v == val {
-			return
-		}
+	if slices.Contains(e.AccountLabels, val) {
+		return
 	}
 	e.AccountLabels = append(e.AccountLabels, val)
+}
+
+// Enqueues the provided label (string value) to be removed from the account at the end of rule processing.
+func (e *Effects) RemoveAccountLabel(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if slices.Contains(e.RemovedAccountLabels, val) {
+		return
+	}
+	e.RemovedAccountLabels = append(e.RemovedAccountLabels, val)
+}
+
+// Enqueues the provided label (string value) to be added to the account at the end of rule processing.
+func (e *Effects) AddAccountTag(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if slices.Contains(e.AccountTags, val) {
+		return
+	}
+	e.AccountTags = append(e.AccountTags, val)
 }
 
 // Enqueues the provided flag (string value) to be recorded (in the Engine's flagstore) at the end of rule processing.
 func (e *Effects) AddAccountFlag(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.AccountFlags {
-		if v == val {
-			return
-		}
+	if slices.Contains(e.AccountFlags, val) {
+		return
 	}
 	e.AccountFlags = append(e.AccountFlags, val)
 }
@@ -128,26 +151,52 @@ func (e *Effects) TakedownAccount() {
 	e.AccountTakedown = true
 }
 
+// Enqueues the account to be "escalated" for mod review at the end of rule processing.
+func (e *Effects) EscalateAccount() {
+	e.AccountEscalate = true
+}
+
+// Enqueues reports on account to be "acknowledged" (closed) at the end of rule processing.
+func (e *Effects) AcknowledgeAccount() {
+	e.AccountAcknowledge = true
+}
+
 // Enqueues the provided label (string value) to be added to the record at the end of rule processing.
 func (e *Effects) AddRecordLabel(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.RecordLabels {
-		if v == val {
-			return
-		}
+	if slices.Contains(e.RecordLabels, val) {
+		return
 	}
 	e.RecordLabels = append(e.RecordLabels, val)
+}
+
+// Enqueues the provided label (string value) to be removed from the record at the end of rule processing.
+func (e *Effects) RemoveRecordLabel(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if slices.Contains(e.RemovedRecordLabels, val) {
+		return
+	}
+	e.RemovedRecordLabels = append(e.RemovedRecordLabels, val)
+}
+
+// Enqueues the provided tag (string value) to be added to the record at the end of rule processing.
+func (e *Effects) AddRecordTag(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if slices.Contains(e.RecordTags, val) {
+		return
+	}
+	e.RecordTags = append(e.RecordTags, val)
 }
 
 // Enqueues the provided flag (string value) to be recorded (in the Engine's flagstore) at the end of rule processing.
 func (e *Effects) AddRecordFlag(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.RecordFlags {
-		if v == val {
-			return
-		}
+	if slices.Contains(e.RecordFlags, val) {
+		return
 	}
 	e.RecordFlags = append(e.RecordFlags, val)
 }
@@ -172,14 +221,22 @@ func (e *Effects) TakedownRecord() {
 	e.RecordTakedown = true
 }
 
+// Enqueues the record to be "escalated" for mod review at the end of rule processing.
+func (e *Effects) EscalateRecord() {
+	e.RecordEscalate = true
+}
+
+// Enqueues the record to be "escalated" for mod review at the end of rule processing.
+func (e *Effects) AcknowledgeRecord() {
+	e.RecordAcknowledge = true
+}
+
 // Enqueues the blob CID to be taken down (aka, CDN purge) as part of any record takedown
 func (e *Effects) TakedownBlob(cid string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.BlobTakedowns {
-		if v == cid {
-			return
-		}
+	if slices.Contains(e.BlobTakedowns, cid) {
+		return
 	}
 	e.BlobTakedowns = append(e.BlobTakedowns, cid)
 }
@@ -188,10 +245,8 @@ func (e *Effects) TakedownBlob(cid string) {
 func (e *Effects) Notify(srv string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, v := range e.NotifyServices {
-		if v == srv {
-			return
-		}
+	if slices.Contains(e.NotifyServices, srv) {
+		return
 	}
 	e.NotifyServices = append(e.NotifyServices, srv)
 }

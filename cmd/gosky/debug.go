@@ -20,7 +20,6 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -34,7 +33,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-libipfs/blocks"
 	"github.com/ipld/go-car/v2"
-	cli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
 )
 
 var debugCmd = &cli.Command{
@@ -106,7 +105,7 @@ var inspectEventCmd = &cli.Command{
 		}
 
 		seqScheduler := sequential.NewScheduler("debug-inspect-event", rsc.EventHandler)
-		err = events.HandleRepoStream(ctx, con, seqScheduler)
+		err = events.HandleRepoStream(ctx, con, seqScheduler, nil)
 		if err != errFoundIt {
 			return err
 		}
@@ -222,6 +221,8 @@ var debugStreamCmd = &cli.Command{
 						fmt.Printf("\nEvent at sequence %d had an invalid repo slice: %s\n", evt.Seq, err)
 						return nil
 					} else {
+						_ = r
+						/* "prev" is no longer included in #commit messages
 						prev, err := r.PrevCommit(ctx)
 						if err != nil {
 							return err
@@ -239,6 +240,7 @@ var debugStreamCmd = &cli.Command{
 						if !evt.Rebase && cs != es {
 							fmt.Printf("\nEvent at sequence %d has mismatch between slice prev and struct prev: %s != %s\n", evt.Seq, prev, evt.Prev)
 						}
+						*/
 					}
 				}
 
@@ -259,15 +261,7 @@ var debugStreamCmd = &cli.Command{
 
 				return nil
 			},
-			RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-				fmt.Printf("\rChecking seq: %d      ", evt.Seq)
-				if lastSeq > 0 && evt.Seq != lastSeq+1 {
-					fmt.Println("Gap in sequence numbers: ", lastSeq, evt.Seq)
-				}
-				lastSeq = evt.Seq
-				return nil
-			},
-			RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
+			RepoSync: func(evt *comatproto.SyncSubscribeRepos_Sync) error {
 				fmt.Printf("\rChecking seq: %d      ", evt.Seq)
 				if lastSeq > 0 && evt.Seq != lastSeq+1 {
 					fmt.Println("Gap in sequence numbers: ", lastSeq, evt.Seq)
@@ -284,7 +278,7 @@ var debugStreamCmd = &cli.Command{
 			},
 		}
 		seqScheduler := sequential.NewScheduler("debug-stream", rsc.EventHandler)
-		err = events.HandleRepoStream(ctx, con, seqScheduler)
+		err = events.HandleRepoStream(ctx, con, seqScheduler, nil)
 		if err != nil {
 			return err
 		}
@@ -307,6 +301,8 @@ var compareStreamsCmd = &cli.Command{
 	},
 	ArgsUsage: `<cursor>`,
 	Action: func(cctx *cli.Context) error {
+		log := configLogger(cctx, os.Stderr)
+
 		h1 := cctx.String("host1")
 		h2 := cctx.String("host2")
 
@@ -345,10 +341,13 @@ var compareStreamsCmd = &cli.Command{
 
 			for i, ev := range slice {
 				if ev.Commit == event.Commit {
+					_ = pll
+					/* TODO: prev is no longer included in #commit messages; could use prevData or rev?
 					if pll(ev.Prev) != pll(event.Prev) {
 						// same commit different prev??
 						return nil, fmt.Errorf("matched event with same commit but different prev: (%d) %d - %d", n, ev.Seq, event.Seq)
 					}
+					*/
 				}
 
 				if i != 0 {
@@ -390,7 +389,8 @@ var compareStreamsCmd = &cli.Command{
 			go func(i int, url string) {
 				con, _, err := d.Dial(url, http.Header{})
 				if err != nil {
-					log.Fatalf("Dial failure on url%d: %s", i+1, err)
+					log.Error("Dial failure", "i", i, "url", url, "err", err)
+					os.Exit(1)
 				}
 
 				ctx := context.TODO()
@@ -405,8 +405,9 @@ var compareStreamsCmd = &cli.Command{
 					},
 				}
 				seqScheduler := sequential.NewScheduler(fmt.Sprintf("debug-stream-%d", i+1), rsc.EventHandler)
-				if err := events.HandleRepoStream(ctx, con, seqScheduler); err != nil {
-					log.Fatalf("HandleRepoStream failure on url%d: %s", i+1, err)
+				if err := events.HandleRepoStream(ctx, con, seqScheduler, nil); err != nil {
+					log.Error("HandleRepoStream failure", "i", i, "url", url, "err", err)
+					os.Exit(1)
 				}
 			}(i, url)
 		}
@@ -469,7 +470,7 @@ var debugFeedGenCmd = &cli.Command{
 			return err
 		}
 
-		didr := cliutil.GetDidResolver(cctx)
+		dir := identity.DefaultDirectory()
 
 		uri := cctx.Args().First()
 		puri, err := util.ParseAtUri(uri)
@@ -490,35 +491,27 @@ var debugFeedGenCmd = &cli.Command{
 		}
 
 		fmt.Println("Feed DID is: ", fgr.Did)
-		doc, err := didr.GetDocument(ctx, fgr.Did)
+		ident, err := dir.LookupDID(ctx, syntax.DID(fgr.Did))
 		if err != nil {
 			return err
 		}
 
 		fmt.Println("Got service did document:")
-		b, err := json.MarshalIndent(doc, "", "  ")
+		b, err := json.MarshalIndent(ident, "", "  ")
 		if err != nil {
 			return err
 		}
 		fmt.Println(string(b))
 
-		var ss *did.Service
-		for _, s := range doc.Service {
-			if s.ID.String() == "#bsky_fg" {
-				cp := s
-				ss = &cp
-				break
-			}
-		}
-
-		if ss == nil {
+		svc, ok := ident.Services["bsky_fg"]
+		if !ok {
 			return fmt.Errorf("No '#bsky_fg' service entry found in feedgens DID document")
 		}
 
-		fmt.Println("Service endpoint is: ", ss.ServiceEndpoint)
+		fmt.Println("Service endpoint is: ", svc.URL)
 
 		fgclient := &xrpc.Client{
-			Host: ss.ServiceEndpoint,
+			Host: svc.URL,
 		}
 
 		desc, err := bsky.FeedDescribeFeedGenerator(ctx, fgclient)
@@ -601,15 +594,14 @@ var debugFeedViewCmd = &cli.Command{
 			return err
 		}
 
-		didr := cliutil.GetDidResolver(cctx)
+		ctx := context.TODO()
+		dir := identity.DefaultDirectory()
 
 		uri := cctx.Args().First()
 		puri, err := util.ParseAtUri(uri)
 		if err != nil {
 			return err
 		}
-
-		ctx := context.TODO()
 
 		out, err := atproto.RepoGetRecord(ctx, xrpcc, "", puri.Collection, puri.Did, puri.Rkey)
 		if err != nil {
@@ -621,26 +613,18 @@ var debugFeedViewCmd = &cli.Command{
 			return fmt.Errorf("invalid feedgen record")
 		}
 
-		doc, err := didr.GetDocument(ctx, fgr.Did)
+		ident, err := dir.LookupDID(ctx, syntax.DID(fgr.Did))
 		if err != nil {
 			return err
 		}
 
-		var ss *did.Service
-		for _, s := range doc.Service {
-			if s.ID.String() == "#bsky_fg" {
-				cp := s
-				ss = &cp
-				break
-			}
-		}
-
-		if ss == nil {
+		svc, ok := ident.Services["bsky_fg"]
+		if !ok {
 			return fmt.Errorf("No '#bsky_fg' service entry found in feedgens DID document")
 		}
 
 		fgclient := &xrpc.Client{
-			Host: ss.ServiceEndpoint,
+			Host: svc.URL,
 		}
 
 		cache, err := loadCache("postcache.json")
@@ -832,11 +816,12 @@ var debugCompareReposCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:  "host-2",
 			Usage: "method, hostname, and port of PDS instance",
-			Value: "https://bgs.bsky.social",
+			Value: "https://bsky.network",
 		},
 	},
 	ArgsUsage: `<did>`,
 	Action: func(cctx *cli.Context) error {
+		log := configLogger(cctx, os.Stderr)
 		ctx := cctx.Context
 		did, err := syntax.ParseAtIdentifier(cctx.Args().First())
 		if err != nil {
@@ -855,7 +840,7 @@ var debugCompareReposCmd = &cli.Command{
 
 		if !cctx.IsSet("host-1") {
 			dir := identity.DefaultDirectory()
-			ident, err := dir.Lookup(ctx, *did)
+			ident, err := dir.Lookup(ctx, did)
 			if err != nil {
 				return err
 			}
@@ -876,13 +861,15 @@ var debugCompareReposCmd = &cli.Command{
 			logger := log.With("host", cctx.String("host-1"))
 			repo1bytes, err := comatproto.SyncGetRepo(ctx, &xrpc1, did.String(), "")
 			if err != nil {
-				logger.Fatalf("getting repo: %s", err)
+				logger.Error("getting repo", "err", err)
+				os.Exit(1)
 				return
 			}
 
 			rep1, err = repo.ReadRepoFromCar(ctx, bytes.NewReader(repo1bytes))
 			if err != nil {
-				logger.Fatalf("reading repo: %s", err)
+				logger.Error("reading repo", "err", err, "bytes", len(repo1bytes))
+				os.Exit(1)
 				return
 			}
 		}()
@@ -893,13 +880,15 @@ var debugCompareReposCmd = &cli.Command{
 			logger := log.With("host", cctx.String("host-2"))
 			repo2bytes, err := comatproto.SyncGetRepo(ctx, &xrpc2, did.String(), "")
 			if err != nil {
-				logger.Fatalf("getting repo: %s", err)
+				logger.Error("getting repo", "err", err)
+				os.Exit(1)
 				return
 			}
 
 			rep2, err = repo.ReadRepoFromCar(ctx, bytes.NewReader(repo2bytes))
 			if err != nil {
-				logger.Fatalf("reading repo: %s", err)
+				logger.Error("reading repo", "err", err, "bytes", len(repo2bytes))
+				os.Exit(1)
 				return
 			}
 		}()

@@ -4,10 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"sync"
 	"time"
+
+	_ "github.com/joho/godotenv/autoload"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
@@ -18,27 +21,21 @@ import (
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
 
+	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cbor "github.com/ipfs/go-ipld-cbor"
-
-	_ "github.com/joho/godotenv/autoload"
-
-	"github.com/carlmjohnson/versioninfo"
-	logging "github.com/ipfs/go-log"
 	"github.com/ipld/go-car"
-	cli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
-
-var log = logging.Logger("stress")
 
 func main() {
 	run(os.Args)
 }
 
 func run(args []string) {
-	app := cli.App{
+	app := cli.Command{
 		Name:    "stress",
 		Usage:   "load generation tool for PDS instances",
 		Version: versioninfo.Short(),
@@ -49,7 +46,10 @@ func run(args []string) {
 		genRepoCmd,
 	}
 
-	app.RunAndExitOnError()
+	if err := app.Run(context.Background(), args); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(-1)
+	}
 }
 
 var postingCmd = &cli.Command{
@@ -70,29 +70,28 @@ var postingCmd = &cli.Command{
 			Name:    "pds-host",
 			Usage:   "method, hostname, and port of PDS instance",
 			Value:   "http://localhost:4849",
-			EnvVars: []string{"ATP_PDS_HOST"},
+			Sources: cli.EnvVars("ATP_PDS_HOST"),
 		},
 		&cli.StringFlag{
 			Name: "invite",
 		},
 	},
-	Action: func(cctx *cli.Context) error {
-		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+	Action: func(ctx context.Context, cmd *cli.Command) error {
+		xrpcc, err := getXrpcClient(cmd, false)
 		if err != nil {
 			return err
 		}
 
-		count := cctx.Int("count")
-		concurrent := cctx.Int("concurrent")
-		quiet := cctx.Bool("quiet")
-		ctx := context.TODO()
+		count := cmd.Int("count")
+		concurrent := cmd.Int("concurrent")
+		quiet := cmd.Bool("quiet")
 
 		buf := make([]byte, 6)
 		rand.Read(buf)
 		id := hex.EncodeToString(buf)
 
 		var invite *string
-		if inv := cctx.String("invite"); inv != "" {
+		if inv := cmd.String("invite"); inv != "" {
 			invite = &inv
 		}
 
@@ -124,11 +123,11 @@ var postingCmd = &cli.Command{
 		}
 
 		var wg sync.WaitGroup
-		for con := 0; con < concurrent; con++ {
+		for con := range concurrent {
 			wg.Add(1)
 			go func(worker int) {
 				defer wg.Done()
-				for i := 0; i < count; i++ {
+				for i := range count {
 					buf := make([]byte, 100)
 					rand.Read(buf)
 
@@ -169,21 +168,19 @@ var genRepoCmd = &cli.Command{
 			Name:    "pds-host",
 			Usage:   "method, hostname, and port of PDS instance",
 			Value:   "http://localhost:4849",
-			EnvVars: []string{"ATP_PDS_HOST"},
+			Sources: cli.EnvVars("ATP_PDS_HOST"),
 		},
 	},
 	ArgsUsage: "<car-file-path>",
-	Action: func(cctx *cli.Context) error {
-		fname := cctx.Args().First()
+	Action: func(ctx context.Context, cmd *cli.Command) error {
+		fname := cmd.Args().First()
 		if fname == "" {
 			return cli.Exit("must provide car file path", 127)
 		}
 
-		l := cctx.Int("len")
+		l := cmd.Int("len")
 
 		membs := blockstore.NewBlockstore(datastore.NewMapDatastore())
-
-		ctx := context.Background()
 
 		r := repo.NewRepo(ctx, "did:plc:foobar", membs)
 
@@ -227,4 +224,48 @@ var genRepoCmd = &cli.Command{
 
 		return nil
 	},
+}
+
+func getXrpcClient(cmd *cli.Command, authreq bool) (*xrpc.Client, error) {
+	h := "http://localhost:4989"
+	if pdsurl := cmd.String("pds-host"); pdsurl != "" {
+		h = pdsurl
+	}
+
+	auth, err := loadAuthFromEnv(cmd, authreq)
+	if err != nil {
+		return nil, fmt.Errorf("loading auth: %w", err)
+	}
+
+	return &xrpc.Client{
+		Client: cliutil.NewHttpClient(),
+		Host:   h,
+		Auth:   auth,
+	}, nil
+}
+
+func loadAuthFromEnv(cmd *cli.Command, req bool) (*xrpc.AuthInfo, error) {
+	if a := cmd.String("auth"); a != "" {
+		if ai, err := cliutil.ReadAuth(a); err != nil && req {
+			return nil, err
+		} else {
+			return ai, nil
+		}
+	}
+
+	val := os.Getenv("ATP_AUTH_FILE")
+	if val == "" {
+		if req {
+			return nil, fmt.Errorf("no auth env present, ATP_AUTH_FILE not set")
+		}
+
+		return nil, nil
+	}
+
+	var auth xrpc.AuthInfo
+	if err := json.Unmarshal([]byte(val), &auth); err != nil {
+		return nil, err
+	}
+
+	return &auth, nil
 }

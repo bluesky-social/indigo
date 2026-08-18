@@ -50,7 +50,7 @@ func TestLoadNewRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	cs, err := carstore.NewCarStore(cardb, []string{cspath})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestLoadNewRepo(t *testing.T) {
 	}
 }
 
-func testCarstore(t *testing.T, dir string) *carstore.CarStore {
+func testCarstore(t *testing.T, dir string, archive bool) carstore.CarStore {
 	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.sqlite")))
 	if err != nil {
 		t.Fatal(err)
@@ -80,12 +80,20 @@ func testCarstore(t *testing.T, dir string) *carstore.CarStore {
 		t.Fatal(err)
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	if archive {
+		cs, err := carstore.NewCarStore(cardb, []string{cspath})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return cs
+	} else {
+		cs, err := carstore.NewNonArchivalCarstore(cardb)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	return cs
+		return cs
+	}
 }
 
 func TestIngestWithGap(t *testing.T) {
@@ -106,7 +114,7 @@ func TestIngestWithGap(t *testing.T) {
 		Uid: 1,
 	})
 
-	cs := testCarstore(t, dir)
+	cs := testCarstore(t, dir, true)
 
 	repoman := NewRepoManager(cs, &util.FakeKeyManager{})
 
@@ -114,11 +122,11 @@ func TestIngestWithGap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cs2 := testCarstore(t, dir2)
+	cs2 := testCarstore(t, dir2, true)
 
 	var since *string
 	ctx := context.TODO()
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		slice, _, nrev, tid := doPost(t, cs2, did, since, i)
 
 		ops := []*atproto.SyncSubscribeRepos_RepoOp{
@@ -136,7 +144,7 @@ func TestIngestWithGap(t *testing.T) {
 	}
 
 	// now do a few outside of the standard event stream flow
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		_, _, nrev, _ := doPost(t, cs2, did, since, i)
 		since = &nrev
 	}
@@ -151,7 +159,7 @@ func TestIngestWithGap(t *testing.T) {
 	}
 }
 
-func doPost(t *testing.T, cs *carstore.CarStore, did string, prev *string, postid int) ([]byte, cid.Cid, string, string) {
+func doPost(t *testing.T, cs carstore.CarStore, did string, prev *string, postid int) ([]byte, cid.Cid, string, string) {
 	ctx := context.TODO()
 	ds, err := cs.NewDeltaSession(ctx, 1, prev)
 	if err != nil {
@@ -198,7 +206,7 @@ func TestDuplicateRecord(t *testing.T) {
 		Uid: 1,
 	})
 
-	cs := testCarstore(t, dir)
+	cs := testCarstore(t, dir, true)
 
 	repoman := NewRepoManager(cs, &util.FakeKeyManager{})
 
@@ -208,14 +216,14 @@ func TestDuplicateRecord(t *testing.T) {
 	}
 
 	p1, _, err := repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
-		Text: fmt.Sprintf("hello friend"),
+		Text: "hello friend",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	p2, _, err := repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
-		Text: fmt.Sprintf("hello friend"),
+		Text: "hello friend",
 	})
 	if err != nil {
 		t.Fatal(err)

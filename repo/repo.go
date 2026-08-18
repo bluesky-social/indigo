@@ -1,19 +1,21 @@
 package repo
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"sync"
 
+	"github.com/bluesky-social/indigo/atproto/repo"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/mst"
+	"github.com/bluesky-social/indigo/repo/carutil"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cbor "github.com/ipfs/go-ipld-cbor"
-	"github.com/ipld/go-car/v2"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 )
@@ -43,13 +45,15 @@ type UnsignedCommit struct {
 type Repo struct {
 	sc  SignedCommit
 	cst cbor.IpldStore
-	bs  blockstore.Blockstore
+	bs  cbor.IpldBlockstore
 
 	repoCid cid.Cid
 
 	mst *mst.MerkleSearchTree
 
 	dirty bool
+
+	clk *syntax.TIDClock
 }
 
 // Returns a copy of commit without the Sig field. Helpful when verifying signature.
@@ -74,44 +78,56 @@ func (uc *UnsignedCommit) BytesForSigning() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func IngestRepo(ctx context.Context, bs blockstore.Blockstore, r io.Reader) (cid.Cid, error) {
+var bufrPool = &sync.Pool{
+	New: func() any {
+		return bufio.NewReader(nil)
+	},
+}
+
+func IngestRepo(ctx context.Context, bs cbor.IpldBlockstore, r io.Reader) (cid.Cid, error) {
 	ctx, span := otel.Tracer("repo").Start(ctx, "Ingest")
 	defer span.End()
 
-	br, err := car.NewBlockReader(r)
+	bufr := bufrPool.Get().(*bufio.Reader)
+	bufr.Reset(r)
+
+	defer bufrPool.Put(bufr)
+
+	br, root, err := carutil.NewReader(bufr)
 	if err != nil {
-		return cid.Undef, err
+		return cid.Undef, fmt.Errorf("opening CAR block reader: %w", err)
 	}
 
 	for {
-		blk, err := br.Next()
+		blk, err := br.NextBlock()
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
-			return cid.Undef, err
+			return cid.Undef, fmt.Errorf("reading block from CAR: %w", err)
 		}
 
 		if err := bs.Put(ctx, blk); err != nil {
-			return cid.Undef, err
+			return cid.Undef, fmt.Errorf("copying block to store: %w", err)
 		}
 	}
 
-	return br.Roots[0], nil
+	return root, nil
 }
 
 func ReadRepoFromCar(ctx context.Context, r io.Reader) (*Repo, error) {
-	bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
+	bs := repo.NewTinyBlockstore()
 	root, err := IngestRepo(ctx, bs, r)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ReadRepoFromCar:IngestRepo: %w", err)
 	}
 
 	return OpenRepo(ctx, bs, root)
 }
 
-func NewRepo(ctx context.Context, did string, bs blockstore.Blockstore) *Repo {
+func NewRepo(ctx context.Context, did string, bs cbor.IpldBlockstore) *Repo {
 	cst := util.CborStore(bs)
+	clk := syntax.NewTIDClock(0)
 
 	t := mst.NewEmptyMST(cst)
 	sc := SignedCommit{
@@ -125,11 +141,13 @@ func NewRepo(ctx context.Context, did string, bs blockstore.Blockstore) *Repo {
 		mst:   t,
 		sc:    sc,
 		dirty: true,
+		clk:   clk,
 	}
 }
 
-func OpenRepo(ctx context.Context, bs blockstore.Blockstore, root cid.Cid) (*Repo, error) {
+func OpenRepo(ctx context.Context, bs cbor.IpldBlockstore, root cid.Cid) (*Repo, error) {
 	cst := util.CborStore(bs)
+	clk := syntax.NewTIDClock(0)
 
 	var sc SignedCommit
 	if err := cst.Get(ctx, root, &sc); err != nil {
@@ -145,6 +163,7 @@ func OpenRepo(ctx context.Context, bs blockstore.Blockstore, root cid.Cid) (*Rep
 		bs:      bs,
 		cst:     cst,
 		repoCid: root,
+		clk:     clk,
 	}, nil
 }
 
@@ -173,7 +192,7 @@ func (r *Repo) SignedCommit() SignedCommit {
 	return r.sc
 }
 
-func (r *Repo) Blockstore() blockstore.Blockstore {
+func (r *Repo) Blockstore() cbor.IpldBlockstore {
 	return r.bs
 }
 
@@ -192,7 +211,7 @@ func (r *Repo) CreateRecord(ctx context.Context, nsid string, rec CborMarshaler)
 		return cid.Undef, "", err
 	}
 
-	tid := NextTID()
+	tid := r.clk.Next().String()
 
 	nmst, err := t.Add(ctx, nsid+"/"+tid, k, -1)
 	if err != nil {
@@ -295,7 +314,7 @@ func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, 
 		Did:     r.RepoDid(),
 		Version: ATP_REPO_VERSION,
 		Data:    rcid,
-		Rev:     NextTID(),
+		Rev:     r.clk.Next().String(),
 	}
 
 	sb, err := ncom.BytesForSigning()
@@ -435,11 +454,11 @@ func (r *Repo) DiffSince(ctx context.Context, oldrepo cid.Cid) ([]*mst.DiffOp, e
 	return mst.DiffTrees(ctx, r.bs, oldTree, curptr)
 }
 
-func (r *Repo) CopyDataTo(ctx context.Context, bs blockstore.Blockstore) error {
+func (r *Repo) CopyDataTo(ctx context.Context, bs cbor.IpldBlockstore) error {
 	return copyRecCbor(ctx, r.bs, bs, r.sc.Data, make(map[cid.Cid]struct{}))
 }
 
-func copyRecCbor(ctx context.Context, from, to blockstore.Blockstore, c cid.Cid, seen map[cid.Cid]struct{}) error {
+func copyRecCbor(ctx context.Context, from, to cbor.IpldBlockstore, c cid.Cid, seen map[cid.Cid]struct{}) error {
 	if _, ok := seen[c]; ok {
 		return nil
 	}

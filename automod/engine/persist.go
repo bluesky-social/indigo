@@ -6,6 +6,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
+	"github.com/bluesky-social/indigo/automod/keyword"
 )
 
 func (eng *Engine) persistCounters(ctx context.Context, eff *Effects) error {
@@ -32,7 +33,7 @@ func (eng *Engine) persistCounters(ctx context.Context, eff *Effects) error {
 	return nil
 }
 
-// Persists account-level moderation actions: new labels, new flags, new takedowns, and reports.
+// Persists account-level moderation actions: new labels, new tags, new flags, new takedowns, and reports.
 //
 // If necessary, will "purge" identity and account caches, so that state updates will be picked up for subsequent events.
 //
@@ -42,6 +43,20 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 
 	// de-dupe actions
 	newLabels := dedupeLabelActions(c.effects.AccountLabels, c.Account.AccountLabels, c.Account.AccountNegatedLabels)
+	rmdLabels := []string{}
+	for _, lbl := range dedupeStrings(c.effects.RemovedAccountLabels) {
+		// we don't need to try and remove labels whenever they are either _not_ already in the account labels, _or_ if they are
+		// being applied by some other rule before persisting
+		if !keyword.TokenInSet(lbl, c.Account.AccountLabels) || keyword.TokenInSet(lbl, c.effects.AccountLabels) {
+			continue
+		}
+		rmdLabels = append(rmdLabels, lbl)
+	}
+	existingTags := []string{}
+	if c.Account.Private != nil {
+		existingTags = c.Account.Private.AccountTags
+	}
+	newTags := dedupeTagActions(c.effects.AccountTags, existingTags)
 	newFlags := dedupeFlagActions(c.effects.AccountFlags, c.Account.AccountFlags)
 
 	// don't report the same account multiple times on the same day for the same reason. this is a quick check; we also query the mod service API just before creating the report.
@@ -57,8 +72,28 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	if err != nil {
 		return fmt.Errorf("circuit-breaking takedowns: %w", err)
 	}
+	newEscalation := c.effects.AccountEscalate
+	if c.Account.Private != nil && c.Account.Private.ReviewState == ReviewStateEscalated {
+		// de-dupe account escalation
+		newEscalation = false
+	} else {
+		newEscalation, err = eng.circuitBreakModAction(ctx, newEscalation)
+		if err != nil {
+			return fmt.Errorf("circuit-breaking escalation: %w", err)
+		}
+	}
+	newAcknowledge := c.effects.AccountAcknowledge
+	if c.Account.Private != nil && (c.Account.Private.ReviewState == "closed" || c.Account.Private.ReviewState == "none") {
+		// de-dupe account escalation
+		newAcknowledge = false
+	} else {
+		newAcknowledge, err = eng.circuitBreakModAction(ctx, newAcknowledge)
+		if err != nil {
+			return fmt.Errorf("circuit-breaking acknowledge: %w", err)
+		}
+	}
 
-	anyModActions := newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0
+	anyModActions := newTakedown || newEscalation || newAcknowledge || len(newLabels) > 0 || len(rmdLabels) > 0 || len(newTags) > 0 || len(newFlags) > 0 || len(newReports) > 0
 	if anyModActions && eng.Notifier != nil {
 		for _, srv := range dedupeStrings(c.effects.NotifyServices) {
 			if err := eng.Notifier.SendAccount(ctx, srv, c); err != nil {
@@ -77,17 +112,17 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	}
 
 	// if we can't actually talk to service, bail out early
-	if eng.AdminClient == nil {
+	if eng.OzoneClient == nil {
 		if anyModActions {
 			c.Logger.Warn("not persisting actions, mod service client not configured")
 		}
 		return nil
 	}
 
-	xrpcc := eng.AdminClient
+	xrpcc := eng.OzoneClient
 
-	if len(newLabels) > 0 {
-		c.Logger.Info("labeling record", "newLabels", newLabels)
+	if len(newLabels) > 0 || len(rmdLabels) > 0 {
+		c.Logger.Info("updating account labels", "newLabels", newLabels, "rmdLabels", rmdLabels)
 		for _, val := range newLabels {
 			// note: WithLabelValues is a prometheus label, not an atproto label
 			actionNewLabelCount.WithLabelValues("account", val).Inc()
@@ -98,7 +133,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventLabel: &toolsozone.ModerationDefs_ModEventLabel{
 					CreateLabelVals: newLabels,
-					NegateLabelVals: []string{},
+					NegateLabelVals: rmdLabels,
 					Comment:         &comment,
 				},
 			},
@@ -110,6 +145,33 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		})
 		if err != nil {
 			c.Logger.Error("failed to create account labels", "err", err)
+		}
+	}
+
+	if len(newTags) > 0 {
+		c.Logger.Info("tagging account", "newTags", newTags)
+		for _, val := range newTags {
+			// note: WithLabelValues is a prometheus label, not an atproto label
+			actionNewTagCount.WithLabelValues("account", val).Inc()
+		}
+		comment := "[automod]: auto-tagging account"
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventTag: &toolsozone.ModerationDefs_ModEventTag{
+					Add:     newTags,
+					Remove:  []string{},
+					Comment: &comment,
+				},
+			},
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
+				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
+					Did: c.Account.Identity.DID.String(),
+				},
+			},
+		})
+		if err != nil {
+			c.Logger.Error("failed to create account tags", "err", err)
 		}
 	}
 
@@ -145,9 +207,56 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		if err != nil {
 			c.Logger.Error("failed to execute account takedown", "err", err)
 		}
+
+		// we don't want to escalate if there is a takedown
+		newEscalation = false
 	}
 
-	needCachePurge := newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || createdReports
+	if newEscalation {
+		c.Logger.Info("account-escalate")
+		actionNewEscalationCount.WithLabelValues("account").Inc()
+		comment := "[automod]: auto account-escalation"
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventEscalate: &toolsozone.ModerationDefs_ModEventEscalate{
+					Comment: &comment,
+				},
+			},
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
+				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
+					Did: c.Account.Identity.DID.String(),
+				},
+			},
+		})
+		if err != nil {
+			c.Logger.Error("failed to execute account escalation", "err", err)
+		}
+	}
+
+	if newAcknowledge {
+		c.Logger.Info("account-acknowledge")
+		actionNewAcknowledgeCount.WithLabelValues("account").Inc()
+		comment := "[automod]: auto account-acknowledge"
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventAcknowledge: &toolsozone.ModerationDefs_ModEventAcknowledge{
+					Comment: &comment,
+				},
+			},
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
+				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
+					Did: c.Account.Identity.DID.String(),
+				},
+			},
+		})
+		if err != nil {
+			c.Logger.Error("failed to execute account acknowledge", "err", err)
+		}
+	}
+
+	needCachePurge := newTakedown || newEscalation || newAcknowledge || len(newLabels) > 0 || len(newTags) > 0 || len(newFlags) > 0 || createdReports
 	if needCachePurge {
 		return eng.PurgeAccountCaches(ctx, c.Account.Identity.DID)
 	}
@@ -155,7 +264,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	return nil
 }
 
-// Persists some record-level state: labels, takedowns, reports.
+// Persists some record-level state: labels, tags, takedowns, reports.
 //
 // NOTE: this method currently does *not* persist record-level flags to any storage, and does not de-dupe most actions, on the assumption that the record is new (from firehose) and has no existing mod state.
 func (eng *Engine) persistRecordModActions(c *RecordContext) error {
@@ -166,10 +275,17 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 
 	atURI := c.RecordOp.ATURI().String()
 	newLabels := dedupeStrings(c.effects.RecordLabels)
-	if len(newLabels) > 0 && eng.AdminClient != nil {
-		rv, err := toolsozone.ModerationGetRecord(ctx, eng.AdminClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
+	rmdLabels := []string{}
+	newTags := dedupeStrings(c.effects.RecordTags)
+	newEscalation := c.effects.RecordEscalate
+	newAcknowledge := c.effects.RecordAcknowledge
+
+	if (newEscalation || newAcknowledge || len(newLabels) > 0 || len(rmdLabels) > 0 || len(newTags) > 0) && eng.OzoneClient != nil {
+		// fetch existing record labels, tags, etc
+		rv, err := toolsozone.ModerationGetRecord(ctx, eng.OzoneClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
 		if err != nil {
-			c.Logger.Warn("failed to fetch private record metadata", "err", err)
+			// NOTE: there is a frequent 4xx error here from Ozone because this record has not been indexed yet
+			c.Logger.Warn("failed to fetch private record metadata from Ozone", "err", err)
 		} else {
 			var existingLabels []string
 			var negLabels []string
@@ -182,10 +298,26 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			}
 			existingLabels = dedupeStrings(existingLabels)
 			negLabels = dedupeStrings(negLabels)
-			// fetch existing record labels
 			newLabels = dedupeLabelActions(newLabels, existingLabels, negLabels)
+			for _, lbl := range dedupeStrings(c.effects.RemovedRecordLabels) {
+				// we don't need to try and remove labels whenever they are either _not_ already in the record labels, _or_ if they are
+				// being applied by some other rule before persisting
+				if !keyword.TokenInSet(lbl, existingLabels) || keyword.TokenInSet(lbl, newLabels) {
+					continue
+				}
+				rmdLabels = append(rmdLabels, lbl)
+			}
+			existingTags := []string{}
+			hasSubjectStatus := rv.Moderation != nil && rv.Moderation.SubjectStatus != nil
+			if hasSubjectStatus && rv.Moderation.SubjectStatus.Tags != nil {
+				existingTags = rv.Moderation.SubjectStatus.Tags
+			}
+			newTags = dedupeTagActions(newTags, existingTags)
+			newEscalation = newEscalation && hasSubjectStatus && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewEscalate"
+			newAcknowledge = newAcknowledge && hasSubjectStatus && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewNone" && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewClosed"
 		}
 	}
+
 	newFlags := dedupeStrings(c.effects.RecordFlags)
 	if len(newFlags) > 0 {
 		// fetch existing flags, and de-dupe
@@ -209,8 +341,16 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	if err != nil {
 		return fmt.Errorf("failed to circuit break takedowns: %w", err)
 	}
+	newEscalation, err = eng.circuitBreakModAction(ctx, newEscalation)
+	if err != nil {
+		return fmt.Errorf("circuit-breaking escalation: %w", err)
+	}
+	newAcknowledge, err = eng.circuitBreakModAction(ctx, newAcknowledge)
+	if err != nil {
+		return fmt.Errorf("circuit-breaking acknowledge: %w", err)
+	}
 
-	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
+	if newEscalation || newAcknowledge || newTakedown || len(newLabels) > 0 || len(rmdLabels) > 0 || len(newTags) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
 		if eng.Notifier != nil {
 			for _, srv := range dedupeStrings(c.effects.NotifyServices) {
 				if err := eng.Notifier.SendRecord(ctx, srv, c); err != nil {
@@ -230,11 +370,11 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 
 	// exit early
-	if !newTakedown && len(newLabels) == 0 && len(newReports) == 0 {
+	if !newAcknowledge && !newEscalation && !newTakedown && len(newLabels) == 0 && len(rmdLabels) == 0 && len(newTags) == 0 && len(newReports) == 0 {
 		return nil
 	}
 
-	if eng.AdminClient == nil {
+	if eng.OzoneClient == nil {
 		c.Logger.Warn("not persisting actions because mod service client not configured")
 		return nil
 	}
@@ -249,9 +389,9 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		Uri: atURI,
 	}
 
-	xrpcc := eng.AdminClient
-	if len(newLabels) > 0 {
-		c.Logger.Info("labeling record", "newLabels", newLabels)
+	xrpcc := eng.OzoneClient
+	if len(newLabels) > 0 || len(rmdLabels) > 0 {
+		c.Logger.Info("updating record labels", "newLabels", newLabels, "rmdLabels", rmdLabels)
 		for _, val := range newLabels {
 			// note: WithLabelValues is a prometheus label, not an atproto label
 			actionNewLabelCount.WithLabelValues("record", val).Inc()
@@ -262,7 +402,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventLabel: &toolsozone.ModerationDefs_ModEventLabel{
 					CreateLabelVals: newLabels,
-					NegateLabelVals: []string{},
+					NegateLabelVals: rmdLabels,
 					Comment:         &comment,
 				},
 			},
@@ -272,6 +412,31 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		})
 		if err != nil {
 			c.Logger.Error("failed to create record label", "err", err)
+		}
+	}
+
+	if len(newTags) > 0 {
+		c.Logger.Info("tagging record", "newTags", newTags)
+		for _, val := range newTags {
+			// note: WithLabelValues is a prometheus label, not an atproto label
+			actionNewTagCount.WithLabelValues("record", val).Inc()
+		}
+		comment := "[automod]: auto-tagging record"
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventTag: &toolsozone.ModerationDefs_ModEventTag{
+					Add:     newTags,
+					Remove:  []string{},
+					Comment: &comment,
+				},
+			},
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
+				RepoStrongRef: &strongRef,
+			},
+		})
+		if err != nil {
+			c.Logger.Error("failed to create record tag", "err", err)
 		}
 	}
 
@@ -300,6 +465,49 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		})
 		if err != nil {
 			c.Logger.Error("failed to execute record takedown", "err", err)
+		}
+
+		// we don't want to escalate if there is a takedown
+		newEscalation = false
+	}
+
+	if newEscalation {
+		c.Logger.Warn("record-escalation")
+		actionNewEscalationCount.WithLabelValues("record").Inc()
+		comment := "[automod]: automated record-escalation"
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventEscalate: &toolsozone.ModerationDefs_ModEventEscalate{
+					Comment: &comment,
+				},
+			},
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
+				RepoStrongRef: &strongRef,
+			},
+		})
+		if err != nil {
+			c.Logger.Error("failed to execute record escalation", "err", err)
+		}
+	}
+
+	if newAcknowledge {
+		c.Logger.Warn("record-acknowledge")
+		actionNewAcknowledgeCount.WithLabelValues("record").Inc()
+		comment := "[automod]: automated record-acknowledge"
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventAcknowledge: &toolsozone.ModerationDefs_ModEventAcknowledge{
+					Comment: &comment,
+				},
+			},
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
+				RepoStrongRef: &strongRef,
+			},
+		})
+		if err != nil {
+			c.Logger.Error("failed to execute record acknowledge", "err", err)
 		}
 	}
 	return nil

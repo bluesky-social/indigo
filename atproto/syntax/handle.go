@@ -1,6 +1,7 @@
 package syntax
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -21,8 +22,11 @@ var (
 type Handle string
 
 func ParseHandle(raw string) (Handle, error) {
+	if raw == "" {
+		return "", errors.New("expected handle, got empty string")
+	}
 	if len(raw) > 253 {
-		return "", fmt.Errorf("handle is too long (253 chars max)")
+		return "", errors.New("handle is too long (253 chars max)")
 	}
 	if !handleRegex.MatchString(raw) {
 		return "", fmt.Errorf("handle syntax didn't validate via regex: %s", raw)
@@ -55,7 +59,7 @@ func (h Handle) TLD() string {
 
 // Is this the special "handle.invalid" handle?
 func (h Handle) IsInvalidHandle() bool {
-	return h.Normalize() == "handle.invalid"
+	return h.Normalize() == HandleInvalid
 }
 
 func (h Handle) Normalize() Handle {
@@ -63,7 +67,7 @@ func (h Handle) Normalize() Handle {
 }
 
 func (h Handle) AtIdentifier() AtIdentifier {
-	return AtIdentifier{Inner: h}
+	return AtIdentifier(h)
 }
 
 func (h Handle) String() string {

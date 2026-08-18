@@ -8,17 +8,3 @@ services:
     restart: always
     ports:
       - "8345:8345"
-  sonar-sandbox:
-    build:
-      context: ../../
-      dockerfile: cmd/sonar/Dockerfile
-    image: atproto-sonar
-    restart: always
-    ports:
-      - "8346:8345"
-    command:
-      [
-        "./sonar",
-        "--ws-url",
-        "wss://bgs.bsky-sandbox.dev/xrpc/com.atproto.sync.subscribeRepos",
-      ]

@@ -9,30 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/api"
-	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/xrpc"
+
+	slogGorm "github.com/orandin/slog-gorm"
 	"github.com/urfave/cli/v2"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
-
-func GetDidResolver(cctx *cli.Context) did.Resolver {
-	mr := did.NewMultiResolver()
-	mr.AddHandler("plc", &api.PLCServer{
-		Host: cctx.String("plc"),
-	})
-	mr.AddHandler("web", &did.WebResolver{})
-
-	return mr
-}
-
-func GetPLCClient(cctx *cli.Context) *api.PLCServer {
-	return &api.PLCServer{
-		Host: cctx.String("plc"),
-	}
-}
 
 func NewHttpClient() *http.Client {
 	return &http.Client{
@@ -45,54 +29,6 @@ func NewHttpClient() *http.Client {
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
-}
-
-type CliConfig struct {
-	filename string
-	PDS      string
-}
-
-func readGoskyConfig() (*CliConfig, error) {
-	// TODO: use os.UserConfigDir()/gosky, falling back to os.UserHomeDir()/.gosky for backwards compatibility.
-	d, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("cannot read Home directory")
-	}
-
-	f := filepath.Join(d, ".gosky")
-
-	b, err := os.ReadFile(f)
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-
-	var out CliConfig
-	if err := json.Unmarshal(b, &out); err != nil {
-		return nil, err
-	}
-
-	out.filename = f
-	return &out, nil
-}
-
-var Config *CliConfig
-
-func TryReadConfig() {
-	cfg, err := readGoskyConfig()
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		Config = cfg
-	}
-}
-
-func WriteConfig(cfg *CliConfig) error {
-	b, err := json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(cfg.filename, b, 0664)
 }
 
 func GetXrpcClient(cctx *cli.Context, authreq bool) (*xrpc.Client, error) {
@@ -164,6 +100,7 @@ func SetupDatabase(dburl string, maxConnections int) (*gorm.DB, error) {
 	// NOTE(bnewbold): might also handle file:// as sqlite, but let's keep it
 	// explicit for now
 
+	isSqlite := false
 	openConns := maxConnections
 	if strings.HasPrefix(dburl, "sqlite://") {
 		sqliteSuffix := dburl[len("sqlite://"):]
@@ -174,6 +111,7 @@ func SetupDatabase(dburl string, maxConnections int) (*gorm.DB, error) {
 		}
 		dial = sqlite.Open(sqliteSuffix)
 		openConns = 1
+		isSqlite = true
 	} else if strings.HasPrefix(dburl, "sqlite=") {
 		sqliteSuffix := dburl[len("sqlite="):]
 		// if this isn't ":memory:", ensure that directory exists (eg, if db
@@ -183,6 +121,7 @@ func SetupDatabase(dburl string, maxConnections int) (*gorm.DB, error) {
 		}
 		dial = sqlite.Open(sqliteSuffix)
 		openConns = 1
+		isSqlite = true
 	} else if strings.HasPrefix(dburl, "postgresql://") || strings.HasPrefix(dburl, "postgres://") {
 		// can pass entire URL, with prefix, to gorm driver
 		dial = postgres.Open(dburl)
@@ -194,9 +133,12 @@ func SetupDatabase(dburl string, maxConnections int) (*gorm.DB, error) {
 		return nil, fmt.Errorf("unsupported or unrecognized DATABASE_URL value: %s", dburl)
 	}
 
+	gormLogger := slogGorm.New()
+
 	db, err := gorm.Open(dial, &gorm.Config{
 		SkipDefaultTransaction: true,
 		TranslateError:         true,
+		Logger:                 gormLogger,
 	})
 	if err != nil {
 		return nil, err
@@ -210,6 +152,16 @@ func SetupDatabase(dburl string, maxConnections int) (*gorm.DB, error) {
 	sqldb.SetMaxIdleConns(80)
 	sqldb.SetMaxOpenConns(openConns)
 	sqldb.SetConnMaxIdleTime(time.Hour)
+
+	if isSqlite {
+		// Set pragmas for sqlite
+		if err := db.Exec("PRAGMA journal_mode=WAL;").Error; err != nil {
+			return nil, err
+		}
+		if err := db.Exec("PRAGMA synchronous=normal;").Error; err != nil {
+			return nil, err
+		}
+	}
 
 	return db, nil
 }

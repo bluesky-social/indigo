@@ -1,9 +1,11 @@
 package syntax
 
 import (
-	"fmt"
+	"errors"
 	"regexp"
 )
+
+var uriRegex = regexp.MustCompile(`^[a-z][a-z.-]{0,80}:[[:graph:]]+$`)
 
 // Represents an arbitrary URI in string format, as would pass Lexicon syntax validation.
 //
@@ -13,12 +15,14 @@ import (
 type URI string
 
 func ParseURI(raw string) (URI, error) {
-	if len(raw) > 8192 {
-		return "", fmt.Errorf("URI is too long (8192 chars max)")
+	if raw == "" {
+		return "", errors.New("expected URI, got empty string")
 	}
-	var uriRegex = regexp.MustCompile(`^[a-z][a-z.-]{0,80}:[[:graph:]]+$`)
+	if len(raw) > 8192 {
+		return "", errors.New("URI is too long (8192 chars max)")
+	}
 	if !uriRegex.MatchString(raw) {
-		return "", fmt.Errorf("URI syntax didn't validate via regex")
+		return "", errors.New("URI syntax didn't validate via regex")
 	}
 	return URI(raw), nil
 }

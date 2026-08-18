@@ -1,18 +1,18 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 
-	lex "github.com/bluesky-social/indigo/lex"
-	cli "github.com/urfave/cli/v2"
+	"github.com/bluesky-social/indigo/lex"
+	"github.com/urfave/cli/v2"
 )
 
-func findSchemas(dir string) ([]string, error) {
-	var out []string
+func findSchemas(dir string, out []string) ([]string, error) {
 	err := filepath.Walk(dir, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -29,13 +29,14 @@ func findSchemas(dir string) ([]string, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 
 	return out, nil
 
 }
 
+// for direct .json lexicon files or directories containing lexicon .json files, get one flat list of all paths to .json files
 func expandArgs(args []string) ([]string, error) {
 	var out []string
 	for _, a := range args {
@@ -44,11 +45,10 @@ func expandArgs(args []string) ([]string, error) {
 			return nil, err
 		}
 		if st.IsDir() {
-			s, err := findSchemas(a)
+			out, err = findSchemas(a, out)
 			if err != nil {
 				return nil, err
 			}
-			out = append(out, s...)
 		} else if strings.HasSuffix(a, ".json") {
 			out = append(out, a)
 		}
@@ -64,9 +64,6 @@ func main() {
 		&cli.StringFlag{
 			Name: "outdir",
 		},
-		&cli.StringFlag{
-			Name: "prefix",
-		},
 		&cli.BoolFlag{
 			Name: "gen-server",
 		},
@@ -76,19 +73,23 @@ func main() {
 		&cli.StringSliceFlag{
 			Name: "types-import",
 		},
+		&cli.StringSliceFlag{
+			Name: "external-lexicons",
+		},
 		&cli.StringFlag{
 			Name:  "package",
 			Value: "schemagen",
 		},
+		&cli.StringFlag{
+			Name:  "build",
+			Value: "",
+		},
+		&cli.StringFlag{
+			Name:  "build-file",
+			Value: "",
+		},
 	}
 	app.Action = func(cctx *cli.Context) error {
-		outdir := cctx.String("outdir")
-		if outdir == "" {
-			return fmt.Errorf("must specify output directory (--outdir)")
-		}
-
-		prefix := cctx.String("prefix")
-
 		paths, err := expandArgs(cctx.Args().Slice())
 		if err != nil {
 			return err
@@ -108,15 +109,57 @@ func main() {
 			schemas = append(schemas, s)
 		}
 
-		pkgname := cctx.String("package")
+		externalPaths, err := expandArgs(cctx.StringSlice("external-lexicons"))
+		if err != nil {
+			return err
+		}
+		var externalSchemas []*lex.Schema
+		for _, arg := range externalPaths {
+			s, err := lex.ReadSchema(arg)
+			if err != nil {
+				return fmt.Errorf("failed to read file %q: %w", arg, err)
+			}
 
-		imports := map[string]string{
-			"app.bsky":    "github.com/bluesky-social/indigo/api/bsky",
-			"com.atproto": "github.com/bluesky-social/indigo/api/atproto",
+			externalSchemas = append(externalSchemas, s)
+		}
+
+		buildLiteral := cctx.String("build")
+		buildPath := cctx.String("build-file")
+		var packages []lex.Package
+		if buildLiteral != "" {
+			if buildPath != "" {
+				return errors.New("must not set both --build and --build-file")
+			}
+			packages, err = lex.ParsePackages([]byte(buildLiteral))
+			if err != nil {
+				return fmt.Errorf("--build error, %w", err)
+			}
+			if len(packages) == 0 {
+				return errors.New("--build must specify at least one Package{}")
+			}
+		} else if buildPath != "" {
+			blob, err := os.ReadFile(buildPath)
+			if err != nil {
+				return fmt.Errorf("--build-file error, %w", err)
+			}
+			packages, err = lex.ParsePackages(blob)
+			if err != nil {
+				return fmt.Errorf("--build-file error, %w", err)
+			}
+			if len(packages) == 0 {
+				return errors.New("--build-file must specify at least one Package{}")
+			}
+		} else {
+			return errors.New("need exactly one of --build or --build-file")
 		}
 
 		if cctx.Bool("gen-server") {
-			defmap := lex.BuildExtDefMap(schemas, []string{"com.atproto", "app.bsky"})
+			pkgname := cctx.String("package")
+			outdir := cctx.String("outdir")
+			if outdir == "" {
+				return fmt.Errorf("must specify output directory (--outdir)")
+			}
+			defmap := lex.BuildExtDefMap(append(schemas, externalSchemas...), packages)
 			_ = defmap
 
 			paths := cctx.StringSlice("types-import")
@@ -133,23 +176,7 @@ func main() {
 			}
 
 		} else {
-			defmap := lex.BuildExtDefMap(schemas, []string{"com.atproto", "app.bsky"})
-
-			// Run this twice as a hack to deal with indirect references referencing indirect references.
-			// This part of the codegen needs to be redone
-			lex.FixRecordReferences(schemas, defmap, prefix)
-			lex.FixRecordReferences(schemas, defmap, prefix)
-			for i, s := range schemas {
-				if !strings.HasPrefix(s.ID, prefix) {
-					continue
-				}
-
-				fname := filepath.Join(outdir, s.Name()+".go")
-
-				if err := lex.GenCodeForSchema(pkgname, prefix, fname, true, s, defmap, imports); err != nil {
-					return fmt.Errorf("failed to process schema %q: %w", paths[i], err)
-				}
-			}
+			return lex.Run(schemas, externalSchemas, packages)
 		}
 
 		return nil

@@ -12,7 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 
 	"github.com/ipfs/go-cid"
-	cli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
 )
 
 var carCmd = &cli.Command{
@@ -38,6 +38,7 @@ var carUnpackCmd = &cli.Command{
 	},
 	ArgsUsage: `<car-file>`,
 	Action: func(cctx *cli.Context) error {
+		log := configLogger(cctx, os.Stderr)
 		ctx := context.Background()
 		arg := cctx.Args().First()
 		if arg == "" {
@@ -64,7 +65,7 @@ var carUnpackCmd = &cli.Command{
 		if topDir == "" {
 			topDir = did.String()
 		}
-		log.Infof("writing output to: %s", topDir)
+		log.Info("writing output", "topDir", topDir)
 
 		commitPath := topDir + "/_commit"
 		os.MkdirAll(filepath.Dir(commitPath), os.ModePerm)
@@ -90,7 +91,7 @@ var carUnpackCmd = &cli.Command{
 			if err != nil {
 				return err
 			}
-			log.Debugf("processing record: %s", k)
+			log.Debug("processing record", "rec", k)
 
 			// TODO: check if path is safe more carefully
 			recPath := topDir + "/" + k

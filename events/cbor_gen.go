@@ -25,32 +25,40 @@ func (t *EventHeader) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 2
 
-	if _, err := cw.Write([]byte{162}); err != nil {
+	if t.MsgType == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
 	// t.MsgType (string) (string)
-	if len("t") > 1000000 {
-		return xerrors.Errorf("Value in field \"t\" was too long")
-	}
+	if t.MsgType != "" {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("t"))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string("t")); err != nil {
-		return err
-	}
+		if len("t") > 1000000 {
+			return xerrors.Errorf("Value in field \"t\" was too long")
+		}
 
-	if len(t.MsgType) > 1000000 {
-		return xerrors.Errorf("Value in field t.MsgType was too long")
-	}
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("t"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("t")); err != nil {
+			return err
+		}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.MsgType))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string(t.MsgType)); err != nil {
-		return err
+		if len(t.MsgType) > 1000000 {
+			return xerrors.Errorf("Value in field t.MsgType was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.MsgType))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string(t.MsgType)); err != nil {
+			return err
+		}
 	}
 
 	// t.Op (int64) (int64)
@@ -101,21 +109,24 @@ func (t *EventHeader) UnmarshalCBOR(r io.Reader) (err error) {
 		return fmt.Errorf("EventHeader: map struct too large (%d)", extra)
 	}
 
-	var name string
 	n := extra
 
+	nameBuf := make([]byte, 2)
 	for i := uint64(0); i < n; i++ {
-
-		{
-			sval, err := cbg.ReadStringWithMax(cr, 1000000)
-			if err != nil {
-				return err
-			}
-
-			name = string(sval)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
 		}
 
-		switch name {
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
 		// t.MsgType (string) (string)
 		case "t":
 
@@ -156,7 +167,9 @@ func (t *EventHeader) UnmarshalCBOR(r io.Reader) (err error) {
 
 		default:
 			// Field doesn't exist on this type, so ignore it
-			cbg.ScanForLinks(r, func(cid.Cid) {})
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -245,21 +258,24 @@ func (t *ErrorFrame) UnmarshalCBOR(r io.Reader) (err error) {
 		return fmt.Errorf("ErrorFrame: map struct too large (%d)", extra)
 	}
 
-	var name string
 	n := extra
 
+	nameBuf := make([]byte, 7)
 	for i := uint64(0); i < n; i++ {
-
-		{
-			sval, err := cbg.ReadStringWithMax(cr, 1000000)
-			if err != nil {
-				return err
-			}
-
-			name = string(sval)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
 		}
 
-		switch name {
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
 		// t.Error (string) (string)
 		case "error":
 
@@ -285,7 +301,9 @@ func (t *ErrorFrame) UnmarshalCBOR(r io.Reader) (err error) {
 
 		default:
 			// Field doesn't exist on this type, so ignore it
-			cbg.ScanForLinks(r, func(cid.Cid) {})
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
 		}
 	}
 

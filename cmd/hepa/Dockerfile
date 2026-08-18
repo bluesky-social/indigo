@@ -3,7 +3,7 @@
 #   podman build -f ./cmd/hepa/Dockerfile -t hepa .
 
 ### Compile stage
-FROM golang:1.21-alpine3.18 AS build-env
+FROM golang:1.26-alpine3.22 AS build-env
 RUN apk add --no-cache build-base make git
 
 ADD . /dockerbuild
@@ -15,9 +15,9 @@ RUN GIT_VERSION=$(git describe --tags --long --always) && \
     go build -tags timetzdata -o /hepa ./cmd/hepa
 
 ### Run stage
-FROM alpine:3.18
+FROM alpine:3.24
 
-RUN apk add --no-cache --update dumb-init ca-certificates
+RUN apk add --no-cache --update dumb-init ca-certificates runit
 ENTRYPOINT ["dumb-init", "--"]
 
 WORKDIR /
@@ -33,5 +33,5 @@ EXPOSE 2210
 CMD ["/hepa", "run"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
-LABEL org.opencontainers.image.description="ATP Auto-Moderation Service (hepa)"
-LABEL org.opencontainers.image.licenses=MIT
+LABEL org.opencontainers.image.description="atproto Auto-Moderation Service (hepa, indigo edition)"
+LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"

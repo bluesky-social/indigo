@@ -1,8 +1,8 @@
 
-hepa
-====
+hepa (indigo edition)
+=====================
 
-This is a simple auto-moderation daemon which wraps the automod package.
+This is a simple auto-moderation daemon which wraps the automod package. This is public code. The actual version run by Bluesky is similar, but a private fork to protect methods and mechanisms.
 
 The name is a reference to HEPA air filters, which help keep the local atmosphere clean and healthy for humans.
 

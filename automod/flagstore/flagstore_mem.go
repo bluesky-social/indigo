@@ -27,9 +27,7 @@ func (s MemFlagStore) Add(ctx context.Context, key string, flags []string) error
 	if !ok {
 		v = []string{}
 	}
-	for _, f := range flags {
-		v = append(v, f)
-	}
+	v = append(v, flags...)
 	v = dedupeStrings(v)
 	s.Data[key] = v
 	return nil

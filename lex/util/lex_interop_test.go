@@ -128,11 +128,11 @@ func TestInteropBasicSchema(t *testing.T) {
 	assert.Equal(cidStr, goCborCid.String())
 
 	// reproduce JSON serialization
-	var jsonAll interface{}
+	var jsonAll any
 	assert.NoError(json.Unmarshal([]byte(jsonStr), &jsonAll))
 	goJsonBytes, err := json.Marshal(goObj)
 	assert.NoError(err)
-	var goJsonAll interface{}
+	var goJsonAll any
 	assert.NoError(json.Unmarshal(goJsonBytes, &goJsonAll))
 	assert.Equal(jsonAll, goJsonAll)
 }
@@ -214,11 +214,11 @@ func TestInteropIpldSchema(t *testing.T) {
 	assert.Equal(cidStr, goCborCid.String())
 
 	// reproduce JSON serialization
-	var jsonAll interface{}
+	var jsonAll any
 	assert.NoError(json.Unmarshal([]byte(jsonStr), &jsonAll))
 	goJsonBytes, err := json.Marshal(goObj)
 	assert.NoError(err)
-	var goJsonAll interface{}
+	var goJsonAll any
 	assert.NoError(json.Unmarshal(goJsonBytes, &goJsonAll))
 	assert.Equal(jsonAll, goJsonAll)
 }
@@ -297,11 +297,11 @@ func TestInteropIpldNestedSchema(t *testing.T) {
 	assert.Equal(goObj, jsonObj)
 
 	// reproduce JSON serialization
-	var jsonAll interface{}
+	var jsonAll any
 	assert.NoError(json.Unmarshal([]byte(jsonStr), &jsonAll))
 	goJsonBytes, err := json.Marshal(goObj)
 	assert.NoError(err)
-	var goJsonAll interface{}
+	var goJsonAll any
 	assert.NoError(json.Unmarshal(goJsonBytes, &goJsonAll))
 	assert.Equal(jsonAll, goJsonAll)
 

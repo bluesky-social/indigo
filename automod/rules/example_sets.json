@@ -9,7 +9,13 @@
     "worst-words": [
         "veryhardar"
     ],
+    "harassment-target-dids": [
+        "did:web:harassed.example.com"
+    ],
     "promo-domain": [
         "buy-crypto.example.com"
+    ],
+    "trivial-spam-text": [
+        "spam"
     ]
 }

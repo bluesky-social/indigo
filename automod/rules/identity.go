@@ -7,22 +7,16 @@ import (
 
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/helpers"
 )
-
-var _ automod.IdentityRuleFunc = NewAccountRule
 
 // triggers on first identity event for an account (DID)
 func NewAccountRule(c *automod.AccountContext) error {
-	// need access to IndexedAt for this rule
-	if c.Account.Private == nil || c.Account.Identity == nil {
+	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(c, 4*time.Hour) {
 		return nil
 	}
 
 	did := c.Account.Identity.DID.String()
-	age := time.Since(c.Account.Private.IndexedAt)
-	if age > 4*time.Hour {
-		return nil
-	}
 	exists := c.GetCount("acct/exists", did, countstore.PeriodTotal)
 	if exists == 0 {
 		c.Logger.Info("new account")
@@ -39,7 +33,7 @@ func NewAccountRule(c *automod.AccountContext) error {
 
 		// new PDS host
 		if existingAccounts == 0 {
-			c.Logger.Info("new PDS instance", "host", pdsHost)
+			c.Logger.Info("new PDS instance", "pdsHost", pdsHost)
 			c.Increment("host", "new")
 			c.AddAccountFlag("host-first-account")
 			c.Notify("slack")
@@ -47,3 +41,19 @@ func NewAccountRule(c *automod.AccountContext) error {
 	}
 	return nil
 }
+
+var _ automod.IdentityRuleFunc = NewAccountRule
+
+func CelebSpamIdentityRule(c *automod.AccountContext) error {
+
+	hdl := c.Account.Identity.Handle.String()
+	if strings.Contains(hdl, "elon") && strings.Contains(hdl, "musk") {
+		c.AddAccountFlag("handle-elon-musk")
+		c.ReportAccount(automod.ReportReasonSpam, "possible Elon Musk impersonator")
+		return nil
+	}
+
+	return nil
+}
+
+var _ automod.IdentityRuleFunc = CelebSpamIdentityRule

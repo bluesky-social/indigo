@@ -66,7 +66,7 @@ func TestCacheDirectory(t *testing.T) {
 	inner := BaseDirectory{}
 	d := NewCacheDirectory(&inner, 1000, time.Hour*1, time.Hour*1, time.Hour*1)
 	for i := 0; i < 3; i = i + 1 {
-		testDirectoryLive(t, &d)
+		testDirectoryLive(t, d)
 	}
 }
 
@@ -95,10 +95,8 @@ func TestCacheCoalesce(t *testing.T) {
 	// Cancel the context after 2 seconds, if we're coalescing correctly, we should only make 1 request
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 	defer cancel()
-	for i := 0; i < routines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range routines {
+		wg.Go(func() {
 			ident, err := dir.LookupDID(ctx, did)
 			if err != nil {
 				slog.Error("Failed lookup", "error", err)
@@ -112,7 +110,7 @@ func TestCacheCoalesce(t *testing.T) {
 			}
 			assert.NoError(err)
 			assert.Equal(did, ident.DID)
-		}()
+		})
 	}
 	wg.Wait()
 }
@@ -137,4 +135,18 @@ func TestFallbackDNS(t *testing.T) {
 	_, err = dir.LookupHandle(ctx, handle)
 	assert.Error(err)
 	assert.ErrorIs(err, ErrHandleResolutionFailed)
+}
+
+func TestResolveNSID(t *testing.T) {
+	t.Skip("TODO: skipping live network test")
+	assert := assert.New(t)
+	ctx := context.Background()
+
+	dir := BaseDirectory{}
+	// NOTE: this was a very short temporary NSID when rkey restriction was short
+	nsid := syntax.NSID("net.bnewbold.m")
+	did, err := dir.ResolveNSID(ctx, nsid)
+
+	assert.NoError(err)
+	assert.Equal(did, syntax.DID("did:plc:nhxcyu4ewwhl5pqil4dotqjo"))
 }

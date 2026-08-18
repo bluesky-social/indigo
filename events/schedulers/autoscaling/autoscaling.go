@@ -2,16 +2,14 @@ package autoscaling
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers"
-	logging "github.com/ipfs/go-log"
 	"github.com/prometheus/client_golang/prometheus"
 )
-
-var log = logging.Logger("autoscaling-scheduler")
 
 // Scheduler is a scheduler that will scale up and down the number of workers based on the throughput of the workers.
 type Scheduler struct {
@@ -40,6 +38,8 @@ type Scheduler struct {
 	autoscaleFrequency time.Duration
 	autoscalerIn       chan struct{}
 	autoscalerOut      chan struct{}
+
+	log *slog.Logger
 }
 
 type AutoscaleSettings struct {
@@ -99,6 +99,8 @@ func NewScheduler(autoscaleSettings AutoscaleSettings, ident string, do func(con
 		autoscaleFrequency: autoscaleSettings.AutoscaleFrequency,
 		autoscalerIn:       make(chan struct{}),
 		autoscalerOut:      make(chan struct{}),
+
+		log: slog.Default().With("system", "autoscaling-scheduler"),
 	}
 
 	for i := 0; i < p.concurrency; i++ {
@@ -111,28 +113,28 @@ func NewScheduler(autoscaleSettings AutoscaleSettings, ident string, do func(con
 }
 
 func (p *Scheduler) Shutdown() {
-	log.Debugf("shutting down autoscaling scheduler for %s", p.ident)
+	p.log.Debug("shutting down autoscaling scheduler", "ident", p.ident)
 
 	// stop autoscaling
 	p.autoscalerIn <- struct{}{}
 	close(p.autoscalerIn)
 	<-p.autoscalerOut
 
-	log.Debug("stopping autoscaling scheduler workers")
+	p.log.Debug("stopping autoscaling scheduler workers")
 	// stop workers
 	for i := 0; i < p.concurrency; i++ {
 		p.feeder <- &consumerTask{signal: "stop"}
 	}
 	close(p.feeder)
 
-	log.Debug("waiting for autoscaling scheduler workers to stop")
+	p.log.Debug("waiting for autoscaling scheduler workers to stop")
 
 	p.workerGroup.Wait()
 
-	log.Debug("stopping autoscaling scheduler throughput manager")
+	p.log.Debug("stopping autoscaling scheduler throughput manager")
 	p.throughputManager.Stop()
 
-	log.Debug("autoscaling scheduler shutdown complete")
+	p.log.Debug("autoscaling scheduler shutdown complete")
 }
 
 // Add autoscaling function
@@ -197,7 +199,7 @@ func (p *Scheduler) AddWork(ctx context.Context, repo string, val *events.XRPCSt
 }
 
 func (p *Scheduler) worker() {
-	log.Debugf("starting autoscaling worker for %s", p.ident)
+	p.log.Debug("starting autoscaling worker", "ident", p.ident)
 	p.workersActive.Inc()
 	p.workerGroup.Add(1)
 	defer p.workerGroup.Done()
@@ -205,21 +207,21 @@ func (p *Scheduler) worker() {
 		for work != nil {
 			// Check if the work item contains a signal to stop the worker.
 			if work.signal == "stop" {
-				log.Debugf("stopping autoscaling worker for %s", p.ident)
+				p.log.Debug("stopping autoscaling worker", "ident", p.ident)
 				p.workersActive.Dec()
 				return
 			}
 
 			p.itemsActive.Inc()
 			if err := p.do(context.TODO(), work.val); err != nil {
-				log.Errorf("event handler failed: %s", err)
+				p.log.Error("event handler failed", "err", err)
 			}
 			p.itemsProcessed.Inc()
 
 			p.lk.Lock()
 			rem, ok := p.active[work.repo]
 			if !ok {
-				log.Errorf("should always have an 'active' entry if a worker is processing a job")
+				p.log.Error("should always have an 'active' entry if a worker is processing a job")
 			}
 
 			if len(rem) == 0 {

@@ -9,13 +9,14 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/helpers"
 )
 
 var _ automod.PostRuleFunc = ReplyCountPostRule
 
 // does not count "self-replies" (direct to self, or in own post thread)
 func ReplyCountPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if post.Reply == nil || IsSelfThread(c, post) {
+	if post.Reply == nil || helpers.IsSelfThread(c, post) {
 		return nil
 	}
 
@@ -36,7 +37,10 @@ func ReplyCountPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error 
 }
 
 // triggers on the N+1 post
-var identicalReplyLimit = 6
+// var identicalReplyLimit = 6
+// TODO: bumping temporarily
+var identicalReplyLimit = 20
+var identicalReplyActionLimit = 75
 
 var _ automod.PostRuleFunc = IdenticalReplyPostRule
 
@@ -44,7 +48,7 @@ var _ automod.PostRuleFunc = IdenticalReplyPostRule
 //
 // There can be legitimate situations that trigger this rule, so in most situations should be a "report" not "label" action.
 func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if post.Reply == nil || IsSelfThread(c, post) {
+	if post.Reply == nil || helpers.IsSelfThread(c, post) {
 		return nil
 	}
 
@@ -52,39 +56,78 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 	if utf8.RuneCountInString(post.Text) <= 10 {
 		return nil
 	}
-	if c.Account.Private != nil {
-		age := time.Since(c.Account.Private.IndexedAt)
-		if age > 2*7*24*time.Hour {
-			return nil
-		}
+	if helpers.AccountIsOlderThan(&c.AccountContext, 14*24*time.Hour) {
+		return nil
 	}
 
 	// don't count if there is a follow-back relationship
-	if ParentOrRootIsFollower(c, post) {
+	if helpers.ParentOrRootIsFollower(c, post) {
 		return nil
 	}
 
 	// increment before read. use a specific period (IncrementPeriod()) to reduce the number of counters (one per unique post text)
 	period := countstore.PeriodDay
-	bucket := c.Account.Identity.DID.String() + "/" + HashOfString(post.Text)
+	bucket := c.Account.Identity.DID.String() + "/" + helpers.HashOfString(post.Text)
 	c.IncrementPeriod("reply-text", bucket, period)
 
 	count := c.GetCount("reply-text", bucket, period)
 	if count >= identicalReplyLimit {
 		c.AddAccountFlag("multi-identical-reply")
-		c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible spam (new account, %d identical reply-posts today)", count))
+		c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible spam (new account, %d identical reply-posts today)", count))
+		c.Notify("slack")
+	}
+	if count >= identicalReplyActionLimit && utf8.RuneCountInString(post.Text) > 100 {
+		c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("likely spam/harassment (new account, %d identical reply-posts today), actioned (remove label urgently if account is ok)", count))
+		c.AddAccountLabel("!warn")
 		c.Notify("slack")
 	}
 
 	return nil
 }
 
-var youngReplyAccountLimit = 12
+// Similar to above rule but only counts replies to the same post. More aggressively applies a spam label to new accounts that are less than a day old.
+var identicalReplySameParentLimit = 3
+var identicalReplySameParentMaxAge = 24 * time.Hour
+var identicalReplySameParentMaxPosts int64 = 50
+var _ automod.PostRuleFunc = IdenticalReplyPostSameParentRule
+
+func IdenticalReplyPostSameParentRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+	if post.Reply == nil || helpers.IsSelfThread(c, post) {
+		return nil
+	}
+
+	if helpers.ParentOrRootIsFollower(c, post) {
+		return nil
+	}
+
+	postCount := c.Account.PostsCount
+	if helpers.AccountIsOlderThan(&c.AccountContext, identicalReplySameParentMaxAge) || postCount >= identicalReplySameParentMaxPosts {
+		return nil
+	}
+
+	period := countstore.PeriodHour
+	bucket := c.Account.Identity.DID.String() + "/" + post.Reply.Parent.Uri + "/" + helpers.HashOfString(post.Text)
+	c.IncrementPeriod("reply-text-same-post", bucket, period)
+
+	count := c.GetCount("reply-text-same-post", bucket, period)
+	if count >= identicalReplySameParentLimit {
+		c.AddAccountFlag("multi-identical-reply-same-post")
+		c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible spam (%d identical reply-posts to same post today)", count))
+		c.AddAccountLabel("spam")
+		c.Notify("slack")
+	}
+
+	return nil
+}
+
+// TODO: bumping temporarily
+// var youngReplyAccountLimit = 12
+var youngReplyAccountLimit = 200
 var _ automod.PostRuleFunc = YoungAccountDistinctRepliesRule
 
 func YoungAccountDistinctRepliesRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	// only replies, and skip self-replies (eg, threads)
-	if post.Reply == nil || IsSelfThread(c, post) {
+	if post.Reply == nil || helpers.IsSelfThread(c, post) {
 		return nil
 	}
 
@@ -92,15 +135,12 @@ func YoungAccountDistinctRepliesRule(c *automod.RecordContext, post *appbsky.Fee
 	if utf8.RuneCountInString(post.Text) <= 10 {
 		return nil
 	}
-	if c.Account.Private != nil {
-		age := time.Since(c.Account.Private.IndexedAt)
-		if age > 2*7*24*time.Hour {
-			return nil
-		}
+	if helpers.AccountIsOlderThan(&c.AccountContext, 14*24*time.Hour) {
+		return nil
 	}
 
 	// don't count if there is a follow-back relationship
-	if ParentOrRootIsFollower(c, post) {
+	if helpers.ParentOrRootIsFollower(c, post) {
 		return nil
 	}
 

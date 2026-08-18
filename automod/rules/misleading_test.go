@@ -11,6 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/engine"
+	"github.com/bluesky-social/indigo/automod/helpers"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -118,67 +119,67 @@ func TestIsMisleadingURL(t *testing.T) {
 	logger := slog.Default()
 
 	fixtures := []struct {
-		facet PostFacet
+		facet helpers.PostFacet
 		out   bool
 	}{
 		{
-			facet: PostFacet{
+			facet: helpers.PostFacet{
 				Text: "https://atproto.com",
 				URL:  pstr("https://atproto.com"),
 			},
 			out: false,
 		},
 		{
-			facet: PostFacet{
+			facet: helpers.PostFacet{
 				Text: "https://atproto.com",
 				URL:  pstr("https://evil.com"),
 			},
 			out: true,
 		},
 		{
-			facet: PostFacet{
+			facet: helpers.PostFacet{
 				Text: "https://www.atproto.com",
 				URL:  pstr("https://atproto.com"),
 			},
 			out: false,
 		},
 		{
-			facet: PostFacet{
+			facet: helpers.PostFacet{
 				Text: "https://atproto.com",
 				URL:  pstr("https://www.atproto.com"),
 			},
 			out: false,
 		},
 		{
-			facet: PostFacet{
+			facet: helpers.PostFacet{
 				Text: "[example.com]",
 				URL:  pstr("https://www.example.com"),
 			},
 			out: false,
 		},
 		{
-			facet: PostFacet{
+			facet: helpers.PostFacet{
 				Text: "example.com...",
 				URL:  pstr("https://example.com.evil.com"),
 			},
 			out: true,
 		},
 		{
-			facet: PostFacet{
+			facet: helpers.PostFacet{
 				Text: "ATPROTO.com...",
 				URL:  pstr("https://atproto.com"),
 			},
 			out: false,
 		},
 		{
-			facet: PostFacet{
+			facet: helpers.PostFacet{
 				Text: "1234.5678",
 				URL:  pstr("https://arxiv.org/abs/1234.5678"),
 			},
 			out: false,
 		},
 		{
-			facet: PostFacet{
+			facet: helpers.PostFacet{
 				Text: "www.techdirt.com…",
 				URL:  pstr("https://www.techdirt.com/"),
 			},

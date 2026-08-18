@@ -13,19 +13,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
-	"github.com/bluesky-social/indigo/sonar"
-	"github.com/gorilla/websocket"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "go.uber.org/automaxprocs"
 
-	"github.com/carlmjohnson/versioninfo"
-	"github.com/urfave/cli/v2"
+	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/schedulers/sequential"
+
+	"github.com/earthboundkid/versioninfo/v2"
+	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/urfave/cli/v3"
 )
 
 func main() {
-	app := cli.App{
+	app := cli.Command{
 		Name:    "sonar",
 		Usage:   "atproto firehose monitoring tool",
 		Version: versioninfo.Short(),
@@ -33,24 +33,22 @@ func main() {
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:  "ws-url",
-			Usage: "full websocket path to the ATProto SubscribeRepos XRPC endpoint",
-			Value: "wss://bsky.social/xrpc/com.atproto.sync.subscribeRepos",
+			Name:    "ws-url",
+			Usage:   "full websocket path to the ATProto SubscribeRepos XRPC endpoint",
+			Value:   "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
+			Sources: cli.EnvVars("SONAR_WS_URL"),
 		},
 		&cli.StringFlag{
-			Name:  "log-level",
-			Usage: "log level",
-			Value: "info",
+			Name:    "log-level",
+			Usage:   "log level",
+			Value:   "info",
+			Sources: cli.EnvVars("SONAR_LOG_LEVEL"),
 		},
 		&cli.IntFlag{
-			Name:  "port",
-			Usage: "listen port for metrics server",
-			Value: 8345,
-		},
-		&cli.IntFlag{
-			Name:  "worker-count",
-			Usage: "number of workers to process events",
-			Value: 10,
+			Name:    "port",
+			Usage:   "listen port for metrics server",
+			Value:   8345,
+			Sources: cli.EnvVars("SONAR_PORT"),
 		},
 		&cli.IntFlag{
 			Name:  "max-queue-size",
@@ -58,22 +56,21 @@ func main() {
 			Value: 10,
 		},
 		&cli.StringFlag{
-			Name:  "cursor-file",
-			Usage: "path to cursor file",
-			Value: "sonar_cursor.json",
+			Name:    "cursor-file",
+			Usage:   "path to cursor file",
+			Value:   "sonar_cursor.json",
+			Sources: cli.EnvVars("SONAR_CURSOR_FILE"),
 		},
 	}
 
-	app.Action = Sonar
+	app.Action = runSonar
 
-	err := app.Run(os.Args)
-	if err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func Sonar(cctx *cli.Context) error {
-	ctx := cctx.Context
+func runSonar(ctx context.Context, cmd *cli.Command) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -90,28 +87,22 @@ func Sonar(cctx *cli.Context) error {
 	logger = logger.With("source", "sonar_main")
 	logger.Info("starting sonar")
 
-	u, err := url.Parse(cctx.String("ws-url"))
+	u, err := url.Parse(cmd.String("ws-url"))
 	if err != nil {
 		log.Fatalf("failed to parse ws-url: %+v", err)
 	}
 
-	s, err := sonar.NewSonar(logger, cctx.String("cursor-file"), u.String())
+	s, err := NewSonar(logger, cmd.String("cursor-file"), u.String())
 	if err != nil {
 		log.Fatalf("failed to create sonar: %+v", err)
 	}
 
 	wg := sync.WaitGroup{}
 
-	scalingSettings := autoscaling.DefaultAutoscaleSettings()
-	scalingSettings.MaxConcurrency = cctx.Int("worker-count")
-	scalingSettings.AutoscaleFrequency = time.Second
-
-	pool := autoscaling.NewScheduler(scalingSettings, u.Host, s.HandleStreamEvent)
+	pool := sequential.NewScheduler(u.Host, s.HandleStreamEvent)
 
 	// Start a goroutine to manage the cursor file, saving the current cursor every 5 seconds.
-	go func() {
-		wg.Add(1)
-		defer wg.Done()
+	wg.Go(func() {
 		ticker := time.NewTicker(5 * time.Second)
 		logger := logger.With("source", "cursor_file_manager")
 
@@ -132,12 +123,10 @@ func Sonar(cctx *cli.Context) error {
 				}
 			}
 		}
-	}()
+	})
 
 	// Start a goroutine to manage the liveness checker, shutting down if no events are received for 15 seconds
-	go func() {
-		wg.Add(1)
-		defer wg.Done()
+	wg.Go(func() {
 		ticker := time.NewTicker(15 * time.Second)
 		lastSeq := int64(0)
 
@@ -161,29 +150,27 @@ func Sonar(cctx *cli.Context) error {
 				}
 			}
 		}
-	}()
+	})
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 
 	metricServer := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cctx.Int("port")),
+		Addr:    fmt.Sprintf(":%d", cmd.Int("port")),
 		Handler: mux,
 	}
 
 	// Startup metrics server
-	go func() {
-		wg.Add(1)
-		defer wg.Done()
+	wg.Go(func() {
 		logger = logger.With("source", "metrics_server")
 
-		logger.Info("metrics server listening", "port", cctx.Int("port"))
+		logger.Info("metrics server listening", "port", cmd.Int("port"))
 
 		if err := metricServer.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatalf("failed to start metrics server: %+v", err)
 		}
 		logger.Info("metrics server shut down successfully")
-	}()
+	})
 
 	if s.Progress.LastSeq >= 0 {
 		u.RawQuery = fmt.Sprintf("cursor=%d", s.Progress.LastSeq)
@@ -191,7 +178,7 @@ func Sonar(cctx *cli.Context) error {
 
 	logger.Info("connecting to WebSocket", "url", u.String())
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), http.Header{
-		"User-Agent": []string{"sonar/1.0"},
+		"User-Agent": []string{"sonar/1.1"},
 	})
 	if err != nil {
 		logger.Info("failed to connect to websocket", "err", err)
@@ -199,13 +186,11 @@ func Sonar(cctx *cli.Context) error {
 	}
 	defer c.Close()
 
-	go func() {
-		wg.Add(1)
-		defer wg.Done()
-		err = events.HandleRepoStream(ctx, c, pool)
+	wg.Go(func() {
+		err = events.HandleRepoStream(ctx, c, pool, logger)
 		logger.Info("HandleRepoStream returned unexpectedly", "err", err)
 		cancel()
-	}()
+	})
 
 	select {
 	case <-signals:

@@ -4,7 +4,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-
 	"github.com/ipfs/go-cid"
 )
 
@@ -14,7 +13,7 @@ type DbCID struct {
 	CID cid.Cid
 }
 
-func (dbc *DbCID) Scan(v interface{}) error {
+func (dbc *DbCID) Scan(v any) error {
 	b, ok := v.([]byte)
 	if !ok {
 		return fmt.Errorf("dbcids must get bytes!")

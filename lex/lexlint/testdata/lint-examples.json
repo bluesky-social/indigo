@@ -1,0 +1,76 @@
+[
+  {
+    "name": "minimal, no lint problems",
+    "schema": {
+      "lexicon": 1,
+      "id": "example.lexicon.record",
+      "defs": {
+        "main": {
+          "type": "record",
+          "description": "minimal description",
+          "key": "any",
+          "record": {
+            "type": "object",
+            "properties": {}
+          }
+        }
+      }
+    },
+    "issues": []
+  },
+  {
+    "name": "bad field name",
+    "schema": {
+      "lexicon": 1,
+      "id": "example.lexicon.record",
+      "defs": {
+        "main": {
+          "type": "record",
+          "description": "minimal description",
+          "key": "any",
+          "record": {
+            "type": "object",
+            "properties": {
+              "one.two": {
+                "type": "string",
+                "maxLength": 20
+              }
+            }
+          }
+        }
+      }
+    },
+    "issues": ["field-name-syntax"]
+  },
+  {
+    "name": "local ref in string known values",
+    "schema": {
+      "lexicon": 1,
+      "id": "example.lexicon.record",
+      "defs": {
+        "main": {
+          "type": "record",
+          "description": "minimal description",
+          "key": "any",
+          "record": {
+            "type": "object",
+            "properties": {
+              "strField": {
+                "type": "string",
+                "maxLength": 100,
+                "knownValues": [
+                  "#green"
+                ]
+              }
+            }
+          }
+        },
+        "green": {
+          "type": "token",
+          "description": "asdf"
+        }
+      }
+    },
+    "issues": ["known-string-local-ref"]
+  }
+]

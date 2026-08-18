@@ -7,6 +7,7 @@ import (
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/helpers"
 )
 
 var botLinkStrings = []string{"ainna13762491", "LINK押して", "→ https://tiny", "⇒ http://tiny"}
@@ -23,7 +24,14 @@ func BotLinkProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile)
 				c.AddAccountLabel("spam")
 				c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible bot based on link in profile: %s", str))
 				c.Notify("slack")
+				return nil
 			}
+		}
+		if strings.Contains(*profile.Description, "🏈🍕🌀") {
+			c.AddAccountFlag("profile-bot-string")
+			c.ReportAccount(automod.ReportReasonSpam, "possible bot based on string in profile")
+			c.Notify("slack")
+			return nil
 		}
 	}
 	return nil
@@ -38,6 +46,7 @@ func SimpleBotPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 			c.AddAccountFlag("post-bot-string")
 			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible bot based on string in post: %s", str))
 			c.Notify("slack")
+			return nil
 		}
 	}
 	return nil
@@ -46,13 +55,7 @@ func SimpleBotPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 var _ automod.IdentityRuleFunc = NewAccountBotEmailRule
 
 func NewAccountBotEmailRule(c *automod.AccountContext) error {
-	// need access to IndexedAt for this rule
-	if c.Account.Private == nil || c.Account.Identity == nil {
-		return nil
-	}
-
-	age := time.Since(c.Account.Private.IndexedAt)
-	if age > 1*time.Hour {
+	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(c, 1*time.Hour) {
 		return nil
 	}
 
@@ -61,7 +64,33 @@ func NewAccountBotEmailRule(c *automod.AccountContext) error {
 			c.AddAccountFlag("new-suspicious-email")
 			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible bot based on email domain TLD: %s", tld))
 			c.Notify("slack")
+			return nil
 		}
 	}
+	return nil
+}
+
+var _ automod.PostRuleFunc = TrivialSpamPostRule
+
+// looks for new accounts, which frequently post the same type of content
+func TrivialSpamPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(&c.AccountContext, 8*24*time.Hour) {
+		return nil
+	}
+
+	// only posts with dumb patterns (for now)
+	txt := strings.ToLower(post.Text)
+	if !c.InSet("trivial-spam-text", txt) {
+		return nil
+	}
+
+	// only accounts with empty profile (for now)
+	if c.Account.Profile.HasAvatar {
+		return nil
+	}
+
+	c.ReportAccount(automod.ReportReasonOther, "trivial spam account (also labeled; remove label if this isn't spam!)")
+	c.AddAccountLabel("!hide")
+	c.Notify("slack")
 	return nil
 }

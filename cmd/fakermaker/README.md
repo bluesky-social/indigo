@@ -9,13 +9,6 @@ Configure a `.env` file for use against `atproto` Typescript PDS implementation
 	ATP_AUTH_PASSWORD="admin"
 	ATP_AUTH_ADMIN_PASSWORD="admin"
 
-or, against `laputa` golang PDS implementation (in this repo; already running
-locally):
-
-	ATP_PDS_HOST=http://localhost:4989
-	ATP_AUTH_HANDLE="admin.test"
-	ATP_AUTH_PASSWORD="admin"
-	ATP_AUTH_ADMIN_PASSWORD="admin"
 
 Then, from the top-level directory, run test commands:
 

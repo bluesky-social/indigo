@@ -7,14 +7,21 @@ import (
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/helpers"
 	"github.com/bluesky-social/indigo/automod/keyword"
 )
 
 func BadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	for _, tok := range ExtractTextTokensPost(post) {
+	isJapanese := false
+	for _, lang := range post.Langs {
+		if lang == "ja" || strings.HasPrefix(lang, "ja-") {
+			isJapanese = true
+		}
+	}
+	for _, tok := range helpers.ExtractTextTokensPost(post) {
 		word := keyword.SlugIsExplicitSlur(tok)
 		// used very frequently in a reclaimed context
-		if word != "" && word != "faggot" && word != "tranny" {
+		if word != "" && word != "faggot" && word != "tranny" && word != "coon" && !(word == "kike" && isJapanese) {
 			c.AddRecordFlag("bad-word-text")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in post text or alttext: %s", word))
 			//c.Notify("slack")
@@ -23,6 +30,11 @@ func BadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 		// de-pluralize
 		tok = strings.TrimSuffix(tok, "s")
 		if c.InSet("worst-words", tok) {
+			// skip this specific term, if used in a Japanese language post
+			if isJapanese && tok == "kike" {
+				continue
+			}
+
 			c.AddRecordFlag("bad-word-text")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in post text or alttext: %s", tok))
 			//c.Notify("slack")
@@ -43,7 +55,7 @@ func BadWordProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile)
 			//c.Notify("slack")
 		}
 	}
-	for _, tok := range ExtractTextTokensProfile(profile) {
+	for _, tok := range helpers.ExtractTextTokensProfile(profile) {
 		// de-pluralize
 		tok = strings.TrimSuffix(tok, "s")
 		if c.InSet("worst-words", tok) {
@@ -60,8 +72,8 @@ var _ automod.ProfileRuleFunc = BadWordProfileRule
 
 // looks for the specific harassment situation of a replay to another user with only a single word
 func ReplySingleBadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if post.Reply != nil && !IsSelfThread(c, post) {
-		tokens := ExtractTextTokensPost(post)
+	if post.Reply != nil && !helpers.IsSelfThread(c, post) {
+		tokens := helpers.ExtractTextTokensPost(post)
 		if len(tokens) != 1 {
 			return nil
 		}

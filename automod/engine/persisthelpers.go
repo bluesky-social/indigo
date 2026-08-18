@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -15,18 +16,9 @@ import (
 func dedupeLabelActions(labels, existing, existingNegated []string) []string {
 	newLabels := []string{}
 	for _, val := range dedupeStrings(labels) {
-		exists := false
-		for _, e := range existingNegated {
-			if val == e {
-				exists = true
-				break
-			}
-		}
-		for _, e := range existing {
-			if val == e {
-				exists = true
-				break
-			}
+		exists := slices.Contains(existingNegated, val)
+		if slices.Contains(existing, val) {
+			exists = true
 		}
 		if !exists {
 			newLabels = append(newLabels, val)
@@ -35,16 +27,21 @@ func dedupeLabelActions(labels, existing, existingNegated []string) []string {
 	return newLabels
 }
 
+func dedupeTagActions(tags, existing []string) []string {
+	newTags := []string{}
+	for _, val := range dedupeStrings(tags) {
+		exists := slices.Contains(existing, val)
+		if !exists {
+			newTags = append(newTags, val)
+		}
+	}
+	return newTags
+}
+
 func dedupeFlagActions(flags, existing []string) []string {
 	newFlags := []string{}
 	for _, val := range dedupeStrings(flags) {
-		exists := false
-		for _, e := range existing {
-			if val == e {
-				exists = true
-				break
-			}
-		}
+		exists := slices.Contains(existing, val)
 		if !exists {
 			newFlags = append(newFlags, val)
 		}
@@ -81,7 +78,12 @@ func (eng *Engine) circuitBreakReports(ctx context.Context, reports []ModReport)
 	if err != nil {
 		return nil, fmt.Errorf("checking report action quota: %w", err)
 	}
-	if c >= QuotaModReportDay {
+
+	quotaModReportDay := eng.Config.QuotaModReportDay
+	if quotaModReportDay == 0 {
+		quotaModReportDay = 10000
+	}
+	if c >= quotaModReportDay {
 		eng.Logger.Warn("CIRCUIT BREAKER: automod reports")
 		return []ModReport{}, nil
 	}
@@ -100,7 +102,11 @@ func (eng *Engine) circuitBreakTakedown(ctx context.Context, takedown bool) (boo
 	if err != nil {
 		return false, fmt.Errorf("checking takedown action quota: %w", err)
 	}
-	if c >= QuotaModTakedownDay {
+	quotaModTakedownDay := eng.Config.QuotaModTakedownDay
+	if quotaModTakedownDay == 0 {
+		quotaModTakedownDay = 200
+	}
+	if c >= quotaModTakedownDay {
 		eng.Logger.Warn("CIRCUIT BREAKER: automod takedowns")
 		return false, nil
 	}
@@ -111,6 +117,30 @@ func (eng *Engine) circuitBreakTakedown(ctx context.Context, takedown bool) (boo
 	return takedown, nil
 }
 
+// Combined circuit breaker for miscellaneous mod actions like: escalate, acknowledge
+func (eng *Engine) circuitBreakModAction(ctx context.Context, action bool) (bool, error) {
+	if !action {
+		return false, nil
+	}
+	c, err := eng.Counters.GetCount(ctx, "automod-quota", "mod-action", countstore.PeriodDay)
+	if err != nil {
+		return false, fmt.Errorf("checking mod action quota: %w", err)
+	}
+	quotaModActionDay := eng.Config.QuotaModActionDay
+	if quotaModActionDay == 0 {
+		quotaModActionDay = 2000
+	}
+	if c >= quotaModActionDay {
+		eng.Logger.Warn("CIRCUIT BREAKER: automod action")
+		return false, nil
+	}
+	err = eng.Counters.Increment(ctx, "automod-quota", "mod-action")
+	if err != nil {
+		return false, fmt.Errorf("incrementing mod action quota: %w", err)
+	}
+	return action, nil
+}
+
 // Creates a moderation report, but checks first if there was a similar recent one, and skips if so.
 //
 // Returns a bool indicating if a new report was created.
@@ -118,26 +148,32 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 	// before creating a report, query to see if automod has already reported this account in the past week for the same reason
 	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
 
-	// ModerationQueryEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
 	resp, err := toolsozone.ModerationQueryEvents(
 		ctx,
 		xrpcc,
-		nil,
-		nil,
-		"",
-		"",
-		"",
-		xrpcc.Auth.Did,
-		"",
-		false,
-		false,
-		5,
-		nil,
-		nil,
-		nil,
-		"",
-		did.String(),
-		[]string{"tools.ozone.moderation.defs#modEventReport"},
+		nil,            // addedLabels []string
+		nil,            // addedTags []string
+		"",             // ageAssuranceState
+		"",             // batchId string
+		nil,            // collections []string
+		"",             // comment string
+		"",             // createdAfter string
+		"",             // createdBefore string
+		xrpcc.Auth.Did, // createdBy string
+		"",             // cursor string
+		false,          // hasComment bool
+		false,          // includeAllUserRecords bool
+		5,              // limit int64
+		nil,            // modTool
+		nil,            // policies []string
+		nil,            // removedLabels []string
+		nil,            // removedTags []string
+		nil,            // reportTypes []string
+		"",             // sortDirection string
+		did.String(),   // subject string
+		"",             // subjectType string
+		[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
+		false, // withStrike bool
 	)
 
 	if err != nil {
@@ -153,7 +189,11 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 		if err != nil {
 			return false, err
 		}
-		if time.Since(created.Time()) > ReportDupePeriod {
+		reportDupePeriod := eng.Config.ReportDupePeriod
+		if reportDupePeriod == 0 {
+			reportDupePeriod = 1 * 24 * time.Hour
+		}
+		if time.Since(created.Time()) > reportDupePeriod {
 			continue
 		}
 
@@ -165,10 +205,15 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 	eng.Logger.Info("reporting account", "reasonType", mr.ReasonType, "comment", mr.Comment)
 	actionNewReportCount.WithLabelValues("account").Inc()
 	comment := "[automod] " + mr.Comment
-	_, err = comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
-		ReasonType: &mr.ReasonType,
-		Reason:     &comment,
-		Subject: &comatproto.ModerationCreateReport_Input_Subject{
+	_, err = toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+		CreatedBy: xrpcc.Auth.Did,
+		Event: &toolsozone.ModerationEmitEvent_Input_Event{
+			ModerationDefs_ModEventReport: &toolsozone.ModerationDefs_ModEventReport{
+				Comment:    &comment,
+				ReportType: &mr.ReasonType,
+			},
+		},
+		Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
 			AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
 				Did: did.String(),
 			},
@@ -189,26 +234,32 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 	// before creating a report, query to see if automod has already reported this account in the past week for the same reason
 	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
 
-	// ModerationQueryEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
 	resp, err := toolsozone.ModerationQueryEvents(
 		ctx,
 		xrpcc,
-		nil,
-		nil,
-		"",
-		"",
-		"",
-		xrpcc.Auth.Did,
-		"",
-		false,
-		false,
-		5,
-		nil,
-		nil,
-		nil,
-		"",
-		uri.String(),
-		[]string{"tools.ozone.moderation.defs#modEventReport"},
+		nil,            // addedLabels []string
+		nil,            // addedTags []string
+		"",             // ageAssuranceState
+		"",             // batchId string
+		nil,            // collections []string
+		"",             // comment string
+		"",             // createdAfter string
+		"",             // createdBefore string
+		xrpcc.Auth.Did, // createdBy string
+		"",             // cursor string
+		false,          // hasComment bool
+		false,          // includeAllUserRecords bool
+		5,              // limit int64
+		nil,            // modTool
+		nil,            // policies []string
+		nil,            // removedLabels []string
+		nil,            // removedTags []string
+		nil,            // reportTypes []string
+		"",             // sortDirection string
+		uri.String(),   // subject string
+		"",             // subjectType string
+		[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
+		false, // withStrike bool
 	)
 	if err != nil {
 		return false, err
@@ -223,7 +274,11 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 		if err != nil {
 			return false, err
 		}
-		if time.Since(created.Time()) > ReportDupePeriod {
+		reportDupePeriod := eng.Config.ReportDupePeriod
+		if reportDupePeriod == 0 {
+			reportDupePeriod = 1 * 24 * time.Hour
+		}
+		if time.Since(created.Time()) > reportDupePeriod {
 			continue
 		}
 
@@ -235,10 +290,15 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 	eng.Logger.Info("reporting record", "reasonType", mr.ReasonType, "comment", mr.Comment)
 	actionNewReportCount.WithLabelValues("record").Inc()
 	comment := "[automod] " + mr.Comment
-	_, err = comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
-		ReasonType: &mr.ReasonType,
-		Reason:     &comment,
-		Subject: &comatproto.ModerationCreateReport_Input_Subject{
+	_, err = toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+		CreatedBy: xrpcc.Auth.Did,
+		Event: &toolsozone.ModerationEmitEvent_Input_Event{
+			ModerationDefs_ModEventReport: &toolsozone.ModerationDefs_ModEventReport{
+				Comment:    &comment,
+				ReportType: &mr.ReasonType,
+			},
+		},
+		Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
 			RepoStrongRef: &comatproto.RepoStrongRef{
 				Uri: uri.String(),
 				Cid: cid.String(),
