@@ -3,10 +3,10 @@ package main
 import (
 	"reflect"
 
+	standardsite "github.com/bluesky-social/indigo/api-ext/standardsite"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	chat "github.com/bluesky-social/indigo/api/chat"
-	standardsite "github.com/bluesky-social/indigo/api-ext/standardsite"
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/labeling"
 	atrepo "github.com/bluesky-social/indigo/atproto/repo"
