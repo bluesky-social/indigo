@@ -24,10 +24,11 @@ type TapServer struct {
 	adminPassword string
 	idDir         identity.Directory
 	firehose      *FirehoseProcessor
+	jetstream     *JetstreamProcessor
 	crawler       *Crawler
 }
 
-func NewTapServer(logger *slog.Logger, db *gorm.DB, outbox *Outbox, idDir identity.Directory, firehose *FirehoseProcessor, crawler *Crawler, config *TapConfig) *TapServer {
+func NewTapServer(logger *slog.Logger, db *gorm.DB, outbox *Outbox, idDir identity.Directory, firehose *FirehoseProcessor, jetstream *JetstreamProcessor, crawler *Crawler, config *TapConfig) *TapServer {
 	return &TapServer{
 		logger:        logger.With("component", "server"),
 		db:            db,
@@ -35,6 +36,7 @@ func NewTapServer(logger *slog.Logger, db *gorm.DB, outbox *Outbox, idDir identi
 		adminPassword: config.AdminPassword,
 		idDir:         idDir,
 		firehose:      firehose,
+		jetstream:     jetstream,
 		crawler:       crawler,
 	}
 }
@@ -269,6 +271,7 @@ func (ts *TapServer) handleStatsResyncBuffer(c echo.Context) error {
 
 type CursorsResp struct {
 	Firehose  *int64  `json:"firehose,omitempty"`
+	Jetstream *int64  `json:"jetstream,omitempty"`
 	ListRepos *string `json:"list_repos,omitempty"`
 }
 
@@ -279,6 +282,11 @@ func (ts *TapServer) handleStatsCursors(c echo.Context) error {
 	if ts.firehose != nil {
 		seq := ts.firehose.lastSeq.Load()
 		resp.Firehose = &seq
+	}
+
+	if ts.jetstream != nil {
+		timeUs := ts.jetstream.lastTimeUs.Load()
+		resp.Jetstream = &timeUs
 	}
 
 	// Get enumeration cursor based on crawler config

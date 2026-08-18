@@ -19,11 +19,12 @@ type Tap struct {
 	db     *gorm.DB
 	logger *slog.Logger
 
-	firehose *FirehoseProcessor
-	events   *EventManager
-	repos    *RepoManager
-	resyncer *Resyncer
-	crawler  *Crawler
+	firehose  *FirehoseProcessor
+	jetstream *JetstreamProcessor
+	events    *EventManager
+	repos     *RepoManager
+	resyncer  *Resyncer
+	crawler   *Crawler
 
 	server *TapServer
 	outbox *Outbox
@@ -36,6 +37,7 @@ type TapConfig struct {
 	DBMaxConns                 int
 	PLCURL                     string
 	RelayUrl                   string
+	JetstreamUrl               string
 	FirehoseParallelism        int
 	ResyncParallelism          int
 	OutboxParallelism          int
@@ -75,19 +77,26 @@ func NewTap(config TapConfig) (*Tap, error) {
 
 	resyncer := NewResyncer(logger, db, repoMngr, evtMngr, &config)
 
-	firehose := NewFirehoseProcessor(logger, db, evtMngr, repoMngr, &config)
+	var firehose *FirehoseProcessor
+	var jetstream *JetstreamProcessor
+	if config.JetstreamUrl != "" {
+		jetstream = NewJetstreamProcessor(logger, db, evtMngr, repoMngr, &config)
+	} else {
+		firehose = NewFirehoseProcessor(logger, db, evtMngr, repoMngr, &config)
+	}
 
 	crawler := NewCrawler(logger, db, &config)
 
 	outbox := NewOutbox(logger, evtMngr, &config)
 
-	server := NewTapServer(logger, db, outbox, cdir, firehose, crawler, &config)
+	server := NewTapServer(logger, db, outbox, cdir, firehose, jetstream, crawler, &config)
 
 	t := &Tap{
 		db:     db,
 		logger: slog.Default().With("system", "tap"),
 
 		firehose:   firehose,
+		jetstream:  jetstream,
 		events:     evtMngr,
 		repos:      repoMngr,
 		resyncer:   resyncer,
