@@ -317,9 +317,26 @@ func parseAuthErrorReason(resp *http.Response, reqType string) string {
 	return fmt.Sprintf("%s", errResp["error"])
 }
 
-// Low-level helper to send PAR request to auth server, which involves starting PKCE and DPoP.
-func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, scopes []string, loginHint string) (*AuthRequestData, error) {
+type authOptions struct {
+	prompt *string
+}
 
+// AuthOption is a functional option for configuring additional parameters on the auth request.
+type AuthOption func(*authOptions)
+
+// WithPrompt provides a hint to the auth server of what expected auth behavior should be. Eg, 'create', 'none', 'consent', 'login', 'select_account'
+func WithPrompt(prompt string) AuthOption {
+	return func(opts *authOptions) {
+		opts.prompt = &prompt
+	}
+}
+
+// SendAuthRequest is a low-level helper to send PAR request to auth server, which involves starting PKCE and DPoP.
+func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerMetadata, scopes []string, loginHint string, opts ...AuthOption) (*AuthRequestData, error) {
+	authOpts := &authOptions{}
+	for _, opt := range opts {
+		opt(authOpts)
+	}
 	parURL := authMeta.PushedAuthorizationRequestEndpoint
 	state := secureRandomBase64(16)
 	pkceVerifier := secureRandomBase64(48)
@@ -336,6 +353,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		ResponseType:        "code",
 		CodeChallenge:       codeChallenge,
 		CodeChallengeMethod: "S256",
+		Prompt:              authOpts.prompt,
 	}
 
 	if app.Config.IsConfidential() {
@@ -520,13 +538,12 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 	return &tokenResp, nil
 }
 
-// High-level helper for starting a new session. Resolves identifier to resource server and auth server metadata, sends PAR request, persists request info to store, and returns a redirect URL.
+// StartAuthFlow is a high-level helper for starting a new session. Resolves identifier to resource server and auth server metadata, sends PAR request, persists request info to store, and returns a redirect URL.
 //
 // The `identifier` argument can be an atproto account identifier (handle or DID), or can be a URL to the account's auth server.
 //
-// The returned sting will be a web URL that the user should be redirected to (in browser) to approve the auth flow.
-func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (string, error) {
-
+// The returned string will be a web URL that the user should be redirected to (in browser) to approve the auth flow.
+func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string, opts ...AuthOption) (string, error) {
 	var authserverURL string
 	var accountDID syntax.DID
 
@@ -562,7 +579,7 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (str
 		return "", fmt.Errorf("fetching auth server metadata: %w", err)
 	}
 
-	info, err := app.SendAuthRequest(ctx, authserverMeta, app.Config.Scopes, identifier)
+	info, err := app.SendAuthRequest(ctx, authserverMeta, app.Config.Scopes, identifier, opts...)
 	if err != nil {
 		return "", fmt.Errorf("auth request failed: %w", err)
 	}
