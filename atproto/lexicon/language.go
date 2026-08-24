@@ -708,7 +708,7 @@ func (s *SchemaString) CheckSchema() error {
 	}
 	if s.Format != nil {
 		switch *s.Format {
-		case "at-identifier", "at-uri", "cid", "datetime", "did", "handle", "nsid", "uri", "language", "tid", "record-key":
+		case "at-identifier", "at-uri", "space-ref", "cid", "datetime", "did", "handle", "nsid", "uri", "language", "tid", "record-key":
 			// pass
 		default:
 			return fmt.Errorf("unknown string format: %s", *s.Format)
@@ -749,6 +749,11 @@ func (s *SchemaString) Validate(d any, flags ValidateFlags) error {
 			}
 		case "at-uri":
 			if _, err := syntax.ParseATURI(v); err != nil {
+				return err
+			}
+		case "space-ref":
+			// XXX: swap out with ParseSpaceRef once implemented in indigo
+			if _, err := syntax.ParseURI(v); err != nil {
 				return err
 			}
 		case "cid":

@@ -193,6 +193,11 @@
           "format": "at-uri",
           "description": "an at-uri string"
         },
+        "spaceref": {
+          "type": "string",
+          "format": "space-ref",
+          "description": "a space-ref string"
+        },
         "cid": {
           "type": "string",
           "format": "cid",
