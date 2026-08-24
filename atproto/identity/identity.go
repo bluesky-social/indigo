@@ -124,6 +124,25 @@ func (i *Identity) PublicKey() (atcrypto.PublicKey, error) {
 	return i.GetPublicKey("atproto")
 }
 
+// Identifies and parses the atproto space key for this identity's DID document. This is '#atproto_space', falling back to '#atproto' if that is not defined.
+//
+// Returns [ErrKeyNotFound] if there is no such key.
+//
+// Note that [atcrypto.PublicKey] is an interface, not a concrete type.
+func (i *Identity) SpacePublicKey() (atcrypto.PublicKey, error) {
+
+	// if a space-specific key is defined, try using that (and return error on failure)
+	if i.Keys != nil {
+		_, ok := i.Keys["atproto_space"]
+		if ok {
+			return i.GetPublicKey("atproto_space")
+		}
+	}
+
+	// otherwise fall back to regular atproto key
+	return i.GetPublicKey("atproto")
+}
+
 // Identifies and parses a specified service signing public key out of any keys in this identity's DID document.
 //
 // Returns [ErrKeyNotFound] if there is no such key.
@@ -169,6 +188,24 @@ func (i *Identity) GetPublicKey(id string) (atcrypto.PublicKey, error) {
 //
 // Returns an empty string if the service isn't found, or if the URL fails to parse.
 func (i *Identity) PDSEndpoint() string {
+	return i.GetServiceEndpoint("atproto_pds")
+}
+
+// The space host endpoint for this identity, if one is included in the DID document. Uses 'atproto_space_host' if defined, otherwise falls back to PDS endpoint.
+//
+// The endpoint should be an HTTP URL with method, hostname, and optional port. It may or may not include path segments.
+//
+// Returns an empty string if the service isn't found, or if the URL fails to parse.
+func (i *Identity) SpaceHostEndpoint() string {
+	// if 'atproto_space_host' is defined, try that first (returning error if invalid)
+	if i.Services != nil {
+		_, ok := i.Services["atproto_space_host"]
+		if ok {
+			return i.GetServiceEndpoint("atproto_space_host")
+		}
+	}
+
+	// otherwise fall back to 'atproto_pds'
 	return i.GetServiceEndpoint("atproto_pds")
 }
 
