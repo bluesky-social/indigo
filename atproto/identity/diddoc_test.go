@@ -38,7 +38,11 @@ func TestDIDDocParse(t *testing.T) {
 		pk, err := id.PublicKey()
 		assert.NoError(err)
 		assert.NotNil(pk)
+		spk, err := id.SpacePublicKey()
+		assert.NoError(err)
+		assert.NotNil(spk)
 		assert.Equal("https://bsky.social", id.PDSEndpoint())
+		assert.Equal("https://bsky.social", id.SpaceHostEndpoint())
 		hdl, err := id.DeclaredHandle()
 		assert.NoError(err)
 		assert.Equal("atproto.com", hdl.String())
@@ -75,11 +79,45 @@ func TestDIDDocFeedGenParse(t *testing.T) {
 	assert.Error(err)
 	assert.ErrorIs(err, ErrKeyNotDeclared)
 	assert.Nil(pk)
+	spk, err := id.SpacePublicKey()
+	assert.Error(err)
+	assert.ErrorIs(err, ErrKeyNotDeclared)
+	assert.Nil(spk)
 	assert.Equal("", id.PDSEndpoint())
+	assert.Equal("", id.SpaceHostEndpoint())
 	hdl, err := id.DeclaredHandle()
 	assert.Error(err)
 	assert.Empty(hdl)
 	svc, ok := id.Services["bsky_fg"]
 	assert.True(ok)
 	assert.Equal("https://discover.bsky.social", svc.URL)
+}
+
+func TestDIDDocSpaceParse(t *testing.T) {
+	assert := assert.New(t)
+	f, err := os.Open("testdata/space_doc.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	docBytes, err := io.ReadAll(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var doc DIDDocument
+	err = json.Unmarshal(docBytes, &doc)
+	assert.NoError(err)
+
+	id := ParseIdentity(&doc)
+
+	pk, err := id.PublicKey()
+	assert.NoError(err)
+	assert.NotNil(pk)
+	spk, err := id.SpacePublicKey()
+	assert.NoError(err)
+	assert.NotNil(spk)
+	assert.Equal("https://pds.example.com", id.PDSEndpoint())
+	assert.Equal("https://space-host.example.com", id.SpaceHostEndpoint())
 }
