@@ -228,7 +228,7 @@ func lintSchemaDef(nsid syntax.NSID, defname string, def lexicon.SchemaDef) []Li
 			// TODO: any lints on permissions?
 			_ = perm
 		}
-	case lexicon.SchemaPermission, lexicon.SchemaBoolean, lexicon.SchemaInteger, lexicon.SchemaString, lexicon.SchemaBytes, lexicon.SchemaCIDLink, lexicon.SchemaArray, lexicon.SchemaObject, lexicon.SchemaBlob, lexicon.SchemaToken, lexicon.SchemaRef, lexicon.SchemaUnion, lexicon.SchemaUnknown:
+	case lexicon.SchemaPermission, lexicon.SchemaBoolean, lexicon.SchemaInteger, lexicon.SchemaString, lexicon.SchemaBytes, lexicon.SchemaCIDLink, lexicon.SchemaArray, lexicon.SchemaObject, lexicon.SchemaBlob, lexicon.SchemaToken, lexicon.SchemaRef, lexicon.SchemaUnion, lexicon.SchemaUnknown, lexicon.SchemaSpace:
 		reciss := lintSchemaRecursive(nsid, def)
 		if len(reciss) > 0 {
 			issues = append(issues, reciss...)
