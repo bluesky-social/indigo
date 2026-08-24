@@ -219,6 +219,17 @@
     }
   },
   {
+    "name": "invalid string format spaceref",
+    "rkey": "demo",
+    "data": {
+      "$type": "example.lexicon.record",
+      "integer": 1,
+      "formats": {
+        "spaceref": "123"
+      }
+    }
+  },
+  {
     "name": "invalid string format cid",
     "rkey": "demo",
     "data": {
