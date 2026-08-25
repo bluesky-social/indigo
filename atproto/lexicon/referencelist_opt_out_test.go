@@ -55,8 +55,6 @@ func TestReferenceListOptOutViewState(t *testing.T) {
 	viewerState, err := cat.Resolve("app.bsky.graph.defs#listViewerState")
 	require.NoError(t, err)
 	require.NoError(t, validateData(cat, viewerState.Def, map[string]any{
-		"referenceListOptOuts": []any{
-			"at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.referencelistoptout/3m2lp5zsc7422",
-		},
+		"referenceListOptOut": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.referencelistoptout/3m2lp5zsc7422",
 	}, 0))
 }

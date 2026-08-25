@@ -51,8 +51,8 @@ type GraphDefs_ListViewBasic struct {
 type GraphDefs_ListViewerState struct {
 	Blocked *string `json:"blocked,omitempty" cborgen:"blocked,omitempty"`
 	Muted   *bool   `json:"muted,omitempty" cborgen:"muted,omitempty"`
-	// referenceListOptOuts: The authenticated viewer's matching app.bsky.graph.referencelistoptout record URIs for this reference list. Only set for reference lists. Clients should delete all listed records to undo the opt-out.
-	ReferenceListOptOuts []string `json:"referenceListOptOuts,omitempty" cborgen:"referenceListOptOuts,omitempty"`
+	// referenceListOptOut: The authenticated viewer's app.bsky.graph.referencelistoptout record URI for this reference list. Only set for reference lists. A client can delete this record to undo the opt-out.
+	ReferenceListOptOut *string `json:"referenceListOptOut,omitempty" cborgen:"referenceListOptOut,omitempty"`
 }
 
 // GraphDefs_NotFoundActor is a "notFoundActor" in the app.bsky.graph.defs schema.
