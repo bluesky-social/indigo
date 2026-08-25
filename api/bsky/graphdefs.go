@@ -12,7 +12,9 @@ import (
 // GraphDefs_ListItemView is a "listItemView" in the app.bsky.graph.defs schema.
 type GraphDefs_ListItemView struct {
 	Subject *ActorDefs_ProfileView `json:"subject" cborgen:"subject"`
-	Uri     string                 `json:"uri" cborgen:"uri"`
+	// subjectOptedOut: Set to true when the subject has opted out of appearing in the reference list. Only set when the viewer owns the list.
+	SubjectOptedOut *bool  `json:"subjectOptedOut,omitempty" cborgen:"subjectOptedOut,omitempty"`
+	Uri             string `json:"uri" cborgen:"uri"`
 }
 
 // GraphDefs_ListView is a "listView" in the app.bsky.graph.defs schema.
@@ -49,6 +51,8 @@ type GraphDefs_ListViewBasic struct {
 type GraphDefs_ListViewerState struct {
 	Blocked *string `json:"blocked,omitempty" cborgen:"blocked,omitempty"`
 	Muted   *bool   `json:"muted,omitempty" cborgen:"muted,omitempty"`
+	// referenceListOptOuts: The authenticated viewer's matching app.bsky.graph.referencelistOptOut record URIs for this reference list. Only set for reference lists. Clients should delete all listed records to undo the opt-out.
+	ReferenceListOptOuts []string `json:"referenceListOptOuts,omitempty" cborgen:"referenceListOptOuts,omitempty"`
 }
 
 // GraphDefs_NotFoundActor is a "notFoundActor" in the app.bsky.graph.defs schema.
