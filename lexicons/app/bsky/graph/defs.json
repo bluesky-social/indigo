@@ -140,7 +140,7 @@
         "blocked": { "type": "string", "format": "at-uri" },
         "referenceListOptOuts": {
           "type": "array",
-          "description": "The authenticated viewer's matching app.bsky.graph.referencelistOptOut record URIs for this reference list. Only set for reference lists. Clients should delete all listed records to undo the opt-out.",
+          "description": "The authenticated viewer's matching app.bsky.graph.referencelistoptout record URIs for this reference list. Only set for reference lists. Clients should delete all listed records to undo the opt-out.",
           "items": { "type": "string", "format": "at-uri" }
         }
       }

@@ -51,7 +51,7 @@ type GraphDefs_ListViewBasic struct {
 type GraphDefs_ListViewerState struct {
 	Blocked *string `json:"blocked,omitempty" cborgen:"blocked,omitempty"`
 	Muted   *bool   `json:"muted,omitempty" cborgen:"muted,omitempty"`
-	// referenceListOptOuts: The authenticated viewer's matching app.bsky.graph.referencelistOptOut record URIs for this reference list. Only set for reference lists. Clients should delete all listed records to undo the opt-out.
+	// referenceListOptOuts: The authenticated viewer's matching app.bsky.graph.referencelistoptout record URIs for this reference list. Only set for reference lists. Clients should delete all listed records to undo the opt-out.
 	ReferenceListOptOuts []string `json:"referenceListOptOuts,omitempty" cborgen:"referenceListOptOuts,omitempty"`
 }
 

@@ -1,6 +1,6 @@
 {
   "lexicon": 1,
-  "id": "app.bsky.graph.referencelistOptOut",
+  "id": "app.bsky.graph.referencelistoptout",
   "defs": {
     "main": {
       "type": "record",

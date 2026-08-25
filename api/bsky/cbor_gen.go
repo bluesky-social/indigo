@@ -9498,7 +9498,7 @@ func (t *GraphVerification) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *GraphReferencelistOptOut) MarshalCBOR(w io.Writer) error {
+func (t *GraphReferencelistoptout) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -9522,10 +9522,10 @@ func (t *GraphReferencelistOptOut) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.graph.referencelistOptOut"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.graph.referencelistoptout"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("app.bsky.graph.referencelistOptOut")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.graph.referencelistoptout")); err != nil {
 		return err
 	}
 
@@ -9577,8 +9577,8 @@ func (t *GraphReferencelistOptOut) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *GraphReferencelistOptOut) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = GraphReferencelistOptOut{}
+func (t *GraphReferencelistoptout) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = GraphReferencelistoptout{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -9597,7 +9597,7 @@ func (t *GraphReferencelistOptOut) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("GraphReferencelistOptOut: map struct too large (%d)", extra)
+		return fmt.Errorf("GraphReferencelistoptout: map struct too large (%d)", extra)
 	}
 
 	n := extra

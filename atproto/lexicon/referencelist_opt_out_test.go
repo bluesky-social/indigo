@@ -10,7 +10,7 @@ func TestReferenceListOptOutLexicon(t *testing.T) {
 	cat := NewBaseCatalog()
 	require.NoError(t, cat.LoadDirectory("../../lexicons"))
 
-	const ref = "app.bsky.graph.referencelistOptOut"
+	const ref = "app.bsky.graph.referencelistoptout"
 	valid := map[string]any{
 		"$type":     ref,
 		"subject":   "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.list/3m2lp5zsc7422",
@@ -56,7 +56,7 @@ func TestReferenceListOptOutViewState(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, validateData(cat, viewerState.Def, map[string]any{
 		"referenceListOptOuts": []any{
-			"at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.referencelistOptOut/3m2lp5zsc7422",
+			"at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.referencelistoptout/3m2lp5zsc7422",
 		},
 	}, 0))
 }
