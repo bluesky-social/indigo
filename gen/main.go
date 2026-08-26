@@ -72,6 +72,7 @@ func main() {
 		bsky.FeedPostgate{},
 		bsky.FeedPostgate_DisableRule{},
 		bsky.GraphVerification{},
+		bsky.GraphReferencelistoptout{},
 		bsky.ActorStatus{},
 		bsky.ActorContentVisibilityDeclaration{},
 		bsky.NotificationDeclaration{},
