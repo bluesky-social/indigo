@@ -21,6 +21,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/capture"
 	"github.com/bluesky-social/indigo/automod/consumer"
+	"github.com/bluesky-social/indigo/util/ssrf"
 
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v3"
@@ -209,7 +210,8 @@ func configDirectory(cmd *cli.Command) (identity.Directory, error) {
 	baseDir := identity.BaseDirectory{
 		PLCURL: cmd.String("atp-plc-host"),
 		HTTPClient: http.Client{
-			Timeout: time.Second * 15,
+			Timeout:   time.Second * 15,
+			Transport: ssrf.PublicOnlyTransport(),
 		},
 		PLCLimiter:            rate.NewLimiter(rate.Limit(cmd.Int("plc-rate-limit")), 1),
 		TryAuthoritativeDNS:   true,
