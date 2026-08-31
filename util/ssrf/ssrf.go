@@ -57,8 +57,21 @@ var globalUnicastIPv6Net = net.IPNet{
 	Mask: net.CIDRMask(3, 128),
 }
 
+// 6to4 is 2002::/16
+var sixToFourIPv6Net = net.IPNet{
+	IP:   net.IP{0x20, 0x2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	Mask: net.CIDRMask(16, 128),
+}
+
 func isIPv6GlobalUnicast(address net.IP) bool {
-	return globalUnicastIPv6Net.Contains(address)
+	if !globalUnicastIPv6Net.Contains(address) {
+		return false
+	}
+	if sixToFourIPv6Net.Contains(address) {
+		// TODO: for now this is simply blocking all 6to4 address (which is overly broad). Should instead parse out and apply IPv4 public checks
+		return false
+	}
+	return true
 }
 
 func isIPv4Reserved(address net.IP) bool {

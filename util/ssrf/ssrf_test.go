@@ -42,6 +42,11 @@ func TestPublicOnlyTransport(t *testing.T) {
 	}
 
 	{
+		_, err := c.Get("http://[2002:7f00:1::]/") // IPv6 6to4 IPv4 localhost (127.0.0.1)
+		assert.ErrorIs(err, ErrUnsafeNetworkAddress)
+	}
+
+	{
 		_, err := c.Get("http://localhost:2470/path")
 		assert.ErrorIs(err, ErrUnsafeNetworkAddress)
 	}
