@@ -11,7 +11,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// The zero value ('BaseDirectory{}') is a usable Directory.
+// The zero value ('BaseDirectory{}') is a functional [Directory], but it does not include protections against untrusted network endpoints (eg, SSRF). Use [DefaultDirectory()] or explicitly configure HTTPClient with a safely configured [http.Client].
 type BaseDirectory struct {
 	// if non-empty, this string should have URL method, hostname, and optional port; it should not have a path or trailing slash
 	PLCURL string
@@ -19,7 +19,7 @@ type BaseDirectory struct {
 	PLCLimiter *rate.Limiter
 	// If not nil, this function will be called inline with DID Web lookups, and can be used to limit the number of requests to a given hostname
 	DIDWebLimitFunc func(ctx context.Context, hostname string) error
-	// HTTP client used for did:web, did:plc, and HTTP (well-known) handle resolution
+	// HTTP client used for did:web and HTTP (well-known) handle resolution. It is important this include SSRF protections; `http.DefaultClient` and bare `http.Client{}` do not.
 	HTTPClient http.Client
 	// HTTP client used for did:plc resolution. If nil, HTTPClient is used.
 	// The PLC directory service is configured (via PLCURL) and are fewer hardening concerns than did:web or handle resolution.

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/util/ssrf"
 
 	"github.com/earthboundkid/versioninfo/v2"
 )
@@ -63,12 +64,14 @@ var DefaultPLCURL = "https://plc.directory"
 
 // Returns a reasonable Directory implementation for applications
 func DefaultDirectory() Directory {
+	ssrfHTTPDialer := ssrf.PublicOnlyDialer()
 	base := BaseDirectory{
 		PLCURL: DefaultPLCURL,
 		HTTPClient: http.Client{
 			Timeout: time.Second * 10,
 			Transport: &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
+				DialContext: ssrfHTTPDialer.DialContext,
+				Proxy:       http.ProxyFromEnvironment,
 				// would want this around 100ms for services doing lots of handle resolution. Impacts PLC connections as well, but not too bad.
 				IdleConnTimeout: time.Millisecond * 1000,
 				MaxIdleConns:    100,
