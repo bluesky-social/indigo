@@ -63,6 +63,8 @@ var ErrInvalidHandle = errors.New("invalid handle")
 var DefaultPLCURL = "https://plc.directory"
 
 // Returns a reasonable Directory implementation for applications
+//
+// If an HTTP proxy is configured (via environment variable), SSRF protections will not apply to external requests (it is the responsibility of the proxy to handle SSRF). However, note that the default SSRF protections will apply to connections to the HTTP proxy itself, which breaks the common case of local-network HTTP proxies. In this situation, calling code and applications need to configure a custom [identity.Directory].
 func DefaultDirectory() Directory {
 	ssrfHTTPDialer := ssrf.PublicOnlyDialer()
 	base := BaseDirectory{
