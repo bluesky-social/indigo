@@ -23,6 +23,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/util/ssrf"
 
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/ipfs/go-cid"
@@ -280,7 +281,8 @@ func Netsync(ctx context.Context, cmd *cli.Command) error {
 		exit: make(chan struct{}),
 		wg:   sync.WaitGroup{},
 		client: &http.Client{
-			Timeout: 180 * time.Second,
+			Timeout:   180 * time.Second,
+			Transport: ssrf.PublicOnlyTransport(),
 		},
 
 		logger: logger,
