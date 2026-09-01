@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/util/ssrf"
 
 	"github.com/earthboundkid/versioninfo/v2"
 )
@@ -62,16 +63,23 @@ var ErrInvalidHandle = errors.New("invalid handle")
 var DefaultPLCURL = "https://plc.directory"
 
 // Returns a reasonable Directory implementation for applications
+//
+// If an HTTP proxy is configured (via environment variable), SSRF protections will not apply to external requests (it is the responsibility of the proxy to handle SSRF). However, note that the default SSRF protections will apply to connections to the HTTP proxy itself, which breaks the common case of local-network HTTP proxies. In this situation, calling code and applications need to configure a custom [identity.Directory].
 func DefaultDirectory() Directory {
+	ssrfHTTPDialer := ssrf.PublicOnlyDialer()
 	base := BaseDirectory{
 		PLCURL: DefaultPLCURL,
 		HTTPClient: http.Client{
 			Timeout: time.Second * 10,
 			Transport: &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
-				// would want this around 100ms for services doing lots of handle resolution. Impacts PLC connections as well, but not too bad.
-				IdleConnTimeout: time.Millisecond * 1000,
-				MaxIdleConns:    100,
+				Proxy:             http.ProxyFromEnvironment,
+				DialContext:       ssrfHTTPDialer.DialContext,
+				ForceAttemptHTTP2: true,
+				MaxIdleConns:      100,
+				// would want this around 100ms for services doing lots of handle resolution
+				IdleConnTimeout:       time.Millisecond * 1000,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
 			},
 		},
 		PLCClient: &http.Client{

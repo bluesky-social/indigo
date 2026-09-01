@@ -14,6 +14,8 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
+var maxHandleBodySize int64 = 2048
+
 func parseTXTResp(res []string) (syntax.DID, error) {
 	for _, s := range res {
 		if strings.HasPrefix(s, "did=") {
@@ -147,10 +149,6 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 		return "", fmt.Errorf("%w: HTTP well-known request error: %w", ErrHandleResolutionFailed, err)
 	}
 	defer resp.Body.Close()
-	if resp.ContentLength > 2048 {
-		// NOTE: intentionally not draining body
-		return "", fmt.Errorf("%w: HTTP well-known body too large for %s", ErrHandleResolutionFailed, handle)
-	}
 	if resp.StatusCode == http.StatusNotFound {
 		io.Copy(io.Discard, resp.Body)
 		return "", fmt.Errorf("%w: HTTP 404 for %s", ErrHandleNotFound, handle)
@@ -159,8 +157,14 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 		io.Copy(io.Discard, resp.Body)
 		return "", fmt.Errorf("%w: HTTP well-known status %d for %s", ErrHandleResolutionFailed, resp.StatusCode, handle)
 	}
+	if resp.ContentLength > maxHandleBodySize {
+		// NOTE: intentionally not draining body
+		return "", fmt.Errorf("%w: HTTP well-known body too large for %s", ErrHandleResolutionFailed, handle)
+	}
 
-	b, err := io.ReadAll(io.LimitReader(resp.Body, 2048))
+	// TODO: this could result in a truncated handle value with no error thrown (if Content-Length is not set).
+	// See: https://github.com/bluesky-social/indigo/issues/1460
+	b, err := io.ReadAll(io.LimitReader(resp.Body, maxHandleBodySize))
 	if err != nil {
 		return "", fmt.Errorf("%w: HTTP well-known body read for %s: %w", ErrHandleResolutionFailed, handle, err)
 	}
