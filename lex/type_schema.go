@@ -192,37 +192,35 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname string) error {
 	pf := printerf(w)
 	paramtypes := []string{"ctx context.Context"}
-	if s.Type == "query" {
 
-		if s.Parameters != nil {
-			var required map[string]bool
-			if s.Parameters.Required != nil {
-				required = make(map[string]bool)
-				for _, r := range s.Required {
-					required[r] = true
-				}
+	if s.Parameters != nil {
+		var required map[string]bool
+		if s.Parameters.Required != nil {
+			required = make(map[string]bool)
+			for _, r := range s.Required {
+				required[r] = true
 			}
-			orderedMapIter[*TypeSchema](s.Parameters.Properties, func(k string, t *TypeSchema) error {
-				switch t.Type {
-				case "string":
-					paramtypes = append(paramtypes, k+" string")
-				case "integer":
-					// TODO(bnewbold) could be handling "nullable" here
-					if required != nil && !required[k] {
-						paramtypes = append(paramtypes, k+" *int")
-					} else {
-						paramtypes = append(paramtypes, k+" int")
-					}
-				case "float":
-					return fmt.Errorf("non-integer numbers currently unsupported")
-				case "array":
-					paramtypes = append(paramtypes, k+"[]"+t.Items.Type)
-				default:
-					return fmt.Errorf("unsupported handler parameter type: %s", t.Type)
-				}
-				return nil
-			})
 		}
+		orderedMapIter[*TypeSchema](s.Parameters.Properties, func(k string, t *TypeSchema) error {
+			switch t.Type {
+			case "string":
+				paramtypes = append(paramtypes, k+" string")
+			case "integer":
+				// TODO(bnewbold) could be handling "nullable" here
+				if required != nil && !required[k] {
+					paramtypes = append(paramtypes, k+" *int")
+				} else {
+					paramtypes = append(paramtypes, k+" int")
+				}
+			case "float":
+				return fmt.Errorf("non-integer numbers currently unsupported")
+			case "array":
+				paramtypes = append(paramtypes, k+"[]"+t.Items.Type)
+			default:
+				return fmt.Errorf("unsupported handler parameter type: %s", t.Type)
+			}
+			return nil
+		})
 	}
 
 	returndef := "error"
@@ -267,30 +265,34 @@ func (s *TypeSchema) WriteRPCHandler(w io.Writer, fname, shortname, impname stri
 
 	paramtypes := []string{"ctx context.Context"}
 	params := []string{"ctx"}
-	if s.Type == "query" {
-		if s.Parameters != nil {
-			// TODO(bnewbold): could be handling 'nullable' here
-			required := make(map[string]bool)
-			for _, r := range s.Parameters.Required {
-				required[r] = true
-			}
-			for k, v := range s.Parameters.Properties {
-				if v.Default != nil {
-					required[k] = true
-				}
-			}
-			if err := orderedMapIter(s.Parameters.Properties, func(k string, t *TypeSchema) error {
-				switch t.Type {
-				case "string":
-					params = append(params, k)
-					paramtypes = append(paramtypes, k+" string")
-					pf("%s := c.QueryParam(\"%s\")\n", k, k)
-				case "integer":
-					params = append(params, k)
 
-					if !required[k] {
-						paramtypes = append(paramtypes, k+" *int")
-						pf(`
+	if s.Type != "query" && s.Type != "procedure" {
+		return fmt.Errorf("can only generate handlers for queries or procedures")
+	}
+
+	if s.Parameters != nil {
+		// TODO(bnewbold): could be handling 'nullable' here
+		required := make(map[string]bool)
+		for _, r := range s.Parameters.Required {
+			required[r] = true
+		}
+		for k, v := range s.Parameters.Properties {
+			if v.Default != nil {
+				required[k] = true
+			}
+		}
+		if err := orderedMapIter(s.Parameters.Properties, func(k string, t *TypeSchema) error {
+			switch t.Type {
+			case "string":
+				params = append(params, k)
+				paramtypes = append(paramtypes, k+" string")
+				pf("%s := c.QueryParam(\"%s\")\n", k, k)
+			case "integer":
+				params = append(params, k)
+
+				if !required[k] {
+					paramtypes = append(paramtypes, k+" *int")
+					pf(`
 var %s *int
 if p := c.QueryParam("%s"); p != "" {
 	%s_val, err := strconv.Atoi(p)
@@ -300,9 +302,9 @@ if p := c.QueryParam("%s"); p != "" {
 	%s  = &%s_val
 }
 `, k, k, k, k, k)
-					} else if t.Default != nil {
-						paramtypes = append(paramtypes, k+" int")
-						pf(`
+				} else if t.Default != nil {
+					paramtypes = append(paramtypes, k+" int")
+					pf(`
 var %s int
 if p := c.QueryParam("%s"); p != "" {
 var err error
@@ -314,24 +316,24 @@ if err != nil {
 	%s = %d
 }
 `, k, k, k, k, int(t.Default.(float64)))
-					} else {
+				} else {
 
-						paramtypes = append(paramtypes, k+" int")
-						pf(`
+					paramtypes = append(paramtypes, k+" int")
+					pf(`
 %s, err := strconv.Atoi(c.QueryParam("%s"))
 if err != nil {
 	return err
 }
 `, k, k)
-					}
+				}
 
-				case "float":
-					return fmt.Errorf("non-integer numbers currently unsupported")
-				case "boolean":
-					params = append(params, k)
-					if !required[k] {
-						paramtypes = append(paramtypes, k+" *bool")
-						pf(`
+			case "float":
+				return fmt.Errorf("non-integer numbers currently unsupported")
+			case "boolean":
+				params = append(params, k)
+				if !required[k] {
+					paramtypes = append(paramtypes, k+" *bool")
+					pf(`
 var %s *bool
 if p := c.QueryParam("%s"); p != "" {
 	%s_val, err := strconv.ParseBool(p)
@@ -341,9 +343,9 @@ if p := c.QueryParam("%s"); p != "" {
 	%s  = &%s_val
 }
 `, k, k, k, k, k)
-					} else if t.Default != nil {
-						paramtypes = append(paramtypes, k+" bool")
-						pf(`
+				} else if t.Default != nil {
+					paramtypes = append(paramtypes, k+" bool")
+					pf(`
 var %s bool
 if p := c.QueryParam("%s"); p != "" {
 var err error
@@ -355,36 +357,37 @@ if err != nil {
 	%s = %v
 }
 `, k, k, k, k, t.Default.(bool))
-					} else {
+				} else {
 
-						paramtypes = append(paramtypes, k+" bool")
-						pf(`
+					paramtypes = append(paramtypes, k+" bool")
+					pf(`
 %s, err := strconv.ParseBool(c.QueryParam("%s"))
 if err != nil {
 	return err
 }
 `, k, k)
-					}
+				}
 
-				case "array":
-					if t.Items.Type != "string" {
-						return fmt.Errorf("currently only string arrays are supported in query params")
-					}
-					paramtypes = append(paramtypes, k+" []string")
-					params = append(params, k)
-					pf(`
+			case "array":
+				if t.Items.Type != "string" {
+					return fmt.Errorf("currently only string arrays are supported in query params")
+				}
+				paramtypes = append(paramtypes, k+" []string")
+				params = append(params, k)
+				pf(`
 %s := c.QueryParams()["%s"]
 `, k, k)
 
-				default:
-					return fmt.Errorf("unsupported handler parameter type: %s", t.Type)
-				}
-				return nil
-			}); err != nil {
-				return err
+			default:
+				return fmt.Errorf("unsupported handler parameter type: %s", t.Type)
 			}
+			return nil
+		}); err != nil {
+			return err
 		}
-	} else if s.Type == "procedure" {
+	}
+
+	if s.Type == "procedure" {
 		if s.Input != nil {
 			intname := impname + "." + tname + "_Input"
 			switch s.Input.Encoding {
@@ -414,8 +417,6 @@ if err := c.Bind(&body); err != nil {
 				return fmt.Errorf("unrecognized input encoding: %q", s.Input.Encoding)
 			}
 		}
-	} else {
-		return fmt.Errorf("can only generate handlers for queries or procedures")
 	}
 
 	assign := "handleErr"
