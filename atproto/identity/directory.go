@@ -70,11 +70,14 @@ func DefaultDirectory() Directory {
 		HTTPClient: http.Client{
 			Timeout: time.Second * 10,
 			Transport: &http.Transport{
-				DialContext: ssrfHTTPDialer.DialContext,
-				Proxy:       http.ProxyFromEnvironment,
-				// would want this around 100ms for services doing lots of handle resolution. Impacts PLC connections as well, but not too bad.
-				IdleConnTimeout: time.Millisecond * 1000,
-				MaxIdleConns:    100,
+				Proxy:             http.ProxyFromEnvironment,
+				DialContext:       ssrfHTTPDialer.DialContext,
+				ForceAttemptHTTP2: true,
+				MaxIdleConns:      100,
+				// would want this around 100ms for services doing lots of handle resolution
+				IdleConnTimeout:       time.Millisecond * 1000,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
 			},
 		},
 		PLCClient: &http.Client{
