@@ -151,7 +151,12 @@ func (d *BaseDirectory) resolveDIDPLC(ctx context.Context, did syntax.DID) ([]by
 		req.Header.Set("User-Agent", d.UserAgent)
 	}
 
-	resp, err := d.HTTPClient.Do(req)
+	c := d.PLCClient
+	if c == nil {
+		c = &d.HTTPClient
+	}
+
+	resp, err := c.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w: PLC directory lookup: %w", ErrDIDResolutionFailed, err)
 	}

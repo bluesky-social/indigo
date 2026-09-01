@@ -74,6 +74,9 @@ func DefaultDirectory() Directory {
 				MaxIdleConns:    100,
 			},
 		},
+		PLCClient: &http.Client{
+			Timeout: time.Second * 10,
+		},
 		Resolver: net.Resolver{
 			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 				d := net.Dialer{Timeout: time.Second * 3}
