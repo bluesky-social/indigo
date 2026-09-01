@@ -1,0 +1,56 @@
+[
+  {
+    "name": "missing required stringField",
+    "data": {
+      "boolean": true
+    }
+  },
+  {
+    "name": "wrong type for boolean (string instead of bool)",
+    "data": {
+      "stringField": "test",
+      "boolean": "true"
+    }
+  },
+  {
+    "name": "wrong type for integer (string instead of int)",
+    "data": {
+      "stringField": "test",
+      "integer": "42"
+    }
+  },
+  {
+    "name": "wrong type for stringField (integer instead of string)",
+    "data": {
+      "stringField": 123
+    }
+  },
+  {
+    "name": "wrong type for array (object instead of array)",
+    "data": {
+      "stringField": "test",
+      "array": {"a": 1}
+    }
+  },
+  {
+    "name": "array with wrong item type (strings instead of integers)",
+    "data": {
+      "stringField": "test",
+      "array": ["one", "two"]
+    }
+  },
+  {
+    "name": "invalid handle format",
+    "data": {
+      "stringField": "test",
+      "handle": "not-a-valid-handle"
+    }
+  },
+  {
+    "name": "integer instead of boolean",
+    "data": {
+      "stringField": "test",
+      "boolean": 1
+    }
+  }
+]

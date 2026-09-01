@@ -1,0 +1,15 @@
+[
+  {
+    "name": "empty object for minimal procedure",
+    "ref": "example.lexicon.minimal.procedure",
+    "data": {}
+  },
+  {
+    "name": "object with extra properties (open object)",
+    "ref": "example.lexicon.minimal.procedure",
+    "data": {
+      "extraField": "value",
+      "anotherField": 123
+    }
+  }
+]
