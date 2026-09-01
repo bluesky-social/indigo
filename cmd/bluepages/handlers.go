@@ -31,9 +31,10 @@ func (srv *Server) ResolveHandle(c echo.Context) error {
 			Message: err.Error(),
 		})
 	} else if err != nil {
+		srv.logger.Warn("failed handle resolution", "err", err, "handle", hdl)
 		return c.JSON(500, GenericError{
 			Error:   "InternalError",
-			Message: err.Error(),
+			Message: "handle resolution failed",
 		})
 	}
 	return c.JSON(200, comatproto.IdentityResolveHandle_Output{
@@ -60,9 +61,10 @@ func (srv *Server) ResolveDid(c echo.Context) error {
 			Message: err.Error(),
 		})
 	} else if err != nil {
+		srv.logger.Warn("failed DID resolution", "err", err, "did", did)
 		return c.JSON(500, GenericError{
 			Error:   "InternalError",
-			Message: err.Error(),
+			Message: "DID resolution failed",
 		})
 	}
 	return c.JSON(200, comatproto.IdentityResolveDid_Output{
@@ -86,7 +88,7 @@ func (srv *Server) resolveIdentityFromHandle(c echo.Context, handle syntax.Handl
 		srv.logger.Warn("failed handle resolution", "err", err, "handle", handle)
 		return c.JSON(502, GenericError{
 			Error:   "HandleResolutionFailed",
-			Message: err.Error(),
+			Message: "handle resolution failed",
 		})
 	}
 
@@ -97,9 +99,10 @@ func (srv *Server) resolveIdentityFromHandle(c echo.Context, handle syntax.Handl
 			Message: err.Error(),
 		})
 	} else if err != nil {
+		srv.logger.Warn("failed DID resolution", "err", err, "did", did)
 		return c.JSON(502, GenericError{
 			Error:   "DIDResolutionFailed",
-			Message: err.Error(),
+			Message: "DID resolution failed",
 		})
 	}
 
@@ -139,9 +142,10 @@ func (srv *Server) resolveIdentityFromDID(c echo.Context, did syntax.DID) error 
 			Message: err.Error(),
 		})
 	} else if err != nil {
+		srv.logger.Warn("failed DID resolution", "err", err, "did", did)
 		return c.JSON(502, GenericError{
 			Error:   "DIDResolutionFailed",
-			Message: err.Error(),
+			Message: "DID resolution failed",
 		})
 	}
 
