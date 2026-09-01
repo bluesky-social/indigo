@@ -37,6 +37,16 @@ test-coverage.out
 /stress
 /tap
 
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*-linux-*
+*-darwin-*
+*__debug_bin*
+
 # Don't ignore this file itself, or other specific dotfiles
 !.gitignore
 !.github/
