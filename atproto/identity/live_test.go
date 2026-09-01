@@ -48,7 +48,10 @@ func testDirectoryLive(t *testing.T, d Directory) {
 	_, err = d.LookupDID(ctx, syntax.DID("did:web:fake-dummy-no-resolve.atproto.com"))
 	assert.ErrorIs(err, ErrDIDNotFound)
 
-	_, err = d.LookupDID(ctx, syntax.DID("did:plc:fake-dummy-no-resolve.atproto.com"))
+	_, err = d.LookupDID(ctx, syntax.DID("did:web:api.bsky.app"))
+	assert.NoError(err)
+
+	_, err = d.LookupDID(ctx, syntax.DID("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"))
 	assert.ErrorIs(err, ErrDIDNotFound)
 
 	_, err = d.LookupHandle(ctx, syntax.HandleInvalid)
@@ -59,6 +62,12 @@ func TestBaseDirectory(t *testing.T) {
 	t.Skip("TODO: skipping live network test")
 	d := BaseDirectory{}
 	testDirectoryLive(t, &d)
+}
+
+func TestDefaultDirectory(t *testing.T) {
+	t.Skip("TODO: skipping live network test")
+	d := DefaultDirectory()
+	testDirectoryLive(t, d)
 }
 
 func TestCacheDirectory(t *testing.T) {
