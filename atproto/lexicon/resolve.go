@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"time"
 
 	"github.com/bluesky-social/indigo/api/agnostic"
 	"github.com/bluesky-social/indigo/atproto/atclient"
@@ -77,7 +79,10 @@ func fetchRecordJSON(ctx context.Context, ident identity.Identity, aturi syntax.
 	slog.Debug("fetching record", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
 	// the this is an untrusted endpoint URL
 	client := atclient.NewAPIClient(ident.PDSEndpoint())
-	client.Client.Transport = ssrf.PublicOnlyTransport()
+	client.Client = &http.Client{
+		Timeout:   60 * time.Second,
+		Transport: ssrf.PublicOnlyTransport(),
+	}
 	resp, err := agnostic.RepoGetRecord(ctx, client, "", aturi.Collection().String(), ident.DID.String(), aturi.RecordKey().String())
 	if err != nil {
 		return nil, err
