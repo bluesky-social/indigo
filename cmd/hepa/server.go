@@ -21,6 +21,7 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
+	"github.com/jcalabro/jttp"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 )
@@ -203,7 +204,13 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		bskyClient.Headers = make(map[string]string)
 		bskyClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
 	}
-	blobClient := util.RobustHTTPClient()
+	// blob client is used for untrusted network fetches, and also needs to be resilient to failure
+	blobClient := jttp.New(
+		jttp.WithTimeout(30*time.Second),
+		jttp.WithRetries(3),
+		jttp.WithRetryWait(1*time.Second, 10*time.Second),
+		jttp.WithStrictSSRFProtection(),
+	)
 	eng := automod.Engine{
 		Logger:      logger,
 		Directory:   dir,
