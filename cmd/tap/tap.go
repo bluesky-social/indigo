@@ -69,6 +69,9 @@ func NewTap(config TapConfig) (*Tap, error) {
 			Timeout:   time.Second * 15,
 			Transport: ssrf.PublicOnlyTransport(),
 		},
+		PLCClient: &http.Client{
+			Timeout: time.Second * 10,
+		},
 		TryAuthoritativeDNS:   false,
 		SkipDNSDomainSuffixes: []string{".bsky.social"},
 	}

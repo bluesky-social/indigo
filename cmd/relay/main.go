@@ -334,6 +334,9 @@ func runRelay(ctx context.Context, cmd *cli.Command) error {
 			Timeout:   time.Second * 5,
 			Transport: ssrf.PublicOnlyTransport(),
 		},
+		PLCClient: &http.Client{
+			Timeout: time.Second * 10,
+		},
 		Resolver: net.Resolver{
 			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 				d := net.Dialer{Timeout: time.Second * 3}

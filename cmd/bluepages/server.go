@@ -62,6 +62,9 @@ func NewServer(config Config) (*Server, error) {
 			Timeout:   time.Second * 10,
 			Transport: ssrf.PublicOnlyTransport(),
 		},
+		PLCClient: &http.Client{
+			Timeout: time.Second * 10,
+		},
 		Resolver: net.Resolver{
 			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 				d := net.Dialer{Timeout: time.Second * 3}

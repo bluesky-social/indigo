@@ -213,6 +213,9 @@ func configDirectory(cmd *cli.Command) (identity.Directory, error) {
 			Timeout:   time.Second * 15,
 			Transport: ssrf.PublicOnlyTransport(),
 		},
+		PLCClient: &http.Client{
+			Timeout: time.Second * 10,
+		},
 		PLCLimiter:            rate.NewLimiter(rate.Limit(cmd.Int("plc-rate-limit")), 1),
 		TryAuthoritativeDNS:   true,
 		SkipDNSDomainSuffixes: []string{".bsky.social", ".staging.bsky.dev"},
