@@ -50,6 +50,7 @@ func ResolveLexiconSchemaFile(ctx context.Context, dir identity.Directory, nsid 
 
 // internal helper for fetching lexicon record as JSON bytes
 func resolveLexiconJSON(ctx context.Context, dir identity.Directory, nsid syntax.NSID) (*json.RawMessage, error) {
+	// this BaseDirectory is only used for DNS TXT resolution, not HTTP
 	baseDir := identity.BaseDirectory{}
 	did, err := baseDir.ResolveNSID(ctx, nsid)
 	if err != nil {
