@@ -48,16 +48,20 @@ type RelayConfig struct {
 
 	// If true, skip validation that messages for a given account (DID) are coming from the expected upstream host (PDS). Currently only used in tests; might be used for intermediate relays in the future.
 	SkipAccountHostCheck bool
+
+	// Buffer for cursor hint when establishing initial cursor (default: 100)
+	CursorHintScrollBack int64
 }
 
 func DefaultRelayConfig() *RelayConfig {
 	// NOTE: many of these defaults are clobbered by CLI arguments
 	return &RelayConfig{
-		UserAgent:          "indigo-relay (atproto-relay)",
-		DefaultRepoLimit:   100,
-		TrustedRepoLimit:   10_000_000,
-		ConcurrencyPerHost: 40,
-		HostPerDayLimit:    50,
+		UserAgent:            "indigo-relay (atproto-relay)",
+		DefaultRepoLimit:     100,
+		TrustedRepoLimit:     10_000_000,
+		ConcurrencyPerHost:   40,
+		HostPerDayLimit:      50,
+		CursorHintScrollBack: 100,
 	}
 }
 
