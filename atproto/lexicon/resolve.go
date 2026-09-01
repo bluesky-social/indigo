@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"time"
 
 	"github.com/bluesky-social/indigo/api/agnostic"
 	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/util/ssrf"
 )
 
 // Low-level routine for resolving an NSID to full Lexicon data record (as stored in a repository).
@@ -74,7 +77,12 @@ func resolveLexiconJSON(ctx context.Context, dir identity.Directory, nsid syntax
 func fetchRecordJSON(ctx context.Context, ident identity.Identity, aturi syntax.ATURI) (*json.RawMessage, error) {
 
 	slog.Debug("fetching record", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
+	// the this is an untrusted endpoint URL
 	client := atclient.NewAPIClient(ident.PDSEndpoint())
+	client.Client = &http.Client{
+		Timeout:   60 * time.Second,
+		Transport: ssrf.PublicOnlyTransport(),
+	}
 	resp, err := agnostic.RepoGetRecord(ctx, client, "", aturi.Collection().String(), ident.DID.String(), aturi.RecordKey().String())
 	if err != nil {
 		return nil, err
