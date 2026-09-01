@@ -1,6 +1,6 @@
 /*
  * Written in 2019 by Andrew Ayer.
- * Patched 2025, Bluesky Social PBC.
+ * Patched 2025, 2026 Bluesky Social PBC.
  *
  * Original: https://www.agwa.name/blog/post/preventing_server_side_request_forgery_in_golang
  *
@@ -16,12 +16,15 @@
 package ssrf
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"syscall"
 	"time"
 )
+
+var ErrUnsafeNetworkAddress = errors.New("unsafe network address")
 
 func ipv4Net(a, b, c, d byte, subnetPrefixLen int) net.IPNet {
 	return net.IPNet{
@@ -33,7 +36,7 @@ func ipv4Net(a, b, c, d byte, subnetPrefixLen int) net.IPNet {
 var reservedIPv4Nets = []net.IPNet{
 	ipv4Net(0, 0, 0, 0, 8),       // Current network
 	ipv4Net(10, 0, 0, 0, 8),      // Private
-	ipv4Net(100, 64, 0, 0, 10),   // RFC6598
+	ipv4Net(100, 64, 0, 0, 10),   // RFC6598 (CGNAT)
 	ipv4Net(127, 0, 0, 0, 8),     // Loopback
 	ipv4Net(169, 254, 0, 0, 16),  // Link-local
 	ipv4Net(172, 16, 0, 0, 12),   // Private
@@ -48,13 +51,27 @@ var reservedIPv4Nets = []net.IPNet{
 	ipv4Net(240, 0, 0, 0, 4),     // Reserved (includes broadcast / 255.255.255.255)
 }
 
+// Note that this matches the obsolete RFC3513 2000:/3 global unicast address space. RFC4291 greatly expanded the global unicast space, though nothing outside of 2000:/3 has actually be allocated by IANA yet.
 var globalUnicastIPv6Net = net.IPNet{
 	IP:   net.IP{0x20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	Mask: net.CIDRMask(3, 128),
 }
 
+// 6to4 is 2002::/16
+var sixToFourIPv6Net = net.IPNet{
+	IP:   net.IP{0x20, 0x2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	Mask: net.CIDRMask(16, 128),
+}
+
 func isIPv6GlobalUnicast(address net.IP) bool {
-	return globalUnicastIPv6Net.Contains(address)
+	if !globalUnicastIPv6Net.Contains(address) {
+		return false
+	}
+	if sixToFourIPv6Net.Contains(address) {
+		// TODO: for now this is simply blocking all 6to4 address (which is overly broad). Should instead parse out and apply IPv4 public checks
+		return false
+	}
+	return true
 }
 
 func isIPv4Reserved(address net.IP) bool {
@@ -77,7 +94,7 @@ func IsPublicIPAddress(address net.IP) bool {
 // Implementation of [net.Dialer] `Control` field (a function) which avoids some SSRF attacks by rejecting local IPv4 and IPv6 address ranges, and only allowing ports 80 or 443.
 func PublicOnlyControl(network string, address string, conn syscall.RawConn) error {
 	if !(network == "tcp4" || network == "tcp6") {
-		return fmt.Errorf("%s is not a safe network type", network)
+		return fmt.Errorf("%w: %s is not a safe network type", ErrUnsafeNetworkAddress, network)
 	}
 
 	host, port, err := net.SplitHostPort(address)
@@ -91,11 +108,11 @@ func PublicOnlyControl(network string, address string, conn syscall.RawConn) err
 	}
 
 	if !IsPublicIPAddress(ipaddress) {
-		return fmt.Errorf("%s is not a public IP address", ipaddress)
+		return fmt.Errorf("%w: %s is not a public IP address", ErrUnsafeNetworkAddress, ipaddress)
 	}
 
 	if !(port == "80" || port == "443") {
-		return fmt.Errorf("%s is not a safe port number", port)
+		return fmt.Errorf("%w: %s is not a safe port number", ErrUnsafeNetworkAddress, port)
 	}
 
 	return nil
