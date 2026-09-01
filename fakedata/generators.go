@@ -91,7 +91,7 @@ func GenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner bo
 	var avatar *lexutil.LexBlob
 	if genAvatar {
 		img := gofakeit.ImagePng(200, 200)
-		resp, err := comatproto.RepoUploadBlob(context.TODO(), xrpcc, bytes.NewReader(img))
+		resp, err := comatproto.RepoUploadBlob(context.TODO(), xrpcc, bytes.NewReader(img), "")
 		if err != nil {
 			return err
 		}
@@ -104,7 +104,7 @@ func GenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner bo
 	var banner *lexutil.LexBlob
 	if genBanner {
 		img := gofakeit.ImageJpeg(800, 200)
-		resp, err := comatproto.RepoUploadBlob(context.TODO(), xrpcc, bytes.NewReader(img))
+		resp, err := comatproto.RepoUploadBlob(context.TODO(), xrpcc, bytes.NewReader(img), "")
 		if err != nil {
 			return err
 		}
@@ -175,7 +175,7 @@ func GenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContext, 
 		var images []*appbsky.EmbedImages_Image
 		if fracImage > 0.0 && rand.Float64() < fracImage {
 			img := gofakeit.ImageJpeg(800, 800)
-			resp, err := comatproto.RepoUploadBlob(context.TODO(), xrpcc, bytes.NewReader(img))
+			resp, err := comatproto.RepoUploadBlob(context.TODO(), xrpcc, bytes.NewReader(img), "")
 			if err != nil {
 				return err
 			}
