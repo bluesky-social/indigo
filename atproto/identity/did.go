@@ -14,6 +14,9 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
+// 5 MByte as a somewhat arbitrary value to start (should probably be smaller)
+var maxDIDBodySize int64 = 5 * 1024 * 1024
+
 // Resolves a DID to a parsed `DIDDocument` struct.
 //
 // This method does not bi-directionally verify handles. Most atproto-specific code should use the `identity.Directory` interface ("Lookup" methods), which implement that check by default, and provide more ergonomic helpers for working with atproto-relevant information in DID documents.
@@ -116,15 +119,15 @@ func (d *BaseDirectory) resolveDIDWeb(ctx context.Context, did syntax.DID) ([]by
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
-		io.Copy(io.Discard, resp.Body)
+		io.Copy(io.Discard, io.LimitReader(resp.Body, maxDIDBodySize))
 		return nil, fmt.Errorf("%w: did:web HTTP status 404", ErrDIDNotFound)
 	}
 	if resp.StatusCode != http.StatusOK {
-		io.Copy(io.Discard, resp.Body)
+		io.Copy(io.Discard, io.LimitReader(resp.Body, maxDIDBodySize))
 		return nil, fmt.Errorf("%w: did:web HTTP status %d", ErrDIDResolutionFailed, resp.StatusCode)
 	}
 
-	return io.ReadAll(resp.Body)
+	return io.ReadAll(io.LimitReader(resp.Body, maxDIDBodySize))
 }
 
 func (d *BaseDirectory) resolveDIDPLC(ctx context.Context, did syntax.DID) ([]byte, error) {
