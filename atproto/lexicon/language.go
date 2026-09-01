@@ -33,6 +33,8 @@ func (s *SchemaDef) CheckSchema() error {
 		return v.CheckSchema()
 	case SchemaPermission:
 		return v.CheckSchema()
+	case SchemaSpace:
+		return v.CheckSchema()
 	case SchemaBoolean:
 		return v.CheckSchema()
 	case SchemaInteger:
@@ -67,7 +69,7 @@ func (s *SchemaDef) CheckSchema() error {
 // Checks if def is of "parimary" type
 func (s *SchemaDef) IsPrimary() bool {
 	switch s.Inner.(type) {
-	case SchemaRecord, SchemaQuery, SchemaProcedure, SchemaSubscription, SchemaPermissionSet:
+	case SchemaRecord, SchemaQuery, SchemaProcedure, SchemaSubscription, SchemaPermissionSet, SchemaSpace:
 		return true
 	}
 	return false
@@ -237,6 +239,13 @@ func (s *SchemaDef) UnmarshalJSON(b []byte) error {
 		}
 		s.Inner = *v
 		return nil
+	case "space":
+		v := new(SchemaSpace)
+		if err = json.Unmarshal(b, v); err != nil {
+			return err
+		}
+		s.Inner = *v
+		return nil
 	case "boolean":
 		v := new(SchemaBoolean)
 		if err = json.Unmarshal(b, v); err != nil {
@@ -344,17 +353,24 @@ func (s *SchemaRecord) CheckSchema() error {
 	if s.Type != "record" {
 		return fmt.Errorf("expected 'record' schema")
 	}
-	switch s.Key {
+	if err := checkKeyType(s.Key); err != nil {
+		return err
+	}
+	return s.Record.CheckSchema()
+}
+
+func checkKeyType(key string) error {
+	switch key {
 	case "":
-		return fmt.Errorf("record key specifier is required")
+		return fmt.Errorf("record/space key specifier is required")
 	case "tid", "nsid", "any":
 		// pass
 	default:
-		if !strings.HasPrefix(s.Key, "literal:") {
-			return fmt.Errorf("invalid record key specifier: %s", s.Key)
+		if !strings.HasPrefix(key, "literal:") {
+			return fmt.Errorf("invalid record/space key specifier: %s", key)
 		}
 	}
-	return s.Record.CheckSchema()
+	return nil
 }
 
 type SchemaQuery struct {
@@ -545,6 +561,45 @@ func (s *SchemaPermission) CheckSchema() error {
 	return nil
 }
 
+type SchemaSpace struct {
+	Type        string            `json:"type"` // "space"
+	Description *string           `json:"description,omitempty"`
+	Key         string            `json:"key"`
+	Name        string            `json:"name"`
+	NameLang    map[string]string `json:"name:lang,omitempty"`
+	Collections []string          `json:"collections"`
+}
+
+func (s *SchemaSpace) CheckSchema() error {
+	if s.Type != "space" {
+		return fmt.Errorf("expected 'space' schema")
+	}
+	if err := checkKeyType(s.Key); err != nil {
+		return err
+	}
+	if len(s.Name) < 1 || len(s.Name) > 64 {
+		// TODO: graphemes vs bytes?
+		return fmt.Errorf("space name must be between 1 and 64 characters long")
+	}
+	for lang, name := range s.NameLang {
+		_, err := syntax.ParseLanguage(lang)
+		if err != nil {
+			return err
+		}
+		if len(name) < 1 || len(name) > 64 {
+			// TODO: graphemes vs bytes?
+			return fmt.Errorf("space name must be between 1 and 64 characters long")
+		}
+	}
+	for _, c := range s.Collections {
+		_, err := syntax.ParseNSID(c)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type SchemaBody struct {
 	Description *string    `json:"description,omitempty"`
 	Encoding    string     `json:"encoding"` // required, mimetype
@@ -708,7 +763,7 @@ func (s *SchemaString) CheckSchema() error {
 	}
 	if s.Format != nil {
 		switch *s.Format {
-		case "at-identifier", "at-uri", "cid", "datetime", "did", "handle", "nsid", "uri", "language", "tid", "record-key":
+		case "at-identifier", "at-uri", "space-ref", "cid", "datetime", "did", "handle", "nsid", "uri", "language", "tid", "record-key":
 			// pass
 		default:
 			return fmt.Errorf("unknown string format: %s", *s.Format)
@@ -749,6 +804,11 @@ func (s *SchemaString) Validate(d any, flags ValidateFlags) error {
 			}
 		case "at-uri":
 			if _, err := syntax.ParseATURI(v); err != nil {
+				return err
+			}
+		case "space-ref":
+			// XXX: swap out with ParseSpaceRef once implemented in indigo
+			if _, err := syntax.ParseURI(v); err != nil {
 				return err
 			}
 		case "cid":
