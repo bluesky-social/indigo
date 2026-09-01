@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/util/ssrf"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -58,13 +59,11 @@ func NewServer(config Config) (*Server, error) {
 	baseDir := identity.BaseDirectory{
 		PLCURL: config.PLCHost,
 		HTTPClient: http.Client{
+			Timeout:   time.Second * 10,
+			Transport: ssrf.PublicOnlyTransport(),
+		},
+		PLCClient: &http.Client{
 			Timeout: time.Second * 10,
-			Transport: &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
-				// would want this around 100ms for services doing lots of handle resolution (to reduce number of idle connections). Impacts PLC connections as well, but not too bad.
-				IdleConnTimeout: time.Millisecond * 100,
-				MaxIdleConns:    1000,
-			},
 		},
 		Resolver: net.Resolver{
 			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {

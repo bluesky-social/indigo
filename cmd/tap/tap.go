@@ -4,11 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/tap/models"
+	"github.com/bluesky-social/indigo/util/ssrf"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -61,7 +64,14 @@ func NewTap(config TapConfig) (*Tap, error) {
 	}
 
 	bdir := identity.BaseDirectory{
-		PLCURL:                config.PLCURL,
+		PLCURL: config.PLCURL,
+		HTTPClient: http.Client{
+			Timeout:   time.Second * 15,
+			Transport: ssrf.PublicOnlyTransport(),
+		},
+		PLCClient: &http.Client{
+			Timeout: time.Second * 10,
+		},
 		TryAuthoritativeDNS:   false,
 		SkipDNSDomainSuffixes: []string{".bsky.social"},
 	}
