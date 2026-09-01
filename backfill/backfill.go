@@ -18,8 +18,8 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
 
+	"github.com/bluesky-social/gttp"
 	"github.com/ipfs/go-cid"
-	"github.com/jcalabro/jttp"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"golang.org/x/sync/semaphore"
@@ -186,15 +186,15 @@ func NewBackfiller(
 
 	// Retries are handled a layer above http.Client (see fetchRepo), so they
 	// are disabled here.
-	jttpOpts := []jttp.Option{
-		jttp.WithStrictSSRFProtection(),
-		jttp.WithNoRetries(),
-		jttp.WithTransport(otelhttp.NewTransport(transport)),
+	jttpOpts := []gttp.Option{
+		gttp.WithStrictSSRFProtection(),
+		gttp.WithNoRetries(),
+		gttp.WithTransport(otelhttp.NewTransport(transport)),
 	}
 	if opts.DisableProxy {
-		jttpOpts = append(jttpOpts, jttp.WithNoProxy())
+		jttpOpts = append(jttpOpts, gttp.WithNoProxy())
 	}
-	httpClient := jttp.New(jttpOpts...)
+	httpClient := gttp.New(jttpOpts...)
 	if opts.UnsafeDisableSSRF {
 		httpClient = &http.Client{
 			Transport: otelhttp.NewTransport(transport),

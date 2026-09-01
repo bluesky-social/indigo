@@ -7,6 +7,7 @@ toolchain go1.26.1
 require (
 	github.com/RussellLuo/slidingwindow v0.0.0-20200528002341-535bb99d338b
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
+	github.com/bluesky-social/gttp v0.1.0
 	github.com/brianvoe/gofakeit/v6 v6.25.0
 	github.com/cockroachdb/pebble v1.1.2
 	github.com/earthboundkid/versioninfo/v2 v2.24.1
@@ -29,7 +30,6 @@ require (
 	github.com/ipfs/go-libipfs v0.7.0
 	github.com/ipld/go-car v0.6.1-0.20230509095817-92d28eb23ba4
 	github.com/ipld/go-car/v2 v2.13.1
-	github.com/jcalabro/jttp v0.0.8
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.15.4
 	github.com/lestrrat-go/jwx/v2 v2.1.7
