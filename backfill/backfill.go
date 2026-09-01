@@ -19,6 +19,7 @@ import (
 	"github.com/bluesky-social/indigo/repomgr"
 
 	"github.com/ipfs/go-cid"
+	"github.com/jcalabro/jttp"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"golang.org/x/sync/semaphore"
@@ -130,6 +131,12 @@ type BackfillOptions struct {
 	// Per-PDS rate limit (requests per second per host). 0 means no limit.
 	PDSRequestsPerSecond int
 	RelayHost            string
+	// Disables SSRF protection on repo fetches, allowing private, loopback, and
+	// other reserved targets. Useful for local development.
+	UnsafeDisableSSRF bool
+	// Disables HTTP proxy support (HTTP_PROXY / HTTPS_PROXY). Off by default, so
+	// a configured proxy is honored.
+	DisableProxy bool
 }
 
 func DefaultBackfillOptions() *BackfillOptions {
@@ -177,6 +184,23 @@ func NewBackfiller(
 		IdleConnTimeout:       90 * time.Second,
 	}
 
+	// Retries are handled a layer above http.Client (see fetchRepo), so they
+	// are disabled here.
+	jttpOpts := []jttp.Option{
+		jttp.WithStrictSSRFProtection(),
+		jttp.WithNoRetries(),
+		jttp.WithTransport(otelhttp.NewTransport(transport)),
+	}
+	if opts.DisableProxy {
+		jttpOpts = append(jttpOpts, jttp.WithNoProxy())
+	}
+	httpClient := jttp.New(jttpOpts...)
+	if opts.UnsafeDisableSSRF {
+		httpClient = &http.Client{
+			Transport: otelhttp.NewTransport(transport),
+		}
+	}
+
 	return &Backfiller{
 		Name:                  name,
 		Store:                 store,
@@ -190,11 +214,9 @@ func NewBackfiller(
 		pdsLimiters:           make(map[string]*rate.Limiter),
 		pdsRateLimit:          pdsRateLimit,
 		RelayHost:             opts.RelayHost,
-		httpClient: &http.Client{
-			Transport: otelhttp.NewTransport(transport),
-		},
-		stop:      make(chan chan struct{}, 1),
-		Directory: identity.DefaultDirectory(),
+		httpClient:            httpClient,
+		stop:                  make(chan chan struct{}, 1),
+		Directory:             identity.DefaultDirectory(),
 	}
 }
 
