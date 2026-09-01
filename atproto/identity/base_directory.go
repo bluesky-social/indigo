@@ -21,6 +21,9 @@ type BaseDirectory struct {
 	DIDWebLimitFunc func(ctx context.Context, hostname string) error
 	// HTTP client used for did:web, did:plc, and HTTP (well-known) handle resolution
 	HTTPClient http.Client
+	// HTTP client used for did:plc resolution. If nil, HTTPClient is used.
+	// The PLC directory service is configured (via PLCURL) and are fewer hardening concerns than did:web or handle resolution.
+	PLCClient *http.Client
 	// DNS resolver used for DNS handle resolution. Calling code can use a custom Dialer to query against a specific DNS server, or re-implement the interface for even more control over the resolution process
 	Resolver net.Resolver
 	// when doing DNS handle resolution, should this resolver attempt re-try against an authoritative nameserver if the first TXT lookup fails?
