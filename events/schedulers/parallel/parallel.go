@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers"
@@ -33,11 +34,20 @@ type Scheduler struct {
 	itemsProcessed prometheus.Counter
 	itemsActive    prometheus.Counter
 	workersActive  prometheus.Gauge
+	repoQueueDepth prometheus.Observer
+
+	// curried on (pool, scheduler_type); the remaining label is event_kind
+	queuedItems   *prometheus.GaugeVec
+	itemsInFlight *prometheus.GaugeVec
+	queueWait     prometheus.ObserverVec
+	feederBlock   prometheus.ObserverVec
+	itemProcess   prometheus.ObserverVec
 
 	log *slog.Logger
 }
 
 func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events.XRPCStreamEvent) error) *Scheduler {
+	labels := prometheus.Labels{"pool": ident, "scheduler_type": "parallel"}
 	p := &Scheduler{
 		maxConcurrency: maxC,
 		maxQueue:       maxQ,
@@ -54,6 +64,13 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 		itemsProcessed: schedulers.WorkItemsProcessed.WithLabelValues(ident, "parallel"),
 		itemsActive:    schedulers.WorkItemsActive.WithLabelValues(ident, "parallel"),
 		workersActive:  schedulers.WorkersActive.WithLabelValues(ident, "parallel"),
+		repoQueueDepth: schedulers.RepoQueueDepth.WithLabelValues(ident, "parallel"),
+
+		queuedItems:   schedulers.QueuedItems.MustCurryWith(labels),
+		itemsInFlight: schedulers.ItemsInFlight.MustCurryWith(labels),
+		queueWait:     schedulers.QueueWaitSeconds.MustCurryWith(labels),
+		feederBlock:   schedulers.FeederBlockSeconds.MustCurryWith(labels),
+		itemProcess:   schedulers.ItemProcessSeconds.MustCurryWith(labels),
 
 		log: slog.Default().With("system", "parallel-scheduler"),
 	}
@@ -89,30 +106,56 @@ type consumerTask struct {
 	repo    string
 	val     *events.XRPCStreamEvent
 	control string
+
+	// kind is resolved once at enqueue and reused at dequeue, so that the
+	// paired gauge Inc/Dec always land on the same label set.
+	kind     string
+	enqueued time.Time
 }
 
 func (p *Scheduler) AddWork(ctx context.Context, repo string, val *events.XRPCStreamEvent) error {
 	p.itemsAdded.Inc()
+	kind := val.Kind()
 	t := &consumerTask{
-		repo: repo,
-		val:  val,
+		repo:     repo,
+		val:      val,
+		kind:     kind,
+		enqueued: time.Now(),
 	}
+	// Counted from enqueue rather than from the append below, so that the item
+	// blocked on the feeder is included: during a backup that item is queued
+	// too, and it is the one holding up the caller's read loop.
+	p.queuedItems.WithLabelValues(kind).Inc()
+
 	p.lk.Lock()
 
 	a, ok := p.active[repo]
 	if ok {
+		p.repoQueueDepth.Observe(float64(len(a)))
 		p.active[repo] = append(a, t)
 		p.lk.Unlock()
 		return nil
 	}
 
+	p.repoQueueDepth.Observe(0)
 	p.active[repo] = []*consumerTask{}
 	p.lk.Unlock()
 
+	blockedAt := time.Now()
 	select {
 	case p.feeder <- t:
+		p.feederBlock.WithLabelValues(kind).Observe(time.Since(blockedAt).Seconds())
 		return nil
 	case <-ctx.Done():
+		p.feederBlock.WithLabelValues(kind).Observe(time.Since(blockedAt).Seconds())
+		// This item never reaches a worker, so nothing downstream will
+		// decrement for it.
+		//
+		// NOTE: the empty p.active[repo] placeholder reserved above is also
+		// left behind with no worker to clear it. That is pre-existing
+		// behaviour and only reachable while the stream is shutting down; see
+		// the queueing notes in the PR description.
+		p.queuedItems.WithLabelValues(kind).Dec()
 		return ctx.Err()
 	}
 }
@@ -126,9 +169,16 @@ func (p *Scheduler) worker() {
 			}
 
 			p.itemsActive.Inc()
+			p.queuedItems.WithLabelValues(work.kind).Dec()
+			p.queueWait.WithLabelValues(work.kind).Observe(time.Since(work.enqueued).Seconds())
+			p.itemsInFlight.WithLabelValues(work.kind).Inc()
+
+			startedAt := time.Now()
 			if err := p.do(context.TODO(), work.val); err != nil {
 				p.log.Error("event handler failed", "err", err)
 			}
+			p.itemProcess.WithLabelValues(work.kind).Observe(time.Since(startedAt).Seconds())
+			p.itemsInFlight.WithLabelValues(work.kind).Dec()
 			p.itemsProcessed.Inc()
 
 			p.lk.Lock()
