@@ -1,10 +1,5 @@
 package mst
 
-// Regression tests for untrusted PrefixLen values in decoded NodeData
-// (Linear SEC-4). PrefixLen comes from attacker-controlled CBOR in commit
-// CARs and is used as a slice bound against the previous key; before the
-// range check it caused a fatal slice-bounds panic on the relay ingest path.
-
 import (
 	"testing"
 
