@@ -1,11 +1,5 @@
 package mst
 
-// Regression tests for untrusted PrefixLen values in decoded NodeData
-// (Linear SEC-4). PrefixLen comes from attacker-controlled CBOR and was
-// previously used both as a make() capacity (mst_util.go, 1TB preallocation
-// on PrefixLen=1<<40 -> uncatchable fatal OOM) and as a slice bound
-// (slice-bounds panic). Both must now surface as errors from hydration.
-
 import (
 	"bytes"
 	"context"
@@ -64,8 +58,6 @@ func TestDeserializePrefixLenNegative(t *testing.T) {
 	}
 }
 
-// Huge PrefixLen must error before any allocation is attempted (previously
-// a 1TB make() preallocation -> fatal runtime OOM, uncatchable by recover).
 func TestDeserializePrefixLenHuge(t *testing.T) {
 	tree := hostileTree(t, 1<<40)
 	if _, err := tree.Get(context.Background(), "x"); err == nil {
