@@ -3,7 +3,7 @@ package engine
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	//"errors"
 	"fmt"
 	"time"
 
@@ -12,7 +12,7 @@ import (
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/xrpc"
+	//"github.com/bluesky-social/indigo/xrpc"
 )
 
 var newAccountRetryDuration = 3 * 1000 * time.Millisecond
@@ -62,12 +62,14 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 	// fetch account metadata from AppView
 	pv, err := appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
 	// most common cause of this is a race between automod and ozone/appview for new accounts. just sleep a couple seconds and retry!
+	/* XXX: disable this retry as a debugging step
 	var xrpcError *xrpc.Error
 	if err != nil && errors.As(err, &xrpcError) && (xrpcError.StatusCode == 400 || xrpcError.StatusCode == 404) {
 		logger.Debug("account profile lookup initially failed (from bsky appview), will retry", "err", err, "sleepDuration", newAccountRetryDuration)
 		time.Sleep(newAccountRetryDuration)
 		pv, err = appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
 	}
+	*/
 	if err != nil {
 		logger.Warn("account profile lookup failed (from bsky appview)", "err", err)
 		return &am, nil
