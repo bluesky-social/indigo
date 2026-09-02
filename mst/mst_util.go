@@ -79,6 +79,11 @@ func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, 
 	var lastKey string
 	var keyb []byte // re-used between entries
 	for _, e := range nd.Entries {
+		// PrefixLen is attacker-controlled (untrusted CBOR) and is used both as
+		// an allocation capacity and a slice bound below; range-check it first
+		if e.PrefixLen < 0 || e.PrefixLen > int64(len(lastKey)) {
+			return nil, fmt.Errorf("mst node entry PrefixLen (%d) out of range for previous key length (%d)", e.PrefixLen, len(lastKey))
+		}
 		if keyb == nil {
 			keyb = make([]byte, 0, int(e.PrefixLen)+len(e.KeySuffix))
 		}
