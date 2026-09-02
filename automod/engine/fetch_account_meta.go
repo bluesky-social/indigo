@@ -23,6 +23,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 	logger := e.Logger.With("did", ident.DID.String())
 
 	// fallback in case client wasn't configured (eg, testing)
+	// XXX/HACK: this maybe still needed for tests? but should remove
 	if e.BskyClient == nil {
 		logger.Debug("skipping account meta hydration")
 		am := AccountMeta{
@@ -58,60 +59,6 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 		return nil, fmt.Errorf("failed checking account flag cache: %w", err)
 	}
 	am.AccountFlags = flags
-
-	// fetch account metadata from AppView
-	pv, err := appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
-	// most common cause of this is a race between automod and ozone/appview for new accounts. just sleep a couple seconds and retry!
-	/* XXX: disable this retry as a debugging step
-	var xrpcError *xrpc.Error
-	if err != nil && errors.As(err, &xrpcError) && (xrpcError.StatusCode == 400 || xrpcError.StatusCode == 404) {
-		logger.Debug("account profile lookup initially failed (from bsky appview), will retry", "err", err, "sleepDuration", newAccountRetryDuration)
-		time.Sleep(newAccountRetryDuration)
-		pv, err = appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
-	}
-	*/
-	if err != nil {
-		logger.Warn("account profile lookup failed (from bsky appview)", "err", err)
-		return &am, nil
-	}
-
-	am.Profile = ProfileSummary{
-		HasAvatar:   pv.Avatar != nil,
-		AvatarCid:   cidFromCdnUrl(pv.Avatar),
-		BannerCid:   cidFromCdnUrl(pv.Banner),
-		Description: pv.Description,
-		DisplayName: pv.DisplayName,
-	}
-	if pv.PostsCount != nil {
-		am.PostsCount = *pv.PostsCount
-	}
-	if pv.FollowersCount != nil {
-		am.FollowersCount = *pv.FollowersCount
-	}
-	if pv.FollowsCount != nil {
-		am.FollowsCount = *pv.FollowsCount
-	}
-
-	var labels []string
-	var negLabels []string
-	for _, lbl := range pv.Labels {
-		if lbl.Neg != nil && *lbl.Neg == true {
-			negLabels = append(negLabels, lbl.Val)
-		} else {
-			labels = append(labels, lbl.Val)
-		}
-	}
-	am.AccountLabels = dedupeStrings(labels)
-	am.AccountNegatedLabels = dedupeStrings(negLabels)
-
-	if pv.CreatedAt != nil {
-		ts, err := syntax.ParseDatetimeTime(*pv.CreatedAt)
-		if err != nil {
-			logger.Warn("invalid profile createdAt", "err", err, "createdAt", pv.CreatedAt)
-		} else {
-			am.CreatedAt = &ts
-		}
-	}
 
 	// first attempt to fetch private account metadata from Ozone
 	if e.OzoneClient != nil {
@@ -184,6 +131,59 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 			ap.IndexedAt = &ts
 			am.Private = &ap
 			if am.CreatedAt == nil {
+				am.CreatedAt = &ts
+			}
+		}
+	}
+
+	// fetch other account metadata from AppView
+	pv, err := appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
+	// most common cause of this is a race between automod and ozone/appview for new accounts. just sleep a couple seconds and retry!
+	/* XXX: disable this retry as a debugging step
+	var xrpcError *xrpc.Error
+	if err != nil && errors.As(err, &xrpcError) && (xrpcError.StatusCode == 400 || xrpcError.StatusCode == 404) {
+		logger.Debug("account profile lookup initially failed (from bsky appview), will retry", "err", err, "sleepDuration", newAccountRetryDuration)
+		time.Sleep(newAccountRetryDuration)
+		pv, err = appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
+	}
+	*/
+	if err != nil {
+		logger.Warn("account profile lookup failed (from bsky appview)", "err", err)
+	} else {
+		am.Profile = ProfileSummary{
+			HasAvatar:   pv.Avatar != nil,
+			AvatarCid:   cidFromCdnUrl(pv.Avatar),
+			BannerCid:   cidFromCdnUrl(pv.Banner),
+			Description: pv.Description,
+			DisplayName: pv.DisplayName,
+		}
+		if pv.PostsCount != nil {
+			am.PostsCount = *pv.PostsCount
+		}
+		if pv.FollowersCount != nil {
+			am.FollowersCount = *pv.FollowersCount
+		}
+		if pv.FollowsCount != nil {
+			am.FollowsCount = *pv.FollowsCount
+		}
+
+		var labels []string
+		var negLabels []string
+		for _, lbl := range pv.Labels {
+			if lbl.Neg != nil && *lbl.Neg == true {
+				negLabels = append(negLabels, lbl.Val)
+			} else {
+				labels = append(labels, lbl.Val)
+			}
+		}
+		am.AccountLabels = dedupeStrings(labels)
+		am.AccountNegatedLabels = dedupeStrings(negLabels)
+
+		if pv.CreatedAt != nil && am.CreatedAt == nil {
+			ts, err := syntax.ParseDatetimeTime(*pv.CreatedAt)
+			if err != nil {
+				logger.Warn("invalid profile createdAt", "err", err, "createdAt", pv.CreatedAt)
+			} else {
 				am.CreatedAt = &ts
 			}
 		}
