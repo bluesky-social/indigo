@@ -88,6 +88,8 @@ type ActorDefs_InterestsPref struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#interestsPref"`
 	// tags: A list of tags which describe the account owner's interests gathered during onboarding.
 	Tags []string `json:"tags" cborgen:"tags"`
+	// updatedAt: The timestamp when the account owner last updated their interests.
+	UpdatedAt *string `json:"updatedAt,omitempty" cborgen:"updatedAt,omitempty"`
 }
 
 // ActorDefs_KnownFollowers is a "knownFollowers" in the app.bsky.actor.defs schema.
