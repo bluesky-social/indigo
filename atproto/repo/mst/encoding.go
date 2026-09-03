@@ -87,12 +87,11 @@ func (n *Node) NodeData() NodeData {
 	return d
 }
 
-// Tansforms an encoded `NodeData` to `Node` data structure format.
+// Transforms an encoded [NodeData] to [Node] data structure format.
+//
+// Returns a wrapped [ErrInvalidTree] if the data is invalid. For example, entries with negative or out-of-bound prefix lenths ('p' field).
 //
 // c: optional CID argument for the CID of the CBOR representation of the NodeData
-//
-// Returns an error if any entry's PrefixLen is out of range, since NodeData
-// comes from untrusted input and PrefixLen is used as a slice bound.
 func (d *NodeData) Node(c *cid.Cid) (Node, error) {
 	height := -1
 	n := Node{
@@ -108,7 +107,7 @@ func (d *NodeData) Node(c *cid.Cid) (Node, error) {
 	var prevKey []byte
 	for _, e := range d.Entries {
 		if e.PrefixLen < 0 || e.PrefixLen > int64(len(prevKey)) {
-			return n, fmt.Errorf("%w: entry PrefixLen (%d) out of range for previous key length (%d)", ErrInvalidTree, e.PrefixLen, len(prevKey))
+			return n, fmt.Errorf("%w: node entry with out of range prefix length (%d)", ErrInvalidTree, e.PrefixLen)
 		}
 		// TODO perf: pre-allocate
 		key := []byte{}
