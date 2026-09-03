@@ -16,8 +16,7 @@ func testEntryCid(t *testing.T) cid.Cid {
 	return c
 }
 
-// PrefixLen beyond the length of the previous key (empty for the first
-// entry) must return an error, not panic.
+// PrefixLen beyond the length of the previous key (zero for the first entry) must return an error, not panic.
 func TestNodePrefixLenOutOfRange(t *testing.T) {
 	assert := assert.New(t)
 
@@ -47,8 +46,7 @@ func TestNodePrefixLenNegative(t *testing.T) {
 	assert.Error(err)
 }
 
-// Huge PrefixLen values (which previously drove a 1TB make() preallocation
-// in the legacy package) must be rejected cheaply by the same range check.
+// Huge PrefixLen values must be rejected (instead of attempting a huge allocation)
 func TestNodePrefixLenHuge(t *testing.T) {
 	assert := assert.New(t)
 
@@ -63,8 +61,7 @@ func TestNodePrefixLenHuge(t *testing.T) {
 	assert.Error(err)
 }
 
-// Boundary values that are legal must keep working: PrefixLen == 0 on the
-// first entry, and PrefixLen == len(prevKey) on a later entry.
+// Boundary values that are legal must keep working: PrefixLen == 0 on the first entry, and PrefixLen == len(prevKey) on a later entry.
 func TestNodePrefixLenValidBoundaries(t *testing.T) {
 	assert := assert.New(t)
 
@@ -90,8 +87,7 @@ func TestNodePrefixLenValidBoundaries(t *testing.T) {
 	assert.Equal([]byte(firstKey+"abc"), n.Entries[1].Key)
 }
 
-// Out-of-range PrefixLen on a later entry (prevKey non-empty) must also be
-// rejected, covering the len(prevKey) upper bound with a non-zero baseline.
+// Out-of-range PrefixLen on a later entry (prevKey non-empty) must also be rejected, covering the len(prevKey) upper bound with a non-zero baseline.
 func TestNodePrefixLenOutOfRangeLaterEntry(t *testing.T) {
 	assert := assert.New(t)
 
