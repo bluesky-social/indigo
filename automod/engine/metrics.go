@@ -60,6 +60,16 @@ var accountMetaFetches = promauto.NewCounter(prometheus.CounterOpts{
 	Help: "Number of account metadata reads (API calls)",
 })
 
+var accountOzoneFetches = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "automod_ozone_fetches",
+	Help: "Number of Ozone API account metadata calls, by HTTP status code",
+}, []string{"status"})
+
+var accountAppviewFetches = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "automod_appview_fetches",
+	Help: "Number of Bluesky AppView API account metadata calls, by HTTP status code",
+}, []string{"status"})
+
 var accountRelationshipFetches = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "automod_account_relationship_fetches",
 	Help: "Number of account relationship reads (API calls)",
