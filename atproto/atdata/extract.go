@@ -9,7 +9,7 @@ import (
 
 // Helper type for extracting record $type from CBOR
 type GenericRecord struct {
-	Type string `json:"$type" cborgen:"$type"`
+	Type string `json:"$type" cbor:"$type" cborgen:"$type"`
 }
 
 // Parses the top-level $type field from generic atproto JSON data
