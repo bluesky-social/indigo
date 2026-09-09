@@ -6,8 +6,9 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
+	daslcid "github.com/hyphacoop/go-dasl/cid"
+	"github.com/hyphacoop/go-dasl/drisl"
 	"github.com/ipfs/go-cid"
-	cbor "github.com/ipfs/go-ipld-cbor"
 )
 
 // Checks that generic data (object) complies with the atproto data model.
@@ -41,7 +42,7 @@ func UnmarshalCBOR(b []byte) (map[string]any, error) {
 		return nil, fmt.Errorf("exceeded max CBOR record size: %d", len(b))
 	}
 	var rawObj map[string]any
-	err := cbor.DecodeInto(b, &rawObj)
+	err := drisl.Unmarshal(b, &rawObj)
 	if err != nil {
 		return nil, err
 	}
@@ -81,24 +82,32 @@ func extractBlobsAtom(atom any) []Blob {
 //
 // Does not re-validate that data conforms to atproto data model, but does handle Blob, Bytes, and CIDLink as expected.
 func MarshalCBOR(obj map[string]any) ([]byte, error) {
-	return cbor.DumpObject(forCBOR(obj))
+	return drisl.Marshal(forCBOR(obj))
 }
 
-// helper to get generic data in the correct "shape" for serialization with ipfs/go-ipld-cbor
+// helper to get generic data in the correct "shape" for CBOR serialization
 func forCBOR(obj map[string]any) map[string]any {
 	// NOTE: a faster version might mutate the map in-place instead of copying (many allocations)?
 	out := make(map[string]any, len(obj))
 	for k, val := range obj {
 		switch v := val.(type) {
 		case CIDLink:
-			out[k] = cid.Cid(v)
+			c, err := daslcid.NewCidFromBytes(cid.Cid(v).Bytes())
+			if err != nil {
+				panic(err)
+			}
+			out[k] = c
 		case Bytes:
 			out[k] = []byte(v)
 		case Blob:
+			ref, err := daslcid.NewCidFromBytes(cid.Cid(v.Ref).Bytes())
+			if err != nil {
+				panic(err)
+			}
 			out[k] = map[string]any{
 				"$type":    "blob",
 				"mimeType": v.MimeType,
-				"ref":      cid.Cid(v.Ref),
+				"ref":      ref,
 				"size":     v.Size,
 			}
 		case syntax.AtIdentifier:
@@ -123,15 +132,26 @@ func forCBORArray(arr []any) []any {
 	for i, val := range arr {
 		switch v := val.(type) {
 		case CIDLink:
-			out[i] = cid.Cid(v)
+			c, err := daslcid.NewCidFromBytes(cid.Cid(v).Bytes())
+			if err != nil {
+				// TODO: could panic instead?
+				out[i] = v
+			} else {
+				out[i] = c
+			}
 		case Bytes:
 			out[i] = []byte(v)
 		case Blob:
+			ref, err := daslcid.NewCidFromBytes(cid.Cid(v.Ref).Bytes())
+			if err != nil {
+				// TODO: could panic instead?
+			}
 			out[i] = map[string]any{
 				"$type":    "blob",
 				"mimeType": v.MimeType,
-				"ref":      cid.Cid(v.Ref),
-				"size":     v.Size,
+				// TODO: *ref (?)
+				"ref":  ref,
+				"size": v.Size,
 			}
 		case syntax.AtIdentifier:
 			out[i] = v.String()
