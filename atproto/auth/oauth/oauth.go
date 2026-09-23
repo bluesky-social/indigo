@@ -14,6 +14,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/util/ssrf"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-querystring/query"
@@ -52,7 +53,10 @@ type ClientConfig struct {
 // Constructs a [ClientApp] based on configuration.
 func NewClientApp(config *ClientConfig, store ClientAuthStore) *ClientApp {
 	app := &ClientApp{
-		Client:   http.DefaultClient,
+		Client: &http.Client{
+			Timeout:   30 * time.Second,
+			Transport: ssrf.PublicOnlyTransport(),
+		},
 		Resolver: NewResolver(),
 		Dir:      identity.DefaultDirectory(),
 		Config:   config,

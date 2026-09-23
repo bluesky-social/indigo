@@ -11,9 +11,10 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"golang.org/x/time/rate"
+	"github.com/bluesky-social/indigo/util/ssrf"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/time/rate"
 )
 
 var redisLocalTestURL string = "redis://localhost:6379/0"
@@ -95,7 +96,8 @@ func TestRedisCoalesce(t *testing.T) {
 	base := identity.BaseDirectory{
 		PLCURL: "https://plc.directory",
 		HTTPClient: http.Client{
-			Timeout: time.Second * 15,
+			Timeout:   time.Second * 15,
+			Transport: ssrf.PublicOnlyTransport(),
 		},
 		// Limit the number of requests we can make to the PLC to 1 per second
 		PLCLimiter:            rate.NewLimiter(1, 1),

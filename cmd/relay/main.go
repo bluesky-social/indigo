@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
@@ -25,6 +27,7 @@ import (
 	"github.com/bluesky-social/indigo/cmd/relay/stream/eventmgr"
 	"github.com/bluesky-social/indigo/cmd/relay/stream/persist/diskpersist"
 	"github.com/bluesky-social/indigo/util/cliutil"
+	"github.com/bluesky-social/indigo/util/ssrf"
 
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v3"
@@ -327,6 +330,19 @@ func runRelay(ctx context.Context, cmd *cli.Command) error {
 		SkipDNSDomainSuffixes:  []string{".bsky.social"},
 		TryAuthoritativeDNS:    true,
 		PLCURL:                 cmd.String("plc-host"),
+		HTTPClient: http.Client{
+			Timeout:   time.Second * 5,
+			Transport: ssrf.PublicOnlyTransport(),
+		},
+		PLCClient: &http.Client{
+			Timeout: time.Second * 10,
+		},
+		Resolver: net.Resolver{
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				d := net.Dialer{Timeout: time.Second * 3}
+				return d.DialContext(ctx, network, address)
+			},
+		},
 	}
 	dir := identity.NewCacheDirectory(&baseDir, cmd.Int("ident-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/util/ssrf"
 
 	"github.com/earthboundkid/versioninfo/v2"
 )
@@ -71,7 +72,10 @@ func (c *RecordContext) fetchBlob(blob lexutil.LexBlob) ([]byte, error) {
 
 	client := c.engine.BlobClient
 	if client == nil {
-		client = http.DefaultClient
+		client = &http.Client{
+			Timeout:   90 * time.Second,
+			Transport: ssrf.PublicOnlyTransport(),
+		}
 	}
 
 	resp, err := client.Do(req)

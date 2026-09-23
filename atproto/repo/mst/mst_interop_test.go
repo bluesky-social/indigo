@@ -60,7 +60,8 @@ func TestManualNode(t *testing.T) {
 			},
 		},
 	}
-	n := simple_nd.Node(nil)
+	n, err := simple_nd.Node(nil)
+	assert.NoError(err)
 	assert.Equal(simple_nd, n.NodeData())
 
 	mcid, err := n.writeBlocks(context.Background(), nil, true)

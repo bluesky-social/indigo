@@ -16,6 +16,8 @@ import (
 	repolib "github.com/bluesky-social/indigo/atproto/repo"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/cmd/tap/models"
+	"github.com/bluesky-social/indigo/util/ssrf"
+
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
@@ -198,6 +200,7 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 
 	r.logger.Info("fetching repo from PDS", "did", did, "pds", pdsURL)
 
+	// NOTE: this is an untrusted endpoint URL
 	client := atclient.NewAPIClient(pdsURL)
 	client.Headers.Set("User-Agent", userAgent())
 	timeout := r.repoFetchTimeout
@@ -205,7 +208,8 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 		timeout = 30 * time.Second
 	}
 	client.Client = &http.Client{
-		Timeout: timeout,
+		Timeout:   timeout,
+		Transport: ssrf.PublicOnlyTransport(),
 	}
 
 	repoBytes, err := comatproto.SyncGetRepo(ctx, client, did, "")

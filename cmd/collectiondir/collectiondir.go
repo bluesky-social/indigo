@@ -18,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluesky-social/indigo/util/ssrf"
+
 	"github.com/earthboundkid/versioninfo/v2"
 	"github.com/urfave/cli/v3"
 )
@@ -308,7 +310,10 @@ var adminCrawlCmd = &cli.Command{
 			fmt.Println("no hosts")
 		}
 
-		client := http.Client{Timeout: 1 * time.Second}
+		client := http.Client{
+			Timeout:   1 * time.Second,
+			Transport: ssrf.PublicOnlyTransport(),
+		}
 		var headers http.Header = make(http.Header)
 		if cmd.IsSet("auth") {
 			headers.Add("Authorization", "Bearer "+cmd.String("auth"))

@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net/http"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/util/ssrf"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -25,7 +28,13 @@ func FetchAndProcessRecord(ctx context.Context, eng *automod.Engine, aturi synta
 	if pdsURL == "" {
 		return fmt.Errorf("could not resolve PDS endpoint for AT-URI account: %s", ident.DID.String())
 	}
-	pdsClient := xrpc.Client{Host: pdsURL}
+	pdsClient := xrpc.Client{
+		Host: pdsURL,
+		Client: &http.Client{
+			Timeout:   60 * time.Second,
+			Transport: ssrf.PublicOnlyTransport(),
+		},
+	}
 
 	eng.Logger.Info("fetching record", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
 	out, err := comatproto.RepoGetRecord(ctx, &pdsClient, "", aturi.Collection().String(), ident.DID.String(), aturi.RecordKey().String())
@@ -61,7 +70,13 @@ func FetchRecent(ctx context.Context, eng *automod.Engine, atid syntax.AtIdentif
 	if pdsURL == "" {
 		return nil, nil, fmt.Errorf("could not resolve PDS endpoint for account: %s", ident.DID.String())
 	}
-	pdsClient := xrpc.Client{Host: pdsURL}
+	pdsClient := xrpc.Client{
+		Host: pdsURL,
+		Client: &http.Client{
+			Timeout:   60 * time.Second,
+			Transport: ssrf.PublicOnlyTransport(),
+		},
+	}
 
 	resp, err := comatproto.RepoListRecords(ctx, &pdsClient, "app.bsky.feed.post", "", int64(limit), ident.DID.String(), false)
 	if err != nil {

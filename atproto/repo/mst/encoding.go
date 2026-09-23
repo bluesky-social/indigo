@@ -87,10 +87,12 @@ func (n *Node) NodeData() NodeData {
 	return d
 }
 
-// Tansforms an encoded `NodeData` to `Node` data structure format.
+// Transforms an encoded [NodeData] to [Node] data structure format.
+//
+// Returns a wrapped [ErrInvalidTree] if the data is invalid. For example, entries with negative or out-of-bound prefix lenths ('p' field).
 //
 // c: optional CID argument for the CID of the CBOR representation of the NodeData
-func (d *NodeData) Node(c *cid.Cid) Node {
+func (d *NodeData) Node(c *cid.Cid) (Node, error) {
 	height := -1
 	n := Node{
 		CID:     c,
@@ -104,6 +106,9 @@ func (d *NodeData) Node(c *cid.Cid) Node {
 
 	var prevKey []byte
 	for _, e := range d.Entries {
+		if e.PrefixLen < 0 || e.PrefixLen > int64(len(prevKey)) {
+			return n, fmt.Errorf("%w: node entry with out of range prefix length (%d)", ErrInvalidTree, e.PrefixLen)
+		}
 		// TODO perf: pre-allocate
 		key := []byte{}
 		key = append(key, prevKey[:e.PrefixLen]...)
@@ -126,7 +131,7 @@ func (d *NodeData) Node(c *cid.Cid) Node {
 
 	// TODO: height doesn't get set properly if this is an intermediate node; we rely on `EnsureHeights` getting called to fix that
 	n.Height = height
-	return n
+	return n, nil
 }
 
 // TODO: this feels like a hack, and easy to forget
@@ -210,7 +215,10 @@ func loadNodeFromStore(ctx context.Context, bs MSTBlockSource, ref cid.Cid) (*No
 		return nil, err
 	}
 
-	n := nd.Node(&ref)
+	n, err := nd.Node(&ref)
+	if err != nil {
+		return nil, err
+	}
 
 	for i, e := range n.Entries {
 		if e.IsChild() {

@@ -10,9 +10,10 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"golang.org/x/time/rate"
+	"github.com/bluesky-social/indigo/util/ssrf"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/time/rate"
 )
 
 // NOTE: this hits the open internet! marked as skip below by default
@@ -48,7 +49,10 @@ func testDirectoryLive(t *testing.T, d Directory) {
 	_, err = d.LookupDID(ctx, syntax.DID("did:web:fake-dummy-no-resolve.atproto.com"))
 	assert.ErrorIs(err, ErrDIDNotFound)
 
-	_, err = d.LookupDID(ctx, syntax.DID("did:plc:fake-dummy-no-resolve.atproto.com"))
+	_, err = d.LookupDID(ctx, syntax.DID("did:web:api.bsky.app"))
+	assert.NoError(err)
+
+	_, err = d.LookupDID(ctx, syntax.DID("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"))
 	assert.ErrorIs(err, ErrDIDNotFound)
 
 	_, err = d.LookupHandle(ctx, syntax.HandleInvalid)
@@ -59,6 +63,12 @@ func TestBaseDirectory(t *testing.T) {
 	t.Skip("TODO: skipping live network test")
 	d := BaseDirectory{}
 	testDirectoryLive(t, &d)
+}
+
+func TestDefaultDirectory(t *testing.T) {
+	t.Skip("TODO: skipping live network test")
+	d := DefaultDirectory()
+	testDirectoryLive(t, d)
 }
 
 func TestCacheDirectory(t *testing.T) {
@@ -80,7 +90,8 @@ func TestCacheCoalesce(t *testing.T) {
 	base := BaseDirectory{
 		PLCURL: "https://plc.directory",
 		HTTPClient: http.Client{
-			Timeout: time.Second * 15,
+			Timeout:   time.Second * 15,
+			Transport: ssrf.PublicOnlyTransport(),
 		},
 		// Limit the number of requests we can make to the PLC to 1 per second
 		PLCLimiter:            rate.NewLimiter(1, 1),

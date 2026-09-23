@@ -190,7 +190,7 @@ var readRepoStreamCmd = &cli.Command{
 			_ = con.Close()
 		}()
 
-		bdir := identity.BaseDirectory{}
+		dir := identity.DefaultDirectory()
 		resolveHandles := cctx.Bool("resolve-handles")
 
 		cache, _ := lru.New[string, *cachedHandle](10000)
@@ -202,7 +202,7 @@ var readRepoStreamCmd = &cli.Command{
 				}
 			}
 
-			ident, err := bdir.LookupDID(ctx, syntax.DID(did))
+			ident, err := dir.LookupDID(ctx, syntax.DID(did))
 			if err != nil {
 				return "", err
 			}

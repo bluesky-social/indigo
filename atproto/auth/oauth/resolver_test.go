@@ -119,6 +119,52 @@ func TestValidateMetadata(t *testing.T) {
 	}
 }
 
+func TestValidateMetadataEndpoints(t *testing.T) {
+	assert := assert.New(t)
+
+	load := func() *AuthServerMetadata {
+		var meta AuthServerMetadata
+		b, err := os.ReadFile("testdata/bsky-entryway-authorization-server.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(b, &meta); err != nil {
+			t.Fatal(err)
+		}
+		return &meta
+	}
+	const serverURL = "https://bsky.social/.well-known/oauth-authorization-server"
+
+	// baseline is valid
+	assert.NoError(load().Validate(serverURL))
+
+	// off-origin endpoints are allowed: neither RFC 8414 nor the atproto profile
+	// require endpoints to share the issuer origin
+	m := load()
+	m.TokenEndpoint = "https://auth.other.example/oauth/token"
+	assert.NoError(m.Validate(serverURL))
+
+	// non-HTTPS endpoints are rejected
+	m = load()
+	m.TokenEndpoint = "http://bsky.social/oauth/token"
+	assert.ErrorContains(m.Validate(serverURL), "token endpoint")
+
+	// opaque/no-host forms are rejected (e.g. "https:example.com")
+	m = load()
+	m.TokenEndpoint = "https:bsky.social/oauth/token"
+	assert.ErrorContains(m.Validate(serverURL), "token endpoint")
+
+	// endpoints with query or fragment are rejected
+	m = load()
+	m.PushedAuthorizationRequestEndpoint = "https://bsky.social/oauth/par?foo=bar"
+	assert.ErrorContains(m.Validate(serverURL), "pushed_authorization_request endpoint")
+
+	// missing required token endpoint is rejected
+	m = load()
+	m.TokenEndpoint = ""
+	assert.ErrorContains(m.Validate(serverURL), "token endpoint")
+}
+
 func TestResolver(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()

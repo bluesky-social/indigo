@@ -26,6 +26,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/util/ssrf"
 	"github.com/bluesky-social/indigo/util/svcutil"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -899,7 +900,9 @@ func (cs *collectionServer) crawlThread(hostIn string) {
 	if host != hostIn {
 		cs.log.Info("going to crawl", "in", hostIn, "as", host)
 	}
-	httpClient := http.Client{}
+	httpClient := http.Client{
+		Transport: ssrf.PublicOnlyTransport(),
+	}
 	rpcClient := xrpc.Client{
 		Host:   host,
 		Client: &httpClient,

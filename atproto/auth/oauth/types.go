@@ -224,13 +224,10 @@ func (m *AuthServerMetadata) Validate(serverURL string) error {
 		return fmt.Errorf("%w: issuer must match request URL", ErrInvalidAuthServerMetadata)
 	}
 
-	// check that authorization endpoint is a valid HTTPS URL with no fragment or query params (we will be appending query params latter)
-	aeurl, err := url.Parse(m.AuthorizationEndpoint)
-	if err != nil {
-		return fmt.Errorf("%w: invalid auth endpoint URL (%s): %w", ErrInvalidAuthServerMetadata, m.AuthorizationEndpoint, err)
-	}
-	if aeurl.Scheme != "https" || u.Fragment != "" || u.RawQuery != "" {
-		return fmt.Errorf("%w: invalid auth endpoint URL: %s", ErrInvalidAuthServerMetadata, m.AuthorizationEndpoint)
+	// check that authorization endpoint is a valid HTTPS URL with no fragment or
+	// query params (we will be appending query params later)
+	if err := validateEndpoint(m.AuthorizationEndpoint, "authorization"); err != nil {
+		return err
 	}
 
 	if !slices.Contains(m.ResponseTypesSupported, "code") {
@@ -266,6 +263,18 @@ func (m *AuthServerMetadata) Validate(serverURL string) error {
 	if m.PushedAuthorizationRequestEndpoint == "" {
 		return fmt.Errorf("%w: pushed_authorization_request_endpoint is required", ErrInvalidAuthServerMetadata)
 	}
+	if err := validateEndpoint(m.PushedAuthorizationRequestEndpoint, "pushed_authorization_request"); err != nil {
+		return err
+	}
+	if err := validateEndpoint(m.TokenEndpoint, "token"); err != nil {
+		return err
+	}
+	// revocation endpoint is optional
+	if m.RevocationEndpoint != "" {
+		if err := validateEndpoint(m.RevocationEndpoint, "revocation"); err != nil {
+			return err
+		}
+	}
 	if !slices.Contains(m.DPoPSigningAlgValuesSupported, "ES256") {
 		return fmt.Errorf("%w: dpop_signing_alg_values_supported must include 'ES256'", ErrInvalidAuthServerMetadata)
 	}
@@ -275,6 +284,26 @@ func (m *AuthServerMetadata) Validate(serverURL string) error {
 	if !m.ClientIDMetadataDocumentSupported {
 		return fmt.Errorf("%w: client_id_metadata_document_supported must be true", ErrInvalidAuthServerMetadata)
 	}
+	return nil
+}
+
+// Ensures an OAuth endpoint is a well-formed HTTPS URL with no fragment or
+// query params.
+func validateEndpoint(endpoint string, name string) error {
+	if endpoint == "" {
+		return fmt.Errorf("%w: missing %s endpoint", ErrInvalidAuthServerMetadata, name)
+	}
+	eu, err := url.Parse(endpoint)
+	if err != nil {
+		return fmt.Errorf("%w: invalid %s endpoint URL (%s): %w", ErrInvalidAuthServerMetadata, name, endpoint, err)
+	}
+	// require a real host; rejects opaque forms like "https:example.com" that
+	// parse as scheme+opaque with an empty host
+	if eu.Scheme != "https" || eu.Host == "" || eu.Opaque != "" || eu.Fragment != "" || eu.RawQuery != "" {
+		return fmt.Errorf("%w: invalid %s endpoint URL: %s", ErrInvalidAuthServerMetadata, name, endpoint)
+	}
+	// endpoints need not share the issuer origin (per RFC 8414 and the atproto
+	// OAuth spec); SSRF is handled by the HTTP client, not here
 	return nil
 }
 
