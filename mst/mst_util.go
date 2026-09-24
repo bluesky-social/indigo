@@ -5,6 +5,7 @@ package mst
 import (
 	"context"
 	"fmt"
+	"math/bits"
 	"strings"
 	"unsafe"
 
@@ -28,22 +29,11 @@ func leadingZerosOnHash(key string) int {
 func leadingZerosOnHashBytes(key []byte) (total int) {
 	hv := sha256.Sum256(key)
 	for _, b := range hv {
-		if b&0xC0 != 0 {
-			// Common case. No leading pair of zero bits.
+		k := bits.LeadingZeros8(uint8(b))
+		total += (k >> 1)
+		if k < 8 {
 			break
 		}
-		if b == 0x00 {
-			total += 4
-			continue
-		}
-		if b&0xFC == 0x00 {
-			total += 3
-		} else if b&0xF0 == 0x00 {
-			total += 2
-		} else {
-			total += 1
-		}
-		break
 	}
 	return total
 }
