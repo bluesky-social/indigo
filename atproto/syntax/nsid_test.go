@@ -74,3 +74,45 @@ func TestNSIDNoPanic(t *testing.T) {
 		_ = bad.Normalize()
 	}
 }
+
+func TestParseNSIDRef(t *testing.T) {
+	assert := assert.New(t)
+
+	invalidRefs := []string{
+		"#",
+		"com.example.record#",
+		"com.example.record##name",
+		"#one_two",
+		"name",
+		"#one-two",
+		"#one.two",
+		"#one:two",
+		"#one/two",
+		"one#two",
+		"#näme",
+		"in.valid#two",
+		"#.",
+		"com.example.record#123",
+		"com.example.record#longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong",
+	}
+
+	validRefs := [][]string{
+		{"com.example.record#name", "com.example.record", "name"},
+		{"com.example.record#name123", "com.example.record", "name123"},
+		{"#name", "", "name"},
+		{"#a", "", "a"},
+		{"com.example.record", "com.example.record", ""},
+	}
+
+	for _, row := range invalidRefs {
+		_, _, err := ParseNSIDRef(row)
+		assert.Error(err, row)
+	}
+
+	for _, row := range validRefs {
+		nsid, ref, err := ParseNSIDRef(row[0])
+		assert.Equal(row[1], nsid.String())
+		assert.Equal(row[2], ref)
+		assert.NoError(err)
+	}
+}
