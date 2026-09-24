@@ -58,7 +58,7 @@ func (r *Relay) GetAccountRepo(ctx context.Context, uid uint64) (*models.Account
 // If the account's identity doesn't match the host, this will fail. We only create accounts associated with hosts we already know of, not remote hosts (aka, no spidering).
 func (r *Relay) CreateAccountHost(ctx context.Context, did syntax.DID, hostID uint64, hostname string) (*models.Account, error) {
 	// NOTE: this method doesn't use locking. the database UNIQUE constraint should prevent duplicate account creation.
-	logger := r.Logger.With("did", did, "hostname", hostname)
+	// logger := r.Logger.With("did", did, "hostname", hostname)
 
 	newUsersDiscovered.Inc()
 	//start := time.Now()
@@ -71,18 +71,18 @@ func (r *Relay) CreateAccountHost(ctx context.Context, did syntax.DID, hostID ui
 	if pdsEndpoint == "" {
 		return nil, fmt.Errorf("new account has no declared PDS: %s", did)
 	}
-	pdsHostname, _, err := ParseHostname(pdsEndpoint)
-	if err != nil {
-		return nil, fmt.Errorf("new account PDS endpoint invalid: %s", pdsEndpoint)
-	}
+	// pdsHostname, _, err := ParseHostname(pdsEndpoint)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("new account PDS endpoint invalid: %s", pdsEndpoint)
+	// }
 
-	if pdsHostname != hostname {
-		if r.Config.SkipAccountHostCheck {
-			logger.Info("ignoring account host mismatch", "pdsHostname", pdsHostname)
-		} else {
-			return nil, fmt.Errorf("new account from a different host: %s", pdsHostname)
-		}
-	}
+	// if pdsHostname != hostname {
+	// 	if r.Config.SkipAccountHostCheck {
+	// 		logger.Info("ignoring account host mismatch", "pdsHostname", pdsHostname)
+	// 	} else {
+	// 		return nil, fmt.Errorf("new account from a different host: %s", pdsHostname)
+	// 	}
+	// }
 
 	// TODO: could be verifying upstream status here (using r.HostChecker); not particularly urgent because triggering event is already coming from the relevant host
 
@@ -131,44 +131,44 @@ func (r *Relay) EnsureAccountHost(ctx context.Context, acc *models.Account, host
 	}
 
 	did := syntax.DID(acc.DID)
-	logger := r.Logger.With("did", did, "hostname", hostname)
+	// logger := r.Logger.With("did", did, "hostname", hostname)
 
 	// confirm account location
-	ident, err := r.Dir.LookupDID(ctx, did)
-	if err != nil {
-		return fmt.Errorf("account identity resolution (%s): %w", did, err)
-	}
-	pdsHostname, _, err := ParseHostname(ident.PDSEndpoint())
-	if err != nil {
-		return fmt.Errorf("account PDS endpoint invalid (%s): %w", ident.PDSEndpoint(), err)
-	}
+	// ident, err := r.Dir.LookupDID(ctx, did)
+	// if err != nil {
+	// 	return fmt.Errorf("account identity resolution (%s): %w", did, err)
+	// }
+	// pdsHostname, _, err := ParseHostname(ident.PDSEndpoint())
+	// if err != nil {
+	// 	return fmt.Errorf("account PDS endpoint invalid (%s): %w", ident.PDSEndpoint(), err)
+	// }
 
-	if pdsHostname != hostname {
-		// purge identity cache and try again
-		if err := r.Dir.Purge(ctx, did.AtIdentifier()); err != nil {
-			return fmt.Errorf("failed to purge identity cache: %w", err)
-		}
-		ident, err = r.Dir.LookupDID(ctx, did)
-		if err != nil {
-			return fmt.Errorf("account identity resolution: %w", err)
-		}
-		pdsHostname, _, err = ParseHostname(ident.PDSEndpoint())
-		if err != nil {
-			return fmt.Errorf("account PDS endpoint invalid (%s): %w", ident.PDSEndpoint(), err)
-		}
-	}
+	// if pdsHostname != hostname {
+	// 	// purge identity cache and try again
+	// 	if err := r.Dir.Purge(ctx, did.AtIdentifier()); err != nil {
+	// 		return fmt.Errorf("failed to purge identity cache: %w", err)
+	// 	}
+	// 	ident, err = r.Dir.LookupDID(ctx, did)
+	// 	if err != nil {
+	// 		return fmt.Errorf("account identity resolution: %w", err)
+	// 	}
+	// 	pdsHostname, _, err = ParseHostname(ident.PDSEndpoint())
+	// 	if err != nil {
+	// 		return fmt.Errorf("account PDS endpoint invalid (%s): %w", ident.PDSEndpoint(), err)
+	// 	}
+	// }
 
-	if pdsHostname != hostname {
-		if r.Config.SkipAccountHostCheck {
-			logger.Warn("ignoring account host mismatch", "pdsHostname", pdsHostname)
-			return nil
-		} else {
-			return fmt.Errorf("new account from a different host: %s", pdsHostname)
-		}
-	}
+	// if pdsHostname != hostname {
+	// 	if r.Config.SkipAccountHostCheck {
+	// 		logger.Warn("ignoring account host mismatch", "pdsHostname", pdsHostname)
+	// 		return nil
+	// 	} else {
+	// 		return fmt.Errorf("new account from a different host: %s", pdsHostname)
+	// 	}
+	// }
 
 	// create Account row and increment host count in the same transaction
-	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// decrement old host count
 		if err := tx.Model(&models.Host{}).Where("id = ?", acc.HostID).Update("account_count", gorm.Expr("account_count - 1")).Error; err != nil {
 			return fmt.Errorf("failed to decrement account count for former host (%d): %w", acc.HostID, err)
