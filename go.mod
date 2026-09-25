@@ -17,7 +17,7 @@ require (
 	github.com/google/go-querystring v1.1.0
 	github.com/gorilla/sessions v1.2.1
 	github.com/gorilla/websocket v1.5.3
-	github.com/hashicorp/go-retryablehttp v0.7.5
+	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/hashicorp/golang-lru/arc/v2 v2.0.6
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/ipfs/go-block-format v0.2.0
