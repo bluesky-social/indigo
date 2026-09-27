@@ -1,0 +1,22 @@
+[
+  {
+    "name": "string instead of object",
+    "ref": "example.lexicon.minimal.procedure",
+    "data": "not an object"
+  },
+  {
+    "name": "array instead of object",
+    "ref": "example.lexicon.minimal.procedure",
+    "data": [1, 2, 3]
+  },
+  {
+    "name": "integer instead of object",
+    "ref": "example.lexicon.minimal.procedure",
+    "data": 42
+  },
+  {
+    "name": "boolean instead of object",
+    "ref": "example.lexicon.minimal.procedure",
+    "data": true
+  }
+]
