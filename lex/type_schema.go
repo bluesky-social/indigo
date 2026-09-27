@@ -57,15 +57,19 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 
 	params := "ctx context.Context, c lexutil.LexClient"
 	inpvar := "nil"
-	inpenc := ""
+	inpenc := "\"\""
 
 	if s.Input != nil {
 		inpvar = "input"
-		inpenc = s.Input.Encoding
 		switch s.Input.Encoding {
-		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingMP4:
+		case EncodingANY:
+			inpenc = "inputEncoding"
+			params = fmt.Sprintf("%s, input io.Reader, inputEncoding string", params)
+		case EncodingCBOR, EncodingCAR, EncodingMP4:
+			inpenc = fmt.Sprintf("%q", s.Input.Encoding)
 			params = fmt.Sprintf("%s, input io.Reader", params)
 		case EncodingJSON:
+			inpenc = fmt.Sprintf("%q", s.Input.Encoding)
 			params = fmt.Sprintf("%s, input *%s", params, inputname)
 		default:
 			return fmt.Errorf("unsupported input encoding (RPC input): %q", s.Input.Encoding)
@@ -180,7 +184,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 		return fmt.Errorf("can only generate RPC for Query or Procedure (got %s)", s.Type)
 	}
 
-	pf("\tif err := c.LexDo(ctx, %s, %q, \"%s\", %s, %s, %s); err != nil {\n", reqtype, inpenc, s.id, queryparams, inpvar, outvar)
+	pf("\tif err := c.LexDo(ctx, %s, %s, \"%s\", %s, %s, %s); err != nil {\n", reqtype, inpenc, s.id, queryparams, inpvar, outvar)
 	pf("\t\treturn %s\n", errRet)
 	pf("\t}\n\n")
 	pf("\treturn %s\n", outRet)

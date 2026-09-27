@@ -17,9 +17,9 @@ type RepoUploadBlob_Output struct {
 }
 
 // RepoUploadBlob calls the XRPC method "com.atproto.repo.uploadBlob".
-func RepoUploadBlob(ctx context.Context, c lexutil.LexClient, input io.Reader) (*RepoUploadBlob_Output, error) {
+func RepoUploadBlob(ctx context.Context, c lexutil.LexClient, input io.Reader, inputEncoding string) (*RepoUploadBlob_Output, error) {
 	var out RepoUploadBlob_Output
-	if err := c.LexDo(ctx, lexutil.Procedure, "*/*", "com.atproto.repo.uploadBlob", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Procedure, inputEncoding, "com.atproto.repo.uploadBlob", nil, input, &out); err != nil {
 		return nil, err
 	}
 
