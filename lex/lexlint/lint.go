@@ -264,7 +264,7 @@ func lintSchemaRecursive(nsid syntax.NSID, def lexicon.SchemaDef) []LintIssue {
 		if v.Format == nil && v.MaxLength == nil && v.MaxGraphemes == nil {
 			issues = append(issues, LintIssue{
 				NSID:            nsid,
-				LintLevel:       "warn",
+				LintLevel:       "info",
 				LintName:        "unlimited-string",
 				LintDescription: "string field with no format or maximum size",
 				Message:         "no max length",
@@ -285,7 +285,7 @@ func lintSchemaRecursive(nsid syntax.NSID, def lexicon.SchemaDef) []LintIssue {
 		if v.MaxLength == nil {
 			issues = append(issues, LintIssue{
 				NSID:            nsid,
-				LintLevel:       "warn",
+				LintLevel:       "info",
 				LintName:        "unlimited-bytes",
 				LintDescription: "bytes field with no maximum size",
 				Message:         "no max length",
@@ -368,7 +368,6 @@ func lintSchemaRecursive(nsid syntax.NSID, def lexicon.SchemaDef) []LintIssue {
 	case lexicon.SchemaRef:
 		// TODO: resolve? locally vs globally?
 	case lexicon.SchemaUnion:
-		// TODO: open vs closed?
 		// TODO: check that refs actually resolve?
 	case lexicon.SchemaUnknown:
 		// pass
