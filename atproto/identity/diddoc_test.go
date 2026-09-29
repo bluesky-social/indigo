@@ -83,3 +83,32 @@ func TestDIDDocFeedGenParse(t *testing.T) {
 	assert.True(ok)
 	assert.Equal("https://discover.bsky.social", svc.URL)
 }
+
+func TestDIDDocNonStringServiceEndpoint(t *testing.T) {
+	assert := assert.New(t)
+
+	// DID Core allows map and set endpoints; those services get dropped, the rest of the doc parses
+	docJSON := `{
+		"id": "did:web:example.com",
+		"alsoKnownAs": ["at://example.com"],
+		"service": [
+			{"id": "#didcomm", "type": "DIDCommMessaging", "serviceEndpoint": {"uri": "https://example.com/didcomm"}},
+			{"id": "#set", "type": "LinkedDomains", "serviceEndpoint": ["https://a.example.com", "https://b.example.com"]},
+			{"id": "#atproto_pds", "type": "AtprotoPersonalDataServer", "serviceEndpoint": "https://pds.example.com"}
+		]
+	}`
+
+	var doc DIDDocument
+	if err := json.Unmarshal([]byte(docJSON), &doc); err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal("did:web:example.com", doc.DID.String())
+	assert.Equal([]string{"at://example.com"}, doc.AlsoKnownAs)
+	assert.Equal([]DocService{
+		{ID: "#atproto_pds", Type: "AtprotoPersonalDataServer", ServiceEndpoint: "https://pds.example.com"},
+	}, doc.Service)
+
+	ident := ParseIdentity(&doc)
+	assert.Equal("https://pds.example.com", ident.PDSEndpoint())
+	assert.Equal(1, len(ident.Services))
+}
