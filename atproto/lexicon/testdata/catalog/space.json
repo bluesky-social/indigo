@@ -1,0 +1,20 @@
+{
+  "lexicon": 1,
+  "id": "example.lexicon.space",
+  "description": "exercises many lexicon features for the space type",
+  "defs": {
+    "main": {
+      "type": "space",
+      "key": "literal:self",
+      "description": "Additional description",
+      "name": "Example for Group",
+      "name:lang": {
+        "fr": "Example for Group"
+      },
+      "collections": [
+        "com.example.calendar.event",
+        "com.example.calendar.rsvp"
+      ]
+    }
+  }
+}

@@ -38,6 +38,24 @@ rpc?aud=*&lxm=com.example.method1&lxm=com.example.method2
 rpc:com.example.query?aud=did:web:api.example.com%23api_example
 rpc?aud=did%3Aweb%3Aapi.example.com%23frag&lxm=com.example.query&lxm=com.example.procedure
 
+# examples from the proposal
+space:com.example.bookmarks
+space:com.atmoboards.forum?authority=*
+space:com.atmoboards.forum?authority=*&action=read
+space:com.atmoboards.forum?authority=*&action=read_self
+space:com.atmoboards.forum?authority=*&collection=*
+space:com.atmoboards.forum?authority=did:plc:abc123&skey=default&collection=com.atmoboards.thread&action=create&action=update
+space:com.atmoboards.forum?authority=*&action=read_self&manage=update&manage=delete
+space:com.atmoboards.forum?authority=*&manage=update&manage=delete
+space:*?authority=did:plc:abc123
+
+# more examples
+space?spaceType=com.example.bookmarks
+space:*
+space:com.example.bookmarks?authority=self
+space:com.example.bookmarks?skey=*
+space:com.example.bookmarks?collection=*
+space:com.example.forum?action=read_self&authority=%2A
 
 # examples from specification text 
 repo:app.example.profile
