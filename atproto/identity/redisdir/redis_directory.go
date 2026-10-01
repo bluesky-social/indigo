@@ -194,7 +194,7 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 		select {
 		case <-val.(chan struct{}):
 			// The result should now be in the cache
-			err := d.handleCache.Get(ctx, redisDirPrefix+h.String(), entry)
+			err := d.handleCache.Get(ctx, redisDirPrefix+h.String(), &entry)
 			if err != nil && err != cache.ErrCacheMiss {
 				return "", fmt.Errorf("identity cache read failed: %w", err)
 			}
