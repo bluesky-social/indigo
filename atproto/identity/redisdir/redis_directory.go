@@ -37,13 +37,15 @@ type handleEntry struct {
 	Updated time.Time
 	// needs to be pointer type, because unmarshalling empty string would be an error
 	DID *syntax.DID
+	// TODO: serializing 'error' for caching doesn't work well
 	Err error
 }
 
 type identityEntry struct {
 	Updated  time.Time
 	Identity *identity.Identity
-	Err      error
+	// TODO: serializing 'error' for caching doesn't work well
+	Err error
 }
 
 var _ identity.Directory = (*RedisDirectory)(nil)
