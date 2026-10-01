@@ -232,11 +232,8 @@ func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle)
 	}
 
 	// return the most specific/helpful error
-	if !errors.Is(dnsErr, ErrHandleNotFound) {
+	if dnsErr != nil && !errors.Is(dnsErr, ErrHandleNotFound) {
 		return "", dnsErr
 	}
-	if !errors.Is(httpErr, ErrHandleNotFound) {
-		return "", httpErr
-	}
-	return "", dnsErr
+	return "", httpErr
 }
