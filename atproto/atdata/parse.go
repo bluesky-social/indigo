@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 
+	daslcid "github.com/hyphacoop/go-dasl/cid"
 	"github.com/ipfs/go-cid"
 )
 
@@ -28,6 +29,10 @@ func parseAtom(atom any) (any, error) {
 		return v, nil
 	case *int64:
 		return *v, nil
+	case uint64:
+		return int64(v), nil
+	case *uint64:
+		return int64(*v), nil
 	case int:
 		return int64(v), nil
 	case *int:
@@ -47,6 +52,18 @@ func parseAtom(atom any) (any, error) {
 		return CIDLink(v), nil
 	case *cid.Cid:
 		return CIDLink(*v), nil
+	case daslcid.Cid:
+		c, err := cid.Cast(v.Bytes())
+		if err != nil {
+			return nil, err
+		}
+		return CIDLink(c), nil
+	case *daslcid.Cid:
+		c, err := cid.Cast(v.Bytes())
+		if err != nil {
+			return nil, err
+		}
+		return CIDLink(c), nil
 	case []byte:
 		return Bytes(v), nil
 	case *[]byte:
@@ -186,6 +203,8 @@ func parseBlob(obj map[string]any) (*Blob, error) {
 		size = int64(v)
 	case int64:
 		size = v
+	case uint64:
+		size = int64(v)
 	case float64:
 		size, err = parseFloat(v)
 		if err != nil {
@@ -212,6 +231,12 @@ func parseBlob(obj map[string]any) (*Blob, error) {
 		ref = cl
 	case cid.Cid:
 		ref = CIDLink(v)
+	case daslcid.Cid:
+		c, err := cid.Cast(v.Bytes())
+		if err != nil {
+			return nil, fmt.Errorf("blob 'ref' CID conversion: %w", err)
+		}
+		ref = CIDLink(c)
 	case CIDLink:
 		ref = v
 	default:
