@@ -223,8 +223,10 @@ func (em *EventManager) rmSubscriber(sub *Subscriber) {
 
 	for i, s := range em.subs {
 		if s == sub {
-			em.subs[i] = em.subs[len(em.subs)-1]
-			em.subs = em.subs[:len(em.subs)-1]
+			last := len(em.subs) - 1
+			em.subs[i] = em.subs[last]
+			em.subs[last] = nil
+			em.subs = em.subs[:last]
 			break
 		}
 	}

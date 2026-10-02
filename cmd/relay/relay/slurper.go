@@ -284,15 +284,6 @@ func (s *Slurper) Subscribe(host *models.Host) error {
 //
 // On connection failure (drop or failed initial connection), will attempt re-connects, with backoff.
 func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, sub *Subscription) {
-
-	logger := s.logger.With("host", host.Hostname)
-	defer func() {
-		s.subsLk.Lock()
-		defer s.subsLk.Unlock()
-
-		delete(s.subs, host.Hostname)
-	}()
-
 	d := websocket.Dialer{
 		HandshakeTimeout: time.Second * 5,
 	}
@@ -302,6 +293,17 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		netDialer := ssrf.PublicOnlyDialer()
 		d.NetDialContext = netDialer.DialContext
 	}
+	s.subscribeWithDialer(ctx, host, sub, &d)
+}
+
+func (s *Slurper) subscribeWithDialer(ctx context.Context, host *models.Host, sub *Subscription, d *websocket.Dialer) {
+	logger := s.logger.With("host", host.Hostname)
+	defer func() {
+		s.subsLk.Lock()
+		defer s.subsLk.Unlock()
+
+		delete(s.subs, host.Hostname)
+	}()
 
 	cursor := host.LastSeq
 
@@ -309,7 +311,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 	defer connectedInbound.Dec()
 	// TODO: add a metric for number of subscriptions which are attempting to reconnect
 
-	var backoff int
+	var backoff, dialFailures int
 	for {
 		select {
 		case <-ctx.Done():
@@ -326,10 +328,17 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		conn, resp, err := d.DialContext(ctx, u, hdr)
 		if err != nil {
 			logger.Warn("dialing failed", "err", err, "backoff", backoff)
-			time.Sleep(sleepForBackoff(backoff))
-			backoff++
+			dialFailures++
+			if backoff < 6 {
+				backoff++
+			}
+			if !waitForBackoff(ctx, backoff) {
+				return
+			}
 
-			if backoff > 15 {
+			// Preserve the existing offline policy: only failed dials count,
+			// even when successful connections without cursor progress intervene.
+			if dialFailures > 15 {
 				logger.Warn("host does not appear to be online, disabling for now")
 				if err := s.Config.PersistHostStatusCallback(ctx, sub.HostID, models.HostStatusOffline); err != nil {
 					logger.Error("failed to update host status", "err", err)
@@ -343,6 +352,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		// check if we connected to a relay (eg, this indigo relay, or rainbow) and drop if so
 		serverHdr := resp.Header.Get("Server")
 		if strings.Contains(serverHdr, "atproto-relay") {
+			_ = conn.Close()
 			logger.Warn("subscribed host is atproto relay of some kind, banning", "header", "Server", "value", serverHdr, "url", u)
 			if err := s.Config.PersistHostStatusCallback(ctx, sub.HostID, models.HostStatusBanned); err != nil {
 				logger.Error("failed to update host status", "err", err)
@@ -354,7 +364,6 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 
 		if err := s.handleConnection(ctx, conn, sub); err != nil {
 
-			// TODO: measure the last N connection error times and if they're coming too fast reconnect slower or don't reconnect and wait for requestCrawl
 			logger.Warn("host connection failed", "err", err, "backoff", backoff)
 
 			// for all other errors, keep retrying / reconnecting
@@ -365,6 +374,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 			// did we make any progress?
 			cursor = updatedCursor
 			backoff = 0
+			dialFailures = 0
 
 			// persist updated cursor
 			if s.Config.PersistCursorCallback != nil {
@@ -373,20 +383,44 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 					logger.Warn("failed to persist cursor")
 				}
 			}
+			continue
+		}
+
+		// A successful upgrade alone is not progress. Pace failures such as
+		// repeated text frames, while allowing prompt reconnect after progress.
+		if backoff < 6 {
+			backoff++
+		}
+		if !waitForBackoff(ctx, backoff) {
+			return
 		}
 	}
 }
 
 func sleepForBackoff(b int) time.Duration {
-	if b == 0 {
+	if b <= 0 {
 		return 0
 	}
 
-	if b < 10 {
-		return (time.Duration(b) * 2) + (time.Millisecond * time.Duration(rand.Intn(1000)))
+	delay := 30 * time.Second
+	if b < 6 {
+		delay = time.Second << (b - 1)
 	}
 
-	return time.Second * 30
+	// Jitter in the upper fifth bounds retry load even for immediate failures
+	// and never exceeds the maximum delay.
+	return delay - time.Duration(rand.Int63n(int64(delay/5)+1))
+}
+
+func waitForBackoff(ctx context.Context, b int) bool {
+	timer := time.NewTimer(sleepForBackoff(b))
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return ctx.Err() == nil
+	}
 }
 
 // Configures event processing for a websocket connection, using the parallel schedule helper library, with all events processed using the configured callback function.

@@ -388,6 +388,7 @@ func (dp *DiskPersistence) flushLog(ctx context.Context) error {
 		dp.buffers.Put(ej.Buffer)
 	}
 
+	clear(dp.evtbuf)
 	dp.evtbuf = dp.evtbuf[:0]
 
 	return nil
@@ -756,10 +757,14 @@ func postDoNotEmit(flags uint32) bool {
 }
 
 func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn string, cb func(*stream.XRPCStreamEvent) error) (*int64, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	fi, err := os.OpenFile(fn, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, err
 	}
+	defer fi.Close()
 
 	if since != 0 {
 		lastSeq, err := scanForLastSeq(fi, since)
@@ -777,11 +782,15 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 	}
 
 	bufr := bufio.NewReader(fi)
+	body := io.LimitedReader{R: bufr}
 
 	lastSeq := int64(0)
 
 	scratch := make([]byte, headerSize)
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		h, err := readHeader(bufr, scratch)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -802,10 +811,12 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 			continue
 		}
 
+		// Reuse the bounded reader; decoding must not consume the next record.
+		body.N = h.Len64()
 		switch h.Kind {
 		case evtKindCommit:
 			var evt atproto.SyncSubscribeRepos_Commit
-			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
+			if err := evt.UnmarshalCBOR(&body); err != nil {
 				return nil, err
 			}
 			evt.Seq = h.Seq
@@ -814,7 +825,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 			}
 		case evtKindSync:
 			var evt atproto.SyncSubscribeRepos_Sync
-			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
+			if err := evt.UnmarshalCBOR(&body); err != nil {
 				return nil, err
 			}
 			evt.Seq = h.Seq
@@ -823,7 +834,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 			}
 		case evtKindIdentity:
 			var evt atproto.SyncSubscribeRepos_Identity
-			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
+			if err := evt.UnmarshalCBOR(&body); err != nil {
 				return nil, err
 			}
 			evt.Seq = h.Seq
@@ -832,7 +843,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 			}
 		case evtKindAccount:
 			var evt atproto.SyncSubscribeRepos_Account
-			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
+			if err := evt.UnmarshalCBOR(&body); err != nil {
 				return nil, err
 			}
 			evt.Seq = h.Seq
