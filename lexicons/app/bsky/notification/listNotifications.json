@@ -22,9 +22,16 @@
             "maximum": 100,
             "default": 50
           },
-          "priority": { "type": "boolean" },
+          "priority": {
+            "type": "boolean",
+            "description": "Deprecated: this parameter is ignored."
+          },
           "cursor": { "type": "string" },
-          "seenAt": { "type": "string", "format": "datetime" }
+          "seenAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Deprecated: this parameter is unsupported and will cause an error."
+          }
         }
       },
       "output": {
@@ -38,7 +45,10 @@
               "type": "array",
               "items": { "type": "ref", "ref": "#notification" }
             },
-            "priority": { "type": "boolean" },
+            "priority": {
+              "type": "boolean",
+              "description": "Deprecated: this field is no longer populated."
+            },
             "seenAt": { "type": "string", "format": "datetime" }
           }
         }
@@ -80,6 +90,11 @@
         },
         "reasonSubject": { "type": "string", "format": "at-uri" },
         "record": { "type": "unknown" },
+        "starterPack": {
+          "description": "The starter pack associated with this notification. Present when the notification is for a follow originating from a starter pack.",
+          "type": "ref",
+          "ref": "app.bsky.graph.defs#starterPackViewBasic"
+        },
         "isRead": { "type": "boolean" },
         "indexedAt": { "type": "string", "format": "datetime" },
         "labels": {
