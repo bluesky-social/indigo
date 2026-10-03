@@ -247,6 +247,8 @@ func writeMethods(typename string, ts *TypeSchema, w io.Writer) error {
 	case "subscription":
 		// TODO: should probably have some methods generated for this
 		return nil
+	case "permission-set", "space":
+		return nil
 	default:
 		return fmt.Errorf("unrecognized lexicon type %q", ts.Type)
 	}
