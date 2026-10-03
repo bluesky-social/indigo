@@ -14,12 +14,15 @@ import (
 type FeedGetTimeline_Output struct {
 	Cursor *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Feed   []*FeedDefs_FeedViewPost `json:"feed" cborgen:"feed"`
+	// startCursor: Cursor identifying the newest item in this page. Pass it as since on a later request to fetch only newer content.
+	StartCursor *string `json:"startCursor,omitempty" cborgen:"startCursor,omitempty"`
 }
 
 // FeedGetTimeline calls the XRPC method "app.bsky.feed.getTimeline".
 //
 // algorithm: Variant 'algorithm' for timeline. Implementation-specific. NOTE: most feed flexibility has been moved to feed generator mechanism.
-func FeedGetTimeline(ctx context.Context, c lexutil.LexClient, algorithm string, cursor string, limit int64) (*FeedGetTimeline_Output, error) {
+// since: Return only items newer than the position identified by this cursor value, newest first. Use the startCursor from a previous response. The item at that position is not returned because the caller already holds it. When the bounded range is exhausted, the returned cursor equals this value so that pagination continues below the boundary.
+func FeedGetTimeline(ctx context.Context, c lexutil.LexClient, algorithm string, cursor string, limit int64, since string) (*FeedGetTimeline_Output, error) {
 	var out FeedGetTimeline_Output
 
 	params := map[string]interface{}{}
@@ -31,6 +34,9 @@ func FeedGetTimeline(ctx context.Context, c lexutil.LexClient, algorithm string,
 	}
 	if limit != 0 {
 		params["limit"] = limit
+	}
+	if since != "" {
+		params["since"] = since
 	}
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.feed.getTimeline", params, nil, &out); err != nil {
 		return nil, err

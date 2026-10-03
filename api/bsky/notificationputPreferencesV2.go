@@ -12,6 +12,7 @@ import (
 
 // NotificationPutPreferencesV2_Input is the input argument to a app.bsky.notification.putPreferencesV2 call.
 type NotificationPutPreferencesV2_Input struct {
+	// chat: Deprecated: use chat.bsky.notification preferences instead. Setting this won't stick and the default values will be returned.
 	Chat              *NotificationDefs_ChatPreference       `json:"chat,omitempty" cborgen:"chat,omitempty"`
 	Follow            *NotificationDefs_FilterablePreference `json:"follow,omitempty" cborgen:"follow,omitempty"`
 	Like              *NotificationDefs_FilterablePreference `json:"like,omitempty" cborgen:"like,omitempty"`

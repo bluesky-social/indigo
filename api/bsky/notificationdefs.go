@@ -11,6 +11,8 @@ type NotificationDefs_ActivitySubscription struct {
 }
 
 // NotificationDefs_ChatPreference is a "chatPreference" in the app.bsky.notification.defs schema.
+//
+// Deprecated: use chat.bsky.notification preferences instead. This will only return a default value.
 type NotificationDefs_ChatPreference struct {
 	Include string `json:"include" cborgen:"include"`
 	Push    bool   `json:"push" cborgen:"push"`
@@ -31,6 +33,7 @@ type NotificationDefs_Preference struct {
 
 // NotificationDefs_Preferences is a "preferences" in the app.bsky.notification.defs schema.
 type NotificationDefs_Preferences struct {
+	// chat: Deprecated: use chat.bsky.notification preferences instead. This will only return a default value.
 	Chat              *NotificationDefs_ChatPreference       `json:"chat" cborgen:"chat"`
 	Follow            *NotificationDefs_FilterablePreference `json:"follow" cborgen:"follow"`
 	Like              *NotificationDefs_FilterablePreference `json:"like" cborgen:"like"`
