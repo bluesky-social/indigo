@@ -112,7 +112,7 @@ func (n ATURI) Normalize() ATURI {
 	}
 	rkey := n.RecordKey()
 	if rkey == RecordKey("") {
-		return ATURI("at://" + auth.Normalize().String() + "/" + coll.String())
+		return ATURI("at://" + auth.Normalize().String() + "/" + coll.Normalize().String())
 	}
 	return ATURI("at://" + auth.Normalize().String() + "/" + coll.Normalize().String() + "/" + rkey.String())
 }
