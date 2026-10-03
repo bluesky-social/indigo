@@ -17,12 +17,13 @@ import (
 )
 
 const (
-	EncodingCBOR  = "application/cbor"
-	EncodingJSON  = "application/json"
-	EncodingJSONL = "application/jsonl"
-	EncodingCAR   = "application/vnd.ipld.car"
-	EncodingMP4   = "video/mp4"
-	EncodingANY   = "*/*"
+	EncodingCBOR   = "application/cbor"
+	EncodingJSON   = "application/json"
+	EncodingJSONL  = "application/jsonl"
+	EncodingCAR    = "application/vnd.ipld.car"
+	EncodingMP4    = "video/mp4"
+	EncodingBinary = "application/octet-stream"
+	EncodingANY    = "*/*"
 )
 
 type outputType struct {

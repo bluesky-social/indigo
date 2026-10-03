@@ -125,6 +125,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 			if ts.Input.Schema == nil {
 				if ts.Input.Encoding != EncodingCBOR &&
 					ts.Input.Encoding != EncodingANY &&
+					ts.Input.Encoding != EncodingBinary &&
 					ts.Input.Encoding != EncodingCAR &&
 					ts.Input.Encoding != EncodingMP4 {
 					panic(fmt.Sprintf("strange input type def in %s", s.ID))
@@ -139,6 +140,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 				if ts.Output.Encoding != EncodingCBOR &&
 					ts.Output.Encoding != EncodingCAR &&
 					ts.Output.Encoding != EncodingANY &&
+					ts.Output.Encoding != EncodingBinary &&
 					ts.Output.Encoding != EncodingJSONL &&
 					ts.Output.Encoding != EncodingMP4 {
 					panic(fmt.Sprintf("strange output type def in %s", s.ID))
