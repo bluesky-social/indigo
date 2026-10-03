@@ -194,6 +194,9 @@ func parseBlob(obj map[string]any) (*Blob, error) {
 	default:
 		return nil, fmt.Errorf("blob 'size' missing or not a number")
 	}
+	if size < 0 {
+		return nil, fmt.Errorf("blob with negative 'size'")
+	}
 	mimeType, ok := obj["mimeType"].(string)
 	if !ok {
 		return nil, fmt.Errorf("blob 'mimeType' missing or not a string")
