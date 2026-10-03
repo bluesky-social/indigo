@@ -354,7 +354,8 @@ func GenFollowsAndMutes(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *Accoun
 func GenLikesRepostsReplies(xrpcc *xrpc.Client, acc *AccountContext, fracLike, fracRepost, fracReply float64) error {
 	// fetch timeline (up to 100), and iterate over posts
 	maxTimeline := 100
-	resp, err := appbsky.FeedGetTimeline(context.TODO(), xrpcc, "", "", int64(maxTimeline))
+	// ctx, client, algorithm string, cursor string, limit int64, since string
+	resp, err := appbsky.FeedGetTimeline(context.TODO(), xrpcc, "", "", int64(maxTimeline), "")
 	if err != nil {
 		return err
 	}
@@ -427,7 +428,7 @@ func BrowseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 
 	// fetch timeline (up to 100), and iterate over posts
 	timelineLen := 100
-	timelineResp, err := appbsky.FeedGetTimeline(context.TODO(), xrpcc, "", "", int64(timelineLen))
+	timelineResp, err := appbsky.FeedGetTimeline(context.TODO(), xrpcc, "", "", int64(timelineLen), "")
 	if err != nil {
 		return err
 	}
