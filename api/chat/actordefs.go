@@ -14,15 +14,13 @@ import (
 )
 
 // ActorDefs_DirectConvoMember is a "directConvoMember" in the chat.bsky.actor.defs schema.
-//
-// [NOTE: This is under active development and should be considered unstable while this note is here].
 type ActorDefs_DirectConvoMember struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.actor.defs#directConvoMember"`
 }
 
 // ActorDefs_GroupConvoMember is a "groupConvoMember" in the chat.bsky.actor.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. A current group convo member.
+// A current group convo member.
 type ActorDefs_GroupConvoMember struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.actor.defs#groupConvoMember"`
 	// addedBy: Who added this member. Only present if the member was added (instead of joining via link).
@@ -33,7 +31,7 @@ type ActorDefs_GroupConvoMember struct {
 
 // ActorDefs_PastGroupConvoMember is a "pastGroupConvoMember" in the chat.bsky.actor.defs schema.
 //
-// [NOTE: This is under active development and should be considered unstable while this note is here]. A past group convo member.
+// A past group convo member.
 type ActorDefs_PastGroupConvoMember struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.actor.defs#pastGroupConvoMember"`
 }
