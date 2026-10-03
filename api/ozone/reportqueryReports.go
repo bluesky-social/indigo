@@ -28,7 +28,7 @@ type ReportQueryReports_Output struct {
 // reportedBefore: Retrieve reports created before a given timestamp
 // status: Filter by report status.
 // subject: Filter by subject DID or AT-URI.
-// subjectType: If specified, reports of the given type (account or record) will be returned.
+// subjectType: If specified, reports of the given subject type will be returned.
 func ReportQueryReports(ctx context.Context, c lexutil.LexClient, assignedTo string, collections []string, cursor string, did string, isMuted bool, limit int64, queueId int64, reportTypes []string, reportedAfter string, reportedBefore string, sortDirection string, sortField string, status string, subject string, subjectType string) (*ReportQueryReports_Output, error) {
 	var out ReportQueryReports_Output
 

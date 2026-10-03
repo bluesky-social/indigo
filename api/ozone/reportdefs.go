@@ -54,12 +54,22 @@ type ReportDefs_EscalationActivity struct {
 //
 // A single daily snapshot of report statistics for a calendar date.
 type ReportDefs_HistoricalStats struct {
-	// actionRate: Percentage of reports actioned (actionedCount / inboundCount * 100), rounded to nearest integer.
+	// acknowledgedCount: Number of closures whose last report action is not label, tag, or takedown during this day.
+	AcknowledgedCount *int64 `json:"acknowledgedCount,omitempty" cborgen:"acknowledgedCount,omitempty"`
+	// actionRate: Percentage of closures actioned (actionedCount / closedCount * 100), rounded to nearest integer.
 	ActionRate *int64 `json:"actionRate,omitempty" cborgen:"actionRate,omitempty"`
-	// actionedCount: Number of reports closed during this day.
+	// actionedCount: Number of closures whose last report action is label, tag, or takedown during this day.
 	ActionedCount *int64 `json:"actionedCount,omitempty" cborgen:"actionedCount,omitempty"`
-	// avgHandlingTimeSec: Average time in seconds from report creation (or moderator assignment) to close.
+	// ahtDurationSec: Sum of report assignment-to-close seconds for this day's samples.
+	AhtDurationSec *int64 `json:"ahtDurationSec,omitempty" cborgen:"ahtDurationSec,omitempty"`
+	// ahtSampleCount: Number of assigned closed-report samples in ahtDurationSec.
+	AhtSampleCount *int64 `json:"ahtSampleCount,omitempty" cborgen:"ahtSampleCount,omitempty"`
+	// avgHandlingTimeSec: Average handling time in seconds from report assignment to close.
 	AvgHandlingTimeSec *int64 `json:"avgHandlingTimeSec,omitempty" cborgen:"avgHandlingTimeSec,omitempty"`
+	// avgResolutionTimeSec: Average resolution time in seconds from report creation to close.
+	AvgResolutionTimeSec *int64 `json:"avgResolutionTimeSec,omitempty" cborgen:"avgResolutionTimeSec,omitempty"`
+	// closedCount: Number of close transitions during this day.
+	ClosedCount *int64 `json:"closedCount,omitempty" cborgen:"closedCount,omitempty"`
 	// computedAt: When this snapshot was last computed.
 	ComputedAt *string `json:"computedAt,omitempty" cborgen:"computedAt,omitempty"`
 	// date: The calendar date this snapshot covers (YYYY-MM-DD).
@@ -68,28 +78,58 @@ type ReportDefs_HistoricalStats struct {
 	EscalatedCount *int64 `json:"escalatedCount,omitempty" cborgen:"escalatedCount,omitempty"`
 	// inboundCount: Reports received during this day.
 	InboundCount *int64 `json:"inboundCount,omitempty" cborgen:"inboundCount,omitempty"`
+	// labelActionCount: Closures whose last report action is a label event during this day.
+	LabelActionCount *int64 `json:"labelActionCount,omitempty" cborgen:"labelActionCount,omitempty"`
 	// pendingCount: Number of reports not closed at time of computation.
 	PendingCount *int64 `json:"pendingCount,omitempty" cborgen:"pendingCount,omitempty"`
+	// resolutionDurationSec: Sum of report creation-to-close seconds for this day's samples.
+	ResolutionDurationSec *int64 `json:"resolutionDurationSec,omitempty" cborgen:"resolutionDurationSec,omitempty"`
+	// resolutionSampleCount: Number of closed-report samples in resolutionDurationSec.
+	ResolutionSampleCount *int64 `json:"resolutionSampleCount,omitempty" cborgen:"resolutionSampleCount,omitempty"`
+	// tagActionCount: Closures whose last report action is a tag event during this day.
+	TagActionCount *int64 `json:"tagActionCount,omitempty" cborgen:"tagActionCount,omitempty"`
+	// takedownActionCount: Closures whose last report action is a takedown event during this day.
+	TakedownActionCount *int64 `json:"takedownActionCount,omitempty" cborgen:"takedownActionCount,omitempty"`
 }
 
 // ReportDefs_LiveStats is a "liveStats" in the tools.ozone.report.defs schema.
 //
 // Live statistics for reports for the current calendar day, filterable by queue, moderator, or report type.
 type ReportDefs_LiveStats struct {
-	// actionRate: Percentage of reports actioned (actionedCount / inboundCount * 100), rounded to nearest integer.
+	// acknowledgedCount: Number of closures whose last report action is not label, tag, or takedown.
+	AcknowledgedCount *int64 `json:"acknowledgedCount,omitempty" cborgen:"acknowledgedCount,omitempty"`
+	// actionRate: Percentage of closures actioned (actionedCount / closedCount * 100), rounded to nearest integer.
 	ActionRate *int64 `json:"actionRate,omitempty" cborgen:"actionRate,omitempty"`
-	// actionedCount: Number of reports closed today.
+	// actionedCount: Number of closures whose last report action is label, tag, or takedown.
 	ActionedCount *int64 `json:"actionedCount,omitempty" cborgen:"actionedCount,omitempty"`
-	// avgHandlingTimeSec: Average time in seconds from report creation (or moderator assignment) to close.
+	// ahtDurationSec: Sum of report assignment-to-close seconds.
+	AhtDurationSec *int64 `json:"ahtDurationSec,omitempty" cborgen:"ahtDurationSec,omitempty"`
+	// ahtSampleCount: Number of assigned closed-report samples in ahtDurationSec.
+	AhtSampleCount *int64 `json:"ahtSampleCount,omitempty" cborgen:"ahtSampleCount,omitempty"`
+	// avgHandlingTimeSec: Average handling time in seconds from report assignment to close.
 	AvgHandlingTimeSec *int64 `json:"avgHandlingTimeSec,omitempty" cborgen:"avgHandlingTimeSec,omitempty"`
-	// escalatedCount: Number of reports escalated today.
+	// avgResolutionTimeSec: Average resolution time in seconds from report creation to close.
+	AvgResolutionTimeSec *int64 `json:"avgResolutionTimeSec,omitempty" cborgen:"avgResolutionTimeSec,omitempty"`
+	// closedCount: Number of close transitions.
+	ClosedCount *int64 `json:"closedCount,omitempty" cborgen:"closedCount,omitempty"`
+	// escalatedCount: Number of reports escalated.
 	EscalatedCount *int64 `json:"escalatedCount,omitempty" cborgen:"escalatedCount,omitempty"`
-	// inboundCount: Reports received today.
+	// inboundCount: Reports received.
 	InboundCount *int64 `json:"inboundCount,omitempty" cborgen:"inboundCount,omitempty"`
+	// labelActionCount: Closures whose last report action is a label event.
+	LabelActionCount *int64 `json:"labelActionCount,omitempty" cborgen:"labelActionCount,omitempty"`
 	// lastUpdated: When these statistics were last computed.
 	LastUpdated *string `json:"lastUpdated,omitempty" cborgen:"lastUpdated,omitempty"`
 	// pendingCount: Number of reports currently not closed.
 	PendingCount *int64 `json:"pendingCount,omitempty" cborgen:"pendingCount,omitempty"`
+	// resolutionDurationSec: Sum of report creation-to-close seconds.
+	ResolutionDurationSec *int64 `json:"resolutionDurationSec,omitempty" cborgen:"resolutionDurationSec,omitempty"`
+	// resolutionSampleCount: Number of closed-report samples in resolutionDurationSec.
+	ResolutionSampleCount *int64 `json:"resolutionSampleCount,omitempty" cborgen:"resolutionSampleCount,omitempty"`
+	// tagActionCount: Closures whose last report action is a tag event.
+	TagActionCount *int64 `json:"tagActionCount,omitempty" cborgen:"tagActionCount,omitempty"`
+	// takedownActionCount: Closures whose last report action is a takedown event.
+	TakedownActionCount *int64 `json:"takedownActionCount,omitempty" cborgen:"takedownActionCount,omitempty"`
 }
 
 // ReportDefs_NoteActivity is a "noteActivity" in the tools.ozone.report.defs schema.
@@ -227,7 +267,7 @@ type ReportDefs_ReportAssignment struct {
 
 // ReportDefs_ReportView is a "reportView" in the tools.ozone.report.defs schema.
 type ReportDefs_ReportView struct {
-	// actionEventIds: Array of moderation event IDs representing actions taken on this report (sorted DESC, most recent first)
+	// actionEventIds: Array of moderation event IDs representing actions taken on this report, in append order (most recently linked event last)
 	ActionEventIds []int64 `json:"actionEventIds,omitempty" cborgen:"actionEventIds,omitempty"`
 	// actionNote: Note sent to reporter when report was actioned
 	ActionNote *string `json:"actionNote,omitempty" cborgen:"actionNote,omitempty"`
