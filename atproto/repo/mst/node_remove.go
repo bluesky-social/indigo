@@ -96,7 +96,7 @@ func mergeNodes(left *Node, right *Node) (*Node, error) {
 	n := &Node{
 		Height:  left.Height,
 		Dirty:   true,
-		Entries: append(left.Entries, right.Entries...),
+		Entries: slices.Concat(left.Entries, right.Entries),
 	}
 	if n.Entries[idx-1].IsChild() && n.Entries[idx].IsChild() {
 		// need to merge recursively
