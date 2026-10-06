@@ -194,12 +194,9 @@ func VerifyCommitSignature(ctx context.Context, dir identity.Directory, msg *com
 }
 
 func VerifyCommitSignatureFromCar(ctx context.Context, dir identity.Directory, car []byte) (*Commit, error) {
+	// LoadCommitFromCAR includes commit.VerifyStructure()
 	commit, _, err := LoadCommitFromCAR(ctx, bytes.NewReader(car))
 	if err != nil {
-		return nil, err
-	}
-
-	if err := commit.VerifyStructure(); err != nil {
 		return nil, err
 	}
 
