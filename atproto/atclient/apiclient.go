@@ -82,7 +82,7 @@ func (c *APIClient) Get(ctx context.Context, endpoint syntax.NSID, params map[st
 
 	if out == nil {
 		// drain body before returning
-		io.ReadAll(resp.Body)
+		io.Copy(io.Discard, resp.Body)
 		return nil
 	}
 
@@ -123,7 +123,7 @@ func (c *APIClient) Post(ctx context.Context, endpoint syntax.NSID, body any, ou
 
 	if out == nil {
 		// drain body before returning
-		io.ReadAll(resp.Body)
+		io.Copy(io.Discard, resp.Body)
 		return nil
 	}
 
