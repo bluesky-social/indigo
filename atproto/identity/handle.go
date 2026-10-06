@@ -150,11 +150,11 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
-		io.Copy(io.Discard, resp.Body)
+		io.Copy(io.Discard, io.LimitReader(resp.Body, maxHandleBodySize))
 		return "", fmt.Errorf("%w: HTTP 404 for %s", ErrHandleNotFound, handle)
 	}
 	if resp.StatusCode != http.StatusOK {
-		io.Copy(io.Discard, resp.Body)
+		io.Copy(io.Discard, io.LimitReader(resp.Body, maxHandleBodySize))
 		return "", fmt.Errorf("%w: HTTP well-known status %d for %s", ErrHandleResolutionFailed, resp.StatusCode, handle)
 	}
 	if resp.ContentLength > maxHandleBodySize {
