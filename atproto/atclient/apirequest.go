@@ -1,11 +1,13 @@
 package atclient
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
@@ -53,6 +55,8 @@ func NewAPIRequest(method string, endpoint syntax.NSID, body io.Reader) *APIRequ
 	if body != nil {
 		// NOTE: http.NewRequestWithContext already handles GetBody() as well as ContentLength for specific types like bytes.Buffer and strings.Reader. We just want to add io.Seeker here, for things like files-on-disk.
 		switch v := body.(type) {
+		case *bytes.Reader, *strings.Reader, *bytes.Buffer:
+			req.Body = body
 		case io.Seeker:
 			req.Body = io.NopCloser(body)
 			req.GetBody = func() (io.ReadCloser, error) {

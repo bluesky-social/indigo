@@ -267,7 +267,7 @@ func LoginWithPasswordHost(ctx context.Context, host, username, password, authTo
 	}
 
 	if out.Active != nil && *out.Active == false {
-		slog.Info("password login to inactive account", "status", *out.Status, "username", username)
+		slog.Info("password login to inactive account", "status", out.Status, "username", username)
 	}
 
 	did, err := syntax.ParseDID(out.Did)
