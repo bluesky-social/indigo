@@ -167,7 +167,7 @@ func (n *Node) writeBlocks(ctx context.Context, bs blockstore.Blockstore, onlyDi
 	for i, e := range n.Entries {
 		if e.IsValue() && e.Dirty {
 			// TODO: should we actually clear this here?
-			e.Dirty = false
+			n.Entries[i].Dirty = false
 		}
 		if !e.IsChild() {
 			continue
