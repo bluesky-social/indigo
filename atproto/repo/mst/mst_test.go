@@ -274,3 +274,32 @@ func TestBrokenCaseOne(t *testing.T) {
 	assert.Equal(len(entries), debugCountEntries(tree.Root))
 	assert.NoError(tree.Verify())
 }
+
+// this is a small regression test to confirm how keys get sorted
+func TestKeySortLen(t *testing.T) {
+	assert := assert.New(t)
+	var err error
+
+	entries := [][]string{
+		{"key7", "bafyreibey6qzs7vb4wzlzfo7flflevl7qstzaggooiqivuexb6snapadq4"},
+		{"key100", "bafyreifoxw552rsnuoargsfilhwmhprxr6qyzjmbtgjzmboii4x4mk4aoi"},
+		{"key10", "bafyreifoxw552rsnuoargsfilhwmhprxr6qyzjmbtgjzmboii4x4mk4aoi"},
+	}
+
+	tree := NewEmptyTree()
+	for _, row := range entries {
+		val, _ := cid.Decode(row[1])
+		_, err = tree.Insert([]byte(row[0]), val)
+		assert.NoError(err)
+	}
+
+	//fmt.Println("-----")
+	//debugPrintNodePointers(tree.Root)
+	//debugPrintChildPointers(tree.Root)
+	//DebugPrintTree(tree.Root, 0)
+	assert.Equal(len(entries), debugCountEntries(tree.Root))
+	assert.NoError(tree.Verify())
+	assert.Equal([]byte("key10"), tree.Root.Entries[0].Key)
+	assert.Equal([]byte("key100"), tree.Root.Entries[1].Key)
+	assert.Equal([]byte("key7"), tree.Root.Entries[2].Key)
+}
