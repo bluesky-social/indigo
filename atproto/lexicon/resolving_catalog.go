@@ -4,24 +4,32 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/util/ssrf"
 )
 
 // Catalog which supplements an in-memory BaseCatalog with live resolution from the network
 type ResolvingCatalog struct {
-	Base      *BaseCatalog
-	Directory identity.Directory
-	lk        sync.RWMutex
+	Base       *BaseCatalog
+	Directory  identity.Directory
+	HTTPClient *http.Client
+	lk         sync.RWMutex
 }
 
 func NewResolvingCatalog() *ResolvingCatalog {
 	return &ResolvingCatalog{
 		Base:      NewBaseCatalog(),
 		Directory: identity.DefaultDirectory(),
+		HTTPClient: &http.Client{
+			Timeout:   60 * time.Second,
+			Transport: ssrf.PublicOnlyTransport(),
+		},
 	}
 }
 
@@ -48,18 +56,13 @@ func (rc *ResolvingCatalog) Resolve(ref string) (*Schema, error) {
 		return nil, err
 	}
 
-	record, err := ResolveLexiconData(ctx, rc.Directory, nsid)
-	if err != nil {
-		return nil, err
-	}
-
-	recordJSON, err := json.Marshal(record)
+	recordJSON, err := resolveLexiconJSON(ctx, rc.Directory, nsid, rc.HTTPClient)
 	if err != nil {
 		return nil, err
 	}
 
 	var sf SchemaFile
-	if err = json.Unmarshal(recordJSON, &sf); err != nil {
+	if err = json.Unmarshal(*recordJSON, &sf); err != nil {
 		return nil, err
 	}
 
