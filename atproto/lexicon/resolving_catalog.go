@@ -16,12 +16,14 @@ import (
 
 // Catalog which supplements an in-memory BaseCatalog with live resolution from the network
 type ResolvingCatalog struct {
-	Base       *BaseCatalog
-	Directory  identity.Directory
+	Base      *BaseCatalog
+	Directory identity.Directory
+	// This catalog makes HTTP requests to untrusted hosts, so this http.Client must be configured with SSRF protection and other network security mitigations (which NewResolvingCatalog does)
 	HTTPClient *http.Client
 	lk         sync.RWMutex
 }
 
+// Constructs a new ResolvingCatalog with safe defaults.
 func NewResolvingCatalog() *ResolvingCatalog {
 	return &ResolvingCatalog{
 		Base:      NewBaseCatalog(),

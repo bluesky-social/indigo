@@ -20,7 +20,7 @@ import (
 //
 // The current implementation uses a naive 'getRepo' fetch to the relevant PDS instance, without validating MST proof chain.
 //
-// Calling code should usually use ResolvingCatalog, which handles basic caching and validation of the Lexicon language itself.
+// Calling code should usually use ResolvingCatalog, which handles HTTP client re-use, basic caching, and validation of the Lexicon language itself.
 func ResolveLexiconData(ctx context.Context, dir identity.Directory, nsid syntax.NSID) (map[string]any, error) {
 
 	record, err := resolveLexiconJSON(ctx, dir, nsid, nil)
@@ -75,6 +75,7 @@ func resolveLexiconJSON(ctx context.Context, dir identity.Directory, nsid syntax
 	return msg, err
 }
 
+// if the supplied httpClient is nil, wlil generate a one-time-use SSRF-safe instance
 func fetchRecordJSON(ctx context.Context, ident identity.Identity, aturi syntax.ATURI, httpClient *http.Client) (*json.RawMessage, error) {
 
 	client := atclient.NewAPIClient(ident.PDSEndpoint())
