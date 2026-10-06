@@ -165,7 +165,25 @@ func parseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]Operation, e
 }
 
 func VerifySyncMessage(ctx context.Context, dir identity.Directory, msg *comatproto.SyncSubscribeRepos_Sync) (*Commit, error) {
-	return VerifyCommitSignatureFromCar(ctx, dir, []byte(msg.Blocks))
+	_, err := syntax.ParseDatetime(msg.Time)
+	if err != nil {
+		return nil, err
+	}
+	_, err = syntax.ParseTID(msg.Rev)
+	if err != nil {
+		return nil, err
+	}
+	commit, err := VerifyCommitSignatureFromCar(ctx, dir, []byte(msg.Blocks))
+	if err != nil {
+		return nil, err
+	}
+	if commit.Rev != msg.Rev {
+		return nil, fmt.Errorf("rev did not match commit")
+	}
+	if commit.DID != msg.Did {
+		return nil, fmt.Errorf("DID did not match commit")
+	}
+	return commit, nil
 }
 
 // temporary/experimental code showing how to verify a commit signature from firehose
