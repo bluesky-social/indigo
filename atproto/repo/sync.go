@@ -123,8 +123,7 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 }
 
 func parseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]Operation, error) {
-	//out := make([]Operation, len(ops))
-	out := []Operation{}
+	out := make([]Operation, 0, len(ops))
 	for _, rop := range ops {
 		switch rop.Action {
 		case "create":
