@@ -736,9 +736,13 @@ func (s *SchemaString) Validate(d any, flags ValidateFlags) error {
 		}
 	}
 	if s.MinGraphemes != nil || s.MaxGraphemes != nil {
-		lenG := uniseg.GraphemeClusterCount(v)
-		if (s.MinGraphemes != nil && lenG < *s.MinGraphemes) || (s.MaxGraphemes != nil && lenG > *s.MaxGraphemes) {
-			return fmt.Errorf("string length (graphemes) outside specified range: %d", lenG)
+		if s.MaxGraphemes != nil && s.MinGraphemes == nil && len(v) < *s.MaxGraphemes {
+			// skip grapheme counting if only a max is set and length (in bytes) is less than max
+		} else {
+			lenG := uniseg.GraphemeClusterCount(v)
+			if (s.MinGraphemes != nil && lenG < *s.MinGraphemes) || (s.MaxGraphemes != nil && lenG > *s.MaxGraphemes) {
+				return fmt.Errorf("string length (graphemes) outside specified range: %d", lenG)
+			}
 		}
 	}
 	if s.Format != nil {
