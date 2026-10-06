@@ -49,7 +49,7 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 		return nil, fmt.Errorf("rev did not match commit")
 	}
 	if commit.DID != did.String() {
-		return nil, fmt.Errorf("rev did not match commit")
+		return nil, fmt.Errorf("DID did not match commit")
 	}
 	// TODO: check that commit CID matches root? re-compute?
 
