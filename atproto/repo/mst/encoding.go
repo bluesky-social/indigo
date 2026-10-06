@@ -58,7 +58,7 @@ func NodeDataFromCBOR(r io.Reader) (*NodeData, error) {
 func (n *Node) NodeData() NodeData {
 	d := NodeData{
 		Left:    nil,
-		Entries: []EntryData{}, // TODO perf: pre-allocate an array
+		Entries: make([]EntryData, 0, len(n.Entries)),
 	}
 
 	prevKey := []byte{}
@@ -97,7 +97,7 @@ func (d *NodeData) Node(c *cid.Cid) (Node, error) {
 	n := Node{
 		CID:     c,
 		Dirty:   c == nil,
-		Entries: []NodeEntry{}, // TODO: pre-allocate
+		Entries: make([]NodeEntry, 0, 2*len(d.Entries)+1),
 	}
 
 	if d.Left != nil {
