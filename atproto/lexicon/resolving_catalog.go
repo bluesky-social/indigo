@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -14,6 +15,7 @@ import (
 type ResolvingCatalog struct {
 	Base      *BaseCatalog
 	Directory identity.Directory
+	lk        sync.RWMutex
 }
 
 func NewResolvingCatalog() *ResolvingCatalog {
@@ -32,7 +34,9 @@ func (rc *ResolvingCatalog) Resolve(ref string) (*Schema, error) {
 	}
 
 	// first try existing catalog
+	rc.lk.RLock()
 	schema, err := rc.Base.Resolve(ref)
+	rc.lk.RUnlock()
 	if nil == err { // no error: found a hit
 		return schema, nil
 	}
@@ -65,6 +69,8 @@ func (rc *ResolvingCatalog) Resolve(ref string) (*Schema, error) {
 	if sf.ID != nsid.String() {
 		return nil, fmt.Errorf("lexicon ID does not match NSID: %s != %s", sf.ID, nsid)
 	}
+	rc.lk.Lock()
+	defer rc.lk.Unlock()
 	if err = rc.Base.AddSchemaFile(sf); err != nil {
 		return nil, err
 	}
