@@ -4,12 +4,31 @@
 
 package chat
 
+// GroupDefs_DisabledJoinLinkPreviewView is a "disabledJoinLinkPreviewView" in the chat.bsky.group.defs schema.
+//
+// Preview for a disabled join link. Carries only the code so clients can correlate with the input and render a disabled state.
+type GroupDefs_DisabledJoinLinkPreviewView struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.group.defs#disabledJoinLinkPreviewView"`
+	Code          string `json:"code" cborgen:"code"`
+}
+
+// GroupDefs_InvalidJoinLinkPreviewView is a "invalidJoinLinkPreviewView" in the chat.bsky.group.defs schema.
+//
+// Preview for a join link code that does not map to an existing link. Carries only the code so clients can correlate with the input and render an invalid state.
+type GroupDefs_InvalidJoinLinkPreviewView struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.group.defs#invalidJoinLinkPreviewView"`
+	Code          string `json:"code" cborgen:"code"`
+}
+
 // GroupDefs_JoinLinkPreviewView is a "joinLinkPreviewView" in the chat.bsky.group.defs schema.
+//
+// Preview that can be shown in feeds, including to unauthenticated viewers.
 type GroupDefs_JoinLinkPreviewView struct {
-	Code string `json:"code" cborgen:"code"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.group.defs#joinLinkPreviewView"`
+	Code          string `json:"code" cborgen:"code"`
 	// convo: Present only if the request is authenticated and the user is a member of the group.
 	Convo           *ConvoDefs_ConvoView           `json:"convo,omitempty" cborgen:"convo,omitempty"`
-	EnabledStatus   *string                        `json:"enabledStatus" cborgen:"enabledStatus"`
+	ConvoId         string                         `json:"convoId" cborgen:"convoId"`
 	JoinRule        *string                        `json:"joinRule" cborgen:"joinRule"`
 	MemberCount     int64                          `json:"memberCount" cborgen:"memberCount"`
 	MemberLimit     int64                          `json:"memberLimit" cborgen:"memberLimit"`
@@ -20,6 +39,8 @@ type GroupDefs_JoinLinkPreviewView struct {
 }
 
 // GroupDefs_JoinLinkView is a "joinLinkView" in the chat.bsky.group.defs schema.
+//
+// Join link view to be used within a group view, so the convo is surrounding, not specified inside this view.
 type GroupDefs_JoinLinkView struct {
 	Code            string  `json:"code" cborgen:"code"`
 	CreatedAt       string  `json:"createdAt" cborgen:"createdAt"`
@@ -37,16 +58,18 @@ type GroupDefs_JoinLinkViewerState struct {
 //
 // A join request from the perspective of the requester, including enough group context to render the request in a list (e.g. group name, owner, member count).
 type GroupDefs_JoinRequestConvoView struct {
-	LexiconTypeID string                      `json:"$type" cborgen:"$type,const=chat.bsky.group.defs#joinRequestConvoView"`
-	ConvoId       string                      `json:"convoId" cborgen:"convoId"`
-	MemberCount   int64                       `json:"memberCount" cborgen:"memberCount"`
-	MemberLimit   int64                       `json:"memberLimit" cborgen:"memberLimit"`
-	Name          string                      `json:"name" cborgen:"name"`
-	Owner         *ActorDefs_ProfileViewBasic `json:"owner" cborgen:"owner"`
-	RequestedAt   string                      `json:"requestedAt" cborgen:"requestedAt"`
+	LexiconTypeID string                         `json:"$type" cborgen:"$type,const=chat.bsky.group.defs#joinRequestConvoView"`
+	ConvoId       string                         `json:"convoId" cborgen:"convoId"`
+	MemberCount   int64                          `json:"memberCount" cborgen:"memberCount"`
+	MemberLimit   int64                          `json:"memberLimit" cborgen:"memberLimit"`
+	Name          string                         `json:"name" cborgen:"name"`
+	Owner         *ActorDefs_ProfileViewBasic    `json:"owner" cborgen:"owner"`
+	Viewer        *GroupDefs_JoinLinkViewerState `json:"viewer" cborgen:"viewer"`
 }
 
 // GroupDefs_JoinRequestView is a "joinRequestView" in the chat.bsky.group.defs schema.
+//
+// A join request from the perspective of the group owner.
 type GroupDefs_JoinRequestView struct {
 	ConvoId     string                      `json:"convoId" cborgen:"convoId"`
 	RequestedAt string                      `json:"requestedAt" cborgen:"requestedAt"`

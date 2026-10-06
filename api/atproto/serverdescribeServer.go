@@ -25,6 +25,8 @@ type ServerDescribeServer_Links struct {
 type ServerDescribeServer_Output struct {
 	// availableUserDomains: List of domain suffixes that can be used in account handles.
 	AvailableUserDomains []string `json:"availableUserDomains" cborgen:"availableUserDomains"`
+	// blobUploadLimit: Maximum size of a blob that can be uploaded via com.atproto.repo.uploadBlob, in bytes.
+	BlobUploadLimit *int64 `json:"blobUploadLimit,omitempty" cborgen:"blobUploadLimit,omitempty"`
 	// contact: Contact information
 	Contact *ServerDescribeServer_Contact `json:"contact,omitempty" cborgen:"contact,omitempty"`
 	Did     string                        `json:"did" cborgen:"did"`

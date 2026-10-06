@@ -6,13 +6,58 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // GroupGetJoinLinkPreviews_Output is the output of a chat.bsky.group.getJoinLinkPreviews call.
 type GroupGetJoinLinkPreviews_Output struct {
-	JoinLinkPreviews []*GroupDefs_JoinLinkPreviewView `json:"joinLinkPreviews" cborgen:"joinLinkPreviews"`
+	JoinLinkPreviews []*GroupGetJoinLinkPreviews_Output_JoinLinkPreviews_Elem `json:"joinLinkPreviews" cborgen:"joinLinkPreviews"`
+}
+
+type GroupGetJoinLinkPreviews_Output_JoinLinkPreviews_Elem struct {
+	GroupDefs_JoinLinkPreviewView         *GroupDefs_JoinLinkPreviewView
+	GroupDefs_DisabledJoinLinkPreviewView *GroupDefs_DisabledJoinLinkPreviewView
+	GroupDefs_InvalidJoinLinkPreviewView  *GroupDefs_InvalidJoinLinkPreviewView
+}
+
+func (t *GroupGetJoinLinkPreviews_Output_JoinLinkPreviews_Elem) MarshalJSON() ([]byte, error) {
+	if t.GroupDefs_JoinLinkPreviewView != nil {
+		t.GroupDefs_JoinLinkPreviewView.LexiconTypeID = "chat.bsky.group.defs#joinLinkPreviewView"
+		return json.Marshal(t.GroupDefs_JoinLinkPreviewView)
+	}
+	if t.GroupDefs_DisabledJoinLinkPreviewView != nil {
+		t.GroupDefs_DisabledJoinLinkPreviewView.LexiconTypeID = "chat.bsky.group.defs#disabledJoinLinkPreviewView"
+		return json.Marshal(t.GroupDefs_DisabledJoinLinkPreviewView)
+	}
+	if t.GroupDefs_InvalidJoinLinkPreviewView != nil {
+		t.GroupDefs_InvalidJoinLinkPreviewView.LexiconTypeID = "chat.bsky.group.defs#invalidJoinLinkPreviewView"
+		return json.Marshal(t.GroupDefs_InvalidJoinLinkPreviewView)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *GroupGetJoinLinkPreviews_Output_JoinLinkPreviews_Elem) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "chat.bsky.group.defs#joinLinkPreviewView":
+		t.GroupDefs_JoinLinkPreviewView = new(GroupDefs_JoinLinkPreviewView)
+		return json.Unmarshal(b, t.GroupDefs_JoinLinkPreviewView)
+	case "chat.bsky.group.defs#disabledJoinLinkPreviewView":
+		t.GroupDefs_DisabledJoinLinkPreviewView = new(GroupDefs_DisabledJoinLinkPreviewView)
+		return json.Unmarshal(b, t.GroupDefs_DisabledJoinLinkPreviewView)
+	case "chat.bsky.group.defs#invalidJoinLinkPreviewView":
+		t.GroupDefs_InvalidJoinLinkPreviewView = new(GroupDefs_InvalidJoinLinkPreviewView)
+		return json.Unmarshal(b, t.GroupDefs_InvalidJoinLinkPreviewView)
+	default:
+		return nil
+	}
 }
 
 // GroupGetJoinLinkPreviews calls the XRPC method "chat.bsky.group.getJoinLinkPreviews".

@@ -50,11 +50,15 @@ type QueueDefs_QueueView struct {
 	Id int64 `json:"id" cborgen:"id"`
 	// name: Display name of the queue
 	Name string `json:"name" cborgen:"name"`
+	// recommendedLabels: Labels recommended for this queue and used as a fallback when routing label appeals
+	RecommendedLabels []string `json:"recommendedLabels,omitempty" cborgen:"recommendedLabels,omitempty"`
+	// recommendedPolicies: Policy keys recommended when actioning reports in this queue
+	RecommendedPolicies []string `json:"recommendedPolicies,omitempty" cborgen:"recommendedPolicies,omitempty"`
 	// reportTypes: Report reason types this queue accepts (fully qualified NSIDs)
-	ReportTypes []string `json:"reportTypes" cborgen:"reportTypes"`
+	ReportTypes []string `json:"reportTypes,omitempty" cborgen:"reportTypes,omitempty"`
 	// stats: Statistics about this queue
 	Stats *QueueDefs_QueueStats `json:"stats" cborgen:"stats"`
 	// subjectTypes: Subject types this queue accepts.
-	SubjectTypes []string `json:"subjectTypes" cborgen:"subjectTypes"`
+	SubjectTypes []string `json:"subjectTypes,omitempty" cborgen:"subjectTypes,omitempty"`
 	UpdatedAt    string   `json:"updatedAt" cborgen:"updatedAt"`
 }

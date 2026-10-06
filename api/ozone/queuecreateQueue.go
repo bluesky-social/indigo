@@ -18,10 +18,14 @@ type QueueCreateQueue_Input struct {
 	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
 	// name: Display name for the queue (must be unique)
 	Name string `json:"name" cborgen:"name"`
+	// recommendedLabels: Labels to recommend for this queue and use as fallback appeal routing mappings
+	RecommendedLabels []string `json:"recommendedLabels,omitempty" cborgen:"recommendedLabels,omitempty"`
+	// recommendedPolicies: Policy keys to recommend when actioning reports in this queue
+	RecommendedPolicies []string `json:"recommendedPolicies,omitempty" cborgen:"recommendedPolicies,omitempty"`
 	// reportTypes: Report reason types (fully qualified NSIDs)
-	ReportTypes []string `json:"reportTypes" cborgen:"reportTypes"`
+	ReportTypes []string `json:"reportTypes,omitempty" cborgen:"reportTypes,omitempty"`
 	// subjectTypes: Subject types this queue accepts
-	SubjectTypes []string `json:"subjectTypes" cborgen:"subjectTypes"`
+	SubjectTypes []string `json:"subjectTypes,omitempty" cborgen:"subjectTypes,omitempty"`
 }
 
 // QueueCreateQueue_Output is the output of a tools.ozone.queue.createQueue call.

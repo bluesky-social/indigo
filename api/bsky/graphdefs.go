@@ -86,6 +86,7 @@ type GraphDefs_Relationship struct {
 
 // GraphDefs_StarterPackView is a "starterPackView" in the app.bsky.graph.defs schema.
 type GraphDefs_StarterPackView struct {
+	LexiconTypeID      string                        `json:"$type" cborgen:"$type,const=app.bsky.graph.defs#starterPackView"`
 	Cid                string                        `json:"cid" cborgen:"cid"`
 	Creator            *ActorDefs_ProfileViewBasic   `json:"creator" cborgen:"creator"`
 	Feeds              []*FeedDefs_GeneratorView     `json:"feeds,omitempty" cborgen:"feeds,omitempty"`

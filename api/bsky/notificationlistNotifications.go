@@ -22,20 +22,25 @@ type NotificationListNotifications_Notification struct {
 	Reason        string                      `json:"reason" cborgen:"reason"`
 	ReasonSubject *string                     `json:"reasonSubject,omitempty" cborgen:"reasonSubject,omitempty"`
 	Record        *lexutil.LexiconTypeDecoder `json:"record" cborgen:"record"`
-	Uri           string                      `json:"uri" cborgen:"uri"`
+	// starterPack: The starter pack associated with this notification. Present when the notification is for a follow originating from a starter pack.
+	StarterPack *GraphDefs_StarterPackViewBasic `json:"starterPack,omitempty" cborgen:"starterPack,omitempty"`
+	Uri         string                          `json:"uri" cborgen:"uri"`
 }
 
 // NotificationListNotifications_Output is the output of a app.bsky.notification.listNotifications call.
 type NotificationListNotifications_Output struct {
 	Cursor        *string                                       `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Notifications []*NotificationListNotifications_Notification `json:"notifications" cborgen:"notifications"`
-	Priority      *bool                                         `json:"priority,omitempty" cborgen:"priority,omitempty"`
-	SeenAt        *string                                       `json:"seenAt,omitempty" cborgen:"seenAt,omitempty"`
+	// priority: Deprecated: this field is no longer populated.
+	Priority *bool   `json:"priority,omitempty" cborgen:"priority,omitempty"`
+	SeenAt   *string `json:"seenAt,omitempty" cborgen:"seenAt,omitempty"`
 }
 
 // NotificationListNotifications calls the XRPC method "app.bsky.notification.listNotifications".
 //
+// priority: Deprecated: this parameter is ignored.
 // reasons: Notification reasons to include in response.
+// seenAt: Deprecated: this parameter is unsupported and will cause an error.
 func NotificationListNotifications(ctx context.Context, c lexutil.LexClient, cursor string, limit int64, priority bool, reasons []string, seenAt string) (*NotificationListNotifications_Output, error) {
 	var out NotificationListNotifications_Output
 

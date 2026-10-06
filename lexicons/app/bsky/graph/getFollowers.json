@@ -16,7 +16,12 @@
             "maximum": 100,
             "default": 50
           },
-          "cursor": { "type": "string" }
+          "cursor": { "type": "string" },
+          "sort": {
+            "type": "string",
+            "description": "Sort order of the returned followers.",
+            "knownValues": ["latest", "top"]
+          }
         }
       },
       "output": {

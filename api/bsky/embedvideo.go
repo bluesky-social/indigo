@@ -21,7 +21,7 @@ type EmbedVideo struct {
 	Captions    []*EmbedVideo_Caption  `json:"captions,omitempty" cborgen:"captions,omitempty"`
 	// presentation: A hint to the client about how to present the video.
 	Presentation *string `json:"presentation,omitempty" cborgen:"presentation,omitempty"`
-	// video: The mp4 video file. May be up to 100mb, formerly limited to 50mb.
+	// video: The mp4 video file. May be up to 300mb, formerly limited to 100mb.
 	Video *lexutil.LexBlob `json:"video" cborgen:"video"`
 }
 

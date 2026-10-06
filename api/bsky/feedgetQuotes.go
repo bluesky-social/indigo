@@ -21,8 +21,9 @@ type FeedGetQuotes_Output struct {
 // FeedGetQuotes calls the XRPC method "app.bsky.feed.getQuotes".
 //
 // cid: If supplied, filters to quotes of specific version (by CID) of the post record.
+// sort: Ordering of results. 'latest' (default when unset) is newest first; 'top' orders quotes by their like count.
 // uri: Reference (AT-URI) of post record
-func FeedGetQuotes(ctx context.Context, c lexutil.LexClient, cid string, cursor string, limit int64, uri string) (*FeedGetQuotes_Output, error) {
+func FeedGetQuotes(ctx context.Context, c lexutil.LexClient, cid string, cursor string, limit int64, sort string, uri string) (*FeedGetQuotes_Output, error) {
 	var out FeedGetQuotes_Output
 
 	params := map[string]interface{}{}
@@ -34,6 +35,9 @@ func FeedGetQuotes(ctx context.Context, c lexutil.LexClient, cid string, cursor 
 	}
 	if limit != 0 {
 		params["limit"] = limit
+	}
+	if sort != "" {
+		params["sort"] = sort
 	}
 	params["uri"] = uri
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.feed.getQuotes", params, nil, &out); err != nil {

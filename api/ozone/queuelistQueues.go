@@ -21,7 +21,7 @@ type QueueListQueues_Output struct {
 // collection: Filter queues by collection name (e.g. 'app.bsky.feed.post').
 // enabled: Filter by enabled status. If not specified, returns all queues.
 // reportTypes: Filter queues that handle any of these report reason types.
-// subjectType: Filter queues that handle this subject type ('account' or 'record').
+// subjectType: Filter queues that handle this subject type ('account', 'record', 'message', or 'conversation').
 func QueueListQueues(ctx context.Context, c lexutil.LexClient, collection string, cursor string, enabled bool, limit int64, reportTypes []string, subjectType string) (*QueueListQueues_Output, error) {
 	var out QueueListQueues_Output
 
