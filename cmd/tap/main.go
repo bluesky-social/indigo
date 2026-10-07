@@ -76,6 +76,12 @@ func run(args []string) error {
 						Value:   "https://relay1.us-east.bsky.network",
 						Sources: cli.EnvVars("TAP_RELAY_URL"),
 					},
+					&cli.StringFlag{
+						Name:    "light-rail-url",
+						Usage:   "Microcosm Lightrail HTTP/HTTPS url",
+						Value:   "",
+						Sources: cli.EnvVars("TAP_LIGHT_RAIL_URL"),
+					},
 					&cli.IntFlag{
 						Name:    "firehose-parallelism",
 						Usage:   "number of parallel firehose event processors",
@@ -132,6 +138,11 @@ func run(args []string) error {
 						Name:    "signal-collection",
 						Usage:   "enumerate repos by collection (exact NSID)",
 						Sources: cli.EnvVars("TAP_SIGNAL_COLLECTION"),
+					},
+					&cli.StringSliceFlag{
+						Name:    "light-rail-signal-collections",
+						Usage:   "enumerate repos by collections (exact NSIDs)",
+						Sources: cli.EnvVars("TAP_LIGHT_RAIL_SIGNAL_COLLECTIONS"),
 					},
 					&cli.BoolFlag{
 						Name:    "disable-acks",
@@ -194,6 +205,12 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("relay-url must start with http:// or https://")
 	}
 
+	// fail early if lightrail url is not http/https
+	lightRailUrl := cmd.String("light-rail-url")
+	if lightRailUrl != "" && !strings.HasPrefix(lightRailUrl, "http://") && !strings.HasPrefix(lightRailUrl, "https://") {
+		return fmt.Errorf("lightrail-url must start with http:// or https://")
+	}
+
 	// fail early if plc url is not http/https
 	plcUrl := cmd.String("plc-url")
 	if !strings.HasPrefix(plcUrl, "http://") && !strings.HasPrefix(plcUrl, "https://") {
@@ -204,11 +221,23 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("--no-replay cannot be used with --full-network")
 	}
 
+	// light-rail enumeration requires both the URL and the collections
+	lightRailCollections := cmd.StringSlice("light-rail-signal-collections")
+	if (lightRailUrl != "") != (len(lightRailCollections) > 0) {
+		return fmt.Errorf("--light-rail-url and --light-rail-signal-collections must be set together")
+	}
+	// light-rail is its own enumeration mode and cannot be combined with the
+	// relay-based --signal-collection / --full-network modes.
+	if lightRailUrl != "" && (cmd.String("signal-collection") != "" || cmd.Bool("full-network")) {
+		return fmt.Errorf("--light-rail-url cannot be used with --signal-collection or --full-network")
+	}
+
 	config := TapConfig{
 		DatabaseURL:                cmd.String("db-url"),
 		DBMaxConns:                 int(cmd.Int("max-db-conn")),
 		PLCURL:                     plcUrl,
 		RelayUrl:                   relayUrl,
+		LightRailUrl:               lightRailUrl,
 		FirehoseParallelism:        int(cmd.Int("firehose-parallelism")),
 		ResyncParallelism:          int(cmd.Int("resync-parallelism")),
 		OutboxParallelism:          int(cmd.Int("outbox-parallelism")),
@@ -219,6 +248,7 @@ func runTap(ctx context.Context, cmd *cli.Command) error {
 		EventCacheSize:             int(cmd.Int("outbox-capacity")),
 		FullNetworkMode:            cmd.Bool("full-network"),
 		SignalCollection:           cmd.String("signal-collection"),
+		LightRailSignalCollections: lightRailCollections,
 		DisableAcks:                cmd.Bool("disable-acks"),
 		WebhookURL:                 cmd.String("webhook-url"),
 		CollectionFilters:          cmd.StringSlice("collection-filters"),
