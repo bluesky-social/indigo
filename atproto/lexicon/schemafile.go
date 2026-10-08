@@ -69,6 +69,17 @@ func (sf *SchemaFile) CheckSchema() error {
 		if err := def.CheckSchema(); err != nil {
 			return err
 		}
+		if set, ok := def.Inner.(SchemaPermissionSet); ok {
+			// Namespace authority applies to the concrete space type, not
+			// the record collections allowed inside spaces of that type.
+			prefix := string(syntax.NSID(sf.ID).Normalize())
+			prefix = prefix[:strings.LastIndexByte(prefix, '.')+1]
+			for _, permission := range set.Permissions {
+				if permission.Resource == "space" && !strings.HasPrefix(string(syntax.NSID(permission.SpaceType).Normalize()), prefix) {
+					return fmt.Errorf("space permission type %s is outside permission-set namespace %s", permission.SpaceType, sf.ID)
+				}
+			}
+		}
 	}
 	return nil
 }
