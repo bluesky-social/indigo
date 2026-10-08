@@ -95,8 +95,9 @@ func (n *Node) NodeData() NodeData {
 func (d *NodeData) Node(c *cid.Cid) (Node, error) {
 	height := -1
 	n := Node{
-		CID:     c,
-		Dirty:   c == nil,
+		CID:   c,
+		Dirty: c == nil,
+		// NodeData only has entries for key/value pairs at this height. Node has all those, plus a possible child reference "right" of key, plus a child "left" of all keys. Pre-allocate the maximum number of entries (2*N+1)
 		Entries: make([]NodeEntry, 0, 2*len(d.Entries)+1),
 	}
 
