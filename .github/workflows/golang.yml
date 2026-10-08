@@ -2,9 +2,29 @@ name: golang
 
 on:
   pull_request:
+    paths:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+      - Makefile
+      - .golangci.yaml
+      - .github/workflows/golang.yml
+      - '**/testdata/**'
+      - lexicons/**
+      - atproto/auth/oauth/cmd/oauth-web-demo/*.html
   push:
     branches:
       - main
+    paths:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+      - Makefile
+      - .golangci.yaml
+      - .github/workflows/golang.yml
+      - '**/testdata/**'
+      - lexicons/**
+      - atproto/auth/oauth/cmd/oauth-web-demo/*.html
 
 concurrency:
   group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
