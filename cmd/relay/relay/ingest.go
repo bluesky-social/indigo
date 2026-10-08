@@ -166,11 +166,22 @@ func (r *Relay) processSyncEvent(ctx context.Context, evt *comatproto.SyncSubscr
 		// TODO: what to do if identity resolution fails
 	}
 
-	// TODO: should we load account 'rev' here and prevent roll-backs? or allow roll-backs?
-
 	newRepo, err := r.VerifyRepoSync(ctx, evt, ident, hostname)
 	if err != nil {
 		return err
+	}
+
+	// check for stale revision
+	prevRepo, err := r.GetAccountRepo(ctx, acc.UID)
+	if err != nil && !errors.Is(err, ErrAccountRepoNotFound) {
+		logger.Error("failed to read previous repo state", "err", err)
+		return err
+	}
+	if prevRepo != nil && prevRepo.Rev != "" && newRepo.Rev != "" {
+		if newRepo.Rev <= prevRepo.Rev {
+			logger.Warn("dropping sync event with old rev", "prevRev", prevRepo.Rev)
+			return nil
+		}
 	}
 
 	err = r.UpsertAccountRepo(ctx, acc.UID, syntax.TID(newRepo.Rev), newRepo.CommitCID, newRepo.CommitDataCID)
