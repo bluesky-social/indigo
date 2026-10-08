@@ -4,7 +4,6 @@
 Run with, eg, `go run ./cmd/rainbow`):
 
 - `cmd/relay`: new (sync v1.1) relay daemon
-- `cmd/gosky`: client CLI for talking to a PDS
 - `cmd/lexgen`: codegen tool for lexicons (Lexicon JSON to Go package)
 - `cmd/stress`: connects to local/default PDS and creates a ton of random posts
 - `cmd/beemo`: slack bot for moderation reporting (Bluesky Moderation Observer)
@@ -105,16 +104,6 @@ Send the Relay a ding-dong:
 Set the log level to be more verbose, using an env variable:
 
     GOLOG_LOG_LEVEL=info go run ./cmd/pds
-
-
-## `gosky` basic usage
-
-Running against local typescript PDS in `dev-env` mode:
-
-	# as "alice" user
-	go run ./cmd/gosky/ --pds-host http://localhost:2583 account create-session alice.test hunter2 > bsky.auth
-
-The `bsky.auth` file is the default place that `gosky` and other client commands will look for auth info.
 
 
 ## Integrated Development

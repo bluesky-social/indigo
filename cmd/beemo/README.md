@@ -1,7 +1,7 @@
 
 ## beemo: Slack notification bot for moderation reports
 
-You need an admin token, slack webhook URL, and auth file (see gosky docs).
+You need an admin token, slack webhook URL, and auth file.
 The auth file isn't actually used, only the admin token.
 
     # configure a slack webhook
