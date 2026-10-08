@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/bluesky-social/indigo/cmd/relay/stream"
 
@@ -156,7 +157,7 @@ func (p *Producer) Emit(evt *stream.XRPCStreamEvent) error {
 	defer p.subsLk.Unlock()
 
 	if len(p.subs) == 0 {
-		slog.Warn("sending event, but no subscribers")
+		return fmt.Errorf("test producer received event but no subscribers connected")
 	}
 	for _, s := range p.subs {
 		select {
@@ -167,6 +168,27 @@ func (p *Producer) Emit(evt *stream.XRPCStreamEvent) error {
 		default:
 			return fmt.Errorf("test firehose producer channel blocked")
 		}
+	}
+	return nil
+}
+
+func (p *Producer) SubscriberCount() int {
+	p.subsLk.Lock()
+	defer p.subsLk.Unlock()
+	return len(p.subs)
+}
+
+// Polls until SubscriberCount() is creater or equal to 'count'. Returns an error on timeout.
+func (p *Producer) WaitForSubscribers(count int) error {
+	deadline := time.Now().Add(5 * time.Second)
+	for true {
+		if p.SubscriberCount() >= count {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("test producer timeout waiting for subscribers")
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 	return nil
 }

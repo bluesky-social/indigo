@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/cmd/relay/relay"
@@ -28,6 +29,21 @@ func (sr *SimpleRelay) handleSubscribeRepos(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		slog.Error("subscribeRepos", "err", err)
 	}
+}
+
+// polls until relay has at least 'count' consumers. returns error on timeout
+func (sr *SimpleRelay) waitForConsumers(count int) error {
+	deadline := time.Now().Add(5 * time.Second)
+	for true {
+		if len(sr.Relay.ListConsumers()) >= count {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("test relay timeout waiting for consumers")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	return nil
 }
 
 func MustSimpleRelay(dir identity.Directory, tmpd string, lenient bool) *SimpleRelay {
@@ -136,6 +152,9 @@ func RunScenario(ctx context.Context, s *Scenario) error {
 	if err != nil {
 		return err
 	}
+	if err := p.WaitForSubscribers(1); err != nil {
+		return err
+	}
 
 	c := NewConsumer(fmt.Sprintf("ws://localhost:%d", sr.Port))
 	err = c.Connect(ctx, -1)
@@ -143,6 +162,9 @@ func RunScenario(ctx context.Context, s *Scenario) error {
 		return err
 	}
 	defer c.Shutdown()
+	if err := sr.waitForConsumers(1); err != nil {
+		return err
+	}
 
 	for i, msg := range s.Messages {
 		slog.Info("sending test message", "index", i)
