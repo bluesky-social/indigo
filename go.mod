@@ -63,9 +63,9 @@ require (
 	golang.org/x/time v0.16.0
 	golang.org/x/tools v0.51.0
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028
-	gorm.io/driver/postgres v1.5.7
-	gorm.io/driver/sqlite v1.5.5
-	gorm.io/gorm v1.25.9
+	gorm.io/driver/postgres v1.6.3
+	gorm.io/driver/sqlite v1.6.0
+	gorm.io/gorm v1.31.2
 	gorm.io/plugin/opentelemetry v0.1.3
 )
 
@@ -87,8 +87,8 @@ require (
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
-	github.com/jackc/pgx/v5 v5.10.0 // indirect
-	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/jackc/pgx/v5 v5.11.0 // indirect
+	github.com/jackc/puddle/v2 v2.2.3 // indirect
 	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
