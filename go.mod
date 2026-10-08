@@ -67,6 +67,7 @@ require (
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.2
 	gorm.io/plugin/opentelemetry v0.1.3
+	lukechampine.com/blake3 v1.4.1
 )
 
 require (
@@ -176,4 +177,5 @@ require (
 	google.golang.org/grpc v1.83.2 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	lukechampine.com/blake3 v1.4.1 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
