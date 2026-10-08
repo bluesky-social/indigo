@@ -27,7 +27,7 @@ type Consumer struct {
 func NewConsumer(host string) *Consumer {
 	c := Consumer{
 		Host:    host,
-		Timeout: time.Second * 10,
+		Timeout: time.Second * 3,
 	}
 	return &c
 }
@@ -98,7 +98,6 @@ func (c *Consumer) Connect(ctx context.Context, cursor int) error {
 			cancel()
 		}
 	}()
-	time.Sleep(time.Millisecond * 2) // TODO: is this needed?
 	return nil
 }
 
@@ -120,9 +119,10 @@ func (c *Consumer) Shutdown() {
 	}
 }
 
-// connects to host and consumes 'count' events, then returns them. will try up to 'c.Timeout', and error if not enough events are seen
+// Polls until this consumer has received at least 'count' events, and then returns the first 'count' events which have been received.
 //
-// cursor: pass -1 to consume from current
+// Does not clear/remove the events which are returned (calling again will return the same events.
+// Returns an error if fewer that 'count' events are received within c.Timeout.
 func (c *Consumer) ConsumeEvents(count int) ([]*stream.XRPCStreamEvent, error) {
 	// poll until we have enough events
 	start := time.Now()
@@ -132,5 +132,10 @@ func (c *Consumer) ConsumeEvents(count int) ([]*stream.XRPCStreamEvent, error) {
 		}
 		time.Sleep(time.Millisecond * 5)
 	}
-	return c.Events, nil
+	// lock and copy out current events
+	c.eventsLk.Lock()
+	defer c.eventsLk.Unlock()
+	out := make([]*stream.XRPCStreamEvent, count)
+	copy(out, c.Events[0:count])
+	return out, nil
 }
