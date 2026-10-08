@@ -15,15 +15,14 @@ RUN GIT_VERSION=$(git describe --tags --long --always) && \
     go build -tags timetzdata -o /relay ./cmd/relay
 
 ### Build Frontend stage
-FROM node:22-alpine AS web-builder
+FROM node:24-alpine AS web-builder
 
 WORKDIR /app
 
 COPY cmd/relay/relay-admin-ui /app/
 
-RUN yarn install --frozen-lockfile
-
-RUN yarn build
+RUN npm ci
+RUN npm run build
 
 ### Run stage
 FROM alpine:3.24
