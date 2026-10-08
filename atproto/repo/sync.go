@@ -166,21 +166,21 @@ func parseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]Operation, e
 func VerifySyncMessage(ctx context.Context, dir identity.Directory, msg *comatproto.SyncSubscribeRepos_Sync) (*Commit, error) {
 	_, err := syntax.ParseDatetime(msg.Time)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("verifying #sync message: %w", err)
 	}
 	_, err = syntax.ParseTID(msg.Rev)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("verifying #sync message: %w", err)
 	}
 	commit, err := VerifyCommitSignatureFromCar(ctx, dir, []byte(msg.Blocks))
 	if err != nil {
 		return nil, err
 	}
 	if commit.Rev != msg.Rev {
-		return nil, fmt.Errorf("rev did not match commit")
+		return nil, fmt.Errorf("verifying #sync message: msg.rev did not match commit.Rev")
 	}
 	if commit.DID != msg.Did {
-		return nil, fmt.Errorf("DID did not match commit")
+		return nil, fmt.Errorf("verifying #sync message: msg.DID did not match commit.Did")
 	}
 	return commit, nil
 }
