@@ -10,7 +10,6 @@ ADD . /dockerbuild
 WORKDIR /dockerbuild
 
 # timezone data for alpine builds
-ENV GOEXPERIMENT=loopvar
 RUN GIT_VERSION=$(git describe --tags --long --always) && \
     go build -tags timetzdata -o /relay ./cmd/relay
 
