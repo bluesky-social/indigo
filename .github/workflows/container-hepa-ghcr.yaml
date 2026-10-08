@@ -4,6 +4,13 @@ on:
     branches:
       - main
       - bnewbold/automod
+    paths:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+      - .dockerignore
+      - cmd/hepa/Dockerfile
+      - .github/workflows/container-hepa-ghcr.yaml
 env:
   REGISTRY: ghcr.io
   # github.repository as <account>/<repo>

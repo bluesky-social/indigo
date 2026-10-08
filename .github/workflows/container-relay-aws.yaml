@@ -1,5 +1,16 @@
 name: container-relay-aws
-on: [push]
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+      - .dockerignore
+      - cmd/relay/Dockerfile
+      - cmd/relay/relay-admin-ui/**
+      - .github/workflows/container-relay-aws.yaml
 env:
   REGISTRY: ${{ secrets.AWS_ECR_REGISTRY_USEAST2_PACKAGES_REGISTRY }}
   USERNAME: ${{ secrets.AWS_ECR_REGISTRY_USEAST2_PACKAGES_USERNAME }}

@@ -1,5 +1,16 @@
 name: container-relay-ghcr
-on: [push]
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+      - .dockerignore
+      - cmd/relay/Dockerfile
+      - cmd/relay/relay-admin-ui/**
+      - .github/workflows/container-relay-ghcr.yaml
 env:
   REGISTRY: ghcr.io
   USERNAME: ${{ github.actor }}

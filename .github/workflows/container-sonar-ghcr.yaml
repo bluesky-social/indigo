@@ -1,5 +1,15 @@
 name: container-sonar-ghcr
-on: [push]
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+      - .dockerignore
+      - cmd/sonar/Dockerfile
+      - .github/workflows/container-sonar-ghcr.yaml
 env:
   REGISTRY: ghcr.io
   USERNAME: ${{ github.actor }}

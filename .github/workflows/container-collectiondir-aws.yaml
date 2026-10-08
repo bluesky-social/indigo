@@ -1,5 +1,15 @@
 name: container-collectiondir-aws
-on: [push]
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+      - .dockerignore
+      - cmd/collectiondir/Dockerfile
+      - .github/workflows/container-collectiondir-aws.yaml
 env:
   REGISTRY: ${{ secrets.AWS_ECR_REGISTRY_USEAST2_PACKAGES_REGISTRY }}
   USERNAME: ${{ secrets.AWS_ECR_REGISTRY_USEAST2_PACKAGES_USERNAME }}

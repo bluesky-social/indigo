@@ -3,6 +3,13 @@ on:
   push:
     branches:
       - main
+    paths:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+      - .dockerignore
+      - cmd/beemo/Dockerfile
+      - .github/workflows/container-beemo-ghcr.yaml
 env:
   REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
