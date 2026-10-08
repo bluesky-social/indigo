@@ -43,10 +43,8 @@ func (rc *ResolvingCatalog) Resolve(ref string) (*Schema, error) {
 		return nil, fmt.Errorf("tried to resolve empty string name")
 	}
 
-	// first try existing catalog
-	rc.lk.RLock()
-	schema, err := rc.Base.Resolve(ref)
-	rc.lk.RUnlock()
+	// first try existing catalog (this helper uses a read lock)
+	schema, err := rc.tryResolve(ref)
 	if nil == err { // no error: found a hit
 		return schema, nil
 	}
@@ -80,6 +78,13 @@ func (rc *ResolvingCatalog) Resolve(ref string) (*Schema, error) {
 		return nil, err
 	}
 
-	// re-resolving from the raw ref ensures that fragments are handled
+	// re-resolving from the raw ref ensures that fragments are handled (covered by full lock)
+	return rc.Base.Resolve(ref)
+}
+
+// does an optimistic resolution of the wrapped base catalog, with read locking
+func (rc *ResolvingCatalog) tryResolve(ref string) (*Schema, error) {
+	rc.lk.RLock()
+	defer rc.lk.RUnlock()
 	return rc.Base.Resolve(ref)
 }
