@@ -28,7 +28,6 @@ type Label struct {
 // converts to map[string]any for printing as JSON
 func (l *Label) Data() map[string]any {
 	d := map[string]any{
-		"cid": l.CID,
 		"cts": l.CreatedAt,
 		"src": l.SourceDID,
 		"uri": l.URI,

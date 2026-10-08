@@ -29,7 +29,7 @@ func ParseCID(raw string) (CID, error) {
 	if !cidRegex.MatchString(raw) {
 		return "", errors.New("CID syntax didn't validate via regex")
 	}
-	if strings.HasPrefix(raw, "Qmb") {
+	if strings.HasPrefix(raw, "Qm") {
 		return "", errors.New("CIDv0 not allowed in this version of atproto")
 	}
 	return CID(raw), nil
