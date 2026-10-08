@@ -64,7 +64,7 @@ func (rc *ResolvingCatalog) Resolve(ref string) (*Schema, error) {
 	}
 
 	var sf SchemaFile
-	if err = json.Unmarshal(*recordJSON, &sf); err != nil {
+	if err = json.Unmarshal(recordJSON, &sf); err != nil {
 		return nil, err
 	}
 

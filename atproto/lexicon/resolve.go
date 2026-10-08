@@ -28,7 +28,7 @@ func ResolveLexiconData(ctx context.Context, dir identity.Directory, nsid syntax
 		return nil, err
 	}
 
-	d, err := atdata.UnmarshalJSON(*record)
+	d, err := atdata.UnmarshalJSON(record)
 	if err != nil {
 		return nil, fmt.Errorf("fetched Lexicon schema record was invalid: %w", err)
 	}
@@ -45,14 +45,14 @@ func ResolveLexiconSchemaFile(ctx context.Context, dir identity.Directory, nsid 
 	}
 
 	var sf SchemaFile
-	if err := json.Unmarshal(*record, &sf); err != nil {
+	if err := json.Unmarshal(record, &sf); err != nil {
 		return nil, fmt.Errorf("fetched Lexicon schema record was invalid: %w", err)
 	}
 	return &sf, nil
 }
 
 // internal helper for fetching lexicon record as JSON bytes
-func resolveLexiconJSON(ctx context.Context, dir identity.Directory, nsid syntax.NSID, httpClient *http.Client) (*json.RawMessage, error) {
+func resolveLexiconJSON(ctx context.Context, dir identity.Directory, nsid syntax.NSID, httpClient *http.Client) (json.RawMessage, error) {
 
 	// this BaseDirectory is only used for DNS TXT resolution, not HTTP
 	baseDir := identity.BaseDirectory{}
@@ -76,7 +76,7 @@ func resolveLexiconJSON(ctx context.Context, dir identity.Directory, nsid syntax
 }
 
 // if the supplied httpClient is nil, wlil generate a one-time-use SSRF-safe instance
-func fetchRecordJSON(ctx context.Context, ident identity.Identity, aturi syntax.ATURI, httpClient *http.Client) (*json.RawMessage, error) {
+func fetchRecordJSON(ctx context.Context, ident identity.Identity, aturi syntax.ATURI, httpClient *http.Client) (json.RawMessage, error) {
 
 	client := atclient.NewAPIClient(ident.PDSEndpoint())
 	if client != nil {
@@ -98,5 +98,5 @@ func fetchRecordJSON(ctx context.Context, ident identity.Identity, aturi syntax.
 		return nil, fmt.Errorf("empty record in response")
 	}
 
-	return resp.Value, nil
+	return *resp.Value, nil
 }
