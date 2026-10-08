@@ -22,6 +22,11 @@ type Identity struct {
 	AlsoKnownAs []string
 	Services    map[string]ServiceEndpoint
 	Keys        map[string]VerificationMethod
+
+	// Preserve dedicated declarations before lossy DID-document parsing. These
+	// exported fields also survive identity serialization and directory caches.
+	SpaceKeyDeclarations  []DocVerificationMethod `json:",omitempty"`
+	SpaceHostDeclarations []DocService            `json:",omitempty"`
 }
 
 // Sub-field type for [Identity], representing a cryptographic public key declared as a "verificationMethod" in the DID document.
@@ -40,8 +45,13 @@ type ServiceEndpoint struct {
 //
 // Always returns an invalid Handle field; calling code should only populate that field if it has been bi-directionally verified.
 func ParseIdentity(doc *DIDDocument) Identity {
+	var spaceKeys []DocVerificationMethod
+	var spaceHosts []DocService
 	keys := make(map[string]VerificationMethod, len(doc.VerificationMethod))
 	for _, vm := range doc.VerificationMethod {
+		if isSpaceDeclaration(vm.ID, "atproto_space") {
+			spaceKeys = append(spaceKeys, vm)
+		}
 		parts := strings.SplitN(vm.ID, "#", 2)
 		if len(parts) < 2 {
 			continue
@@ -62,6 +72,9 @@ func ParseIdentity(doc *DIDDocument) Identity {
 	}
 	svc := make(map[string]ServiceEndpoint, len(doc.Service))
 	for _, s := range doc.Service {
+		if isSpaceDeclaration(s.ID, "atproto_space_host") {
+			spaceHosts = append(spaceHosts, s)
+		}
 		parts := strings.SplitN(s.ID, "#", 2)
 		if len(parts) < 2 {
 			continue
@@ -77,11 +90,13 @@ func ParseIdentity(doc *DIDDocument) Identity {
 		}
 	}
 	return Identity{
-		DID:         doc.DID,
-		Handle:      syntax.HandleInvalid,
-		AlsoKnownAs: doc.AlsoKnownAs,
-		Services:    svc,
-		Keys:        keys,
+		DID:                   doc.DID,
+		Handle:                syntax.HandleInvalid,
+		AlsoKnownAs:           doc.AlsoKnownAs,
+		Services:              svc,
+		Keys:                  keys,
+		SpaceKeyDeclarations:  spaceKeys,
+		SpaceHostDeclarations: spaceHosts,
 	}
 }
 
@@ -90,28 +105,32 @@ func (ident *Identity) DIDDocument() DIDDocument {
 	doc := DIDDocument{
 		DID:                ident.DID,
 		AlsoKnownAs:        ident.AlsoKnownAs,
-		VerificationMethod: make([]DocVerificationMethod, len(ident.Keys)),
-		Service:            make([]DocService, len(ident.Services)),
+		VerificationMethod: make([]DocVerificationMethod, 0, len(ident.Keys)+len(ident.SpaceKeyDeclarations)),
+		Service:            make([]DocService, 0, len(ident.Services)+len(ident.SpaceHostDeclarations)),
 	}
-	i := 0
 	for k, key := range ident.Keys {
-		doc.VerificationMethod[i] = DocVerificationMethod{
+		if k == "atproto_space" && len(ident.SpaceKeyDeclarations) > 0 {
+			continue
+		}
+		doc.VerificationMethod = append(doc.VerificationMethod, DocVerificationMethod{
 			ID:                 fmt.Sprintf("%s#%s", ident.DID, k),
 			Type:               key.Type,
 			Controller:         ident.DID.String(),
 			PublicKeyMultibase: key.PublicKeyMultibase,
-		}
-		i += 1
+		})
 	}
-	i = 0
 	for k, svc := range ident.Services {
-		doc.Service[i] = DocService{
+		if k == "atproto_space_host" && len(ident.SpaceHostDeclarations) > 0 {
+			continue
+		}
+		doc.Service = append(doc.Service, DocService{
 			ID:              fmt.Sprintf("#%s", k),
 			Type:            svc.Type,
 			ServiceEndpoint: svc.URL,
-		}
-		i += 1
+		})
 	}
+	doc.VerificationMethod = append(doc.VerificationMethod, ident.SpaceKeyDeclarations...)
+	doc.Service = append(doc.Service, ident.SpaceHostDeclarations...)
 	return doc
 }
 
@@ -137,6 +156,10 @@ func (i *Identity) GetPublicKey(id string) (atcrypto.PublicKey, error) {
 	if !ok {
 		return nil, ErrKeyNotDeclared
 	}
+	return parsePublicKey(k)
+}
+
+func parsePublicKey(k VerificationMethod) (atcrypto.PublicKey, error) {
 	switch k.Type {
 	case "Multikey":
 		return atcrypto.ParsePublicMultibase(k.PublicKeyMultibase)

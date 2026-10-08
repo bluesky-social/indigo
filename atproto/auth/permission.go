@@ -311,6 +311,7 @@ func ParsePermissionString(scope string) (*Permission, error) {
 				return nil, fmt.Errorf("%w: unsupported 'space' param: %s", ErrInvalidPermissionParams, k)
 			}
 		}
+
 		if g.Params.Has("spaceType") {
 			if g.Positional != "" || len(g.Params["spaceType"]) != 1 {
 				return nil, ErrInvalidPermissionParams

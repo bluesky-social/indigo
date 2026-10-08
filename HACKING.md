@@ -24,11 +24,13 @@ Packages:
     - `api/chat`: generated types for `chat.bsky` lexicon
     - `api/ozone`: generated types for `tools.ozone` lexicon
 - `atproto/atcrypto`: cryptographic helpers (signing, key generation and serialization)
+- `atproto/atcrypto/lthash`: set-oriented incremental hash used by Spaces
 - `atproto/syntax`: string types and parsers for identifiers, datetimes, etc
 - `atproto/identity`: DID and handle resolution
 - `atproto/atdata`: helpers for atproto data as JSON or CBOR with unknown schema
 - `atproto/lexicon`: lexicon validation of generic data
 - `atproto/repo`: repo and MST implementation
+- `atproto/spaces`: permissioned Spaces read handles, authentication and verification
 - `automod`: moderation and anti-spam rules engine
 - `carstore`: library for storing repo data in CAR files on disk, plus a metadata SQL db
 - `events`: types, codegen CBOR helpers, and persistence for event feeds
@@ -79,6 +81,16 @@ To run codegen for new or updated Lexicons, using lexgen, first place (or git ch
 You may want to delete all the codegen files before re-generating, to detect deleted files.
 
 It can require some manual munging between the lexgen step and a later `go run ./gen` to make sure things compile at least temporarily; otherwise the `gen` will not run. In some cases, you might also need to add new types to `./gen/main.go`.
+
+Spaces RPCs use the newer `lex/lexgen` engine through the same driver. Regenerate only these APIs with:
+
+```sh
+go run ./cmd/lexgen --modern --legacy-mode=false --unknown-type=json-raw-message \
+    --build-file=cmd/lexgen/spaces.json \
+    lexicons/com/atproto/space
+```
+
+`cmd/lexgen/spaces.json` targets `api/atproto` and selects its package name independently of legacy mode. Modern optional query parameters use pointers, and unknown record values remain `json.RawMessage`; unknown open-union variants survive JSON round trips. The default driver remains the established legacy engine. Do not blanket-regenerate unrelated APIs or create agnostic duplicates for Spaces. Generated binary helpers buffer downloads; `atproto/spaces` uses streaming transport instead.
 
 To generate server stubs and handlers, push them in a temporary directory first, then merge changes in to the actual PDS code:
 

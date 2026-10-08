@@ -1,0 +1,8 @@
+[
+  {
+    "package": "atproto",
+    "prefix": "com.atproto.space",
+    "outdir": "api/atproto",
+    "import": "github.com/bluesky-social/indigo/api/atproto"
+  }
+]
