@@ -59,10 +59,14 @@ type EmbedRecord_ViewRecord struct {
 	IndexedAt     string                                `json:"indexedAt" cborgen:"indexedAt"`
 	Labels        []*comatproto.LabelDefs_Label         `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	LikeCount     *int64                                `json:"likeCount,omitempty" cborgen:"likeCount,omitempty"`
-	QuoteCount    *int64                                `json:"quoteCount,omitempty" cborgen:"quoteCount,omitempty"`
-	ReplyCount    *int64                                `json:"replyCount,omitempty" cborgen:"replyCount,omitempty"`
-	RepostCount   *int64                                `json:"repostCount,omitempty" cborgen:"repostCount,omitempty"`
-	Uri           string                                `json:"uri" cborgen:"uri"`
+	// opThreadPostCount: The total number of posts in the contiguous OP thread that this post belongs to. Only present when this post is part of the OP thread.
+	OpThreadPostCount *int64 `json:"opThreadPostCount,omitempty" cborgen:"opThreadPostCount,omitempty"`
+	// opThreadPostIndex: The 1-indexed position of this post within the contiguous OP thread. Only present when this post is part of the OP thread.
+	OpThreadPostIndex *int64 `json:"opThreadPostIndex,omitempty" cborgen:"opThreadPostIndex,omitempty"`
+	QuoteCount        *int64 `json:"quoteCount,omitempty" cborgen:"quoteCount,omitempty"`
+	ReplyCount        *int64 `json:"replyCount,omitempty" cborgen:"replyCount,omitempty"`
+	RepostCount       *int64 `json:"repostCount,omitempty" cborgen:"repostCount,omitempty"`
+	Uri               string `json:"uri" cborgen:"uri"`
 	// value: The record data itself.
 	Value *lexutil.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
