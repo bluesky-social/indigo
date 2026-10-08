@@ -228,7 +228,9 @@ func (r *Relay) processIdentityEvent(ctx context.Context, evt *comatproto.SyncSu
 	}
 
 	// check that handle at least matches that in the DID document (if available)
-	if ident != nil && handle != nil && ident.Handle.String() != *handle {
+	if ident == nil {
+		handle = nil
+	} else if handle != nil && ident.Handle.String() != *handle {
 		handle = nil
 	}
 
