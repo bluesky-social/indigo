@@ -5,12 +5,14 @@ import (
 	"strings"
 )
 
+// Deprecated: use atproto/syntax.ParseATURI instead
 type ParsedUri struct {
 	Did        string
 	Collection string
 	Rkey       string
 }
 
+// Deprecated: use atproto/syntax.ParseATURI instead
 func ParseAtUri(uri string) (*ParsedUri, error) {
 	if !strings.HasPrefix(uri, "at://") {
 		return nil, fmt.Errorf("AT uris must be prefixed with 'at://'")
