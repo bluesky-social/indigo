@@ -377,13 +377,14 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 	}
 }
 
-func sleepForBackoff(b int) time.Duration {
-	if b == 0 {
-		return 0
+// Computes a backoff time period to wait after n consecutive failures.
+func sleepForBackoff(n int) time.Duration {
+	if n == 0 {
+		return 10 * time.Millisecond
 	}
 
-	if b < 10 {
-		return (time.Duration(b) * 2) + (time.Millisecond * time.Duration(rand.Intn(1000)))
+	if n < 10 {
+		return (time.Duration(n) * 2 * time.Second) + (time.Millisecond * time.Duration(rand.Intn(1000)))
 	}
 
 	return time.Second * 30
