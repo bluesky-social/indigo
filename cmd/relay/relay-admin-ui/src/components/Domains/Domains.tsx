@@ -233,7 +233,7 @@ const Domains: FC<{}> = () => {
             domains are also banned.
           </p>
         </div>
-        <div className="flex-grow mt-5 sm:mt-0">
+        <div className="grow mt-5 sm:mt-0">
           <div className="max-w-3xl w-full">
             <label
               htmlFor="email"
@@ -246,7 +246,7 @@ const Domains: FC<{}> = () => {
                 type="text"
                 name="domain"
                 id="domain"
-                className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-xs ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 placeholder="noisy.pds.com"
                 value={domainToBan}
                 onChange={(e) => {
@@ -258,7 +258,7 @@ const Domains: FC<{}> = () => {
                 onClick={() => {
                   handleBanUnbaonDomain(domainToBan.trim(), "ban");
                 }}
-                className="ml-2 inline-flex whitespace-nowrap items-center gap-x-1.5 rounded-md bg-red-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+                className="ml-2 inline-flex whitespace-nowrap items-center gap-x-1.5 rounded-md bg-red-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-xs hover:bg-red-500 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
               >
                 <ShieldExclamationIcon
                   className="-ml-0.5 h-5 w-5"
@@ -272,7 +272,7 @@ const Domains: FC<{}> = () => {
       </div>
 
       <div className="mt-8 flow-root">
-        <div className="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg sm:rounded-b-none">
+        <div className="overflow-x-auto shadow-sm ring-1 ring-black ring-opacity-5 sm:rounded-lg sm:rounded-b-none">
           <table className="min-w-full divide-y divide-gray-300">
             <thead className="bg-gray-50">
               <tr>
@@ -288,7 +288,7 @@ const Domains: FC<{}> = () => {
                     }}
                   >
                     Domain
-                    <span className="ml-2 flex-none rounded text-gray-400 group-hover:bg-gray-200">
+                    <span className="ml-2 flex-none rounded-sm text-gray-400 group-hover:bg-gray-200">
                       {sortOrder === "asc" ? (
                         <ChevronUpIcon className="h-5 w-5" aria-hidden="true" />
                       ) : (
@@ -318,7 +318,7 @@ const Domains: FC<{}> = () => {
                       </td>
                       <td className="whitespace-nowrap py-4 pr-4 pl-3 text-sm font-medium text-gray-900 sm:pr-6 text-right">
                         <button
-                          className="rounded-md p-1.5 hover:text-green-600 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50"
+                          className="rounded-md p-1.5 hover:text-green-600 hover:bg-green-100 focus:outline-hidden focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50"
                           onClick={() => {
                             handleBanUnbaonDomain(domain, "unban");
                           }}
