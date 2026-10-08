@@ -58,7 +58,7 @@ func NodeDataFromCBOR(r io.Reader) (*NodeData, error) {
 func (n *Node) NodeData() NodeData {
 	d := NodeData{
 		Left:    nil,
-		Entries: []EntryData{}, // TODO perf: pre-allocate an array
+		Entries: make([]EntryData, 0, len(n.Entries)),
 	}
 
 	prevKey := []byte{}
@@ -95,9 +95,10 @@ func (n *Node) NodeData() NodeData {
 func (d *NodeData) Node(c *cid.Cid) (Node, error) {
 	height := -1
 	n := Node{
-		CID:     c,
-		Dirty:   c == nil,
-		Entries: []NodeEntry{}, // TODO: pre-allocate
+		CID:   c,
+		Dirty: c == nil,
+		// NodeData only has entries for key/value pairs at this height. Node has all those, plus a possible child reference "right" of key, plus a child "left" of all keys. Pre-allocate the maximum number of entries (2*N+1)
+		Entries: make([]NodeEntry, 0, 2*len(d.Entries)+1),
 	}
 
 	if d.Left != nil {
@@ -167,7 +168,7 @@ func (n *Node) writeBlocks(ctx context.Context, bs blockstore.Blockstore, onlyDi
 	for i, e := range n.Entries {
 		if e.IsValue() && e.Dirty {
 			// TODO: should we actually clear this here?
-			e.Dirty = false
+			n.Entries[i].Dirty = false
 		}
 		if !e.IsChild() {
 			continue

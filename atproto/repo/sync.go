@@ -49,7 +49,7 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 		return nil, fmt.Errorf("rev did not match commit")
 	}
 	if commit.DID != did.String() {
-		return nil, fmt.Errorf("rev did not match commit")
+		return nil, fmt.Errorf("DID did not match commit")
 	}
 	// TODO: check that commit CID matches root? re-compute?
 
@@ -123,8 +123,7 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 }
 
 func parseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]Operation, error) {
-	//out := make([]Operation, len(ops))
-	out := []Operation{}
+	out := make([]Operation, 0, len(ops))
 	for _, rop := range ops {
 		switch rop.Action {
 		case "create":
@@ -165,7 +164,25 @@ func parseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]Operation, e
 }
 
 func VerifySyncMessage(ctx context.Context, dir identity.Directory, msg *comatproto.SyncSubscribeRepos_Sync) (*Commit, error) {
-	return VerifyCommitSignatureFromCar(ctx, dir, []byte(msg.Blocks))
+	_, err := syntax.ParseDatetime(msg.Time)
+	if err != nil {
+		return nil, fmt.Errorf("verifying #sync message: %w", err)
+	}
+	_, err = syntax.ParseTID(msg.Rev)
+	if err != nil {
+		return nil, fmt.Errorf("verifying #sync message: %w", err)
+	}
+	commit, err := VerifyCommitSignatureFromCar(ctx, dir, []byte(msg.Blocks))
+	if err != nil {
+		return nil, err
+	}
+	if commit.Rev != msg.Rev {
+		return nil, fmt.Errorf("verifying #sync message: msg.rev did not match commit.Rev")
+	}
+	if commit.DID != msg.Did {
+		return nil, fmt.Errorf("verifying #sync message: msg.DID did not match commit.Did")
+	}
+	return commit, nil
 }
 
 // temporary/experimental code showing how to verify a commit signature from firehose
@@ -177,12 +194,9 @@ func VerifyCommitSignature(ctx context.Context, dir identity.Directory, msg *com
 }
 
 func VerifyCommitSignatureFromCar(ctx context.Context, dir identity.Directory, car []byte) (*Commit, error) {
+	// LoadCommitFromCAR includes commit.VerifyStructure()
 	commit, _, err := LoadCommitFromCAR(ctx, bytes.NewReader(car))
 	if err != nil {
-		return nil, err
-	}
-
-	if err := commit.VerifyStructure(); err != nil {
 		return nil, err
 	}
 
