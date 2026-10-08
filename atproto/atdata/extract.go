@@ -25,7 +25,6 @@ func ExtractTypeJSON(b []byte) (string, error) {
 func ExtractTypeCBOR(b []byte) (string, error) {
 	var gr GenericRecord
 	if err := gr.UnmarshalCBOR(bytes.NewReader(b)); err != nil {
-		//fmt.Printf("bad bytes: %x\n", b)
 		return "", err
 	}
 
