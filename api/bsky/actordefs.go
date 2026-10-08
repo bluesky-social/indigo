@@ -31,6 +31,8 @@ type ActorDefs_BskyAppProgressGuide struct {
 type ActorDefs_BskyAppStatePref struct {
 	LexiconTypeID       string                          `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#bskyAppStatePref"`
 	ActiveProgressGuide *ActorDefs_BskyAppProgressGuide `json:"activeProgressGuide,omitempty" cborgen:"activeProgressGuide,omitempty"`
+	// isBetaUser: Indicates if the user is participating in the beta features program.
+	IsBetaUser *bool `json:"isBetaUser,omitempty" cborgen:"isBetaUser,omitempty"`
 	// nuxs: Storage for NUXs the user has encountered.
 	Nuxs []*ActorDefs_Nux `json:"nuxs,omitempty" cborgen:"nuxs,omitempty"`
 	// queuedNudges: An array of tokens which identify nudges (modals, popups, tours, highlight dots) that should be shown to the user.
@@ -465,10 +467,11 @@ type ActorDefs_ProfileViewBasic struct {
 
 // ActorDefs_ProfileViewDetailed is a "profileViewDetailed" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileViewDetailed struct {
-	Associated *ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
-	Avatar     *string                      `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	Banner     *string                      `json:"banner,omitempty" cborgen:"banner,omitempty"`
-	CreatedAt  *string                      `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	LexiconTypeID string                       `json:"$type" cborgen:"$type,const=app.bsky.actor.defs#profileViewDetailed"`
+	Associated    *ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Avatar        *string                      `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	Banner        *string                      `json:"banner,omitempty" cborgen:"banner,omitempty"`
+	CreatedAt     *string                      `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
 	// debug: Debug information for internal development
 	Debug                *interface{}                    `json:"debug,omitempty" cborgen:"debug,omitempty"`
 	Description          *string                         `json:"description,omitempty" cborgen:"description,omitempty"`
@@ -616,6 +619,11 @@ type ActorDefs_ViewerState struct {
 	Following            *string                                `json:"following,omitempty" cborgen:"following,omitempty"`
 	// knownFollowers: This property is present only in selected cases, as an optimization.
 	KnownFollowers *ActorDefs_KnownFollowers `json:"knownFollowers,omitempty" cborgen:"knownFollowers,omitempty"`
-	Muted          *bool                     `json:"muted,omitempty" cborgen:"muted,omitempty"`
-	MutedByList    *GraphDefs_ListViewBasic  `json:"mutedByList,omitempty" cborgen:"mutedByList,omitempty"`
+	// muted: Whether the account is fully muted, directly or via a mutelist. False when the mute is scoped to specific kinds; see mutedOnlyReposts and mutedOnlyQuoteposts.
+	Muted       *bool                    `json:"muted,omitempty" cborgen:"muted,omitempty"`
+	MutedByList *GraphDefs_ListViewBasic `json:"mutedByList,omitempty" cborgen:"mutedByList,omitempty"`
+	// mutedOnlyQuoteposts: Whether the account's quote posts are muted. Scoped mutes are exclusive with muted: this can be true while muted is false. If muted is true, this will be false.
+	MutedOnlyQuoteposts *bool `json:"mutedOnlyQuoteposts,omitempty" cborgen:"mutedOnlyQuoteposts,omitempty"`
+	// mutedOnlyReposts: Whether the account's reposts are muted. Scoped mutes are exclusive with muted: this can be true while muted is false. If muted is true, this will be false.
+	MutedOnlyReposts *bool `json:"mutedOnlyReposts,omitempty" cborgen:"mutedOnlyReposts,omitempty"`
 }

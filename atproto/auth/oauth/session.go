@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -350,6 +351,9 @@ func (sess *ClientSession) DoWithAuth(c *http.Client, req *http.Request, endpoin
 
 		// if DPoP nonce changed, update and retry request
 		if isNonceUpdateHeader(authHdr) && dpopNonceHdr != "" {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+
 			// TODO: validate or normalize dpopNonceHdr in some way? eg minimum length
 			if dpopNonceHdr == dpopNonce {
 				return nil, fmt.Errorf("OAuth PDS DPoP nonce failure, but no new nonce supplied")
@@ -373,6 +377,9 @@ func (sess *ClientSession) DoWithAuth(c *http.Client, req *http.Request, endpoin
 
 		// if access token expired, refresh and retry
 		if isExpiredAccessTokenHeader(authHdr) {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+
 			accessToken, err = sess.RefreshTokens(req.Context())
 			if err != nil {
 				return nil, fmt.Errorf("failed to refresh OAuth tokens: %w", err)

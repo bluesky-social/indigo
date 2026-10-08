@@ -81,7 +81,8 @@ var bskyListFollowsCmd = &cli.Command{
 		}
 
 		ctx := context.TODO()
-		resp, err := appbsky.GraphGetFollows(ctx, xrpcc, user, "", 100)
+		// ctx, client, actor string, cursor string, limit int64, sort string
+		resp, err := appbsky.GraphGetFollows(ctx, xrpcc, user, "", 100, "")
 		if err != nil {
 			return err
 		}
@@ -193,7 +194,7 @@ var bskyGetFeedCmd = &cli.Command{
 			}
 		} else {
 			algo := "reverse-chronological"
-			tl, err := appbsky.FeedGetTimeline(ctx, xrpcc, algo, "", int64(cctx.Int("count")))
+			tl, err := appbsky.FeedGetTimeline(ctx, xrpcc, algo, "", int64(cctx.Int("count")), "")
 			if err != nil {
 				return err
 			}

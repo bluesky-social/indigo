@@ -85,3 +85,20 @@ func TestExtractBlobs(t *testing.T) {
 	blbs := ExtractBlobs(obj)
 	assert.Equal(2, len(blbs))
 }
+
+func TestInternalParsing(t *testing.T) {
+	assert := assert.New(t)
+
+	obj := map[string]any{
+		"int": 123,
+		"did": syntax.DID("did:web:example.com"),
+	}
+	expected := map[string]any{
+		"int": int64(123),
+		"did": "did:web:example.com",
+	}
+
+	out, err := parseObject(obj)
+	assert.NoError(err)
+	assert.Equal(expected, out)
+}

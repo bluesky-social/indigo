@@ -12,7 +12,9 @@ import (
 
 // UnspeccedGetTrends_Output is the output of a app.bsky.unspecced.getTrends call.
 type UnspeccedGetTrends_Output struct {
-	Trends []*UnspeccedDefs_TrendView `json:"trends" cborgen:"trends"`
+	// recIdStr: Snowflake for this recommendation, use when submitting recommendation events.
+	RecIdStr *string                    `json:"recIdStr,omitempty" cborgen:"recIdStr,omitempty"`
+	Trends   []*UnspeccedDefs_TrendView `json:"trends" cborgen:"trends"`
 }
 
 // UnspeccedGetTrends calls the XRPC method "app.bsky.unspecced.getTrends".

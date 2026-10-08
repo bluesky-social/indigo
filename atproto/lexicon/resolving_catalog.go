@@ -4,22 +4,34 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/util/ssrf"
 )
 
 // Catalog which supplements an in-memory BaseCatalog with live resolution from the network
 type ResolvingCatalog struct {
 	Base      *BaseCatalog
 	Directory identity.Directory
+	// This catalog makes HTTP requests to untrusted hosts, so this http.Client must be configured with SSRF protection and other network security mitigations (which NewResolvingCatalog does)
+	HTTPClient *http.Client
+	lk         sync.RWMutex
 }
 
+// Constructs a new ResolvingCatalog with safe defaults.
 func NewResolvingCatalog() *ResolvingCatalog {
 	return &ResolvingCatalog{
 		Base:      NewBaseCatalog(),
 		Directory: identity.DefaultDirectory(),
+		HTTPClient: &http.Client{
+			Timeout:   60 * time.Second,
+			Transport: ssrf.PublicOnlyTransport(),
+		},
 	}
 }
 
@@ -31,8 +43,8 @@ func (rc *ResolvingCatalog) Resolve(ref string) (*Schema, error) {
 		return nil, fmt.Errorf("tried to resolve empty string name")
 	}
 
-	// first try existing catalog
-	schema, err := rc.Base.Resolve(ref)
+	// first try existing catalog (this helper uses a read lock)
+	schema, err := rc.tryResolve(ref)
 	if nil == err { // no error: found a hit
 		return schema, nil
 	}
@@ -44,12 +56,7 @@ func (rc *ResolvingCatalog) Resolve(ref string) (*Schema, error) {
 		return nil, err
 	}
 
-	record, err := ResolveLexiconData(ctx, rc.Directory, nsid)
-	if err != nil {
-		return nil, err
-	}
-
-	recordJSON, err := json.Marshal(record)
+	recordJSON, err := resolveLexiconJSON(ctx, rc.Directory, nsid, rc.HTTPClient)
 	if err != nil {
 		return nil, err
 	}
@@ -65,10 +72,19 @@ func (rc *ResolvingCatalog) Resolve(ref string) (*Schema, error) {
 	if sf.ID != nsid.String() {
 		return nil, fmt.Errorf("lexicon ID does not match NSID: %s != %s", sf.ID, nsid)
 	}
+	rc.lk.Lock()
+	defer rc.lk.Unlock()
 	if err = rc.Base.AddSchemaFile(sf); err != nil {
 		return nil, err
 	}
 
-	// re-resolving from the raw ref ensures that fragments are handled
+	// re-resolving from the raw ref ensures that fragments are handled (covered by full lock)
+	return rc.Base.Resolve(ref)
+}
+
+// does an optimistic resolution of the wrapped base catalog, with read locking
+func (rc *ResolvingCatalog) tryResolve(ref string) (*Schema, error) {
+	rc.lk.RLock()
+	defer rc.lk.RUnlock()
 	return rc.Base.Resolve(ref)
 }

@@ -14,7 +14,7 @@ func init() {
 
 type ActorDeclaration struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=chat.bsky.actor.declaration"`
-	// allowGroupInvites: [NOTE: This is under active development and should be considered unstable while this note is here]. Declaration about group chat invitation preferences for the record owner.
+	// allowGroupInvites: Declaration about group chat invitation preferences for the record owner.
 	AllowGroupInvites *string `json:"allowGroupInvites,omitempty" cborgen:"allowGroupInvites,omitempty"`
 	AllowIncoming     string  `json:"allowIncoming" cborgen:"allowIncoming"`
 }

@@ -18,7 +18,9 @@ type GraphGetFollows_Output struct {
 }
 
 // GraphGetFollows calls the XRPC method "app.bsky.graph.getFollows".
-func GraphGetFollows(ctx context.Context, c lexutil.LexClient, actor string, cursor string, limit int64) (*GraphGetFollows_Output, error) {
+//
+// sort: Sort order of the returned follows.
+func GraphGetFollows(ctx context.Context, c lexutil.LexClient, actor string, cursor string, limit int64, sort string) (*GraphGetFollows_Output, error) {
 	var out GraphGetFollows_Output
 
 	params := map[string]interface{}{}
@@ -28,6 +30,9 @@ func GraphGetFollows(ctx context.Context, c lexutil.LexClient, actor string, cur
 	}
 	if limit != 0 {
 		params["limit"] = limit
+	}
+	if sort != "" {
+		params["sort"] = sort
 	}
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.graph.getFollows", params, nil, &out); err != nil {
 		return nil, err

@@ -16,6 +16,8 @@ type NotificationGetUnreadCount_Output struct {
 }
 
 // NotificationGetUnreadCount calls the XRPC method "app.bsky.notification.getUnreadCount".
+//
+// priority: Deprecated: this parameter is ignored.
 func NotificationGetUnreadCount(ctx context.Context, c lexutil.LexClient, priority bool, seenAt string) (*NotificationGetUnreadCount_Output, error) {
 	var out NotificationGetUnreadCount_Output
 

@@ -29,10 +29,14 @@ type FeedDefs_BlockedPost struct {
 // FeedDefs_FeedViewPost is a "feedViewPost" in the app.bsky.feed.defs schema.
 type FeedDefs_FeedViewPost struct {
 	// feedContext: Context provided by feed generator that may be passed back alongside interactions.
-	FeedContext *string                       `json:"feedContext,omitempty" cborgen:"feedContext,omitempty"`
-	Post        *FeedDefs_PostView            `json:"post" cborgen:"post"`
-	Reason      *FeedDefs_FeedViewPost_Reason `json:"reason,omitempty" cborgen:"reason,omitempty"`
-	Reply       *FeedDefs_ReplyRef            `json:"reply,omitempty" cborgen:"reply,omitempty"`
+	FeedContext *string `json:"feedContext,omitempty" cborgen:"feedContext,omitempty"`
+	// opThreadPostCount: The total number of posts in the contiguous OP thread that this post belongs to. Only present when this post is part of the OP thread.
+	OpThreadPostCount *int64 `json:"opThreadPostCount,omitempty" cborgen:"opThreadPostCount,omitempty"`
+	// opThreadPostIndex: The 1-indexed position of this post within the contiguous OP thread. Only present when this post is part of the OP thread.
+	OpThreadPostIndex *int64                        `json:"opThreadPostIndex,omitempty" cborgen:"opThreadPostIndex,omitempty"`
+	Post              *FeedDefs_PostView            `json:"post" cborgen:"post"`
+	Reason            *FeedDefs_FeedViewPost_Reason `json:"reason,omitempty" cborgen:"reason,omitempty"`
+	Reply             *FeedDefs_ReplyRef            `json:"reply,omitempty" cborgen:"reply,omitempty"`
 	// reqId: Unique identifier per request that may be passed back alongside interactions.
 	ReqId *string `json:"reqId,omitempty" cborgen:"reqId,omitempty"`
 }
@@ -104,6 +108,14 @@ type FeedDefs_Interaction struct {
 	Item        *string `json:"item,omitempty" cborgen:"item,omitempty"`
 	// reqId: Unique identifier per request that may be passed back alongside interactions.
 	ReqId *string `json:"reqId,omitempty" cborgen:"reqId,omitempty"`
+}
+
+// FeedDefs_KnownLikers is a "knownLikers" in the app.bsky.feed.defs schema.
+//
+// The post's likers whom you also follow
+type FeedDefs_KnownLikers struct {
+	Actors []*ActorDefs_ProfileViewBasic `json:"actors" cborgen:"actors"`
+	Count  int64                         `json:"count" cborgen:"count"`
 }
 
 // FeedDefs_NotFoundPost is a "notFoundPost" in the app.bsky.feed.defs schema.
@@ -477,11 +489,13 @@ type FeedDefs_ThreadgateView struct {
 //
 // Metadata about the requesting account's relationship with the subject content. Only has meaningful content for authed requests.
 type FeedDefs_ViewerState struct {
-	Bookmarked        *bool   `json:"bookmarked,omitempty" cborgen:"bookmarked,omitempty"`
-	EmbeddingDisabled *bool   `json:"embeddingDisabled,omitempty" cborgen:"embeddingDisabled,omitempty"`
-	Like              *string `json:"like,omitempty" cborgen:"like,omitempty"`
-	Pinned            *bool   `json:"pinned,omitempty" cborgen:"pinned,omitempty"`
-	ReplyDisabled     *bool   `json:"replyDisabled,omitempty" cborgen:"replyDisabled,omitempty"`
-	Repost            *string `json:"repost,omitempty" cborgen:"repost,omitempty"`
-	ThreadMuted       *bool   `json:"threadMuted,omitempty" cborgen:"threadMuted,omitempty"`
+	Bookmarked        *bool `json:"bookmarked,omitempty" cborgen:"bookmarked,omitempty"`
+	EmbeddingDisabled *bool `json:"embeddingDisabled,omitempty" cborgen:"embeddingDisabled,omitempty"`
+	// knownLikers: This property is present only in selected cases, as an optimization.
+	KnownLikers   *FeedDefs_KnownLikers `json:"knownLikers,omitempty" cborgen:"knownLikers,omitempty"`
+	Like          *string               `json:"like,omitempty" cborgen:"like,omitempty"`
+	Pinned        *bool                 `json:"pinned,omitempty" cborgen:"pinned,omitempty"`
+	ReplyDisabled *bool                 `json:"replyDisabled,omitempty" cborgen:"replyDisabled,omitempty"`
+	Repost        *string               `json:"repost,omitempty" cborgen:"repost,omitempty"`
+	ThreadMuted   *bool                 `json:"threadMuted,omitempty" cborgen:"threadMuted,omitempty"`
 }

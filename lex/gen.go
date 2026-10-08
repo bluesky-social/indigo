@@ -17,12 +17,13 @@ import (
 )
 
 const (
-	EncodingCBOR  = "application/cbor"
-	EncodingJSON  = "application/json"
-	EncodingJSONL = "application/jsonl"
-	EncodingCAR   = "application/vnd.ipld.car"
-	EncodingMP4   = "video/mp4"
-	EncodingANY   = "*/*"
+	EncodingCBOR   = "application/cbor"
+	EncodingJSON   = "application/json"
+	EncodingJSONL  = "application/jsonl"
+	EncodingCAR    = "application/vnd.ipld.car"
+	EncodingMP4    = "video/mp4"
+	EncodingBinary = "application/octet-stream"
+	EncodingANY    = "*/*"
 )
 
 type outputType struct {
@@ -245,6 +246,8 @@ func writeMethods(typename string, ts *TypeSchema, w io.Writer) error {
 		return nil
 	case "subscription":
 		// TODO: should probably have some methods generated for this
+		return nil
+	case "permission-set", "space":
 		return nil
 	default:
 		return fmt.Errorf("unrecognized lexicon type %q", ts.Type)

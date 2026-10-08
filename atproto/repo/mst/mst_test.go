@@ -9,6 +9,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBasicMST(t *testing.T) {
@@ -273,4 +274,63 @@ func TestBrokenCaseOne(t *testing.T) {
 	//debugPrintTree(tree, 0)
 	assert.Equal(len(entries), debugCountEntries(tree.Root))
 	assert.NoError(tree.Verify())
+}
+
+// this is a small regression test to confirm how keys get sorted
+func TestKeySortLen(t *testing.T) {
+	assert := assert.New(t)
+	var err error
+
+	entries := [][]string{
+		{"key7", "bafyreibey6qzs7vb4wzlzfo7flflevl7qstzaggooiqivuexb6snapadq4"},
+		{"key100", "bafyreifoxw552rsnuoargsfilhwmhprxr6qyzjmbtgjzmboii4x4mk4aoi"},
+		{"key10", "bafyreifoxw552rsnuoargsfilhwmhprxr6qyzjmbtgjzmboii4x4mk4aoi"},
+	}
+
+	tree := NewEmptyTree()
+	for _, row := range entries {
+		val, _ := cid.Decode(row[1])
+		_, err = tree.Insert([]byte(row[0]), val)
+		assert.NoError(err)
+	}
+
+	//fmt.Println("-----")
+	//debugPrintNodePointers(tree.Root)
+	//debugPrintChildPointers(tree.Root)
+	//DebugPrintTree(tree.Root, 0)
+	assert.Equal(len(entries), debugCountEntries(tree.Root))
+	assert.NoError(tree.Verify())
+	assert.Equal([]byte("key10"), tree.Root.Entries[0].Key)
+	assert.Equal([]byte("key100"), tree.Root.Entries[1].Key)
+	assert.Equal([]byte("key7"), tree.Root.Entries[2].Key)
+}
+
+func TestRegressionCachedHeight(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	c1, _ := cid.Decode("bafyreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu222222222")
+
+	tree := NewEmptyTree()
+
+	// compute CID for a tree at height 1
+	_, err := tree.Insert([]byte("A0/374913"), c1)
+	require.NoError(err)
+	root1, err := tree.RootCID()
+	require.NoError(err)
+
+	// insert higher, then remove all keys in specific order
+	_, err = tree.Insert([]byte("A3/578971"), c1)
+	require.NoError(err)
+	_, err = tree.Remove([]byte("A0/374913"))
+	require.NoError(err)
+	_, err = tree.Remove([]byte("A3/578971"))
+	require.NoError(err)
+
+	// now re-insert and check
+	_, err = tree.Insert([]byte("A0/374913"), c1)
+	require.NoError(err)
+	root2, err := tree.RootCID()
+	require.NoError(err)
+	assert.Equal(root1, root2)
 }

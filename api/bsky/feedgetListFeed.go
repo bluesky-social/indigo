@@ -14,12 +14,15 @@ import (
 type FeedGetListFeed_Output struct {
 	Cursor *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Feed   []*FeedDefs_FeedViewPost `json:"feed" cborgen:"feed"`
+	// startCursor: Cursor identifying the newest item in this page. Pass it as since on a later request to fetch only newer content.
+	StartCursor *string `json:"startCursor,omitempty" cborgen:"startCursor,omitempty"`
 }
 
 // FeedGetListFeed calls the XRPC method "app.bsky.feed.getListFeed".
 //
 // list: Reference (AT-URI) to the list record.
-func FeedGetListFeed(ctx context.Context, c lexutil.LexClient, cursor string, limit int64, list string) (*FeedGetListFeed_Output, error) {
+// since: Return only items newer than the position identified by this cursor value, newest first. Use the startCursor from a previous response. The item at that position is not returned because the caller already holds it. When the bounded range is exhausted, the returned cursor equals this value so that pagination continues below the boundary.
+func FeedGetListFeed(ctx context.Context, c lexutil.LexClient, cursor string, limit int64, list string, since string) (*FeedGetListFeed_Output, error) {
 	var out FeedGetListFeed_Output
 
 	params := map[string]interface{}{}
@@ -30,6 +33,9 @@ func FeedGetListFeed(ctx context.Context, c lexutil.LexClient, cursor string, li
 		params["limit"] = limit
 	}
 	params["list"] = list
+	if since != "" {
+		params["since"] = since
+	}
 	if err := c.LexDo(ctx, lexutil.Query, "", "app.bsky.feed.getListFeed", params, nil, &out); err != nil {
 		return nil, err
 	}

@@ -43,6 +43,30 @@
     "issues": ["field-name-syntax"]
   },
   {
+    "name": "reserved keyword field name",
+    "schema": {
+      "lexicon": 1,
+      "id": "example.lexicon.record",
+      "defs": {
+        "main": {
+          "type": "record",
+          "description": "minimal description",
+          "key": "any",
+          "record": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 20
+              }
+            }
+          }
+        }
+      }
+    },
+    "issues": ["field-name-syntax"]
+  },
+  {
     "name": "local ref in string known values",
     "schema": {
       "lexicon": 1,

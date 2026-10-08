@@ -20,8 +20,9 @@ func init() {
 
 // EmbedGallery is a "main" in the app.bsky.embed.gallery schema.
 type EmbedGallery struct {
-	LexiconTypeID string                     `json:"$type" cborgen:"$type,const=app.bsky.embed.gallery"`
-	Items         []*EmbedGallery_Items_Elem `json:"items" cborgen:"items"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.embed.gallery"`
+	// items: The schema-level maxLength of 20 is a future-proof ceiling. Clients should currently enforce a soft limit of 10 items in authoring UIs.
+	Items []*EmbedGallery_Items_Elem `json:"items" cborgen:"items"`
 }
 
 // EmbedGallery_Image is a "image" in the app.bsky.embed.gallery schema.
@@ -33,7 +34,7 @@ type EmbedGallery_Image struct {
 	Image       *lexutil.LexBlob       `json:"image" cborgen:"image"`
 }
 
-// The media items in the gallery. Each item may be of a different type, but all types must be supported by the client. Max length may change in the future, and therefore applications should be prepared to handle more or fewer items than the current max length.
+// The media items in the gallery. Each item may be of a different type, but all types must be supported by the client.
 type EmbedGallery_Items_Elem struct {
 	EmbedGallery_Image *EmbedGallery_Image
 }

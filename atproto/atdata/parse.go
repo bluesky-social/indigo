@@ -64,7 +64,7 @@ func parseAtom(atom any) (any, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal text (%s): %w", reflect.TypeOf(v), err)
 		}
-		return s, nil
+		return string(s), nil
 	default:
 		return nil, fmt.Errorf("unexpected type: %s", reflect.TypeOf(v))
 	}
@@ -193,6 +193,9 @@ func parseBlob(obj map[string]any) (*Blob, error) {
 		}
 	default:
 		return nil, fmt.Errorf("blob 'size' missing or not a number")
+	}
+	if size < 0 {
+		return nil, fmt.Errorf("blob with negative 'size'")
 	}
 	mimeType, ok := obj["mimeType"].(string)
 	if !ok {

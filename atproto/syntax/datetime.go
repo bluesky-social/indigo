@@ -22,7 +22,7 @@ const (
 // Syntax is specified at: https://atproto.com/specs/lexicon#datetime
 type Datetime string
 
-var datetimeRegex = regexp.MustCompile(`^[0-9]{4}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-6][0-9]:[0-6][0-9](.[0-9]{1,20})?(Z|([+-][0-2][0-9]:[0-5][0-9]))$`)
+var datetimeRegex = regexp.MustCompile(`^[0-9]{4}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-6][0-9]:[0-6][0-9](\.[0-9]{1,20})?(Z|([+-][0-2][0-9]:[0-5][0-9]))$`)
 var astroZero = time.Date(0000, 1, 1, 0, 0, 0, 0, time.UTC)
 
 func ParseDatetime(raw string) (Datetime, error) {

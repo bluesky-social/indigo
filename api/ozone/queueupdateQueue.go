@@ -20,6 +20,10 @@ type QueueUpdateQueue_Input struct {
 	Name *string `json:"name,omitempty" cborgen:"name,omitempty"`
 	// queueId: ID of the queue to update
 	QueueId int64 `json:"queueId" cborgen:"queueId"`
+	// recommendedLabels: Labels to recommend for this queue and use as fallback appeal routing mappings
+	RecommendedLabels []string `json:"recommendedLabels,omitempty" cborgen:"recommendedLabels,omitempty"`
+	// recommendedPolicies: Policy keys to recommend when actioning reports in this queue
+	RecommendedPolicies []string `json:"recommendedPolicies,omitempty" cborgen:"recommendedPolicies,omitempty"`
 }
 
 // QueueUpdateQueue_Output is the output of a tools.ozone.queue.updateQueue call.

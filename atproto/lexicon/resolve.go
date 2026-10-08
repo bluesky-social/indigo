@@ -20,15 +20,15 @@ import (
 //
 // The current implementation uses a naive 'getRepo' fetch to the relevant PDS instance, without validating MST proof chain.
 //
-// Calling code should usually use ResolvingCatalog, which handles basic caching and validation of the Lexicon language itself.
+// Calling code should usually use ResolvingCatalog, which handles HTTP client re-use, basic caching, and validation of the Lexicon language itself.
 func ResolveLexiconData(ctx context.Context, dir identity.Directory, nsid syntax.NSID) (map[string]any, error) {
 
-	record, err := resolveLexiconJSON(ctx, dir, nsid)
+	record, err := resolveLexiconJSON(ctx, dir, nsid, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	d, err := atdata.UnmarshalJSON(*record)
+	d, err := atdata.UnmarshalJSON(record)
 	if err != nil {
 		return nil, fmt.Errorf("fetched Lexicon schema record was invalid: %w", err)
 	}
@@ -39,20 +39,21 @@ func ResolveLexiconData(ctx context.Context, dir identity.Directory, nsid syntax
 //
 // Same as `ResolveLexiconData`, but returns a parsed `SchemaFile` struct.
 func ResolveLexiconSchemaFile(ctx context.Context, dir identity.Directory, nsid syntax.NSID) (*SchemaFile, error) {
-	record, err := resolveLexiconJSON(ctx, dir, nsid)
+	record, err := resolveLexiconJSON(ctx, dir, nsid, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	var sf SchemaFile
-	if err := json.Unmarshal(*record, &sf); err != nil {
+	if err := json.Unmarshal(record, &sf); err != nil {
 		return nil, fmt.Errorf("fetched Lexicon schema record was invalid: %w", err)
 	}
 	return &sf, nil
 }
 
 // internal helper for fetching lexicon record as JSON bytes
-func resolveLexiconJSON(ctx context.Context, dir identity.Directory, nsid syntax.NSID) (*json.RawMessage, error) {
+func resolveLexiconJSON(ctx context.Context, dir identity.Directory, nsid syntax.NSID, httpClient *http.Client) (json.RawMessage, error) {
+
 	// this BaseDirectory is only used for DNS TXT resolution, not HTTP
 	baseDir := identity.BaseDirectory{}
 	did, err := baseDir.ResolveNSID(ctx, nsid)
@@ -67,22 +68,27 @@ func resolveLexiconJSON(ctx context.Context, dir identity.Directory, nsid syntax
 	}
 
 	aturi := syntax.ATURI(fmt.Sprintf("at://%s/com.atproto.lexicon.schema/%s", did, nsid))
-	msg, err := fetchRecordJSON(ctx, *ident, aturi)
+	msg, err := fetchRecordJSON(ctx, *ident, aturi, httpClient)
 	if err != nil {
 		return nil, err
 	}
 	return msg, err
 }
 
-func fetchRecordJSON(ctx context.Context, ident identity.Identity, aturi syntax.ATURI) (*json.RawMessage, error) {
+// if the supplied httpClient is nil, wlil generate a one-time-use SSRF-safe instance
+func fetchRecordJSON(ctx context.Context, ident identity.Identity, aturi syntax.ATURI, httpClient *http.Client) (json.RawMessage, error) {
+
+	client := atclient.NewAPIClient(ident.PDSEndpoint())
+	if client != nil {
+		client.Client = httpClient
+	} else {
+		client.Client = &http.Client{
+			Timeout:   60 * time.Second,
+			Transport: ssrf.PublicOnlyTransport(),
+		}
+	}
 
 	slog.Debug("fetching record", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
-	// the this is an untrusted endpoint URL
-	client := atclient.NewAPIClient(ident.PDSEndpoint())
-	client.Client = &http.Client{
-		Timeout:   60 * time.Second,
-		Transport: ssrf.PublicOnlyTransport(),
-	}
 	resp, err := agnostic.RepoGetRecord(ctx, client, "", aturi.Collection().String(), ident.DID.String(), aturi.RecordKey().String())
 	if err != nil {
 		return nil, err
@@ -92,5 +98,5 @@ func fetchRecordJSON(ctx context.Context, ident identity.Identity, aturi syntax.
 		return nil, fmt.Errorf("empty record in response")
 	}
 
-	return resp.Value, nil
+	return *resp.Value, nil
 }

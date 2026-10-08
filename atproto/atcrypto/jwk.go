@@ -52,6 +52,9 @@ func ParsePublicJWK(jwk JWK) (PublicKey, error) {
 
 	switch jwk.Curve {
 	case "P-256":
+		if len(xbuf) != 32 || len(ybuf) != 32 {
+			return nil, fmt.Errorf("invalid P-256 coordinates")
+		}
 		curve := elliptic.P256()
 
 		var x, y big.Int

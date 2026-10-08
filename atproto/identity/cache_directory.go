@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -72,7 +73,10 @@ func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 			DID:     "",
 			Err:     err,
 		}
-		d.handleCache.Add(h, he)
+		// don't cache ctx cancelation or timeout errors
+		if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+			d.handleCache.Add(h, he)
+		}
 		return he
 	}
 
@@ -157,6 +161,12 @@ func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) identity
 		Identity: ident,
 		Err:      err,
 	}
+
+	// don't cache errors caused by ctx cancellation or timeouts
+	if err != nil && (errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) {
+		return entry
+	}
+
 	var he *handleEntry
 	// if *not* an error, then also update the handle cache
 	if nil == err && !ident.Handle.IsInvalidHandle() {

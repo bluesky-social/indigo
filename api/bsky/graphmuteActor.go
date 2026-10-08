@@ -13,6 +13,10 @@ import (
 // GraphMuteActor_Input is the input argument to a app.bsky.graph.muteActor call.
 type GraphMuteActor_Input struct {
 	Actor string `json:"actor" cborgen:"actor"`
+	// onlyQuoteposts: Restrict the mute to the account's quote posts. See onlyReposts.
+	OnlyQuoteposts *bool `json:"onlyQuoteposts,omitempty" cborgen:"onlyQuoteposts,omitempty"`
+	// onlyReposts: Restrict the mute to the account's reposts. When any 'only' scope is set, just the scoped content is muted; when none are set, the account is fully muted. Repeat calls replace the stored scope rather than adding to it.
+	OnlyReposts *bool `json:"onlyReposts,omitempty" cborgen:"onlyReposts,omitempty"`
 }
 
 // GraphMuteActor calls the XRPC method "app.bsky.graph.muteActor".

@@ -37,13 +37,15 @@ type handleEntry struct {
 	Updated time.Time
 	// needs to be pointer type, because unmarshalling empty string would be an error
 	DID *syntax.DID
+	// TODO: serializing 'error' for caching doesn't work well
 	Err error
 }
 
 type identityEntry struct {
 	Updated  time.Time
 	Identity *identity.Identity
-	Err      error
+	// TODO: serializing 'error' for caching doesn't work well
+	Err error
 }
 
 var _ identity.Directory = (*RedisDirectory)(nil)
@@ -192,7 +194,7 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 		select {
 		case <-val.(chan struct{}):
 			// The result should now be in the cache
-			err := d.handleCache.Get(ctx, redisDirPrefix+h.String(), entry)
+			err := d.handleCache.Get(ctx, redisDirPrefix+h.String(), &entry)
 			if err != nil && err != cache.ErrCacheMiss {
 				return "", fmt.Errorf("identity cache read failed: %w", err)
 			}

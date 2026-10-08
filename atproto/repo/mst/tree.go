@@ -64,6 +64,10 @@ func (t *Tree) Remove(key []byte) (*cid.Cid, error) {
 	if err != nil {
 		return nil, err
 	}
+	// ensure root node is reset if empty
+	if out.IsEmpty() {
+		out.Height = 0
+	}
 	t.Root = out
 	return prev, nil
 }

@@ -54,6 +54,7 @@ type UnspeccedDefs_SkeletonSearchStarterPack struct {
 // UnspeccedDefs_SkeletonTrend is a "skeletonTrend" in the app.bsky.unspecced.defs schema.
 type UnspeccedDefs_SkeletonTrend struct {
 	Category    *string  `json:"category,omitempty" cborgen:"category,omitempty"`
+	Description *string  `json:"description,omitempty" cborgen:"description,omitempty"`
 	Dids        []string `json:"dids" cborgen:"dids"`
 	DisplayName string   `json:"displayName" cborgen:"displayName"`
 	Link        string   `json:"link" cborgen:"link"`
@@ -90,15 +91,20 @@ type UnspeccedDefs_ThreadItemPost struct {
 	MoreReplies int64 `json:"moreReplies" cborgen:"moreReplies"`
 	// mutedByViewer: This is by an account muted by the viewer requesting it.
 	MutedByViewer bool `json:"mutedByViewer" cborgen:"mutedByViewer"`
-	// opThread: This post is part of a contiguous thread by the OP from the thread root. Many different OP threads can happen in the same thread.
-	OpThread bool               `json:"opThread" cborgen:"opThread"`
-	Post     *FeedDefs_PostView `json:"post" cborgen:"post"`
+	// opThread: This post is part of a contiguous thread by the OP from the thread root. Sub-threads by OP deeper in the tree are not considered an OP thread.
+	OpThread bool `json:"opThread" cborgen:"opThread"`
+	// opThreadPostCount: The total number of posts in the contiguous OP thread that this post belongs to. Only present when this post is part of the OP thread (see `opThread`).
+	OpThreadPostCount *int64 `json:"opThreadPostCount,omitempty" cborgen:"opThreadPostCount,omitempty"`
+	// opThreadPostIndex: The 1-indexed position of this post within the contiguous OP thread. Only present when this post is part of the OP thread (see `opThread`).
+	OpThreadPostIndex *int64             `json:"opThreadPostIndex,omitempty" cborgen:"opThreadPostIndex,omitempty"`
+	Post              *FeedDefs_PostView `json:"post" cborgen:"post"`
 }
 
 // UnspeccedDefs_TrendView is a "trendView" in the app.bsky.unspecced.defs schema.
 type UnspeccedDefs_TrendView struct {
 	Actors      []*ActorDefs_ProfileViewBasic `json:"actors" cborgen:"actors"`
 	Category    *string                       `json:"category,omitempty" cborgen:"category,omitempty"`
+	Description *string                       `json:"description,omitempty" cborgen:"description,omitempty"`
 	DisplayName string                        `json:"displayName" cborgen:"displayName"`
 	Link        string                        `json:"link" cborgen:"link"`
 	PostCount   int64                         `json:"postCount" cborgen:"postCount"`
