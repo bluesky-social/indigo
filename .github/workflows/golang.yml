@@ -26,6 +26,9 @@ jobs:
         run: make test
   lint:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: Git Checkout
         uses: actions/checkout@v5
@@ -35,3 +38,9 @@ jobs:
           go-version-file: go.mod
       - name: Lint
         run: make lint
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.14.0
+          only-new-issues: true
+          args: --config=.golangci.yaml --timeout=5m
