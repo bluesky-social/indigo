@@ -74,6 +74,7 @@ func main() {
 		bsky.GraphVerification{},
 		bsky.GraphReferencelistoptout{},
 		bsky.ActorStatus{},
+		bsky.ActorLink{},
 		bsky.ActorContentVisibilityDeclaration{},
 		bsky.NotificationDeclaration{},
 		/*bsky.EmbedImages_View{},
