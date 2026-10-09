@@ -429,6 +429,18 @@ type ActorDefs_ProfileAssociatedGerm struct {
 	ShowButtonTo string `json:"showButtonTo" cborgen:"showButtonTo"`
 }
 
+// ActorDefs_ProfileLinkView is a "profileLinkView" in the app.bsky.actor.defs schema.
+type ActorDefs_ProfileLinkView struct {
+	Cid string `json:"cid" cborgen:"cid"`
+	// icon: Image URL for the destination site's icon.
+	Icon  *string `json:"icon,omitempty" cborgen:"icon,omitempty"`
+	Title *string `json:"title,omitempty" cborgen:"title,omitempty"`
+	// uri: The app.bsky.actor.link record, e.g. for reporting the link.
+	Uri string `json:"uri" cborgen:"uri"`
+	// url: The link destination.
+	Url string `json:"url" cborgen:"url"`
+}
+
 // ActorDefs_ProfileView is a "profileView" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileView struct {
 	Associated *ActorDefs_ProfileAssociated `json:"associated,omitempty" cborgen:"associated,omitempty"`
@@ -483,13 +495,15 @@ type ActorDefs_ProfileViewDetailed struct {
 	IndexedAt            *string                         `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
 	JoinedViaStarterPack *GraphDefs_StarterPackViewBasic `json:"joinedViaStarterPack,omitempty" cborgen:"joinedViaStarterPack,omitempty"`
 	Labels               []*comatproto.LabelDefs_Label   `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	PinnedPost           *comatproto.RepoStrongRef       `json:"pinnedPost,omitempty" cborgen:"pinnedPost,omitempty"`
-	PostsCount           *int64                          `json:"postsCount,omitempty" cborgen:"postsCount,omitempty"`
-	Pronouns             *string                         `json:"pronouns,omitempty" cborgen:"pronouns,omitempty"`
-	Status               *ActorDefs_StatusView           `json:"status,omitempty" cborgen:"status,omitempty"`
-	Verification         *ActorDefs_VerificationState    `json:"verification,omitempty" cborgen:"verification,omitempty"`
-	Viewer               *ActorDefs_ViewerState          `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
-	Website              *string                         `json:"website,omitempty" cborgen:"website,omitempty"`
+	// links: The profile's links, in display order. Links that were taken down or don't resolve are left out.
+	Links        []*ActorDefs_ProfileLinkView `json:"links,omitempty" cborgen:"links,omitempty"`
+	PinnedPost   *comatproto.RepoStrongRef    `json:"pinnedPost,omitempty" cborgen:"pinnedPost,omitempty"`
+	PostsCount   *int64                       `json:"postsCount,omitempty" cborgen:"postsCount,omitempty"`
+	Pronouns     *string                      `json:"pronouns,omitempty" cborgen:"pronouns,omitempty"`
+	Status       *ActorDefs_StatusView        `json:"status,omitempty" cborgen:"status,omitempty"`
+	Verification *ActorDefs_VerificationState `json:"verification,omitempty" cborgen:"verification,omitempty"`
+	Viewer       *ActorDefs_ViewerState       `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	Website      *string                      `json:"website,omitempty" cborgen:"website,omitempty"`
 }
 
 // ActorDefs_SavedFeed is a "savedFeed" in the app.bsky.actor.defs schema.

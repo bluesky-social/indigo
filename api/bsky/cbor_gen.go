@@ -2311,7 +2311,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 11
+	fieldCount := 12
 
 	if t.Avatar == nil {
 		fieldCount--
@@ -2338,6 +2338,10 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	}
 
 	if t.Labels == nil {
+		fieldCount--
+	}
+
+	if t.Links == nil {
 		fieldCount--
 	}
 
@@ -2374,6 +2378,35 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string("app.bsky.actor.profile")); err != nil {
 		return err
+	}
+
+	// t.Links ([]*atproto.RepoStrongRef) (slice)
+	if t.Links != nil {
+
+		if len("links") > 1000000 {
+			return xerrors.Errorf("Value in field \"links\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("links"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("links")); err != nil {
+			return err
+		}
+
+		if len(t.Links) > 8192 {
+			return xerrors.Errorf("Slice value in field t.Links was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Links))); err != nil {
+			return err
+		}
+		for _, v := range t.Links {
+			if err := v.MarshalCBOR(cw); err != nil {
+				return err
+			}
+
+		}
 	}
 
 	// t.Avatar (util.LexBlob) (struct)
@@ -2684,6 +2717,55 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.LexiconTypeID = string(sval)
+			}
+			// t.Links ([]*atproto.RepoStrongRef) (slice)
+		case "links":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > 8192 {
+				return fmt.Errorf("t.Links: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Links = make([]*atproto.RepoStrongRef, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.Links[i] = new(atproto.RepoStrongRef)
+							if err := t.Links[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.Links[i] pointer: %w", err)
+							}
+						}
+
+					}
+
+				}
 			}
 			// t.Avatar (util.LexBlob) (struct)
 		case "avatar":
@@ -9930,6 +10012,271 @@ func (t *ActorStatus) UnmarshalCBOR(r io.Reader) (err error) {
 
 					t.DurationMinutes = (*int64)(&extraI)
 				}
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+func (t *ActorLink) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+	fieldCount := 5
+
+	if t.Icon == nil {
+		fieldCount--
+	}
+
+	if t.Title == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+		return err
+	}
+
+	// t.Url (string) (string)
+	if len("url") > 1000000 {
+		return xerrors.Errorf("Value in field \"url\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("url"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("url")); err != nil {
+		return err
+	}
+
+	if len(t.Url) > 1000000 {
+		return xerrors.Errorf("Value in field t.Url was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Url))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Url)); err != nil {
+		return err
+	}
+
+	// t.Icon (util.LexBlob) (struct)
+	if t.Icon != nil {
+
+		if len("icon") > 1000000 {
+			return xerrors.Errorf("Value in field \"icon\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("icon"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("icon")); err != nil {
+			return err
+		}
+
+		if err := t.Icon.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > 1000000 {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.actor.link"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("app.bsky.actor.link")); err != nil {
+		return err
+	}
+
+	// t.Title (string) (string)
+	if t.Title != nil {
+
+		if len("title") > 1000000 {
+			return xerrors.Errorf("Value in field \"title\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("title"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("title")); err != nil {
+			return err
+		}
+
+		if t.Title == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.Title) > 1000000 {
+				return xerrors.Errorf("Value in field t.Title was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Title))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.Title)); err != nil {
+				return err
+			}
+		}
+	}
+
+	// t.CreatedAt (string) (string)
+	if len("createdAt") > 1000000 {
+		return xerrors.Errorf("Value in field \"createdAt\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("createdAt")); err != nil {
+		return err
+	}
+
+	if len(t.CreatedAt) > 1000000 {
+		return xerrors.Errorf("Value in field t.CreatedAt was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *ActorLink) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = ActorLink{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("ActorLink: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 9)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.Url (string) (string)
+		case "url":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.Url = string(sval)
+			}
+			// t.Icon (util.LexBlob) (struct)
+		case "icon":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Icon = new(util.LexBlob)
+					if err := t.Icon.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Icon pointer: %w", err)
+					}
+				}
+
+			}
+			// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Title (string) (string)
+		case "title":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.Title = (*string)(&sval)
+				}
+			}
+			// t.CreatedAt (string) (string)
+		case "createdAt":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.CreatedAt = string(sval)
 			}
 
 		default:
