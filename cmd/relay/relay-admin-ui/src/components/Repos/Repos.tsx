@@ -180,7 +180,7 @@ const Repos: FC<{}> = () => {
           </p>
         </div>
       </div>
-      <div className="flex-grow mt-5">
+      <div className="grow mt-5">
         <div className="max-w-3xl w-full">
           <label
             htmlFor="email"
@@ -193,7 +193,7 @@ const Repos: FC<{}> = () => {
               type="text"
               name="repo"
               id="repo"
-              className="block w-72 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+              className="block w-72 rounded-md border-0 py-1.5 text-gray-900 shadow-xs ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
               placeholder="did:plc:abadperson"
               value={repoToTakedown}
               onChange={(e) => {
@@ -206,7 +206,7 @@ const Repos: FC<{}> = () => {
                 onClick={() => {
                   handleTakedownRepo(repoToTakedown.trim(), "takedown");
                 }}
-                className="ml-0 sm:ml-2 inline-flex whitespace-nowrap items-center gap-x-1.5 rounded-md bg-red-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+                className="ml-0 sm:ml-2 inline-flex whitespace-nowrap items-center gap-x-1.5 rounded-md bg-red-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-xs hover:bg-red-500 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
               >
                 <ShieldExclamationIcon
                   className="-ml-0.5 h-5 w-5"
@@ -219,7 +219,7 @@ const Repos: FC<{}> = () => {
                 onClick={() => {
                   handleTakedownRepo(repoToTakedown.trim(), "untakedown");
                 }}
-                className="ml-2 inline-flex whitespace-nowrap items-center gap-x-1.5 rounded-md bg-green-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
+                className="ml-2 inline-flex whitespace-nowrap items-center gap-x-1.5 rounded-md bg-green-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-xs hover:bg-green-500 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
               >
                 <ShieldCheckIcon
                   className="-ml-0.5 h-5 w-5"

@@ -58,7 +58,7 @@ export default function Notification(props: NotificationProps) {
             <div className="max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden">
               <div className="p-4">
                 <div className="flex items-start">
-                  <div className="flex-shrink-0">
+                  <div className="shrink-0">
                     {props.alertType === "success" ? (
                       <CheckCircleIcon
                         className="h-6 w-6 text-green-400"
@@ -105,9 +105,9 @@ export default function Notification(props: NotificationProps) {
                     )}
                     {props.component ? props.component : <></>}
                   </div>
-                  <div className="ml-4 flex-shrink-0 flex">
+                  <div className="ml-4 shrink-0 flex">
                     <button
-                      className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                       onClick={() => {
                         props.unshow();
                       }}

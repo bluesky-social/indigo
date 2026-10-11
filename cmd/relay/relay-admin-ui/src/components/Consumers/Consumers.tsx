@@ -158,7 +158,7 @@ const Consumers: FC<{}> = () => {
         </div>
       </div>
       <div className="mt-8 flow-root">
-        <div className="shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg sm:rounded-b-none overflow-x-auto">
+        <div className="shadow-sm ring-1 ring-black ring-opacity-5 sm:rounded-lg sm:rounded-b-none overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-300">
             <thead className="bg-gray-50">
               <tr>

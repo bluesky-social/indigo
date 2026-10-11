@@ -561,7 +561,7 @@ const Dash: FC<{}> = () => {
         <div className="flex flex-col mt-5">
           <div className="inline-flex mt-5 sm:mt-0 flex-col">
             <Switch.Group as="div" className="flex items-center justify-between">
-              <span className="flex flex-grow flex-col mr-5">
+              <span className="flex grow flex-col mr-5">
                 <Switch.Label as="span" className="text-gray-900" passive>
                   {slurpsEnabled ? (
                     <ShieldCheckIcon
@@ -586,22 +586,22 @@ const Dash: FC<{}> = () => {
                 className={classNames(
                   slurpsEnabled ? "bg-green-600" : "bg-red-400",
                   canToggleSlurps ? "cursor-pointer" : "cursor-not-allowed",
-                  "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2"
+                  "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden focus:ring-2 focus:ring-green-600 focus:ring-offset-2"
                 )}
               >
                 <span
                   aria-hidden="true"
                   className={classNames(
                     slurpsEnabled ? "translate-x-5" : "translate-x-0",
-                    "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                    "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out"
                   )}
                 />
               </Switch>
             </Switch.Group>
           </div>
           <div className="ml-4">
-            <div className="mt-2 flex rounded-md shadow-sm">
-              <div className="relative flex flex-grow items-stretch focus-within:z-10">
+            <div className="mt-2 flex rounded-md shadow-xs">
+              <div className="relative flex grow items-stretch focus-within:z-10">
                 <input
                   type="number"
                   id="new-pds-rate-limit"
@@ -661,7 +661,7 @@ const Dash: FC<{}> = () => {
       </div>
 
       <div className="mt-8 flow-root">
-        <div className="shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg sm:rounded-b-none overflow-x-auto">
+        <div className="shadow-sm ring-1 ring-black ring-opacity-5 sm:rounded-lg sm:rounded-b-none overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-300">
             <thead className="bg-gray-50">
               <tr>
@@ -971,7 +971,7 @@ const Dash: FC<{}> = () => {
                               aria-hidden="true"
                             />
                             <button
-                              className="rounded-md p-1.5 hover:text-red-600 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 focus:ring-offset-red-50"
+                              className="rounded-md p-1.5 hover:text-red-600 hover:bg-red-100 focus:outline-hidden focus:ring-2 focus:ring-red-600 focus:ring-offset-2 focus:ring-offset-red-50"
                               onClick={() => {
                                 handleBlockClick(pds, false);
                               }}
@@ -989,7 +989,7 @@ const Dash: FC<{}> = () => {
                               aria-hidden="true"
                             />
                             <button
-                              className="rounded-md p-1.5 hover:text-green-600 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50"
+                              className="rounded-md p-1.5 hover:text-green-600 hover:bg-green-100 focus:outline-hidden focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50"
                               onClick={() => {
                                 requestCrawlHost(pds.Host);
                               }}
@@ -1010,7 +1010,7 @@ const Dash: FC<{}> = () => {
                               aria-hidden="true"
                             />
                             <button
-                              className="rounded-md p-1.5 hover:text-green-600 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50"
+                              className="rounded-md p-1.5 hover:text-green-600 hover:bg-green-100 focus:outline-hidden focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50"
                               onClick={() => {
                                 requestUnblockHost(pds.Host);
                               }}
@@ -1028,7 +1028,7 @@ const Dash: FC<{}> = () => {
                               aria-hidden="true"
                             />
                             <button
-                              className="rounded-md p-1.5 hover:text-red-600 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 focus:ring-offset-red-50"
+                              className="rounded-md p-1.5 hover:text-red-600 hover:bg-red-100 focus:outline-hidden focus:ring-2 focus:ring-red-600 focus:ring-offset-2 focus:ring-offset-red-50"
                               onClick={() => {
                                 handleBlockClick(pds, true);
                               }}
@@ -1077,7 +1077,7 @@ const Dash: FC<{}> = () => {
                           name={`repo-limit-${pds.ID}`}
                           id={`repo-limit-${pds.ID}`}
                           className={
-                            `inline-block w-24 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6` +
+                            `inline-block w-24 rounded-md border-0 py-1.5 text-gray-900 shadow-xs ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6` +
                             (editingRepoLimit?.ID === pds.ID
                               ? ""
                               : " hidden")
@@ -1107,7 +1107,7 @@ const Dash: FC<{}> = () => {
                             setEditingRepoLimit(null);
                           }}
                           className={
-                            "rounded-md p-2  ml-1 hover:text-green-600 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50" +
+                            "rounded-md p-2  ml-1 hover:text-green-600 hover:bg-green-100 focus:outline-hidden focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50" +
                             (editingRepoLimit?.ID === pds.ID
                               ? ""
                               : " hidden")
@@ -1122,7 +1122,7 @@ const Dash: FC<{}> = () => {
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
                         <button
                           className={
-                            "rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-offset-2 " +
+                            "rounded-md p-1.5 focus:outline-hidden focus:ring-2 focus:ring-offset-2 " +
                             (pds.AccountLimitAlertsSilenced
                               ? "text-amber-600 hover:text-green-600 hover:bg-green-100 focus:ring-green-600 focus:ring-offset-green-50"
                               : "text-green-600 hover:text-amber-600 hover:bg-amber-100 focus:ring-amber-600 focus:ring-offset-amber-50")
@@ -1171,7 +1171,7 @@ const Dash: FC<{}> = () => {
                   }
                 }}
                 disabled={pageNum <= 1}
-                className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm cursor-pointer"
+                className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-xs cursor-pointer"
               >
                 Previous
               </button>
@@ -1182,7 +1182,7 @@ const Dash: FC<{}> = () => {
                   }
                 }}
                 disabled={pageNum >= Math.ceil(pdsList.length / pageSize)}
-                className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm cursor-pointer"
+                className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-xs cursor-pointer"
               >
                 Next
               </button>
@@ -1200,7 +1200,7 @@ const Dash: FC<{}> = () => {
                 </p>
               </div>
               <div>
-                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                <nav className="relative z-0 inline-flex rounded-md shadow-xs -space-x-px" aria-label="Pagination">
                   <button
                     onClick={() => setPageNum(1)}
                     disabled={pageNum <= 1}
