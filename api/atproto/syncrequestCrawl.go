@@ -12,6 +12,8 @@ import (
 
 // SyncRequestCrawl_Input is the input argument to a com.atproto.sync.requestCrawl call.
 type SyncRequestCrawl_Input struct {
+	// cursorHint: Optional hint for the current sequence number. If provided and the relay has no previous cursor for this host, the relay will use this value (minus a small buffer) as the initial cursor to ensure events are received. Ignored if the relay already has a cursor for this host.
+	CursorHint *int64 `json:"cursorHint,omitempty" cborgen:"cursorHint,omitempty"`
 	// hostname: Hostname of the current service (eg, PDS) that is requesting to be crawled.
 	Hostname string `json:"hostname" cborgen:"hostname"`
 }
