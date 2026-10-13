@@ -46,7 +46,7 @@ func main() {
 		bsky.FeedPost{}, bsky.FeedRepost{}, bsky.FeedPost_Entity{},
 		bsky.FeedPost_ReplyRef{}, bsky.FeedPost_TextSlice{}, bsky.EmbedImages{},
 		bsky.EmbedExternal{}, bsky.EmbedExternal_External{},
-		bsky.EmbedImages_Image{}, bsky.GraphFollow{}, bsky.ActorProfile{},
+		bsky.EmbedImages_Image{}, bsky.GraphFollow{}, bsky.ActorProfile{}, bsky.ActorLink{},
 		bsky.EmbedGallery{}, bsky.EmbedGallery_Image{},
 		bsky.EmbedRecord{}, bsky.FeedLike{}, bsky.RichtextFacet{},
 		bsky.RichtextFacet_ByteSlice{},
