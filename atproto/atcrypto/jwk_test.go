@@ -48,48 +48,85 @@ func TestParseJWK(t *testing.T) {
 	}
 }
 
-func TestP256GenJWK(t *testing.T) {
+func testGenJWK(t *testing.T, priv PrivateKey, jwk JWK) {
 	assert := assert.New(t)
 	require := require.New(t)
-
 	val := []byte("dummy")
-	priv, err := GeneratePrivateKeyP256()
-	require.NoError(err)
-	pub, err := priv.PublicKey()
-	require.NoError(err)
+
 	sig, err := priv.HashAndSign(val)
 	require.NoError(err)
 
-	pk, ok := pub.(*PublicKeyP256)
-	require.True(ok)
-	jwk, err := pk.JWK()
-	require.NoError(err)
-
-	parsed, err := ParsePublicJWK(*jwk)
+	parsed, err := ParsePublicJWK(jwk)
 	require.NoError(err)
 
 	assert.NoError(parsed.HashAndVerify(val, sig))
 }
 
-func TestK256GenJWK(t *testing.T) {
-	assert := assert.New(t)
+func TestP256GenJWK(t *testing.T) {
 	require := require.New(t)
 
-	val := []byte("dummy")
+	priv, err := GeneratePrivateKeyP256()
+	require.NoError(err)
+	pub, err := priv.PublicKey()
+	require.NoError(err)
+	pk, ok := pub.(*PublicKeyP256)
+	require.True(ok)
+	jwk, err := pk.JWK()
+	require.NoError(err)
+
+	testGenJWK(t, priv, *jwk)
+}
+
+func TestK256GenJWK(t *testing.T) {
+	require := require.New(t)
+
 	priv, err := GeneratePrivateKeyK256()
 	require.NoError(err)
 	pub, err := priv.PublicKey()
 	require.NoError(err)
-	sig, err := priv.HashAndSign(val)
-	require.NoError(err)
-
 	pk, ok := pub.(*PublicKeyK256)
 	require.True(ok)
 	jwk, err := pk.JWK()
 	require.NoError(err)
 
-	parsed, err := ParsePublicJWK(*jwk)
+	testGenJWK(t, priv, *jwk)
+}
+
+func TestZeroPaddedGenJWK(t *testing.T) {
+	assert := require.New(t)
+	require := require.New(t)
+
+	/* Code snippet used to generate this test case
+	for range 10000 {
+		priv, err := GeneratePrivateKeyP256()
+		require.NoError(err)
+		pub, err := priv.PublicKey()
+		require.NoError(err)
+		pk, ok := pub.(*PublicKeyP256)
+		require.True(ok)
+
+		if len(pk.pubP256.X.Bytes()) != 32 {
+			fmt.Println(priv.Multibase())
+		}
+		//require.Len(pk.pubP256.X.Bytes(), 32)
+	}
+	*/
+
+	// P-256 key known to have a leading zero byte public key X coordinate
+	priv, err := ParsePrivateMultibase("z42tuopZtUKiGERFp9i9fSZBvRxbbCddi9TBaQVzYx635y5m")
 	require.NoError(err)
 
-	assert.NoError(parsed.HashAndVerify(val, sig))
+	pub, err := priv.PublicKey()
+	require.NoError(err)
+	pk, ok := pub.(*PublicKeyP256)
+	require.True(ok)
+	jwk, err := pk.JWK()
+	require.NoError(err)
+
+	assert.Len(pk.pubP256.X.Bytes(), 31)
+
+	_, err = ParsePublicJWK(*jwk)
+	require.NoError(err)
+
+	testGenJWK(t, priv, *jwk)
 }
