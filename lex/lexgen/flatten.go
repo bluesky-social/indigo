@@ -181,6 +181,9 @@ func (fl *FlatLexicon) flattenType(fd *FlatDef, tpath []string, def *lexicon.Sch
 	case lexicon.SchemaPermissionSet, lexicon.SchemaPermission:
 		// pass-through (emit)
 		fl.Types = append(fl.Types, ft)
+	case lexicon.SchemaSpace:
+		// pass-through (emit)
+		fl.Types = append(fl.Types, ft)
 	default:
 		return fmt.Errorf("unsupported def type for flattening (%s): %T", fd.Name, def.Inner)
 	}
