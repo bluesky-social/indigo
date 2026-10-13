@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseJWK(t *testing.T) {
@@ -49,50 +50,46 @@ func TestParseJWK(t *testing.T) {
 
 func TestP256GenJWK(t *testing.T) {
 	assert := assert.New(t)
+	require := require.New(t)
 
+	val := []byte("dummy")
 	priv, err := GeneratePrivateKeyP256()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 	pub, err := priv.PublicKey()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
+	sig, err := priv.HashAndSign(val)
+	require.NoError(err)
 
 	pk, ok := pub.(*PublicKeyP256)
-	if !ok {
-		t.Fatal()
-	}
+	require.True(ok)
 	jwk, err := pk.JWK()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
-	_, err = ParsePublicJWK(*jwk)
-	assert.NoError(err)
+	parsed, err := ParsePublicJWK(*jwk)
+	require.NoError(err)
+
+	assert.NoError(parsed.HashAndVerify(val, sig))
 }
 
 func TestK256GenJWK(t *testing.T) {
 	assert := assert.New(t)
+	require := require.New(t)
 
+	val := []byte("dummy")
 	priv, err := GeneratePrivateKeyK256()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 	pub, err := priv.PublicKey()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
+	sig, err := priv.HashAndSign(val)
+	require.NoError(err)
 
 	pk, ok := pub.(*PublicKeyK256)
-	if !ok {
-		t.Fatal()
-	}
+	require.True(ok)
 	jwk, err := pk.JWK()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(err)
 
-	_, err = ParsePublicJWK(*jwk)
-	assert.NoError(err)
+	parsed, err := ParsePublicJWK(*jwk)
+	require.NoError(err)
+
+	assert.NoError(parsed.HashAndVerify(val, sig))
 }
