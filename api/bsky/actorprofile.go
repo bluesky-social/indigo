@@ -31,8 +31,10 @@ type ActorProfile struct {
 	DisplayName          *string                   `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
 	JoinedViaStarterPack *comatproto.RepoStrongRef `json:"joinedViaStarterPack,omitempty" cborgen:"joinedViaStarterPack,omitempty"`
 	// labels: Self-label values, specific to the Bluesky application, on the overall account.
-	Labels     *ActorProfile_Labels      `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	PinnedPost *comatproto.RepoStrongRef `json:"pinnedPost,omitempty" cborgen:"pinnedPost,omitempty"`
+	Labels *ActorProfile_Labels `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	// links: Links shown on the profile, in display order. Each ref points to an app.bsky.actor.link record in this repo.
+	Links      []*comatproto.RepoStrongRef `json:"links,omitempty" cborgen:"links,omitempty"`
+	PinnedPost *comatproto.RepoStrongRef   `json:"pinnedPost,omitempty" cborgen:"pinnedPost,omitempty"`
 	// pronouns: Free-form pronouns text.
 	Pronouns *string `json:"pronouns,omitempty" cborgen:"pronouns,omitempty"`
 	Website  *string `json:"website,omitempty" cborgen:"website,omitempty"`
