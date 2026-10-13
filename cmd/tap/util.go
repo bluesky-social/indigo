@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/bits"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -22,9 +23,9 @@ func userAgent() string {
 }
 
 func backoff(retries int, max int) time.Duration {
-	dur := 1 << retries
-	if dur > max {
-		dur = max
+	dur := max
+	if retries < bits.Len(uint(max)) {
+		dur = min(1<<retries, max)
 	}
 
 	jitter := time.Millisecond * time.Duration(rand.Intn(1000))
