@@ -344,8 +344,10 @@ type ModerationDefs_ModEventTag struct {
 type ModerationDefs_ModEventTakedown struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=tools.ozone.moderation.defs#modEventTakedown"`
 	// acknowledgeAccountSubjects: If true, all other reports on content authored by this account will be resolved (acknowledged).
-	AcknowledgeAccountSubjects *bool   `json:"acknowledgeAccountSubjects,omitempty" cborgen:"acknowledgeAccountSubjects,omitempty"`
-	Comment                    *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	AcknowledgeAccountSubjects *bool `json:"acknowledgeAccountSubjects,omitempty" cborgen:"acknowledgeAccountSubjects,omitempty"`
+	// applyStrikes: If true, Ozone calculates strikes and any account-level cascade from its instance settings.
+	ApplyStrikes *bool   `json:"applyStrikes,omitempty" cborgen:"applyStrikes,omitempty"`
+	Comment      *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	// durationInHours: Indicates how long the takedown should be in effect before automatically expiring.
 	DurationInHours *int64 `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 	// policies: Names/Keywords of the policies that drove the decision.
