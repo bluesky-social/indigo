@@ -103,7 +103,7 @@ func (s *Service) handleAdminTakeDownRepo(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	go s.ForwardSiblingRequest(c, b)
+	go s.ForwardSiblingRequest(*c.Request(), b)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
@@ -147,7 +147,7 @@ func (s *Service) handleAdminReverseTakedown(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	go s.ForwardSiblingRequest(c, b)
+	go s.ForwardSiblingRequest(*c.Request(), b)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
@@ -328,7 +328,7 @@ func (s *Service) handleAdminKillUpstreamConn(c echo.Context) error {
 	}
 
 	// forward on to any sibling instances
-	go s.ForwardSiblingRequest(c, nil)
+	go s.ForwardSiblingRequest(*c.Request(), nil)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
@@ -362,7 +362,7 @@ func (s *Service) handleBlockHost(c echo.Context) error {
 	_ = s.relay.Slurper.KillUpstreamConnection(ctx, host.Hostname, false)
 
 	// forward on to any sibling instances
-	go s.ForwardSiblingRequest(c, nil)
+	go s.ForwardSiblingRequest(*c.Request(), nil)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
@@ -393,7 +393,7 @@ func (s *Service) handleUnblockHost(c echo.Context) error {
 	}
 
 	// forward on to any sibling instances
-	go s.ForwardSiblingRequest(c, nil)
+	go s.ForwardSiblingRequest(*c.Request(), nil)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
@@ -445,7 +445,7 @@ func (s *Service) handleAdminBanDomain(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	go s.ForwardSiblingRequest(c, b)
+	go s.ForwardSiblingRequest(*c.Request(), b)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
@@ -470,7 +470,7 @@ func (s *Service) handleAdminUnbanDomain(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	go s.ForwardSiblingRequest(c, b)
+	go s.ForwardSiblingRequest(*c.Request(), b)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",
@@ -522,7 +522,7 @@ func (s *Service) handleAdminChangeHostRateLimits(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	go s.ForwardSiblingRequest(c, b)
+	go s.ForwardSiblingRequest(*c.Request(), b)
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"success": "true",

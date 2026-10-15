@@ -130,8 +130,13 @@ func (r *Relay) PersistHostCursors(ctx context.Context, cursors *[]HostCursor) e
 		if cur.LastSeq <= 0 {
 			continue
 		}
-		if err := tx.WithContext(ctx).Model(models.Host{}).Where("id = ?", cur.HostID).UpdateColumn("last_seq", cur.LastSeq).UpdateColumn("status", models.HostStatusActive).Error; err != nil {
+		// always update the last_seq
+		if err := tx.WithContext(ctx).Model(models.Host{}).Where("id = ?", cur.HostID).UpdateColumn("last_seq", cur.LastSeq).Error; err != nil {
 			r.Logger.Error("failed to persist host cursor", "hostID", cur.HostID, "lastSeq", cur.LastSeq)
+		}
+		// only update the host status to "active" if it was previously non-idle (but not banned; to avoid a race conditions)
+		if err := tx.WithContext(ctx).Model(models.Host{}).Where("id = ?", cur.HostID).Where("status IN (?)", []string{"idle", "offline"}).UpdateColumn("status", models.HostStatusActive).Error; err != nil {
+			r.Logger.Error("failed to persist host status", "hostID", cur.HostID)
 		}
 	}
 	return tx.WithContext(ctx).Commit().Error
