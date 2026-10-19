@@ -2,7 +2,6 @@ package splitter
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -302,17 +301,19 @@ func (s *Splitter) errorHandler(err error, ctx echo.Context) {
 }
 
 func (s *Splitter) getLastCursor() (int64, error) {
-	if s.pp != nil {
-		seq, millis, _, err := s.pp.GetLast(context.Background())
-		if err == nil {
-			s.logger.Debug("got last cursor from pebble", "seq", seq, "millis", millis)
-			return seq, nil
-		} else if errors.Is(err, pebblepersist.ErrNoLast) {
-			s.logger.Info("pebble no last")
-		} else {
-			s.logger.Error("pebble seq fail", "err", err)
+	/*
+		if s.pp != nil {
+			seq, millis, _, err := s.pp.GetLast(context.Background())
+			if err == nil {
+				s.logger.Debug("got last cursor from pebble", "seq", seq, "millis", millis)
+				return seq, nil
+			} else if errors.Is(err, pebblepersist.ErrNoLast) {
+				s.logger.Info("pebble no last")
+			} else {
+				s.logger.Error("pebble seq fail", "err", err)
+			}
 		}
-	}
+	*/
 
 	fi, err := os.Open(s.conf.CursorFile)
 	if err != nil {
