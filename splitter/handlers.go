@@ -63,7 +63,7 @@ func (s *Splitter) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 		apiError, ok := err.(*atclient.APIError)
 		if ok {
 			// pass through the upstream error
-			return c.JSON(apiError.StatusCode, atclient.ErrorBody{Name: apiError.Message, Message: apiError.Message})
+			return c.JSON(apiError.StatusCode, atclient.ErrorBody{Name: apiError.Name, Message: apiError.Message})
 		}
 		return c.JSON(http.StatusBadGateway, atclient.ErrorBody{Name: "ProxyRequestFailed", Message: "could not connect to relay instance"})
 	}
