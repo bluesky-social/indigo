@@ -24,10 +24,11 @@ type TapServer struct {
 	adminPassword string
 	idDir         identity.Directory
 	firehose      *FirehoseProcessor
+	resyncer      *Resyncer
 	crawler       *Crawler
 }
 
-func NewTapServer(logger *slog.Logger, db *gorm.DB, outbox *Outbox, idDir identity.Directory, firehose *FirehoseProcessor, crawler *Crawler, config *TapConfig) *TapServer {
+func NewTapServer(logger *slog.Logger, db *gorm.DB, outbox *Outbox, idDir identity.Directory, firehose *FirehoseProcessor, resyncer *Resyncer, crawler *Crawler, config *TapConfig) *TapServer {
 	return &TapServer{
 		logger:        logger.With("component", "server"),
 		db:            db,
@@ -35,6 +36,7 @@ func NewTapServer(logger *slog.Logger, db *gorm.DB, outbox *Outbox, idDir identi
 		adminPassword: config.AdminPassword,
 		idDir:         idDir,
 		firehose:      firehose,
+		resyncer:      resyncer,
 		crawler:       crawler,
 	}
 }
@@ -63,6 +65,10 @@ func (ts *TapServer) Start(address string) error {
 	ts.echo.GET("/stats/outbox-buffer", ts.handleStatsOutboxBuffer)
 	ts.echo.GET("/stats/resync-buffer", ts.handleStatsResyncBuffer)
 	ts.echo.GET("/stats/cursors", ts.handleStatsCursors)
+	ts.echo.GET("/collection-filters", ts.handleGetCollectionFilters)
+	ts.echo.PUT("/collection-filters", ts.handleSetCollectionFilters)
+	ts.echo.GET("/signal-collections", ts.handleGetSignalCollections)
+	ts.echo.PUT("/signal-collections", ts.handleSetSignalCollections)
 	return ts.echo.Start(address)
 }
 
@@ -291,4 +297,49 @@ func (ts *TapServer) handleStatsCursors(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, resp)
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic collection filter and signal collection endpoints
+// ---------------------------------------------------------------------------
+
+type CollectionFiltersPayload struct {
+	Collections []string `json:"collections"`
+}
+
+func (ts *TapServer) handleGetCollectionFilters(c echo.Context) error {
+	filters := ts.firehose.GetCollectionFilters()
+	return c.JSON(http.StatusOK, CollectionFiltersPayload{Collections: filters})
+}
+
+func (ts *TapServer) handleSetCollectionFilters(c echo.Context) error {
+	var payload CollectionFiltersPayload
+	if err := c.Bind(&payload); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
+	}
+	ts.firehose.SetCollectionFilters(payload.Collections)
+	if ts.resyncer != nil {
+		ts.resyncer.SetCollectionFilters(payload.Collections)
+	}
+	ts.logger.Info("updated collection filters", "collections", payload.Collections)
+	return c.JSON(http.StatusOK, CollectionFiltersPayload{Collections: payload.Collections})
+}
+
+type SignalCollectionsPayload struct {
+	Collections []string `json:"collections"`
+}
+
+func (ts *TapServer) handleGetSignalCollections(c echo.Context) error {
+	signals := ts.firehose.GetSignalCollections()
+	return c.JSON(http.StatusOK, SignalCollectionsPayload{Collections: signals})
+}
+
+func (ts *TapServer) handleSetSignalCollections(c echo.Context) error {
+	var payload SignalCollectionsPayload
+	if err := c.Bind(&payload); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
+	}
+	ts.firehose.SetSignalCollections(payload.Collections)
+	ts.logger.Info("updated signal collections", "collections", payload.Collections)
+	return c.JSON(http.StatusOK, SignalCollectionsPayload{Collections: payload.Collections})
 }
