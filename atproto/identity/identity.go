@@ -124,6 +124,23 @@ func (i *Identity) PublicKey() (atcrypto.PublicKey, error) {
 	return i.GetPublicKey("atproto")
 }
 
+// Identifies and parses the atproto service-auth signing public key.
+//
+// If #atproto_service is present in the DID document, that key is used.
+// Otherwise, falls back to #atproto for backwards compatibility.
+//
+// Returns [ErrKeyNotFound] if neither key is declared.
+//
+// Note that [atcrypto.PublicKey] is an interface, not a concrete type.
+func (i *Identity) ServiceAuthPublicKey() (atcrypto.PublicKey, error) {
+	if i.Keys != nil {
+		if _, ok := i.Keys["atproto_service"]; ok {
+			return i.GetPublicKey("atproto_service")
+		}
+	}
+	return i.GetPublicKey("atproto")
+}
+
 // Identifies and parses a specified service signing public key out of any keys in this identity's DID document.
 //
 // Returns [ErrKeyNotFound] if there is no such key.
