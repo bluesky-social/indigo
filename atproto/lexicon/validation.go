@@ -174,3 +174,133 @@ func validateUnion(cat Catalog, s SchemaUnion, d any, flags ValidateFlags) error
 	}
 	return validateData(cat, def.Def, d, flags)
 }
+
+// validateParams validates data against a SchemaParams definition.
+// SchemaParams is similar to SchemaObject but restricted to primitive types
+// (boolean, integer, string) and arrays of these types.
+func validateParams(cat Catalog, s SchemaParams, d map[string]any, flags ValidateFlags) error {
+	// Check required fields
+	for _, k := range s.Required {
+		if _, ok := d[k]; !ok {
+			return fmt.Errorf("required parameter missing: %s", k)
+		}
+	}
+	// Validate each property
+	for k, def := range s.Properties {
+		if v, ok := d[k]; ok {
+			err := validateData(cat, def.Inner, v, flags)
+			if err != nil {
+				return fmt.Errorf("parameter %s: %w", k, err)
+			}
+		}
+	}
+	return nil
+}
+
+// validateBody validates data against a SchemaBody definition.
+func validateBody(cat Catalog, body SchemaBody, bodyData any, flags ValidateFlags) error {
+	if body.Schema == nil {
+		// No schema defined - body is opaque, skip validation
+		return nil
+	}
+	return validateData(cat, body.Schema.Inner, bodyData, flags)
+}
+
+// ValidateQueryParams validates query parameter data against a SchemaQuery.Parameters definition.
+//
+// 'paramsData' is typed as 'any', but is expected to be 'map[string]any'
+// 'ref' is a reference to the schema type, as an NSID with optional fragment
+// 'flags' are parameters tweaking Lexicon validation rules. Zero value is default.
+func ValidateQueryParams(cat Catalog, paramsData any, ref string, flags ValidateFlags) error {
+	def, err := cat.Resolve(ref)
+	if err != nil {
+		return err
+	}
+	s, ok := def.Def.(SchemaQuery)
+	if !ok {
+		return fmt.Errorf("schema is not of query type: %s", ref)
+	}
+	if s.Parameters == nil {
+		// No parameters defined - check if paramsData is empty or nil
+		if paramsData != nil {
+			d, ok := paramsData.(map[string]any)
+			if !ok || len(d) > 0 {
+				return fmt.Errorf("query has no parameters defined but data was provided")
+			}
+		}
+		return nil
+	}
+	d, ok := paramsData.(map[string]any)
+	if !ok {
+		return fmt.Errorf("params data is not object type")
+	}
+	return validateParams(cat, *s.Parameters, d, flags)
+}
+
+// ValidateProcedureParams validates procedure parameter data against a SchemaProcedure.Parameters definition.
+//
+// 'paramsData' is typed as 'any', but is expected to be 'map[string]any'
+// 'ref' is a reference to the schema type, as an NSID with optional fragment
+// 'flags' are parameters tweaking Lexicon validation rules. Zero value is default.
+func ValidateProcedureParams(cat Catalog, paramsData any, ref string, flags ValidateFlags) error {
+	def, err := cat.Resolve(ref)
+	if err != nil {
+		return err
+	}
+	s, ok := def.Def.(SchemaProcedure)
+	if !ok {
+		return fmt.Errorf("schema is not of procedure type: %s", ref)
+	}
+	if s.Parameters == nil {
+		// No parameters defined - check if paramsData is empty or nil
+		if paramsData != nil {
+			d, ok := paramsData.(map[string]any)
+			if !ok || len(d) > 0 {
+				return fmt.Errorf("procedure has no parameters defined but data was provided")
+			}
+		}
+		return nil
+	}
+	d, ok := paramsData.(map[string]any)
+	if !ok {
+		return fmt.Errorf("params data is not object type")
+	}
+	return validateParams(cat, *s.Parameters, d, flags)
+}
+
+// ValidateProcedureInput validates procedure input body data against a SchemaProcedure.Input definition.
+//
+// 'inputData' is typed as 'any', but is expected to be 'map[string]any' for JSON bodies
+// 'ref' is a reference to the schema type, as an NSID with optional fragment
+// 'flags' are parameters tweaking Lexicon validation rules. Zero value is default.
+func ValidateProcedureInput(cat Catalog, inputData any, ref string, flags ValidateFlags) error {
+	def, err := cat.Resolve(ref)
+	if err != nil {
+		return err
+	}
+	s, ok := def.Def.(SchemaProcedure)
+	if !ok {
+		return fmt.Errorf("schema is not of procedure type: %s", ref)
+	}
+	if s.Input == nil {
+		// No input defined - check if inputData is empty or nil
+		if inputData != nil {
+			d, ok := inputData.(map[string]any)
+			if !ok || len(d) > 0 {
+				return fmt.Errorf("procedure has no input defined but data was provided")
+			}
+		}
+		return nil
+	}
+	return validateBody(cat, *s.Input, inputData, flags)
+}
+
+// ValidateBody validates body data against a SchemaBody definition.
+// This is useful for validating both input and output bodies.
+//
+// 'bodyData' is typed as 'any', but is expected to be 'map[string]any' for structured bodies
+// 'body' is the SchemaBody definition
+// 'flags' are parameters tweaking Lexicon validation rules. Zero value is default.
+func ValidateBody(cat Catalog, body SchemaBody, bodyData any, flags ValidateFlags) error {
+	return validateBody(cat, body, bodyData, flags)
+}
