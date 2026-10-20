@@ -21,12 +21,11 @@ func userAgent() string {
 	return userAgentStr
 }
 
-func backoff(retries int, max int) time.Duration {
-	dur := 1 << retries
-	if dur > max {
-		dur = max
-	}
-
+// Calculates an expoential-backoff retry delay, for the n-th retry attempt.
+// Caps the duration to 'maxSec' seconds, and adds up to one second of jitter.
+func backoff(n uint, maxSec uint) time.Duration {
+	dur := uint(1 << min(n, 30))
+	dur = min(dur, maxSec)
 	jitter := time.Millisecond * time.Duration(rand.Intn(1000))
 	return time.Second*time.Duration(dur) + jitter
 }
