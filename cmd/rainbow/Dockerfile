@@ -1,4 +1,4 @@
-FROM golang:1.26.10-bookworm AS build-env
+FROM golang:1.27.2-bookworm AS build-env
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
