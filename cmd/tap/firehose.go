@@ -430,7 +430,7 @@ func (fp *FirehoseProcessor) runConsumer(ctx context.Context) error {
 		},
 	}
 
-	var retries int
+	var retries uint
 	for {
 		select {
 		case <-ctx.Done():
