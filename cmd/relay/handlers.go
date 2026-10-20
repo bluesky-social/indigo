@@ -63,6 +63,7 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatpr
 	if err != nil {
 		return err
 	}
+	// dereference to make a copy of the `http.Request` struct for each goroutine
 	go s.ForwardSiblingRequest(*c.Request(), b)
 
 	return s.relay.SubscribeToHost(ctx, hostname, noSSL, admin)

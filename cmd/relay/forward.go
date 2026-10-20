@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/bluesky-social/indigo/cmd/relay/relay"
 )
@@ -17,6 +18,8 @@ import (
 //
 // This method expects to be run "in the background" as a goroutine, so it doesn't take a `context.Context`, and does not return an `error`. It logs both success and failure. The `echo.Context` request has presumably been read, so any body is passed separately.
 func (s *Service) ForwardSiblingRequest(req http.Request, body []byte) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*90)
+	defer cancel()
 
 	if len(s.config.SiblingRelayHosts) == 0 {
 		return
@@ -42,6 +45,7 @@ func (s *Service) ForwardSiblingRequest(req http.Request, body []byte) {
 			s.logger.Error("invalid sibling hostname configured", "host", rawHost, "err", err)
 			return
 		}
+		// make a copy of the URL struct for mutation
 		u := *req.URL
 		u.Host = hostname
 		if noSSL {
@@ -53,7 +57,7 @@ func (s *Service) ForwardSiblingRequest(req http.Request, body []byte) {
 		if body != nil {
 			b = bytes.NewBuffer(body)
 		}
-		upstreamReq, err := http.NewRequest(req.Method, u.String(), b)
+		upstreamReq, err := http.NewRequestWithContext(ctx, req.Method, u.String(), b)
 		if err != nil {
 			s.logger.Error("creating admin forward request failed", "method", req.Method, "url", u.String(), "err", err)
 			continue
