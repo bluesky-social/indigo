@@ -9,6 +9,16 @@ import (
 	"time"
 )
 
+func TestBackoffLargeRetryCount(t *testing.T) {
+	for _, retries := range []int{60, 62, 63, 64, 5300} {
+		durMax := 60
+		delay := backoff(retries, durMax).Milliseconds() / 1000
+		if delay < 60 || delay > int64(durMax+1) {
+			t.Errorf("retry count %d: got %v, want [60, 61)", retries, delay)
+		}
+	}
+}
+
 func TestRunPeriodicallyStopsOnTaskError(t *testing.T) {
 
 	ctx := t.Context()
