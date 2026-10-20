@@ -2,7 +2,7 @@ module github.com/bluesky-social/indigo
 
 go 1.26.0
 
-toolchain go1.26.1
+toolchain go1.26.10
 
 require (
 	github.com/RussellLuo/slidingwindow v0.0.0-20200528002341-535bb99d338b
