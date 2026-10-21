@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/json"
 	"testing"
 )
 
@@ -35,5 +36,16 @@ func TestNewFromType(t *testing.T) {
 	_, err = NewFromType("bogus.type")
 	if err == nil {
 		t.Fatal("expect bogus generation to fail")
+	}
+}
+
+func TestMissingTypeField(t *testing.T) {
+	var out struct {
+		Field *LexiconTypeDecoder
+	}
+	const input = `{"Field":{"Some_stuff":"but $type is missing"}}`
+
+	if err := json.Unmarshal([]byte(input), &out); err != nil {
+		t.Fatalf("failed to unmarshal: %s", err)
 	}
 }
