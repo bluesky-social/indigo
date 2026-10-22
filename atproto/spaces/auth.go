@@ -31,6 +31,8 @@ type Credential struct {
 	signer atcrypto.PrivateKey
 }
 
+// NewCredential creates a credential from an issued token and its bound P-256 signer.
+// It does not verify the token signature or contact a service.
 func NewCredential(token string, signer atcrypto.PrivateKey) (*Credential, error) {
 	if token == "" || strings.ContainsAny(token, "\r\n") {
 		return nil, fmt.Errorf("space credential token is empty or contains a newline")
@@ -78,6 +80,8 @@ type credentialAuth struct {
 
 var _ atclient.AuthMethod = (*credentialAuth)(nil)
 
+// DoWithAuth implements [atclient.AuthMethod] for a space credential. It signs
+// the request for the credential's audience DID.
 func (a *credentialAuth) DoWithAuth(c *http.Client, req *http.Request, endpoint syntax.NSID) (*http.Response, error) {
 	authorization := "Atproto-Space " + a.credential.token
 	params := `("authorization" "atproto-space-audience")`
@@ -99,6 +103,8 @@ type delegationAuth struct {
 
 var _ atclient.AuthMethod = (*delegationAuth)(nil)
 
+// DoWithAuth implements [atclient.AuthMethod] for the delegation-token exchange.
+// It signs the Authorization header and removes any unrelated audience header.
 func (a *delegationAuth) DoWithAuth(c *http.Client, req *http.Request, endpoint syntax.NSID) (*http.Response, error) {
 	authorization := "Bearer " + a.token
 	params := `("authorization");keyid="` + a.keyID + `"`
