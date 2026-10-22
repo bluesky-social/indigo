@@ -1,3 +1,10 @@
+// Modern generation creates the Spaces API types.
+// It uses pointers for optional query fields. This lets code distinguish a
+// missing value from a value set to its zero value.
+// It keeps unknown JSON values and unknown union cases. A union field can hold
+// one of several types.
+// The legacy generator remains the default for other APIs.
+
 package main
 
 import (
