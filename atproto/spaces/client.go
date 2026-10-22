@@ -136,6 +136,9 @@ func (s *Space) ListRepos(ctx context.Context, opts ListReposOptions) (*RepoPage
 	if err != nil {
 		return nil, err
 	}
+	if out.Repos == nil {
+		return nil, fmt.Errorf("repo discovery response is missing the required repos array")
+	}
 	page := &RepoPage{Repos: make([]RepoInfo, len(out.Repos)), Cursor: out.Cursor}
 	for i, entry := range out.Repos {
 		author, err := syntax.ParseDID(entry.Did)
