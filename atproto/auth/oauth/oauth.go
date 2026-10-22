@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
@@ -29,6 +31,9 @@ type ClientApp struct {
 	Dir      identity.Directory
 	Config   *ClientConfig
 	Store    ClientAuthStore
+
+	sessionsMu sync.Mutex
+	sessions   map[string]*ClientSession
 }
 
 // App-level client configuration data.
@@ -194,6 +199,16 @@ func (config *ClientConfig) ClientMetadata() ClientMetadata {
 
 // High-level helper for fetching session data from store, based on account DID and session identifier.
 func (app *ClientApp) ResumeSession(ctx context.Context, did syntax.DID, sessionID string) (*ClientSession, error) {
+	app.sessionsMu.Lock()
+	defer app.sessionsMu.Unlock()
+	return app.resumeSessionLocked(ctx, did, sessionID)
+}
+
+func (app *ClientApp) resumeSessionLocked(ctx context.Context, did syntax.DID, sessionID string) (*ClientSession, error) {
+	key := memKey(did, sessionID)
+	if sess := app.sessions[key]; sess != nil {
+		return sess, nil
+	}
 
 	sd, err := app.Store.GetSession(ctx, did, sessionID)
 	if err != nil {
@@ -208,12 +223,8 @@ func (app *ClientApp) ResumeSession(ctx context.Context, did syntax.DID, session
 
 	// configure callback for updating session data
 	if app.Store != nil {
-		sess.PersistSessionCallback = func(ctx context.Context, data *ClientSessionData) {
-			slog.Debug("storing updated session data", "did", data.AccountDID, "session_id", data.SessionID)
-			err := app.Store.SaveSession(ctx, *data)
-			if err != nil {
-				slog.Error("failed to store updated session data", "did", data.AccountDID, "session_id", data.SessionID, "err", err)
-			}
+		sess.PersistSessionCallback = func(ctx context.Context, data *ClientSessionData) error {
+			return app.Store.SaveSession(ctx, *data)
 		}
 	}
 
@@ -223,6 +234,10 @@ func (app *ClientApp) ResumeSession(ctx context.Context, did syntax.DID, session
 		return nil, err
 	}
 	sess.DPoPPrivateKey = priv
+	if app.sessions == nil {
+		app.sessions = make(map[string]*ClientSession)
+	}
+	app.sessions[key] = &sess
 	return &sess, nil
 }
 
@@ -312,13 +327,14 @@ func NewAuthDPoP(httpMethod, url, dpopNonce string, privKey atcrypto.PrivateKey)
 // attempts to read an HTTP response body as JSON, and determine an error reason. always closes the response body
 func parseAuthErrorReason(resp *http.Response, reqType string) string {
 	defer resp.Body.Close()
-	var errResp map[string]any
+	var errResp struct {
+		Code string `json:"error"`
+	}
 	if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-		slog.Warn("auth server request failed", "request", reqType, "statusCode", resp.StatusCode, "err", err)
 		return "unknown"
 	}
-	slog.Warn("auth server request failed", "request", reqType, "statusCode", resp.StatusCode, "body", errResp)
-	return fmt.Sprintf("%s", errResp["error"])
+	// Do not log response bodies or descriptions: servers may echo tokens.
+	return authErrorCode(errResp.Code)
 }
 
 // Low-level helper to send PAR request to auth server, which involves starting PKCE and DPoP.
@@ -370,7 +386,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		return nil, err
 	}
 
-	slog.Debug("sending auth request", "scopes", scopes, "state", state, "redirectURI", app.Config.CallbackURL)
+	slog.Debug("sending auth request", "scopes", scopes, "redirectURI", app.Config.CallbackURL)
 
 	var resp *http.Response
 	for range 2 {
@@ -470,7 +486,7 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 	dpopServerNonce := info.DPoPAuthServerNonce
 
 	var resp *http.Response
-	for range 2 {
+	for attempt := range 2 {
 		dpopJWT, err := NewAuthDPoP("POST", info.AuthServerTokenEndpoint, dpopServerNonce, dpopPrivKey)
 		if err != nil {
 			return nil, err
@@ -485,7 +501,7 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 
 		resp, err = app.Client.Do(req)
 		if err != nil {
-			return nil, err
+			return nil, &TokenEndpointError{Err: err}
 		}
 
 		// check if a nonce was provided
@@ -499,11 +515,11 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 		if resp.StatusCode == http.StatusBadRequest && dpopNonceHdr != "" {
 			// parseAuthErrorReason() always closes resp.Body
 			reason := parseAuthErrorReason(resp, "initial-token")
-			if reason == "use_dpop_nonce" {
+			if reason == "use_dpop_nonce" && attempt == 0 {
 				// already updated nonce value above; loop around and try again
 				continue
 			}
-			return nil, fmt.Errorf("initial token request failed (HTTP %d): %s", resp.StatusCode, reason)
+			return nil, &TokenEndpointError{StatusCode: resp.StatusCode, Code: reason}
 		}
 
 		// otherwise process result
@@ -513,7 +529,7 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		reason := parseAuthErrorReason(resp, "initial-token")
-		return nil, fmt.Errorf("initial token request failed (HTTP %d): %s", resp.StatusCode, reason)
+		return nil, &TokenEndpointError{StatusCode: resp.StatusCode, Code: reason}
 	}
 
 	var tokenResp TokenResponse
@@ -576,7 +592,9 @@ func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (str
 	}
 
 	// persist auth request info
-	app.Store.SaveAuthRequestInfo(ctx, *info)
+	if err := app.Store.SaveAuthRequestInfo(ctx, *info); err != nil {
+		return "", fmt.Errorf("persisting auth request: %w", err)
+	}
 
 	params := url.Values{}
 	params.Set("client_id", app.Config.ClientID)
@@ -696,33 +714,31 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 	}
 	if err := app.Store.DeleteAuthRequestInfo(ctx, state); err != nil {
 		// only log on failure to delete state info
-		slog.Warn("failed to delete auth request info", "state", state, "did", accountDID, "authserver", info.AuthServerURL, "err", err)
+		slog.Warn("failed to delete auth request info", "did", accountDID, "authserver", info.AuthServerURL)
 	}
 	return &sessData, nil
 }
 
 // High-level helper to delete a session, including revoking access/refresh tokens if supported by the AS
 func (app *ClientApp) Logout(ctx context.Context, did syntax.DID, sessionID string) error {
-	sess, err := app.ResumeSession(ctx, did, sessionID)
-	if err != nil {
-		return err
-	}
-
-	// Tell the AS to revoke the tokens, if supported
-	if sess.Data.AuthServerRevocationEndpoint == "" {
-		slog.Info("AS does not support token revocation, skipping RevokeSession")
-	} else {
-		err = sess.RevokeSession(ctx)
-		if err != nil {
-			slog.Warn("error during session revocation", "err", err)
+	app.sessionsMu.Lock()
+	defer app.sessionsMu.Unlock()
+	sess, resumeErr := app.resumeSessionLocked(ctx, did, sessionID)
+	var revokeErr error
+	if resumeErr == nil {
+		// Fence outstanding holders before revoking or deleting the session.
+		sess.lk.Lock()
+		sess.closed = true
+		hasRevocation := sess.Data.AuthServerRevocationEndpoint != ""
+		sess.lk.Unlock()
+		if hasRevocation {
+			revokeErr = sess.RevokeSession(ctx)
 		}
 	}
-
-	// Delete from our own session store
-	err = app.Store.DeleteSession(ctx, did, sessionID)
-	if err != nil {
-		return err
+	// Even corrupt/unresumable sessions must be removed locally.
+	deleteErr := app.Store.DeleteSession(ctx, did, sessionID)
+	if deleteErr == nil {
+		delete(app.sessions, memKey(did, sessionID))
 	}
-
-	return nil
+	return errors.Join(resumeErr, revokeErr, deleteErr)
 }

@@ -20,6 +20,9 @@ import (
 // ErrMissingCredential indicates an authenticated operation on a resolution-only handle.
 var ErrMissingCredential = errors.New("space operation requires a credential")
 
+// ErrInvalidCredentialResponse reports an empty or header-invalid issued token.
+var ErrInvalidCredentialResponse = errors.New("space authority returned an invalid credential")
+
 // Credential is an immutable issued token and its bound P-256 signer. The signer
 // may be opaque/nonexportable and must remain usable for the credential's lifetime.
 // Construction does not validate the issuer's JWT signature or contact a service.
@@ -157,7 +160,7 @@ func (c *Client) ExchangeCredential(ctx context.Context, ref syntax.SpaceRef, de
 	// Keep the already-validated signer and key binding; no second resolution
 	// or issuance is needed to construct the returned immutable credential.
 	if out.Credential == "" || strings.ContainsAny(out.Credential, "\r\n") {
-		return nil, fmt.Errorf("returned space credential is empty or contains a newline")
+		return nil, ErrInvalidCredentialResponse
 	}
 	return &Credential{token: out.Credential, signer: signer}, nil
 }
