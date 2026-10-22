@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file. The format
 is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [Unreleased]
+
+### Changed
+
+- Consolidate non-tap container publishing into a changed-input matrix, preserving
+  image names, registry tags, and publishing branches. Tap tag releases remain separate.
+- Run Go CI only for source, module, test-fixture, embedded-asset, and build/lint
+  configuration changes; documentation-only changes no longer trigger Go builds.
+
+
 ## [d0ea072] - 2023-03-31
 
 Large Lexicon refactor, and updates to streaming event wire schemas. The
