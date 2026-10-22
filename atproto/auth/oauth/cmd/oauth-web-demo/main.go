@@ -244,7 +244,8 @@ func (s *Server) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 func (s *Server) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	slog.Info("received OAuth callback")
+	params := r.URL.Query()
+	slog.Info("received callback", "params", params)
 
 	sessData, err := s.OAuth.ProcessCallback(ctx, r.URL.Query())
 	if err != nil {
@@ -290,6 +291,7 @@ func (s *Server) OAuthRefresh(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	s.OAuth.Store.SaveSession(ctx, *oauthSess.Data)
 	slog.Info("refreshed tokens")
 	http.Redirect(w, r, "/", http.StatusFound)
 }
@@ -298,10 +300,9 @@ func (s *Server) OAuthLogout(w http.ResponseWriter, r *http.Request) {
 
 	// revoke tokens and delete session from auth store
 	did, sessionID := s.currentSessionDID(r)
-	var logoutErr error
 	if did != nil {
-		if logoutErr = s.OAuth.Logout(r.Context(), *did, sessionID); logoutErr != nil {
-			slog.Error("failed to complete logout", "did", did)
+		if err := s.OAuth.Logout(r.Context(), *did, sessionID); err != nil {
+			slog.Error("failed to delete session", "did", did, "err", err)
 		}
 	}
 
@@ -311,10 +312,6 @@ func (s *Server) OAuthLogout(w http.ResponseWriter, r *http.Request) {
 	err := sess.Save(r, w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if logoutErr != nil {
-		http.Error(w, "local logout completed with a revocation or storage failure", http.StatusBadGateway)
 		return
 	}
 
