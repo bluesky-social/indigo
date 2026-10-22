@@ -389,9 +389,9 @@ func (sess *ClientSession) UpdateHostDPoPNonce(ctx context.Context, nonce string
 	return nil
 }
 
-// Sends API request to OAuth Resource Server (PDS), using access token and DPoP.
-//
-// Automatically handles DPoP nonce updates and token refresh as needed, based on the response status code and `WWW-Authenticate` header.
+// DoWithAuth implements [atclient.AuthMethod] for an OAuth session. It sends
+// requests with an access token and DPoP proof, and handles nonce updates and
+// token refresh when needed.
 func (sess *ClientSession) DoWithAuth(c *http.Client, req *http.Request, endpoint syntax.NSID) (*http.Response, error) {
 
 	durl := dpopURL(req.URL)
