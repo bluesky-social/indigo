@@ -593,6 +593,8 @@ func TestReadBoundariesRejectMalformedMetadataAndCIDProfiles(t *testing.T) {
 		{"operation revision", `{"ops":[{"rev":"not-a-tid","collection":"org.example.record","rkey":"one","cid":null,"prev":null}]}`, func(_ *Space, r *Repo) error { _, e := r.ListOps(context.Background(), ListOpsOptions{}); return e }},
 		{"discovery author", `{"repos":[{"did":"not-a-did","repoRev":"2222222222222","spaceRev":"2222222222222","hash":{"$bytes":""}}]}`, func(s *Space, _ *Repo) error { _, e := s.ListRepos(context.Background(), ListReposOptions{}); return e }},
 		{"discovery hash", `{"repos":[{"did":"did:web:alice.example","repoRev":"2222222222222","spaceRev":"2222222222222","hash":{"$bytes":""}}]}`, func(s *Space, _ *Repo) error { _, e := s.ListRepos(context.Background(), ListReposOptions{}); return e }},
+		{"missing discovery repos", `{}`, func(s *Space, _ *Repo) error { _, e := s.ListRepos(context.Background(), ListReposOptions{}); return e }},
+		{"null discovery repos", `{"repos":null}`, func(s *Space, _ *Repo) error { _, e := s.ListRepos(context.Background(), ListReposOptions{}); return e }},
 		{"missing commit bytes", `{"commit":{"ver":1,"rev":"2222222222222"}}`, func(_ *Space, r *Repo) error { _, e := r.GetLatestCommit(context.Background()); return e }},
 		{"unsupported commit version", `{"commit":` + strings.Replace(clientTestCommitJSON(), `"ver":1`, `"ver":2`, 1) + `}`, func(_ *Space, r *Repo) error { _, e := r.GetLatestCommit(context.Background()); return e }},
 	}
