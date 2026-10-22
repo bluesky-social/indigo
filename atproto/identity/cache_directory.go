@@ -14,15 +14,13 @@ import (
 
 // CacheDirectory is an implementation of identity.Directory with local cache of Handle and DID
 type CacheDirectory struct {
-	Inner            Directory
-	ErrTTL           time.Duration
-	InvalidHandleTTL time.Duration
-	handleCache      *expirable.LRU[syntax.Handle, handleEntry]
-	identityCache    *expirable.LRU[syntax.DID, identityEntry]
-	mu               sync.Mutex
-	generation       uint64
-	didLookups       map[syntax.DID]*cacheLookup[identityEntry]
-	handleLookups    map[syntax.Handle]*cacheLookup[handleEntry]
+	Inner             Directory
+	ErrTTL            time.Duration
+	InvalidHandleTTL  time.Duration
+	handleCache       *expirable.LRU[syntax.Handle, handleEntry]
+	identityCache     *expirable.LRU[syntax.DID, identityEntry]
+	didLookupChans    sync.Map
+	handleLookupChans sync.Map
 }
 
 type handleEntry struct {
@@ -37,12 +35,6 @@ type identityEntry struct {
 	Err      error
 }
 
-type cacheLookup[T any] struct {
-	generation uint64
-	done       chan struct{}
-	entry      T
-}
-
 var _ Directory = (*CacheDirectory)(nil)
 
 // Capacity of zero means unlimited size. Similarly, ttl of zero means unlimited duration.
@@ -53,8 +45,6 @@ func NewCacheDirectory(inner Directory, capacity int, hitTTL, errTTL, invalidHan
 		Inner:            inner,
 		handleCache:      expirable.NewLRU[syntax.Handle, handleEntry](capacity, nil, hitTTL),
 		identityCache:    expirable.NewLRU[syntax.DID, identityEntry](capacity, nil, hitTTL),
-		didLookups:       make(map[syntax.DID]*cacheLookup[identityEntry]),
-		handleLookups:    make(map[syntax.Handle]*cacheLookup[handleEntry]),
 	}
 }
 
@@ -75,7 +65,7 @@ func (d *CacheDirectory) isIdentityStale(e *identityEntry) bool {
 	return false
 }
 
-func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle, generation uint64) handleEntry {
+func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) handleEntry {
 	ident, err := d.Inner.LookupHandle(ctx, h)
 	if err != nil {
 		he := handleEntry{
@@ -85,11 +75,7 @@ func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle, gene
 		}
 		// don't cache ctx cancelation or timeout errors
 		if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
-			d.mu.Lock()
-			if generation == d.generation {
-				d.handleCache.Add(h, he)
-			}
-			d.mu.Unlock()
+			d.handleCache.Add(h, he)
 		}
 		return he
 	}
@@ -105,12 +91,8 @@ func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle, gene
 		Err:     nil,
 	}
 
-	d.mu.Lock()
-	if generation == d.generation {
-		d.identityCache.Add(ident.DID, entry)
-		d.handleCache.Add(ident.Handle, he)
-	}
-	d.mu.Unlock()
+	d.identityCache.Add(ident.DID, entry)
+	d.handleCache.Add(ident.Handle, he)
 	return he
 }
 
@@ -120,45 +102,43 @@ func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 		return "", fmt.Errorf("can not resolve handle: %w", ErrInvalidHandle)
 	}
 	start := time.Now()
-	d.mu.Lock()
 	entry, ok := d.handleCache.Get(h)
 	if ok && !d.isHandleStale(&entry) {
-		d.mu.Unlock()
 		handleCacheHits.Inc()
 		handleResolution.WithLabelValues("lru", "cached").Inc()
 		handleResolutionDuration.WithLabelValues("lru", "cached").Observe(time.Since(start).Seconds())
 		return entry.DID, entry.Err
 	}
-	pending := d.handleLookups[h]
-	coalesced := pending != nil && pending.generation == d.generation
-	if !coalesced {
-		pending = &cacheLookup[handleEntry]{generation: d.generation, done: make(chan struct{})}
-		d.handleLookups[h] = pending
-	}
-	d.mu.Unlock()
 	handleCacheMisses.Inc()
 
-	// Coalesce only work started after the same most recent purge.
-	if coalesced {
+	// Coalesce multiple requests for the same Handle
+	res := make(chan struct{})
+	val, loaded := d.handleLookupChans.LoadOrStore(h.String(), res)
+	if loaded {
 		handleRequestsCoalesced.Inc()
 		handleResolution.WithLabelValues("lru", "coalesced").Inc()
 		handleResolutionDuration.WithLabelValues("lru", "coalesced").Observe(time.Since(start).Seconds())
+		// Wait for the result from the pending request
 		select {
-		case <-pending.done:
-			return pending.entry.DID, pending.entry.Err
+		case <-val.(chan struct{}):
+			// The result should now be in the cache
+			entry, ok := d.handleCache.Get(h)
+			if ok && !d.isHandleStale(&entry) {
+				return entry.DID, entry.Err
+			}
+			return "", fmt.Errorf("identity not found in cache after coalesce returned")
 		case <-ctx.Done():
 			return "", ctx.Err()
 		}
 	}
 
-	newEntry := d.updateHandle(ctx, h, pending.generation)
-	d.mu.Lock()
-	pending.entry = newEntry
-	if d.handleLookups[h] == pending {
-		delete(d.handleLookups, h)
-	}
-	close(pending.done)
-	d.mu.Unlock()
+	// Update the Handle Entry from PLC and cache the result
+	newEntry := d.updateHandle(ctx, h)
+
+	// Cleanup the coalesce map and close the results channel
+	d.handleLookupChans.Delete(h.String())
+	// Callers waiting will now get the result from the cache
+	close(res)
 
 	if newEntry.Err != nil {
 		handleResolution.WithLabelValues("lru", "error").Inc()
@@ -173,7 +153,7 @@ func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 	return "", fmt.Errorf("unexpected control-flow error")
 }
 
-func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID, generation uint64) identityEntry {
+func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) identityEntry {
 	ident, err := d.Inner.LookupDID(ctx, did)
 	// persist the identity lookup error, instead of processing it immediately
 	entry := identityEntry{
@@ -197,14 +177,10 @@ func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID, generati
 		}
 	}
 
-	d.mu.Lock()
-	if generation == d.generation {
-		d.identityCache.Add(did, entry)
-		if he != nil {
-			d.handleCache.Add(ident.Handle, *he)
-		}
+	d.identityCache.Add(did, entry)
+	if he != nil {
+		d.handleCache.Add(ident.Handle, *he)
 	}
-	d.mu.Unlock()
 	return entry
 }
 
@@ -215,45 +191,43 @@ func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identi
 
 func (d *CacheDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax.DID) (*Identity, bool, error) {
 	start := time.Now()
-	d.mu.Lock()
 	entry, ok := d.identityCache.Get(did)
 	if ok && !d.isIdentityStale(&entry) {
-		d.mu.Unlock()
 		identityCacheHits.Inc()
 		didResolution.WithLabelValues("lru", "cached").Inc()
 		didResolutionDuration.WithLabelValues("lru", "cached").Observe(time.Since(start).Seconds())
 		return entry.Identity, true, entry.Err
 	}
-	pending := d.didLookups[did]
-	coalesced := pending != nil && pending.generation == d.generation
-	if !coalesced {
-		pending = &cacheLookup[identityEntry]{generation: d.generation, done: make(chan struct{})}
-		d.didLookups[did] = pending
-	}
-	d.mu.Unlock()
 	identityCacheMisses.Inc()
 
-	// Coalesce only work started after the same most recent purge.
-	if coalesced {
+	// Coalesce multiple requests for the same DID
+	res := make(chan struct{})
+	val, loaded := d.didLookupChans.LoadOrStore(did.String(), res)
+	if loaded {
 		identityRequestsCoalesced.Inc()
 		didResolution.WithLabelValues("lru", "coalesced").Inc()
 		didResolutionDuration.WithLabelValues("lru", "coalesced").Observe(time.Since(start).Seconds())
+		// Wait for the result from the pending request
 		select {
-		case <-pending.done:
-			return pending.entry.Identity, false, pending.entry.Err
+		case <-val.(chan struct{}):
+			// The result should now be in the cache
+			entry, ok := d.identityCache.Get(did)
+			if ok && !d.isIdentityStale(&entry) {
+				return entry.Identity, false, entry.Err
+			}
+			return nil, false, fmt.Errorf("identity not found in cache after coalesce returned")
 		case <-ctx.Done():
 			return nil, false, ctx.Err()
 		}
 	}
 
-	newEntry := d.updateDID(ctx, did, pending.generation)
-	d.mu.Lock()
-	pending.entry = newEntry
-	if d.didLookups[did] == pending {
-		delete(d.didLookups, did)
-	}
-	close(pending.done)
-	d.mu.Unlock()
+	// Update the Identity Entry from PLC and cache the result
+	newEntry := d.updateDID(ctx, did)
+
+	// Cleanup the coalesce map and close the results channel
+	d.didLookupChans.Delete(did.String())
+	// Callers waiting will now get the result from the cache
+	close(res)
 
 	if newEntry.Err != nil {
 		didResolution.WithLabelValues("lru", "error").Inc()
@@ -307,26 +281,17 @@ func (d *CacheDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Id
 	return nil, fmt.Errorf("at-identifier neither a Handle nor a DID")
 }
 
-// Purge also fences pre-purge work from coalescing with subsequent requests or
-// publishing into either cache. A shared generation covers handle lookups whose
-// DID is not known until they finish; unrelated resident entries remain cached.
-// Callers already waiting before a purge may still receive their original result.
+// Purge implements [Directory] and removes the cached entry for the identifier.
 func (d *CacheDirectory) Purge(ctx context.Context, atid syntax.AtIdentifier) error {
 	handle, err := atid.AsHandle()
 	if nil == err { // if not an error, is a handle
 		handle = handle.Normalize()
-		d.mu.Lock()
-		d.generation++
 		d.handleCache.Remove(handle)
-		d.mu.Unlock()
 		return nil
 	}
 	did, err := atid.AsDID()
 	if nil == err { // if not an error, is a DID
-		d.mu.Lock()
-		d.generation++
 		d.identityCache.Remove(did)
-		d.mu.Unlock()
 		return nil
 	}
 	return fmt.Errorf("at-identifier neither a Handle nor a DID")

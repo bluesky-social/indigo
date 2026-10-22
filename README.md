@@ -53,37 +53,6 @@ Go will fetch dependencies, compile, and install `tap` or another service with a
 
 The TypeScript reference implementation, including PDS and bsky AppView services, is at [bluesky-social/atproto](https://github.com/bluesky-social/atproto). Source code for the Bluesky Social client app (for web and mobile) can be found at [bluesky-social/social-app](https://github.com/bluesky-social/social-app).
 
-## Permissioned Spaces (draft)
-
-`atproto/spaces` implements the [Spaces proposal](https://github.com/bluesky-social/proposals/tree/main/0016-permissioned-data): immutable read handles, explicit credential exchange, notifications, and offline verification. The protocol is a draft. Public repository APIs and `syntax.ATURI` semantics are unchanged; Spaces records use `syntax.SpaceURI` and spaces use `syntax.SpaceRef`.
-
-An already-issued token and its bound P-256 signer can be used without an OAuth session or another exchange:
-
-```go
-client := spaces.NewClient(spaces.ClientOptions{Directory: directory})
-credential, err := spaces.NewCredential(issuedToken, boundSigner)
-if err != nil {
-    return err
-}
-repo := client.Space(ref, credential).Repo(author)
-stream, err := repo.GetRepo(ctx, spaces.GetRepoOptions{})
-if err != nil {
-    return err
-}
-defer stream.Close()
-verified, err := spaces.VerifyRepo(ctx, stream, spaces.RepoVerificationOptions{
-    Space: ref, Author: author, PublicKey: authorKey,
-}, consume)
-```
-
-Constructors do not resolve identities or issue credentials. Space-host operations resolve the authority and sign for its DID; repo operations resolve the author's PDS and sign for that author's DID, including authors sharing a PDS. To obtain a credential, call `GetDelegationToken` with the existing authenticated PDS client and then `ExchangeCredential` with a fresh signer. Replacement credentials require new handles; existing handles keep their original token/key pair.
-
-Raw reads are not verification claims. Callers close successful CAR/blob streams. `VerifyRepo` validates the commit, canonical index, LtHash digest, and ordered record blocks through EOF; consumers must stage callback output until it succeeds and copy borrowed record bytes they retain. `IndexOnly: true` explicitly verifies a commit/index-only CAR without claiming record verification. Blob verification is separate. Discovery pages report the authority's view, can repeat repos, and do not form an atomic inventory.
-
-Notification registration takes a service DID with an optional fragment, not a callback URL. `VerifyNotificationAuth` binds the issuer, audience, and endpoint. Own-repo writes use the generated `api/atproto` RPCs with the existing OAuth-authenticated PDS client, not read credentials. Simplespace management is excluded from the current syncing-tool review. Consumers own scheduling, persistence, checkpoints, concurrency, credential replacement, and recovery; the library does not implement a sync loop or automatic renewal/deletion.
-
-Local HTTP and independently constructed signature, HMAC, and CAR scenarios have been exercised. No live Spaces service has been exercised.
-
 ## Development Quickstart
 
 First, you will need the Go toolchain installed. We develop using the latest stable version of the language.
