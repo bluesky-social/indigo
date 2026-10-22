@@ -120,13 +120,50 @@ Sessions can be resumed and used to make authenticated API calls to the user's h
 		return err
 	}
 
-The [ClientSession] will handle nonce updates and token refreshes, and persist the results in the [ClientAuthStore].
+The [ClientSession] handles nonce updates and token refreshes and persists them
+in the [ClientAuthStore]. ResumeSession shares one live session per DID/session
+ID within this ClientApp, so concurrent requests cannot reuse a single-use
+refresh token. Use one ClientApp per store in a process; coordinating refreshes
+between separate processes remains the store/deployment's responsibility.
+Refresh persistence failures are returned, while rotated tokens remain live in
+memory. Host nonce persistence failures are logged and the request continues.
+Use [ClientSession.SessionData] for a race-safe snapshot instead of reading Data
+while requests are active. Never log the snapshot's tokens or private key.
+
+Token endpoint refusals are [TokenEndpointError] values. errors.Is(err,
+ErrGrantRevoked) identifies invalid_grant (revocation or expiry requiring login),
+not a timeout or temporary network outage. Transport causes remain available
+through errors.Is/As. A refreshed scope replaces the prior scope when supplied
+by the server; omitted scope retains the previous consent.
 
 To log out a user, use the [ClientApp.Logout] helper method, which revokes their tokens (if supported by the AS) and deletes their session from the [ClientAuthStore]:
 
 	if err := oauthApp.Logout(r.Context(), did, sessionID); err != nil {
 		return err
 	}
+
+Logout removes unresumable sessions too, fences existing live session holders,
+and reports both local deletion and upstream revocation failures. A revocation
+failure does not prevent local deletion.
+
+# Spaces host providers
+
+The runnable example in cmd/space-sync-provider implements real OAuth login and
+network.bsky.spacesync.getAuthorization. It keeps grants in memory, checks broker
+secrets in constant time, restricts allowed spaces, and fences logout/reconsent
+against in-flight delegation requests. It does not implement a host app's
+catalogue or notification relay. Run it with repeated --space and
+--broker-token-file flags; --public-url sets the external HTTPS root. The optional
+--client-key-file and --client-key-id enable confidential OAuth and publish the
+matching JWKS. Restarting the example requires users to log in again.
+
+[ClientConfig.NewClientAttestation] makes a fresh 60-second single-use Spaces
+client attestation addressed to an authority DID. Confidential providers must
+call it for every response, not reuse a prior attestation. Keep the signing key
+in the published JWKS until all OAuth sessions bound to it have ended. Public
+clients cannot sign attestations or access spaces requiring app allow-listing.
+The auth package's ScopeAllowsSpaceRead helper can select candidate expanded
+scopes, including authority=self, but the PDS makes the authorization decision.
 
 # Authorization-only Situations
 
