@@ -55,6 +55,9 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 
 	// load out all the records
 	for _, op := range msg.Ops {
+		if op == nil {
+			return nil, fmt.Errorf("nil entry in commit ops list")
+		}
 		if (op.Action == "create" || op.Action == "update") && op.Cid != nil {
 			c := (*cid.Cid)(op.Cid)
 			nsid, rkey, err := syntax.ParseRepoPath(op.Path)
