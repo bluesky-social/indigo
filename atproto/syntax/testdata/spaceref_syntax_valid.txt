@@ -1,0 +1,15 @@
+
+at://did:plc:asdf123/space/com.example.space/skey
+at://did:plc:asdf123/space/com.example.spaceV2/skey
+
+# very long: 'at://did:plc:asdf123/space/com.example.space/' + 'o'.repeat(512)
+at://did:plc:asdf123/space/com.example.space/oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
+
+# permissive about space keys
+at://did:plc:asdf123/space/com.example.space/self.
+at://did:plc:asdf123/space/com.example.space/lang:
+at://did:plc:asdf123/space/com.example.space/:
+at://did:plc:asdf123/space/com.example.space/-
+at://did:plc:asdf123/space/com.example.space/_
+at://did:plc:asdf123/space/com.example.space/~
+at://did:plc:asdf123/space/com.example.space/...
