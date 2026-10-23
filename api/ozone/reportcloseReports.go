@@ -12,10 +12,14 @@ import (
 
 // ReportCloseReports_Input is the input argument to a tools.ozone.report.closeReports call.
 type ReportCloseReports_Input struct {
+	// includeAllOwned: If true, also close reports on all subjects owned by the account, including records, messages, and conversations. Only valid when subject is an account DID.
+	IncludeAllOwned *bool `json:"includeAllOwned,omitempty" cborgen:"includeAllOwned,omitempty"`
 	// internalNote: Optional moderator-only note recorded on each close activity. Not visible to reporters.
 	InternalNote *string `json:"internalNote,omitempty" cborgen:"internalNote,omitempty"`
 	// isAutomated: Set true when this action is triggered by an automated process. Defaults to false.
 	IsAutomated *bool `json:"isAutomated,omitempty" cborgen:"isAutomated,omitempty"`
+	// meta: Optional metadata for the report activities. Lifecycle and resolution fields are controlled by the service.
+	Meta *interface{} `json:"meta,omitempty" cborgen:"meta,omitempty"`
 	// reportTypes: If specified, only reports of the given report types (fully qualified reason NSIDs) are closed. When omitted, all non-closed reports on the subject are targeted.
 	ReportTypes []string `json:"reportTypes,omitempty" cborgen:"reportTypes,omitempty"`
 	// subject: Subject DID (account-level reports) or AT-URI (record-level reports) whose reports should be closed.
