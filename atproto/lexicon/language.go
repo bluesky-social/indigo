@@ -811,8 +811,7 @@ func (s *SchemaString) Validate(d any, flags ValidateFlags) error {
 				return err
 			}
 		case "space-ref":
-			// XXX: swap out with ParseSpaceRef once implemented in indigo
-			if _, err := syntax.ParseURI(v); err != nil {
+			if _, err := syntax.ParseSpaceRef(v); err != nil {
 				return err
 			}
 		case "cid":
