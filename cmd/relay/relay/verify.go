@@ -56,6 +56,13 @@ func (r *Relay) VerifyRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 		return nil, fmt.Errorf("too many ops in commit: %d", len(evt.Ops))
 	}
 
+	// verify no nil ops
+	for _, op := range evt.Ops {
+		if op == nil {
+			return nil, fmt.Errorf("nil entry in commit ops")
+		}
+	}
+
 	// even in lenient/legacy mode (eg, tooBig), we need to verify commit
 	commit, commitCID, err := repo.LoadCommitFromCAR(ctx, bytes.NewReader(evt.Blocks))
 	if err != nil {
