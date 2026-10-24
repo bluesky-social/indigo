@@ -32,6 +32,14 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 	if err != nil {
 		return nil, err
 	}
+	if err := validateCIDType(cid.Cid(msg.Commit)); err != nil {
+		return nil, fmt.Errorf("commit message commit ref: %w", err)
+	}
+	if msg.PrevData != nil {
+		if err := validateCIDType(cid.Cid(*msg.PrevData)); err != nil {
+			return nil, fmt.Errorf("commit prevData: %w", err)
+		}
+	}
 
 	if msg.TooBig {
 		logger.Warn("event with tooBig flag set")
@@ -53,8 +61,18 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 	}
 	// TODO: check that commit CID matches root? re-compute?
 
-	// load out all the records
+	// verify ops and load out all the records
 	for _, op := range msg.Ops {
+		if op.Cid != nil {
+			if err := validateCIDType(cid.Cid(*op.Cid)); err != nil {
+				return nil, fmt.Errorf("commit ops entry: %w", err)
+			}
+		}
+		if op.Prev != nil {
+			if err := validateCIDType(cid.Cid(*op.Prev)); err != nil {
+				return nil, fmt.Errorf("commit ops entry: %w", err)
+			}
+		}
 		if (op.Action == "create" || op.Action == "update") && op.Cid != nil {
 			c := (*cid.Cid)(op.Cid)
 			nsid, rkey, err := syntax.ParseRepoPath(op.Path)

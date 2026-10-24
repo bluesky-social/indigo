@@ -31,11 +31,19 @@ func (c *Commit) VerifyStructure() error {
 	}
 	_, err := syntax.ParseDID(c.DID)
 	if err != nil {
-		return fmt.Errorf("invalid commit data: %w", err)
+		return fmt.Errorf("invalid commit did: %s", c.DID)
 	}
 	_, err = syntax.ParseTID(c.Rev)
 	if err != nil {
-		return fmt.Errorf("invalid commit data: %w", err)
+		return fmt.Errorf("invalid commit revision: %s", c.Rev)
+	}
+	if err := validateCIDType(c.Data); err != nil {
+		return fmt.Errorf("invalid commit data CID: %s", c.Data)
+	}
+	if c.Prev != nil {
+		if err := validateCIDType(*c.Prev); err != nil {
+			return fmt.Errorf("invalid commit prev CID: %s", c.Prev)
+		}
 	}
 	return nil
 }
