@@ -114,6 +114,9 @@ func (d *NodeData) Node(c *cid.Cid) (Node, error) {
 		key := []byte{}
 		key = append(key, prevKey[:e.PrefixLen]...)
 		key = append(key, e.KeySuffix...)
+		if !IsValidKey(key) {
+			return n, fmt.Errorf("%w: invalid MST key: %s", ErrInvalidTree, key)
+		}
 		n.Entries = append(n.Entries, NodeEntry{
 			Key:   key,
 			Value: &e.Value,
