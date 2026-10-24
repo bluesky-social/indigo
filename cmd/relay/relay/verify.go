@@ -35,8 +35,22 @@ const MaxCommitOps = 200
 // `prevRepo` arg represents previous state, and is optional/nullable.
 // `hostname` arg is piped through just for logging, not for validating account/host match
 // returns an AccountRepo with empty UID, containing metadata about *this* commit
-func (r *Relay) VerifyRepoCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit, ident *identity.Identity, prevRepo *models.AccountRepo, hostname string) (*models.AccountRepo, error) {
+func (r *Relay) VerifyRepoCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit, ident *identity.Identity, prevRepo *models.AccountRepo, hostname string) (ret *models.AccountRepo, rerr error) {
 	logger := r.Logger.With("host", hostname, "did", evt.Repo, "rev", evt.Rev)
+
+	// handle any panics that arise while processing commit blocks (eg, in MST code)
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("recovered panic verifying repo commit", "err", r)
+			var ok bool
+			rerr, ok = r.(error)
+			if ok {
+				rerr = fmt.Errorf("processing repo commit: %w", rerr)
+			} else {
+				rerr = fmt.Errorf("processing repo commit: %v", r)
+			}
+		}
+	}()
 
 	if len(evt.Blocks) > MaxMessageBlocksBytes {
 		return nil, fmt.Errorf("blocks size (%d bytes) exceeds protocol limit", len(evt.Blocks))
