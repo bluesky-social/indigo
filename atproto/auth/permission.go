@@ -30,6 +30,15 @@ type Permission struct {
 	Collection []string `json:"collection,omitempty"`
 	Endpoint   []string `json:"lxm,omitempty"`
 	NSID       string   `json:"nsid,omitempty"`
+
+	// Space defaults are interpreted by consumers, not expanded by parsing:
+	// authority=self, skey=*, action=read/create/update/delete, manage=none.
+	// An omitted collection uses the space declaration's current collections;
+	// for spaceType=* it has no default write targets.
+	SpaceType string   `json:"spaceType,omitempty"`
+	Authority string   `json:"authority,omitempty"`
+	SpaceKey  string   `json:"skey,omitempty"`
+	Manage    []string `json:"manage,omitempty"`
 }
 
 // Renders a permission as a permission scope string.
@@ -82,6 +91,23 @@ func (p *Permission) ScopeString() string {
 		}
 		if p.Audience != "" {
 			params.Set("aud", p.Audience)
+		}
+	case "space":
+		positional = p.SpaceType
+		if p.Authority != "" {
+			params.Set("authority", p.Authority)
+		}
+		if p.SpaceKey != "" {
+			params.Set("skey", p.SpaceKey)
+		}
+		if len(p.Collection) > 0 {
+			params["collection"] = p.Collection
+		}
+		if len(p.Action) > 0 {
+			params["action"] = p.Action
+		}
+		if len(p.Manage) > 0 {
+			params["manage"] = p.Manage
 		}
 	default:
 		return ""
@@ -280,6 +306,70 @@ func ParsePermissionString(scope string) (*Permission, error) {
 		}
 		if p.Audience != "*" && !validServiceRef(p.Audience) {
 			return nil, ErrInvalidPermissionParams
+		}
+	case "space":
+		for k := range g.Params {
+			if !(k == "spaceType" || k == "authority" || k == "skey" || k == "collection" || k == "action" || k == "manage") {
+				return nil, fmt.Errorf("%w: unsupported 'space' param: %s", ErrInvalidPermissionParams, k)
+			}
+		}
+		p.SpaceType, err = url.PathUnescape(g.Positional)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrInvalidPermissionSyntax, err)
+		}
+		if g.Params.Has("spaceType") {
+			if g.Positional != "" || len(g.Params["spaceType"]) != 1 {
+				return nil, ErrInvalidPermissionParams
+			}
+			p.SpaceType = g.Params.Get("spaceType")
+		}
+		if p.SpaceType != "*" {
+			if _, err := syntax.ParseNSID(p.SpaceType); err != nil {
+				return nil, fmt.Errorf("%w: %w", ErrInvalidPermissionParams, err)
+			}
+		}
+		if g.Params.Has("authority") {
+			if len(g.Params["authority"]) != 1 || g.Params.Get("authority") == "" {
+				return nil, ErrInvalidPermissionParams
+			}
+			p.Authority = g.Params.Get("authority")
+		}
+		if !(p.Authority == "" || p.Authority == "*" || p.Authority == "self") {
+			if _, err := syntax.ParseDID(p.Authority); err != nil {
+				return nil, fmt.Errorf("%w: %w", ErrInvalidPermissionParams, err)
+			}
+		}
+		if g.Params.Has("skey") {
+			if len(g.Params["skey"]) != 1 || g.Params.Get("skey") == "" {
+				return nil, ErrInvalidPermissionParams
+			}
+			p.SpaceKey = g.Params.Get("skey")
+		}
+		if !(p.SpaceKey == "" || p.SpaceKey == "*") {
+			if _, err := syntax.ParseRecordKey(p.SpaceKey); err != nil {
+				return nil, fmt.Errorf("%w: %w", ErrInvalidPermissionParams, err)
+			}
+		}
+		p.Collection = g.Params["collection"]
+		for _, coll := range p.Collection {
+			if coll == "*" {
+				continue
+			}
+			if _, err := syntax.ParseNSID(coll); err != nil {
+				return nil, fmt.Errorf("%w: %w", ErrInvalidPermissionParams, err)
+			}
+		}
+		p.Action = g.Params["action"]
+		for _, act := range p.Action {
+			if act != "read" && act != "read_self" && act != "create" && act != "update" && act != "delete" {
+				return nil, ErrInvalidPermissionParams
+			}
+		}
+		p.Manage = g.Params["manage"]
+		for _, mng := range p.Manage {
+			if mng != "create" && mng != "update" && mng != "delete" {
+				return nil, ErrInvalidPermissionParams
+			}
 		}
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnknownResource, g.Resource)
