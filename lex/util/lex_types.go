@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/ipfs/go-cid"
@@ -16,6 +17,8 @@ const (
 	// and we should pass those limits through and only fall back to this when
 	// undefined.
 	MAX_BYTE_ARRAY_SIZE = 128 * 1024 * 1024
+	// limit on length of CID in string representation (eg, cid-link)
+	MAX_CID_STRING_LEN = 256
 )
 
 type LexLink cid.Cid
@@ -50,7 +53,7 @@ func (ll *LexLink) UnmarshalJSON(raw []byte) error {
 		return xerrors.Errorf("parsing cid-link JSON: %v", err)
 	}
 
-	c, err := cid.Decode(jl.Link)
+	c, err := parseCIDString(jl.Link)
 	if err != nil {
 		return xerrors.Errorf("parsing cid-link CID: %v", err)
 	}
@@ -198,7 +201,7 @@ func (b *LexBlob) UnmarshalJSON(raw []byte) error {
 		if err != nil {
 			return xerrors.Errorf("parsing legacy blob: %v", err)
 		}
-		refCid, err := cid.Decode(legacy.Cid)
+		refCid, err := parseCIDString(legacy.Cid)
 		if err != nil {
 			return xerrors.Errorf("parsing CID in legacy blob: %v", err)
 		}
@@ -256,7 +259,7 @@ func (lb *LexBlob) UnmarshalCBOR(r io.Reader) error {
 		if err != nil {
 			return xerrors.Errorf("parsing legacy blob CBOR: %v", err)
 		}
-		refCid, err := cid.Decode(legacy.Cid)
+		refCid, err := parseCIDString(legacy.Cid)
 		if err != nil {
 			return xerrors.Errorf("parsing CID in legacy blob CBOR: %v", err)
 		}
@@ -266,4 +269,12 @@ func (lb *LexBlob) UnmarshalCBOR(r io.Reader) error {
 	}
 
 	return nil
+}
+
+// helper to more safely parse CIDs from string format
+func parseCIDString(s string) (cid.Cid, error) {
+	if len(s) > MAX_CID_STRING_LEN {
+		return cid.Undef, fmt.Errorf("CID string too long (%d)", len(s))
+	}
+	return cid.Decode(s)
 }
