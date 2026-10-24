@@ -54,9 +54,9 @@ func (ll *CIDLink) UnmarshalJSON(raw []byte) error {
 		return fmt.Errorf("parsing cid-link JSON: %v", err)
 	}
 
-	c, err := cid.Decode(jl.Link)
+	c, err := parseCIDString(jl.Link)
 	if err != nil {
-		return fmt.Errorf("parsing cid-link CID: %v", err)
+		return fmt.Errorf("parsing cid-link object: %w", err)
 	}
 	*ll = CIDLink(c)
 	return nil
@@ -85,4 +85,12 @@ func (ll *CIDLink) UnmarshalCBOR(r io.Reader) error {
 	}
 	*ll = CIDLink(c)
 	return nil
+}
+
+// helper to more safely parse CIDs from string format
+func parseCIDString(s string) (cid.Cid, error) {
+	if len(s) > MAX_CID_STRING_LEN {
+		return cid.Undef, fmt.Errorf("CID string too long (%d)", len(s))
+	}
+	return cid.Decode(s)
 }
