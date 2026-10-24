@@ -79,7 +79,7 @@ func resolveLexiconJSON(ctx context.Context, dir identity.Directory, nsid syntax
 func fetchRecordJSON(ctx context.Context, ident identity.Identity, aturi syntax.ATURI, httpClient *http.Client) (json.RawMessage, error) {
 
 	client := atclient.NewAPIClient(ident.PDSEndpoint())
-	if client != nil {
+	if httpClient != nil {
 		client.Client = httpClient
 	} else {
 		client.Client = &http.Client{
