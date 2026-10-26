@@ -95,7 +95,7 @@ func ParsePrivateMultibase(encoded string) (PrivateKeyExportable, error) {
 		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
 	}
 	if len(encoded) > MaxMultibaseStringLength {
-		return nil, fmt.Errorf("crypto: multibase public key string too long (%d)", len(encoded))
+		return nil, fmt.Errorf("crypto: multibase private key string too long (%d)", len(encoded))
 	}
 	data, err := base58.Decode(encoded[1:])
 	if err != nil {
