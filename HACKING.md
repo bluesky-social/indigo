@@ -24,7 +24,7 @@ Packages:
     - `api/chat`: generated types for `chat.bsky` lexicon
     - `api/ozone`: generated types for `tools.ozone` lexicon
 - `atproto/atcrypto`: cryptographic helpers (signing, key generation and serialization)
-- `atproto/atcrypto/lthash`: set-oriented incremental hash used by Spaces
+- `atproto/spaces/lthash`: set-oriented incremental hash used by Spaces
 - `atproto/syntax`: string types and parsers for identifiers, datetimes, etc
 - `atproto/identity`: DID and handle resolution
 - `atproto/atdata`: helpers for atproto data as JSON or CBOR with unknown schema
