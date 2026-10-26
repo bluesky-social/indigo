@@ -44,7 +44,7 @@ func (r *Relay) VerifyRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 		if rec := recover(); rec != nil {
 			logger.Error("recovered panic verifying repo commit", "panic", rec, "stack", string(debug.Stack()))
 			ret = nil
-			rerr = fmt.Errorf("panic verifying repo commit: %v", r)
+			rerr = fmt.Errorf("panic verifying repo commit: %v", rec)
 		}
 	}()
 
@@ -195,7 +195,7 @@ func (r *Relay) VerifyRepoSync(ctx context.Context, evt *comatproto.SyncSubscrib
 		if rec := recover(); rec != nil {
 			logger.Error("recovered panic verifying repo sync", "panic", rec, "stack", string(debug.Stack()))
 			ret = nil
-			rerr = fmt.Errorf("panic verifying repo sync: %v", r)
+			rerr = fmt.Errorf("panic verifying repo sync: %v", rec)
 		}
 	}()
 
