@@ -70,11 +70,15 @@ func verifyBlockIntegrity(data []byte, expected cid.Cid) error {
 // VerifyRecord checks a record's CIDv1/DAG-CBOR/SHA-256 profile, content digest,
 // and canonical atproto data-model encoding. It does not check a Lexicon schema
 // or establish that the record belongs to a particular repo; VerifyRepo binds
-// records to an authenticated index.
+// the complete record set to an authenticated commit.
 func VerifyRecord(data []byte, expected cid.Cid) error {
 	if err := verifyBlockIntegrity(data, expected); err != nil {
 		return err
 	}
+	return validateRecordData(data)
+}
+
+func validateRecordData(data []byte) error {
 	obj, err := atdata.UnmarshalCBOR(data)
 	if err != nil {
 		return fmt.Errorf("invalid Spaces record data: %w", err)

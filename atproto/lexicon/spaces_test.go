@@ -194,12 +194,11 @@ func TestLexiconSpaceAddressFormats(t *testing.T) {
 			t.Fatalf("space format not recognized: %s: %v", format, err)
 		}
 		valid := []string{ref}
-		invalid := []string{"https://example.com", ref + "/did:plc:author", ref + "/did:plc:author/org.other.post", record + "/extra", strings.Replace(record, "org.other.post", "invalid", 1)}
+		invalid := []string{"https://example.com", ref + "/", record + "/extra", strings.Replace(record, "org.other.post", "invalid", 1)}
 		if format == "at-uri" {
-			valid = []string{record, "at://author.example", "at://did:plc:author/org.other.post/record"}
-			invalid = append(invalid, ref)
+			valid = []string{ref, ref + "/did:plc:author", ref + "/did:plc:author/org.other.post", record, "at://author.example", "at://did:plc:author/org.other.post/record"}
 		} else {
-			invalid = append(invalid, record, "at://author.example/org.other.post/record")
+			invalid = append(invalid, ref+"/did:plc:author", ref+"/did:plc:author/org.other.post", record, "at://author.example/org.other.post/record")
 		}
 		for _, raw := range valid {
 			if err := schema.Validate(raw, 0); err != nil {

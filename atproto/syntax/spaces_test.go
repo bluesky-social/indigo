@@ -59,8 +59,8 @@ func TestSpaceAddressComponentsAndText(t *testing.T) {
 	if err := decodedRef.UnmarshalText([]byte("https://example.com")); err == nil || decodedRef != ref {
 		t.Fatal("invalid reference text mutated destination")
 	}
-	if err := decodedURI.UnmarshalText(refText); err == nil || decodedURI != uri {
-		t.Fatal("incomplete URI text mutated destination")
+	if err := decodedURI.UnmarshalText([]byte("https://example.com")); err == nil || decodedURI != uri {
+		t.Fatal("invalid URI text mutated destination")
 	}
 }
 
@@ -85,9 +85,9 @@ func TestSpaceRefRejectsMalformedAndRecordAddresses(t *testing.T) {
 	}
 }
 
-func TestSpaceURIRequiresEveryValidatedRecordComponent(t *testing.T) {
+func TestSpaceURIValidatesEveryPresentComponent(t *testing.T) {
 	invalid := []string{
-		"", testSpaceRef, testSpaceRef + "/did:plc:author", testSpaceRef + "/did:plc:author/org.other.post",
+		"", testSpaceRef + "/", testSpaceRef + "/did:plc:author/",
 		testSpaceRef + "/did:plc:author/org.other.post/", testSpaceURI + "/extra",
 		strings.Replace(testSpaceURI, "did:plc:authority", "authority.example", 1),
 		strings.Replace(testSpaceURI, "did:plc:author/", "author.example/", 1),
@@ -113,5 +113,28 @@ func TestSpaceURIRequiresEveryValidatedRecordComponent(t *testing.T) {
 	}
 	if _, err := syntax.ParseATURI(testSpaceURI); err == nil {
 		t.Fatal("public ATURI parser accepted a Spaces URI")
+	}
+}
+
+func TestSpaceURIAcceptsSpaceAndRepositoryPrefixes(t *testing.T) {
+	for _, suffix := range []string{"", "/did:plc:author", "/did:plc:author/org.other.post", "/did:plc:author/org.other.post/record"} {
+		raw := testSpaceRef + suffix
+		uri, err := syntax.ParseSpaceURI(raw)
+		if err != nil || uri.String() != raw || uri.SpaceRef().String() != testSpaceRef {
+			t.Fatalf("valid space URI prefix rejected: %q: %v", raw, err)
+		}
+		var decoded syntax.SpaceURI
+		if err := decoded.UnmarshalText([]byte(raw)); err != nil || decoded != uri {
+			t.Fatalf("space URI prefix text roundtrip: %q: %v", decoded, err)
+		}
+		if suffix == "" && (uri.Repo() != "" || uri.Collection() != "" || uri.RecordKey() != "") {
+			t.Fatal("space-only URI contains record components")
+		}
+		if suffix == "/did:plc:author" && (uri.Repo() != "did:plc:author" || uri.Collection() != "" || uri.RecordKey() != "") {
+			t.Fatal("repository prefix has wrong components")
+		}
+		if suffix == "/did:plc:author/org.other.post" && (uri.Repo() != "did:plc:author" || uri.Collection() != "org.other.post" || uri.RecordKey() != "") {
+			t.Fatal("collection prefix has wrong components")
+		}
 	}
 }

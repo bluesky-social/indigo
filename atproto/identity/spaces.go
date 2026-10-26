@@ -2,84 +2,51 @@ package identity
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// A recognizable but invalid dedicated ID must not turn into an absent entry.
-func isSpaceDeclaration(id, fragment string) bool {
-	_, frag, found := strings.Cut(id, "#")
-	return (found && frag == fragment) || id == fragment
+// Keep recognizable malformed declarations so they cannot become trusted keys
+// when an identity is serialized or converted back to a DID document.
+func isKEMDeclaration(id string) bool {
+	_, fragment, found := strings.Cut(id, "#")
+	return (found && fragment == "atproto_kem") || id == "atproto_kem"
 }
 
-func (i *Identity) validSpaceDeclarationID(id, fragment string) bool {
+// KEMPublicKey returns the author's dedicated P-256 #atproto_kem public key.
+// The declaration must use its full DID URL, the author's controller DID, and
+// the Multikey type. ParseIdentity preserves this declaration for validation.
+// Keys alone do not preserve its ID and controller and are not sufficient.
+// This method never falls back to the account's signing key.
+func (i *Identity) KEMPublicKey() (*atcrypto.PublicKeyP256, error) {
 	if _, err := syntax.ParseDID(i.DID.String()); err != nil {
-		return false
+		return nil, fmt.Errorf("invalid KEM identity DID: %w", err)
 	}
-	return id == "#"+fragment || id == i.DID.String()+"#"+fragment
-}
-
-// SpacePublicKey selects #atproto_space, falling back to #atproto only when
-// the dedicated declaration is absent. Malformed and duplicate declarations
-// are errors, including declarations discarded by the general identity parser.
-func (i *Identity) SpacePublicKey() (atcrypto.PublicKey, error) {
-	if len(i.SpaceKeyDeclarations) > 0 {
-		if len(i.SpaceKeyDeclarations) != 1 {
-			return nil, fmt.Errorf("duplicate #atproto_space key declarations")
-		}
-		vm := i.SpaceKeyDeclarations[0]
-		if !i.validSpaceDeclarationID(vm.ID, "atproto_space") {
-			return nil, fmt.Errorf("invalid #atproto_space key id: %s", vm.ID)
-		}
-		if vm.Controller != i.DID.String() {
-			return nil, fmt.Errorf("#atproto_space key controller does not match identity DID")
-		}
-		return parsePublicKey(VerificationMethod{Type: vm.Type, PublicKeyMultibase: vm.PublicKeyMultibase})
+	if len(i.KEMKeyDeclarations) == 0 {
+		return nil, ErrKeyNotDeclared
 	}
-	if _, ok := i.Keys["atproto_space"]; ok {
-		return i.GetPublicKey("atproto_space")
+	if len(i.KEMKeyDeclarations) != 1 {
+		return nil, fmt.Errorf("duplicate #atproto_kem key declarations")
 	}
-	return i.PublicKey()
-}
-
-// SpaceHostEndpoint selects #atproto_space_host, falling back to #atproto_pds
-// only when the dedicated declaration is absent. Dedicated hosts must have
-// type AtprotoSpaceHost and an absolute HTTP(S) endpoint. Public PDS endpoint
-// parsing is unchanged.
-func (i *Identity) SpaceHostEndpoint() (string, error) {
-	var endpoint ServiceEndpoint
-	if len(i.SpaceHostDeclarations) > 0 {
-		if len(i.SpaceHostDeclarations) != 1 {
-			return "", fmt.Errorf("duplicate #atproto_space_host service declarations")
-		}
-		svc := i.SpaceHostDeclarations[0]
-		if !i.validSpaceDeclarationID(svc.ID, "atproto_space_host") {
-			return "", fmt.Errorf("invalid #atproto_space_host service id: %s", svc.ID)
-		}
-		endpoint = ServiceEndpoint{Type: svc.Type, URL: svc.ServiceEndpoint}
-	} else {
-		var ok bool
-		endpoint, ok = i.Services["atproto_space_host"]
-		if !ok {
-			pds := i.PDSEndpoint()
-			if pds == "" {
-				return "", fmt.Errorf("space host and fallback PDS endpoint not declared or invalid")
-			}
-			return pds, nil
-		}
+	vm := i.KEMKeyDeclarations[0]
+	if vm.ID != i.DID.String()+"#atproto_kem" {
+		return nil, fmt.Errorf("invalid #atproto_kem key id: %s", vm.ID)
 	}
-	if endpoint.Type != "AtprotoSpaceHost" {
-		return "", fmt.Errorf("invalid #atproto_space_host service type: %s", endpoint.Type)
+	if vm.Controller != i.DID.String() {
+		return nil, fmt.Errorf("#atproto_kem key controller does not match identity DID")
 	}
-	u, err := url.Parse(endpoint.URL)
+	if vm.Type != "Multikey" {
+		return nil, fmt.Errorf("#atproto_kem key must have type Multikey")
+	}
+	key, err := atcrypto.ParsePublicMultibase(vm.PublicKeyMultibase)
 	if err != nil {
-		return "", fmt.Errorf("invalid #atproto_space_host endpoint: %w", err)
+		return nil, fmt.Errorf("invalid #atproto_kem key: %w", err)
 	}
-	if (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.Opaque != "" {
-		return "", fmt.Errorf("#atproto_space_host endpoint must be an absolute HTTP(S) URL")
+	p256, ok := key.(*atcrypto.PublicKeyP256)
+	if !ok {
+		return nil, fmt.Errorf("#atproto_kem key must use P-256")
 	}
-	return endpoint.URL, nil
+	return p256, nil
 }

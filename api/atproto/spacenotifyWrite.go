@@ -12,8 +12,8 @@ import (
 
 // SpaceNotifyWrite_Input is the input argument to a com.atproto.space.notifyWrite call.
 type SpaceNotifyWrite_Input struct {
-	// hash: The repo's current commit hash (sha256 of the LtHash state) after the write. Lets the space host maintain each repo's hash for listRepos.
-	Hash lexutil.LexBytes `json:"hash" cborgen:"hash"`
+	// data: The repo's current commit data (sha256 of the LtHash state) after the write. Lets the space host maintain each repo's commit data for listRepos.
+	Data lexutil.LexBytes `json:"data" cborgen:"data"`
 	// prevSpaceRev: The previous space revision. Omitted on the first update in a space. A gap indicates missed notifications; recover using listRepos with cursor.
 	PrevSpaceRev *string `json:"prevSpaceRev,omitempty" cborgen:"prevSpaceRev,omitempty"`
 	// repo: The DID of the account whose repo advanced.

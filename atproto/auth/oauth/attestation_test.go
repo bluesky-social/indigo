@@ -31,7 +31,7 @@ func TestClientAttestationIdentityAudienceAndFreshness(t *testing.T) {
 			t.Fatal(err)
 		}
 		claims := &jwt.RegisteredClaims{}
-		token, err := jwt.ParseWithClaims(raw, claims, func(token *jwt.Token) (any, error) { return pub, nil }, jwt.WithValidMethods([]string{"ES256"}), jwt.WithIssuer(cfg.ClientID), jwt.WithSubject(cfg.ClientID), jwt.WithAudience("did:plc:authority#atproto_space_host"), jwt.WithExpirationRequired())
+		token, err := jwt.ParseWithClaims(raw, claims, func(token *jwt.Token) (any, error) { return pub, nil }, jwt.WithValidMethods([]string{"ES256"}), jwt.WithIssuer(cfg.ClientID), jwt.WithSubject(cfg.ClientID), jwt.WithAudience("did:plc:authority#atproto_pds"), jwt.WithExpirationRequired())
 		if err != nil {
 			t.Fatal(err)
 		}

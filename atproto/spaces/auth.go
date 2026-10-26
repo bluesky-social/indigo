@@ -81,55 +81,23 @@ type credentialAuth struct {
 var _ atclient.AuthMethod = (*credentialAuth)(nil)
 
 // DoWithAuth implements [atclient.AuthMethod] for a space credential. It signs
-// the request for the credential's audience DID.
+// the authorization value and audience with the protocol's required tag.
 func (a *credentialAuth) DoWithAuth(c *http.Client, req *http.Request, endpoint syntax.NSID) (*http.Response, error) {
-	authorization := "Atproto-Space " + a.credential.token
-	params := `("authorization" "atproto-space-audience")`
-	// RFC 9421 components are ordered exactly as in the proposal, separated by
-	// actual newlines (not the two literal characters backslash and n).
+	authorization := "Atproto-Space-Credential " + a.credential.token
+	const params = `("authorization" "atproto-space-audience");tag="atproto-space-credential"`
 	base := "\"authorization\": " + authorization + "\n\"atproto-space-audience\": " + a.audience.String() + "\n\"@signature-params\": " + params
-	if err := signRequest(req, a.credential.signer, authorization, params, base); err != nil {
-		return nil, err
-	}
-	req.Header.Set("Atproto-Space-Audience", a.audience.String())
-	return c.Do(req)
-}
-
-type delegationAuth struct {
-	token  string
-	signer atcrypto.PrivateKey
-	keyID  string
-}
-
-var _ atclient.AuthMethod = (*delegationAuth)(nil)
-
-// DoWithAuth implements [atclient.AuthMethod] for the delegation-token exchange.
-// It signs the Authorization header and removes any unrelated audience header.
-func (a *delegationAuth) DoWithAuth(c *http.Client, req *http.Request, endpoint syntax.NSID) (*http.Response, error) {
-	authorization := "Bearer " + a.token
-	params := `("authorization");keyid="` + a.keyID + `"`
-	base := "\"authorization\": " + authorization + "\n\"@signature-params\": " + params
-	if err := signRequest(req, a.signer, authorization, params, base); err != nil {
-		return nil, err
-	}
-	// Exchange covers only Authorization, even when client defaults contain
-	// an audience header from an unrelated request.
-	req.Header.Del("Atproto-Space-Audience")
-	return c.Do(req)
-}
-
-func signRequest(req *http.Request, signer atcrypto.PrivateKey, authorization, params, base string) error {
-	sig, err := signer.HashAndSign([]byte(base))
+	sig, err := a.credential.signer.HashAndSign([]byte(base))
 	if err != nil {
-		return fmt.Errorf("signing space authorization: %w", err)
+		return nil, fmt.Errorf("signing space authorization: %w", err)
 	}
 	if len(sig) != 64 {
-		return fmt.Errorf("space HTTP signature must be 64 bytes, got %d", len(sig))
+		return nil, fmt.Errorf("space HTTP signature must be 64 bytes, got %d", len(sig))
 	}
 	req.Header.Set("Authorization", authorization)
-	req.Header.Set("Signature-Input", "atproto-space="+params)
-	req.Header.Set("Signature", "atproto-space=:"+base64.StdEncoding.EncodeToString(sig)+":")
-	return nil
+	req.Header.Set("Atproto-Space-Audience", a.audience.String())
+	req.Header.Set("Signature-Input", "atproto-space-credential="+params)
+	req.Header.Set("Signature", "atproto-space-credential=:"+base64.StdEncoding.EncodeToString(sig)+":")
+	return c.Do(req)
 }
 
 // GetDelegationToken explicitly obtains a short-lived delegation through an
@@ -145,8 +113,8 @@ func GetDelegationToken(ctx context.Context, pds lexutil.LexClient, ref syntax.S
 // ExchangeCredential issues a new credential using the caller's fresh signer.
 // Existing credentials and handles are unchanged. No renewal is scheduled.
 func (c *Client) ExchangeCredential(ctx context.Context, ref syntax.SpaceRef, delegationToken string, signer atcrypto.PrivateKey, opts CredentialExchangeOptions) (*Credential, error) {
-	if delegationToken == "" || strings.ContainsAny(delegationToken, "\r\n") {
-		return nil, fmt.Errorf("delegation token is empty or contains a newline")
+	if strings.ContainsAny(delegationToken, "\r\n") {
+		return nil, fmt.Errorf("delegation token contains a newline")
 	}
 	keyID, err := credentialKeyID(signer)
 	if err != nil {
@@ -156,9 +124,21 @@ func (c *Client) ExchangeCredential(ctx context.Context, ref syntax.SpaceRef, de
 	if err != nil {
 		return nil, err
 	}
-	rpc := c.apiClient(host, &delegationAuth{token: delegationToken, signer: signer, keyID: keyID})
+	rpc := c.apiClient(host, nil)
+	// Issuance is unauthenticated at the HTTP layer. Assertions and the key to
+	// bind are explicit body fields, including when no assertion is required.
+	rpc.Headers = rpc.Headers.Clone()
+	rpc.Headers.Del("Authorization")
+	rpc.Headers.Del("Signature-Input")
+	rpc.Headers.Del("Signature")
+	rpc.Headers.Del("Atproto-Space-Audience")
+	var delegation *string
+	if delegationToken != "" {
+		delegation = &delegationToken
+	}
 	out, err := comatproto.SpaceGetSpaceCredential(ctx, rpc, &comatproto.SpaceGetSpaceCredential_Input{
-		Space: ref.String(), ClientAttestation: opts.ClientAttestation,
+		Space: ref.String(), CredentialKid: keyID, DelegationToken: delegation,
+		ClientAttestation: opts.ClientAttestation,
 	})
 	if err != nil {
 		return nil, err

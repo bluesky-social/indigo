@@ -196,8 +196,6 @@ func (gen *CodeGenerator) WriteType(ft *FlatType) error {
 		// pass; we only generate message types, not overall subscription
 	case lexicon.SchemaPermissionSet, lexicon.SchemaPermission, lexicon.SchemaSpace:
 		// pass for Go codegen
-	case lexicon.SchemaSpace:
-		// pass for Go codegen
 	case lexicon.SchemaToken:
 		// TODO: pass for now; could be a var/const?
 	case lexicon.SchemaString, lexicon.SchemaInteger, lexicon.SchemaBoolean, lexicon.SchemaUnknown:

@@ -2,6 +2,7 @@ package spaces
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -20,10 +21,6 @@ type ClientOptions struct {
 type ListReposOptions struct {
 	Cursor *string
 	Limit  *int64
-}
-
-type GetRepoOptions struct {
-	ExcludeValues *bool
 }
 
 type ListOpsOptions struct {
@@ -62,7 +59,7 @@ type RepoInfo struct {
 	Author   syntax.DID
 	RepoRev  syntax.TID
 	SpaceRev syntax.TID
-	Hash     [32]byte
+	Data     [32]byte
 }
 
 type OpsPage struct {
@@ -84,8 +81,9 @@ type Operation struct {
 	Value      json.RawMessage
 }
 
-// Record contains the returned complete Spaces record address and unmodified
-// JSON value. Retrieval does not verify the record against its CID.
+// Record contains a MAC-authenticated complete record address and CID, plus
+// unmodified JSON. Call VerifyRecord on the value's canonical DAG-CBOR before
+// accepting its content; the MAC authenticates the CID, not arbitrary JSON.
 type Record struct {
 	URI   syntax.SpaceURI
 	CID   cid.Cid
@@ -107,4 +105,11 @@ type RecordEntry struct {
 type BlobPage struct {
 	CIDs   []cid.Cid
 	Cursor *string
+}
+
+// RepoDownload is a caller-owned STAR stream. Authentication belongs to this
+// response only and must be supplied to VerifyRepo along with the expected repo.
+type RepoDownload struct {
+	io.ReadCloser
+	Authentication *MACVerification
 }

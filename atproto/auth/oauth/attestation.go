@@ -26,7 +26,7 @@ func (cfg *ClientConfig) NewClientAttestation(authority syntax.DID) (string, err
 	token := jwt.NewWithClaims(method, jwt.RegisteredClaims{
 		Issuer:    cfg.ClientID,
 		Subject:   cfg.ClientID,
-		Audience:  jwt.ClaimStrings{authority.String() + "#atproto_space_host"},
+		Audience:  jwt.ClaimStrings{authority.String() + "#atproto_pds"},
 		IssuedAt:  jwt.NewNumericDate(now),
 		ExpiresAt: jwt.NewNumericDate(now.Add(60 * time.Second)),
 		ID:        secureRandomBase64(16),

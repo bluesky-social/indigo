@@ -13,8 +13,8 @@ import (
 
 // SpaceListRepoOps_Output is the output of a com.atproto.space.listRepoOps call.
 type SpaceListRepoOps_Output struct {
-	// commit: The account's current signed commit. Included when the response reaches the head of the oplog; omitted on backfill responses.
-	Commit *SpaceDefs_SignedCommit `json:"commit,omitempty" cborgen:"commit,omitempty"`
+	// commit: The account's current commit. Included when the response reaches the head of the oplog; omitted on backfill responses.
+	Commit *SpaceDefs_Commit `json:"commit,omitempty" cborgen:"commit,omitempty"`
 	// cursor: Pass as `cursor` to fetch the next page. Absent once the response reaches the head of the oplog.
 	Cursor *string                    `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Ops    []SpaceListRepoOps_OpEntry `json:"ops" cborgen:"ops"`
@@ -22,7 +22,7 @@ type SpaceListRepoOps_Output struct {
 
 // SpaceListRepoOps calls the XRPC method "com.atproto.space.listRepoOps".
 //
-// List the operation log for an account's permissioned repo within a space, returning operations after a given revision. Primary incremental sync mechanism. By default each created or updated operation inlines the record's current value; set excludeValues for metadata-only entries. Note the oplog is a transport optimization with no history guarantee: a host may compact it or drop it, and it does not survive account migration, so omitting `since` returns the retained window rather than the repo's full history. Use getRepo for an initial sync or when a `since` revision is no longer available. Callable with either OAuth (for the authenticated user's own data) or a space credential (for syncing services).
+// List the operation log for an account's permissioned repo within a space, returning operations after a given revision. Primary incremental sync mechanism. By default each created or updated operation inlines the record's current value; set excludeValues for metadata-only entries. Note the oplog is a transport optimization with no history guarantee: a host may compact it or drop it, and it does not survive account migration, so omitting `since` returns the retained window rather than the repo's full history. Use getRepo for an initial sync or when a `since` revision is no longer available. Callable with either OAuth (for the authenticated user's own data) or a space credential (for syncing services). When called with a space credential, the caller must send an Atproto-Space-Want-Mac header, and a response that includes the commit carries its MAC in the Atproto-Space-Mac response header.
 //
 // cursor: Opaque pagination cursor from a previous response. Takes precedence over `since` when both are supplied.
 // excludeValues: If true, omit inlined record values and return only operation metadata.

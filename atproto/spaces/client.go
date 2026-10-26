@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atclient"
@@ -68,9 +67,9 @@ func (c *Client) ResolveSpaceHost(ctx context.Context, ref syntax.SpaceRef) (str
 	if err != nil {
 		return "", err
 	}
-	host, err := ident.SpaceHostEndpoint()
-	if err != nil {
-		return "", fmt.Errorf("resolving space host for %s: %w", ref, err)
+	host := ident.PDSEndpoint()
+	if host == "" {
+		return "", fmt.Errorf("space authority does not declare a PDS host: %s", ref.SpaceAuthority())
 	}
 	return host, nil
 }
@@ -115,16 +114,36 @@ func (s *Space) authenticatedClient(ctx context.Context) (*atclient.APIClient, e
 }
 
 func (r *Repo) authenticatedClient(ctx context.Context) (*atclient.APIClient, error) {
+	rpc, _, err := r.requestClient(ctx, "")
+	return rpc, err
+}
+
+func (r *Repo) requestClient(ctx context.Context, macType string) (*atclient.APIClient, *macRequest, error) {
 	if r.space.credential == nil || r.space.credential.signer == nil || r.space.credential.token == "" {
-		return nil, ErrMissingCredential
+		return nil, nil, ErrMissingCredential
 	}
-	host, err := r.ResolveHost(ctx)
+	ident, err := r.space.client.directory.LookupDID(ctx, r.author)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	host := ident.PDSEndpoint()
+	if host == "" {
+		return nil, nil, fmt.Errorf("repo account does not declare a PDS host: %s", r.author)
+	}
+	var request *macRequest
+	if macType != "" {
+		key, err := ident.KEMPublicKey()
+		if err != nil {
+			return nil, nil, fmt.Errorf("resolving repo KEM key for %s: %w", r.author, err)
+		}
+		request, err = newMACRequest(key, macType)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	return r.space.client.apiClient(host, &credentialAuth{
 		credential: r.space.credential, audience: r.author,
-	}), nil
+	}), request, nil
 }
 
 func (s *Space) ListRepos(ctx context.Context, opts ListReposOptions) (*RepoPage, error) {
@@ -153,43 +172,54 @@ func (s *Space) ListRepos(ctx context.Context, opts ListReposOptions) (*RepoPage
 		if err != nil {
 			return nil, fmt.Errorf("invalid space discovery revision: %w", err)
 		}
-		if len(entry.Hash) != 32 {
-			return nil, fmt.Errorf("repo discovery hash must be 32 bytes, got %d", len(entry.Hash))
+		if len(entry.Data) != 32 {
+			return nil, fmt.Errorf("repo discovery data must be 32 bytes, got %d", len(entry.Data))
 		}
 		page.Repos[i] = RepoInfo{
-			Author: author, RepoRev: repoRev, SpaceRev: spaceRev, Hash: [32]byte(entry.Hash),
+			Author: author, RepoRev: repoRev, SpaceRev: spaceRev, Data: [32]byte(entry.Data),
 		}
 	}
 	return page, nil
 }
 
-// GetRepo returns an unverified CAR stream. The caller owns and must close the
-// successful stream; failures close their response bodies and retain APIError.
-func (r *Repo) GetRepo(ctx context.Context, opts GetRepoOptions) (io.ReadCloser, error) {
-	rpc, err := r.authenticatedClient(ctx)
+// GetRepo returns a raw STAR stream and its response authentication material.
+// Pass Authentication to VerifyRepo before accepting the archive. The caller
+// owns the successful stream; failures close their bodies and retain APIError.
+func (r *Repo) GetRepo(ctx context.Context) (*RepoDownload, error) {
+	rpc, request, err := r.requestClient(ctx, repoMACType)
 	if err != nil {
 		return nil, err
 	}
-	req := r.streamRequest("com.atproto.space.getRepo", "application/vnd.ipld.car")
-	if opts.ExcludeValues != nil {
-		req.QueryParams.Set("excludeValues", strconv.FormatBool(*opts.ExcludeValues))
+	req := r.streamRequest("com.atproto.space.getRepo", "application/octet-stream")
+	req.Headers.Set(wantMACHeader, request.header)
+	resp, err := doResponse(ctx, rpc, req)
+	if err != nil {
+		return nil, err
 	}
-	return getStream(ctx, rpc, req)
+	authentication, err := request.verification(resp.Header)
+	if err != nil {
+		resp.Body.Close()
+		return nil, err
+	}
+	return &RepoDownload{ReadCloser: resp.Body, Authentication: authentication}, nil
 }
 
 func (r *Repo) ListOps(ctx context.Context, opts ListOpsOptions) (*OpsPage, error) {
-	rpc, err := r.authenticatedClient(ctx)
-	if err != nil {
-		return nil, err
+	req := r.streamRequest("com.atproto.space.listRepoOps", "application/json")
+	// Transport cursors are opaque and take precedence over since revisions.
+	if opts.Cursor != nil {
+		req.QueryParams.Set("cursor", *opts.Cursor)
+	} else if opts.Since != nil {
+		req.QueryParams.Set("since", opts.Since.String())
 	}
-	var since *string
-	// The opaque transport cursor wins even when the explicitly supplied
-	// cursor is empty. It is never interpreted as a repo or space revision.
-	if opts.Cursor == nil && opts.Since != nil {
-		value := opts.Since.String()
-		since = &value
+	if opts.Limit != nil {
+		req.QueryParams.Set("limit", fmt.Sprint(*opts.Limit))
 	}
-	out, err := comatproto.SpaceListRepoOps(ctx, rpc, opts.Cursor, opts.ExcludeValues, opts.Limit, r.author.String(), since, r.space.ref.String())
+	if opts.ExcludeValues != nil {
+		req.QueryParams.Set("excludeValues", fmt.Sprint(*opts.ExcludeValues))
+	}
+	var out comatproto.SpaceListRepoOps_Output
+	request, headers, err := r.getMACJSON(ctx, req, repoMACType, &out)
 	if err != nil {
 		return nil, err
 	}
@@ -225,16 +255,25 @@ func (r *Repo) ListOps(ctx context.Context, opts ListOpsOptions) (*OpsPage, erro
 		if err != nil {
 			return nil, err
 		}
+		authentication, err := request.verification(headers)
+		if err != nil {
+			return nil, err
+		}
+		if err := page.Head.Verify(r.space.ref, r.author, authentication); err != nil {
+			return nil, err
+		}
+	} else if len(headers.Values(responseMACHeader)) != 0 {
+		return nil, fmt.Errorf("operation page without a commit has a MAC header")
 	}
 	return page, nil
 }
 
 func (r *Repo) GetRecord(ctx context.Context, collection syntax.NSID, rkey syntax.RecordKey) (*Record, error) {
-	rpc, err := r.authenticatedClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out, err := comatproto.SpaceGetRecord(ctx, rpc, collection.String(), r.author.String(), rkey.String(), r.space.ref.String())
+	req := r.streamRequest("com.atproto.space.getRecord", "application/json")
+	req.QueryParams.Set("collection", collection.String())
+	req.QueryParams.Set("rkey", rkey.String())
+	var out comatproto.SpaceGetRecord_Output
+	request, headers, err := r.getMACJSON(ctx, req, recordMACType, &out)
 	if err != nil {
 		return nil, err
 	}
@@ -242,9 +281,19 @@ func (r *Repo) GetRecord(ctx context.Context, collection syntax.NSID, rkey synta
 	if err != nil {
 		return nil, fmt.Errorf("invalid returned space record URI: %w", err)
 	}
+	if uri != syntax.NewSpaceURI(r.space.ref, r.author, collection, rkey) {
+		return nil, fmt.Errorf("returned space record URI does not match the request")
+	}
 	recordCID, err := parseRecordCID(out.Cid)
 	if err != nil {
 		return nil, fmt.Errorf("invalid returned record CID: %w", err)
+	}
+	authentication, err := request.verification(headers)
+	if err != nil {
+		return nil, err
+	}
+	if err := verifyRecordMAC(uri, recordCID, authentication); err != nil {
+		return nil, err
 	}
 	return &Record{URI: uri, CID: recordCID, Value: out.Value}, nil
 }
@@ -285,15 +334,24 @@ func (r *Repo) ListRecords(ctx context.Context, opts ListRecordsOptions) (*Recor
 }
 
 func (r *Repo) GetLatestCommit(ctx context.Context) (*Commit, error) {
-	rpc, err := r.authenticatedClient(ctx)
+	req := r.streamRequest("com.atproto.space.getLatestCommit", "application/json")
+	var out comatproto.SpaceGetLatestCommit_Output
+	request, headers, err := r.getMACJSON(ctx, req, repoMACType, &out)
 	if err != nil {
 		return nil, err
 	}
-	out, err := comatproto.SpaceGetLatestCommit(ctx, rpc, r.author.String(), r.space.ref.String())
+	commit, err := commitFromWire(&out.Commit)
 	if err != nil {
 		return nil, err
 	}
-	return commitFromWire(&out.Commit)
+	authentication, err := request.verification(headers)
+	if err != nil {
+		return nil, err
+	}
+	if err := commit.Verify(r.space.ref, r.author, authentication); err != nil {
+		return nil, err
+	}
+	return commit, nil
 }
 
 func (r *Repo) ListBlobs(ctx context.Context, opts ListBlobsOptions) (*BlobPage, error) {
@@ -344,12 +402,20 @@ func (r *Repo) streamRequest(endpoint syntax.NSID, accept string) *atclient.APIR
 }
 
 func getStream(ctx context.Context, rpc *atclient.APIClient, req *atclient.APIRequest) (io.ReadCloser, error) {
+	resp, err := doResponse(ctx, rpc, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Body, nil
+}
+
+func doResponse(ctx context.Context, rpc *atclient.APIClient, req *atclient.APIRequest) (*http.Response, error) {
 	resp, err := rpc.Do(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return resp.Body, nil
+		return resp, nil
 	}
 	defer resp.Body.Close()
 	var body atclient.ErrorBody
@@ -357,6 +423,23 @@ func getStream(ctx context.Context, rpc *atclient.APIClient, req *atclient.APIRe
 		return nil, &atclient.APIError{StatusCode: resp.StatusCode}
 	}
 	return nil, body.APIError(resp.StatusCode)
+}
+
+func (r *Repo) getMACJSON(ctx context.Context, req *atclient.APIRequest, kind string, out any) (*macRequest, http.Header, error) {
+	rpc, request, err := r.requestClient(ctx, kind)
+	if err != nil {
+		return nil, nil, err
+	}
+	req.Headers.Set(wantMACHeader, request.header)
+	resp, err := doResponse(ctx, rpc, req)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer resp.Body.Close()
+	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		return nil, nil, fmt.Errorf("decoding Spaces response: %w", err)
+	}
+	return request, resp.Header, nil
 }
 
 func optionalRecordCID(encoded *string) (*cid.Cid, error) {
@@ -377,16 +460,16 @@ func optionalRawValue(value *json.RawMessage) json.RawMessage {
 	return *value
 }
 
-func commitFromWire(wire *comatproto.SpaceDefs_SignedCommit) (*Commit, error) {
-	if wire.LexiconTypeID != "" && wire.LexiconTypeID != "com.atproto.space.defs#signedCommit" {
+func commitFromWire(wire *comatproto.SpaceDefs_Commit) (*Commit, error) {
+	if wire.LexiconTypeID != "" && wire.LexiconTypeID != "com.atproto.space.defs#commit" {
 		return nil, fmt.Errorf("unexpected space commit type: %s", wire.LexiconTypeID)
 	}
-	if len(wire.Hash) != 32 || len(wire.Ikm) != 32 || len(wire.Mac) != 32 {
-		return nil, fmt.Errorf("space commit hash, IKM, and MAC must each be 32 bytes (got %d, %d, %d)", len(wire.Hash), len(wire.Ikm), len(wire.Mac))
+	if len(wire.Data) != 32 {
+		return nil, fmt.Errorf("space commit data must be 32 bytes (got %d)", len(wire.Data))
 	}
 	commit := &Commit{
-		Version: wire.Ver, Hash: [32]byte(wire.Hash), IKM: [32]byte(wire.Ikm),
-		MAC: [32]byte(wire.Mac), Signature: wire.Sig, Revision: syntax.TID(wire.Rev),
+		Version: wire.Ver, Data: [32]byte(wire.Data), Repo: syntax.DID(wire.Repo),
+		Space: syntax.SpaceRef(wire.Space), Revision: syntax.TID(wire.Rev),
 	}
 	if err := commit.validate(); err != nil {
 		return nil, err

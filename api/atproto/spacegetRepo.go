@@ -13,18 +13,14 @@ import (
 
 // SpaceGetRepo calls the XRPC method "com.atproto.space.getRepo".
 //
-// Download an account's permissioned repo within a space as a CAR file, for full-state recovery. The CAR declares two roots in order: the signed commit, then a DRISL (DAG-CBOR) index mapping '{collection}/{rkey}' to record CID. Record blocks follow, in the same canonical DAG-CBOR key order as the index (length-first, then bytewise). Blobs are not included and are fetched separately via getBlob. Served by a repo host. Callable with either OAuth (for the authenticated user's own data) or a space credential (for syncing services).
+// Download an account's permissioned repo within a space as a STAR file, for full-state recovery. The archive's metadata is the repo's commit; each key/value pair is a record path ('{collection}/{rkey}') and the record's DRISL encoding, in strict lexicographic order of the path. Blobs are not included and are fetched separately via getBlob. Served by a repo host. Callable with either OAuth (for the authenticated user's own data) or a space credential (for syncing services). When called with a space credential, the caller must send an Atproto-Space-Want-Mac header, and the commit's MAC is returned in the Atproto-Space-Mac response header.
 //
-// excludeValues: If true, omit the record blocks and return only the commit and index roots. The index is still fully authenticated by folding its entries into a set hash and comparing against the commit, so a syncer can diff it against a local copy and fetch just the records it lacks. Note the resulting CAR declares two roots and carries no non-root blocks.
 // repo: The DID of the account whose repo to download.
 // space: Reference to the space.
-func SpaceGetRepo(ctx context.Context, c lexutil.LexClient, excludeValues *bool, repo string, space string) ([]byte, error) {
+func SpaceGetRepo(ctx context.Context, c lexutil.LexClient, repo string, space string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
-	if excludeValues != nil {
-		params["excludeValues"] = *excludeValues
-	}
 	params["repo"] = repo
 	params["space"] = space
 

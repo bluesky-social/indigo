@@ -7,9 +7,9 @@ is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- Add draft permissioned Spaces syntax, authority resolution, OAuth scope and Lexicon permission/schema support.
-- Add immutable `atproto/spaces` read handles, explicit credential exchange, HTTP Message Signatures, notification authentication, paged reads, and caller-owned CAR/blob streams with named protocol errors.
-- Add `atproto/atcrypto/lthash`, protocol commit JSON/CBOR codecs, corrected commit HMAC, and offline record/blob/ordered CAR verification with explicit index-only mode.
+- Add draft Spaces syntax, OAuth scopes, Lexicon permission sets, and trusted P-256 KEM keys for repository reads.
+- Add immutable `atproto/spaces` handles, explicit credential exchange, tagged HTTP signatures, paged reads, notifications, and caller-owned STAR/blob streams.
+- Add `atproto/atcrypto/lthash`, current commit JSON/CBOR codecs, shared-secret response MACs, and offline record, blob, and STAR verification.
 - Add scoped Spaces RPCs and opt-in modern `cmd/lexgen` generation with independent package targeting, raw unknown values, and lossless unknown open unions. Established APIs are not regenerated.
 
 
