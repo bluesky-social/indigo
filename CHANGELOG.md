@@ -14,6 +14,7 @@ is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Share resumed OAuth sessions and concurrent refresh results, preserve omitted scopes, and block stale session holders after logout.
 - Return OAuth persistence and token endpoint errors without discarding rotated tokens or logging token responses.
 - Return an error from implementations of `PersistSessionCallback`. OAuth refresh propagates persistence failures, and `ClientSession.SessionData` provides a locked snapshot.
+- Add `identity.NewDefaultDirectory` to configure cache capacity while keeping the existing resolution and proxy policy. A capacity of zero is unlimited.
 
 
 ## [d0ea072] - 2023-03-31
