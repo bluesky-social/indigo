@@ -2,20 +2,16 @@ package spaces
 
 import (
 	"bytes"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"math/big"
+	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -25,111 +21,87 @@ const testSpace syntax.SpaceRef = "at://did:web:authority.example/space/com.exam
 const testAuthor syntax.DID = "did:web:author.example"
 const testRevision syntax.TID = "3mtwwsccuqy22"
 
-// Independently constructed with RFC 5869's one-block expand, not crypto/hkdf
-// or the Spaces implementation. The static vector was calculated separately
-// with Python's hashlib/hmac and big-endian struct.pack.
-func referenceContext(space syntax.SpaceRef, author syntax.DID, revision syntax.TID, ikm [32]byte) []byte {
+// The reference constructs the specified UTF-8 TLS vectors independently of
+// commitContext. Static values below were calculated with Python hashlib/hmac.
+func referenceContext(space syntax.SpaceRef, author syntax.DID, revision syntax.TID) []byte {
 	var out bytes.Buffer
-	out.WriteString("atproto-space-v1")
-	for _, field := range [][]byte{[]byte(space), []byte(author), []byte(revision), ikm[:]} {
+	out.WriteString("atproto-space-repo-v1")
+	for _, field := range []string{string(space), string(author), string(revision)} {
 		_ = binary.Write(&out, binary.BigEndian, uint16(len(field)))
-		out.Write(field)
+		out.WriteString(field)
 	}
 	return out.Bytes()
 }
 
-func referenceMAC(ikm [32]byte, context []byte, digest [32]byte) [32]byte {
-	expand := hmac.New(sha256.New, ikm[:])
-	expand.Write(context)
-	expand.Write([]byte{1})
-	mac := hmac.New(sha256.New, expand.Sum(nil))
+func referenceMAC(secret [32]byte, context []byte, digest [32]byte) [32]byte {
+	mac := hmac.New(sha256.New, secret[:])
+	mac.Write(context)
 	mac.Write(digest[:])
 	var result [32]byte
 	copy(result[:], mac.Sum(nil))
 	return result
 }
 
-func independentCommit(t *testing.T, digest [32]byte) (*Commit, atcrypto.PublicKey) {
+func independentCommit(t *testing.T, digest [32]byte) (*Commit, *MACVerification) {
 	t.Helper()
-	// Use the standard library's signing operation, including explicit low-S
-	// normalization, rather than the implementation's Sign method.
-	d := big.NewInt(1)
-	x, y := elliptic.P256().ScalarBaseMult(d.Bytes())
-	private := &ecdsa.PrivateKey{PublicKey: ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}, D: d}
-	key, err := atcrypto.ParsePublicBytesP256(elliptic.MarshalCompressed(elliptic.P256(), x, y))
-	if err != nil {
-		t.Fatal(err)
+	c := &Commit{Version: 1, Repo: testAuthor, Space: testSpace, Revision: testRevision, Data: digest}
+	authentication := &MACVerification{}
+	for i := range authentication.SharedSecret {
+		authentication.SharedSecret[i] = byte(i)
 	}
-	c := &Commit{Version: 1, Hash: digest, Revision: testRevision}
-	for i := range c.IKM {
-		c.IKM[i] = byte(i)
-	}
-	context := referenceContext(testSpace, testAuthor, c.Revision, c.IKM)
-	c.MAC = referenceMAC(c.IKM, context, digest)
-	hash := sha256.Sum256(context)
-	r, s, err := ecdsa.Sign(rand.Reader, private, hash[:])
-	if err != nil {
-		t.Fatal(err)
-	}
-	halfOrder := new(big.Int).Rsh(new(big.Int).Set(private.Curve.Params().N), 1)
-	if s.Cmp(halfOrder) > 0 {
-		s.Sub(private.Curve.Params().N, s)
-	}
-	c.Signature = make([]byte, 64)
-	r.FillBytes(c.Signature[:32])
-	s.FillBytes(c.Signature[32:])
-	return c, key
+	authentication.MAC = referenceMAC(authentication.SharedSecret, referenceContext(c.Space, c.Repo, c.Revision), digest)
+	return c, authentication
 }
 
 func TestCommitIndependentContextAndHMACVector(t *testing.T) {
-	c, key := independentCommit(t, sha256.Sum256([]byte("independent repository digest")))
-	context, err := commitContext(testSpace, testAuthor, c.Revision, c.IKM)
+	c, authentication := independentCommit(t, sha256.Sum256([]byte("independent repository digest")))
+	const expectedContext = "617470726f746f2d73706163652d7265706f2d7631003b61743a2f2f6469643a7765623a617574686f726974792e6578616d706c652f73706163652f636f6d2e6578616d706c652e73706163652f736b657900166469643a7765623a617574686f722e6578616d706c65000d336d7477777363637571793232"
+	if hex.EncodeToString(commitContext(testSpace, testAuthor, testRevision)) != expectedContext {
+		t.Fatal("context differs from independent length-prefixed fixture")
+	}
+	if hex.EncodeToString(c.Data[:]) != "bca5ec2792b2994ae9352364fc276c4a9a38339c1c91824065360464e47a8cc3" {
+		t.Fatal("independent digest fixture differs")
+	}
+	mac, err := c.ComputeMAC(authentication.SharedSecret)
 	if err != nil {
 		t.Fatal(err)
 	}
-	const expectedContext = "617470726f746f2d73706163652d7631003b61743a2f2f6469643a7765623a617574686f726974792e6578616d706c652f73706163652f636f6d2e6578616d706c652e73706163652f736b657900166469643a7765623a617574686f722e6578616d706c65000d336d74777773636375717932320020000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
-	if hex.EncodeToString(context) != expectedContext {
-		t.Fatal("context differs from independent TLS-vector fixture")
+	if hex.EncodeToString(mac[:]) != "c4cd57f06a625d4ad29d4e2e7cdcb032746490584cfc70dd931c850df632ab1e" || mac != authentication.MAC {
+		t.Fatal("MAC differs from independent shared-secret vector")
 	}
-	mac, err := commitMAC(c.IKM, context, c.Hash)
-	if err != nil {
+	if err := c.Verify(testSpace, testAuthor, authentication); err != nil {
 		t.Fatal(err)
 	}
-	if hex.EncodeToString(c.Hash[:]) != "bca5ec2792b2994ae9352364fc276c4a9a38339c1c91824065360464e47a8cc3" {
-		t.Fatal("independent hash fixture differs")
-	}
-	if hex.EncodeToString(mac[:]) != "7aa2f55013153432342f6d87c913f6e2fb083ab3f2ceed2e442565143d4eaf1f" {
-		t.Fatal("MAC does not authenticate the repo hash")
-	}
-	if err := c.Verify(testSpace, testAuthor, key); err != nil {
-		t.Fatal(err)
-	}
-	if err := c.Verify(syntax.SpaceRef(string(testSpace)+"2"), testAuthor, key); err == nil {
+	if err := c.Verify(syntax.SpaceRef(string(testSpace)+"2"), testAuthor, authentication); err == nil {
 		t.Fatal("accepted another space")
 	}
-	if err := c.Verify(testSpace, "did:web:other.example", key); err == nil {
+	if err := c.Verify(testSpace, "did:web:other.example", authentication); err == nil {
 		t.Fatal("accepted another author")
 	}
-	for _, field := range []string{"hash", "mac", "ikm", "sig", "rev", "ver"} {
+	if err := c.Verify(testSpace, testAuthor, nil); err == nil {
+		t.Fatal("accepted missing response authentication")
+	}
+	for _, field := range []string{"data", "repo", "space", "rev", "ver", "secret", "mac"} {
 		t.Run(field, func(t *testing.T) {
-			copyCommit := *c
-			copyCommit.Signature = bytes.Clone(c.Signature)
+			changed, auth := *c, *authentication
 			switch field {
-			case "hash":
-				copyCommit.Hash[0] ^= 1
-			case "mac":
-				copyCommit.MAC[0] ^= 1
-			case "ikm":
-				copyCommit.IKM[0] ^= 1
-			case "sig":
-				copyCommit.Signature[0] ^= 1
+			case "data":
+				changed.Data[0] ^= 1
+			case "repo":
+				changed.Repo = "did:web:other.example"
+			case "space":
+				changed.Space += "2"
 			case "rev":
-				copyCommit.Revision = "3mtwwsccuqy23"
+				changed.Revision = "3mtwwsccuqy23"
 			case "ver":
-				copyCommit.Version = 2
+				changed.Version = 2
+			case "secret":
+				auth.SharedSecret[0] ^= 1
+			case "mac":
+				auth.MAC[0] ^= 1
 			}
-			if err := copyCommit.Verify(testSpace, testAuthor, key); err == nil {
-				t.Fatal("accepted changed commit")
+			if err := changed.Verify(testSpace, testAuthor, &auth); err == nil {
+				t.Fatal("accepted changed commit or authentication")
 			}
 		})
 	}
@@ -137,13 +109,15 @@ func TestCommitIndependentContextAndHMACVector(t *testing.T) {
 
 func independentCommitJSON(t *testing.T, c *Commit) map[string]any {
 	t.Helper()
-	wire := func(value []byte) any {
-		return map[string]string{"$bytes": base64.RawStdEncoding.EncodeToString(value)}
-	}
-	return map[string]any{"ver": int64(1), "hash": wire(c.Hash[:]), "ikm": wire(c.IKM[:]), "mac": wire(c.MAC[:]), "sig": wire(c.Signature), "rev": c.Revision.String()}
+	return map[string]any{"ver": c.Version, "repo": string(c.Repo), "space": string(c.Space), "rev": string(c.Revision), "data": map[string]string{"$bytes": base64.RawStdEncoding.EncodeToString(c.Data[:])}}
 }
 
 func independentCommitCBOR(t *testing.T, c *Commit, order []string) []byte {
+	t.Helper()
+	return independentCommitCBORType(t, c, order, "com.atproto.space.defs#commit")
+}
+
+func independentCommitCBORType(t *testing.T, c *Commit, order []string, typeName string) []byte {
 	t.Helper()
 	var out bytes.Buffer
 	cw := cbg.NewCborWriter(&out)
@@ -156,20 +130,22 @@ func independentCommitCBOR(t *testing.T, c *Commit, order []string) []byte {
 		}
 		var err error
 		switch field {
-		case "ikm":
-			err = cbg.WriteByteArray(cw, c.IKM[:])
-		case "mac":
-			err = cbg.WriteByteArray(cw, c.MAC[:])
-		case "hash":
-			err = cbg.WriteByteArray(cw, c.Hash[:])
-		case "sig":
-			err = cbg.WriteByteArray(cw, c.Signature)
+		case "data":
+			err = cbg.WriteByteArray(cw, c.Data[:])
 		case "rev":
 			err = testCBORText(cw, string(c.Revision))
 		case "ver":
 			err = cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(c.Version))
+		case "repo":
+			err = testCBORText(cw, string(c.Repo))
+		case "space":
+			err = testCBORText(cw, string(c.Space))
 		case "$type":
-			err = testCBORText(cw, "com.atproto.space.defs#signedCommit")
+			err = testCBORText(cw, typeName)
+		case "sig":
+			err = cbg.WriteByteArray(cw, make([]byte, 64))
+		default:
+			err = cbg.WriteByteArray(cw, make([]byte, 32))
 		}
 		if err != nil {
 			t.Fatal(err)
@@ -179,70 +155,52 @@ func independentCommitCBOR(t *testing.T, c *Commit, order []string) []byte {
 }
 
 func TestCommitIndependentWireCodecs(t *testing.T) {
-	c, key := independentCommit(t, sha256.Sum256([]byte("wire fixture")))
-	jsonFixture, err := json.Marshal(independentCommitJSON(t, c))
-	if err != nil {
-		t.Fatal(err)
+	c, authentication := independentCommit(t, sha256.Sum256([]byte("wire fixture")))
+	for _, withType := range []bool{false, true} {
+		obj := independentCommitJSON(t, c)
+		if withType {
+			obj["$type"] = "com.atproto.space.defs#commit"
+		}
+		fixture, err := json.Marshal(obj)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoded, err := DecodeCommitJSON(fixture)
+		if err != nil || *decoded != *c {
+			t.Fatal("independent JSON commit differs", err)
+		}
+		if err := decoded.Verify(testSpace, testAuthor, authentication); err != nil {
+			t.Fatal(err)
+		}
 	}
-	decoded, err := DecodeCommitJSON(jsonFixture)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := decoded.Verify(testSpace, testAuthor, key); err != nil {
-		t.Fatal(err)
+	for _, order := range [][]string{{"rev", "ver", "data", "repo", "space"}, {"rev", "ver", "data", "repo", "$type", "space"}} {
+		fixture := independentCommitCBOR(t, c, order)
+		decoded, err := DecodeCommitCBOR(fixture)
+		if err != nil || *decoded != *c {
+			t.Fatal("independent CBOR commit differs", err)
+		}
 	}
 	encoded, err := json.Marshal(c)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var got map[string]json.RawMessage
-	if err := json.Unmarshal(encoded, &got); err != nil {
-		t.Fatal(err)
-	}
-	for _, field := range []string{"hash", "ikm", "mac", "sig"} {
-		if !bytes.Contains(got[field], []byte(`"$bytes"`)) {
-			t.Fatalf("%s lacks protocol $bytes", field)
-		}
-	}
-	for _, order := range [][]string{{"ikm", "mac", "rev", "sig", "ver", "hash"}, {"ikm", "mac", "rev", "sig", "ver", "hash", "$type"}} {
-		fixture := independentCommitCBOR(t, c, order)
-		decoded, err := DecodeCommitCBOR(fixture)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := decoded.Verify(testSpace, testAuthor, key); err != nil {
-			t.Fatal(err)
-		}
+	var jsonObj map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &jsonObj); err != nil || len(jsonObj) != 5 || !bytes.Contains(jsonObj["data"], []byte(`"$bytes"`)) {
+		t.Fatal("JSON commit is not the current five-field wire format", err)
 	}
 	var out bytes.Buffer
 	if err := c.MarshalCBOR(&out); err != nil {
 		t.Fatal(err)
 	}
-	obj, err := atdata.UnmarshalCBOR(out.Bytes())
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, field := range []string{"hash", "ikm", "mac", "sig"} {
-		if _, ok := obj[field].(atdata.Bytes); !ok {
-			t.Fatalf("%s is not a CBOR byte string", field)
-		}
+	if !bytes.Equal(out.Bytes(), independentCommitCBOR(t, c, []string{"rev", "ver", "data", "repo", "space"})) {
+		t.Fatal("CBOR commit differs from independently encoded fixture")
 	}
 }
 
 func TestCommitMalformedJSON(t *testing.T) {
 	c, _ := independentCommit(t, [32]byte{})
-	for _, field := range []string{"hash", "ikm", "mac", "sig"} {
-		for _, size := range []int{0, 31, 33, 63, 65} {
-			t.Run(field+"/length"+big.NewInt(int64(size)).String(), func(t *testing.T) {
-				obj := independentCommitJSON(t, c)
-				obj[field] = map[string]string{"$bytes": base64.RawStdEncoding.EncodeToString(make([]byte, size))}
-				data, _ := json.Marshal(obj)
-				if _, err := DecodeCommitJSON(data); err == nil {
-					t.Fatal("accepted invalid byte length")
-				}
-			})
-		}
-		for _, value := range []any{[]int{1, 2}, "AA", nil, map[string]any{"$bytes": "AA", "other": true}} {
+	for _, field := range []string{"ver", "repo", "space", "rev", "data"} {
+		for _, value := range []any{nil, true, []int{1}, map[string]string{"bad": "value"}} {
 			obj := independentCommitJSON(t, c)
 			obj[field] = value
 			data, _ := json.Marshal(obj)
@@ -250,13 +208,31 @@ func TestCommitMalformedJSON(t *testing.T) {
 				t.Fatalf("accepted malformed %s", field)
 			}
 		}
+		obj := independentCommitJSON(t, c)
+		delete(obj, field)
+		data, _ := json.Marshal(obj)
+		if _, err := DecodeCommitJSON(data); err == nil {
+			t.Fatalf("accepted missing %s", field)
+		}
+	}
+	for _, size := range []int{0, 31, 33, 64} {
+		obj := independentCommitJSON(t, c)
+		obj["data"] = map[string]string{"$bytes": base64.RawStdEncoding.EncodeToString(make([]byte, size))}
+		data, _ := json.Marshal(obj)
+		if _, err := DecodeCommitJSON(data); err == nil {
+			t.Fatalf("accepted data length %d", size)
+		}
 	}
 	for _, change := range []func(map[string]any){
-		func(o map[string]any) { delete(o, "ver") },
 		func(o map[string]any) { o["ver"] = 2 },
-		func(o map[string]any) { o["ver"] = nil },
 		func(o map[string]any) { o["rev"] = "bad" },
-		func(o map[string]any) { o["$type"] = "com.example.other" },
+		func(o map[string]any) { o["repo"] = "author" },
+		func(o map[string]any) { o["space"] = string(testSpace) + "/extra" },
+		func(o map[string]any) { o["$type"] = "com.atproto.space.defs#signedCommit" },
+		func(o map[string]any) { o["$type"] = "atproto-space-repo" },
+		func(o map[string]any) { o["data"] = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" },
+		func(o map[string]any) { o["data"] = map[string]any{"$bytes": strings.Repeat("A", 43), "extra": true} },
+		func(o map[string]any) { o["data"] = map[string]string{"$bytes": strings.Repeat("A", 43) + "="} },
 	} {
 		obj := independentCommitJSON(t, c)
 		change(obj)
@@ -265,46 +241,64 @@ func TestCommitMalformedJSON(t *testing.T) {
 			t.Fatal("accepted malformed commit JSON")
 		}
 	}
-	fixture, _ := json.Marshal(independentCommitJSON(t, c))
-	for _, data := range [][]byte{append(bytes.Clone(fixture), []byte(" true")...), []byte(strings.Replace(string(fixture), `"ver":1`, `"ver":1.0`, 1)), []byte(strings.Replace(string(fixture), `"ver":1`, `"ver":1,"ver":1`, 1))} {
+	for _, legacy := range []string{"hash", "ikm", "mac", "sig"} {
+		obj := independentCommitJSON(t, c)
+		obj[legacy] = map[string]string{"$bytes": strings.Repeat("A", 43)}
+		data, _ := json.Marshal(obj)
 		if _, err := DecodeCommitJSON(data); err == nil {
-			t.Fatal("accepted trailing, fractional, or duplicate version")
+			t.Fatalf("accepted obsolete field %s", legacy)
+		}
+	}
+	fixture, _ := json.Marshal(independentCommitJSON(t, c))
+	for _, data := range [][]byte{
+		append(bytes.Clone(fixture), []byte(" true")...),
+		[]byte(strings.Replace(string(fixture), `"ver":1`, `"ver":1.0`, 1)),
+		[]byte(strings.Replace(string(fixture), `"ver":1`, `"ver":1,"ver":1`, 1)),
+		[]byte(strings.Replace(string(fixture), `"$bytes":`, `"$bytes":"ignored","$bytes":`, 1)),
+		[]byte(`{"ver":1,"rev":"3mtwwsccuqy22","hash":{"$bytes":"` + strings.Repeat("A", 43) + `"},"ikm":{"$bytes":"` + strings.Repeat("A", 43) + `"},"mac":{"$bytes":"` + strings.Repeat("A", 43) + `"},"sig":{"$bytes":"` + strings.Repeat("A", 86) + `"}}`),
+	} {
+		if _, err := DecodeCommitJSON(data); err == nil {
+			t.Fatal("accepted obsolete, trailing, fractional, or duplicate fields")
 		}
 	}
 	original := *c
-	if err := c.UnmarshalJSON([]byte(`{"ver":2}`)); err == nil {
-		t.Fatal("accepted incomplete JSON")
-	}
-	if c.Version != original.Version || c.Hash != original.Hash || !bytes.Equal(c.Signature, original.Signature) {
-		t.Fatal("failed decode mutated receiver")
+	if err := c.UnmarshalJSON([]byte(`{"ver":2}`)); err == nil || *c != original {
+		t.Fatal("failed JSON decode mutated receiver or accepted malformed input")
 	}
 }
 
 func TestCommitMalformedCBOR(t *testing.T) {
 	c, _ := independentCommit(t, [32]byte{})
-	order := []string{"ikm", "mac", "rev", "sig", "ver", "hash"}
+	order := []string{"rev", "ver", "data", "repo", "space"}
 	fixture := independentCommitCBOR(t, c, order)
-	badOrder := independentCommitCBOR(t, c, []string{"mac", "ikm", "rev", "sig", "ver", "hash"})
-	duplicate := independentCommitCBOR(t, c, []string{"ikm", "mac", "rev", "sig", "ver", "ver"})
-	invalidVersion := *c
-	invalidVersion.Version = 2
-	invalidRevision := *c
-	invalidRevision.Revision = "bad"
-	invalidSignature := *c
-	invalidSignature.Signature = make([]byte, 63)
-	bad := [][]byte{badOrder, duplicate, append(bytes.Clone(fixture), 0), independentCommitCBOR(t, &invalidVersion, order), independentCommitCBOR(t, &invalidRevision, order), independentCommitCBOR(t, &invalidSignature, order), append([]byte{0xb8, 6}, fixture[1:]...)}
-	// Replace the first field's byte-string header with a text-string header.
-	wrongType := bytes.Clone(fixture)
-	wrongType[5] = 0x78
-	bad = append(bad, wrongType)
-	// Fixed-size byte field truncated to 31 bytes, while retaining the next field.
-	wrongLength := append(bytes.Clone(fixture[:6]), fixture[6:38]...)
-	wrongLength[6] = 31
-	wrongLength = append(wrongLength, fixture[39:]...)
-	bad = append(bad, wrongLength)
-	for _, data := range bad {
+	bad := [][]byte{
+		independentCommitCBOR(t, c, []string{"ver", "rev", "data", "repo", "space"}),
+		independentCommitCBOR(t, c, []string{"rev", "ver", "data", "repo", "repo"}),
+		independentCommitCBOR(t, c, []string{"ikm", "mac", "rev", "sig", "ver", "hash"}),
+		independentCommitCBORType(t, c, []string{"rev", "ver", "data", "repo", "$type", "space"}, "com.atproto.space.defs#signedCommit"),
+		append(bytes.Clone(fixture), 0),
+		append([]byte{0xb8, 5}, fixture[1:]...),
+		bytes.Replace(fixture, []byte{0x63, 'v', 'e', 'r', 0x01}, []byte{0x63, 'v', 'e', 'r', 0x18, 0x01}, 1),
+		bytes.Replace(fixture, []byte{0x58, 0x20}, []byte{0x78, 0x20}, 1),
+		bytes.Replace(fixture, []byte{0x58, 0x20}, []byte{0x58, 0x1f}, 1),
+	}
+	for _, field := range []string{"version", "revision", "repo", "space"} {
+		changed := *c
+		switch field {
+		case "version":
+			changed.Version = 2
+		case "revision":
+			changed.Revision = "bad"
+		case "repo":
+			changed.Repo = "invalid"
+		case "space":
+			changed.Space = "invalid"
+		}
+		bad = append(bad, independentCommitCBOR(t, &changed, order))
+	}
+	for i, data := range bad {
 		if _, err := DecodeCommitCBOR(data); err == nil {
-			t.Fatal("accepted malformed commit CBOR")
+			t.Fatalf("accepted malformed CBOR case %d", i)
 		}
 	}
 	for cut := range len(fixture) {
@@ -312,32 +306,43 @@ func TestCommitMalformedCBOR(t *testing.T) {
 			t.Fatalf("accepted truncated commit at %d", cut)
 		}
 	}
+	original := *c
+	if err := c.UnmarshalCBOR(bytes.NewReader(fixture[:len(fixture)-1])); err == nil || *c != original {
+		t.Fatal("failed CBOR decode mutated receiver or accepted truncation")
+	}
 }
 
-func TestCommitConstructionAndSigning(t *testing.T) {
-	key, err := atcrypto.GeneratePrivateKeyP256()
-	if err != nil {
-		t.Fatal(err)
-	}
-	public, err := key.PublicKey()
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestCommitConstruction(t *testing.T) {
 	c, err := NewCommit(sha256.Sum256([]byte("repo")), testRevision, testSpace, testAuthor)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := json.Marshal(c); err == nil {
-		t.Fatal("encoded unsigned commit")
-	}
-	if err := c.Sign(testSpace, testAuthor, key); err != nil {
+	auth := &MACVerification{SharedSecret: [32]byte{1, 2, 3}}
+	auth.MAC, err = c.ComputeMAC(auth.SharedSecret)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := c.Verify(testSpace, testAuthor, public); err != nil {
+	if err := c.Verify(testSpace, testAuthor, auth); err != nil {
 		t.Fatal(err)
 	}
-	if c.MAC != referenceMAC(c.IKM, referenceContext(testSpace, testAuthor, c.Revision, c.IKM), c.Hash) {
-		t.Fatal("constructed MAC differs from independent reference")
+	if _, err := json.Marshal(c); err != nil {
+		t.Fatal("commit must serialize without any signature or embedded MAC", err)
+	}
+	for _, invalid := range []struct {
+		space    syntax.SpaceRef
+		author   syntax.DID
+		revision syntax.TID
+	}{{"invalid", testAuthor, testRevision}, {testSpace, "invalid", testRevision}, {testSpace, testAuthor, "invalid"}} {
+		if _, err := NewCommit([32]byte{}, invalid.revision, invalid.space, invalid.author); err == nil {
+			t.Fatal("accepted invalid constructor input")
+		}
+	}
+	var missing *Commit
+	if err := missing.Verify(testSpace, testAuthor, auth); err == nil {
+		t.Fatal("accepted missing commit")
+	}
+	if _, err := missing.ComputeMAC(auth.SharedSecret); err == nil {
+		t.Fatal("computed MAC for missing commit")
 	}
 }
 
@@ -350,35 +355,23 @@ func testCBORText(w *cbg.CborWriter, value string) error {
 }
 
 func TestCommitStaticBytesJSONVector(t *testing.T) {
-	// This literal was constructed outside Go with standard un-padded base64.
-	// The all-zero signature is a structural codec fixture, not proof of authorship.
-	const fixture = `{"ver":1,"hash":{"$bytes":"vKXsJ5KymUrpNSNk/CdsSpo4M5wckYJAZTYEZOR6jMM"},"ikm":{"$bytes":"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"},"mac":{"$bytes":"eqL1UBMVNDI0L22HyRP24vsIOrPyzu0uRCVlFD1Orx8"},"sig":{"$bytes":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},"rev":"3mtwwsccuqy22"}`
+	const fixture = `{"ver":1,"repo":"did:web:author.example","space":"at://did:web:authority.example/space/com.example.space/skey","rev":"3mtwwsccuqy22","data":{"$bytes":"vKXsJ5KymUrpNSNk/CdsSpo4M5wckYJAZTYEZOR6jMM"}}`
 	c, err := DecodeCommitJSON([]byte(fixture))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hex.EncodeToString(c.Hash[:]) != "bca5ec2792b2994ae9352364fc276c4a9a38339c1c91824065360464e47a8cc3" || hex.EncodeToString(c.MAC[:]) != "7aa2f55013153432342f6d87c913f6e2fb083ab3f2ceed2e442565143d4eaf1f" {
+	if fmt.Sprintf("%x", c.Data) != "bca5ec2792b2994ae9352364fc276c4a9a38339c1c91824065360464e47a8cc3" {
 		t.Fatal("static $bytes vector decoded incorrectly")
-	}
-	for i, value := range c.IKM {
-		if value != byte(i) {
-			t.Fatal("static nonce vector decoded incorrectly")
-		}
 	}
 	encoded, err := json.Marshal(c)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var expected, actual map[string]any
-	if err := json.Unmarshal([]byte(fixture), &expected); err != nil {
+	obj, err := atdata.UnmarshalJSON(encoded)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := json.Unmarshal(encoded, &actual); err != nil {
-		t.Fatal(err)
-	}
-	for _, field := range []string{"hash", "ikm", "mac", "sig"} {
-		if actual[field].(map[string]any)["$bytes"] != expected[field].(map[string]any)["$bytes"] {
-			t.Fatalf("static %s vector encoded incorrectly", field)
-		}
+	if got, ok := obj["data"].(atdata.Bytes); !ok || !bytes.Equal(got, c.Data[:]) {
+		t.Fatal("static $bytes vector encoded incorrectly")
 	}
 }

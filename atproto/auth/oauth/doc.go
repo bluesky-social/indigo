@@ -148,22 +148,13 @@ failure does not prevent local deletion.
 
 # Spaces host providers
 
-The runnable example in cmd/space-sync-provider implements real OAuth login and
-network.bsky.spacesync.getAuthorization. It keeps grants in memory, checks broker
-secrets in constant time, restricts allowed spaces, and fences logout/reconsent
-against in-flight delegation requests. It does not implement a host app's
-catalogue or notification relay. Run it with repeated --space and
---broker-token-file flags; --public-url sets the external HTTPS root. The optional
---client-key-file and --client-key-id enable confidential OAuth and publish the
-matching JWKS. Restarting the example requires users to log in again.
-
-[ClientConfig.NewClientAttestation] makes a fresh 60-second single-use Spaces
-client attestation addressed to an authority DID. Confidential providers must
-call it for every response, not reuse a prior attestation. Keep the signing key
-in the published JWKS until all OAuth sessions bound to it have ended. Public
-clients cannot sign attestations or access spaces requiring app allow-listing.
-The auth package's ScopeAllowsSpaceRead helper can select candidate expanded
-scopes, including authority=self, but the PDS makes the authorization decision.
+[ClientConfig.NewClientAttestation] makes a fresh 60-second, single-use Spaces
+client attestation addressed to the authority's #atproto_pds service. Create a
+new attestation for each credential exchange. Keep its signing key in the
+published JWKS while tokens bound to that key remain valid. Public clients
+cannot sign attestations or access spaces that require app allow-listing.
+ScopeAllowsSpaceRead can select candidate expanded scopes, including
+authority=self, but the PDS makes the authorization decision.
 
 # Authorization-only Situations
 

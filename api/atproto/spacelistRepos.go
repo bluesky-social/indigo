@@ -20,7 +20,7 @@ type SpaceListRepos_Output struct {
 
 // SpaceListRepos calls the XRPC method "com.atproto.space.listRepos".
 //
-// List the known repos that hold data in a space (the writer set), with each repo's current repoRev and commit hash. Served by the space host. This is the sync boundary, not an access-control list: it enumerates only writers, never readers. The set is what the authority claims from write notifications and is not itself authoritative; a repo's host is the source of truth.
+// List the known repos that hold data in a space (the writer set), with each repo's current repoRev and commit data. Served by the space host. This is the sync boundary, not an access-control list: it enumerates only writers, never readers. The set is what the authority claims from write notifications and is not itself authoritative; a repo's host is the source of truth.
 //
 // cursor: Return repos updated after this space revision (exclusive). Use a previous response's cursor or a previously processed spaceRev.
 // limit: Maximum number of repos to return.
@@ -46,10 +46,10 @@ func SpaceListRepos(ctx context.Context, c lexutil.LexClient, cursor *string, li
 // SpaceListRepos_Repo is a "repo" in the com.atproto.space.listRepos schema.
 type SpaceListRepos_Repo struct {
 	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,const=com.atproto.space.listRepos#repo,omitempty"`
+	// data: The repo's current commit data (sha256 of the LtHash state), as last reported to the authority.
+	Data lexutil.LexBytes `json:"data" cborgen:"data"`
 	// did: The DID of a repo that holds data in the space.
 	Did string `json:"did" cborgen:"did"`
-	// hash: The repo's current commit hash (sha256 of the LtHash state), as last reported to the authority.
-	Hash lexutil.LexBytes `json:"hash" cborgen:"hash"`
 	// repoRev: The repo's current revision (TID), as last reported to the authority. May lag the repo host, which is the source of truth.
 	RepoRev string `json:"repoRev" cborgen:"repoRev"`
 	// spaceRev: The space revision at which this repo was last updated.

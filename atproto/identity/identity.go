@@ -23,10 +23,9 @@ type Identity struct {
 	Services    map[string]ServiceEndpoint
 	Keys        map[string]VerificationMethod
 
-	// Preserve dedicated declarations before lossy DID-document parsing. These
-	// exported fields also survive identity serialization and directory caches.
-	SpaceKeyDeclarations  []DocVerificationMethod `json:",omitempty"`
-	SpaceHostDeclarations []DocService            `json:",omitempty"`
+	// Preserve KEM declarations before DID-document parsing discards their IDs,
+	// controllers, and duplicates. Exported storage survives serialized caches.
+	KEMKeyDeclarations []DocVerificationMethod `json:",omitempty"`
 }
 
 // Sub-field type for [Identity], representing a cryptographic public key declared as a "verificationMethod" in the DID document.
@@ -45,12 +44,11 @@ type ServiceEndpoint struct {
 //
 // Always returns an invalid Handle field; calling code should only populate that field if it has been bi-directionally verified.
 func ParseIdentity(doc *DIDDocument) Identity {
-	var spaceKeys []DocVerificationMethod
-	var spaceHosts []DocService
+	var kemKeys []DocVerificationMethod
 	keys := make(map[string]VerificationMethod, len(doc.VerificationMethod))
 	for _, vm := range doc.VerificationMethod {
-		if isSpaceDeclaration(vm.ID, "atproto_space") {
-			spaceKeys = append(spaceKeys, vm)
+		if isKEMDeclaration(vm.ID) {
+			kemKeys = append(kemKeys, vm)
 		}
 		parts := strings.SplitN(vm.ID, "#", 2)
 		if len(parts) < 2 {
@@ -72,9 +70,6 @@ func ParseIdentity(doc *DIDDocument) Identity {
 	}
 	svc := make(map[string]ServiceEndpoint, len(doc.Service))
 	for _, s := range doc.Service {
-		if isSpaceDeclaration(s.ID, "atproto_space_host") {
-			spaceHosts = append(spaceHosts, s)
-		}
 		parts := strings.SplitN(s.ID, "#", 2)
 		if len(parts) < 2 {
 			continue
@@ -90,13 +85,12 @@ func ParseIdentity(doc *DIDDocument) Identity {
 		}
 	}
 	return Identity{
-		DID:                   doc.DID,
-		Handle:                syntax.HandleInvalid,
-		AlsoKnownAs:           doc.AlsoKnownAs,
-		Services:              svc,
-		Keys:                  keys,
-		SpaceKeyDeclarations:  spaceKeys,
-		SpaceHostDeclarations: spaceHosts,
+		DID:                doc.DID,
+		Handle:             syntax.HandleInvalid,
+		AlsoKnownAs:        doc.AlsoKnownAs,
+		Services:           svc,
+		Keys:               keys,
+		KEMKeyDeclarations: kemKeys,
 	}
 }
 
@@ -105,11 +99,11 @@ func (ident *Identity) DIDDocument() DIDDocument {
 	doc := DIDDocument{
 		DID:                ident.DID,
 		AlsoKnownAs:        ident.AlsoKnownAs,
-		VerificationMethod: make([]DocVerificationMethod, 0, len(ident.Keys)+len(ident.SpaceKeyDeclarations)),
-		Service:            make([]DocService, 0, len(ident.Services)+len(ident.SpaceHostDeclarations)),
+		VerificationMethod: make([]DocVerificationMethod, 0, len(ident.Keys)+len(ident.KEMKeyDeclarations)),
+		Service:            make([]DocService, 0, len(ident.Services)),
 	}
 	for k, key := range ident.Keys {
-		if k == "atproto_space" && len(ident.SpaceKeyDeclarations) > 0 {
+		if k == "atproto_kem" {
 			continue
 		}
 		doc.VerificationMethod = append(doc.VerificationMethod, DocVerificationMethod{
@@ -120,17 +114,13 @@ func (ident *Identity) DIDDocument() DIDDocument {
 		})
 	}
 	for k, svc := range ident.Services {
-		if k == "atproto_space_host" && len(ident.SpaceHostDeclarations) > 0 {
-			continue
-		}
 		doc.Service = append(doc.Service, DocService{
 			ID:              fmt.Sprintf("#%s", k),
 			Type:            svc.Type,
 			ServiceEndpoint: svc.URL,
 		})
 	}
-	doc.VerificationMethod = append(doc.VerificationMethod, ident.SpaceKeyDeclarations...)
-	doc.Service = append(doc.Service, ident.SpaceHostDeclarations...)
+	doc.VerificationMethod = append(doc.VerificationMethod, ident.KEMKeyDeclarations...)
 	return doc
 }
 

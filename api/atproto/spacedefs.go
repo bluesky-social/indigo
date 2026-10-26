@@ -8,21 +8,19 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// SpaceDefs_SignedCommit is a "signedCommit" in the com.atproto.space.defs schema.
+// SpaceDefs_Commit is a "commit" in the com.atproto.space.defs schema.
 //
-// A signed commit over the current state of a permissioned repo.
-type SpaceDefs_SignedCommit struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,const=com.atproto.space.defs#signedCommit,omitempty"`
-	// hash: sha256 digest of the LtHash state (32 bytes).
-	Hash lexutil.LexBytes `json:"hash" cborgen:"hash"`
-	// ikm: Per-signature input keying material (32 random bytes)
-	Ikm lexutil.LexBytes `json:"ikm" cborgen:"ikm"`
-	// mac: HMAC-SHA256 over hash, keyed by HKDF-SHA256(ikm, info=ctx). Binds the repo hash to this commit's context.
-	Mac lexutil.LexBytes `json:"mac" cborgen:"mac"`
-	// rev: Commit revision (TID), also bound into ctx.
+// A commit over the current state of a permissioned repo. Carries no signature: the repo host authenticates it to a syncer with a MAC in the Atproto-Space-Mac response header.
+type SpaceDefs_Commit struct {
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,const=com.atproto.space.defs#commit,omitempty"`
+	// data: sha256 digest of the LtHash state (32 bytes).
+	Data lexutil.LexBytes `json:"data" cborgen:"data"`
+	// repo: The author DID of the repo.
+	Repo string `json:"repo" cborgen:"repo"`
+	// rev: Commit revision (TID).
 	Rev string `json:"rev" cborgen:"rev"`
-	// sig: Signature over ctx (space, author DID, rev, ikm) by the user's atproto signing key. Does not cover the repo hash.
-	Sig lexutil.LexBytes `json:"sig" cborgen:"sig"`
-	// ver: Commit format version, currently 1. Corresponds to the version in the ctx protocol tag (atproto-space-v1).
+	// space: Reference to the space.
+	Space string `json:"space" cborgen:"space"`
+	// ver: Commit format version, currently 1.
 	Ver int64 `json:"ver" cborgen:"ver"`
 }

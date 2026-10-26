@@ -85,16 +85,16 @@ func TestExplicitDelegationAndExchangeUseCallerClientsAndSigners(t *testing.T) {
 			requestPublic = secondPublic
 		}
 		assert.Equal(t, "/xrpc/com.atproto.space.getSpaceCredential", req.URL.Path)
-		assert.Equal(t, "Bearer delegation-token", req.Header.Get("Authorization"))
-		assert.Empty(t, req.Header.Get("Atproto-Space-Audience"), "issuance covers only authorization")
+		assert.Empty(t, req.Header.Get("Authorization"))
+		assert.Empty(t, req.Header.Get("Signature"))
+		assert.Empty(t, req.Header.Get("Signature-Input"))
+		assert.Empty(t, req.Header.Get("Atproto-Space-Audience"))
 		assert.Equal(t, "snapshot", req.Header.Get("X-Caller"))
-		params := `("authorization");keyid="` + requestPublic.DIDKey() + `"`
-		assert.Equal(t, "atproto-space="+params, req.Header.Get("Signature-Input"))
-		base := fmt.Sprintf("\"authorization\": Bearer delegation-token\n\"@signature-params\": %s", params)
-		assert.NoError(t, clientVerifySignature(req.Header.Get("Signature"), requestPublic, base))
 		var input map[string]json.RawMessage
 		assert.NoError(t, json.NewDecoder(req.Body).Decode(&input))
 		assert.JSONEq(t, fmt.Sprintf("%q", ref.String()), string(input["space"]))
+		assert.JSONEq(t, fmt.Sprintf("%q", requestPublic.DIDKey()), string(input["credentialKid"]))
+		assert.JSONEq(t, `"delegation-token"`, string(input["delegationToken"]))
 		if call == 1 {
 			assert.NotContains(t, input, "clientAttestation", "omitted attestation must remain omitted")
 		} else {
@@ -146,6 +146,37 @@ func TestExchangeNamedFailureDoesNotRetryOrReplaceCredential(t *testing.T) {
 	_, err = client.ExchangeCredential(context.Background(), clientTestRef(), "delegation-token", nil, CredentialExchangeOptions{})
 	assert.Error(t, err)
 	assert.EqualValues(t, 1, calls.Load(), "invalid signer fails before issuance")
+}
+
+func TestCredentialExchangeAllowsPublicAndAppOnlySpaces(t *testing.T) {
+	for _, attestation := range []*string{nil, new("client-attestation")} {
+		t.Run(fmt.Sprint(attestation != nil), func(t *testing.T) {
+			signer := clientTestSigner(t)
+			public, err := signer.PublicKey()
+			require.NoError(t, err)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				assert.Empty(t, req.Header.Get("Authorization"))
+				assert.Empty(t, req.Header.Get("Signature"))
+				var body map[string]json.RawMessage
+				assert.NoError(t, json.NewDecoder(req.Body).Decode(&body))
+				assert.NotContains(t, body, "delegationToken")
+				assert.JSONEq(t, fmt.Sprintf("%q", public.DIDKey()), string(body["credentialKid"]))
+				if attestation == nil {
+					assert.NotContains(t, body, "clientAttestation")
+				} else {
+					assert.JSONEq(t, fmt.Sprintf("%q", *attestation), string(body["clientAttestation"]))
+				}
+				io.WriteString(w, `{"credential":"public-or-app-only-credential"}`)
+			}))
+			defer server.Close()
+			client := NewClient(ClientOptions{Directory: clientTestDirectory(server.URL), HTTPClient: server.Client(), Headers: http.Header{
+				"Authorization": {"stale-oauth-token"}, "Signature": {"stale-signature"},
+			}})
+			credential, err := client.ExchangeCredential(context.Background(), clientTestRef(), "", signer, CredentialExchangeOptions{ClientAttestation: attestation})
+			require.NoError(t, err)
+			assert.Equal(t, "public-or-app-only-credential", credential.Token())
+		})
+	}
 }
 
 func TestNotifyRegistrationUsesServiceIdentifiersAndReturnsExpiry(t *testing.T) {
@@ -267,7 +298,7 @@ func TestIndependentHTTPSignatureVerifierAcceptsHighS(t *testing.T) {
 	signer := clientTestSigner(t)
 	public, err := signer.PublicKey()
 	require.NoError(t, err)
-	base := "\"authorization\": Atproto-Space token\n\"atproto-space-audience\": did:web:author.example\n\"@signature-params\": (\"authorization\" \"atproto-space-audience\")"
+	base := "\"authorization\": Atproto-Space-Credential token\n\"atproto-space-audience\": did:web:author.example\n\"@signature-params\": (\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\""
 	sig, err := signer.HashAndSign([]byte(base))
 	require.NoError(t, err)
 	lowS := new(big.Int).SetBytes(sig[32:])
@@ -276,7 +307,7 @@ func TestIndependentHTTPSignatureVerifierAcceptsHighS(t *testing.T) {
 	require.True(t, ok)
 	highS := new(big.Int).Sub(order, lowS)
 	highS.FillBytes(sig[32:])
-	header := "atproto-space=:" + base64.StdEncoding.EncodeToString(sig) + ":"
+	header := "atproto-space-credential=:" + base64.StdEncoding.EncodeToString(sig) + ":"
 	assert.NoError(t, clientVerifySignature(header, public, base))
 	assert.Error(t, clientVerifySignature(header, public, strings.ReplaceAll(base, "\n", `\n`)), "literal backslash-n is not the signature base")
 	assert.Error(t, clientVerifySignature(header, public, strings.Replace(base, `("authorization" "atproto-space-audience")`, `("atproto-space-audience" "authorization")`, 1)), "component order is exact")

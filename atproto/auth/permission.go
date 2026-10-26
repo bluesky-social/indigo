@@ -319,7 +319,10 @@ func ParsePermissionString(scope string) (*Permission, error) {
 			p.SpaceType = g.Params.Get("spaceType")
 		}
 		if g.Positional != "" {
-			p.SpaceType = g.Positional
+			p.SpaceType, err = url.PathUnescape(g.Positional)
+			if err != nil {
+				return nil, fmt.Errorf("%w: %w", ErrInvalidPermissionSyntax, err)
+			}
 		}
 		if p.SpaceType != "*" {
 			_, err := syntax.ParseNSID(p.SpaceType)
@@ -328,7 +331,7 @@ func ParsePermissionString(scope string) (*Permission, error) {
 			}
 		}
 		if g.Params.Has("authority") {
-			if len(g.Params["authority"]) != 1 {
+			if len(g.Params["authority"]) != 1 || g.Params.Get("authority") == "" {
 				return nil, ErrInvalidPermissionParams
 			}
 			p.Authority = g.Params.Get("authority")
@@ -340,7 +343,7 @@ func ParsePermissionString(scope string) (*Permission, error) {
 			}
 		}
 		if g.Params.Has("skey") {
-			if len(g.Params["skey"]) != 1 {
+			if len(g.Params["skey"]) != 1 || g.Params.Get("skey") == "" {
 				return nil, ErrInvalidPermissionParams
 			}
 			p.SpaceKey = g.Params.Get("skey")

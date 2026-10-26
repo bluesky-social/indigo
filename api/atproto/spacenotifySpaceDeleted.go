@@ -18,7 +18,7 @@ type SpaceNotifySpaceDeleted_Input struct {
 
 // SpaceNotifySpaceDeleted calls the XRPC method "com.atproto.space.notifySpaceDeleted".
 //
-// Notify a syncing service that a space has been deleted, and that it should drop every copy of the space's data it holds. Sent by the space authority to the services registered for the space, best-effort. Authenticated with service auth addressed to the receiving service.
+// Notify a syncing service that a space was deleted and its copy should be dropped. Sent by the space authority to registered services, retried until delivered or the registration expires. Requires service auth.
 func SpaceNotifySpaceDeleted(ctx context.Context, c lexutil.LexClient, input *SpaceNotifySpaceDeleted_Input) error {
 
 	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.space.notifySpaceDeleted", nil, input, nil); err != nil {

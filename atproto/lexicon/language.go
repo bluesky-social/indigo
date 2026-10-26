@@ -618,6 +618,11 @@ func (s *SchemaSpace) CheckSchema() error {
 	if err := checkKeyType(s.Key); err != nil {
 		return err
 	}
+	if literal, ok := strings.CutPrefix(s.Key, "literal:"); ok {
+		if _, err := syntax.ParseRecordKey(literal); err != nil {
+			return fmt.Errorf("invalid literal space key: %w", err)
+		}
+	}
 	if len(s.Name) < 1 || len(s.Name) > 64 {
 		// TODO: graphemes vs bytes?
 		return fmt.Errorf("space name must be between 1 and 64 characters long")
@@ -631,6 +636,9 @@ func (s *SchemaSpace) CheckSchema() error {
 			// TODO: graphemes vs bytes?
 			return fmt.Errorf("space name must be between 1 and 64 characters long")
 		}
+	}
+	if s.Collections == nil {
+		return fmt.Errorf("space collections is required")
 	}
 	for _, c := range s.Collections {
 		_, err := syntax.ParseNSID(c)
@@ -852,10 +860,6 @@ func (s *SchemaString) Validate(d any, flags ValidateFlags) error {
 				if _, spaceErr := syntax.ParseSpaceURI(v); spaceErr != nil {
 					return fmt.Errorf("invalid at-uri: public URI: %v; space record URI: %w", err, spaceErr)
 				}
-			}
-		case "space-ref":
-			if _, err := syntax.ParseSpaceRef(v); err != nil {
-				return err
 			}
 		case "space-ref":
 			if _, err := syntax.ParseSpaceRef(v); err != nil {

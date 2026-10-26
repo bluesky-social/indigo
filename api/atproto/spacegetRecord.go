@@ -20,7 +20,7 @@ type SpaceGetRecord_Output struct {
 
 // SpaceGetRecord calls the XRPC method "com.atproto.space.getRecord".
 //
-// Get a single record from a permissioned space. Callable with either OAuth (for the authenticated user's own data) or a space credential (for syncing services). Throws RepoNotFound when the account holds no repo in the space; this does not distinguish a member that has never written from a non-member.
+// Get a single record from a permissioned space. Callable with either OAuth (for the authenticated user's own data) or a space credential (for syncing services). When called with a space credential, the caller must send an Atproto-Space-Want-Mac header, and the record's MAC is returned in the Atproto-Space-Mac response header. Throws RepoNotFound when the account holds no repo in the space; this does not distinguish a member that has never written from a non-member.
 //
 // collection: The NSID of the record collection.
 // repo: The DID of the account whose repo to read from.

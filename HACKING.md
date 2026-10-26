@@ -92,6 +92,12 @@ go run ./cmd/lexgen --modern --legacy-mode=false --unknown-type=json-raw-message
 
 `cmd/lexgen/spaces.json` targets `api/atproto` and selects its package name independently of legacy mode. Modern optional query parameters use pointers, and unknown record values remain `json.RawMessage`; unknown open-union variants survive JSON round trips. The default driver remains the established legacy engine. Do not blanket-regenerate unrelated APIs or create agnostic duplicates for Spaces. Generated binary helpers buffer downloads; `atproto/spaces` uses streaming transport instead.
 
+The Spaces schemas match [atproto revision 3a0b8c669881efa9e75680275f8695d618c5f80f](https://github.com/bluesky-social/atproto/tree/3a0b8c669881efa9e75680275f8695d618c5f80f/lexicons/com/atproto/space). The library follows [proposal revision 75f5b5dfd9a1e4b140700c75274c5d147b9eea12](https://github.com/bluesky-social/proposals/blob/75f5b5dfd9a1e4b140700c75274c5d147b9eea12/0016-permissioned-data/README.md). Both remain drafts.
+
+Repository downloads use STAR-lite v1, not CAR. Commits carry `ver`, `repo`, `space`, `rev`, and `data`. Response authentication uses a message authentication code (MAC) in HTTP headers. Each request uses a fresh P-256 key exchange with the author's `#atproto_kem` key. Authorities use their ordinary `#atproto_pds` endpoint and `#atproto` signing key.
+
+Call `Repo.GetRepo(ctx)` without the old download options. Pass `download.Authentication` into `RepoVerificationOptions` before calling `VerifyRepo`, and close the download. Use `ListRecords` with `ExcludeValues` for metadata-only recovery. The current protocol has no CAR or index-only download mode.
+
 To generate server stubs and handlers, push them in a temporary directory first, then merge changes in to the actual PDS code:
 
     mkdir tmppds

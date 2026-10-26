@@ -14,6 +14,10 @@ import (
 type SpaceGetSpaceCredential_Input struct {
 	// clientAttestation: Optional client attestation JWT establishing the app's identity. Required only when the space gates on app identity.
 	ClientAttestation *string `json:"clientAttestation,omitempty" cborgen:"clientAttestation,omitempty"`
+	// credentialKid: P-256 did:key to bind the credential to. Each request using the credential is signed by this key.
+	CredentialKid string `json:"credentialKid" cborgen:"credentialKid"`
+	// delegationToken: Optional delegation token establishing the user being acted for. Required only when the space gates on the user.
+	DelegationToken *string `json:"delegationToken,omitempty" cborgen:"delegationToken,omitempty"`
 	// space: Reference to the space.
 	Space string `json:"space" cborgen:"space"`
 }
@@ -26,7 +30,7 @@ type SpaceGetSpaceCredential_Output struct {
 
 // SpaceGetSpaceCredential calls the XRPC method "com.atproto.space.getSpaceCredential".
 //
-// Exchange a delegation token for a space credential. Called on the space authority, with the delegation token as the request's authorization token and an HTTP message signature over Authorization made by the key to bind the credential to. The resulting space credential reads repos across the space. Requires a delegation token and HTTP message signature, plus a client attestation when the space gates on app identity.
+// Request a space credential. Called on the space authority. A delegation token is required when the space gates on the user. A client attestation is required when the space gates on app identity. A space that requires neither offers public access. The resulting space credential reads repos across the space.
 func SpaceGetSpaceCredential(ctx context.Context, c lexutil.LexClient, input *SpaceGetSpaceCredential_Input) (*SpaceGetSpaceCredential_Output, error) {
 	var out SpaceGetSpaceCredential_Output
 
