@@ -8,8 +8,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/bluesky-social/indigo/atproto/atcrypto/lthash"
 	"github.com/bluesky-social/indigo/atproto/atdata"
+	"github.com/bluesky-social/indigo/atproto/spaces/lthash"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
