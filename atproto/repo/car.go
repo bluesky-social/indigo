@@ -13,6 +13,7 @@ import (
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car"
+	"github.com/multiformats/go-multihash"
 )
 
 var ErrNoRoot = errors.New("CAR file missing root CID")
@@ -35,6 +36,9 @@ func LoadRepoFromCAR(ctx context.Context, r io.Reader) (*Commit, *Repo, error) {
 		return nil, nil, fmt.Errorf("CAR file missing root CID")
 	}
 	commitCID := cr.Header.Roots[0]
+	if err := validateCIDType(commitCID); err != nil {
+		return nil, nil, err
+	}
 
 	for {
 		blk, err := cr.Next()
@@ -42,6 +46,10 @@ func LoadRepoFromCAR(ctx context.Context, r io.Reader) (*Commit, *Repo, error) {
 			if err == io.EOF {
 				break
 			}
+			return nil, nil, err
+		}
+
+		if err := validateCIDType(blk.Cid()); err != nil {
 			return nil, nil, err
 		}
 
@@ -91,6 +99,10 @@ func LoadCommitFromCAR(ctx context.Context, r io.Reader) (*Commit, *cid.Cid, err
 		return nil, nil, ErrNoRoot
 	}
 	commitCID := cr.Header.Roots[0]
+	if err := validateCIDType(commitCID); err != nil {
+		return nil, nil, err
+	}
+
 	var commitBlock blocks.Block
 	for {
 		blk, err := cr.Next()
@@ -117,4 +129,13 @@ func LoadCommitFromCAR(ctx context.Context, r io.Reader) (*Commit, *cid.Cid, err
 		return nil, nil, fmt.Errorf("parsing commit block from CAR file: %w", err)
 	}
 	return &commit, &commitCID, nil
+}
+
+// all atproto CAR CIDs must be "blessed" type: CIDv1 with SHA-256
+func validateCIDType(c cid.Cid) error {
+	p := c.Prefix()
+	if p.Version != 1 || p.MhType != multihash.SHA2_256 || p.MhLength != 32 {
+		return fmt.Errorf("unsupported CID type: %s", c)
+	}
+	return nil
 }

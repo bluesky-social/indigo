@@ -48,7 +48,25 @@ func NodeDataFromCBOR(r io.Reader) (*NodeData, error) {
 	if err := nd.UnmarshalCBOR(r); err != nil {
 		return nil, err
 	}
-	// TODO: verify CID type, and "non-empty" here?
+
+	// verify all the type of all CIDs in this node
+	if nd.Left != nil {
+		if err := validateCIDType(*nd.Left); err != nil {
+			return nil, err
+		}
+	}
+	for _, entry := range nd.Entries {
+		// record CID link, not another MST node
+		if err := validateCIDType(entry.Value); err != nil {
+			return nil, err
+		}
+		if entry.Right != nil {
+			if err := validateCIDType(*entry.Right); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	return &nd, nil
 }
 
@@ -243,4 +261,17 @@ func loadNodeFromStore(ctx context.Context, bs MSTBlockSource, ref cid.Cid) (*No
 	}
 
 	return &n, nil
+}
+
+// all MST CIDs must be "blessed" type: CIDv1 with SHA-256
+func validateCIDType(c cid.Cid) error {
+	p := c.Prefix()
+	if p.Version != 1 || p.MhType != multihash.SHA2_256 || p.MhLength != 32 {
+		return fmt.Errorf("%w: unsupported CID type: %s", ErrInvalidTree, c)
+	}
+	// all MST nodes and records are "DAG-CBOR", not "raw"
+	if p.Codec != cid.DagCBOR {
+		return fmt.Errorf("%w: unsupported CID data codec: %s", ErrInvalidTree, c)
+	}
+	return nil
 }
