@@ -22,7 +22,7 @@ import (
 	"github.com/google/go-querystring/query"
 )
 
-type PersistSessionCallback = func(ctx context.Context, data *ClientSessionData)
+type PersistSessionCallback = func(ctx context.Context, data *ClientSessionData) error
 
 // Persisted information about an OAuth session. Used to resume an active session.
 type ClientSessionData struct {
@@ -67,7 +67,8 @@ type ClientSessionData struct {
 
 // Implementation of [atclient.AuthMethod] for an OAuth session. Handles DPoP request token signing and nonce rotation, and token refresh requests. Optionally uses a callback to persist updated session data.
 //
-// A single ClientSession instance can be called concurrently: updates to session data (the 'Data' field) are protected with a RW mutex lock. Note that concurrent calls to distinct ClientSession instances for the same session could result in clobbered session data.
+// A single ClientSession instance can be called concurrently. ClientApp returns
+// the same live instance for each DID/session ID pair.
 type ClientSession struct {
 	// HTTP client used for token refresh requests
 	Client *http.Client
@@ -79,7 +80,16 @@ type ClientSession struct {
 	PersistSessionCallback PersistSessionCallback
 
 	// Lock which protects concurrent access to session data (eg, access and refresh tokens)
-	lk sync.RWMutex
+	lk         sync.RWMutex
+	closed     bool
+	refreshMu  sync.Mutex
+	refreshing *tokenRefresh
+}
+
+type tokenRefresh struct {
+	done  chan struct{}
+	token string
+	err   error
 }
 
 // Helper method to handle DPoP retries and client assertions (if the client is confidential)
@@ -102,7 +112,7 @@ func (sess *ClientSession) postToAuthServer(ctx context.Context, url string, bod
 	bodyBytes := []byte(vals.Encode())
 
 	var resp *http.Response
-	for range 2 {
+	for attempt := range 2 {
 		dpopJWT, err := NewAuthDPoP("POST", url, sess.Data.DPoPAuthServerNonce, sess.DPoPPrivateKey)
 		if err != nil {
 			return nil, err
@@ -117,7 +127,7 @@ func (sess *ClientSession) postToAuthServer(ctx context.Context, url string, bod
 
 		resp, err = sess.Client.Do(req)
 		if err != nil {
-			return nil, err
+			return nil, &TokenEndpointError{Err: err}
 		}
 
 		// always check if a new DPoP nonce was provided, and proactively update session data (even if there was not an explicit error)
@@ -131,11 +141,11 @@ func (sess *ClientSession) postToAuthServer(ctx context.Context, url string, bod
 		if resp.StatusCode == http.StatusBadRequest && dpopNonceHdr != "" {
 			// parseAuthErrorReason() always closes resp.Body
 			reason := parseAuthErrorReason(resp, "token-refresh")
-			if reason == "use_dpop_nonce" {
+			if reason == "use_dpop_nonce" && attempt == 0 {
 				// already updated nonce value above; loop around and try again
 				continue
 			}
-			return nil, fmt.Errorf("auth server request failed (HTTP %d): %s", resp.StatusCode, reason)
+			return nil, &TokenEndpointError{StatusCode: resp.StatusCode, Code: reason}
 		}
 
 		// otherwise process response (success or other error type)
@@ -149,8 +159,42 @@ func (sess *ClientSession) postToAuthServer(ctx context.Context, url string, bod
 //
 // Internally takes a lock on session data around the entire refresh process, including retries. Persists data using [PersistSessionCallback] if configured.
 func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
+	return sess.refreshTokens(ctx, "")
+}
+
+// expectedToken prevents late 401 responses from refreshing tokens which another
+// request has already replaced. Concurrent refresh calls share one result.
+func (sess *ClientSession) refreshTokens(ctx context.Context, expectedToken string) (string, error) {
+	sess.refreshMu.Lock()
+	if active := sess.refreshing; active != nil {
+		sess.refreshMu.Unlock()
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-active.done:
+			return active.token, active.err
+		}
+	}
+	active := &tokenRefresh{done: make(chan struct{})}
+	sess.refreshing = active
+	sess.refreshMu.Unlock()
+	active.token, active.err = sess.refreshTokensLocked(ctx, expectedToken)
+	sess.refreshMu.Lock()
+	sess.refreshing = nil
+	close(active.done)
+	sess.refreshMu.Unlock()
+	return active.token, active.err
+}
+
+func (sess *ClientSession) refreshTokensLocked(ctx context.Context, expectedToken string) (string, error) {
 	sess.lk.Lock()
 	defer sess.lk.Unlock()
+	if sess.closed {
+		return "", ErrGrantRevoked
+	}
+	if expectedToken != "" && expectedToken != sess.Data.AccessToken {
+		return sess.Data.AccessToken, nil
+	}
 
 	body := RefreshTokenRequest{
 		ClientID:     sess.Config.ClientID,
@@ -166,7 +210,7 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		reason := parseAuthErrorReason(resp, "token-refresh")
-		return "", fmt.Errorf("token refresh failed (HTTP %d): %s", resp.StatusCode, reason)
+		return "", &TokenEndpointError{StatusCode: resp.StatusCode, Code: reason}
 	}
 
 	var tokenResp TokenResponse
@@ -177,10 +221,17 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 
 	sess.Data.AccessToken = tokenResp.AccessToken
 	sess.Data.RefreshToken = tokenResp.RefreshToken
+	// RFC 6749: an omitted scope retains the previous grant.
+	if tokenResp.Scope != "" {
+		sess.Data.Scopes = strings.Fields(tokenResp.Scope)
+	}
 
-	// persist updated data (tokens and possibly nonce)
+	// Keep rotated tokens live even if persistence fails: refresh tokens are
+	// single-use, so restoring the old values would destroy this session.
 	if sess.PersistSessionCallback != nil {
-		sess.PersistSessionCallback(ctx, sess.Data)
+		if err := sess.PersistSessionCallback(ctx, sess.Data); err != nil {
+			return "", fmt.Errorf("persisting refreshed session: %w", err)
+		}
 	} else {
 		slog.Warn("not saving updated session data", "did", sess.Data.AccountDID, "session_id", sess.Data.SessionID)
 	}
@@ -188,8 +239,8 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 	return sess.Data.AccessToken, nil
 }
 
-// If supported by the AS, use the revocation endpoint to revoke both the access token and the refresh token.
-// This method always succeeds - any errors during revocation are logged but not returned.
+// If supported by the AS, revoke both access and refresh tokens. All revocation
+// failures are returned; one failure does not prevent trying the other token.
 func (sess *ClientSession) RevokeSession(ctx context.Context) error {
 	sess.lk.Lock()
 	defer sess.lk.Unlock()
@@ -218,7 +269,7 @@ func (sess *ClientSession) RevokeSession(ctx context.Context) error {
 		TokenTypeHint: "refresh_token",
 	})
 	if err2 != nil {
-		err2 = fmt.Errorf("failed revoking refresh token: %w", err1)
+		err2 = fmt.Errorf("failed revoking refresh token: %w", err2)
 	} else {
 		if resp.StatusCode != 200 {
 			err2 = fmt.Errorf("bad HTTP status while revoking refresh token (%d)", resp.StatusCode)
@@ -231,10 +282,18 @@ func (sess *ClientSession) RevokeSession(ctx context.Context) error {
 
 // Constructs and signs a DPoP JWT to include in request header to Host (aka Resource Server, aka PDS). These tokens are different from those used with Auth Server token endpoints (even if the PDS is filling both roles)
 func (sess *ClientSession) NewHostDPoP(method, reqURL string) (string, error) {
+	accessToken, _ := sess.GetHostAccessData()
+	return sess.newHostDPoP(method, reqURL, accessToken)
+}
+
+func (sess *ClientSession) newHostDPoP(method, reqURL, accessToken string) (string, error) {
 	sess.lk.RLock()
 	defer sess.lk.RUnlock()
 
-	ath := S256CodeChallenge(sess.Data.AccessToken)
+	if sess.closed {
+		return "", ErrGrantRevoked
+	}
+	ath := S256CodeChallenge(accessToken)
 	claims := dpopClaims{
 		HTTPMethod:      method,
 		TargetURI:       reqURL,
@@ -303,22 +362,36 @@ func (sess *ClientSession) GetHostAccessData() (accessToken string, dpopHostNonc
 	return sess.Data.AccessToken, sess.Data.DPoPHostNonce
 }
 
-func (sess *ClientSession) UpdateHostDPoPNonce(ctx context.Context, nonce string) {
+// SessionData returns a consistent copy for grant selection without racing token
+// refresh or nonce rotation. Do not log or expose the returned secrets.
+func (sess *ClientSession) SessionData() ClientSessionData {
+	sess.lk.RLock()
+	defer sess.lk.RUnlock()
+	data := *sess.Data
+	data.Scopes = append([]string(nil), data.Scopes...)
+	return data
+}
+
+func (sess *ClientSession) UpdateHostDPoPNonce(ctx context.Context, nonce string) error {
 	sess.lk.Lock()
 	defer sess.lk.Unlock()
+	if sess.closed {
+		return ErrGrantRevoked
+	}
 
 	sess.Data.DPoPHostNonce = nonce
 
 	if sess.PersistSessionCallback != nil {
-		sess.PersistSessionCallback(ctx, sess.Data)
+		return sess.PersistSessionCallback(ctx, sess.Data)
 	} else {
 		slog.Warn("not saving updated host DPoP nonce", "did", sess.Data.AccountDID, "session_id", sess.Data.SessionID)
 	}
+	return nil
 }
 
-// Sends API request to OAuth Resource Server (PDS), using access token and DPoP.
-//
-// Automatically handles DPoP nonce updates and token refresh as needed, based on the response status code and `WWW-Authenticate` header.
+// DoWithAuth implements [atclient.AuthMethod] for an OAuth session. It sends
+// requests with an access token and DPoP proof, and handles nonce updates and
+// token refresh when needed.
 func (sess *ClientSession) DoWithAuth(c *http.Client, req *http.Request, endpoint syntax.NSID) (*http.Response, error) {
 
 	durl := dpopURL(req.URL)
@@ -328,7 +401,7 @@ func (sess *ClientSession) DoWithAuth(c *http.Client, req *http.Request, endpoin
 	// this method may need to retry twice, once for DPoP nonce update and once for token refresh
 	var resp *http.Response
 	for range 3 {
-		dpopJWT, err := sess.NewHostDPoP(req.Method, durl)
+		dpopJWT, err := sess.newHostDPoP(req.Method, durl, accessToken)
 		if err != nil {
 			return nil, err
 		}
@@ -360,8 +433,11 @@ func (sess *ClientSession) DoWithAuth(c *http.Client, req *http.Request, endpoin
 			}
 
 			// persist new nonce value via callback
-			sess.UpdateHostDPoPNonce(req.Context(), dpopNonceHdr)
+			if err := sess.UpdateHostDPoPNonce(req.Context(), dpopNonceHdr); err != nil {
+				slog.Warn("failed to persist OAuth host nonce; continuing request")
+			}
 			dpopNonce = dpopNonceHdr
+			resp.Body.Close()
 
 			// retry request
 			retry := req.Clone(req.Context())
@@ -380,7 +456,7 @@ func (sess *ClientSession) DoWithAuth(c *http.Client, req *http.Request, endpoin
 			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 
-			accessToken, err = sess.RefreshTokens(req.Context())
+			accessToken, err = sess.refreshTokens(req.Context(), accessToken)
 			if err != nil {
 				return nil, fmt.Errorf("failed to refresh OAuth tokens: %w", err)
 			}

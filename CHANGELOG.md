@@ -11,6 +11,9 @@ is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Add immutable `atproto/spaces` handles, explicit credential exchange, tagged HTTP signatures, paged reads, notifications, and caller-owned STAR/blob streams.
 - Add `atproto/spaces/lthash`, current commit JSON/CBOR codecs, shared-secret response MACs, and offline record, blob, and STAR verification.
 - Add scoped Spaces RPCs and opt-in modern `cmd/lexgen` generation with independent package targeting, raw unknown values, and lossless unknown open unions. Established APIs are not regenerated.
+- Share resumed OAuth sessions and concurrent refresh results, preserve omitted scopes, and block stale session holders after logout.
+- Return OAuth persistence and token endpoint errors without discarding rotated tokens or logging token responses.
+- Return an error from implementations of `PersistSessionCallback`. OAuth refresh propagates persistence failures, and `ClientSession.SessionData` provides a locked snapshot.
 
 
 ## [d0ea072] - 2023-03-31
