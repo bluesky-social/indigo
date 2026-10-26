@@ -8,9 +8,9 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 func dedupeLabelActions(labels, existing, existingNegated []string) []string {
@@ -144,34 +144,34 @@ func (eng *Engine) circuitBreakModAction(ctx context.Context, action bool) (bool
 // Creates a moderation report, but checks first if there was a similar recent one, and skips if so.
 //
 // Returns a bool indicating if a new report was created.
-func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, did syntax.DID, mr ModReport) (bool, error) {
+func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *atclient.APIClient, did syntax.DID, mr ModReport) (bool, error) {
 	// before creating a report, query to see if automod has already reported this account in the past week for the same reason
 	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
 
 	resp, err := toolsozone.ModerationQueryEvents(
 		ctx,
 		xrpcc,
-		nil,            // addedLabels []string
-		nil,            // addedTags []string
-		"",             // ageAssuranceState
-		"",             // batchId string
-		nil,            // collections []string
-		"",             // comment string
-		"",             // createdAfter string
-		"",             // createdBefore string
-		xrpcc.Auth.Did, // createdBy string
-		"",             // cursor string
-		false,          // hasComment bool
-		false,          // includeAllUserRecords bool
-		5,              // limit int64
-		nil,            // modTool
-		nil,            // policies []string
-		nil,            // removedLabels []string
-		nil,            // removedTags []string
-		nil,            // reportTypes []string
-		"",             // sortDirection string
-		did.String(),   // subject string
-		"",             // subjectType string
+		nil,                       // addedLabels []string
+		nil,                       // addedTags []string
+		"",                        // ageAssuranceState
+		"",                        // batchId string
+		nil,                       // collections []string
+		"",                        // comment string
+		"",                        // createdAfter string
+		"",                        // createdBefore string
+		xrpcc.AccountDID.String(), // createdBy string
+		"",                        // cursor string
+		false,                     // hasComment bool
+		false,                     // includeAllUserRecords bool
+		5,                         // limit int64
+		nil,                       // modTool
+		nil,                       // policies []string
+		nil,                       // removedLabels []string
+		nil,                       // removedTags []string
+		nil,                       // reportTypes []string
+		"",                        // sortDirection string
+		did.String(),              // subject string
+		"",                        // subjectType string
 		[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
 		false, // withStrike bool
 	)
@@ -181,7 +181,7 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 	}
 	for _, modEvt := range resp.Events {
 		// defensively ensure that our query params worked correctly
-		if modEvt.Event.ModerationDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.Auth.Did || modEvt.Subject.AdminDefs_RepoRef == nil || modEvt.Subject.AdminDefs_RepoRef.Did != did.String() || (modEvt.Event.ModerationDefs_ModEventReport.ReportType != nil && *modEvt.Event.ModerationDefs_ModEventReport.ReportType != mr.ReasonType) {
+		if modEvt.Event.ModerationDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.AccountDID.String() || modEvt.Subject.AdminDefs_RepoRef == nil || modEvt.Subject.AdminDefs_RepoRef.Did != did.String() || (modEvt.Event.ModerationDefs_ModEventReport.ReportType != nil && *modEvt.Event.ModerationDefs_ModEventReport.ReportType != mr.ReasonType) {
 			continue
 		}
 		// igonre if older
@@ -206,7 +206,7 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 	actionNewReportCount.WithLabelValues("account").Inc()
 	comment := "[automod] " + mr.Comment
 	_, err = toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-		CreatedBy: xrpcc.Auth.Did,
+		CreatedBy: xrpcc.AccountDID.String(),
 		Event: &toolsozone.ModerationEmitEvent_Input_Event{
 			ModerationDefs_ModEventReport: &toolsozone.ModerationDefs_ModEventReport{
 				Comment:    &comment,
@@ -230,34 +230,34 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 // Returns a bool indicating if a new report was created.
 //
 // TODO: merge this with createReportIfFresh()
-func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, uri syntax.ATURI, cid *syntax.CID, mr ModReport) (bool, error) {
+func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *atclient.APIClient, uri syntax.ATURI, cid *syntax.CID, mr ModReport) (bool, error) {
 	// before creating a report, query to see if automod has already reported this account in the past week for the same reason
 	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
 
 	resp, err := toolsozone.ModerationQueryEvents(
 		ctx,
 		xrpcc,
-		nil,            // addedLabels []string
-		nil,            // addedTags []string
-		"",             // ageAssuranceState
-		"",             // batchId string
-		nil,            // collections []string
-		"",             // comment string
-		"",             // createdAfter string
-		"",             // createdBefore string
-		xrpcc.Auth.Did, // createdBy string
-		"",             // cursor string
-		false,          // hasComment bool
-		false,          // includeAllUserRecords bool
-		5,              // limit int64
-		nil,            // modTool
-		nil,            // policies []string
-		nil,            // removedLabels []string
-		nil,            // removedTags []string
-		nil,            // reportTypes []string
-		"",             // sortDirection string
-		uri.String(),   // subject string
-		"",             // subjectType string
+		nil,                       // addedLabels []string
+		nil,                       // addedTags []string
+		"",                        // ageAssuranceState
+		"",                        // batchId string
+		nil,                       // collections []string
+		"",                        // comment string
+		"",                        // createdAfter string
+		"",                        // createdBefore string
+		xrpcc.AccountDID.String(), // createdBy string
+		"",                        // cursor string
+		false,                     // hasComment bool
+		false,                     // includeAllUserRecords bool
+		5,                         // limit int64
+		nil,                       // modTool
+		nil,                       // policies []string
+		nil,                       // removedLabels []string
+		nil,                       // removedTags []string
+		nil,                       // reportTypes []string
+		"",                        // sortDirection string
+		uri.String(),              // subject string
+		"",                        // subjectType string
 		[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
 		false, // withStrike bool
 	)
@@ -266,7 +266,7 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 	}
 	for _, modEvt := range resp.Events {
 		// defensively ensure that our query params worked correctly
-		if modEvt.Event.ModerationDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.Auth.Did || modEvt.Subject.RepoStrongRef == nil || modEvt.Subject.RepoStrongRef.Uri != uri.String() || (modEvt.Event.ModerationDefs_ModEventReport.ReportType != nil && *modEvt.Event.ModerationDefs_ModEventReport.ReportType != mr.ReasonType) {
+		if modEvt.Event.ModerationDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.AccountDID.String() || modEvt.Subject.RepoStrongRef == nil || modEvt.Subject.RepoStrongRef.Uri != uri.String() || (modEvt.Event.ModerationDefs_ModEventReport.ReportType != nil && *modEvt.Event.ModerationDefs_ModEventReport.ReportType != mr.ReasonType) {
 			continue
 		}
 		// igonre if older
@@ -291,7 +291,7 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 	actionNewReportCount.WithLabelValues("record").Inc()
 	comment := "[automod] " + mr.Comment
 	_, err = toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-		CreatedBy: xrpcc.Auth.Did,
+		CreatedBy: xrpcc.AccountDID.String(),
 		Event: &toolsozone.ModerationEmitEvent_Input_Event{
 			ModerationDefs_ModEventReport: &toolsozone.ModerationDefs_ModEventReport{
 				Comment:    &comment,
