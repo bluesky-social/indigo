@@ -144,6 +144,9 @@ func (i *Identity) GetPublicKey(id string) (atcrypto.PublicKey, error) {
 		if len(k.PublicKeyMultibase) < 2 || k.PublicKeyMultibase[0] != 'z' {
 			return nil, fmt.Errorf("identity key not a multibase base58btc string")
 		}
+		if len(k.PublicKeyMultibase) > atcrypto.MaxMultibaseStringLength {
+			return nil, fmt.Errorf("identity public key string too long (%d)", len(k.PublicKeyMultibase))
+		}
 		keyBytes, err := base58.Decode(k.PublicKeyMultibase[1:])
 		if err != nil {
 			return nil, fmt.Errorf("identity key multibase parsing: %w", err)
@@ -152,6 +155,9 @@ func (i *Identity) GetPublicKey(id string) (atcrypto.PublicKey, error) {
 	case "EcdsaSecp256k1VerificationKey2019":
 		if len(k.PublicKeyMultibase) < 2 || k.PublicKeyMultibase[0] != 'z' {
 			return nil, fmt.Errorf("identity key not a multibase base58btc string")
+		}
+		if len(k.PublicKeyMultibase) > atcrypto.MaxMultibaseStringLength {
+			return nil, fmt.Errorf("identity public key string too long (%d)", len(k.PublicKeyMultibase))
 		}
 		keyBytes, err := base58.Decode(k.PublicKeyMultibase[1:])
 		if err != nil {
