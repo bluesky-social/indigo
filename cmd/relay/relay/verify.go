@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -38,17 +39,12 @@ const MaxCommitOps = 200
 func (r *Relay) VerifyRepoCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit, ident *identity.Identity, prevRepo *models.AccountRepo, hostname string) (ret *models.AccountRepo, rerr error) {
 	logger := r.Logger.With("host", hostname, "did", evt.Repo, "rev", evt.Rev)
 
-	// handle any panics that arise while processing commit blocks (eg, in MST code)
+	// recover any panics that arise while processing commit blocks (eg, in MST code)
 	defer func() {
-		if r := recover(); r != nil {
-			logger.Error("recovered panic verifying repo commit", "err", r)
-			var ok bool
-			rerr, ok = r.(error)
-			if ok {
-				rerr = fmt.Errorf("processing repo commit: %w", rerr)
-			} else {
-				rerr = fmt.Errorf("processing repo commit: %v", r)
-			}
+		if rec := recover(); rec != nil {
+			logger.Error("recovered panic verifying repo commit", "panic", rec, "stack", string(debug.Stack()))
+			ret = nil
+			rerr = fmt.Errorf("panic verifying repo commit: %v", r)
 		}
 	}()
 
@@ -187,12 +183,21 @@ func (r *Relay) VerifyCommitMessageStrict(ctx context.Context, evt *comatproto.S
 // `ident` arg may be nil (if resolution failed)
 // `hostname` arg is piped through just for logging, not for validating account/host match
 // returns an AccountRepo with empty UID, containing metadata about *this* commit
-func (r *Relay) VerifyRepoSync(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync, ident *identity.Identity, hostname string) (*models.AccountRepo, error) {
-	//logger := r.Logger.With("host", hostname, "did", evt.Did, "rev", evt.Rev)
+func (r *Relay) VerifyRepoSync(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Sync, ident *identity.Identity, hostname string) (ret *models.AccountRepo, rerr error) {
+	logger := r.Logger.With("host", hostname, "did", evt.Did, "rev", evt.Rev)
 
 	if len(evt.Blocks) > MaxMessageBlocksBytes {
 		return nil, fmt.Errorf("blocks size (%d bytes) exceeds protocol limit", len(evt.Blocks))
 	}
+
+	// recover any panics that arise while processing sync blocks (eg, in MST code)
+	defer func() {
+		if rec := recover(); rec != nil {
+			logger.Error("recovered panic verifying repo sync", "panic", rec, "stack", string(debug.Stack()))
+			ret = nil
+			rerr = fmt.Errorf("panic verifying repo sync: %v", r)
+		}
+	}()
 
 	// even in lenient/legacy mode (eg, tooBig), we need to verify commit
 	commit, commitCID, err := repo.LoadCommitFromCAR(ctx, bytes.NewReader(evt.Blocks))
