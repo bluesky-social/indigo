@@ -10,9 +10,9 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 var newAccountRetryDuration = 2 * 1000 * time.Millisecond
@@ -66,9 +66,9 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 		rd, err := toolsozone.ModerationGetRepo(ctx, e.OzoneClient, ident.DID.String())
 		if err != nil {
 			logger.Warn("failed to fetch private account metadata from Ozone", "err", err)
-			var xrpcError *xrpc.Error
-			if errors.As(err, &xrpcError) {
-				accountOzoneFetches.WithLabelValues(fmt.Sprint(xrpcError.StatusCode)).Inc()
+			var apiError *atclient.APIError
+			if errors.As(err, &apiError) {
+				accountOzoneFetches.WithLabelValues(fmt.Sprint(apiError.StatusCode)).Inc()
 			} else {
 				accountOzoneFetches.WithLabelValues("error").Inc()
 			}
@@ -168,9 +168,9 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 	pv, err := appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
 	if err != nil {
 		logger.Warn("account profile lookup failed (from bsky appview)", "err", err)
-		var xrpcError *xrpc.Error
-		if errors.As(err, &xrpcError) {
-			accountAppviewFetches.WithLabelValues(fmt.Sprint(xrpcError.StatusCode)).Inc()
+		var apiError *atclient.APIError
+		if errors.As(err, &apiError) {
+			accountAppviewFetches.WithLabelValues(fmt.Sprint(apiError.StatusCode)).Inc()
 		} else {
 			accountAppviewFetches.WithLabelValues("error").Inc()
 		}
