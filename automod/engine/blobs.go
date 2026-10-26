@@ -62,8 +62,8 @@ func (c *RecordContext) fetchBlob(blob lexutil.LexBlob) ([]byte, error) {
 	}
 
 	req.Header.Set("User-Agent", "indigo-automod/"+versioninfo.Short())
-	// TODO: more robust PDS hostname check (eg, future trailing slash or partial path)
-	if c.engine.BskyClient.Headers != nil && strings.HasSuffix(pdsEndpoint, ".bsky.network") {
+	// only attach ratelimit bypass header for bsky-hosted PDS fleet
+	if c.engine.BskyClient.Headers != nil && req.URL.Scheme == "https" && strings.HasSuffix(req.URL.Hostname(), ".bsky.network") {
 		if val := c.engine.BskyClient.Headers.Get("x-ratelimit-bypass"); val != "" {
 			req.Header.Set("x-ratelimit-bypass", val)
 		}
