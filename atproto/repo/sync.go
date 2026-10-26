@@ -63,6 +63,9 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 
 	// verify ops and load out all the records
 	for _, op := range msg.Ops {
+		if op == nil {
+			return nil, fmt.Errorf("nil entry in commit ops list")
+		}
 		if op.Cid != nil {
 			if err := validateCIDType(cid.Cid(*op.Cid)); err != nil {
 				return nil, fmt.Errorf("commit ops entry: %w", err)

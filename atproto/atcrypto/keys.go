@@ -8,6 +8,11 @@ import (
 	"github.com/mr-tron/base58"
 )
 
+// Maximum size of a multibase-encoded key to parse.
+//
+// This is large to support future post-quantum keys. It is a global var (not const) to allow bumping if necessary.
+var MaxMultibaseStringLength = 4 * 1024
+
 // Common interface for all the supported atproto cryptographic systems, when
 // secret key material may not be directly available to be exported as bytes.
 type PrivateKey interface {
@@ -89,6 +94,9 @@ func ParsePrivateMultibase(encoded string) (PrivateKeyExportable, error) {
 	if len(encoded) < 2 || encoded[0] != 'z' {
 		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
 	}
+	if len(encoded) > MaxMultibaseStringLength {
+		return nil, fmt.Errorf("crypto: multibase private key string too long (%d)", len(encoded))
+	}
 	data, err := base58.Decode(encoded[1:])
 	if err != nil {
 		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
@@ -111,6 +119,9 @@ func ParsePrivateMultibase(encoded string) (PrivateKeyExportable, error) {
 func ParsePublicMultibase(encoded string) (PublicKey, error) {
 	if len(encoded) < 2 || encoded[0] != 'z' {
 		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
+	}
+	if len(encoded) > MaxMultibaseStringLength {
+		return nil, fmt.Errorf("crypto: multibase public key string too long (%d)", len(encoded))
 	}
 	data, err := base58.Decode(encoded[1:])
 	if err != nil {

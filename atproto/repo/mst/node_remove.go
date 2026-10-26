@@ -92,6 +92,11 @@ func (n *Node) remove(key []byte, height int) (*Node, *cid.Cid, error) {
 }
 
 func mergeNodes(left *Node, right *Node) (*Node, error) {
+	// check that nodes are safe to merge
+	if left == nil || left.IsEmpty() || right == nil || right.IsEmpty() {
+		return nil, fmt.Errorf("merging empty child node")
+	}
+
 	idx := len(left.Entries)
 	n := &Node{
 		Height:  left.Height,
