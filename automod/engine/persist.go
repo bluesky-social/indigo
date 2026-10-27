@@ -40,6 +40,9 @@ func (eng *Engine) persistCounters(ctx context.Context, eff *Effects) error {
 // Note that this method expects to run *before* counts are persisted (it accesses and updates some counts)
 func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	ctx := c.Ctx
+	if err := c.effects.validateReportActions(); err != nil {
+		return err
+	}
 
 	// de-dupe actions
 	newLabels := dedupeLabelActions(c.effects.AccountLabels, c.Account.AccountLabels, c.Account.AccountNegatedLabels)
@@ -128,7 +131,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 			actionNewLabelCount.WithLabelValues("account", val).Inc()
 		}
 		comment := "[automod]: auto-labeling account"
-		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+		_, err := emitEventWithReports(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
 			CreatedBy: xrpcc.AccountDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventLabel: &toolsozone.ModerationDefs_ModEventLabel{
@@ -142,7 +145,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 					Did: c.Account.Identity.DID.String(),
 				},
 			},
-		})
+		}, reportActionsForLabels(newLabels, c.effects.accountLabelReports))
 		if err != nil {
 			c.Logger.Error("failed to create account labels", "err", err)
 		}
@@ -191,7 +194,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		c.Logger.Warn("account-takedown")
 		actionNewTakedownCount.WithLabelValues("account").Inc()
 		comment := "[automod]: auto account-takedown"
-		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+		_, err := emitEventWithReports(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
 			CreatedBy: xrpcc.AccountDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventTakedown: &toolsozone.ModerationDefs_ModEventTakedown{
@@ -203,7 +206,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 					Did: c.Account.Identity.DID.String(),
 				},
 			},
-		})
+		}, c.effects.accountTakedownReports)
 		if err != nil {
 			c.Logger.Error("failed to execute account takedown", "err", err)
 		}
@@ -280,7 +283,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	newEscalation := c.effects.RecordEscalate
 	newAcknowledge := c.effects.RecordAcknowledge
 
-	if (newEscalation || newAcknowledge || len(newLabels) > 0 || len(rmdLabels) > 0 || len(newTags) > 0) && eng.OzoneClient != nil {
+	if (newEscalation || newAcknowledge || len(newLabels) > 0 || len(rmdLabels) > 0 || len(newTags) > 0) && eng.OzoneClient != nil && c.RecordOp.CID != nil {
 		// fetch existing record labels, tags, etc
 		rv, err := toolsozone.ModerationGetRecord(ctx, eng.OzoneClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
 		if err != nil {
@@ -397,7 +400,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			actionNewLabelCount.WithLabelValues("record", val).Inc()
 		}
 		comment := "[automod]: auto-labeling record"
-		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+		_, err := emitEventWithReports(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
 			CreatedBy: xrpcc.AccountDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventLabel: &toolsozone.ModerationDefs_ModEventLabel{
@@ -409,7 +412,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
 				RepoStrongRef: &strongRef,
 			},
-		})
+		}, reportActionsForLabels(newLabels, c.effects.recordLabelReports))
 		if err != nil {
 			c.Logger.Error("failed to create record label", "err", err)
 		}
@@ -451,7 +454,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		c.Logger.Warn("record-takedown")
 		actionNewTakedownCount.WithLabelValues("record").Inc()
 		comment := "[automod]: automated record-takedown"
-		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+		_, err := emitEventWithReports(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
 			CreatedBy: xrpcc.AccountDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventTakedown: &toolsozone.ModerationDefs_ModEventTakedown{
@@ -462,7 +465,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 				RepoStrongRef: &strongRef,
 			},
 			SubjectBlobCids: dedupeStrings(c.effects.BlobTakedowns),
-		})
+		}, c.effects.recordTakedownReports)
 		if err != nil {
 			c.Logger.Error("failed to execute record takedown", "err", err)
 		}
