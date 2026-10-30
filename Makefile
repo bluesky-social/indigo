@@ -81,10 +81,6 @@ cborgen: ## Run codegen tool for CBOR serialization
 run-dev-relay: .env ## Runs relay for local dev
 	LOG_LEVEL=info go run ./cmd/relay --admin-password localdev serve
 
-.PHONY: run-dev-ident
-run-dev-ident: .env ## Runs 'bluepages' identity directory for local dev
-	GOLOG_LOG_LEVEL=info go run ./cmd/bluepages serve
-
 .PHONY: build-relay-image
 build-relay-image: ## Builds relay docker image
 	docker build -t relay -f cmd/relay/Dockerfile .
