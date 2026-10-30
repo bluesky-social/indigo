@@ -1,0 +1,24 @@
+
+# full reference, no other parts
+at://did:plc:asdf123
+at://did:plc:asdf123/space
+at://did:plc:asdf123/space/com.example.space
+at://did:plc:asdf123/com.example.space/skey
+at://did:plc:asdf123/space/com.example.space/skey/did:plc:xyz
+at://did:plc:asdf123/space/com.example.space/skey/did:plc:xyz/com.example.record
+at://did:plc:asdf123/space/com.example.space/skey/did:plc:xyz/com.example.record/rkey
+
+# enforces spec basics
+a://did:plc:asdf123/space/com.example.space/skey
+at//did:plc:asdf123/space/com.example.space/skey
+at:/a/did:plc:asdf123/space/com.example.space/skey
+at:/did:plc:asdf123/space/com.example.space/skey
+AT://did:plc:asdf123/space/com.example.space/skey
+http://did:plc:asdf123/space/com.example.space/skey
+://did:plc:asdf123/space/com.example.space/skey
+at:did:plc:asdf123/space/com.example.space/skey
+at:///did:plc:asdf123/space/com.example.space/skey
+at://:did:plc:asdf123/space/com.example.space/skey
+# etc...
+
+# TODO: copy more from AT URI test cases
