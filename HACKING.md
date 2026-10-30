@@ -7,7 +7,6 @@ Run with, eg, `go run ./cmd/rainbow`):
 - `cmd/lexgen`: codegen tool for lexicons (Lexicon JSON to Go package)
 - `cmd/stress`: connects to local/default PDS and creates a ton of random posts
 - `cmd/beemo`: slack bot for moderation reporting (Bluesky Moderation Observer)
-- `cmd/fakermaker`: helper to generate fake accounts and content for testing
 - `cmd/sonar`: event stream monitoring tool
 - `cmd/hepa`: auto-moderation rule engine service
 - `cmd/rainbow`: firehose fanout service
@@ -136,25 +135,3 @@ Checkout the `atproto` repo in another terminal and run:
 In this repo (indigo), start a Relay, in two separate terminals:
 
     make run-dev-relay
-
-In a final terminal, run fakermaker to inject data into the system:
-
-    # setup and create initial accounts; 100 by default
-    mkdir data/fakermaker/
-    export GOLOG_LOG_LEVEL=info
-    go run ./cmd/fakermaker/ gen-accounts > data/fakermaker/accounts.json
-
-    # create or update profiles for all the accounts
-    go run ./cmd/fakermaker/ gen-profiles
-
-    # create follow graph between accounts
-    go run ./cmd/fakermaker/ gen-graph
-
-    # create posts, including mentions and image uploads
-    go run ./cmd/fakermaker/ gen-posts
-
-    # create more interactions, such as likes, between accounts
-    go run ./cmd/fakermaker/ gen-interactions
-
-    # lastly, read-only queries, including timelines, notifications, and post threads
-    go run ./cmd/fakermaker/ run-browsing
