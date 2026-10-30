@@ -11,7 +11,6 @@ Run with, eg, `go run ./cmd/rainbow`):
 - `cmd/sonar`: event stream monitoring tool
 - `cmd/hepa`: auto-moderation rule engine service
 - `cmd/rainbow`: firehose fanout service
-- `cmd/bluepages`: identity directory service
 - `cmd/tap`: synchronization and backfill tool for atproto apps
 - `gen`: dev tool to run CBOR type codegen
 
