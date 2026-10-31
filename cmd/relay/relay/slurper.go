@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -280,6 +281,55 @@ func (s *Slurper) Subscribe(host *models.Host) error {
 	return nil
 }
 
+const maxDialRedirects = 1
+
+// Dials a firehose URL, following at most one HTTP redirect, and returns the URL finally connected to.
+//
+// gorilla/websocket does not follow redirects itself, so they are followed here, reusing the same dialer (and so its SSRF protections). Unless `allowInsecure`, redirects to non-TLS endpoints are refused.
+func dialSubscribeRepos(ctx context.Context, d *websocket.Dialer, u string, hdr http.Header, allowInsecure bool) (*websocket.Conn, *http.Response, string, error) {
+	for hops := 0; ; hops++ {
+		conn, resp, err := d.DialContext(ctx, u, hdr)
+		if err == nil {
+			return conn, resp, u, nil
+		}
+		if resp == nil {
+			return nil, nil, u, err
+		}
+		switch resp.StatusCode {
+		case 301, 302, 303, 307, 308:
+		default:
+			return nil, resp, u, err
+		}
+		location := resp.Header.Get("Location")
+		if location == "" {
+			return nil, resp, u, err
+		}
+		if hops >= maxDialRedirects {
+			return nil, resp, u, fmt.Errorf("too many redirects dialing %s", u)
+		}
+		cur, perr := url.Parse(u)
+		if perr != nil {
+			return nil, resp, u, perr
+		}
+		next, perr := cur.Parse(location)
+		if perr != nil {
+			return nil, resp, u, perr
+		}
+		switch next.Scheme {
+		case "https", "wss":
+			next.Scheme = "wss"
+		case "http", "ws":
+			next.Scheme = "ws"
+		default:
+			return nil, resp, u, fmt.Errorf("redirect to unsupported scheme %q", next.Scheme)
+		}
+		if next.Scheme != "wss" && !allowInsecure {
+			return nil, resp, u, fmt.Errorf("refusing redirect to insecure URL %s", next)
+		}
+		u = next.String()
+	}
+}
+
 // Main event-loop for a subscription (websocket connection to upstream host), expected to be called as a goroutine.
 //
 // On connection failure (drop or failed initial connection), will attempt re-connects, with backoff.
@@ -323,7 +373,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host, 
 		}
 		hdr := make(http.Header)
 		hdr.Add("User-Agent", s.Config.UserAgent)
-		conn, resp, err := d.DialContext(ctx, u, hdr)
+		conn, resp, u, err := dialSubscribeRepos(ctx, &d, u, hdr, host.NoSSL)
 		if err != nil {
 			logger.Warn("dialing failed", "err", err, "backoff", backoff)
 			time.Sleep(sleepForBackoff(backoff))
