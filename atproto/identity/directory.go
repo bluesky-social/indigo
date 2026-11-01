@@ -3,14 +3,8 @@ package identity
 import (
 	"context"
 	"errors"
-	"net"
-	"net/http"
-	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/util/ssrf"
-
-	"github.com/earthboundkid/versioninfo/v2"
 )
 
 // Ergonomic interface for atproto identity lookup, by DID or handle.
@@ -60,41 +54,11 @@ var ErrKeyNotDeclared = errors.New("DID document did not declare a relevant publ
 // Handle was invalid, in a situation where a valid handle is required.
 var ErrInvalidHandle = errors.New("invalid handle")
 
-var DefaultPLCURL = "https://plc.directory"
-
 // Returns a reasonable Directory implementation for applications
 //
 // If an HTTP proxy is configured (via environment variable), SSRF protections will not apply to external requests (it is the responsibility of the proxy to handle SSRF). However, note that the default SSRF protections will apply to connections to the HTTP proxy itself, which breaks the common case of local-network HTTP proxies. In this situation, calling code and applications need to configure a custom [identity.Directory].
-func DefaultDirectory() Directory {
-	ssrfHTTPDialer := ssrf.PublicOnlyDialer()
-	base := BaseDirectory{
-		PLCURL: DefaultPLCURL,
-		HTTPClient: http.Client{
-			Timeout: time.Second * 10,
-			Transport: &http.Transport{
-				Proxy:             http.ProxyFromEnvironment,
-				DialContext:       ssrfHTTPDialer.DialContext,
-				ForceAttemptHTTP2: true,
-				MaxIdleConns:      100,
-				// would want this around 100ms for services doing lots of handle resolution
-				IdleConnTimeout:       time.Millisecond * 1000,
-				TLSHandshakeTimeout:   10 * time.Second,
-				ExpectContinueTimeout: 1 * time.Second,
-			},
-		},
-		PLCClient: &http.Client{
-			Timeout: time.Second * 10,
-		},
-		Resolver: net.Resolver{
-			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-				d := net.Dialer{Timeout: time.Second * 3}
-				return d.DialContext(ctx, network, address)
-			},
-		},
-		TryAuthoritativeDNS: true,
-		// primary Bluesky PDS instance only supports HTTP resolution method
-		SkipDNSDomainSuffixes: []string{".bsky.social"},
-		UserAgent:             "indigo-identity/" + versioninfo.Short(),
-	}
-	return NewCacheDirectory(&base, 250_000, time.Hour*24, time.Minute*2, time.Minute*5)
+func DefaultDirectory() *CacheDirectory {
+	return NewDirectory(
+		WithTryAuthoritativeDNS(true),
+	)
 }
