@@ -1,0 +1,48 @@
+{
+  "uri": "at://did:example:subject/site.standard.document/example",
+  "cid": "bafkreia2w7bytgtx57bpdiex24p3ibzkzgwt26hqgug3gxdkdo6haiid6u",
+  "value": {
+    "$type": "site.standard.document",
+    "createdAt": "2000-01-01T00:00:00Z",
+    "text": "synthetic fixture"
+  },
+  "blobCids": [],
+  "indexedAt": "2000-01-01T00:00:00Z",
+  "repo": {
+    "did": "did:example:subject",
+    "handle": "subject.example.test",
+    "relatedRecords": [
+      {
+        "$type": "app.bsky.actor.profile"
+      }
+    ],
+    "indexedAt": "2000-01-01T00:00:00Z",
+    "moderation": {}
+  },
+  "moderation": {
+    "subjectStatus": {
+      "id": 1,
+      "reviewState": "tools.ozone.moderation.defs#reviewNone",
+      "tags": [
+        "example"
+      ],
+      "createdAt": "2000-01-01T00:00:00Z",
+      "updatedAt": "2000-01-01T00:00:00Z",
+      "subject": {
+        "$type": "com.atproto.repo.strongRef",
+        "uri": "at://did:example:subject/site.standard.document/example",
+        "cid": "bafkreia2w7bytgtx57bpdiex24p3ibzkzgwt26hqgug3gxdkdo6haiid6u"
+      }
+    }
+  },
+  "blobs": [],
+  "labels": [
+    {
+      "src": "did:example:moderation",
+      "uri": "at://did:example:subject/site.standard.document/example",
+      "cid": "bafkreiemeeowvx4rdrednes23uglxzsj3rvkisymi3yohft7ry4xbvh2ni",
+      "val": "porn",
+      "cts": "2000-01-01T00:00:00Z"
+    }
+  ]
+}
