@@ -29,6 +29,9 @@ func TestFramework(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer c.Shutdown()
+	if err := p.WaitForSubscribers(1); err != nil {
+		t.Fatal(err)
+	}
 
 	h := "example.atbin.dev"
 	e1 := stream.XRPCStreamEvent{
