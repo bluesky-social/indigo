@@ -277,7 +277,9 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 
 	atURI := c.RecordOp.ATURI().String()
-	newLabels := dedupeStrings(c.effects.RecordLabels)
+	// Keep the requested labels before de-duplicating against the record's labels.
+	requestedLabels := dedupeStrings(c.effects.RecordLabels)
+	newLabels := requestedLabels
 	rmdLabels := []string{}
 	newTags := dedupeStrings(c.effects.RecordTags)
 	newEscalation := c.effects.RecordEscalate
@@ -285,7 +287,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 
 	if (newEscalation || newAcknowledge || len(newLabels) > 0 || len(rmdLabels) > 0 || len(newTags) > 0) && eng.OzoneClient != nil && c.RecordOp.CID != nil {
 		// fetch existing record labels, tags, etc
-		rv, err := toolsozone.ModerationGetRecord(ctx, eng.OzoneClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
+		rv, err := fetchRecordModState(ctx, eng.OzoneClient, c.RecordOp.ATURI(), *c.RecordOp.CID)
 		if err != nil {
 			// NOTE: there is a frequent 4xx error here from Ozone because this record has not been indexed yet
 			c.Logger.Warn("failed to fetch private record metadata from Ozone", "err", err)
@@ -303,21 +305,25 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			negLabels = dedupeStrings(negLabels)
 			newLabels = dedupeLabelActions(newLabels, existingLabels, negLabels)
 			for _, lbl := range dedupeStrings(c.effects.RemovedRecordLabels) {
-				// we don't need to try and remove labels whenever they are either _not_ already in the record labels, _or_ if they are
-				// being applied by some other rule before persisting
-				if !keyword.TokenInSet(lbl, existingLabels) || keyword.TokenInSet(lbl, newLabels) {
+				// A requested label must not be removed, even if it was already present
+				// and therefore dropped from newLabels.
+				if !keyword.TokenInSet(lbl, existingLabels) || keyword.TokenInSet(lbl, requestedLabels) {
 					continue
 				}
 				rmdLabels = append(rmdLabels, lbl)
 			}
 			existingTags := []string{}
 			hasSubjectStatus := rv.Moderation != nil && rv.Moderation.SubjectStatus != nil
-			if hasSubjectStatus && rv.Moderation.SubjectStatus.Tags != nil {
+			reviewState := ""
+			if hasSubjectStatus {
 				existingTags = rv.Moderation.SubjectStatus.Tags
+				if rv.Moderation.SubjectStatus.ReviewState != nil {
+					reviewState = *rv.Moderation.SubjectStatus.ReviewState
+				}
 			}
 			newTags = dedupeTagActions(newTags, existingTags)
-			newEscalation = newEscalation && hasSubjectStatus && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewEscalate"
-			newAcknowledge = newAcknowledge && hasSubjectStatus && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewNone" && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewClosed"
+			newEscalation = newEscalation && hasSubjectStatus && reviewState != "tools.ozone.moderation.defs#reviewEscalate"
+			newAcknowledge = newAcknowledge && hasSubjectStatus && reviewState != "tools.ozone.moderation.defs#reviewNone" && reviewState != "tools.ozone.moderation.defs#reviewClosed"
 		}
 	}
 
