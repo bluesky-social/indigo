@@ -322,8 +322,9 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 				}
 			}
 			newTags = dedupeTagActions(newTags, existingTags)
-			newEscalation = newEscalation && hasSubjectStatus && reviewState != "tools.ozone.moderation.defs#reviewEscalate"
-			newAcknowledge = newAcknowledge && hasSubjectStatus && reviewState != "tools.ozone.moderation.defs#reviewNone" && reviewState != "tools.ozone.moderation.defs#reviewClosed"
+			// Without a status, the review state is unknown; don't suppress requested actions.
+			newEscalation = newEscalation && (!hasSubjectStatus || reviewState != "tools.ozone.moderation.defs#reviewEscalated")
+			newAcknowledge = newAcknowledge && (!hasSubjectStatus || (reviewState != "tools.ozone.moderation.defs#reviewNone" && reviewState != "tools.ozone.moderation.defs#reviewClosed"))
 		}
 	}
 

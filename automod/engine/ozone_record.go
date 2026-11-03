@@ -6,6 +6,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // recordModState is the subset of a tools.ozone.moderation.getRecord response that persistRecordModActions needs to
@@ -31,11 +32,11 @@ type recordSubjectStatus struct {
 
 func fetchRecordModState(ctx context.Context, c *atclient.APIClient, uri syntax.ATURI, cid syntax.CID) (*recordModState, error) {
 	var out recordModState
-	params := map[string]any{
-		"uri": uri.String(),
-		"cid": cid.String(),
+	params := map[string]any{"uri": uri.String()}
+	if cid != "" {
+		params["cid"] = cid.String()
 	}
-	if err := c.Get(ctx, syntax.NSID("tools.ozone.moderation.getRecord"), params, &out); err != nil {
+	if err := c.LexDo(ctx, lexutil.Query, "", "tools.ozone.moderation.getRecord", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
