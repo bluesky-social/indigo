@@ -88,7 +88,7 @@ func newTestEnv(t *testing.T, opts testEnvOpts) *testEnv {
 	events := NewEventManager(logger, db, config)
 	repos := NewRepoManager(logger, db, events, idDir)
 	outbox := NewOutbox(logger, events, config)
-	server := NewTapServer(logger, db, outbox, idDir, nil, nil, config)
+	server := NewTapServer(logger, db, outbox, idDir, nil, nil, nil, config)
 
 	// Find a free port
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
