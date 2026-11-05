@@ -22,6 +22,10 @@ type Identity struct {
 	AlsoKnownAs []string
 	Services    map[string]ServiceEndpoint
 	Keys        map[string]VerificationMethod
+
+	// Preserve KEM declarations before DID-document parsing discards their IDs,
+	// controllers, and duplicates. Exported storage survives serialized caches.
+	KEMKeyDeclarations []DocVerificationMethod `json:",omitempty"`
 }
 
 // Sub-field type for [Identity], representing a cryptographic public key declared as a "verificationMethod" in the DID document.
@@ -40,8 +44,12 @@ type ServiceEndpoint struct {
 //
 // Always returns an invalid Handle field; calling code should only populate that field if it has been bi-directionally verified.
 func ParseIdentity(doc *DIDDocument) Identity {
+	var kemKeys []DocVerificationMethod
 	keys := make(map[string]VerificationMethod, len(doc.VerificationMethod))
 	for _, vm := range doc.VerificationMethod {
+		if isKEMDeclaration(vm.ID) {
+			kemKeys = append(kemKeys, vm)
+		}
 		parts := strings.SplitN(vm.ID, "#", 2)
 		if len(parts) < 2 {
 			continue
@@ -77,11 +85,12 @@ func ParseIdentity(doc *DIDDocument) Identity {
 		}
 	}
 	return Identity{
-		DID:         doc.DID,
-		Handle:      syntax.HandleInvalid,
-		AlsoKnownAs: doc.AlsoKnownAs,
-		Services:    svc,
-		Keys:        keys,
+		DID:                doc.DID,
+		Handle:             syntax.HandleInvalid,
+		AlsoKnownAs:        doc.AlsoKnownAs,
+		Services:           svc,
+		Keys:               keys,
+		KEMKeyDeclarations: kemKeys,
 	}
 }
 
@@ -90,28 +99,28 @@ func (ident *Identity) DIDDocument() DIDDocument {
 	doc := DIDDocument{
 		DID:                ident.DID,
 		AlsoKnownAs:        ident.AlsoKnownAs,
-		VerificationMethod: make([]DocVerificationMethod, len(ident.Keys)),
-		Service:            make([]DocService, len(ident.Services)),
+		VerificationMethod: make([]DocVerificationMethod, 0, len(ident.Keys)+len(ident.KEMKeyDeclarations)),
+		Service:            make([]DocService, 0, len(ident.Services)),
 	}
-	i := 0
 	for k, key := range ident.Keys {
-		doc.VerificationMethod[i] = DocVerificationMethod{
+		if k == "atproto_kem" {
+			continue
+		}
+		doc.VerificationMethod = append(doc.VerificationMethod, DocVerificationMethod{
 			ID:                 fmt.Sprintf("%s#%s", ident.DID, k),
 			Type:               key.Type,
 			Controller:         ident.DID.String(),
 			PublicKeyMultibase: key.PublicKeyMultibase,
-		}
-		i += 1
+		})
 	}
-	i = 0
 	for k, svc := range ident.Services {
-		doc.Service[i] = DocService{
+		doc.Service = append(doc.Service, DocService{
 			ID:              fmt.Sprintf("#%s", k),
 			Type:            svc.Type,
 			ServiceEndpoint: svc.URL,
-		}
-		i += 1
+		})
 	}
+	doc.VerificationMethod = append(doc.VerificationMethod, ident.KEMKeyDeclarations...)
 	return doc
 }
 
@@ -137,6 +146,10 @@ func (i *Identity) GetPublicKey(id string) (atcrypto.PublicKey, error) {
 	if !ok {
 		return nil, ErrKeyNotDeclared
 	}
+	return parsePublicKey(k)
+}
+
+func parsePublicKey(k VerificationMethod) (atcrypto.PublicKey, error) {
 	switch k.Type {
 	case "Multikey":
 		return atcrypto.ParsePublicMultibase(k.PublicKeyMultibase)

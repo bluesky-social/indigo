@@ -88,39 +88,24 @@ func main() {
 			Name:  "build-file",
 			Value: "",
 		},
+		&cli.BoolFlag{
+			Name:  "modern",
+			Usage: "use the lex/lexgen engine instead of the established legacy engine",
+		},
+		&cli.BoolFlag{
+			Name:  "legacy-mode",
+			Usage: "retain legacy output semantics when using --modern",
+		},
+		&cli.StringFlag{
+			Name:  "unknown-type",
+			Value: "json-raw-message",
+			Usage: "--modern unknown values: json-raw-message, map-string-any, or type-decoder",
+		},
 	}
 	app.Action = func(cctx *cli.Context) error {
 		paths, err := expandArgs(cctx.Args().Slice())
 		if err != nil {
 			return err
-		}
-
-		var schemas []*lex.Schema
-		for _, arg := range paths {
-			if strings.HasSuffix(arg, "com/atproto/temp/importRepo.json") {
-				fmt.Printf("skipping schema: %s\n", arg)
-				continue
-			}
-			s, err := lex.ReadSchema(arg)
-			if err != nil {
-				return fmt.Errorf("failed to read file %q: %w", arg, err)
-			}
-
-			schemas = append(schemas, s)
-		}
-
-		externalPaths, err := expandArgs(cctx.StringSlice("external-lexicons"))
-		if err != nil {
-			return err
-		}
-		var externalSchemas []*lex.Schema
-		for _, arg := range externalPaths {
-			s, err := lex.ReadSchema(arg)
-			if err != nil {
-				return fmt.Errorf("failed to read file %q: %w", arg, err)
-			}
-
-			externalSchemas = append(externalSchemas, s)
 		}
 
 		buildLiteral := cctx.String("build")
@@ -153,6 +138,47 @@ func main() {
 			return errors.New("need exactly one of --build or --build-file")
 		}
 
+		if cctx.Bool("modern") {
+			if cctx.Bool("gen-server") || cctx.Bool("gen-handlers") {
+				return errors.New("--modern generates client types and helpers only")
+			}
+			externalPaths, err := expandArgs(cctx.StringSlice("external-lexicons"))
+			if err != nil {
+				return err
+			}
+			return runModern(paths, externalPaths, packages, cctx.Bool("legacy-mode"), cctx.String("unknown-type"))
+		}
+		if cctx.Bool("legacy-mode") || cctx.IsSet("unknown-type") {
+			return errors.New("--legacy-mode and --unknown-type require --modern")
+		}
+
+		var schemas []*lex.Schema
+		for _, arg := range paths {
+			if strings.HasSuffix(arg, "com/atproto/temp/importRepo.json") {
+				fmt.Printf("skipping schema: %s\n", arg)
+				continue
+			}
+			s, err := lex.ReadSchema(arg)
+			if err != nil {
+				return fmt.Errorf("failed to read file %q: %w", arg, err)
+			}
+
+			schemas = append(schemas, s)
+		}
+
+		externalPaths, err := expandArgs(cctx.StringSlice("external-lexicons"))
+		if err != nil {
+			return err
+		}
+		var externalSchemas []*lex.Schema
+		for _, arg := range externalPaths {
+			s, err := lex.ReadSchema(arg)
+			if err != nil {
+				return fmt.Errorf("failed to read file %q: %w", arg, err)
+			}
+
+			externalSchemas = append(externalSchemas, s)
+		}
 		if cctx.Bool("gen-server") {
 			pkgname := cctx.String("package")
 			outdir := cctx.String("outdir")

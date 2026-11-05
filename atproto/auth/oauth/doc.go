@@ -128,6 +128,16 @@ To log out a user, use the [ClientApp.Logout] helper method, which revokes their
 		return err
 	}
 
+# Spaces host providers
+
+[ClientConfig.NewClientAttestation] makes a fresh 60-second, single-use Spaces
+client attestation addressed to the authority's #atproto_pds service. Create a
+new attestation for each credential exchange. Keep its signing key in the
+published JWKS while tokens bound to that key remain valid. Public clients
+cannot sign attestations or access spaces that require app allow-listing.
+ScopeAllowsSpaceRead can select candidate expanded scopes, including
+authority=self, but the PDS makes the authorization decision.
+
 # Authorization-only Situations
 
 Some applications might only use atproto OAuth for authorization (authn). For example, "Login with Atmospehre", where the application does not need to access additional account metadata (such as account email), or access any restricted account resources (eg, write to atproto repository).

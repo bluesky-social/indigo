@@ -21,7 +21,6 @@ func ParseSpaceURI(raw string) (SpaceURI, error) {
 		return "", errors.New("Space URI is too long (8192 chars max)")
 	}
 	parts := spaceuriRegex.FindStringSubmatch(raw)
-	//if parts == nil || len(parts) != 5 || parts[0] == "" {
 	if parts == nil || parts[0] == "" {
 		return "", errors.New("Space URI syntax didn't validate via regex")
 	}
@@ -58,6 +57,11 @@ func ParseSpaceURI(raw string) (SpaceURI, error) {
 		}
 	}
 	return SpaceURI(raw), nil
+}
+
+// NewSpaceURI constructs a complete record address from validated components.
+func NewSpaceURI(space SpaceRef, repo DID, collection NSID, rkey RecordKey) SpaceURI {
+	return SpaceURI(fmt.Sprintf("%s/%s/%s/%s", space, repo, collection, rkey))
 }
 
 // Every valid SpaceURI has a valid DID in the authority position.

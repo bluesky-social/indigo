@@ -505,6 +505,10 @@ type SchemaPermission struct {
 	LXM        []string `json:"lxm,omitempty"`
 	Audience   string   `json:"aud,omitempty"`
 	InheritAud bool     `json:"inheritAud,omitempty"`
+	SpaceType  string   `json:"spaceType,omitempty"`
+	Authority  string   `json:"authority,omitempty"`
+	SpaceKey   string   `json:"skey,omitempty"`
+	Manage     []string `json:"manage,omitempty"`
 }
 
 func (s *SchemaPermission) CheckSchema() error {
@@ -553,6 +557,43 @@ func (s *SchemaPermission) CheckSchema() error {
 		if s.Audience != "" && s.Audience != "*" {
 			return fmt.Errorf("rpc permission 'aud' can't have service DID in permission set")
 		}
+	case "space":
+		// Permission sets can name only a concrete space type; unlike repo
+		// permissions, their collections may be wildcard or foreign NSIDs.
+		if _, err := syntax.ParseNSID(s.SpaceType); err != nil {
+			return fmt.Errorf("space permission type: %w", err)
+		}
+		if len(s.LXM) > 0 || s.Audience != "" || s.InheritAud {
+			return fmt.Errorf("space permission does not support RPC parameters")
+		}
+		if !(s.Authority == "" || s.Authority == "*" || s.Authority == "self") {
+			if _, err := syntax.ParseDID(s.Authority); err != nil {
+				return fmt.Errorf("space permission authority: %w", err)
+			}
+		}
+		if s.SpaceKey != "" && s.SpaceKey != "*" {
+			if _, err := syntax.ParseRecordKey(s.SpaceKey); err != nil {
+				return fmt.Errorf("space permission key: %w", err)
+			}
+		}
+		for _, collection := range s.Collection {
+			if collection == "*" {
+				continue
+			}
+			if _, err := syntax.ParseNSID(collection); err != nil {
+				return fmt.Errorf("space permission collection: %w", err)
+			}
+		}
+		for _, action := range s.Action {
+			if action != "read" && action != "read_self" && action != "create" && action != "update" && action != "delete" {
+				return fmt.Errorf("space permission unsupported action: %s", action)
+			}
+		}
+		for _, manage := range s.Manage {
+			if manage != "create" && manage != "update" && manage != "delete" {
+				return fmt.Errorf("space permission unsupported management operation: %s", manage)
+			}
+		}
 	case "blob", "account", "identity":
 		return fmt.Errorf("%s permission not allowed in permission sets", s.Resource)
 	default:
@@ -577,6 +618,11 @@ func (s *SchemaSpace) CheckSchema() error {
 	if err := checkKeyType(s.Key); err != nil {
 		return err
 	}
+	if literal, ok := strings.CutPrefix(s.Key, "literal:"); ok {
+		if _, err := syntax.ParseRecordKey(literal); err != nil {
+			return fmt.Errorf("invalid literal space key: %w", err)
+		}
+	}
 	if len(s.Name) < 1 || len(s.Name) > 64 {
 		// TODO: graphemes vs bytes?
 		return fmt.Errorf("space name must be between 1 and 64 characters long")
@@ -590,6 +636,9 @@ func (s *SchemaSpace) CheckSchema() error {
 			// TODO: graphemes vs bytes?
 			return fmt.Errorf("space name must be between 1 and 64 characters long")
 		}
+	}
+	if s.Collections == nil {
+		return fmt.Errorf("space collections is required")
 	}
 	for _, c := range s.Collections {
 		_, err := syntax.ParseNSID(c)
@@ -808,7 +857,9 @@ func (s *SchemaString) Validate(d any, flags ValidateFlags) error {
 			}
 		case "at-uri":
 			if _, err := syntax.ParseATURI(v); err != nil {
-				return err
+				if _, spaceErr := syntax.ParseSpaceURI(v); spaceErr != nil {
+					return fmt.Errorf("invalid at-uri: public URI: %v; space record URI: %w", err, spaceErr)
+				}
 			}
 		case "space-ref":
 			if _, err := syntax.ParseSpaceRef(v); err != nil {
