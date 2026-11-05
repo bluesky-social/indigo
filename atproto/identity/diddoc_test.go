@@ -83,3 +83,28 @@ func TestDIDDocFeedGenParse(t *testing.T) {
 	assert.True(ok)
 	assert.Equal("https://discover.bsky.social", svc.URL)
 }
+
+func TestDIDDocSpaceParse(t *testing.T) {
+	assert := assert.New(t)
+	f, err := os.Open("testdata/space_doc.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	docBytes, err := io.ReadAll(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var doc DIDDocument
+	err = json.Unmarshal(docBytes, &doc)
+	assert.NoError(err)
+
+	id := ParseIdentity(&doc)
+
+	pk, err := id.PublicKey()
+	assert.NoError(err)
+	assert.NotNil(pk)
+	assert.Equal("https://pds.example.com", id.PDSEndpoint())
+}

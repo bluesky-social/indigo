@@ -103,3 +103,16 @@ rpc?aud=did:web:example.com
 # missing AUD
 rpc?lxm=com.example.method1
 rpc:com.example.method1
+
+space
+space:123
+space?spaceType=123
+space?spaceType=com.example.bookmarks&spaceType=com.example.prefs
+space:com.example.bookmarks?spaceType=com.example.bookmarks
+space:com.example.forum?authority=123
+space:com.example.forum?authority=did:web:example.com&authority=did:web:example.org
+space:com.example.forum?skey=/
+space:com.example.forum?skey=1&skey=2
+space:com.example.forum?action=123
+space:com.example.forum?manage=123
+space:com.example.forum?collection=123
