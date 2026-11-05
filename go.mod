@@ -12,7 +12,6 @@ require (
 	github.com/cockroachdb/pebble v1.1.2
 	github.com/earthboundkid/versioninfo/v2 v2.24.1
 	github.com/go-redis/cache/v9 v9.0.0
-	github.com/gocql/gocql v1.7.0
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/go-querystring v1.2.0
 	github.com/gorilla/sessions v1.4.0
@@ -82,7 +81,6 @@ require (
 	github.com/goccy/go-json v0.11.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
-	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
@@ -107,7 +105,6 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
-	gopkg.in/inf.v0 v0.9.1 // indirect
 )
 
 require (
