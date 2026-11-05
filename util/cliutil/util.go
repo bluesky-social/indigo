@@ -12,7 +12,6 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 
 	slogGorm "github.com/orandin/slog-gorm"
-	"github.com/urfave/cli/v2"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -29,50 +28,6 @@ func NewHttpClient() *http.Client {
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
-}
-
-func GetXrpcClient(cctx *cli.Context, authreq bool) (*xrpc.Client, error) {
-	h := "http://localhost:4989"
-	if pdsurl := cctx.String("pds-host"); pdsurl != "" {
-		h = pdsurl
-	}
-
-	auth, err := loadAuthFromEnv(cctx, authreq)
-	if err != nil {
-		return nil, fmt.Errorf("loading auth: %w", err)
-	}
-
-	return &xrpc.Client{
-		Client: NewHttpClient(),
-		Host:   h,
-		Auth:   auth,
-	}, nil
-}
-
-func loadAuthFromEnv(cctx *cli.Context, req bool) (*xrpc.AuthInfo, error) {
-	if a := cctx.String("auth"); a != "" {
-		if ai, err := ReadAuth(a); err != nil && req {
-			return nil, err
-		} else {
-			return ai, nil
-		}
-	}
-
-	val := os.Getenv("ATP_AUTH_FILE")
-	if val == "" {
-		if req {
-			return nil, fmt.Errorf("no auth env present, ATP_AUTH_FILE not set")
-		}
-
-		return nil, nil
-	}
-
-	var auth xrpc.AuthInfo
-	if err := json.Unmarshal([]byte(val), &auth); err != nil {
-		return nil, err
-	}
-
-	return &auth, nil
 }
 
 func ReadAuth(fname string) (*xrpc.AuthInfo, error) {
