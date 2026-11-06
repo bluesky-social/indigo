@@ -3,7 +3,7 @@
 #   podman build -f ./cmd/hepa/Dockerfile -t hepa .
 
 ### Compile stage
-FROM golang:1.26.10-alpine AS build-env
+FROM golang:1.27.3-alpine AS build-env
 RUN apk add --no-cache build-base make git
 
 ADD . /dockerbuild
