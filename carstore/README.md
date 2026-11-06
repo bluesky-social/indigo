@@ -2,11 +2,6 @@
 
 Store a zillion users of PDS-like repo, with more limited operations (mainly: firehose in, firehose out).
 
-## [ScyllaStore](scylla.go)
-
-Blocks stored in ScyllaDB.
-User and PDS metadata stored in gorm (PostgreSQL or sqlite3).
-
 ## [FileCarStore](bs.go)
 
 Store  'car slices' from PDS source subscribeRepo firehose streams to filesystem.
