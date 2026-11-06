@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log/slog"
 	"testing"
 	"time"
 
@@ -305,4 +306,53 @@ func TestIdentityEvent_Delivery(t *testing.T) {
 	assert.Equal(t, "alice.bsky.social", msg.IdentityEvt.Handle)
 	assert.True(t, msg.IdentityEvt.IsActive)
 	assert.Equal(t, models.AccountStatusActive, msg.IdentityEvt.Status)
+}
+
+func TestPendingHistorical_DuplicateAcks(t *testing.T) {
+	te := newTestEnv(t, testEnvOpts{
+		outboxMode: OutboxModeWebsocketAck,
+	})
+
+	consumer, err := newTestConsumer(te.wsURL())
+	require.NoError(t, err)
+	defer consumer.close()
+
+	did := "did:example:dupacks"
+	te.pushRecordEvents(did, 2, false)
+	te.pushRecordEvents(did, 1, true)
+	msgs := consumer.waitForMessages(2, time.Second)
+	require.Len(t, msgs, 2)
+	assert.Equal(t, 2, te.events.PendingHistorical(did), "live events are not counted")
+
+	// the same event acked twice (e.g. after a retry) only clears itself
+	require.NoError(t, consumer.sendAck(msgs[0].ID))
+	require.NoError(t, consumer.sendAck(msgs[0].ID))
+	require.Eventually(t, func() bool {
+		return te.events.PendingHistorical(did) == 1
+	}, time.Second, 5*time.Millisecond)
+
+	require.NoError(t, consumer.sendAck(msgs[1].ID))
+	require.Eventually(t, func() bool {
+		return te.events.PendingHistorical(did) == 0
+	}, time.Second, 5*time.Millisecond)
+}
+
+func TestPendingHistorical_RestoredOnLoad(t *testing.T) {
+	te := newTestEnv(t, testEnvOpts{
+		outboxMode: OutboxModeWebsocketAck,
+	})
+
+	did := "did:example:reload"
+	te.pushRecordEvents(did, 3, false)
+	te.pushRecordEvents(did, 2, true)
+
+	// a fresh EventManager over the same database (as after a restart)
+	// rebuilds the per-DID count from the buffered outbox rows
+	em := NewEventManager(slog.Default(), te.db, &TapConfig{EventCacheSize: 1000})
+	go em.LoadEvents(te.ctx)
+
+	require.Eventually(t, func() bool {
+		return em.finishedLoading.Load()
+	}, time.Second, 5*time.Millisecond)
+	assert.Equal(t, 3, em.PendingHistorical(did))
 }

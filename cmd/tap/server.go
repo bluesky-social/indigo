@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/auth"
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -58,6 +59,7 @@ func (ts *TapServer) Start(address string) error {
 	ts.echo.POST("/repos/remove", ts.handleRemoveRepos)
 	ts.echo.GET("/resolve/:did", ts.handleResolveDID)
 	ts.echo.GET("/info/:did", ts.handleInfoRepo)
+	ts.echo.GET("/repos/wait/:did", ts.handleWaitRepo)
 	ts.echo.GET("/stats/repo-count", ts.handleStatsRepoCount)
 	ts.echo.GET("/stats/record-count", ts.handleStatsRecordCount)
 	ts.echo.GET("/stats/outbox-buffer", ts.handleStatsOutboxBuffer)
@@ -207,28 +209,97 @@ func (ts *TapServer) handleResolveDID(c echo.Context) error {
 
 func (ts *TapServer) handleInfoRepo(c echo.Context) error {
 	ctx := c.Request().Context()
-	did := c.Param("did")
+	repo, err := ts.getRepo(ctx, c.Param("did"))
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, ts.repoInfo(ctx, repo))
+}
 
+func (ts *TapServer) getRepo(ctx context.Context, did string) (*models.Repo, error) {
 	var repo models.Repo
 	if err := ts.db.WithContext(ctx).First(&repo, "did = ?", did).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return echo.NewHTTPError(http.StatusNotFound, "repo not found")
+			return nil, echo.NewHTTPError(http.StatusNotFound, "repo not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get repo")
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to get repo")
+	}
+	return &repo, nil
+}
+
+func (ts *TapServer) repoInfo(ctx context.Context, repo *models.Repo) map[string]any {
+	var recordCount int64
+	ts.db.WithContext(ctx).Model(&models.RepoRecord{}).Where("did = ?", repo.Did).Count(&recordCount)
+
+	return map[string]any{
+		"did":        repo.Did,
+		"handle":     repo.Handle,
+		"state":      repo.State,
+		"rev":        repo.Rev,
+		"error":      repo.ErrorMsg,
+		"retries":    repo.RetryCount,
+		"records":    recordCount,
+		"backfilled": ts.isBackfilled(repo),
+	}
+}
+
+// isBackfilled reports whether the repo has finished its backfill (or latest
+// resync) and every historical event from it has been acked by the consumer.
+func (ts *TapServer) isBackfilled(repo *models.Repo) bool {
+	return repo.State == models.RepoStateActive && ts.outbox.events.PendingHistorical(repo.Did) == 0
+}
+
+const (
+	defaultWaitTimeout = 30 * time.Second
+	maxWaitTimeout     = 5 * time.Minute
+	waitPollInterval   = 100 * time.Millisecond
+)
+
+// handleWaitRepo long-polls until the repo is backfilled, the repo lands in
+// the error state, or the timeout expires. It responds with the same body as
+// /info/:did either way, so callers check the "backfilled" field.
+func (ts *TapServer) handleWaitRepo(c echo.Context) error {
+	did := c.Param("did")
+
+	timeout := defaultWaitTimeout
+	if raw := c.QueryParam("timeout"); raw != "" {
+		d, err := time.ParseDuration(raw)
+		if err != nil || d <= 0 {
+			return echo.NewHTTPError(http.StatusBadRequest, "timeout must be a positive duration, e.g. 30s")
+		}
+		timeout = min(d, maxWaitTimeout)
 	}
 
-	var recordCount int64
-	ts.db.WithContext(ctx).Model(&models.RepoRecord{}).Where("did = ?", did).Count(&recordCount)
+	ctx, cancel := context.WithTimeout(c.Request().Context(), timeout)
+	defer cancel()
 
-	return c.JSON(http.StatusOK, map[string]any{
-		"did":     repo.Did,
-		"handle":  repo.Handle,
-		"state":   repo.State,
-		"rev":     repo.Rev,
-		"error":   repo.ErrorMsg,
-		"retries": repo.RetryCount,
-		"records": recordCount,
-	})
+	ticker := time.NewTicker(waitPollInterval)
+	defer ticker.Stop()
+
+	for {
+		// Only go to the database once the outbox has nothing left for this DID.
+		if ts.outbox.events.PendingHistorical(did) == 0 {
+			repo, err := ts.getRepo(ctx, did)
+			if err != nil && ctx.Err() == nil {
+				return err
+			}
+			if repo != nil && (ts.isBackfilled(repo) || repo.State == models.RepoStateError) {
+				return c.JSON(http.StatusOK, ts.repoInfo(ctx, repo))
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			// Report where the repo is at so the caller can decide whether to wait again.
+			ctx := context.WithoutCancel(ctx)
+			repo, err := ts.getRepo(ctx, did)
+			if err != nil {
+				return err
+			}
+			return c.JSON(http.StatusOK, ts.repoInfo(ctx, repo))
+		case <-ticker.C:
+		}
+	}
 }
 
 func (ts *TapServer) handleStatsRepoCount(c echo.Context) error {
