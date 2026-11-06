@@ -38,15 +38,6 @@ var words = []string{
 	"parrot",
 }
 
-func MakeRandomPost() string {
-	var out []string
-	for range 20 {
-		out = append(out, words[mathrand.Intn(len(words))])
-	}
-
-	return strings.Join(out, " ")
-}
-
 var usernames = []string{
 	"alice",
 	"bob",
