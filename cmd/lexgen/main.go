@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -9,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/bluesky-social/indigo/lex"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func findSchemas(dir string, out []string) ([]string, error) {
@@ -58,129 +59,134 @@ func expandArgs(args []string) ([]string, error) {
 }
 
 func main() {
-	app := cli.NewApp()
-
-	app.Flags = []cli.Flag{
-		&cli.StringFlag{
-			Name: "outdir",
+	cmd := &cli.Command{
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name: "outdir",
+			},
+			&cli.BoolFlag{
+				Name: "gen-server",
+			},
+			&cli.BoolFlag{
+				Name: "gen-handlers",
+			},
+			&cli.StringSliceFlag{
+				Name: "types-import",
+			},
+			&cli.StringSliceFlag{
+				Name: "external-lexicons",
+			},
+			&cli.StringFlag{
+				Name:  "package",
+				Value: "schemagen",
+			},
+			&cli.StringFlag{
+				Name:  "build",
+				Value: "",
+			},
+			&cli.StringFlag{
+				Name:  "build-file",
+				Value: "",
+			},
 		},
-		&cli.BoolFlag{
-			Name: "gen-server",
-		},
-		&cli.BoolFlag{
-			Name: "gen-handlers",
-		},
-		&cli.StringSliceFlag{
-			Name: "types-import",
-		},
-		&cli.StringSliceFlag{
-			Name: "external-lexicons",
-		},
-		&cli.StringFlag{
-			Name:  "package",
-			Value: "schemagen",
-		},
-		&cli.StringFlag{
-			Name:  "build",
-			Value: "",
-		},
-		&cli.StringFlag{
-			Name:  "build-file",
-			Value: "",
-		},
+		Action: runLexgen,
 	}
-	app.Action = func(cctx *cli.Context) error {
-		paths, err := expandArgs(cctx.Args().Slice())
+
+	if err := cmd.Run(context.Background(), os.Args); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func runLexgen(ctx context.Context, cmd *cli.Command) error {
+	paths, err := expandArgs(cmd.Args().Slice())
+	if err != nil {
+		return err
+	}
+
+	var schemas []*lex.Schema
+	for _, arg := range paths {
+		if strings.HasSuffix(arg, "com/atproto/temp/importRepo.json") {
+			fmt.Printf("skipping schema: %s\n", arg)
+			continue
+		}
+		s, err := lex.ReadSchema(arg)
 		if err != nil {
+			return fmt.Errorf("failed to read file %q: %w", arg, err)
+		}
+
+		schemas = append(schemas, s)
+	}
+
+	externalPaths, err := expandArgs(cmd.StringSlice("external-lexicons"))
+	if err != nil {
+		return err
+	}
+	var externalSchemas []*lex.Schema
+	for _, arg := range externalPaths {
+		s, err := lex.ReadSchema(arg)
+		if err != nil {
+			return fmt.Errorf("failed to read file %q: %w", arg, err)
+		}
+
+		externalSchemas = append(externalSchemas, s)
+	}
+
+	buildLiteral := cmd.String("build")
+	buildPath := cmd.String("build-file")
+	var packages []lex.Package
+	if buildLiteral != "" {
+		if buildPath != "" {
+			return errors.New("must not set both --build and --build-file")
+		}
+		packages, err = lex.ParsePackages([]byte(buildLiteral))
+		if err != nil {
+			return fmt.Errorf("--build error, %w", err)
+		}
+		if len(packages) == 0 {
+			return errors.New("--build must specify at least one Package{}")
+		}
+	} else if buildPath != "" {
+		blob, err := os.ReadFile(buildPath)
+		if err != nil {
+			return fmt.Errorf("--build-file error, %w", err)
+		}
+		packages, err = lex.ParsePackages(blob)
+		if err != nil {
+			return fmt.Errorf("--build-file error, %w", err)
+		}
+		if len(packages) == 0 {
+			return errors.New("--build-file must specify at least one Package{}")
+		}
+	} else {
+		return errors.New("need exactly one of --build or --build-file")
+	}
+
+	if cmd.Bool("gen-server") {
+		pkgname := cmd.String("package")
+		outdir := cmd.String("outdir")
+		if outdir == "" {
+			return fmt.Errorf("must specify output directory (--outdir)")
+		}
+		defmap := lex.BuildExtDefMap(append(schemas, externalSchemas...), packages)
+		_ = defmap
+
+		paths := cmd.StringSlice("types-import")
+		importmap := make(map[string]string)
+		for _, p := range paths {
+			parts := strings.Split(p, ":")
+			importmap[parts[0]] = parts[1]
+		}
+
+		handlers := cmd.Bool("gen-handlers")
+
+		if err := lex.CreateHandlerStub(pkgname, importmap, outdir, schemas, handlers); err != nil {
 			return err
 		}
 
-		var schemas []*lex.Schema
-		for _, arg := range paths {
-			if strings.HasSuffix(arg, "com/atproto/temp/importRepo.json") {
-				fmt.Printf("skipping schema: %s\n", arg)
-				continue
-			}
-			s, err := lex.ReadSchema(arg)
-			if err != nil {
-				return fmt.Errorf("failed to read file %q: %w", arg, err)
-			}
-
-			schemas = append(schemas, s)
-		}
-
-		externalPaths, err := expandArgs(cctx.StringSlice("external-lexicons"))
-		if err != nil {
-			return err
-		}
-		var externalSchemas []*lex.Schema
-		for _, arg := range externalPaths {
-			s, err := lex.ReadSchema(arg)
-			if err != nil {
-				return fmt.Errorf("failed to read file %q: %w", arg, err)
-			}
-
-			externalSchemas = append(externalSchemas, s)
-		}
-
-		buildLiteral := cctx.String("build")
-		buildPath := cctx.String("build-file")
-		var packages []lex.Package
-		if buildLiteral != "" {
-			if buildPath != "" {
-				return errors.New("must not set both --build and --build-file")
-			}
-			packages, err = lex.ParsePackages([]byte(buildLiteral))
-			if err != nil {
-				return fmt.Errorf("--build error, %w", err)
-			}
-			if len(packages) == 0 {
-				return errors.New("--build must specify at least one Package{}")
-			}
-		} else if buildPath != "" {
-			blob, err := os.ReadFile(buildPath)
-			if err != nil {
-				return fmt.Errorf("--build-file error, %w", err)
-			}
-			packages, err = lex.ParsePackages(blob)
-			if err != nil {
-				return fmt.Errorf("--build-file error, %w", err)
-			}
-			if len(packages) == 0 {
-				return errors.New("--build-file must specify at least one Package{}")
-			}
-		} else {
-			return errors.New("need exactly one of --build or --build-file")
-		}
-
-		if cctx.Bool("gen-server") {
-			pkgname := cctx.String("package")
-			outdir := cctx.String("outdir")
-			if outdir == "" {
-				return fmt.Errorf("must specify output directory (--outdir)")
-			}
-			defmap := lex.BuildExtDefMap(append(schemas, externalSchemas...), packages)
-			_ = defmap
-
-			paths := cctx.StringSlice("types-import")
-			importmap := make(map[string]string)
-			for _, p := range paths {
-				parts := strings.Split(p, ":")
-				importmap[parts[0]] = parts[1]
-			}
-
-			handlers := cctx.Bool("gen-handlers")
-
-			if err := lex.CreateHandlerStub(pkgname, importmap, outdir, schemas, handlers); err != nil {
-				return err
-			}
-
-		} else {
-			return lex.Run(schemas, externalSchemas, packages)
-		}
-
-		return nil
+	} else {
+		return lex.Run(schemas, externalSchemas, packages)
 	}
 
-	app.RunAndExitOnError()
+	return nil
 }
