@@ -1,0 +1,55 @@
+{
+  "uri": "at://did:example:subject/com.example.thirdparty.photo/example",
+  "cid": "bafkreiehogetyj72v5zl4ytlgsla5e2nirhx65w7q6lxhurjqbuldmpuua",
+  "value": {
+    "$type": "com.example.thirdparty.photo",
+    "createdAt": "2000-01-01T00:00:00Z",
+    "text": "synthetic fixture"
+  },
+  "blobCids": [],
+  "indexedAt": "2000-01-01T00:00:00Z",
+  "repo": {
+    "did": "did:example:subject",
+    "handle": "subject.example.test",
+    "relatedRecords": [
+      {
+        "$type": "app.bsky.actor.profile"
+      }
+    ],
+    "indexedAt": "2000-01-01T00:00:00Z",
+    "moderation": {}
+  },
+  "moderation": {
+    "subjectStatus": {
+      "id": 1,
+      "reviewState": "tools.ozone.moderation.defs#reviewNone",
+      "tags": [
+        "example"
+      ],
+      "createdAt": "2000-01-01T00:00:00Z",
+      "updatedAt": "2000-01-01T00:00:00Z",
+      "subject": {
+        "$type": "com.atproto.repo.strongRef",
+        "uri": "at://did:example:subject/com.example.thirdparty.photo/example",
+        "cid": "bafkreiehogetyj72v5zl4ytlgsla5e2nirhx65w7q6lxhurjqbuldmpuua"
+      }
+    }
+  },
+  "blobs": [],
+  "labels": [
+    {
+      "src": "did:example:moderation",
+      "uri": "at://did:example:subject/com.example.thirdparty.photo/example",
+      "cid": "bafkreibdfdastgbwb5h4g6er35db3aiq3ztkjmviocb7w63qmvmyumaahq",
+      "val": "porn",
+      "cts": "2000-01-01T00:00:00Z"
+    },
+    {
+      "src": "did:example:moderation",
+      "uri": "at://did:example:subject/com.example.thirdparty.photo/example",
+      "cid": "bafkreihjzx6yj5j2yzuckfwjardv3httbi7juaflw45q7vi4idhvbtdrzy",
+      "val": "porn",
+      "cts": "2000-01-01T00:00:00Z"
+    }
+  ]
+}

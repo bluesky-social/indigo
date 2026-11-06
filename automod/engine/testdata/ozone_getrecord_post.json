@@ -1,0 +1,69 @@
+{
+  "uri": "at://did:example:subject/app.bsky.feed.post/example",
+  "cid": "bafkreicosjugyrninwapvxompih23ydkbhhxwxyusrv7ke3sqjt7bmcbyu",
+  "value": {
+    "$type": "app.bsky.feed.post",
+    "createdAt": "2000-01-01T00:00:00Z",
+    "text": "synthetic fixture"
+  },
+  "blobCids": [],
+  "indexedAt": "2000-01-01T00:00:00Z",
+  "repo": {
+    "did": "did:example:subject",
+    "handle": "subject.example.test",
+    "relatedRecords": [
+      {
+        "$type": "app.bsky.actor.profile"
+      }
+    ],
+    "indexedAt": "2000-01-01T00:00:00Z",
+    "moderation": {}
+  },
+  "moderation": {
+    "subjectStatus": {
+      "id": 1,
+      "reviewState": "tools.ozone.moderation.defs#reviewNone",
+      "tags": [
+        "example"
+      ],
+      "createdAt": "2000-01-01T00:00:00Z",
+      "updatedAt": "2000-01-01T00:00:00Z",
+      "subject": {
+        "$type": "com.atproto.repo.strongRef",
+        "uri": "at://did:example:subject/app.bsky.feed.post/example",
+        "cid": "bafkreicosjugyrninwapvxompih23ydkbhhxwxyusrv7ke3sqjt7bmcbyu"
+      }
+    }
+  },
+  "blobs": [],
+  "labels": [
+    {
+      "src": "did:example:moderation",
+      "uri": "at://did:example:subject/app.bsky.feed.post/example",
+      "cid": "bafkreibgnynq4sh5ue23xwfcooba3kra67kfrctu2as3d6y4jkhs5qygeq",
+      "val": "porn",
+      "cts": "2000-01-01T00:00:00Z"
+    },
+    {
+      "src": "did:example:moderation",
+      "uri": "at://did:example:subject/app.bsky.feed.post/example",
+      "cid": "bafkreidhwomvvzlwsm2ql6bj7l6lzgjlxfrklllt6mymnwiz5pogxknsbm",
+      "val": "porn",
+      "cts": "2000-01-01T00:00:00Z"
+    },
+    {
+      "src": "did:example:moderation",
+      "uri": "at://did:example:subject/app.bsky.feed.post/example",
+      "cid": "bafkreif26j25mbnpsbhcylecfppwnhyehnlz7dc7pthoj6jtm5mfk5pa2m",
+      "val": "porn",
+      "cts": "2000-01-01T00:00:00Z"
+    },
+    {
+      "src": "did:example:moderation",
+      "uri": "at://did:example:subject/app.bsky.feed.post/example",
+      "cid": "bafkreifirdhab5v36kyabqbpum6kjz2jb3uf6r277idhk6tc2r4fxyqwoq",
+      "val": "graphic-media",
+      "cts": "2000-01-01T00:00:00Z"
+    }
+  ]
+}

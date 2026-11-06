@@ -17,6 +17,7 @@ import (
 var maxHandleBodySize int64 = 2048
 
 func parseTXTResp(res []string) (syntax.DID, error) {
+	var found syntax.DID
 	for _, s := range res {
 		if strings.HasPrefix(s, "did=") {
 			parts := strings.SplitN(s, "=", 2)
@@ -24,10 +25,17 @@ func parseTXTResp(res []string) (syntax.DID, error) {
 			if err != nil {
 				return "", fmt.Errorf("%w: invalid DID in handle DNS record: %w", ErrHandleResolutionFailed, err)
 			}
-			return did, nil
+			// multiple records with different DIDs are ambiguous, and resolution should fail (per the atproto handle specification)
+			if found != "" && found != did {
+				return "", fmt.Errorf("%w: multiple DIDs in handle DNS records", ErrHandleResolutionFailed)
+			}
+			found = did
 		}
 	}
-	return "", ErrHandleNotFound
+	if found == "" {
+		return "", ErrHandleNotFound
+	}
+	return found, nil
 }
 
 // Does not cross-verify, only does the handle resolution step.
