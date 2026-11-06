@@ -13,8 +13,8 @@ import (
 	_ "go.uber.org/automaxprocs"
 	_ "net/http/pprof"
 
+	"github.com/bluesky-social/indigo/cmd/rainbow/splitter"
 	"github.com/bluesky-social/indigo/events/pebblepersist"
-	"github.com/bluesky-social/indigo/splitter"
 	"github.com/bluesky-social/indigo/util/svcutil"
 
 	"github.com/earthboundkid/versioninfo/v2"
