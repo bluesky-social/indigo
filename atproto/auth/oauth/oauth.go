@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -705,28 +706,20 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 	return &sessData, nil
 }
 
-// High-level helper to delete a session, including revoking access/refresh tokens if supported by the AS
+// High-level helper to delete a session, including revoking access/refresh tokens if supported by the AS.
+//
+// May return an error if AS revocation failed, even if the session was successfully deleted from database.
 func (app *ClientApp) Logout(ctx context.Context, did syntax.DID, sessionID string) error {
-	sess, err := app.ResumeSession(ctx, did, sessionID)
-	if err != nil {
-		return err
+
+	// check session to see if AS supports token revocation endpoint
+	sess, revokeErr := app.ResumeSession(ctx, did, sessionID)
+
+	if revokeErr == nil && sess.Data.AuthServerRevocationEndpoint != "" {
+		revokeErr = sess.RevokeSession(ctx)
 	}
 
-	// Tell the AS to revoke the tokens, if supported
-	if sess.Data.AuthServerRevocationEndpoint == "" {
-		slog.Info("AS does not support token revocation, skipping RevokeSession")
-	} else {
-		err = sess.RevokeSession(ctx)
-		if err != nil {
-			slog.Warn("error during session revocation", "err", err)
-		}
-	}
+	// delete from our own session store (even if resumption failed)
+	deleteErr := app.Store.DeleteSession(ctx, did, sessionID)
 
-	// Delete from our own session store
-	err = app.Store.DeleteSession(ctx, did, sessionID)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return errors.Join(revokeErr, deleteErr)
 }
