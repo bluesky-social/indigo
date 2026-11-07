@@ -103,7 +103,7 @@ func (sess *ClientSession) postToAuthServer(ctx context.Context, url string, bod
 	bodyBytes := []byte(vals.Encode())
 
 	var resp *http.Response
-	for range 2 {
+	for attempt := range 2 {
 		dpopJWT, err := NewAuthDPoP("POST", url, sess.Data.DPoPAuthServerNonce, sess.DPoPPrivateKey)
 		if err != nil {
 			return nil, err
@@ -132,7 +132,7 @@ func (sess *ClientSession) postToAuthServer(ctx context.Context, url string, bod
 		if resp.StatusCode == http.StatusBadRequest && dpopNonceHdr != "" {
 			// parseAuthErrorReason() always closes resp.Body
 			reason := parseAuthErrorReason(resp, "token-refresh")
-			if reason == "use_dpop_nonce" {
+			if reason == "use_dpop_nonce" && attempt == 0 {
 				// already updated nonce value above; loop around and try again
 				continue
 			}

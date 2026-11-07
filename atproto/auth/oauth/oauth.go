@@ -474,7 +474,7 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 	dpopServerNonce := info.DPoPAuthServerNonce
 
 	var resp *http.Response
-	for range 2 {
+	for attempt := range 2 {
 		dpopJWT, err := NewAuthDPoP("POST", info.AuthServerTokenEndpoint, dpopServerNonce, dpopPrivKey)
 		if err != nil {
 			return nil, err
@@ -503,7 +503,7 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 		if resp.StatusCode == http.StatusBadRequest && dpopNonceHdr != "" {
 			// parseAuthErrorReason() always closes resp.Body
 			reason := parseAuthErrorReason(resp, "initial-token")
-			if reason == "use_dpop_nonce" {
+			if reason == "use_dpop_nonce" && attempt == 0 {
 				// already updated nonce value above; loop around and try again
 				continue
 			}
