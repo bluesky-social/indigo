@@ -374,7 +374,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		return nil, err
 	}
 
-	slog.Debug("sending auth request", "scopes", scopes, "state", state, "redirectURI", app.Config.CallbackURL)
+	slog.Debug("sending auth request", "scopes", scopes, "redirectURI", app.Config.CallbackURL)
 
 	var resp *http.Response
 	for range 2 {
@@ -700,7 +700,7 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 	}
 	if err := app.Store.DeleteAuthRequestInfo(ctx, state); err != nil {
 		// only log on failure to delete state info
-		slog.Warn("failed to delete auth request info", "state", state, "did", accountDID, "authserver", info.AuthServerURL, "err", err)
+		slog.Warn("failed to delete auth request info", "did", accountDID, "authserver", info.AuthServerURL, "err", err)
 	}
 	return &sessData, nil
 }
