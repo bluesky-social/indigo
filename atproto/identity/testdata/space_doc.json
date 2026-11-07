@@ -1,0 +1,34 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1",
+    "https://w3id.org/security/multikey/v1",
+    "https://w3id.org/security/suites/secp256k1-2019/v1",
+    "https://w3id.org/security/suites/ecdsa-2019/v1"
+  ],
+  "id": "did:plc:735r43lcgemuv2woqpvx3lso",
+  "alsoKnownAs": [
+    "at://space.example.com"
+  ],
+  "verificationMethod": [
+    {
+      "id": "did:plc:735r43lcgemuv2woqpvx3lso#atproto",
+      "type": "Multikey",
+      "controller": "did:plc:735r43lcgemuv2woqpvx3lso",
+      "publicKeyMultibase": "zQ3shaMhbTC3fbTqdq2yuUs8aW2a7Hh6AiSxmrj8GA6z4z18K"
+    },
+    {
+      "id": "did:plc:735r43lcgemuv2woqpvx3lso#atproto_kem",
+      "type": "Multikey",
+      "controller": "did:plc:735r43lcgemuv2woqpvx3lso",
+      "publicKeyMultibase": "zDnaeg3Q1594Zy2wxzm5g466bepmyYVnqFD57rRX7PAcmCccg"
+    }
+  ],
+  "service": [
+    {
+      "id": "#atproto_pds",
+      "type": "AtprotoPersonalDataServer",
+      "serviceEndpoint": "https://pds.example.com"
+    }
+  ]
+}
+

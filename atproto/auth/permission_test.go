@@ -24,6 +24,7 @@ func TestRoundTrip(t *testing.T) {
 		"account:email?action=manage",
 		"identity:handle",
 		"include:app.example.authBasics",
+		"space:com.example.forum?action=read_self&authority=%2A",
 	}
 
 	for _, scope := range testScopes {
