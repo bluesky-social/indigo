@@ -227,7 +227,7 @@ func (sess *ClientSession) RevokeSession(ctx context.Context) error {
 		TokenTypeHint: "refresh_token",
 	})
 	if err2 != nil {
-		err2 = fmt.Errorf("failed revoking refresh token: %w", err1)
+		err2 = fmt.Errorf("failed revoking refresh token: %w", err2)
 	} else {
 		if resp.StatusCode != 200 {
 			err2 = fmt.Errorf("bad HTTP status while revoking refresh token (%d)", resp.StatusCode)
