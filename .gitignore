@@ -25,7 +25,6 @@ test-coverage.out
 # executables
 /beemo
 /bluepages
-/fakermaker
 /hepa
 /lexgen
 /palomar

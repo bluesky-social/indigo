@@ -22,6 +22,46 @@ The runtime maintains state in several "stores", each of which has an interface 
 - `automod/setstore`: configurable static string sets. May eventually be runtime configurable
 - `automod/flagstore`: mechanism to keep track of automod-generated "flags" (like labels or hashtags) on accounts or records. Mostly used to detect *new* flags. May eventually be moved in to the moderation service itself, similar to labels
 
+## Targeting reports with enforcement
+
+Existing `TakedownAccount`, `TakedownRecord`, `AddAccountLabel`, and
+`AddRecordLabel` calls retain their current behavior. A rule can explicitly
+request that its takedown or label also action matching reports:
+
+```go
+func exampleSpamRule(c *engine.RecordContext) error {
+    c.TakedownRecordWithReportAction(engine.ReportAction{
+        Rule: engine.RuleMetadata{Name: "example/spam-post", Version: 1},
+        Types: []string{"com.atproto.moderation.defs#reasonSpam"},
+    })
+    return nil
+}
+```
+
+The corresponding methods are `TakedownAccountWithReportAction`,
+`TakedownRecordWithReportAction`, `AddAccountLabelWithReportAction`, and
+`AddRecordLabelWithReportAction`. Label methods take the label value first.
+Use a distinct lowercase `namespace/rule-name`, a positive rule version, and
+an explicit nonempty list of fully qualified report reasons (`NSID#fragment`).
+Invalid configuration stops persistence for that event before any actions or
+quota increments. Start new rule identities at version 1 and increment the
+version when the rule's decision logic changes.
+
+Selectors apply only to reports on the action's exact account or record.
+Other reports, including reports on an account's records, stay open. The
+engine does not issue separate report cleanup requests. Targeted events carry
+`isAutomated: true` and `modTool` metadata identifying `automod` and the
+contributing rule names and versions. Multiple contributing rules combine
+reasons and identities without duplicates. Account and record actions retain
+separate selections, as do labels and takedowns. A label contributes its
+selection only when it is newly applied. Suppressed takedowns and labels do
+not action reports independently.
+
+On older moderation servers, an exact transactional rejection for no matching
+report types is retried once without the report selector, preserving enforcement
+and rule metadata. Other failures are not retried by this mechanism. Servers
+that accept zero matches need only the original request.
+
 ## Prior Art
 
 * The [SQRL language](https://sqrl-lang.github.io/sqrl/) and runtime was originally developed by an industry vendor named Smyte, then acquired by Twitter, with some core Javascript components released open source in 2023. The SQRL documentation is extensive and describes many of the design trade-offs and features specific to rules engines. Bluesky considered adopting SQRL but decided to start with a simpler runtime with rules in a known language (golang).

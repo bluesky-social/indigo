@@ -334,3 +334,12 @@ func TestRegressionCachedHeight(t *testing.T) {
 	require.NoError(err)
 	assert.Equal(root1, root2)
 }
+
+func TestEmptyKeyNodeData(t *testing.T) {
+	nd := NodeData{Entries: []EntryData{
+		{PrefixLen: 0, KeySuffix: []byte{}, Value: testEntryCid(t), Right: new(testEntryCid(t))},
+		{PrefixLen: 0, KeySuffix: []byte("com.example.record/3jqfcqzm3fo2j"), Value: testEntryCid(t)},
+	}}
+	_, err := nd.Node(nil)
+	assert.ErrorIs(t, err, ErrInvalidTree)
+}

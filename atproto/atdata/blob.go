@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -75,7 +74,7 @@ func (b *Blob) UnmarshalJSON(raw []byte) error {
 		if err != nil {
 			return fmt.Errorf("parsing legacy blob: %v", err)
 		}
-		refCid, err := cid.Decode(legacy.Cid)
+		refCid, err := parseCIDString(legacy.Cid)
 		if err != nil {
 			return fmt.Errorf("parsing CID in legacy blob: %v", err)
 		}
@@ -133,7 +132,7 @@ func (lb *Blob) UnmarshalCBOR(r io.Reader) error {
 		if err != nil {
 			return fmt.Errorf("parsing legacy blob CBOR: %v", err)
 		}
-		refCid, err := cid.Decode(legacy.Cid)
+		refCid, err := parseCIDString(legacy.Cid)
 		if err != nil {
 			return fmt.Errorf("parsing CID in legacy blob CBOR: %v", err)
 		}

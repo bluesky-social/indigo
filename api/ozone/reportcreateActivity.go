@@ -22,6 +22,8 @@ type ReportCreateActivity_Input struct {
 	InternalNote *string `json:"internalNote,omitempty" cborgen:"internalNote,omitempty"`
 	// isAutomated: Set true when this activity is triggered by an automated process. Defaults to false.
 	IsAutomated *bool `json:"isAutomated,omitempty" cborgen:"isAutomated,omitempty"`
+	// meta: Optional metadata for the report activities. Lifecycle and resolution fields are controlled by the service.
+	Meta *interface{} `json:"meta,omitempty" cborgen:"meta,omitempty"`
 	// publicNote: Optional public-facing note, potentially visible to the reporter.
 	PublicNote *string `json:"publicNote,omitempty" cborgen:"publicNote,omitempty"`
 	// reportId: ID of the report to record activity on. Exactly one of reportId or eventId must be provided.

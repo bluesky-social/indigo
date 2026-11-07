@@ -159,9 +159,11 @@ func LoadTreeFromStore(ctx context.Context, bs MSTBlockSource, root cid.Cid) (*T
 		return nil, err
 	}
 	n.ensureHeights()
-	return &Tree{
-		Root: n,
-	}, nil
+	tree := Tree{Root: n}
+	if err := tree.Verify(); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidTree, err)
+	}
+	return &tree, nil
 }
 
 // subset of Blockstore that we actually need

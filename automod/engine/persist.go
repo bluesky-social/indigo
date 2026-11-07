@@ -40,6 +40,9 @@ func (eng *Engine) persistCounters(ctx context.Context, eff *Effects) error {
 // Note that this method expects to run *before* counts are persisted (it accesses and updates some counts)
 func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	ctx := c.Ctx
+	if err := c.effects.validateReportActions(); err != nil {
+		return err
+	}
 
 	// de-dupe actions
 	newLabels := dedupeLabelActions(c.effects.AccountLabels, c.Account.AccountLabels, c.Account.AccountNegatedLabels)
@@ -128,8 +131,8 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 			actionNewLabelCount.WithLabelValues("account", val).Inc()
 		}
 		comment := "[automod]: auto-labeling account"
-		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+		_, err := emitEventWithReports(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.AccountDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventLabel: &toolsozone.ModerationDefs_ModEventLabel{
 					CreateLabelVals: newLabels,
@@ -142,7 +145,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 					Did: c.Account.Identity.DID.String(),
 				},
 			},
-		})
+		}, reportActionsForLabels(newLabels, c.effects.accountLabelReports))
 		if err != nil {
 			c.Logger.Error("failed to create account labels", "err", err)
 		}
@@ -156,7 +159,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		}
 		comment := "[automod]: auto-tagging account"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: xrpcc.AccountDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventTag: &toolsozone.ModerationDefs_ModEventTag{
 					Add:     newTags,
@@ -191,8 +194,8 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		c.Logger.Warn("account-takedown")
 		actionNewTakedownCount.WithLabelValues("account").Inc()
 		comment := "[automod]: auto account-takedown"
-		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+		_, err := emitEventWithReports(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.AccountDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventTakedown: &toolsozone.ModerationDefs_ModEventTakedown{
 					Comment: &comment,
@@ -203,7 +206,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 					Did: c.Account.Identity.DID.String(),
 				},
 			},
-		})
+		}, c.effects.accountTakedownReports)
 		if err != nil {
 			c.Logger.Error("failed to execute account takedown", "err", err)
 		}
@@ -217,7 +220,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		actionNewEscalationCount.WithLabelValues("account").Inc()
 		comment := "[automod]: auto account-escalation"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: xrpcc.AccountDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventEscalate: &toolsozone.ModerationDefs_ModEventEscalate{
 					Comment: &comment,
@@ -239,7 +242,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		actionNewAcknowledgeCount.WithLabelValues("account").Inc()
 		comment := "[automod]: auto account-acknowledge"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: xrpcc.AccountDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventAcknowledge: &toolsozone.ModerationDefs_ModEventAcknowledge{
 					Comment: &comment,
@@ -274,15 +277,17 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 
 	atURI := c.RecordOp.ATURI().String()
-	newLabels := dedupeStrings(c.effects.RecordLabels)
+	// Keep the requested labels before de-duplicating against the record's labels.
+	requestedLabels := dedupeStrings(c.effects.RecordLabels)
+	newLabels := requestedLabels
 	rmdLabels := []string{}
 	newTags := dedupeStrings(c.effects.RecordTags)
 	newEscalation := c.effects.RecordEscalate
 	newAcknowledge := c.effects.RecordAcknowledge
 
-	if (newEscalation || newAcknowledge || len(newLabels) > 0 || len(rmdLabels) > 0 || len(newTags) > 0) && eng.OzoneClient != nil {
+	if (newEscalation || newAcknowledge || len(newLabels) > 0 || len(rmdLabels) > 0 || len(newTags) > 0) && eng.OzoneClient != nil && c.RecordOp.CID != nil {
 		// fetch existing record labels, tags, etc
-		rv, err := toolsozone.ModerationGetRecord(ctx, eng.OzoneClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
+		rv, err := fetchRecordModState(ctx, eng.OzoneClient, c.RecordOp.ATURI(), *c.RecordOp.CID)
 		if err != nil {
 			// NOTE: there is a frequent 4xx error here from Ozone because this record has not been indexed yet
 			c.Logger.Warn("failed to fetch private record metadata from Ozone", "err", err)
@@ -300,21 +305,26 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			negLabels = dedupeStrings(negLabels)
 			newLabels = dedupeLabelActions(newLabels, existingLabels, negLabels)
 			for _, lbl := range dedupeStrings(c.effects.RemovedRecordLabels) {
-				// we don't need to try and remove labels whenever they are either _not_ already in the record labels, _or_ if they are
-				// being applied by some other rule before persisting
-				if !keyword.TokenInSet(lbl, existingLabels) || keyword.TokenInSet(lbl, newLabels) {
+				// A requested label must not be removed, even if it was already present
+				// and therefore dropped from newLabels.
+				if !keyword.TokenInSet(lbl, existingLabels) || keyword.TokenInSet(lbl, requestedLabels) {
 					continue
 				}
 				rmdLabels = append(rmdLabels, lbl)
 			}
 			existingTags := []string{}
 			hasSubjectStatus := rv.Moderation != nil && rv.Moderation.SubjectStatus != nil
-			if hasSubjectStatus && rv.Moderation.SubjectStatus.Tags != nil {
+			reviewState := ""
+			if hasSubjectStatus {
 				existingTags = rv.Moderation.SubjectStatus.Tags
+				if rv.Moderation.SubjectStatus.ReviewState != nil {
+					reviewState = *rv.Moderation.SubjectStatus.ReviewState
+				}
 			}
 			newTags = dedupeTagActions(newTags, existingTags)
-			newEscalation = newEscalation && hasSubjectStatus && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewEscalate"
-			newAcknowledge = newAcknowledge && hasSubjectStatus && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewNone" && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewClosed"
+			// Without a status, the review state is unknown; don't suppress requested actions.
+			newEscalation = newEscalation && (!hasSubjectStatus || reviewState != "tools.ozone.moderation.defs#reviewEscalated")
+			newAcknowledge = newAcknowledge && (!hasSubjectStatus || (reviewState != "tools.ozone.moderation.defs#reviewNone" && reviewState != "tools.ozone.moderation.defs#reviewClosed"))
 		}
 	}
 
@@ -397,8 +407,8 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			actionNewLabelCount.WithLabelValues("record", val).Inc()
 		}
 		comment := "[automod]: auto-labeling record"
-		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+		_, err := emitEventWithReports(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.AccountDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventLabel: &toolsozone.ModerationDefs_ModEventLabel{
 					CreateLabelVals: newLabels,
@@ -409,7 +419,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
 				RepoStrongRef: &strongRef,
 			},
-		})
+		}, reportActionsForLabels(newLabels, c.effects.recordLabelReports))
 		if err != nil {
 			c.Logger.Error("failed to create record label", "err", err)
 		}
@@ -423,7 +433,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		}
 		comment := "[automod]: auto-tagging record"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: xrpcc.AccountDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventTag: &toolsozone.ModerationDefs_ModEventTag{
 					Add:     newTags,
@@ -451,8 +461,8 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		c.Logger.Warn("record-takedown")
 		actionNewTakedownCount.WithLabelValues("record").Inc()
 		comment := "[automod]: automated record-takedown"
-		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+		_, err := emitEventWithReports(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.AccountDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventTakedown: &toolsozone.ModerationDefs_ModEventTakedown{
 					Comment: &comment,
@@ -462,7 +472,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 				RepoStrongRef: &strongRef,
 			},
 			SubjectBlobCids: dedupeStrings(c.effects.BlobTakedowns),
-		})
+		}, c.effects.recordTakedownReports)
 		if err != nil {
 			c.Logger.Error("failed to execute record takedown", "err", err)
 		}
@@ -476,7 +486,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		actionNewEscalationCount.WithLabelValues("record").Inc()
 		comment := "[automod]: automated record-escalation"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: xrpcc.AccountDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventEscalate: &toolsozone.ModerationDefs_ModEventEscalate{
 					Comment: &comment,
@@ -496,7 +506,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		actionNewAcknowledgeCount.WithLabelValues("record").Inc()
 		comment := "[automod]: automated record-acknowledge"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-			CreatedBy: xrpcc.Auth.Did,
+			CreatedBy: xrpcc.AccountDID.String(),
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventAcknowledge: &toolsozone.ModerationDefs_ModEventAcknowledge{
 					Comment: &comment,

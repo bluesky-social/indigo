@@ -5,6 +5,9 @@ import (
 	"fmt"
 )
 
+// Verifies overall MST data structure: key ordering, node heights, etc.
+//
+// This function should be relatively efficient. It does compute a single SHA-256 to verify the height of the first key it encounters.
 func (t *Tree) Verify() error {
 	if t.Root == nil {
 		return fmt.Errorf("tree missing root node")

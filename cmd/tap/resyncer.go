@@ -368,7 +368,7 @@ func (r *Resyncer) handleResyncError(ctx context.Context, did string, resyncErr 
 	}
 
 	// start a 1 min & go up to 1 hr between retries
-	retryAfter := time.Now().Add(backoff(repo.RetryCount, 60) * 60)
+	retryAfter := time.Now().Add(backoff(uint(repo.RetryCount), 60) * 60)
 
 	if err := r.db.WithContext(ctx).Model(&models.Repo{}).
 		Where("did = ?", did).

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
+	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -21,7 +21,7 @@ var ozoneCursorKey = "hepa/ozoneTimestamp"
 type OzoneConsumer struct {
 	Logger      *slog.Logger
 	RedisClient *redis.Client
-	OzoneClient *xrpc.Client
+	OzoneClient *atclient.APIClient
 	Engine      *automod.Engine
 
 	// same as lastSeq, but for Ozone timestamp cursor. the value is a string.

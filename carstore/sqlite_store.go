@@ -514,7 +514,6 @@ type sqliteUserViewInner interface {
 	getBlockSize(ctx context.Context, user models.Uid, bcid cid.Cid) (int64, error)
 }
 
-// TODO: rename, used by both sqlite and scylla
 type sqliteUserView struct {
 	sqs sqliteUserViewInner
 	uid models.Uid

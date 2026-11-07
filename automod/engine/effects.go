@@ -65,6 +65,11 @@ type Effects struct {
 	RejectEvent bool
 	// Services, if any, which should blast out a notification about this even (eg, Slack)
 	NotifyServices []string
+
+	accountTakedownReports []ReportAction
+	recordTakedownReports  []ReportAction
+	accountLabelReports    map[string][]ReportAction
+	recordLabelReports     map[string][]ReportAction
 }
 
 // Enqueues the named counter to be incremented at the end of all rule processing. Will automatically increment for all time periods.
@@ -148,6 +153,8 @@ func (e *Effects) ReportAccount(reason, comment string) {
 
 // Enqueues the entire account to be taken down at the end of rule processing.
 func (e *Effects) TakedownAccount() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.AccountTakedown = true
 }
 
@@ -218,6 +225,8 @@ func (e *Effects) ReportRecord(reason, comment string) {
 
 // Enqueues the record to be taken down at the end of rule processing.
 func (e *Effects) TakedownRecord() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.RecordTakedown = true
 }
 

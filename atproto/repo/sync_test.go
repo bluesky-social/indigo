@@ -54,3 +54,18 @@ func testCommitFile(t *testing.T, p string) {
 		mst.DebugPrintTree(repo.MST.Root, 0)
 	}
 }
+
+func TestFirehoseNullOp(t *testing.T) {
+	assert := assert.New(t)
+	ctx := context.Background()
+
+	body, err := os.ReadFile("testdata/commit_null_op.json")
+	assert.NoError(err)
+
+	var msg comatproto.SyncSubscribeRepos_Commit
+	assert.NoError(json.Unmarshal(body, &msg))
+	msg.Ops = append(msg.Ops, nil)
+
+	_, err = VerifyCommitMessage(ctx, &msg)
+	assert.Error(err)
+}

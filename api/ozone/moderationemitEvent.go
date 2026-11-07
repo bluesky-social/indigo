@@ -288,6 +288,8 @@ type ModerationEmitEvent_ReportAction struct {
 	All *bool `json:"all,omitempty" cborgen:"all,omitempty"`
 	// ids: Target specific report IDs
 	Ids []int64 `json:"ids,omitempty" cborgen:"ids,omitempty"`
+	// isAutomated: Set true when the report activities are created by an automated process.
+	IsAutomated *bool `json:"isAutomated,omitempty" cborgen:"isAutomated,omitempty"`
 	// note: Note to send to reporter(s) when actioning their report
 	Note *string `json:"note,omitempty" cborgen:"note,omitempty"`
 	// types: Target reports matching these report types on the subject (fully qualified NSIDs)

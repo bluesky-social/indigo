@@ -393,8 +393,15 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 			return
 		}
 
-		// now, start buffering events from the live stream
+		// start buffering events from the live stream (after checking that this subscription wasn't already closed)
+		sub.lk.Lock()
+		if sub.cleanedUp {
+			sub.lk.Unlock()
+			close(out)
+			return
+		}
 		em.addSubscriber(sub)
+		sub.lk.Unlock()
 
 		// ensure that we clean up any return paths from here out, after having added the subscriber. Note that `out` is not `sub.output`, so needs to be closed separately.
 		defer func() {

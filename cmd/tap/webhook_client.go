@@ -16,7 +16,7 @@ type WebhookClient struct {
 }
 
 func (w *WebhookClient) Send(evt *OutboxEvt, ackFn func(uint)) {
-	retries := 0
+	retries := uint(0)
 	for {
 		if err := w.post(evt); err != nil {
 			w.logger.Warn("webhook failed, retrying", "error", err, "id", evt.ID, "retries", retries)

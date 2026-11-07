@@ -17,6 +17,8 @@ const (
 	MAX_RECORD_BYTES_LEN = MAX_CBOR_RECORD_SIZE
 	// limit on size of CID representation (NOT ENFORCED YET)
 	MAX_CID_BYTES = 100
+	// limit on length of CID in string representation (eg, cid-link)
+	MAX_CID_STRING_LEN = 256
 	// limit on depth of nested containers (objects or arrays) for atproto data (NOT ENFORCED YET)
 	MAX_CBOR_NESTED_LEVELS = 32
 	// maximum number of elements in an object or array in atproto data

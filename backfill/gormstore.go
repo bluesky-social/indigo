@@ -391,14 +391,10 @@ func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind repomgr.Eve
 			if j.rev != "" {
 				continue
 			}
-		}
-
-		if j.rev > *opset.since {
+		} else if j.rev > *opset.since {
 			// we've already accounted for this event
 			continue
-		}
-
-		if j.rev != *opset.since {
+		} else if j.rev != *opset.since {
 			// we've got a discontinuity
 			return fmt.Errorf("event since did not match current rev (%s != %s): %w", *opset.since, j.rev, ErrEventGap)
 		}

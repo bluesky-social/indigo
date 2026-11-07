@@ -146,7 +146,7 @@ func parseLink(obj map[string]any) (CIDLink, error) {
 	if !ok {
 		return zero, fmt.Errorf("$link field missing or not a string")
 	}
-	c, err := cid.Parse(v)
+	c, err := parseCIDString(v)
 	if err != nil {
 		return zero, fmt.Errorf("invalid $link CID: %w", err)
 	}
@@ -237,13 +237,21 @@ func parseLegacyBlob(obj map[string]any) (*Blob, error) {
 	if !ok {
 		return nil, fmt.Errorf("blob 'mimeType' missing or not a string")
 	}
-	cidStr, ok := obj["cid"]
+	cidVal, ok := obj["cid"]
 	if !ok {
 		return nil, fmt.Errorf("blob 'cid' missing")
 	}
-	c, err := cid.Parse(cidStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid CID: %w", err)
+	var c cid.Cid
+	if cidStr, ok := cidVal.(string); ok {
+		c, err = parseCIDString(cidStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid blob 'cid' string: %w", err)
+		}
+	} else {
+		c, err = cid.Parse(cidVal)
+		if err != nil {
+			return nil, fmt.Errorf("invalid blob 'cid': %w", err)
+		}
 	}
 	return &Blob{
 		Size:     -1,
