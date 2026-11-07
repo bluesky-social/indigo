@@ -378,7 +378,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 	slog.Debug("sending auth request", "scopes", scopes, "redirectURI", app.Config.CallbackURL)
 
 	var resp *http.Response
-	for range 2 {
+	for attempt := range 2 {
 		dpopJWT, err := NewAuthDPoP("POST", parURL, dpopServerNonce, dpopPrivKey)
 		if err != nil {
 			return nil, err
@@ -404,7 +404,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		if resp.StatusCode == http.StatusBadRequest && dpopServerNonce != "" {
 			// parseAuthErrorReason() always closes resp.Body
 			reason := parseAuthErrorReason(resp, "PAR")
-			if reason == "use_dpop_nonce" {
+			if reason == "use_dpop_nonce" && attempt == 0 {
 				// already updated nonce value above; loop around and try again
 				continue
 			}
