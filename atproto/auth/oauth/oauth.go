@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -312,13 +313,20 @@ func NewAuthDPoP(httpMethod, url, dpopNonce string, privKey atcrypto.PrivateKey)
 // attempts to read an HTTP response body as JSON, and determine an error reason. always closes the response body
 func parseAuthErrorReason(resp *http.Response, reqType string) string {
 	defer resp.Body.Close()
-	var errResp map[string]any
+	var errResp struct {
+		Error       string `json:"error"`
+		Description string `json:"error_description"`
+	}
+
 	if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-		slog.Warn("auth server request failed", "request", reqType, "statusCode", resp.StatusCode, "err", err)
+		slog.Debug("auth server request failed", "request", reqType, "statusCode", resp.StatusCode)
 		return "unknown"
 	}
-	slog.Warn("auth server request failed", "request", reqType, "statusCode", resp.StatusCode, "body", errResp)
-	return fmt.Sprintf("%s", errResp["error"])
+	slog.Debug("auth server request failed", "request", reqType, "statusCode", resp.StatusCode, "error", errResp.Error, "description", errResp.Description)
+	if errResp.Error == "" {
+		return "unknown"
+	}
+	return errResp.Error
 }
 
 // Low-level helper to send PAR request to auth server, which involves starting PKCE and DPoP.
@@ -370,10 +378,10 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		return nil, err
 	}
 
-	slog.Debug("sending auth request", "scopes", scopes, "state", state, "redirectURI", app.Config.CallbackURL)
+	slog.Debug("sending auth request", "scopes", scopes, "redirectURI", app.Config.CallbackURL)
 
 	var resp *http.Response
-	for range 2 {
+	for attempt := range 2 {
 		dpopJWT, err := NewAuthDPoP("POST", parURL, dpopServerNonce, dpopPrivKey)
 		if err != nil {
 			return nil, err
@@ -399,7 +407,7 @@ func (app *ClientApp) SendAuthRequest(ctx context.Context, authMeta *AuthServerM
 		if resp.StatusCode == http.StatusBadRequest && dpopServerNonce != "" {
 			// parseAuthErrorReason() always closes resp.Body
 			reason := parseAuthErrorReason(resp, "PAR")
-			if reason == "use_dpop_nonce" {
+			if reason == "use_dpop_nonce" && attempt == 0 {
 				// already updated nonce value above; loop around and try again
 				continue
 			}
@@ -470,7 +478,7 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 	dpopServerNonce := info.DPoPAuthServerNonce
 
 	var resp *http.Response
-	for range 2 {
+	for attempt := range 2 {
 		dpopJWT, err := NewAuthDPoP("POST", info.AuthServerTokenEndpoint, dpopServerNonce, dpopPrivKey)
 		if err != nil {
 			return nil, err
@@ -499,7 +507,7 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 		if resp.StatusCode == http.StatusBadRequest && dpopNonceHdr != "" {
 			// parseAuthErrorReason() always closes resp.Body
 			reason := parseAuthErrorReason(resp, "initial-token")
-			if reason == "use_dpop_nonce" {
+			if reason == "use_dpop_nonce" && attempt == 0 {
 				// already updated nonce value above; loop around and try again
 				continue
 			}
@@ -684,7 +692,7 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 		AuthServerURL:                info.AuthServerURL,
 		AuthServerTokenEndpoint:      info.AuthServerTokenEndpoint,
 		AuthServerRevocationEndpoint: info.AuthServerRevocationEndpoint,
-		Scopes:                       strings.Split(tokenResp.Scope, " "),
+		Scopes:                       strings.Fields(tokenResp.Scope),
 		AccessToken:                  tokenResp.AccessToken,
 		RefreshToken:                 tokenResp.RefreshToken,
 		DPoPAuthServerNonce:          info.DPoPAuthServerNonce,
@@ -696,33 +704,25 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 	}
 	if err := app.Store.DeleteAuthRequestInfo(ctx, state); err != nil {
 		// only log on failure to delete state info
-		slog.Warn("failed to delete auth request info", "state", state, "did", accountDID, "authserver", info.AuthServerURL, "err", err)
+		slog.Warn("failed to delete auth request info", "did", accountDID, "authserver", info.AuthServerURL, "err", err)
 	}
 	return &sessData, nil
 }
 
-// High-level helper to delete a session, including revoking access/refresh tokens if supported by the AS
+// High-level helper to delete a session, including revoking access/refresh tokens if supported by the AS.
+//
+// May return an error if AS revocation failed, even if the session was successfully deleted from database.
 func (app *ClientApp) Logout(ctx context.Context, did syntax.DID, sessionID string) error {
-	sess, err := app.ResumeSession(ctx, did, sessionID)
-	if err != nil {
-		return err
+
+	// check session to see if AS supports token revocation endpoint
+	sess, revokeErr := app.ResumeSession(ctx, did, sessionID)
+
+	if revokeErr == nil && sess.Data.AuthServerRevocationEndpoint != "" {
+		revokeErr = sess.RevokeSession(ctx)
 	}
 
-	// Tell the AS to revoke the tokens, if supported
-	if sess.Data.AuthServerRevocationEndpoint == "" {
-		slog.Info("AS does not support token revocation, skipping RevokeSession")
-	} else {
-		err = sess.RevokeSession(ctx)
-		if err != nil {
-			slog.Warn("error during session revocation", "err", err)
-		}
-	}
+	// delete from our own session store (even if resumption failed)
+	deleteErr := app.Store.DeleteSession(ctx, did, sessionID)
 
-	// Delete from our own session store
-	err = app.Store.DeleteSession(ctx, did, sessionID)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return errors.Join(revokeErr, deleteErr)
 }
