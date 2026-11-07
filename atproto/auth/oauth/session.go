@@ -184,7 +184,7 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 	// RFC 6749: an omitted scope retains the previous grant
 	if tokenResp.Scope != "" {
 		newScopes := strings.Fields(tokenResp.Scope)
-		if !slices.Equal(slices.Sorted(newScopes), slices.Sorted(sess.Data.Scopes)) {
+		if !slices.Equal(slices.Sorted(slices.Values(newScopes)), slices.Sorted(slices.Values(sess.Data.Scopes))) {
 			slog.Info("OAuth session scopes changed at token refresh", "old", sess.Data.Scopes, "new", newScopes)
 		}
 		sess.Data.Scopes = newScopes
