@@ -312,13 +312,17 @@ func NewAuthDPoP(httpMethod, url, dpopNonce string, privKey atcrypto.PrivateKey)
 // attempts to read an HTTP response body as JSON, and determine an error reason. always closes the response body
 func parseAuthErrorReason(resp *http.Response, reqType string) string {
 	defer resp.Body.Close()
-	var errResp map[string]any
+	var errResp struct {
+		Error string `json:"error"`
+	}
+
 	if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-		slog.Warn("auth server request failed", "request", reqType, "statusCode", resp.StatusCode, "err", err)
 		return "unknown"
 	}
-	slog.Warn("auth server request failed", "request", reqType, "statusCode", resp.StatusCode, "body", errResp)
-	return fmt.Sprintf("%s", errResp["error"])
+	if errResp.Error == "" {
+		return "unknown"
+	}
+	return errResp.Error
 }
 
 // Low-level helper to send PAR request to auth server, which involves starting PKCE and DPoP.
