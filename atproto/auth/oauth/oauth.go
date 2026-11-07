@@ -314,12 +314,15 @@ func NewAuthDPoP(httpMethod, url, dpopNonce string, privKey atcrypto.PrivateKey)
 func parseAuthErrorReason(resp *http.Response, reqType string) string {
 	defer resp.Body.Close()
 	var errResp struct {
-		Error string `json:"error"`
+		Error       string `json:"error"`
+		Description string `json:"error_description"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+		slog.Debug("auth server request failed", "request", reqType, "statusCode", resp.StatusCode)
 		return "unknown"
 	}
+	slog.Debug("auth server request failed", "request", reqType, "statusCode", resp.StatusCode, "error", errResp.Error, "description", errResp.Description)
 	if errResp.Error == "" {
 		return "unknown"
 	}
