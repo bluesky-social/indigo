@@ -692,7 +692,7 @@ func (app *ClientApp) ProcessCallback(ctx context.Context, params url.Values) (*
 		AuthServerURL:                info.AuthServerURL,
 		AuthServerTokenEndpoint:      info.AuthServerTokenEndpoint,
 		AuthServerRevocationEndpoint: info.AuthServerRevocationEndpoint,
-		Scopes:                       strings.Split(tokenResp.Scope, " "),
+		Scopes:                       strings.Fields(tokenResp.Scope),
 		AccessToken:                  tokenResp.AccessToken,
 		RefreshToken:                 tokenResp.RefreshToken,
 		DPoPAuthServerNonce:          info.DPoPAuthServerNonce,
