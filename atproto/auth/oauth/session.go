@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -177,6 +178,14 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 
 	sess.Data.AccessToken = tokenResp.AccessToken
 	sess.Data.RefreshToken = tokenResp.RefreshToken
+	// RFC 6749: an omitted scope retains the previous grant
+	if tokenResp.Scope != "" {
+		newScopes := strings.Fields(tokenResp.Scope)
+		if !slices.Equal(newScopes, sess.Data.Scopes) {
+			slog.Info("OAuth session scopes changed at token refresh", "old", sess.Data.Scopes, "new", newScopes)
+		}
+		sess.Data.Scopes = newScopes
+	}
 
 	// persist updated data (tokens and possibly nonce)
 	if sess.PersistSessionCallback != nil {
