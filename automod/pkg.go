@@ -28,12 +28,14 @@ type BlobRuleFunc = engine.BlobRuleFunc
 type OzoneEventRuleFunc = engine.OzoneEventRuleFunc
 
 var (
-	ReportReasonSpam       = engine.ReportReasonSpam
-	ReportReasonViolation  = engine.ReportReasonViolation
-	ReportReasonMisleading = engine.ReportReasonMisleading
-	ReportReasonSexual     = engine.ReportReasonSexual
-	ReportReasonRude       = engine.ReportReasonRude
-	ReportReasonOther      = engine.ReportReasonOther
+	ReportReasonSpam             = engine.ReportReasonSpam
+	ReportReasonViolation        = engine.ReportReasonViolation
+	ReportReasonMisleading       = engine.ReportReasonMisleading
+	ReportReasonSexual           = engine.ReportReasonSexual
+	ReportReasonRude             = engine.ReportReasonRude
+	ReportReasonOther            = engine.ReportReasonOther
+	ReportReasonChildSafetyCSAM  = engine.ReportReasonChildSafetyCSAM
+	ReportReasonChildSafetyOther = engine.ReportReasonChildSafetyOther
 
 	PeriodTotal = countstore.PeriodTotal
 	PeriodDay   = countstore.PeriodDay
