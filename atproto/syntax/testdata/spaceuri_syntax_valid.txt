@@ -1,0 +1,7 @@
+
+at://did:plc:asdf123/space/com.example.space/skey
+at://did:plc:asdf123/space/com.example.space/skey/did:plc:xyz
+at://did:plc:asdf123/space/com.example.space/skey/did:plc:xyz/com.example.record
+at://did:plc:asdf123/space/com.example.space/skey/did:plc:xyz/com.example.record/rkey
+
+# TODO: more good examples
