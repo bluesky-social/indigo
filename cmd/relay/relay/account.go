@@ -193,7 +193,7 @@ func (r *Relay) EnsureAccountHost(ctx context.Context, acc *models.Account, host
 	return nil
 }
 
-// Checks that account is active. If it is not active upstream, double-checks with the host and updates status if needed; otherwise returns an error.
+// Checks that account is active. If it is not active upstream, double-checks with the host and updates status if needed (broadcasting an `#account` event if the status changed); otherwise returns an error.
 func (r *Relay) EnsureAccountActive(ctx context.Context, acc *models.Account) error {
 
 	// short-circuit in common case
@@ -223,6 +223,21 @@ func (r *Relay) EnsureAccountActive(ctx context.Context, acc *models.Account) er
 			return err
 		}
 		acc.UpstreamStatus = status
+
+		// Downstream consumers only learn account status from `#account` events. Without this, a status change discovered here (most often an account that was reactivated without its host emitting `#account`) leaves every consumer with the stale status indefinitely, even as the account's commits start flowing again. Emitting before returning orders the event ahead of the commit or sync that triggered the check.
+		err = r.Events.AddEvent(ctx, &stream.XRPCStreamEvent{
+			RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+				Active: acc.IsActive(),
+				Did:    acc.DID,
+				Status: acc.StatusField(),
+				Time:   syntax.DatetimeNow().String(),
+			},
+			PrivUid: acc.UID,
+		})
+		if err != nil {
+			r.Logger.Error("failed to emit #account event after upstream status re-check", "did", did, "newStatus", status, "error", err)
+			return fmt.Errorf("failed to broadcast #account event: %w", err)
+		}
 	}
 
 	if acc.IsActive() {
