@@ -9,6 +9,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atclient"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/ipfs/go-cid"
@@ -146,38 +147,50 @@ func (r *Repo) requestClient(ctx context.Context, macType string) (*atclient.API
 	}), request, nil
 }
 
-func (s *Space) ListRepos(ctx context.Context, opts ListReposOptions) (*RepoPage, error) {
+func (s *Space) ListWriters(ctx context.Context, opts ListWritersOptions) (*WriterPage, error) {
 	rpc, err := s.authenticatedClient(ctx)
 	if err != nil {
 		return nil, err
 	}
-	out, err := comatproto.SpaceListRepos(ctx, rpc, opts.Cursor, opts.Limit, s.ref.String())
+	out, err := comatproto.SpaceListWriters(ctx, rpc, opts.Cursor, opts.Limit, s.ref.String())
 	if err != nil {
 		return nil, err
 	}
 	if out.Repos == nil {
 		return nil, fmt.Errorf("repo discovery response is missing the required repos array")
 	}
-	page := &RepoPage{Repos: make([]RepoInfo, len(out.Repos)), Cursor: out.Cursor}
+	page := &WriterPage{Repos: make([]WriterInfo, len(out.Repos)), Cursor: out.Cursor}
 	for i, entry := range out.Repos {
-		author, err := syntax.ParseDID(entry.Did)
+		var repo, revision string
+		var info WriterInfo
+		switch {
+		case entry.SpaceDefs_RepoWrite != nil:
+			update := entry.SpaceDefs_RepoWrite
+			repo, revision = update.Repo, update.SpaceRev
+			parsed, err := syntax.ParseTID(update.RepoRev)
+			if err != nil {
+				return nil, fmt.Errorf("invalid writer repoRev: %w", err)
+			}
+			if len(update.Data) != 32 {
+				return nil, fmt.Errorf("writer digest must be 32 bytes")
+			}
+			info.RepoRev, info.Data = parsed, [32]byte(update.Data)
+		case entry.SpaceDefs_RepoRemoved != nil:
+			update := entry.SpaceDefs_RepoRemoved
+			repo, revision, info.Removed = update.Repo, update.SpaceRev, true
+		default:
+			return nil, fmt.Errorf("unsupported writer-set update")
+		}
+		var err error
+		info.Author, err = syntax.ParseDID(repo)
 		if err != nil {
-			return nil, fmt.Errorf("invalid repo discovery author: %w", err)
+			return nil, fmt.Errorf("invalid writer repo: %w", err)
 		}
-		repoRev, err := syntax.ParseTID(entry.RepoRev)
+		info.SpaceRev, err = syntax.ParseTID(revision)
 		if err != nil {
-			return nil, fmt.Errorf("invalid repo discovery revision: %w", err)
+			return nil, fmt.Errorf("invalid writer spaceRev: %w", err)
 		}
-		spaceRev, err := syntax.ParseTID(entry.SpaceRev)
-		if err != nil {
-			return nil, fmt.Errorf("invalid space discovery revision: %w", err)
-		}
-		if len(entry.Data) != 32 {
-			return nil, fmt.Errorf("repo discovery data must be 32 bytes, got %d", len(entry.Data))
-		}
-		page.Repos[i] = RepoInfo{
-			Author: author, RepoRev: repoRev, SpaceRev: spaceRev, Data: [32]byte(entry.Data),
-		}
+		page.Repos[i] = info
 	}
 	return page, nil
 }
@@ -190,7 +203,7 @@ func (r *Repo) GetRepo(ctx context.Context) (*RepoDownload, error) {
 	if err != nil {
 		return nil, err
 	}
-	req := r.streamRequest("com.atproto.space.getRepo", "application/octet-stream")
+	req := r.streamRequest("com.atproto.space.getRepo", "application/vnd.dasl.star")
 	req.Headers.Set(wantMACHeader, request.header)
 	resp, err := doResponse(ctx, rpc, req)
 	if err != nil {
@@ -250,21 +263,18 @@ func (r *Repo) ListOps(ctx context.Context, opts ListOpsOptions) (*OpsPage, erro
 			Value: optionalRawValue(entry.Value),
 		}
 	}
-	if out.Commit != nil {
-		page.Head, err = commitFromWire(out.Commit)
-		if err != nil {
-			return nil, err
-		}
-		authentication, err := request.verification(headers)
-		if err != nil {
-			return nil, err
-		}
-		if err := page.Head.Verify(r.space.ref, r.author, authentication); err != nil {
-			return nil, err
-		}
-	} else if len(headers.Values(responseMACHeader)) != 0 {
-		return nil, fmt.Errorf("operation page without a commit has a MAC header")
+	page.Head, err = commitFromWire(&out.Commit)
+	if err != nil {
+		return nil, err
 	}
+	authentication, err := request.verification(headers)
+	if err != nil {
+		return nil, err
+	}
+	if err := page.Head.Verify(r.space.ref, r.author, authentication); err != nil {
+		return nil, err
+	}
+
 	return page, nil
 }
 
@@ -295,6 +305,17 @@ func (r *Repo) GetRecord(ctx context.Context, collection syntax.NSID, rkey synta
 	if err := verifyRecordMAC(uri, recordCID, authentication); err != nil {
 		return nil, err
 	}
+	object, err := atdata.UnmarshalJSON(out.Value)
+	if err != nil {
+		return nil, fmt.Errorf("invalid returned record: %w", err)
+	}
+	encoded, err := atdata.MarshalCBOR(object)
+	if err != nil {
+		return nil, err
+	}
+	if err := VerifyRecord(encoded, recordCID); err != nil {
+		return nil, err
+	}
 	return &Record{URI: uri, CID: recordCID, Value: out.Value}, nil
 }
 
@@ -308,7 +329,7 @@ func (r *Repo) ListRecords(ctx context.Context, opts ListRecordsOptions) (*Recor
 		value := opts.Collection.String()
 		collection = &value
 	}
-	out, err := comatproto.SpaceListRecords(ctx, rpc, collection, opts.Cursor, opts.ExcludeValues, opts.Limit, r.author.String(), opts.Reverse, r.space.ref.String())
+	out, err := comatproto.SpaceListRecords(ctx, rpc, collection, opts.Cursor, opts.ExcludeValues, opts.Limit, r.author.String(), r.space.ref.String())
 	if err != nil {
 		return nil, err
 	}
@@ -359,12 +380,7 @@ func (r *Repo) ListBlobs(ctx context.Context, opts ListBlobsOptions) (*BlobPage,
 	if err != nil {
 		return nil, err
 	}
-	var since *string
-	if opts.Since != nil {
-		value := opts.Since.String()
-		since = &value
-	}
-	out, err := comatproto.SpaceListBlobs(ctx, rpc, opts.Cursor, opts.Limit, r.author.String(), since, r.space.ref.String())
+	out, err := comatproto.SpaceListBlobs(ctx, rpc, opts.Cursor, opts.Limit, r.author.String(), r.space.ref.String())
 	if err != nil {
 		return nil, err
 	}

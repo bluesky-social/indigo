@@ -84,7 +84,7 @@ func TestExplicitDelegationAndExchangeUseCallerClientsAndSigners(t *testing.T) {
 		if call > 1 {
 			requestPublic = secondPublic
 		}
-		assert.Equal(t, "/xrpc/com.atproto.space.getSpaceCredential", req.URL.Path)
+		assert.Equal(t, "/xrpc/com.atproto.space.authorizeSpaceSync", req.URL.Path)
 		assert.Empty(t, req.Header.Get("Authorization"))
 		assert.Empty(t, req.Header.Get("Signature"))
 		assert.Empty(t, req.Header.Get("Signature-Input"))
@@ -93,7 +93,7 @@ func TestExplicitDelegationAndExchangeUseCallerClientsAndSigners(t *testing.T) {
 		var input map[string]json.RawMessage
 		assert.NoError(t, json.NewDecoder(req.Body).Decode(&input))
 		assert.JSONEq(t, fmt.Sprintf("%q", ref.String()), string(input["space"]))
-		assert.JSONEq(t, fmt.Sprintf("%q", requestPublic.DIDKey()), string(input["credentialKid"]))
+		assert.JSONEq(t, fmt.Sprintf("%q", requestPublic.DIDKey()), string(input["credentialKey"]))
 		assert.JSONEq(t, `"delegation-token"`, string(input["delegationToken"]))
 		if call == 1 {
 			assert.NotContains(t, input, "clientAttestation", "omitted attestation must remain omitted")
@@ -160,7 +160,7 @@ func TestCredentialExchangeAllowsPublicAndAppOnlySpaces(t *testing.T) {
 				var body map[string]json.RawMessage
 				assert.NoError(t, json.NewDecoder(req.Body).Decode(&body))
 				assert.NotContains(t, body, "delegationToken")
-				assert.JSONEq(t, fmt.Sprintf("%q", public.DIDKey()), string(body["credentialKid"]))
+				assert.JSONEq(t, fmt.Sprintf("%q", public.DIDKey()), string(body["credentialKey"]))
 				if attestation == nil {
 					assert.NotContains(t, body, "clientAttestation")
 				} else {
@@ -179,59 +179,35 @@ func TestCredentialExchangeAllowsPublicAndAppOnlySpaces(t *testing.T) {
 	}
 }
 
-func TestNotifyRegistrationUsesServiceIdentifiersAndReturnsExpiry(t *testing.T) {
-	ctx := context.Background()
-	cred, public := clientTestCredential(t, "issued-token")
+func TestAuthorizationRegistersNotifyAndReturnsSpaceRevision(t *testing.T) {
 	ref := clientTestRef()
-	expires := "2026-10-06T12:34:56.123Z"
+	revision := syntax.NewTIDFromInteger(100)
+	registration := &NotifyRegistration{Endpoint: "https://syncer.example/base", Token: "per-space-secret"}
 	var calls atomic.Int64
-	var malformedExpiry atomic.Bool
-	services := make(chan string, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		calls.Add(1)
-		assert.NoError(t, clientVerifyRequest(req, public, cred.Token(), ref.SpaceAuthority()))
-		var body struct {
-			Space   string `json:"space"`
-			Service string `json:"service"`
+		assert.Equal(t, "/xrpc/com.atproto.space.authorizeSpaceSync", req.URL.Path)
+		assert.Empty(t, req.Header.Get("Authorization"))
+		var input struct {
+			Notify NotifyRegistration `json:"notify"`
 		}
-		assert.NoError(t, json.NewDecoder(req.Body).Decode(&body))
-		assert.Equal(t, ref.String(), body.Space)
-		services <- body.Service
-		switch req.URL.Path {
-		case "/xrpc/com.atproto.space.registerNotify":
-			if malformedExpiry.Load() {
-				io.WriteString(w, `{"expiresAt":"never"}`)
-			} else {
-				fmt.Fprintf(w, `{"expiresAt":%q}`, expires)
-			}
-		case "/xrpc/com.atproto.space.unregisterNotify":
-			w.WriteHeader(http.StatusNoContent)
-		default:
-			t.Errorf("unexpected endpoint %s", req.URL.Path)
-			w.WriteHeader(http.StatusNotFound)
-		}
+		require.NoError(t, json.NewDecoder(req.Body).Decode(&input))
+		assert.Equal(t, *registration, input.Notify)
+		fmt.Fprintf(w, `{"credential":"issued","spaceRev":%q}`, revision)
 	}))
 	defer server.Close()
-	space := NewClient(ClientOptions{Directory: clientTestDirectory(server.URL), HTTPClient: server.Client()}).Space(ref, cred)
-	for _, service := range []string{"did:web:syncer.example", "did:web:syncer.example#atproto_space_syncer"} {
-		expiry, err := space.RegisterNotify(ctx, service)
-		require.NoError(t, err)
-		assert.Equal(t, syntax.Datetime(expires), expiry)
-		assert.Equal(t, service, <-services)
-		require.NoError(t, space.UnregisterNotify(ctx, service))
-		assert.Equal(t, service, <-services)
+	client := NewClient(ClientOptions{Directory: clientTestDirectory(server.URL), HTTPClient: server.Client()})
+	credential, err := client.ExchangeCredential(context.Background(), ref, "", clientTestSigner(t), CredentialExchangeOptions{Notify: registration})
+	require.NoError(t, err)
+	require.NotNil(t, credential.SpaceRevision())
+	assert.Equal(t, revision, *credential.SpaceRevision())
+	*credential.SpaceRevision() = "invalid"
+	assert.Equal(t, revision, *credential.SpaceRevision())
+	for _, endpoint := range []string{"http://syncer.example", "https://", "https://user:password@syncer.example", "https://syncer.example/#fragment"} {
+		_, err := client.ExchangeCredential(context.Background(), ref, "", clientTestSigner(t), CredentialExchangeOptions{Notify: &NotifyRegistration{Endpoint: endpoint, Token: "token"}})
+		require.Error(t, err)
 	}
-	assert.EqualValues(t, 4, calls.Load(), "expiry must not schedule automatic renewal")
-	for _, service := range []string{"https://syncer.example/callback", "did:web:syncer.example#", "did:web:syncer.example#one#two"} {
-		_, err := space.RegisterNotify(ctx, service)
-		assert.Error(t, err)
-		assert.Error(t, space.UnregisterNotify(ctx, service))
-	}
-	assert.EqualValues(t, 4, calls.Load(), "invalid service references fail before network requests")
-	malformedExpiry.Store(true)
-	_, err := space.RegisterNotify(ctx, "did:web:syncer.example")
-	assert.Error(t, err)
-	<-services
+	assert.EqualValues(t, 1, calls.Load())
 }
 
 func TestVerifyNotificationAuthRequiresIssuerAudienceAndEndpoint(t *testing.T) {
@@ -255,8 +231,8 @@ func TestVerifyNotificationAuthRequiresIssuerAudienceAndEndpoint(t *testing.T) {
 		}})
 	}
 	audience := "did:web:syncer.example#atproto_space_syncer"
-	endpoint := syntax.NSID("com.atproto.space.notifySpaceDeleted")
-	otherEndpoint := syntax.NSID("com.atproto.space.notifyWrite")
+	endpoint := syntax.NSID("com.atproto.space.notifyRepoUpdate")
+	otherEndpoint := syntax.NSID("com.atproto.space.notifyCredentialsRevoked")
 	validator := &auth.ServiceAuthValidator{Audience: audience, Dir: dir}
 	cases := []struct {
 		name     string

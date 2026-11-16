@@ -9,7 +9,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +23,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/atclient"
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/dunglas/httpsfv"
@@ -41,7 +41,14 @@ func clientTestRef() syntax.SpaceRef {
 
 func clientTestCID(t *testing.T, codec uint64) cid.Cid {
 	t.Helper()
-	c, err := (cid.Prefix{Version: 1, Codec: codec, MhType: mh.SHA2_256, MhLength: 32}).Sum([]byte("client-test-content"))
+	data := []byte("client-test-content")
+	if codec == cid.DagCBOR {
+		obj, err := atdata.UnmarshalJSON([]byte(clientRawRecord))
+		require.NoError(t, err)
+		data, err = atdata.MarshalCBOR(obj)
+		require.NoError(t, err)
+	}
+	c, err := (cid.Prefix{Version: 1, Codec: codec, MhType: mh.SHA2_256, MhLength: 32}).Sum(data)
 	require.NoError(t, err)
 	return c
 }
@@ -109,52 +116,66 @@ var clientKEMKey = func() *ecdh.PrivateKey {
 	return key
 }()
 
-// The fixture uses a host-side ECDH exchange and a direct two-step HKDF rather
-// than the client's shared-secret helper or its MAC context builders.
+// Independent host-side RFC 9180 and RFC 9421 fixture. It does not use
+// deriveSharedSecret or the production response-header parser.
 func clientSetMAC(t *testing.T, w http.ResponseWriter, req *http.Request, kind string, message []byte) {
 	t.Helper()
-	dictionary, err := httpsfv.UnmarshalDictionary(req.Header.Values("Atproto-Space-Want-Mac"))
+	dictionary, err := httpsfv.UnmarshalDictionary(req.Header.Values("Accept-Signature"))
 	require.NoError(t, err)
-	typeMember, ok := dictionary.Get("type")
+	member, ok := dictionary.Get("mac")
 	require.True(t, ok)
-	assert.Equal(t, kind, typeMember.(httpsfv.Item).Value)
-	version, ok := dictionary.Get("ver")
-	require.True(t, ok)
-	assert.Equal(t, int64(1), version.(httpsfv.Item).Value)
-	shareMember, ok := dictionary.Get("key_share")
-	require.True(t, ok)
-	share, err := atcrypto.ParsePublicDIDKey(shareMember.(httpsfv.Item).Value.(string))
+	list := member.(httpsfv.InnerList)
+	tag, _ := list.Params.Get("tag")
+	require.Equal(t, kind, tag)
+	key, _ := list.Params.Get("keyid")
+	share, err := atcrypto.ParsePublicDIDKey(key.(string))
 	require.NoError(t, err)
 	public, err := ecdh.P256().NewPublicKey(share.UncompressedBytes())
 	require.NoError(t, err)
 	dh, err := clientKEMKey.ECDH(public)
 	require.NoError(t, err)
-	extract := hmac.New(sha256.New, make([]byte, 32))
-	extract.Write(append([]byte("HPKE-v1KEM\x00\x10eae_prk"), dh...))
-	info := append([]byte("\x00\x20HPKE-v1KEM\x00\x10shared_secret"), public.Bytes()...)
-	info = append(info, clientKEMKey.PublicKey().Bytes()...)
-	expand := hmac.New(sha256.New, extract.Sum(nil))
-	expand.Write(append(info, 1))
-	mac := hmac.New(sha256.New, expand.Sum(nil))
-	mac.Write(message)
-	w.Header().Set("Atproto-Space-Mac", `mac=:`+base64.StdEncoding.EncodeToString(mac.Sum(nil))+`: , ver=1, type="`+kind+`"`)
-	w.Header().Set("Vary", "Atproto-Space-Want-Mac")
+	secret := independentHPKEExport(dh, public.Bytes(), clientKEMKey.PublicKey().Bytes())
+	params := strings.TrimPrefix(req.Header.Get("Accept-Signature"), "mac=")
+	base := `"` + kind + `";sf: ` + string(message) + "\n\"@signature-params\": " + params
+	mac := hmac.New(sha256.New, secret)
+	mac.Write([]byte(base))
+	// The signature label deliberately differs from the requested label.
+	w.Header().Set(kind, string(message))
+	w.Header().Set("Signature-Input", "host-mac="+params)
+	w.Header().Set("Signature", `host-mac=:`+base64.StdEncoding.EncodeToString(mac.Sum(nil))+`:`)
+	w.Header().Set("Vary", "Accept-Signature")
+}
+
+func independentHPKEExport(dh, enc, author []byte) []byte {
+	extract := func(id string, salt []byte, label string, value []byte) []byte {
+		mac := hmac.New(sha256.New, salt)
+		mac.Write([]byte("HPKE-v1" + id + label))
+		mac.Write(value)
+		return mac.Sum(nil)
+	}
+	expand := func(id string, key []byte, label string, info []byte) []byte {
+		mac := hmac.New(sha256.New, key)
+		mac.Write([]byte{0, 32})
+		mac.Write([]byte("HPKE-v1" + id + label))
+		mac.Write(info)
+		mac.Write([]byte{1})
+		return mac.Sum(nil)
+	}
+	const kem = "KEM\x00\x10"
+	const suite = "HPKE\x00\x10\x00\x01\xff\xff"
+	kemSecret := expand(kem, extract(kem, nil, "eae_prk", dh), "shared_secret", append(append([]byte(nil), enc...), author...))
+	context := append([]byte{0}, extract(suite, nil, "psk_id_hash", nil)...)
+	context = append(context, extract(suite, nil, "info_hash", []byte("atproto-mac"))...)
+	exporter := expand(suite, extract(suite, kemSecret, "secret", nil), "exp", context)
+	return expand(suite, exporter, "sec", nil)
 }
 
 func clientCommitContext() []byte {
-	message := []byte("atproto-space-repo-v1")
-	for _, field := range []string{clientTestRef().String(), "did:web:alice.example", syntax.NewTIDFromInteger(42).String()} {
-		message = binary.BigEndian.AppendUint16(message, uint16(len(field)))
-		message = append(message, field...)
-	}
-	return append(message, bytes.Repeat([]byte{1}, 32)...)
+	return []byte(fmt.Sprintf(`ver=1, repo="did:web:alice.example", space=%q, rev=%q, data=:%s:`, clientTestRef(), syntax.NewTIDFromInteger(42), base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32))))
 }
 
 func clientRecordContext(uri syntax.SpaceURI, recordCID cid.Cid) []byte {
-	message := []byte("atproto-space-record-v1")
-	message = binary.BigEndian.AppendUint16(message, uint16(len(uri)))
-	message = append(message, uri...)
-	return append(message, recordCID.Bytes()...)
+	return []byte(fmt.Sprintf(`uri=%q, cid=%q`, uri, recordCID))
 }
 
 // Independent RFC 9421 verifier: this deliberately does not use the client's
@@ -212,11 +233,11 @@ func TestClientRoutesSpaceAndSharedPDSAuthorsWithoutIssuance(t *testing.T) {
 	var authorityCalls, repoCalls atomic.Int64
 	authority := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		authorityCalls.Add(1)
-		assert.Equal(t, "/xrpc/com.atproto.space.listRepos", req.URL.Path)
+		assert.Equal(t, "/xrpc/com.atproto.space.listWriters", req.URL.Path)
 		assert.Equal(t, ref.String(), req.URL.Query().Get("space"))
 		assert.NoError(t, clientVerifyRequest(req, pub, cred.Token(), ref.SpaceAuthority()))
 		assert.Equal(t, "before", req.Header.Get("X-Snapshot"))
-		fmt.Fprintf(w, `{"repos":[{"did":%q,"repoRev":%q,"spaceRev":%q,"data":{"$bytes":%q}}],"cursor":"authority-next"}`,
+		fmt.Fprintf(w, `{"repos":[{"$type":"com.atproto.space.defs#repoWrite","repo":%q,"repoRev":%q,"spaceRev":%q,"data":{"$bytes":%q}}],"cursor":"authority-next"}`,
 			authorA, syntax.NewTIDFromInteger(42), syntax.NewTIDFromInteger(43), base64.RawStdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32)))
 	}))
 	defer authority.Close()
@@ -250,7 +271,7 @@ func TestClientRoutesSpaceAndSharedPDSAuthorsWithoutIssuance(t *testing.T) {
 	require.Zero(t, authorityCalls.Load()+repoCalls.Load(), "supplied credentials need no issuance")
 	headers["X-Snapshot"][0] = "mutated-in-place"
 	headers.Set("X-Snapshot", "after")
-	page, err := space.ListRepos(ctx, ListReposOptions{})
+	page, err := space.ListWriters(ctx, ListWritersOptions{})
 	require.NoError(t, err)
 	require.Len(t, page.Repos, 1)
 	assert.Equal(t, authorA, page.Repos[0].Author)
@@ -283,7 +304,7 @@ func TestResolutionOnlyHandles(t *testing.T) {
 	host, err = repo.ResolveHost(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, "https://pds.example", host)
-	_, err = space.ListRepos(context.Background(), ListReposOptions{})
+	_, err = space.ListWriters(context.Background(), ListWritersOptions{})
 	assert.ErrorIs(t, err, ErrMissingCredential)
 	_, err = repo.GetRecord(context.Background(), "org.example.record", "one")
 	assert.ErrorIs(t, err, ErrMissingCredential)
@@ -404,8 +425,8 @@ func TestRawStreamsRetainNamedErrorsAndBodyOwnership(t *testing.T) {
 			io.WriteString(w, "not JSON")
 		default:
 			if strings.HasSuffix(req.URL.Path, "getRepo") {
-				assert.Equal(t, "application/octet-stream", req.Header.Get("Accept"))
-				clientSetMAC(t, w, req, "atproto-space-repo", clientCommitContext())
+				assert.Equal(t, "application/vnd.dasl.star", req.Header.Get("Accept"))
+				clientSetMAC(t, w, req, "atproto-space-commit", clientCommitContext())
 			} else {
 				assert.Equal(t, blobCID.String(), req.URL.Query().Get("cid"))
 			}
@@ -476,30 +497,31 @@ func TestPagedReadOptionsAndRawValues(t *testing.T) {
 	requests := make(chan *http.Request, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		audience := author
-		if strings.HasSuffix(req.URL.Path, "listRepos") {
+		if strings.HasSuffix(req.URL.Path, "listWriters") {
 			audience = clientTestRef().SpaceAuthority()
 		}
 		assert.NoError(t, clientVerifyRequest(req, public, cred.Token(), audience))
 		requests <- req.Clone(context.Background())
 		switch req.URL.Path {
-		case "/xrpc/com.atproto.space.listRepos":
+		case "/xrpc/com.atproto.space.listWriters":
 			io.WriteString(w, `{"repos":[],"cursor":"next"}`)
 		case "/xrpc/com.atproto.space.getRepo":
-			clientSetMAC(t, w, req, "atproto-space-repo", clientCommitContext())
+			clientSetMAC(t, w, req, "atproto-space-commit", clientCommitContext())
 			io.WriteString(w, "STAR bytes")
 		case "/xrpc/com.atproto.space.listRepoOps":
+			clientSetMAC(t, w, req, "atproto-space-commit", clientCommitContext())
 			if req.URL.Query().Get("cursor") == "next" {
-				clientSetMAC(t, w, req, "atproto-space-repo", clientCommitContext())
+				clientSetMAC(t, w, req, "atproto-space-commit", clientCommitContext())
 				fmt.Fprintf(w, `{"ops":[],"commit":%s}`, clientTestCommitJSON())
 			} else {
-				fmt.Fprintf(w, `{"ops":[{"rev":%q,"collection":%q,"rkey":"one","cid":%q,"prev":null,"value":%s},{"rev":%q,"collection":%q,"rkey":"two","cid":null,"prev":%q}],"cursor":"next"}`, rev, collection, recordCID, clientRawRecord, rev, collection, recordCID)
+				fmt.Fprintf(w, `{"ops":[{"rev":%q,"collection":%q,"rkey":"one","cid":%q,"prev":null,"value":%s},{"rev":%q,"collection":%q,"rkey":"two","cid":null,"prev":%q}],"cursor":"next","commit":%s}`, rev, collection, recordCID, clientRawRecord, rev, collection, recordCID, clientTestCommitJSON())
 			}
 		case "/xrpc/com.atproto.space.listRecords":
 			fmt.Fprintf(w, `{"records":[{"collection":%q,"rkey":"one","cid":%q,"value":%s},{"collection":%q,"rkey":"two","cid":%q}],"cursor":"next"}`, collection, recordCID, clientRawRecord, collection, recordCID)
 		case "/xrpc/com.atproto.space.listBlobs":
 			fmt.Fprintf(w, `{"cids":[%q],"cursor":"next"}`, blobCID)
 		case "/xrpc/com.atproto.space.getLatestCommit":
-			clientSetMAC(t, w, req, "atproto-space-repo", clientCommitContext())
+			clientSetMAC(t, w, req, "atproto-space-commit", clientCommitContext())
 			fmt.Fprintf(w, `{"commit":%s}`, clientTestCommitJSON())
 		default:
 			t.Errorf("unexpected endpoint %s", req.URL.Path)
@@ -521,10 +543,10 @@ func TestPagedReadOptionsAndRawValues(t *testing.T) {
 		}
 		return q
 	}
-	_, err := space.ListRepos(ctx, ListReposOptions{})
+	_, err := space.ListWriters(ctx, ListWritersOptions{})
 	require.NoError(t, err)
 	check(base(false))
-	_, err = space.ListRepos(ctx, ListReposOptions{Cursor: &empty, Limit: &limit})
+	_, err = space.ListWriters(ctx, ListWritersOptions{Cursor: &empty, Limit: &limit})
 	require.NoError(t, err)
 	q := base(false)
 	q.Set("cursor", "")
@@ -542,7 +564,7 @@ func TestPagedReadOptionsAndRawValues(t *testing.T) {
 	q.Set("excludeValues", "false")
 	check(q)
 	require.Len(t, ops.Ops, 2)
-	assert.Nil(t, ops.Head)
+	assert.NotNil(t, ops.Head)
 	assert.Equal(t, rev, ops.Ops[0].Revision)
 	assert.NotNil(t, ops.Ops[0].CID)
 	assert.Nil(t, ops.Ops[0].Prev)
@@ -574,7 +596,7 @@ func TestPagedReadOptionsAndRawValues(t *testing.T) {
 	assert.Nil(t, ops.Cursor)
 	assert.EqualValues(t, 1, ops.Head.Version)
 	assert.Equal(t, bytes.Repeat([]byte{1}, 32), ops.Head.Data[:])
-	for _, opts := range []ListRecordsOptions{{}, {Collection: &collection, Cursor: &empty, Limit: &limit, Reverse: &no, ExcludeValues: &yes}} {
+	for _, opts := range []ListRecordsOptions{{}, {Collection: &collection, Cursor: &empty, Limit: &limit, ExcludeValues: &yes}} {
 		page, err := repo.ListRecords(ctx, opts)
 		require.NoError(t, err)
 		q := base(true)
@@ -582,7 +604,6 @@ func TestPagedReadOptionsAndRawValues(t *testing.T) {
 			q.Set("collection", collection.String())
 			q.Set("cursor", "")
 			q.Set("limit", "0")
-			q.Set("reverse", "false")
 			q.Set("excludeValues", "true")
 		}
 		check(q)
@@ -592,15 +613,15 @@ func TestPagedReadOptionsAndRawValues(t *testing.T) {
 		require.NotNil(t, page.Cursor)
 		assert.Equal(t, "next", *page.Cursor)
 	}
-	for _, opts := range []ListBlobsOptions{{}, {Since: &rev, Cursor: &empty, Limit: &limit}} {
+	for _, opts := range []ListBlobsOptions{{}, {Cursor: &empty, Limit: &limit}} {
 		page, err := repo.ListBlobs(ctx, opts)
 		require.NoError(t, err)
 		q := base(true)
-		if opts.Since != nil {
-			q.Set("since", rev.String())
-			q.Set("cursor", "")
+		if opts.Cursor != nil {
+			q.Set("cursor", *opts.Cursor)
 			q.Set("limit", "0")
 		}
+
 		check(q)
 		require.Len(t, page.CIDs, 1)
 		assert.True(t, blobCID.Equals(page.CIDs[0]))
@@ -611,7 +632,7 @@ func TestPagedReadOptionsAndRawValues(t *testing.T) {
 	assert.Equal(t, ops.Head, commit, "latest and optional head commits use the same typed conversion")
 }
 
-func TestGetRecordPreservesArbitraryUnknownJSON(t *testing.T) {
+func TestGetRecordVerifiesContentAndPreservesUnknownFields(t *testing.T) {
 	author := syntax.DID("did:web:alice.example")
 	cred, _ := clientTestCredential(t, "issued-token")
 	recordCID := clientTestCID(t, cid.DagCBOR)
@@ -625,6 +646,11 @@ func TestGetRecordPreservesArbitraryUnknownJSON(t *testing.T) {
 			defer server.Close()
 			repo := NewClient(ClientOptions{Directory: clientTestDirectory(server.URL, author), HTTPClient: server.Client()}).Space(clientTestRef(), cred).Repo(author)
 			record, err := repo.GetRecord(context.Background(), "org.example.record", "one")
+			if value != clientRawRecord {
+				require.Error(t, err)
+				assert.Nil(t, record)
+				return
+			}
 			require.NoError(t, err)
 			assert.Equal(t, value, string(record.Value))
 		})
@@ -664,10 +690,22 @@ func TestReadBoundariesRejectMalformedMetadataAndCIDProfiles(t *testing.T) {
 		{"blob dag-cbor codec", fmt.Sprintf(`{"cids":[%q]}`, recordCID), func(_ *Space, r *Repo) error { _, e := r.ListBlobs(context.Background(), ListBlobsOptions{}); return e }},
 		{"operation previous CID", fmt.Sprintf(`{"ops":[{"rev":%q,"collection":"org.example.record","rkey":"one","cid":null,"prev":%q}]}`, syntax.NewTIDFromInteger(42), blobCID), func(_ *Space, r *Repo) error { _, e := r.ListOps(context.Background(), ListOpsOptions{}); return e }},
 		{"operation revision", `{"ops":[{"rev":"not-a-tid","collection":"org.example.record","rkey":"one","cid":null,"prev":null}]}`, func(_ *Space, r *Repo) error { _, e := r.ListOps(context.Background(), ListOpsOptions{}); return e }},
-		{"discovery author", `{"repos":[{"did":"not-a-did","repoRev":"2222222222222","spaceRev":"2222222222222","data":{"$bytes":""}}]}`, func(s *Space, _ *Repo) error { _, e := s.ListRepos(context.Background(), ListReposOptions{}); return e }},
-		{"discovery data", `{"repos":[{"did":"did:web:alice.example","repoRev":"2222222222222","spaceRev":"2222222222222","data":{"$bytes":""}}]}`, func(s *Space, _ *Repo) error { _, e := s.ListRepos(context.Background(), ListReposOptions{}); return e }},
-		{"missing discovery repos", `{}`, func(s *Space, _ *Repo) error { _, e := s.ListRepos(context.Background(), ListReposOptions{}); return e }},
-		{"null discovery repos", `{"repos":null}`, func(s *Space, _ *Repo) error { _, e := s.ListRepos(context.Background(), ListReposOptions{}); return e }},
+		{"discovery author", `{"repos":[{"$type":"com.atproto.space.defs#repoWrite","repo":"not-a-did","repoRev":"2222222222222","spaceRev":"2222222222222","data":{"$bytes":""}}]}`, func(s *Space, _ *Repo) error {
+			_, e := s.ListWriters(context.Background(), ListWritersOptions{})
+			return e
+		}},
+		{"discovery data", `{"repos":[{"$type":"com.atproto.space.defs#repoWrite","repo":"did:web:alice.example","repoRev":"2222222222222","spaceRev":"2222222222222","data":{"$bytes":""}}]}`, func(s *Space, _ *Repo) error {
+			_, e := s.ListWriters(context.Background(), ListWritersOptions{})
+			return e
+		}},
+		{"missing discovery repos", `{}`, func(s *Space, _ *Repo) error {
+			_, e := s.ListWriters(context.Background(), ListWritersOptions{})
+			return e
+		}},
+		{"null discovery repos", `{"repos":null}`, func(s *Space, _ *Repo) error {
+			_, e := s.ListWriters(context.Background(), ListWritersOptions{})
+			return e
+		}},
 		{"missing commit bytes", `{"commit":{"ver":1,"rev":"2222222222222"}}`, func(_ *Space, r *Repo) error { _, e := r.GetLatestCommit(context.Background()); return e }},
 		{"unsupported commit version", `{"commit":` + strings.Replace(clientTestCommitJSON(), `"ver":1`, `"ver":2`, 1) + `}`, func(_ *Space, r *Repo) error { _, e := r.GetLatestCommit(context.Background()); return e }},
 	}
@@ -721,7 +759,7 @@ func TestMACReadsRejectUnauthenticatedAndMisboundResponses(t *testing.T) {
 	}{
 		{"missing header", true, recordBody, new("")},
 		{"malformed dictionary", true, recordBody, new(`type="unterminated`)},
-		{"wrong MAC type", true, recordBody, new(`type="atproto-space-repo", ver=1, mac=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:`)},
+		{"wrong MAC type", true, recordBody, new(`type="atproto-space-commit", ver=1, mac=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:`)},
 		{"unsupported version", true, recordBody, new(`type="atproto-space-record", ver=2, mac=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:`)},
 		{"version is a string", true, recordBody, new(`type="atproto-space-record", ver="1", mac=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:`)},
 		{"missing MAC", true, recordBody, new(`type="atproto-space-record", ver=1`)},
@@ -737,15 +775,15 @@ func TestMACReadsRejectUnauthenticatedAndMisboundResponses(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				kind, message := "atproto-space-repo", clientCommitContext()
+				kind, message := "atproto-space-commit", clientCommitContext()
 				if tc.record {
 					kind, message = "atproto-space-record", clientRecordContext(uri, recordCID)
 				}
 				clientSetMAC(t, w, req, kind, message)
 				if tc.header != nil {
-					w.Header().Del("Atproto-Space-Mac")
+					w.Header().Del("Signature")
 					if *tc.header != "" {
-						w.Header().Set("Atproto-Space-Mac", *tc.header)
+						w.Header().Set("Signature", *tc.header)
 					}
 				}
 				io.WriteString(w, tc.body)
@@ -770,14 +808,15 @@ func TestMACRequestsUseFreshKeysForEveryPageAndCall(t *testing.T) {
 	author := syntax.DID("did:web:alice.example")
 	seen := make(map[string]bool)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		share := req.Header.Get("Atproto-Space-Want-Mac")
+		share := req.Header.Get("Accept-Signature")
 		assert.False(t, seen[share], "ephemeral key was reused across requests")
 		seen[share] = true
 		if strings.HasSuffix(req.URL.Path, "listRepoOps") && req.URL.Query().Get("cursor") == "" {
-			io.WriteString(w, `{"ops":[],"cursor":"next"}`)
+			clientSetMAC(t, w, req, "atproto-space-commit", clientCommitContext())
+			fmt.Fprintf(w, `{"ops":[],"cursor":"next","commit":%s}`, clientTestCommitJSON())
 			return
 		}
-		clientSetMAC(t, w, req, "atproto-space-repo", clientCommitContext())
+		clientSetMAC(t, w, req, "atproto-space-commit", clientCommitContext())
 		if strings.HasSuffix(req.URL.Path, "listRepoOps") {
 			fmt.Fprintf(w, `{"ops":[],"commit":%s}`, clientTestCommitJSON())
 		} else {
@@ -790,7 +829,7 @@ func TestMACRequestsUseFreshKeysForEveryPageAndCall(t *testing.T) {
 	page, err := repo.ListOps(context.Background(), ListOpsOptions{})
 	require.NoError(t, err)
 	require.Equal(t, "next", *page.Cursor)
-	assert.Nil(t, page.Head)
+	assert.NotNil(t, page.Head)
 	page, err = repo.ListOps(context.Background(), ListOpsOptions{Cursor: page.Cursor})
 	require.NoError(t, err)
 	require.NotNil(t, page.Head)
@@ -815,4 +854,19 @@ func TestRepoMACHeaderFailureClosesResponseBody(t *testing.T) {
 	require.Error(t, err)
 	assert.Nil(t, download)
 	assert.EqualValues(t, 1, (<-transport.bodies).closes.Load())
+}
+
+func TestWriterDiscoveryIncludesRemovals(t *testing.T) {
+	cred, _ := clientTestCredential(t, "issued")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `{"repos":[{"$type":"com.atproto.space.defs#repoRemoved","repo":"did:web:removed.example","spaceRev":%q}]}`, syntax.NewTIDFromInteger(44))
+	}))
+	defer server.Close()
+	space := NewClient(ClientOptions{Directory: clientTestDirectory(server.URL), HTTPClient: server.Client()}).Space(clientTestRef(), cred)
+	page, err := space.ListWriters(context.Background(), ListWritersOptions{})
+	require.NoError(t, err)
+	require.Len(t, page.Repos, 1)
+	require.True(t, page.Repos[0].Removed)
+	require.Equal(t, syntax.DID("did:web:removed.example"), page.Repos[0].Author)
+	require.Empty(t, page.Repos[0].RepoRev)
 }

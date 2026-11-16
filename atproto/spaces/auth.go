@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -27,8 +28,9 @@ var ErrInvalidCredentialResponse = errors.New("space authority returned an inval
 // may be opaque/nonexportable and must remain usable for the credential's lifetime.
 // Construction does not validate the issuer's JWT signature or contact a service.
 type Credential struct {
-	token  string
-	signer atcrypto.PrivateKey
+	token    string
+	signer   atcrypto.PrivateKey
+	spaceRev *syntax.TID
 }
 
 // NewCredential creates a credential from an issued token and its bound P-256 signer.
@@ -46,6 +48,16 @@ func NewCredential(token string, signer atcrypto.PrivateKey) (*Credential, error
 
 func (cred *Credential) Token() string {
 	return cred.token
+}
+
+// SpaceRevision is the authority revision returned at authorization, or nil
+// before the first update. The returned pointer is a copy.
+func (cred *Credential) SpaceRevision() *syntax.TID {
+	if cred.spaceRev == nil {
+		return nil
+	}
+	value := *cred.spaceRev
+	return &value
 }
 
 func credentialKeyID(signer atcrypto.PrivateKey) (string, error) {
@@ -136,9 +148,20 @@ func (c *Client) ExchangeCredential(ctx context.Context, ref syntax.SpaceRef, de
 	if delegationToken != "" {
 		delegation = &delegationToken
 	}
-	out, err := comatproto.SpaceGetSpaceCredential(ctx, rpc, &comatproto.SpaceGetSpaceCredential_Input{
-		Space: ref.String(), CredentialKid: keyID, DelegationToken: delegation,
-		ClientAttestation: opts.ClientAttestation,
+	var notify *comatproto.SpaceAuthorizeSpaceSync_Notify
+	if opts.Notify != nil {
+		endpoint, err := url.Parse(opts.Notify.Endpoint)
+		if err != nil || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
+			return nil, fmt.Errorf("notification endpoint must be a base HTTPS URL")
+		}
+		if opts.Notify.Token == "" || len(opts.Notify.Token) > 512 {
+			return nil, fmt.Errorf("notification token must contain 1 to 512 bytes")
+		}
+		notify = &comatproto.SpaceAuthorizeSpaceSync_Notify{Endpoint: opts.Notify.Endpoint, Token: opts.Notify.Token}
+	}
+	out, err := comatproto.SpaceAuthorizeSpaceSync(ctx, rpc, &comatproto.SpaceAuthorizeSpaceSync_Input{
+		Space: ref.String(), CredentialKey: keyID, DelegationToken: delegation,
+		ClientAttestation: opts.ClientAttestation, Notify: notify,
 	})
 	if err != nil {
 		return nil, err
@@ -148,54 +171,15 @@ func (c *Client) ExchangeCredential(ctx context.Context, ref syntax.SpaceRef, de
 	if out.Credential == "" || strings.ContainsAny(out.Credential, "\r\n") {
 		return nil, ErrInvalidCredentialResponse
 	}
-	return &Credential{token: out.Credential, signer: signer}, nil
-}
-
-// RegisterNotify registers a service DID, optionally with a service fragment,
-// and returns its expiry. The caller owns subscription renewal policy.
-func (s *Space) RegisterNotify(ctx context.Context, service string) (syntax.Datetime, error) {
-	if err := validateNotifyService(service); err != nil {
-		return "", err
+	var revision *syntax.TID
+	if out.SpaceRev != nil {
+		parsed, err := syntax.ParseTID(*out.SpaceRev)
+		if err != nil {
+			return nil, fmt.Errorf("invalid authorization spaceRev: %w", err)
+		}
+		revision = &parsed
 	}
-	rpc, err := s.authenticatedClient(ctx)
-	if err != nil {
-		return "", err
-	}
-	out, err := comatproto.SpaceRegisterNotify(ctx, rpc, &comatproto.SpaceRegisterNotify_Input{
-		Space: s.ref.String(), Service: service,
-	})
-	if err != nil {
-		return "", err
-	}
-	expiry, err := syntax.ParseDatetime(out.ExpiresAt)
-	if err != nil {
-		return "", fmt.Errorf("invalid notification registration expiry: %w", err)
-	}
-	return expiry, nil
-}
-
-func (s *Space) UnregisterNotify(ctx context.Context, service string) error {
-	if err := validateNotifyService(service); err != nil {
-		return err
-	}
-	rpc, err := s.authenticatedClient(ctx)
-	if err != nil {
-		return err
-	}
-	return comatproto.SpaceUnregisterNotify(ctx, rpc, &comatproto.SpaceUnregisterNotify_Input{
-		Space: s.ref.String(), Service: service,
-	})
-}
-
-func validateNotifyService(service string) error {
-	parts := strings.SplitN(service, "#", 3)
-	if _, err := syntax.ParseDID(parts[0]); err != nil {
-		return fmt.Errorf("notification service must be a DID with an optional fragment: %w", err)
-	}
-	if len(parts) > 2 || (len(parts) == 2 && parts[1] == "") {
-		return fmt.Errorf("notification service has an invalid fragment")
-	}
-	return nil
+	return &Credential{token: out.Credential, signer: signer, spaceRev: revision}, nil
 }
 
 // VerifyNotificationAuth verifies a service JWT's audience and endpoint using

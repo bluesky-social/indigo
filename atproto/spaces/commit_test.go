@@ -5,8 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -21,67 +19,32 @@ const testSpace syntax.SpaceRef = "at://did:web:authority.example/space/com.exam
 const testAuthor syntax.DID = "did:web:author.example"
 const testRevision syntax.TID = "3mtwwsccuqy22"
 
-// The reference constructs the specified UTF-8 TLS vectors independently of
-// commitContext. Static values below were calculated with Python hashlib/hmac.
-func referenceContext(space syntax.SpaceRef, author syntax.DID, revision syntax.TID) []byte {
-	var out bytes.Buffer
-	out.WriteString("atproto-space-repo-v1")
-	for _, field := range []string{string(space), string(author), string(revision)} {
-		_ = binary.Write(&out, binary.BigEndian, uint16(len(field)))
-		out.WriteString(field)
+// Build a complete RFC 9421 base independently of the client parser.
+func referenceAuthentication(c *Commit) *MACVerification {
+	a := &MACVerification{kind: repoMACType, signatureParams: `("atproto-space-commit";sf);tag="atproto-space-commit"`}
+	for i := range a.SharedSecret {
+		a.SharedSecret[i] = byte(i)
 	}
-	return out.Bytes()
-}
-
-func referenceMAC(secret [32]byte, context []byte, digest [32]byte) [32]byte {
-	mac := hmac.New(sha256.New, secret[:])
-	mac.Write(context)
-	mac.Write(digest[:])
-	var result [32]byte
-	copy(result[:], mac.Sum(nil))
-	return result
+	a.header = fmt.Sprintf(`ver=%d, repo=%q, space=%q, rev=%q, data=:%s:`, c.Version, c.Repo, c.Space, c.Revision, base64.StdEncoding.EncodeToString(c.Data[:]))
+	base := `"atproto-space-commit";sf: ` + a.header + "\n\"@signature-params\": " + a.signatureParams
+	mac := hmac.New(sha256.New, a.SharedSecret[:])
+	mac.Write([]byte(base))
+	copy(a.MAC[:], mac.Sum(nil))
+	return a
 }
 
 func independentCommit(t *testing.T, digest [32]byte) (*Commit, *MACVerification) {
 	t.Helper()
 	c := &Commit{Version: 1, Repo: testAuthor, Space: testSpace, Revision: testRevision, Data: digest}
-	authentication := &MACVerification{}
-	for i := range authentication.SharedSecret {
-		authentication.SharedSecret[i] = byte(i)
-	}
-	authentication.MAC = referenceMAC(authentication.SharedSecret, referenceContext(c.Space, c.Repo, c.Revision), digest)
-	return c, authentication
+	return c, referenceAuthentication(c)
 }
 
-func TestCommitIndependentContextAndHMACVector(t *testing.T) {
+func TestCommitHTTPHeaderBindingAndAuthentication(t *testing.T) {
 	c, authentication := independentCommit(t, sha256.Sum256([]byte("independent repository digest")))
-	const expectedContext = "617470726f746f2d73706163652d7265706f2d7631003b61743a2f2f6469643a7765623a617574686f726974792e6578616d706c652f73706163652f636f6d2e6578616d706c652e73706163652f736b657900166469643a7765623a617574686f722e6578616d706c65000d336d7477777363637571793232"
-	if hex.EncodeToString(commitContext(testSpace, testAuthor, testRevision)) != expectedContext {
-		t.Fatal("context differs from independent length-prefixed fixture")
-	}
-	if hex.EncodeToString(c.Data[:]) != "bca5ec2792b2994ae9352364fc276c4a9a38339c1c91824065360464e47a8cc3" {
-		t.Fatal("independent digest fixture differs")
-	}
-	mac, err := c.ComputeMAC(authentication.SharedSecret)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if hex.EncodeToString(mac[:]) != "c4cd57f06a625d4ad29d4e2e7cdcb032746490584cfc70dd931c850df632ab1e" || mac != authentication.MAC {
-		t.Fatal("MAC differs from independent shared-secret vector")
-	}
 	if err := c.Verify(testSpace, testAuthor, authentication); err != nil {
 		t.Fatal(err)
 	}
-	if err := c.Verify(syntax.SpaceRef(string(testSpace)+"2"), testAuthor, authentication); err == nil {
-		t.Fatal("accepted another space")
-	}
-	if err := c.Verify(testSpace, "did:web:other.example", authentication); err == nil {
-		t.Fatal("accepted another author")
-	}
-	if err := c.Verify(testSpace, testAuthor, nil); err == nil {
-		t.Fatal("accepted missing response authentication")
-	}
-	for _, field := range []string{"data", "repo", "space", "rev", "ver", "secret", "mac"} {
+	for _, field := range []string{"data", "repo", "space", "rev", "ver", "secret", "mac", "header", "params"} {
 		t.Run(field, func(t *testing.T) {
 			changed, auth := *c, *authentication
 			switch field {
@@ -99,6 +62,10 @@ func TestCommitIndependentContextAndHMACVector(t *testing.T) {
 				auth.SharedSecret[0] ^= 1
 			case "mac":
 				auth.MAC[0] ^= 1
+			case "header":
+				auth.header += " "
+			case "params":
+				auth.signatureParams += `;created=1`
 			}
 			if err := changed.Verify(testSpace, testAuthor, &auth); err == nil {
 				t.Fatal("accepted changed commit or authentication")
@@ -317,11 +284,7 @@ func TestCommitConstruction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	auth := &MACVerification{SharedSecret: [32]byte{1, 2, 3}}
-	auth.MAC, err = c.ComputeMAC(auth.SharedSecret)
-	if err != nil {
-		t.Fatal(err)
-	}
+	auth := referenceAuthentication(c)
 	if err := c.Verify(testSpace, testAuthor, auth); err != nil {
 		t.Fatal(err)
 	}
@@ -341,9 +304,7 @@ func TestCommitConstruction(t *testing.T) {
 	if err := missing.Verify(testSpace, testAuthor, auth); err == nil {
 		t.Fatal("accepted missing commit")
 	}
-	if _, err := missing.ComputeMAC(auth.SharedSecret); err == nil {
-		t.Fatal("computed MAC for missing commit")
-	}
+
 }
 
 func testCBORText(w *cbg.CborWriter, value string) error {

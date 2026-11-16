@@ -18,7 +18,7 @@ type ClientOptions struct {
 	Headers    http.Header
 }
 
-type ListReposOptions struct {
+type ListWritersOptions struct {
 	Cursor *string
 	Limit  *int64
 }
@@ -34,38 +34,47 @@ type ListRecordsOptions struct {
 	Collection    *syntax.NSID
 	Cursor        *string
 	Limit         *int64
-	Reverse       *bool
 	ExcludeValues *bool
 }
 
 type ListBlobsOptions struct {
-	Since  *syntax.TID
 	Cursor *string
 	Limit  *int64
 }
 
 type CredentialExchangeOptions struct {
 	ClientAttestation *string
+	Notify            *NotifyRegistration
 }
 
-// RepoPage is the authority's discovery report, not a verified inventory. Repos
+// NotifyRegistration is renewed by each authorizeSpaceSync call. Keep a unique
+// token for each space, stable across authorizations. The caller implements
+// confirmRegistration and notifySpaceUpdate at Endpoint.
+type NotifyRegistration struct {
+	Endpoint string
+	Token    string
+}
+
+// WriterPage is the authority's discovery report, not a verified inventory. Repos
 // are ordered by space revision and may reappear while paging.
-type RepoPage struct {
-	Repos  []RepoInfo
+type WriterPage struct {
+	Repos  []WriterInfo
 	Cursor *string
 }
 
-type RepoInfo struct {
+type WriterInfo struct {
 	Author   syntax.DID
 	RepoRev  syntax.TID
 	SpaceRev syntax.TID
 	Data     [32]byte
+	// Removed entries have no RepoRev or Data. Remove this repo from local views.
+	Removed bool
 }
 
 type OpsPage struct {
 	Ops    []Operation
 	Cursor *string
-	// Head is absent on intermediate pages of the operation log.
+	// Head is authenticated on every page. Compare the local set hash only after the last page.
 	Head *Commit
 }
 
