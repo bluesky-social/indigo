@@ -66,6 +66,12 @@ var DefaultPLCURL = "https://plc.directory"
 //
 // If an HTTP proxy is configured (via environment variable), SSRF protections will not apply to external requests (it is the responsibility of the proxy to handle SSRF). However, note that the default SSRF protections will apply to connections to the HTTP proxy itself, which breaks the common case of local-network HTTP proxies. In this situation, calling code and applications need to configure a custom [identity.Directory].
 func DefaultDirectory() Directory {
+	return NewDefaultDirectory(250_000)
+}
+
+// NewDefaultDirectory uses [DefaultDirectory]'s resolution and proxy policy with
+// the given cache capacity. Zero is unlimited, as in [NewCacheDirectory].
+func NewDefaultDirectory(cacheCapacity int) *CacheDirectory {
 	ssrfHTTPDialer := ssrf.PublicOnlyDialer()
 	base := BaseDirectory{
 		PLCURL: DefaultPLCURL,
@@ -96,5 +102,5 @@ func DefaultDirectory() Directory {
 		SkipDNSDomainSuffixes: []string{".bsky.social"},
 		UserAgent:             "indigo-identity/" + versioninfo.Short(),
 	}
-	return NewCacheDirectory(&base, 250_000, time.Hour*24, time.Minute*2, time.Minute*5)
+	return NewCacheDirectory(&base, cacheCapacity, time.Hour*24, time.Minute*2, time.Minute*5)
 }

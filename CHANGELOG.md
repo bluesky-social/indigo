@@ -7,6 +7,8 @@ is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+- Add configurable default identity cache capacity with `identity.NewDefaultDirectory`.
+
 - Add draft Spaces syntax, OAuth scopes, Lexicon permission sets, and trusted P-256 KEM keys for repository reads.
 - Add immutable `atproto/spaces` handles, explicit credential exchange, tagged HTTP signatures, paged reads, notifications, and caller-owned STAR/blob streams.
 - Add `atproto/spaces/lthash`, current commit JSON/CBOR codecs, shared-secret response MACs, and offline record, blob, and STAR verification.
