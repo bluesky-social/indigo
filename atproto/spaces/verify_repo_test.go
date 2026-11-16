@@ -80,12 +80,13 @@ func independentSTAR(metadata []byte, records []testRepoRecord) []byte {
 	out = binary.AppendUvarint(out, uint64(len(metadata)))
 	out = append(out, metadata...)
 	for _, record := range records {
+		out = append(out, 1)
 		out = binary.AppendUvarint(out, uint64(len(record.path)))
 		out = append(out, record.path...)
 		out = binary.AppendUvarint(out, uint64(len(record.data)))
 		out = append(out, record.data...)
 	}
-	return out
+	return append(out, 0)
 }
 
 func fixtureOptions(fixture testRepoFixture) RepoVerificationOptions {
@@ -149,15 +150,8 @@ func TestVerifyRepoIndependentStaticEmptySTAR(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mac, err := hex.DecodeString("fcbed43eac73abc42ea2cabf32e3c634c8286565faef374555ba9396f59ddb00")
-	if err != nil {
-		t.Fatal(err)
-	}
-	auth := &MACVerification{}
-	for i := range auth.SharedSecret {
-		auth.SharedSecret[i] = byte(i)
-	}
-	copy(auth.MAC[:], mac)
+	data = append(data, 0) // Mandatory STAR end marker.
+	_, auth := independentCommit(t, sha256.Sum256(make([]byte, 2048)))
 	result, err := VerifyRepo(context.Background(), bytes.NewReader(data), RepoVerificationOptions{Space: testSpace, Author: testAuthor, Authentication: auth}, func(RecordBlock) error { t.Fatal("empty repo invoked consume"); return nil })
 	if err != nil {
 		t.Fatal(err)
@@ -171,6 +165,7 @@ func TestVerifyRepoMalformedSTARFraming(t *testing.T) {
 	fixture := repoFixture(t, testRepoRecords(t))
 	valid := independentSTAR(fixture.metadata, fixture.records)
 	header := independentSTAR(fixture.metadata, nil)
+	header = header[:len(header)-1]
 	cases := map[string][]byte{
 		"CAR v1":                     {0x11, 0xa2, 0x65, 'r', 'o', 'o', 't', 's', 0x80, 0x67, 'v', 'e', 'r', 's', 'i', 'o', 'n', 1},
 		"wrong magic":                append([]byte{0x2a, 0x6c, 0x02, 0x00}, valid[4:]...),
@@ -196,7 +191,7 @@ func TestVerifyRepoMalformedSTARFraming(t *testing.T) {
 		"seven byte path length":  {0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01},
 		"seven byte value length": append(bytes.Clone(pair), 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01),
 	} {
-		cases[name] = append(bytes.Clone(header), suffix...)
+		cases[name] = append(append(bytes.Clone(header), 1), suffix...)
 	}
 	for _, suffix := range [][]byte{{0}, {1}, {0x80}, {0x81, 0x80}} {
 		cases["trailing partial pair "+string(suffix)] = append(bytes.Clone(valid), suffix...)
@@ -312,7 +307,7 @@ func TestVerifyRepoRecordValidationAndOrder(t *testing.T) {
 	}
 	// An authenticated but incorrect digest must also fail after all callbacks.
 	fixture.commit.Data[0] ^= 1
-	fixture.authentication.MAC = referenceMAC(fixture.authentication.SharedSecret, referenceContext(testSpace, testAuthor, testRevision), fixture.commit.Data)
+	fixture.authentication = referenceAuthentication(fixture.commit)
 	metadata := independentCommitCBORType(t, fixture.commit, []string{"rev", "ver", "data", "repo", "$type", "space"}, "atproto-space-repo")
 	if _, err := VerifyRepo(context.Background(), bytes.NewReader(independentSTAR(metadata, records)), fixtureOptions(fixture), nil); err == nil || !strings.Contains(err.Error(), "digest") {
 		t.Fatal("accepted correctly authenticated wrong digest", err)
@@ -332,7 +327,7 @@ func TestVerifyRepoSizeLimits(t *testing.T) {
 	fixture := repoFixture(t, testRepoRecords(t))
 	opts := fixtureOptions(fixture)
 	opts.MaxBlockSize = uint64(len(fixture.metadata) - 1)
-	if _, err := VerifyRepo(context.Background(), bytes.NewReader(independentSTAR(fixture.metadata, fixture.records)), opts, nil); err == nil || !strings.Contains(err.Error(), "metadata exceeds") {
+	if _, err := VerifyRepo(context.Background(), bytes.NewReader(independentSTAR(fixture.metadata, fixture.records)), opts, nil); err == nil || !strings.Contains(err.Error(), "meta length too large") {
 		t.Fatal("ignored caller metadata limit", err)
 	}
 	large := sizedRepoRecord(t, atdata.MAX_CBOR_RECORD_SIZE)
@@ -345,34 +340,37 @@ func TestVerifyRepoSizeLimits(t *testing.T) {
 		}
 	}
 	opts.MaxBlockSize = atdata.MAX_CBOR_RECORD_SIZE - 1
-	if _, err := VerifyRepo(context.Background(), bytes.NewReader(independentSTAR(fixture.metadata, fixture.records)), opts, nil); err == nil || !strings.Contains(err.Error(), "record exceeds") {
+	if _, err := VerifyRepo(context.Background(), bytes.NewReader(independentSTAR(fixture.metadata, fixture.records)), opts, nil); err == nil || !strings.Contains(err.Error(), "reading STAR value: too large") {
 		t.Fatal("ignored tighter caller record limit", err)
 	}
 	oversized := sizedRepoRecord(t, atdata.MAX_CBOR_RECORD_SIZE+1)
 	fixture = repoFixture(t, []testRepoRecord{oversized})
 	opts = fixtureOptions(fixture)
 	opts.MaxBlockSize = ^uint64(0)
-	if _, err := VerifyRepo(context.Background(), bytes.NewReader(independentSTAR(fixture.metadata, fixture.records)), opts, nil); err == nil || !strings.Contains(err.Error(), "record exceeds") {
+	if _, err := VerifyRepo(context.Background(), bytes.NewReader(independentSTAR(fixture.metadata, fixture.records)), opts, nil); err == nil || !strings.Contains(err.Error(), "reading STAR value: too large") {
 		t.Fatal("caller limit bypassed protocol's 1 MiB maximum", err)
 	}
 	// Lengths are rejected before trying to read absent (or allocate huge) data.
 	for _, length := range []uint64{atdata.MAX_CBOR_RECORD_SIZE + 1, 64 << 20, 64 << 30} {
 		header := binary.AppendUvarint([]byte{0x2a, 0x6c, 0x01, 0x00}, length)
-		if _, err := VerifyRepo(context.Background(), bytes.NewReader(header), opts, nil); err == nil || !strings.Contains(err.Error(), "metadata exceeds") {
+		if _, err := VerifyRepo(context.Background(), bytes.NewReader(header), opts, nil); err == nil || !strings.Contains(err.Error(), "meta length too large") {
 			t.Fatal("metadata limit was not checked before reading", err)
 		}
 		prefix := independentSTAR(fixture.metadata, nil)
+		prefix[len(prefix)-1] = 1
 		path := "com.example.record/large"
 		prefix = binary.AppendUvarint(prefix, uint64(len(path)))
 		prefix = append(prefix, path...)
 		prefix = binary.AppendUvarint(prefix, length)
-		if _, err := VerifyRepo(context.Background(), bytes.NewReader(prefix), opts, nil); err == nil || !strings.Contains(err.Error(), "record exceeds") {
+		if _, err := VerifyRepo(context.Background(), bytes.NewReader(prefix), opts, nil); err == nil || !strings.Contains(err.Error(), "reading STAR value: too large") {
 			t.Fatal("record limit was not checked before reading", err)
 		}
 	}
 	header := independentSTAR(fixture.metadata, nil)
+	header = header[:len(header)-1]
+	header = append(header, 1)
 	header = binary.AppendUvarint(header, 831)
-	if _, err := VerifyRepo(context.Background(), bytes.NewReader(header), opts, nil); err == nil || !strings.Contains(err.Error(), "path length") {
+	if _, err := VerifyRepo(context.Background(), bytes.NewReader(header), opts, nil); err == nil || !strings.Contains(err.Error(), "reading STAR key: too large") {
 		t.Fatal("path size was not bounded before reading", err)
 	}
 }

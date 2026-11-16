@@ -70,7 +70,7 @@ func (r *Reader) Meta() ([]byte, error) {
 		return nil, r.err
 	}
 
-	l, err := binary.ReadUvarint(r.src)
+	l, err := readLength(r.src)
 	if err != nil {
 		if err == io.EOF {
 			err = io.ErrUnexpectedEOF
@@ -140,7 +140,7 @@ func (r *Reader) UnmarshalMeta(ptr any) error {
 }
 
 func (r *Reader) readBytes(buf []byte, limit uint64) ([]byte, error) {
-	n, err := binary.ReadUvarint(r.src)
+	n, err := readLength(r.src)
 	if err != nil {
 		if err == io.EOF {
 			err = io.ErrUnexpectedEOF
@@ -287,4 +287,26 @@ func (r *Reader) Reset(rd io.Reader) {
 	r.meta = nil
 	r.metaType = ""
 	r.err = nil
+}
+
+// STAR varints must use the shortest encoding and fit in 63 bits.
+func readLength(r io.ByteReader) (uint64, error) {
+	var value uint64
+	for i := range 9 {
+		b, err := r.ReadByte()
+		if err != nil {
+			if err == io.EOF && i > 0 {
+				err = io.ErrUnexpectedEOF
+			}
+			return 0, err
+		}
+		value |= uint64(b&0x7f) << (7 * i)
+		if b&0x80 == 0 {
+			if i > 0 && b == 0 {
+				return 0, fmt.Errorf("nonminimal STAR varint")
+			}
+			return value, nil
+		}
+	}
+	return 0, fmt.Errorf("STAR varint exceeds 63 bits")
 }

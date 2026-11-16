@@ -86,14 +86,15 @@ Spaces RPCs use the newer `lex/lexgen` engine through the same driver. Regenerat
 ```sh
 go run ./cmd/lexgen --modern --legacy-mode=false --unknown-type=json-raw-message \
     --build-file=cmd/lexgen/spaces.json \
-    lexicons/com/atproto/space
+    lexicons/com/atproto/space lexicons/com/atproto/personalspace \
+    lexicons/com/atproto/memberspace lexicons/com/atproto/managedspace
 ```
 
 `cmd/lexgen/spaces.json` targets `api/atproto` and selects its package name independently of legacy mode. Modern optional query parameters use pointers, and unknown record values remain `json.RawMessage`; unknown open-union variants survive JSON round trips. The default driver remains the established legacy engine. Do not blanket-regenerate unrelated APIs or create agnostic duplicates for Spaces. Generated binary helpers buffer downloads; `atproto/spaces` uses streaming transport instead.
 
-The Spaces schemas match [atproto revision 3a0b8c669881efa9e75680275f8695d618c5f80f](https://github.com/bluesky-social/atproto/tree/3a0b8c669881efa9e75680275f8695d618c5f80f/lexicons/com/atproto/space). The library follows [proposal revision 75f5b5dfd9a1e4b140700c75274c5d147b9eea12](https://github.com/bluesky-social/proposals/blob/75f5b5dfd9a1e4b140700c75274c5d147b9eea12/0016-permissioned-data/README.md). Both remain drafts.
+The Spaces schemas match [atproto revision 83d473dec69bbf19fe95fcbbb20a39842779db82](https://github.com/bluesky-social/atproto/tree/83d473dec69bbf19fe95fcbbb20a39842779db82/lexicons/com/atproto/space). The library follows [proposal revision 2755e73a31511c54729921b50340944ba8b02c93](https://github.com/bluesky-social/proposals/blob/2755e73a31511c54729921b50340944ba8b02c93/0016-permissioned-data/README.md). Both remain drafts.
 
-Repository downloads use STAR-lite v1, not CAR. Commits carry `ver`, `repo`, `space`, `rev`, and `data`. Response authentication uses a message authentication code (MAC) in HTTP headers. Each request uses a fresh P-256 key exchange with the author's `#atproto_kem` key. Authorities use their ordinary `#atproto_pds` endpoint and `#atproto` signing key.
+Repository downloads use STAR with explicit pair and end markers. The reader comes from `dasl/star`, introduced by PR #1555. Commits carry `ver`, `repo`, `space`, `rev`, and `data`. Response authentication uses HTTP Message Signatures with a message authentication code (MAC). Each request uses HPKE export-only P-256 with the author's `#atproto_kem` key. Authorities use their ordinary `#atproto_pds` endpoint and `#atproto` signing key.
 
 Call `Repo.GetRepo(ctx)` without the old download options. Pass `download.Authentication` into `RepoVerificationOptions` before calling `VerifyRepo`, and close the download. Use `ListRecords` with `ExcludeValues` for metadata-only recovery. The current protocol has no CAR or index-only download mode.
 

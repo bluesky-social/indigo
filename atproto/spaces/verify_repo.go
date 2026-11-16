@@ -1,7 +1,6 @@
 package spaces
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -11,6 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/spaces/lthash"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/dasl/star"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 )
@@ -86,23 +86,10 @@ func VerifyRepo(ctx context.Context, src io.Reader, opts RepoVerificationOptions
 	if limit == 0 || limit > atdata.MAX_CBOR_RECORD_SIZE {
 		limit = atdata.MAX_CBOR_RECORD_SIZE
 	}
-	reader := bufio.NewReader(contextReader{ctx, src})
-	var magic [4]byte
-	if _, err := io.ReadFull(reader, magic[:]); err != nil {
-		return nil, fmt.Errorf("reading Spaces STAR magic: %w", err)
-	}
-	if magic != [4]byte{0x2a, 0x6c, 0x01, 0x00} {
-		return nil, fmt.Errorf("invalid Spaces STAR-lite v1 magic")
-	}
-	metadataSize, err := readSTARLength(reader)
+	reader := star.NewReader(contextReader{ctx, src})
+	reader.MaxKeySize, reader.MaxValueSize, reader.MaxMetaSize = maxRepoPathSize, limit, limit
+	buffer, err := reader.Meta()
 	if err != nil {
-		return nil, fmt.Errorf("reading Spaces STAR metadata length: %w", err)
-	}
-	if metadataSize > limit {
-		return nil, fmt.Errorf("Spaces STAR metadata exceeds maximum size")
-	}
-	buffer := make([]byte, int(metadataSize))
-	if _, err := io.ReadFull(reader, buffer); err != nil {
 		return nil, fmt.Errorf("reading Spaces STAR metadata: %w", err)
 	}
 	metadata := bytes.NewReader(buffer)
@@ -119,25 +106,20 @@ func VerifyRepo(ctx context.Context, src io.Reader, opts RepoVerificationOptions
 	var index []RepoIndexEntry
 	hash := lthash.New()
 	var previous string
-	var pathBuffer [maxRepoPathSize]byte
 	element := make([]byte, 0, maxRepoPathSize+1+64)
 	for {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		pathSize, err := readSTARLength(reader)
+		pathBytes, recordBytes, err := reader.ReadPair()
 		if err == io.EOF {
-			break // EOF is valid only at the beginning of a pair.
+			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("reading Spaces STAR path length: %w", err)
+			return nil, fmt.Errorf("reading Spaces STAR pair: %w", err)
 		}
-		if pathSize == 0 || pathSize > maxRepoPathSize {
-			return nil, fmt.Errorf("invalid Spaces STAR path length: %d", pathSize)
-		}
-		pathBytes := pathBuffer[:int(pathSize)]
-		if _, err := io.ReadFull(reader, pathBytes); err != nil {
-			return nil, fmt.Errorf("reading Spaces STAR path: %w", err)
+		if len(pathBytes) == 0 {
+			return nil, fmt.Errorf("empty Spaces STAR record path")
 		}
 		path := string(pathBytes)
 		if previous != "" && path <= previous {
@@ -155,21 +137,7 @@ func VerifyRepo(ctx context.Context, src io.Reader, opts RepoVerificationOptions
 		if err != nil {
 			return nil, fmt.Errorf("invalid Spaces STAR rkey: %w", err)
 		}
-		recordSize, err := readSTARLength(reader)
-		if err != nil {
-			return nil, fmt.Errorf("reading Spaces STAR record length: %w", err)
-		}
-		if recordSize > limit {
-			return nil, fmt.Errorf("Spaces STAR record exceeds maximum size")
-		}
-		if recordSize > uint64(cap(buffer)) {
-			buffer = make([]byte, int(recordSize))
-		} else {
-			buffer = buffer[:int(recordSize)]
-		}
-		if _, err := io.ReadFull(reader, buffer); err != nil {
-			return nil, fmt.Errorf("reading Spaces STAR record: %w", err)
-		}
+		buffer = recordBytes
 		if err := validateRecordData(buffer); err != nil {
 			return nil, err
 		}
@@ -199,27 +167,4 @@ func VerifyRepo(ctx context.Context, src io.Reader, opts RepoVerificationOptions
 		return nil, fmt.Errorf("Spaces STAR record-set LtHash digest does not match commit")
 	}
 	return &RepoVerification{Commit: commit, Index: index}, nil
-}
-
-// STAR lengths use canonical unsigned varints of at most six bytes. Only EOF
-// before the first byte is clean; a continuation followed by EOF is truncation.
-func readSTARLength(reader io.ByteReader) (uint64, error) {
-	var value uint64
-	for i := range 6 {
-		b, err := reader.ReadByte()
-		if err != nil {
-			if err == io.EOF && i != 0 {
-				err = io.ErrUnexpectedEOF
-			}
-			return 0, err
-		}
-		value |= uint64(b&0x7f) << (7 * i)
-		if b&0x80 == 0 {
-			if i != 0 && b == 0 {
-				return 0, fmt.Errorf("noncanonical STAR length varint")
-			}
-			return value, nil
-		}
-	}
-	return 0, fmt.Errorf("STAR length varint exceeds six bytes")
 }
