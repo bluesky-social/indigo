@@ -12,15 +12,12 @@ import (
 
 // SpaceGetDelegationToken_Output is the output of a com.atproto.space.getDelegationToken call.
 type SpaceGetDelegationToken_Output struct {
-	// token: A signed JWT delegation token.
 	Token string `json:"token" cborgen:"token"`
 }
 
 // SpaceGetDelegationToken calls the XRPC method "com.atproto.space.getDelegationToken".
 //
-// Mint a delegation token for a space, proving the requesting app is acting on the user's behalf. Exchanged with the space authority for a space credential. Served by the requesting user's PDS. Requires OAuth auth.
-//
-// space: Reference to the space.
+// Get a delegation token for a space, to exchange with the space host for a space credential. Requires auth, implemented by PDS.
 func SpaceGetDelegationToken(ctx context.Context, c lexutil.LexClient, space string) (*SpaceGetDelegationToken_Output, error) {
 	var out SpaceGetDelegationToken_Output
 

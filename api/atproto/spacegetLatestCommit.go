@@ -12,16 +12,12 @@ import (
 
 // SpaceGetLatestCommit_Output is the output of a com.atproto.space.getLatestCommit call.
 type SpaceGetLatestCommit_Output struct {
-	// commit: The account's current commit.
 	Commit SpaceDefs_Commit `json:"commit" cborgen:"commit"`
 }
 
 // SpaceGetLatestCommit calls the XRPC method "com.atproto.space.getLatestCommit".
 //
-// Get the current commit for an account's permissioned repo within a space. Served by a repo host. When called with a space credential, the caller must send an Atproto-Space-Want-Mac header, and the commit's MAC is returned in the Atproto-Space-Mac response header. Throws RepoNotFound when the account holds no repo in the space, including the case of a member that has never written to it. Callable with either OAuth (for the authenticated user's own data) or a space credential (for syncing services).
-//
-// repo: The DID of the account whose latest commit to retrieve.
-// space: Reference to the space.
+// Get the current commit of a space repo. Responses are authenticated with a MAC. Requires auth as the repo's account or with a space credential; implemented by PDS.
 func SpaceGetLatestCommit(ctx context.Context, c lexutil.LexClient, repo string, space string) (*SpaceGetLatestCommit_Output, error) {
 	var out SpaceGetLatestCommit_Output
 

@@ -12,14 +12,10 @@ import (
 
 // SpaceDeleteRecord_Input is the input argument to a com.atproto.space.deleteRecord call.
 type SpaceDeleteRecord_Input struct {
-	// collection: The NSID of the record collection.
 	Collection string `json:"collection" cborgen:"collection"`
-	// repo: The DID of the repo to delete from (the authenticated member).
-	Repo string `json:"repo" cborgen:"repo"`
-	// rkey: The Record Key.
-	Rkey string `json:"rkey" cborgen:"rkey"`
-	// space: Reference to the space.
-	Space string `json:"space" cborgen:"space"`
+	Repo       string `json:"repo" cborgen:"repo"`
+	Rkey       string `json:"rkey" cborgen:"rkey"`
+	Space      string `json:"space" cborgen:"space"`
 }
 
 // SpaceDeleteRecord_Output is the output of a com.atproto.space.deleteRecord call.
@@ -28,7 +24,7 @@ type SpaceDeleteRecord_Output struct {
 
 // SpaceDeleteRecord calls the XRPC method "com.atproto.space.deleteRecord".
 //
-// Delete a record from a permissioned space, or ensure it doesn't exist. Succeeds whether or not the record was present. Requires auth, implemented by PDS.
+// Delete a record from a space repo, or ensure it doesn't exist. Requires auth, implemented by PDS.
 func SpaceDeleteRecord(ctx context.Context, c lexutil.LexClient, input *SpaceDeleteRecord_Input) (*SpaceDeleteRecord_Output, error) {
 	var out SpaceDeleteRecord_Output
 

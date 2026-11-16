@@ -18,23 +18,21 @@ type SpaceListSpaces_Output struct {
 
 // SpaceListSpaces calls the XRPC method "com.atproto.space.listSpaces".
 //
-// List the spaces the authenticated user holds a repo in (i.e. spaces the user has written data to), optionally filtered by type and/or authority DID. Note this is not 'spaces I'm a member of' — a member's PDS only tracks spaces its user has written to. Requires auth, implemented by PDS.
+// List spaces that the authenticated account has written to or is the authority for. Requires auth, implemented by PDS.
 //
-// did: Filter to spaces under this authority DID.
-// limit: The number of spaces to return.
-// spaceType: Filter to spaces of this space type.
-func SpaceListSpaces(ctx context.Context, c lexutil.LexClient, cursor *string, did *string, limit *int64, spaceType *string) (*SpaceListSpaces_Output, error) {
+// spaceDid: Filter to spaces with this DID as their authority.
+func SpaceListSpaces(ctx context.Context, c lexutil.LexClient, cursor *string, limit *int64, spaceDid *string, spaceType *string) (*SpaceListSpaces_Output, error) {
 	var out SpaceListSpaces_Output
 
 	params := map[string]interface{}{}
 	if cursor != nil {
 		params["cursor"] = *cursor
 	}
-	if did != nil {
-		params["did"] = *did
-	}
 	if limit != nil {
 		params["limit"] = *limit
+	}
+	if spaceDid != nil {
+		params["spaceDid"] = *spaceDid
 	}
 	if spaceType != nil {
 		params["spaceType"] = *spaceType
@@ -49,6 +47,11 @@ func SpaceListSpaces(ctx context.Context, c lexutil.LexClient, cursor *string, d
 // SpaceListSpaces_SpaceView is a "spaceView" in the com.atproto.space.listSpaces schema.
 type SpaceListSpaces_SpaceView struct {
 	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,const=com.atproto.space.listSpaces#spaceView,omitempty"`
-	// uri: URI of the space.
-	Uri string `json:"uri" cborgen:"uri"`
+	// data: The current commit data of the account's repo in the space, if it has one.
+	Data lexutil.LexBytes `json:"data,omitempty" cborgen:"data,omitempty"`
+	// repoRev: The current revision of the account's repo in the space, if it has one.
+	RepoRev *string `json:"repoRev,omitempty" cborgen:"repoRev,omitempty"`
+	Space   string  `json:"space" cborgen:"space"`
+	// spaceRev: The current revision of the space. Only included if the account is the space's authority.
+	SpaceRev *string `json:"spaceRev,omitempty" cborgen:"spaceRev,omitempty"`
 }

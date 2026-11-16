@@ -13,31 +13,25 @@ import (
 
 // SpacePutRecord_Input is the input argument to a com.atproto.space.putRecord call.
 type SpacePutRecord_Input struct {
-	// collection: The NSID of the record collection.
-	Collection string `json:"collection" cborgen:"collection"`
-	// record: The record to write.
-	Record json.RawMessage `json:"record" cborgen:"record"`
-	// repo: The DID of the repo to write to (the authenticated member).
-	Repo string `json:"repo" cborgen:"repo"`
-	// rkey: The Record Key.
-	Rkey string `json:"rkey" cborgen:"rkey"`
-	// space: Reference to the space.
-	Space string `json:"space" cborgen:"space"`
+	Collection string          `json:"collection" cborgen:"collection"`
+	Record     json.RawMessage `json:"record" cborgen:"record"`
+	Repo       string          `json:"repo" cborgen:"repo"`
+	Rkey       string          `json:"rkey" cborgen:"rkey"`
+	Space      string          `json:"space" cborgen:"space"`
 	// validate: Can be set to 'false' to skip Lexicon schema validation of record data, 'true' to require it, or leave unset to validate only for known Lexicons.
 	Validate *bool `json:"validate,omitempty" cborgen:"validate,omitempty"`
 }
 
 // SpacePutRecord_Output is the output of a com.atproto.space.putRecord call.
 type SpacePutRecord_Output struct {
-	Cid string `json:"cid" cborgen:"cid"`
-	// uri: URI of the written record.
+	Cid              string  `json:"cid" cborgen:"cid"`
 	Uri              string  `json:"uri" cborgen:"uri"`
 	ValidationStatus *string `json:"validationStatus,omitempty" cborgen:"validationStatus,omitempty"`
 }
 
 // SpacePutRecord calls the XRPC method "com.atproto.space.putRecord".
 //
-// Write a record in a permissioned space, creating or updating it as needed. Requires auth, implemented by PDS.
+// Write a record in a space repo, creating or updating it as needed. Requires auth, implemented by PDS.
 func SpacePutRecord(ctx context.Context, c lexutil.LexClient, input *SpacePutRecord_Input) (*SpacePutRecord_Output, error) {
 	var out SpacePutRecord_Output
 

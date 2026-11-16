@@ -61,6 +61,9 @@ func expandArgs(args []string) ([]string, error) {
 func main() {
 	cmd := &cli.Command{
 		Flags: []cli.Flag{
+			&cli.BoolFlag{Name: "modern", Usage: "use the modern lex/lexgen engine"},
+			&cli.BoolFlag{Name: "legacy-mode", Value: true, Usage: "use legacy mappings with the modern engine"},
+			&cli.StringFlag{Name: "unknown-type", Value: "json-raw-message", Usage: "modern unknown value representation"},
 			&cli.StringFlag{
 				Name: "outdir",
 			},
@@ -160,6 +163,13 @@ func runLexgen(ctx context.Context, cmd *cli.Command) error {
 		}
 	} else {
 		return errors.New("need exactly one of --build or --build-file")
+	}
+
+	if cmd.Bool("modern") {
+		if cmd.Bool("gen-server") || cmd.Bool("gen-handlers") {
+			return fmt.Errorf("modern generation does not support server stubs")
+		}
+		return runModern(paths, externalPaths, packages, cmd.Bool("legacy-mode"), cmd.String("unknown-type"))
 	}
 
 	if cmd.Bool("gen-server") {

@@ -10,8 +10,8 @@ import (
 
 func validSpaceSchema() lexicon.SchemaSpace {
 	return lexicon.SchemaSpace{
-		Type: "space", Key: "any", Name: "Example Forum",
-		NameLang:    map[string]string{"es": "Foro"},
+		Type: "space", Key: "any", Title: new("Example Forum"),
+		TitleLang:   map[string]string{"es": "Foro"},
 		Collections: []string{"com.example.thread", "org.other.reaction"},
 	}
 }
@@ -21,7 +21,7 @@ func spaceSchemaFile(space lexicon.SchemaSpace) lexicon.SchemaFile {
 }
 
 func TestSpaceSchemaDispatchCatalogAndRoundTrip(t *testing.T) {
-	wire := []byte(`{"lexicon":1,"id":"com.example.forum","defs":{"main":{"type":"space","key":"any","name":"Example Forum","name:lang":{"es":"Foro"},"collections":["com.example.thread","org.other.reaction"]}}}`)
+	wire := []byte(`{"lexicon":1,"id":"com.example.forum","defs":{"main":{"type":"space","key":"any","title":"Example Forum","title:lang":{"es":"Foro"},"collections":["com.example.thread","org.other.reaction"]}}}`)
 	var file lexicon.SchemaFile
 	if err := json.Unmarshal(wire, &file); err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func TestSpaceSchemaDispatchCatalogAndRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	space, ok := resolved.Def.(lexicon.SchemaSpace)
-	if !ok || space.Name != "Example Forum" || len(space.Collections) != 2 || space.Collections[1] != "org.other.reaction" {
+	if !ok || space.Title == nil || *space.Title != "Example Forum" || len(space.Collections) != 2 || space.Collections[1] != "org.other.reaction" {
 		t.Fatalf("space catalog dispatch failed: %+v", resolved)
 	}
 	encoded, err := json.Marshal(file)
@@ -67,7 +67,7 @@ func TestSpaceSchemaValidationBoundaries(t *testing.T) {
 		}
 	}
 	space := validSpaceSchema()
-	space.Name = strings.Repeat("a", 64)
+	space.Title = new(strings.Repeat("a", 64))
 	space.Collections = []string{}
 	if err := space.CheckSchema(); err != nil {
 		t.Fatalf("empty declared collection set or boundary name rejected: %v", err)
@@ -82,11 +82,11 @@ func TestSpaceSchemaValidationBoundaries(t *testing.T) {
 		{"empty-literal-key", func(s *lexicon.SchemaSpace) { s.Key = "literal:" }},
 		{"invalid-literal-key", func(s *lexicon.SchemaSpace) { s.Key = "literal:.." }},
 		{"long-literal-key", func(s *lexicon.SchemaSpace) { s.Key = "literal:" + strings.Repeat("a", 513) }},
-		{"missing-name", func(s *lexicon.SchemaSpace) { s.Name = "" }},
-		{"long-name", func(s *lexicon.SchemaSpace) { s.Name = strings.Repeat("a", 65) }},
-		{"invalid-language", func(s *lexicon.SchemaSpace) { s.NameLang = map[string]string{"bad_language": "Name"} }},
-		{"empty-localized-name", func(s *lexicon.SchemaSpace) { s.NameLang = map[string]string{"es": ""} }},
-		{"long-localized-name", func(s *lexicon.SchemaSpace) { s.NameLang = map[string]string{"es": strings.Repeat("a", 65)} }},
+		{"missing-name", func(s *lexicon.SchemaSpace) { s.Title = new("") }},
+		{"long-name", func(s *lexicon.SchemaSpace) { s.Title = new(strings.Repeat("a", 65)) }},
+		{"invalid-language", func(s *lexicon.SchemaSpace) { s.TitleLang = map[string]string{"bad_language": "Name"} }},
+		{"empty-localized-name", func(s *lexicon.SchemaSpace) { s.TitleLang = map[string]string{"es": ""} }},
+		{"long-localized-name", func(s *lexicon.SchemaSpace) { s.TitleLang = map[string]string{"es": strings.Repeat("a", 65)} }},
 		{"missing-collections", func(s *lexicon.SchemaSpace) { s.Collections = nil }},
 		{"wildcard-collection", func(s *lexicon.SchemaSpace) { s.Collections = []string{"*"} }},
 		{"invalid-collection", func(s *lexicon.SchemaSpace) { s.Collections = []string{"invalid"} }},
@@ -210,5 +210,17 @@ func TestLexiconSpaceAddressFormats(t *testing.T) {
 				t.Fatalf("malformed %s accepted: %q", format, raw)
 			}
 		}
+	}
+}
+
+func TestSpaceDeclarationTitleIsOptional(t *testing.T) {
+	space := validSpaceSchema()
+	space.Title = nil
+	if err := space.CheckSchema(); err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(space)
+	if err != nil || strings.Contains(string(encoded), `"title":`) {
+		t.Fatal(string(encoded), err)
 	}
 }

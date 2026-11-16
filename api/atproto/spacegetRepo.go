@@ -13,10 +13,7 @@ import (
 
 // SpaceGetRepo calls the XRPC method "com.atproto.space.getRepo".
 //
-// Download an account's permissioned repo within a space as a STAR file, for full-state recovery. The archive's metadata is the repo's commit; each key/value pair is a record path ('{collection}/{rkey}') and the record's DRISL encoding, in strict lexicographic order of the path. Blobs are not included and are fetched separately via getBlob. Served by a repo host. Callable with either OAuth (for the authenticated user's own data) or a space credential (for syncing services). When called with a space credential, the caller must send an Atproto-Space-Want-Mac header, and the commit's MAC is returned in the Atproto-Space-Mac response header.
-//
-// repo: The DID of the account whose repo to download.
-// space: Reference to the space.
+// Download a space repo as a STAR file. Responses are authenticated with a MAC. Requires auth as the repo's account or with a space credential; implemented by PDS.
 func SpaceGetRepo(ctx context.Context, c lexutil.LexClient, repo string, space string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 

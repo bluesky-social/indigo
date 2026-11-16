@@ -4,5 +4,23 @@
     "prefix": "com.atproto.space",
     "outdir": "api/atproto",
     "import": "github.com/bluesky-social/indigo/api/atproto"
+  },
+  {
+    "package": "atproto",
+    "prefix": "com.atproto.personalspace",
+    "outdir": "api/atproto",
+    "import": "github.com/bluesky-social/indigo/api/atproto"
+  },
+  {
+    "package": "atproto",
+    "prefix": "com.atproto.memberspace",
+    "outdir": "api/atproto",
+    "import": "github.com/bluesky-social/indigo/api/atproto"
+  },
+  {
+    "package": "atproto",
+    "prefix": "com.atproto.managedspace",
+    "outdir": "api/atproto",
+    "import": "github.com/bluesky-social/indigo/api/atproto"
   }
 ]

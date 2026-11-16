@@ -14,9 +14,7 @@ import (
 
 // SpaceApplyWrites_Input is the input argument to a com.atproto.space.applyWrites call.
 type SpaceApplyWrites_Input struct {
-	// repo: The DID of the repo to write to (the authenticated member).
-	Repo string `json:"repo" cborgen:"repo"`
-	// space: Reference to the space.
+	Repo  string `json:"repo" cborgen:"repo"`
 	Space string `json:"space" cborgen:"space"`
 	// validate: Can be set to 'false' to skip Lexicon schema validation of record data across all operations, 'true' to require it, or leave unset to validate only for known Lexicons.
 	Validate *bool                                `json:"validate,omitempty" cborgen:"validate,omitempty"`
@@ -148,7 +146,7 @@ func (t *SpaceApplyWrites_Output_Results_Elem) UnmarshalJSON(b []byte) error {
 
 // SpaceApplyWrites calls the XRPC method "com.atproto.space.applyWrites".
 //
-// Apply a batch transaction of creates, updates, and deletes in a permissioned space. Requires auth, implemented by PDS.
+// Apply a batch transaction of creates, updates, and deletes to a space repo. Requires auth, implemented by PDS.
 func SpaceApplyWrites(ctx context.Context, c lexutil.LexClient, input *SpaceApplyWrites_Input) (*SpaceApplyWrites_Output, error) {
 	var out SpaceApplyWrites_Output
 

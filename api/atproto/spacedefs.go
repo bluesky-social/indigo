@@ -10,17 +10,40 @@ import (
 
 // SpaceDefs_Commit is a "commit" in the com.atproto.space.defs schema.
 //
-// A commit over the current state of a permissioned repo. Carries no signature: the repo host authenticates it to a syncer with a MAC in the Atproto-Space-Mac response header.
+// Commit to the current state of a space repo. Not signed; authenticated by the repo host with a MAC instead.
 type SpaceDefs_Commit struct {
 	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,const=com.atproto.space.defs#commit,omitempty"`
-	// data: sha256 digest of the LtHash state (32 bytes).
-	Data lexutil.LexBytes `json:"data" cborgen:"data"`
-	// repo: The author DID of the repo.
-	Repo string `json:"repo" cborgen:"repo"`
-	// rev: Commit revision (TID).
-	Rev string `json:"rev" cborgen:"rev"`
-	// space: Reference to the space.
-	Space string `json:"space" cborgen:"space"`
+	// data: SHA-256 digest of the repo's LtHash state.
+	Data  lexutil.LexBytes `json:"data" cborgen:"data"`
+	Repo  string           `json:"repo" cborgen:"repo"`
+	Rev   string           `json:"rev" cborgen:"rev"`
+	Space string           `json:"space" cborgen:"space"`
 	// ver: Commit format version, currently 1.
 	Ver int64 `json:"ver" cborgen:"ver"`
+}
+
+// SpaceDefs_RepoRemoved is a "repoRemoved" in the com.atproto.space.defs schema.
+//
+// A repo was removed from the writer set.
+type SpaceDefs_RepoRemoved struct {
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,const=com.atproto.space.defs#repoRemoved,omitempty"`
+	// prevSpaceRev: The space revision before this update, if any. Set in notifySpaceUpdate, where a gap indicates missed notifications, which can be recovered with listWriters.
+	PrevSpaceRev *string `json:"prevSpaceRev,omitempty" cborgen:"prevSpaceRev,omitempty"`
+	Repo         string  `json:"repo" cborgen:"repo"`
+	// spaceRev: The space revision at which this update was sequenced.
+	SpaceRev string `json:"spaceRev" cborgen:"spaceRev"`
+}
+
+// SpaceDefs_RepoWrite is a "repoWrite" in the com.atproto.space.defs schema.
+//
+// A repo in the space advanced to a new revision.
+type SpaceDefs_RepoWrite struct {
+	LexiconTypeID string           `json:"$type,omitempty" cborgen:"$type,const=com.atproto.space.defs#repoWrite,omitempty"`
+	Data          lexutil.LexBytes `json:"data" cborgen:"data"`
+	// prevSpaceRev: The space revision before this update, if any. Set in notifySpaceUpdate, where a gap indicates missed notifications, which can be recovered with listWriters.
+	PrevSpaceRev *string `json:"prevSpaceRev,omitempty" cborgen:"prevSpaceRev,omitempty"`
+	Repo         string  `json:"repo" cborgen:"repo"`
+	RepoRev      string  `json:"repoRev" cborgen:"repoRev"`
+	// spaceRev: The space revision at which this update was sequenced.
+	SpaceRev string `json:"spaceRev" cborgen:"spaceRev"`
 }

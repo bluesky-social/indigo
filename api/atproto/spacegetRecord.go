@@ -20,12 +20,7 @@ type SpaceGetRecord_Output struct {
 
 // SpaceGetRecord calls the XRPC method "com.atproto.space.getRecord".
 //
-// Get a single record from a permissioned space. Callable with either OAuth (for the authenticated user's own data) or a space credential (for syncing services). When called with a space credential, the caller must send an Atproto-Space-Want-Mac header, and the record's MAC is returned in the Atproto-Space-Mac response header. Throws RepoNotFound when the account holds no repo in the space; this does not distinguish a member that has never written from a non-member.
-//
-// collection: The NSID of the record collection.
-// repo: The DID of the account whose repo to read from.
-// rkey: The Record Key.
-// space: Reference to the space.
+// Get a single record from a space repo. Responses are authenticated with a MAC. Requires auth as the repo's account or with a space credential; implemented by PDS.
 func SpaceGetRecord(ctx context.Context, c lexutil.LexClient, collection string, repo string, rkey string, space string) (*SpaceGetRecord_Output, error) {
 	var out SpaceGetRecord_Output
 

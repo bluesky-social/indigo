@@ -13,23 +13,15 @@ import (
 
 // SpaceListRepoOps_Output is the output of a com.atproto.space.listRepoOps call.
 type SpaceListRepoOps_Output struct {
-	// commit: The account's current commit. Included when the response reaches the head of the oplog; omitted on backfill responses.
-	Commit *SpaceDefs_Commit `json:"commit,omitempty" cborgen:"commit,omitempty"`
-	// cursor: Pass as `cursor` to fetch the next page. Absent once the response reaches the head of the oplog.
+	// commit: The repo's current commit. A syncer compares it against its own set hash once it has applied the last page, which has no cursor.
+	Commit SpaceDefs_Commit           `json:"commit" cborgen:"commit"`
 	Cursor *string                    `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Ops    []SpaceListRepoOps_OpEntry `json:"ops" cborgen:"ops"`
 }
 
 // SpaceListRepoOps calls the XRPC method "com.atproto.space.listRepoOps".
 //
-// List the operation log for an account's permissioned repo within a space, returning operations after a given revision. Primary incremental sync mechanism. By default each created or updated operation inlines the record's current value; set excludeValues for metadata-only entries. Note the oplog is a transport optimization with no history guarantee: a host may compact it or drop it, and it does not survive account migration, so omitting `since` returns the retained window rather than the repo's full history. Use getRepo for an initial sync or when a `since` revision is no longer available. Callable with either OAuth (for the authenticated user's own data) or a space credential (for syncing services). When called with a space credential, the caller must send an Atproto-Space-Want-Mac header, and a response that includes the commit carries its MAC in the Atproto-Space-Mac response header.
-//
-// cursor: Opaque pagination cursor from a previous response. Takes precedence over `since` when both are supplied.
-// excludeValues: If true, omit inlined record values and return only operation metadata.
-// limit: Maximum number of operations to return.
-// repo: The DID of the account whose oplog to retrieve.
-// since: Return operations after this revision. The caller's own sync position; use `cursor` to continue a paginated response.
-// space: Reference to the space.
+// List operations on a space repo after a given revision. Used for incremental sync. Hosts may truncate the log, so use getRepo for a full sync. Responses are authenticated with a MAC. Requires auth as the repo's account or with a space credential; implemented by PDS.
 func SpaceListRepoOps(ctx context.Context, c lexutil.LexClient, cursor *string, excludeValues *bool, limit *int64, repo string, since *string, space string) (*SpaceListRepoOps_Output, error) {
 	var out SpaceListRepoOps_Output
 
@@ -57,14 +49,16 @@ func SpaceListRepoOps(ctx context.Context, c lexutil.LexClient, cursor *string, 
 
 // SpaceListRepoOps_OpEntry is a "opEntry" in the com.atproto.space.listRepoOps schema.
 //
-// A single operation in a permissioned repo's oplog. cid is null for deletes; prev is null for creates. Operations sharing the same rev belong to the same batch. value carries the record's current value for creates and updates, unless excludeValues was set or the value is stale (superseded by a later operation).
+// Operations that share a rev were applied in the same commit.
 type SpaceListRepoOps_OpEntry struct {
-	LexiconTypeID string  `json:"$type,omitempty" cborgen:"$type,const=com.atproto.space.listRepoOps#opEntry,omitempty"`
-	Cid           *string `json:"cid" cborgen:"cid"`
-	Collection    string  `json:"collection" cborgen:"collection"`
-	Prev          *string `json:"prev" cborgen:"prev"`
-	Rev           string  `json:"rev" cborgen:"rev"`
-	Rkey          string  `json:"rkey" cborgen:"rkey"`
-	// value: The record's current value, inlined for create and update operations. Omitted when excludeValues is set, for deletes, or when the value has been superseded by a later operation.
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,const=com.atproto.space.listRepoOps#opEntry,omitempty"`
+	// cid: CID of the record after the operation. Null for deletes.
+	Cid        *string `json:"cid" cborgen:"cid"`
+	Collection string  `json:"collection" cborgen:"collection"`
+	// prev: CID of the record before the operation. Null for creates.
+	Prev *string `json:"prev" cborgen:"prev"`
+	Rev  string  `json:"rev" cborgen:"rev"`
+	Rkey string  `json:"rkey" cborgen:"rkey"`
+	// value: Omitted for deletes, if excludeValues is set, or if the record has since changed.
 	Value *json.RawMessage `json:"value,omitempty" cborgen:"value,omitempty"`
 }

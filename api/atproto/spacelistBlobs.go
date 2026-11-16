@@ -18,12 +18,8 @@ type SpaceListBlobs_Output struct {
 
 // SpaceListBlobs calls the XRPC method "com.atproto.space.listBlobs".
 //
-// List the CIDs of blobs referenced by an account's records within a permissioned space, optionally since some revision of that repo. Lets a syncer discover which blobs to fetch via getBlob, and lets an account enumerate the blobs it must carry when migrating a permissioned repo. Scoped to one space: blobs behind permissioned records are never enumerated by com.atproto.sync.listBlobs, which is unauthenticated. Callable with either OAuth (for the authenticated user's own data) or a space credential (for syncing services).
-//
-// repo: The DID of the account whose blobs to list.
-// since: Optional revision of the permissioned repo to list blobs since.
-// space: Reference to the space.
-func SpaceListBlobs(ctx context.Context, c lexutil.LexClient, cursor *string, limit *int64, repo string, since *string, space string) (*SpaceListBlobs_Output, error) {
+// List blob CIDs referenced by records in a space repo. Requires auth as the repo's account or with a space credential; implemented by PDS.
+func SpaceListBlobs(ctx context.Context, c lexutil.LexClient, cursor *string, limit *int64, repo string, space string) (*SpaceListBlobs_Output, error) {
 	var out SpaceListBlobs_Output
 
 	params := map[string]interface{}{}
@@ -32,9 +28,6 @@ func SpaceListBlobs(ctx context.Context, c lexutil.LexClient, cursor *string, li
 	}
 	if limit != nil {
 		params["limit"] = *limit
-	}
-	if since != nil {
-		params["since"] = *since
 	}
 	params["repo"] = repo
 	params["space"] = space
