@@ -25,6 +25,13 @@ type EventManager struct {
 	cache   map[uint]*OutboxEvt
 	cacheLk sync.RWMutex
 
+	// historical tracks, per DID, the IDs of non-live (backfill/resync and
+	// identity) events that have not been acked yet. It is keyed separately
+	// from the cache because acked events stay in the cache until the next
+	// batched delete.
+	historical   map[string]map[uint]struct{}
+	historicalLk sync.Mutex
+
 	pendingIDs chan uint
 }
 
@@ -34,6 +41,7 @@ func NewEventManager(logger *slog.Logger, db *gorm.DB, config *TapConfig) *Event
 		db:         db,
 		cacheSize:  config.EventCacheSize,
 		cache:      make(map[uint]*OutboxEvt),
+		historical: make(map[string]map[uint]struct{}),
 		pendingIDs: make(chan uint, config.EventCacheSize*2), // give us some buffer room in channel since we can overshoot
 	}
 }
@@ -73,6 +81,45 @@ func (em *EventManager) GetEvent(id uint) (*OutboxEvt, bool) {
 	defer em.cacheLk.RUnlock()
 	evt, exists := em.cache[id]
 	return evt, exists
+}
+
+// trackHistorical records an undelivered non-live event for its DID.
+// Must be called before the event ID is handed to the outbox.
+func (em *EventManager) trackHistorical(did string, id uint) {
+	em.historicalLk.Lock()
+	defer em.historicalLk.Unlock()
+	ids, ok := em.historical[did]
+	if !ok {
+		ids = make(map[uint]struct{})
+		em.historical[did] = ids
+	}
+	ids[id] = struct{}{}
+}
+
+// markAcked clears an event from the per-DID historical set. It is safe to
+// call more than once for the same event (e.g. a retried event acked twice).
+func (em *EventManager) markAcked(evt *OutboxEvt) {
+	if evt.Live {
+		return
+	}
+	em.historicalLk.Lock()
+	defer em.historicalLk.Unlock()
+	ids, ok := em.historical[evt.Did]
+	if !ok {
+		return
+	}
+	delete(ids, evt.ID)
+	if len(ids) == 0 {
+		delete(em.historical, evt.Did)
+	}
+}
+
+// PendingHistorical returns how many non-live events for the DID have not
+// been acked by the consumer yet.
+func (em *EventManager) PendingHistorical(did string) int {
+	em.historicalLk.Lock()
+	defer em.historicalLk.Unlock()
+	return len(em.historical[did])
 }
 
 func (em *EventManager) DeleteEvents(ctx context.Context, ids []uint) error {
@@ -145,6 +192,9 @@ func (em *EventManager) loadEventPage(ctx context.Context, lastID int) (int, err
 			Event: []byte(dbEvts[i].Data),
 		}
 		em.cache[entry.ID] = entry
+		if !entry.Live {
+			em.trackHistorical(entry.Did, entry.ID)
+		}
 	}
 	eventCacheSize.Set(float64(len(em.cache)))
 	em.cacheLk.Unlock()
@@ -282,6 +332,9 @@ func (em *EventManager) AddRecordEvents(ctx context.Context, evts []*RecordEvt, 
 	for id, entry := range cacheEvts {
 		entryCopy := entry // Create heap copy
 		em.cache[id] = &entryCopy
+		if !live {
+			em.trackHistorical(entry.Did, id)
+		}
 	}
 	eventCacheSize.Set(float64(len(em.cache)))
 	em.cacheLk.Unlock()
@@ -321,6 +374,7 @@ func (em *EventManager) AddIdentityEvent(ctx context.Context, evt *IdentityEvt, 
 		Live:  false,
 		Event: jsonData,
 	}
+	em.trackHistorical(evt.Did, evtID)
 	eventCacheSize.Set(float64(len(em.cache)))
 	em.cacheLk.Unlock()
 

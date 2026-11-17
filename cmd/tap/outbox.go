@@ -135,6 +135,7 @@ func (o *Outbox) AckEvent(eventID uint) {
 	evt, exists := o.events.GetEvent(eventID)
 
 	if exists {
+		o.events.markAcked(evt)
 		if worker, ok := o.didWorkers.Load(evt.Did); ok {
 			worker.ackEvent(eventID)
 		}

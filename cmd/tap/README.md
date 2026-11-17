@@ -58,7 +58,8 @@ Tips:
 - `POST /repos/add`: add DIDs to track (triggers backfill of added repos)
 - `POST /repos/remove`: remove DIDs (stops sync, deletes tracked repo metadata. does not delete buffered events in outbox)
 - `GET /resolve/:did`: resolve a DID to its DID document
-- `GET /info/:did`: get info about a tracked repo (repo state, repo rev, record count, error, retry count)
+- `GET /info/:did`: get info about a tracked repo (repo state, repo rev, record count, error, retry count, and whether it is backfilled)
+- `GET /repos/wait/:did?timeout=30s`: long-poll until a tracked repo is backfilled (see *Waiting for Backfill*)
 - `GET /stats/repo-count`: get total number of tracked repos
 - `GET /stats/record-count`: get total number of tracked records
 - `GET /stats/outbox-buffer`: get number of events in outbox buffer
@@ -180,6 +181,22 @@ When a repo is added (via `/repos/add`, full network mode, or collection discove
 5. **Live streaming**: New firehose events are delivered immediately (marked `live: true`)
 
 This ensures your application receives a complete, ordered view of each repo without gaps or duplicates.
+
+### Waiting for Backfill
+
+A repo counts as `backfilled` once its backfill (or most recent resync) has finished and every historical (`live: false`) event from it, including identity events, has been acked by your consumer. Unacked live events don't affect it.
+
+This is useful when repos are added on demand: call `/repos/add`, then `GET /repos/wait/:did` before serving data for that repo.
+
+```bash
+curl -X POST http://localhost:2480/repos/add \
+  -H "Content-Type: application/json" \
+  -d '{"dids": ["did:plc:ewvi7nxzyoun6zhxrhs64oiz"]}'
+
+curl "http://localhost:2480/repos/wait/did:plc:ewvi7nxzyoun6zhxrhs64oiz?timeout=60s"
+```
+
+The request returns as soon as the repo is backfilled, when it enters the `error` state, or when `timeout` expires (default `30s`, max `5m`). It always responds with the same JSON as `/info/:did`, so check `backfilled` (and `state`/`error`) and wait again if needed. Unknown DIDs return 404.
 
 ### Per-Repo Ordering Rules
 
