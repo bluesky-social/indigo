@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -102,7 +103,7 @@ func (sess *ClientSession) postToAuthServer(ctx context.Context, url string, bod
 	bodyBytes := []byte(vals.Encode())
 
 	var resp *http.Response
-	for range 2 {
+	for attempt := range 2 {
 		dpopJWT, err := NewAuthDPoP("POST", url, sess.Data.DPoPAuthServerNonce, sess.DPoPPrivateKey)
 		if err != nil {
 			return nil, err
@@ -131,7 +132,7 @@ func (sess *ClientSession) postToAuthServer(ctx context.Context, url string, bod
 		if resp.StatusCode == http.StatusBadRequest && dpopNonceHdr != "" {
 			// parseAuthErrorReason() always closes resp.Body
 			reason := parseAuthErrorReason(resp, "token-refresh")
-			if reason == "use_dpop_nonce" {
+			if reason == "use_dpop_nonce" && attempt == 0 {
 				// already updated nonce value above; loop around and try again
 				continue
 			}
@@ -176,7 +177,18 @@ func (sess *ClientSession) RefreshTokens(ctx context.Context) (string, error) {
 	// TODO: more validation of token refresh response?
 
 	sess.Data.AccessToken = tokenResp.AccessToken
-	sess.Data.RefreshToken = tokenResp.RefreshToken
+	// refresh doesn't necessarily return a new refresh token
+	if tokenResp.RefreshToken != "" {
+		sess.Data.RefreshToken = tokenResp.RefreshToken
+	}
+	// RFC 6749: an omitted scope retains the previous grant
+	if tokenResp.Scope != "" {
+		newScopes := strings.Fields(tokenResp.Scope)
+		if !slices.Equal(slices.Sorted(slices.Values(newScopes)), slices.Sorted(slices.Values(sess.Data.Scopes))) {
+			slog.Info("OAuth session scopes changed at token refresh", "old", sess.Data.Scopes, "new", newScopes)
+		}
+		sess.Data.Scopes = newScopes
+	}
 
 	// persist updated data (tokens and possibly nonce)
 	if sess.PersistSessionCallback != nil {
@@ -218,7 +230,7 @@ func (sess *ClientSession) RevokeSession(ctx context.Context) error {
 		TokenTypeHint: "refresh_token",
 	})
 	if err2 != nil {
-		err2 = fmt.Errorf("failed revoking refresh token: %w", err1)
+		err2 = fmt.Errorf("failed revoking refresh token: %w", err2)
 	} else {
 		if resp.StatusCode != 200 {
 			err2 = fmt.Errorf("bad HTTP status while revoking refresh token (%d)", resp.StatusCode)
