@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atclient"
@@ -23,10 +22,13 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatpr
 		return c.JSON(http.StatusForbidden, atclient.ErrorBody{Name: "Forbidden", Message: "public requestCrawl not allowed on this relay"})
 	}
 
-	hostname, noSSL, err := relay.ParseHostname(body.Hostname)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: fmt.Sprintf("hostname field empty or invalid: %s", body.Hostname)})
-	}
+	// TODO: Allow the docker domain via config.
+	hostname := body.Hostname
+	noSSL := true
+	// hostname, noSSL, err := relay.ParseHostname(body.Hostname)
+	// if err != nil {
+	// 	return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: fmt.Sprintf("hostname field empty or invalid: %s", body.Hostname)})
+	// }
 
 	if noSSL && !s.config.AllowInsecureHosts && !admin {
 		return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: "this relay requires host SSL"})
@@ -34,29 +36,30 @@ func (s *Service) handleComAtprotoSyncRequestCrawl(c echo.Context, body *comatpr
 
 	// TODO: could ensure that query and path are empty
 
-	if strings.HasPrefix(hostname, "localhost:") {
-		if !admin {
-			return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: "can not configure localhost via public endpoint"})
-		}
-		// else, allowed
-	} else {
-		banned, err := s.relay.DomainIsBanned(ctx, hostname)
-		if err != nil {
-			return nil
-		}
-		if banned {
-			return c.JSON(http.StatusUnauthorized, atclient.ErrorBody{Name: "DomainBan", Message: "host domain is banned"})
-		}
-	}
+	// TODO: Allow the docker domain via config.
+	// if strings.HasPrefix(hostname, "localhost:") {
+	// 	if !admin {
+	// 		return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "BadRequest", Message: "can not configure localhost via public endpoint"})
+	// 	}
+	// 	// else, allowed
+	// } else {
+	// 	banned, err := s.relay.DomainIsBanned(ctx, hostname)
+	// 	if err != nil {
+	// 		return nil
+	// 	}
+	// 	if banned {
+	// 		return c.JSON(http.StatusUnauthorized, atclient.ErrorBody{Name: "DomainBan", Message: "host domain is banned"})
+	// 	}
+	// }
 
-	hostURL := "https://" + hostname
-	if noSSL {
-		hostURL = "http://" + hostname
-	}
+	// hostURL := "https://" + hostname
+	// if noSSL {
+	// 	hostURL = "http://" + hostname
+	// }
 
-	if err := s.relay.HostChecker.CheckHost(ctx, hostURL); err != nil {
-		return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "HostNotFound", Message: fmt.Sprintf("host server unreachable: %s", err)})
-	}
+	// if err := s.relay.HostChecker.CheckHost(ctx, hostURL); err != nil {
+	// 	return c.JSON(http.StatusBadRequest, atclient.ErrorBody{Name: "HostNotFound", Message: fmt.Sprintf("host server unreachable: %s", err)})
+	// }
 
 	// forward on to any sibling instances (note that sometimes is, sometimes isn't an admin request)
 	b, err := json.Marshal(body)
