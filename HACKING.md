@@ -23,11 +23,13 @@ Packages:
     - `api/chat`: generated types for `chat.bsky` lexicon
     - `api/ozone`: generated types for `tools.ozone` lexicon
 - `atproto/atcrypto`: cryptographic helpers (signing, key generation and serialization)
+- `atproto/spaces/lthash`: set-oriented incremental hash used by Spaces
 - `atproto/syntax`: string types and parsers for identifiers, datetimes, etc
 - `atproto/identity`: DID and handle resolution
 - `atproto/atdata`: helpers for atproto data as JSON or CBOR with unknown schema
 - `atproto/lexicon`: lexicon validation of generic data
 - `atproto/repo`: repo and MST implementation
+- `atproto/spaces`: permissioned Spaces read handles, authentication and verification
 - `automod`: moderation and anti-spam rules engine
 - `carstore`: library for storing repo data in CAR files on disk, plus a metadata SQL db
 - `events`: types, codegen CBOR helpers, and persistence for event feeds
@@ -78,6 +80,23 @@ To run codegen for new or updated Lexicons, using lexgen, first place (or git ch
 You may want to delete all the codegen files before re-generating, to detect deleted files.
 
 It can require some manual munging between the lexgen step and a later `go run ./gen` to make sure things compile at least temporarily; otherwise the `gen` will not run. In some cases, you might also need to add new types to `./gen/main.go`.
+
+Spaces RPCs use the newer `lex/lexgen` engine through the same driver. Regenerate only these APIs with:
+
+```sh
+go run ./cmd/lexgen --modern --legacy-mode=false --unknown-type=json-raw-message \
+    --build-file=cmd/lexgen/spaces.json \
+    lexicons/com/atproto/space lexicons/com/atproto/personalspace \
+    lexicons/com/atproto/memberspace lexicons/com/atproto/managedspace
+```
+
+`cmd/lexgen/spaces.json` targets `api/atproto` and selects its package name independently of legacy mode. Modern optional query parameters use pointers, and unknown record values remain `json.RawMessage`; unknown open-union variants survive JSON round trips. The default driver remains the established legacy engine. Do not blanket-regenerate unrelated APIs or create agnostic duplicates for Spaces. Generated binary helpers buffer downloads; `atproto/spaces` uses streaming transport instead.
+
+The Spaces schemas match [atproto revision 83d473dec69bbf19fe95fcbbb20a39842779db82](https://github.com/bluesky-social/atproto/tree/83d473dec69bbf19fe95fcbbb20a39842779db82/lexicons/com/atproto/space). The library follows [proposal revision 2755e73a31511c54729921b50340944ba8b02c93](https://github.com/bluesky-social/proposals/blob/2755e73a31511c54729921b50340944ba8b02c93/0016-permissioned-data/README.md). Both remain drafts.
+
+Repository downloads use STAR with explicit pair and end markers. The reader comes from `dasl/star`, introduced by PR #1555. Commits carry `ver`, `repo`, `space`, `rev`, and `data`. Response authentication uses HTTP Message Signatures with a message authentication code (MAC). Each request uses HPKE export-only P-256 with the author's `#atproto_kem` key. Authorities use their ordinary `#atproto_pds` endpoint and `#atproto` signing key.
+
+Call `Repo.GetRepo(ctx)` without the old download options. Pass `download.Authentication` into `RepoVerificationOptions` before calling `VerifyRepo`, and close the download. Use `ListRecords` with `ExcludeValues` for metadata-only recovery. The current protocol has no CAR or index-only download mode.
 
 To generate server stubs and handlers, push them in a temporary directory first, then merge changes in to the actual PDS code:
 

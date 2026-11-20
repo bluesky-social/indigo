@@ -16,6 +16,9 @@ import (
 type GenConfig struct {
 	RegisterLexiconTypeID bool
 	PackageMappings       map[string]string
+	// OutputPackage and OutputImport identify the destination independently of LegacyMode.
+	OutputPackage string
+	OutputImport  string
 	// one of: "type-decoder", "map-string-any", "json-raw-message"
 	UnknownType string
 	WarningText string
@@ -54,8 +57,12 @@ func (gen *CodeGenerator) WriteLexicon() error {
 	}
 	fmt.Fprintf(gen.Out, "// Lexicon schema: %s\n\n", gen.Lex.NSID)
 	fmt.Fprintf(gen.Out, "package %s\n\n", gen.PkgName())
+	deps, err := gen.deps()
+	if err != nil {
+		return err
+	}
 	fmt.Fprintln(gen.Out, "import (")
-	for dep, _ := range gen.deps() {
+	for dep := range deps {
 		fmt.Fprintf(gen.Out, "    %s\n", dep)
 	}
 	fmt.Fprint(gen.Out, ")\n\n")
@@ -70,6 +77,9 @@ func (gen *CodeGenerator) WriteLexicon() error {
 }
 
 func (gen *CodeGenerator) PkgName() string {
+	if gen.Config.OutputPackage != "" {
+		return gen.Config.OutputPackage
+	}
 	n := nsidPkgName(gen.Lex.NSID)
 	if gen.Config.LegacyMode {
 		switch n {
@@ -95,7 +105,7 @@ func (gen *CodeGenerator) FileName() string {
 	return nsidFileName(gen.Lex.NSID) + ".go"
 }
 
-func (gen *CodeGenerator) deps() map[string]bool {
+func (gen *CodeGenerator) deps() (map[string]bool, error) {
 	d := map[string]bool{
 		"\"context\"":       true,
 		"\"fmt\"":           true,
@@ -106,22 +116,60 @@ func (gen *CodeGenerator) deps() map[string]bool {
 		"cbg \"github.com/whyrusleeping/cbor-gen\"":             true,
 	}
 
-	for ext, _ := range gen.Lex.ExternalRefs {
-		// TODO: replace this with configurable/extensible mappings
-		if strings.HasPrefix(ext, "com.atproto.") {
-			d["comatproto \"github.com/bluesky-social/indigo/api/atproto\""] = true
-		} else if strings.HasPrefix(ext, "app.bsky.") {
-			d["appbsky \"github.com/bluesky-social/indigo/api/bsky\""] = true
-		} else if strings.HasPrefix(ext, "tools.ozone.") {
-			d["toolsozone \"github.com/bluesky-social/indigo/api/ozone\""] = true
-		} else if strings.HasPrefix(ext, "chat.bsky.") {
-			d["chatbsky \"github.com/bluesky-social/indigo/api/chat\""] = true
-		} else {
-			// TODO: configurable mappings; and return error if none found
-			slog.Error("unhandled external reference", "ref", ext)
+	for ext := range gen.Lex.ExternalRefs {
+		nsid, err := syntax.ParseNSID(strings.SplitN(ext, "#", 2)[0])
+		if err != nil {
+			return nil, err
+		}
+		alias, path, err := gen.referencePackage(nsid)
+		if err != nil {
+			return nil, err
+		}
+		if !gen.sameOutputPackage(nsid, path) {
+			d[fmt.Sprintf("%s %q", alias, path)] = true
 		}
 	}
-	return d
+	return d, nil
+}
+
+// referencePackage uses the most specific namespace mapping before the established API defaults.
+func (gen *CodeGenerator) referencePackage(nsid syntax.NSID) (string, string, error) {
+	name := nsid.String()
+	prefix := ""
+	path := ""
+	for candidate, mapped := range gen.Config.PackageMappings {
+		if (name == candidate || strings.HasPrefix(name, candidate+".")) && len(candidate) > len(prefix) {
+			prefix, path = candidate, mapped
+		}
+	}
+	if prefix != "" {
+		if path == "" {
+			return "", "", fmt.Errorf("empty package mapping for %s", prefix)
+		}
+		return strings.ReplaceAll(prefix, ".", ""), path, nil
+	}
+	for _, mapping := range []struct{ prefix, path string }{
+		{"com.atproto", "github.com/bluesky-social/indigo/api/atproto"},
+		{"app.bsky", "github.com/bluesky-social/indigo/api/bsky"},
+		{"tools.ozone", "github.com/bluesky-social/indigo/api/ozone"},
+		{"chat.bsky", "github.com/bluesky-social/indigo/api/chat"},
+	} {
+		if strings.HasPrefix(name, mapping.prefix+".") {
+			return strings.ReplaceAll(mapping.prefix, ".", ""), mapping.path, nil
+		}
+	}
+	return "", "", fmt.Errorf("no package mapping for lexicon %s", nsid)
+}
+
+func (gen *CodeGenerator) sameOutputPackage(nsid syntax.NSID, path string) bool {
+	if gen.Config.OutputImport != "" {
+		return path == gen.Config.OutputImport
+	}
+	_, currentPath, err := gen.referencePackage(gen.Lex.NSID)
+	if err == nil {
+		return path == currentPath
+	}
+	return nsidPkgName(nsid) == nsidPkgName(gen.Lex.NSID)
 }
 
 func (gen *CodeGenerator) WriteType(ft *FlatType) error {
@@ -146,9 +194,7 @@ func (gen *CodeGenerator) WriteType(ft *FlatType) error {
 		return gen.writeEndpoint(ft, defDescription(ft.Schema), v.Parameters, v.Output, v.Input, true)
 	case lexicon.SchemaSubscription:
 		// pass; we only generate message types, not overall subscription
-	case lexicon.SchemaPermissionSet, lexicon.SchemaPermission:
-		// pass for Go codegen
-	case lexicon.SchemaSpace:
+	case lexicon.SchemaPermissionSet, lexicon.SchemaPermission, lexicon.SchemaSpace:
 		// pass for Go codegen
 	case lexicon.SchemaToken:
 		// TODO: pass for now; could be a var/const?
@@ -320,20 +366,18 @@ func (gen *CodeGenerator) externalRefType(ref string) (string, error) {
 		return "", fmt.Errorf("failed to parse external ref NSID (%s): %w", ref, err)
 	}
 
-	// check if this is actually in the same package (which might not mean the same NSID authority)
-	if nsidPkgName(nsid) == nsidPkgName(gen.Lex.NSID) {
-		if len(parts) == 1 || parts[1] == "main" {
-			return nsidBaseName(nsid), nil
-		} else {
-			return fmt.Sprintf("%s_%s", nsidBaseName(nsid), strings.Title(parts[1])), nil
-		}
+	alias, path, err := gen.referencePackage(nsid)
+	if err != nil {
+		return "", err
 	}
-
-	if len(parts) == 1 || parts[1] == "main" {
-		return fmt.Sprintf("%s.%s", nsidPkgName(nsid), nsidBaseName(nsid)), nil
-	} else {
-		return fmt.Sprintf("%s.%s_%s", nsidPkgName(nsid), nsidBaseName(nsid), strings.Title(parts[1])), nil
+	name := nsidBaseName(nsid)
+	if len(parts) == 2 && parts[1] != "main" {
+		name += "_" + strings.Title(parts[1])
 	}
+	if gen.sameOutputPackage(nsid, path) {
+		return name, nil
+	}
+	return alias + "." + name, nil
 }
 
 func (gen *CodeGenerator) writeStruct(ft *FlatType, obj *lexicon.SchemaObject) error {
@@ -476,6 +520,7 @@ type unionRef struct {
 }
 
 func (gen *CodeGenerator) writeUnion(ft *FlatType, union *lexicon.SchemaUnion) error {
+	closed := union.Closed != nil && *union.Closed
 
 	name := gen.baseName()
 	if ft.DefName != "main" {
@@ -530,10 +575,14 @@ func (gen *CodeGenerator) writeUnion(ft *FlatType, union *lexicon.SchemaUnion) e
 		ref := unionRefs[rname]
 		fmt.Fprintf(gen.Out, "    %s *%s\n", ref.FieldName, ref.TypeName)
 	}
+	if !closed {
+		fmt.Fprintf(gen.Out, "    // Unknown preserves an unrecognized open-union variant without interpreting its data.\n")
+		fmt.Fprintf(gen.Out, "    Unknown json.RawMessage\n")
+	}
 	fmt.Fprintf(gen.Out, "}\n\n")
 
 	// ... then MarshalJSON
-	fmt.Fprintf(gen.Out, "func (t *%s) MarshalJSON() ([]byte, error) {\n", name)
+	fmt.Fprintf(gen.Out, "func (t %s) MarshalJSON() ([]byte, error) {\n", name)
 	for _, rname := range refNames {
 		ref := unionRefs[rname]
 		fmt.Fprintf(gen.Out, "    if t.%s != nil {\n", ref.FieldName)
@@ -541,27 +590,39 @@ func (gen *CodeGenerator) writeUnion(ft *FlatType, union *lexicon.SchemaUnion) e
 		fmt.Fprintf(gen.Out, "        return json.Marshal(t.%s)\n", ref.FieldName)
 		fmt.Fprintf(gen.Out, "    }\n")
 	}
+	if !closed {
+		fmt.Fprintf(gen.Out, "    if t.Unknown != nil {\n")
+		fmt.Fprintf(gen.Out, "        typ, err := lexutil.TypeExtract(t.Unknown)\n")
+		fmt.Fprintf(gen.Out, "        if err != nil { return nil, err }\n")
+		fmt.Fprintf(gen.Out, "        if typ == \"\" { return nil, fmt.Errorf(\"union variant must have a nonempty $type\") }\n")
+		fmt.Fprintf(gen.Out, "        return json.Marshal(t.Unknown)\n")
+		fmt.Fprintf(gen.Out, "    }\n")
+	}
 	fmt.Fprintf(gen.Out, "    return nil, fmt.Errorf(\"can not marshal empty union as JSON\")")
 	fmt.Fprintf(gen.Out, "}\n\n")
 
 	// ... then UnmarshalJSON
 	fmt.Fprintf(gen.Out, "func (t *%s) UnmarshalJSON(b []byte) error {\n", name)
+	fmt.Fprintf(gen.Out, "    *t = %s{}\n", name)
 	fmt.Fprintf(gen.Out, "    typ, err := lexutil.TypeExtract(b)\n")
 	fmt.Fprintf(gen.Out, "    if err != nil {\n")
 	fmt.Fprintf(gen.Out, "        return err\n")
 	fmt.Fprintf(gen.Out, "    }\n\n")
+	fmt.Fprintf(gen.Out, "    if typ == \"\" { return fmt.Errorf(\"union variant must have a nonempty $type\") }\n")
 	fmt.Fprintf(gen.Out, "    switch typ {\n")
 	for _, rname := range refNames {
 		ref := unionRefs[rname]
 		fmt.Fprintf(gen.Out, "    case \"%s\":\n", ref.LexName)
-		fmt.Fprintf(gen.Out, "        t.%s = new(%s)\n", ref.FieldName, ref.TypeName)
-		fmt.Fprintf(gen.Out, "        return json.Unmarshal(b, t.%s)\n", ref.FieldName)
+		fmt.Fprintf(gen.Out, "        var value %s\n", ref.TypeName)
+		fmt.Fprintf(gen.Out, "        if err := json.Unmarshal(b, &value); err != nil { return err }\n")
+		fmt.Fprintf(gen.Out, "        t.%s = &value\n", ref.FieldName)
+		fmt.Fprintf(gen.Out, "        return nil\n")
 	}
 	fmt.Fprintf(gen.Out, "    default:\n")
-	if union.Closed != nil && *union.Closed {
-		// TODO: better error message
+	if closed {
 		fmt.Fprintf(gen.Out, "        return fmt.Errorf(\"closed unions must match a listed schema\")\n")
 	} else {
+		fmt.Fprintf(gen.Out, "        t.Unknown = append(json.RawMessage(nil), b...)\n")
 		fmt.Fprintf(gen.Out, "        return nil\n")
 	}
 	fmt.Fprintf(gen.Out, "    }\n")
@@ -602,6 +663,7 @@ func (gen *CodeGenerator) writeUnion(ft *FlatType, union *lexicon.SchemaUnion) e
 
 	// ... then UnmarshalCBOR
 	fmt.Fprintf(gen.Out, "func (t *%s) UnmarshalCBOR(r io.Reader) error {\n", name)
+	fmt.Fprintf(gen.Out, "    *t = %s{}\n", name)
 	fmt.Fprintf(gen.Out, "    typ, b, err := lexutil.CborTypeExtractReader(r)\n")
 	fmt.Fprintf(gen.Out, "    if err != nil {\n")
 	fmt.Fprintf(gen.Out, "        return err\n")
@@ -614,7 +676,11 @@ func (gen *CodeGenerator) writeUnion(ft *FlatType, union *lexicon.SchemaUnion) e
 		fmt.Fprintf(gen.Out, "        return t.%s.UnmarshalCBOR(bytes.NewReader(b))\n", ref.FieldName)
 	}
 	fmt.Fprintf(gen.Out, "    default:\n")
-	fmt.Fprintf(gen.Out, "        return nil\n")
+	if closed {
+		fmt.Fprintf(gen.Out, "        return fmt.Errorf(\"closed unions must match a listed schema\")\n")
+	} else {
+		fmt.Fprintf(gen.Out, "        return nil\n")
+	}
 	fmt.Fprintf(gen.Out, "    }\n")
 	fmt.Fprintf(gen.Out, "}\n\n")
 
@@ -700,7 +766,10 @@ func (gen *CodeGenerator) writeEndpoint(ft *FlatType, desc string, params *lexic
 				if v.Description != nil && *v.Description != "" {
 					fmt.Fprintf(gen.Out, "// %s: %s\n", name, *v.Description)
 				}
-				args = append(args, fmt.Sprintf("%s string", name))
+				if gen.Config.LegacyMode {
+					ptr = ""
+				}
+				args = append(args, fmt.Sprintf("%s %sstring", name, ptr))
 			case lexicon.SchemaUnknown:
 				if v.Description != nil && *v.Description != "" {
 					fmt.Fprintf(gen.Out, "// %s: %s\n", name, *v.Description)
@@ -792,8 +861,13 @@ func (gen *CodeGenerator) writeEndpoint(ft *FlatType, desc string, params *lexic
 		param := params.Properties[name]
 		switch param.Inner.(type) {
 		case lexicon.SchemaString:
-			fmt.Fprintf(gen.Out, "    if %s != \"\" {\n", name)
-			fmt.Fprintf(gen.Out, "        params[\"%s\"] = %s\n", name, name)
+			if gen.Config.LegacyMode {
+				fmt.Fprintf(gen.Out, "    if %s != \"\" {\n", name)
+				fmt.Fprintf(gen.Out, "        params[\"%s\"] = %s\n", name, name)
+			} else {
+				fmt.Fprintf(gen.Out, "    if %s != nil {\n", name)
+				fmt.Fprintf(gen.Out, "        params[\"%s\"] = *%s\n", name, name)
+			}
 			fmt.Fprintf(gen.Out, "    }\n")
 		case lexicon.SchemaArray:
 			fmt.Fprintf(gen.Out, "    if len(%s) != 0 {\n", name)
