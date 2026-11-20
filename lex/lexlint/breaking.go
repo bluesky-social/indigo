@@ -331,7 +331,7 @@ func breakingDefs(nsid syntax.NSID, name string, local, remote lexicon.SchemaDef
 				})
 			}
 		}
-	case lexicon.SchemaUnknown, lexicon.SchemaPermissionSet, lexicon.SchemaToken:
+	case lexicon.SchemaUnknown, lexicon.SchemaPermissionSet, lexicon.SchemaSpace, lexicon.SchemaToken:
 		// pass
 	default:
 		slog.Warn("unhandled schema def type in breaking check", "type", reflect.TypeOf(local.Inner))
