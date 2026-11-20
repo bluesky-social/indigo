@@ -1,0 +1,46 @@
+[
+  {
+    "name": "minimal required only",
+    "data": {
+      "stringField": "hello"
+    }
+  },
+  {
+    "name": "all fields populated",
+    "data": {
+      "boolean": true,
+      "integer": 42,
+      "stringField": "hello",
+      "handle": "user.bsky.social",
+      "array": [1, 2, 3]
+    }
+  },
+  {
+    "name": "valid handle format",
+    "data": {
+      "stringField": "test",
+      "handle": "example.bsky.social"
+    }
+  },
+  {
+    "name": "empty array",
+    "data": {
+      "stringField": "test",
+      "array": []
+    }
+  },
+  {
+    "name": "integer at zero",
+    "data": {
+      "stringField": "test",
+      "integer": 0
+    }
+  },
+  {
+    "name": "boolean false",
+    "data": {
+      "stringField": "test",
+      "boolean": false
+    }
+  }
+]
