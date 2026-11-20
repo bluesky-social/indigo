@@ -154,3 +154,75 @@ func TestK256SigningValidation(t *testing.T) {
 	}
 	testSigningValidation(t, priv)
 }
+
+func TestServiceAuthWithSeparateServiceKey(t *testing.T) {
+	assert := assert.New(t)
+	ctx := context.Background()
+
+	iss := syntax.DID("did:example:iss")
+	aud := "did:example:aud#svc"
+
+	// Generate two different key pairs
+	atprotoPriv, err := atcrypto.GeneratePrivateKeyP256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	atprotoPub, err := atprotoPriv.PublicKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	servicePriv, err := atcrypto.GeneratePrivateKeyP256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	servicePub, err := servicePriv.PublicKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify the keys are different
+	assert.NotEqual(atprotoPub.Multibase(), servicePub.Multibase())
+
+	// Create identity with both keys
+	dir := identity.NewMockDirectory()
+	dir.Insert(identity.Identity{
+		DID: iss,
+		Keys: map[string]identity.VerificationMethod{
+			"atproto": {
+				Type:               "Multikey",
+				PublicKeyMultibase: atprotoPub.Multibase(),
+			},
+			"atproto_service": {
+				Type:               "Multikey",
+				PublicKeyMultibase: servicePub.Multibase(),
+			},
+		},
+	})
+
+	v := ServiceAuthValidator{
+		Audience: aud,
+		Dir:      dir,
+	}
+
+	// Sign JWT with the service key (atproto_service)
+	token, err := SignServiceAuth(iss, aud, time.Minute, nil, servicePriv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Validation should succeed because validator uses atproto_service key
+	did, err := v.Validate(ctx, token, nil)
+	assert.NoError(err)
+	assert.Equal(did, iss)
+
+	// Sign JWT with the atproto key should fail validation
+	// because validator expects atproto_service key
+	wrongToken, err := SignServiceAuth(iss, aud, time.Minute, nil, atprotoPriv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = v.Validate(ctx, wrongToken, nil)
+	assert.Error(err, "validation should fail when signed with atproto key instead of atproto_service key")
+}
