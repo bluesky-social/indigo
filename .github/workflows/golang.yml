@@ -2,9 +2,29 @@ name: golang
 
 on:
   pull_request:
+    paths:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+      - Makefile
+      - .golangci.yaml
+      - .github/workflows/golang.yml
+      - '**/testdata/**'
+      - lexicons/**
+      - atproto/auth/oauth/cmd/oauth-web-demo/*.html
   push:
     branches:
       - main
+    paths:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+      - Makefile
+      - .golangci.yaml
+      - .github/workflows/golang.yml
+      - '**/testdata/**'
+      - lexicons/**
+      - atproto/auth/oauth/cmd/oauth-web-demo/*.html
 
 concurrency:
   group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
@@ -26,6 +46,9 @@ jobs:
         run: make test
   lint:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: Git Checkout
         uses: actions/checkout@v5
@@ -35,3 +58,9 @@ jobs:
           go-version-file: go.mod
       - name: Lint
         run: make lint
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.14.0
+          only-new-issues: true
+          args: --config=.golangci.yaml --timeout=5m
