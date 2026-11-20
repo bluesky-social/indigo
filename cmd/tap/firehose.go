@@ -30,30 +30,32 @@ type FirehoseProcessor struct {
 	events *EventManager
 	repos  *RepoManager
 
-	relayUrl           string
-	fullNetworkMode    bool
-	signalCollection   string
-	collectionFilters  []string
-	parallelism        int
-	cursorSaveInterval time.Duration
-	noReplay           bool
+	relayUrl                   string
+	fullNetworkMode            bool
+	signalCollection           string
+	lightRailSignalCollections []string
+	collectionFilters          []string
+	parallelism                int
+	cursorSaveInterval         time.Duration
+	noReplay                   bool
 
 	lastSeq atomic.Int64
 }
 
 func NewFirehoseProcessor(logger *slog.Logger, db *gorm.DB, events *EventManager, repos *RepoManager, config *TapConfig) *FirehoseProcessor {
 	return &FirehoseProcessor{
-		logger:             logger.With("component", "firehose"),
-		db:                 db,
-		events:             events,
-		repos:              repos,
-		relayUrl:           config.RelayUrl,
-		fullNetworkMode:    config.FullNetworkMode,
-		signalCollection:   config.SignalCollection,
-		collectionFilters:  config.CollectionFilters,
-		parallelism:        config.FirehoseParallelism,
-		cursorSaveInterval: config.FirehoseCursorSaveInterval,
-		noReplay:           config.NoReplay,
+		logger:                     logger.With("component", "firehose"),
+		db:                         db,
+		events:                     events,
+		repos:                      repos,
+		relayUrl:                   config.RelayUrl,
+		fullNetworkMode:            config.FullNetworkMode,
+		signalCollection:           config.SignalCollection,
+		lightRailSignalCollections: config.LightRailSignalCollections,
+		collectionFilters:          config.CollectionFilters,
+		parallelism:                config.FirehoseParallelism,
+		cursorSaveInterval:         config.FirehoseCursorSaveInterval,
+		noReplay:                   config.NoReplay,
 	}
 }
 
@@ -82,7 +84,7 @@ func (fp *FirehoseProcessor) ProcessCommit(ctx context.Context, evt *comatproto.
 	if err != nil {
 		return err
 	} else if curr == nil {
-		shouldTrack := fp.fullNetworkMode || (fp.signalCollection != "" && evtHasSignalCollection(evt, fp.signalCollection))
+		shouldTrack := fp.fullNetworkMode || (fp.signalCollection != "" && evtHasSignalCollection(evt, fp.signalCollection)) || (len(fp.lightRailSignalCollections) > 0 && evtHasLightRailSignalCollection(evt, fp.lightRailSignalCollections))
 		if shouldTrack {
 			if err := fp.repos.EnsureRepo(ctx, evt.Repo); err != nil {
 				fp.logger.Error("failed to auto-track repo", "did", evt.Repo, "error", err)
