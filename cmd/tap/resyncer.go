@@ -32,7 +32,7 @@ type Resyncer struct {
 
 	claimJobMu sync.Mutex
 
-	repoFetchTimeout  time.Duration
+	repoFetchClient   *http.Client
 	collectionFilters []string
 	parallelism       int
 
@@ -41,12 +41,19 @@ type Resyncer struct {
 }
 
 func NewResyncer(logger *slog.Logger, db *gorm.DB, repos *RepoManager, events *EventManager, config *TapConfig) *Resyncer {
+	repoFetchTimeout := config.RepoFetchTimeout
+	if repoFetchTimeout <= 0 {
+		repoFetchTimeout = 30 * time.Second
+	}
 	return &Resyncer{
-		logger:            logger.With("component", "resyncer"),
-		db:                db,
-		events:            events,
-		repos:             repos,
-		repoFetchTimeout:  config.RepoFetchTimeout,
+		logger: logger.With("component", "resyncer"),
+		db:     db,
+		events: events,
+		repos:  repos,
+		repoFetchClient: &http.Client{
+			Timeout:   repoFetchTimeout,
+			Transport: ssrf.PublicOnlyTransport(),
+		},
 		collectionFilters: config.CollectionFilters,
 		parallelism:       config.ResyncParallelism,
 		pdsBackoff:        make(map[string]time.Time),
@@ -203,14 +210,7 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 	// NOTE: this is an untrusted endpoint URL
 	client := atclient.NewAPIClient(pdsURL)
 	client.Headers.Set("User-Agent", userAgent())
-	timeout := r.repoFetchTimeout
-	if timeout <= 0 {
-		timeout = 30 * time.Second
-	}
-	client.Client = &http.Client{
-		Timeout:   timeout,
-		Transport: ssrf.PublicOnlyTransport(),
-	}
+	client.Client = r.repoFetchClient
 
 	repoBytes, err := comatproto.SyncGetRepo(ctx, client, did, "")
 	if err != nil {
@@ -251,6 +251,7 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 	r.logger.Info("pre-loaded existing records", "did", did, "count", len(existingCids))
 
 	evtBatch := make([]*RecordEvt, 0, batchSize)
+	seenPaths := make(map[string]struct{}, len(existingCids))
 
 	err = repo.MST.Walk(func(recPathBytes []byte, recCid cid.Cid) error {
 		select {
@@ -260,6 +261,8 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 		}
 
 		recPath := string(recPathBytes)
+		seenPaths[recPath] = struct{}{}
+
 		collection, rkey, err := syntax.ParseRepoPath(recPath)
 		if err != nil {
 			r.logger.Error("invalid record path", "path", recPath, "error", err)
@@ -326,6 +329,24 @@ func (r *Resyncer) doResync(ctx context.Context, did string) (bool, error) {
 
 	if err != nil {
 		return false, fmt.Errorf("failed to iterate repo: %w", err)
+	}
+
+	// records present in storage but absent from the repo were deleted while we were desynchronized
+	for _, rec := range existingRecords {
+		if _, seen := seenPaths[rec.Collection+"/"+rec.Rkey]; seen {
+			continue
+		}
+		if !matchesCollection(rec.Collection, r.collectionFilters) {
+			continue
+		}
+		evtBatch = append(evtBatch, &RecordEvt{
+			Live:       false,
+			Did:        did,
+			Rev:        rev,
+			Collection: rec.Collection,
+			Rkey:       rec.Rkey,
+			Action:     "delete",
+		})
 	}
 
 	if err := r.events.AddRecordEvents(ctx, evtBatch, false, func(tx *gorm.DB) error {
