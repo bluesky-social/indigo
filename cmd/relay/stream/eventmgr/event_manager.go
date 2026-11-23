@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/cmd/relay/stream"
 	"github.com/bluesky-social/indigo/cmd/relay/stream/persist"
 
@@ -147,6 +148,42 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 	out := make(chan *stream.XRPCStreamEvent, em.crossoverBufferSize)
 
 	go func() {
+		// com.atproto.sync.subscribeRepos cursor validation: a cursor past
+		// the newest event is rejected, and a cursor that predates the
+		// retained window is reported before playback resumes from the
+		// oldest available event. Mirrors the PDS implementation.
+		if oldest, latest, err := em.persister.PlaybackBounds(); err != nil {
+			em.log.Error("failed to get playback bounds", "err", err)
+		} else {
+			switch {
+			case *since > latest:
+				select {
+				case out <- &stream.XRPCStreamEvent{
+					Error: &stream.ErrorFrame{
+						Error:   "FutureCursor",
+						Message: "Cursor in the future.",
+					},
+				}:
+				case <-done:
+				}
+				close(out)
+				return
+			case *since < oldest-1:
+				msg := "Requested cursor exceeded limit. Possibly missing events"
+				select {
+				case out <- &stream.XRPCStreamEvent{
+					RepoInfo: &comatproto.SyncSubscribeRepos_Info{
+						Name:    "OutdatedCursor",
+						Message: &msg,
+					},
+				}:
+				case <-done:
+					close(out)
+					return
+				}
+			}
+		}
+
 		lastSeq := *since
 		// run playback to get through *most* of the events, getting our current cursor close to realtime
 		if err := em.persister.Playback(ctx, *since, func(e *stream.XRPCStreamEvent) error {
