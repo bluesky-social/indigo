@@ -2,6 +2,7 @@ package relay
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -25,6 +26,9 @@ func (p *recordingPersister) Persist(ctx context.Context, e *stream.XRPCStreamEv
 }
 func (p *recordingPersister) Playback(ctx context.Context, since int64, cb func(*stream.XRPCStreamEvent) error) error {
 	return nil
+}
+func (p *recordingPersister) PlaybackBounds() (int64, int64, error) {
+	return 1, math.MaxInt64, nil
 }
 func (p *recordingPersister) TakeDownRepo(ctx context.Context, uid uint64) error { return nil }
 func (p *recordingPersister) Flush(ctx context.Context) error                    { return nil }

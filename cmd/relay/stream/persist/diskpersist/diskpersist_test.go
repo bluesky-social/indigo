@@ -74,3 +74,43 @@ func TestInitialSequenceNumber(t *testing.T) {
 	require.NoError(err)
 	require.Equal(int64(2), persist.curSeq)
 }
+
+func TestPlaybackBounds(t *testing.T) {
+	require := require.New(t)
+
+	dir := t.TempDir()
+
+	db, err := gorm.Open(sqlite.Open(filepath.Join(dir, "relay.sqlite")))
+	require.NoError(err)
+
+	persist, err := NewDiskPersistence(dir, "", db, DefaultDiskPersistOptions())
+	require.NoError(err)
+	defer persist.Shutdown(t.Context())
+
+	did := "did:example:123"
+	persist.didCache.Add(did, 123)
+
+	// No events persisted yet: nothing is available for playback, so the
+	// latest seq is below the first seq the relay will assign.
+	oldest, latest, err := persist.PlaybackBounds()
+	require.NoError(err)
+	require.Equal(int64(1), oldest)
+	require.Equal(int64(0), latest)
+
+	// Persist two events: seqs 1 and 2.
+	for range 2 {
+		err = persist.Persist(t.Context(), &stream.XRPCStreamEvent{
+			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
+				Repo:   did,
+				Commit: lexutil.LexLink(testCid()),
+				Time:   time.Now().Format(util.ISO8601),
+			},
+		})
+		require.NoError(err)
+	}
+
+	oldest, latest, err = persist.PlaybackBounds()
+	require.NoError(err)
+	require.Equal(int64(1), oldest)
+	require.Equal(int64(2), latest)
+}

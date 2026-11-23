@@ -688,6 +688,26 @@ func (dp *DiskPersistence) uidForDid(ctx context.Context, did string) (uint64, e
 	return uid, nil
 }
 
+func (dp *DiskPersistence) PlaybackBounds() (int64, int64, error) {
+	dp.lk.Lock()
+	latest := dp.curSeq - 1
+	dp.lk.Unlock()
+
+	// The earliest log file still referenced by the meta table holds the
+	// oldest retained events. The initial file records SeqStart 0 but its
+	// events begin at initialSeq; later files start at their first event.
+	var ref LogFileRef
+	if err := dp.meta.Order("seq_start asc").Limit(1).Find(&ref).Error; err != nil {
+		return 0, 0, err
+	}
+	oldest := ref.SeqStart
+	if oldest == 0 {
+		oldest = dp.initialSeq
+	}
+
+	return oldest, latest, nil
+}
+
 func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*stream.XRPCStreamEvent) error) error {
 	var logs []LogFileRef
 	needslogs := true
