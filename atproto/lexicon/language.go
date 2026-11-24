@@ -565,8 +565,8 @@ type SchemaSpace struct {
 	Type        string            `json:"type"` // "space"
 	Description *string           `json:"description,omitempty"`
 	Key         string            `json:"key"`
-	Name        string            `json:"name"`
-	NameLang    map[string]string `json:"name:lang,omitempty"`
+	Title       *string           `json:"title,omitempty"`
+	TitleLang   map[string]string `json:"title:lang,omitempty"`
 	Collections []string          `json:"collections"`
 }
 
@@ -577,18 +577,18 @@ func (s *SchemaSpace) CheckSchema() error {
 	if err := checkKeyType(s.Key); err != nil {
 		return err
 	}
-	if len(s.Name) < 1 || len(s.Name) > 64 {
+	if s.Title != nil && (len(*s.Title) < 1 || len(*s.Title) > 64) {
 		// TODO: graphemes vs bytes?
-		return fmt.Errorf("space name must be between 1 and 64 characters long")
+		return fmt.Errorf("space title must be between 1 and 64 characters long")
 	}
-	for lang, name := range s.NameLang {
+	for lang, title := range s.TitleLang {
 		_, err := syntax.ParseLanguage(lang)
 		if err != nil {
 			return err
 		}
-		if len(name) < 1 || len(name) > 64 {
+		if len(title) < 1 || len(title) > 64 {
 			// TODO: graphemes vs bytes?
-			return fmt.Errorf("space name must be between 1 and 64 characters long")
+			return fmt.Errorf("space title must be between 1 and 64 characters long")
 		}
 	}
 	for _, c := range s.Collections {

@@ -7,8 +7,8 @@
       "type": "space",
       "key": "literal:self",
       "description": "Additional description",
-      "name": "Example for Group",
-      "name:lang": {
+      "title": "Example for Group",
+      "title:lang": {
         "fr": "Example for Group"
       },
       "collections": [
