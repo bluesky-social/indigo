@@ -241,13 +241,14 @@ func (cfg *ClientConfig) NewClientAssertion(authURL string) (string, error) {
 	if !cfg.IsConfidential() {
 		return "", fmt.Errorf("non-confidential client")
 	}
+	now := time.Now()
 	claims := jwt.RegisteredClaims{
 		Issuer:    cfg.ClientID,
 		Subject:   cfg.ClientID,
 		Audience:  []string{authURL},
 		ID:        secureRandomBase64(16),
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(jwtExpirationDuration)),
+		IssuedAt:  jwt.NewNumericDate(now),
+		ExpiresAt: jwt.NewNumericDate(now.Add(jwtExpirationDuration)),
 	}
 
 	signingMethod, err := keySigningMethod(cfg.PrivateKey)
@@ -266,13 +267,14 @@ func (cfg *ClientConfig) NewClientAssertion(authURL string) (string, error) {
 // This is used during initial auth request (PAR), initial token request, and subsequent refresh token requests. Note that a full [ClientSession] is not available in several of these circumstances, so this is a stand-alone function.
 func NewAuthDPoP(httpMethod, url, dpopNonce string, privKey atcrypto.PrivateKey) (string, error) {
 
+	now := time.Now()
 	claims := dpopClaims{
 		HTTPMethod: httpMethod,
 		TargetURI:  url,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        secureRandomBase64(16),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(jwtExpirationDuration)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(jwtExpirationDuration)),
 		},
 	}
 	if dpopNonce != "" {
