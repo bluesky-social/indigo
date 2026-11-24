@@ -532,7 +532,7 @@ func (s *SchemaPermission) CheckSchema() error {
 			}
 		}
 		if (s.InheritAud == true && s.Audience != "") || (s.InheritAud == false && s.Audience == "") {
-			return fmt.Errorf("rpc permission must have eith 'aud' or 'inheritAud' defined")
+			return fmt.Errorf("rpc permission must have either 'aud' or 'inheritAud' defined")
 		}
 		if s.Audience != "" && s.Audience != "*" {
 			return fmt.Errorf("rpc permission 'aud' can't have service DID in permission set")

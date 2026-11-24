@@ -107,7 +107,7 @@ func (n *Node) NodeData() NodeData {
 
 // Transforms an encoded [NodeData] to [Node] data structure format.
 //
-// Returns a wrapped [ErrInvalidTree] if the data is invalid. For example, entries with negative or out-of-bound prefix lenths ('p' field).
+// Returns a wrapped [ErrInvalidTree] if the data is invalid. For example, entries with negative or out-of-bound prefix lengths ('p' field).
 //
 // c: optional CID argument for the CID of the CBOR representation of the NodeData
 func (d *NodeData) Node(c *cid.Cid) (Node, error) {

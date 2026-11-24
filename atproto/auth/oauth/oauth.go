@@ -536,7 +536,7 @@ func (app *ClientApp) SendInitialTokenRequest(ctx context.Context, authCode stri
 //
 // The `identifier` argument can be an atproto account identifier (handle or DID), or can be a URL to the account's auth server.
 //
-// The returned sting will be a web URL that the user should be redirected to (in browser) to approve the auth flow.
+// The returned string will be a web URL that the user should be redirected to (in browser) to approve the auth flow.
 func (app *ClientApp) StartAuthFlow(ctx context.Context, identifier string) (string, error) {
 
 	var authserverURL string
