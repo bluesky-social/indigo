@@ -1,0 +1,22 @@
+[
+  {
+    "comment": "non-canonical meta length prefix",
+    "star_hex": "2A6C01008800A16524747970656000"
+  },
+  {
+    "comment": "non-canonical varint zero-length key prefix",
+    "star_hex": "2A6C010008A1652474797065600180000000"
+  },
+  {
+    "comment": "non-canonical non-zero-length key prefix",
+    "star_hex": "2A6C010008A165247479706560018100AA0000"
+  },
+  {
+    "comment": "non-canonical zero value length prefix",
+    "star_hex": "2A6C010008A1652474797065600100800000"
+  },
+  {
+    "comment": "non-canonical non-zero-length value prefix",
+    "star_hex": "2A6C010008A16524747970656001008100BB00"
+  }
+]
