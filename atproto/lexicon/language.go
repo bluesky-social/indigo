@@ -33,6 +33,8 @@ func (s *SchemaDef) CheckSchema() error {
 		return v.CheckSchema()
 	case SchemaPermission:
 		return v.CheckSchema()
+	case SchemaSpace:
+		return v.CheckSchema()
 	case SchemaBoolean:
 		return v.CheckSchema()
 	case SchemaInteger:
@@ -67,7 +69,7 @@ func (s *SchemaDef) CheckSchema() error {
 // Checks if def is of "parimary" type
 func (s *SchemaDef) IsPrimary() bool {
 	switch s.Inner.(type) {
-	case SchemaRecord, SchemaQuery, SchemaProcedure, SchemaSubscription, SchemaPermissionSet:
+	case SchemaRecord, SchemaQuery, SchemaProcedure, SchemaSubscription, SchemaPermissionSet, SchemaSpace:
 		return true
 	}
 	return false
@@ -237,6 +239,13 @@ func (s *SchemaDef) UnmarshalJSON(b []byte) error {
 		}
 		s.Inner = *v
 		return nil
+	case "space":
+		v := new(SchemaSpace)
+		if err = json.Unmarshal(b, v); err != nil {
+			return err
+		}
+		s.Inner = *v
+		return nil
 	case "boolean":
 		v := new(SchemaBoolean)
 		if err = json.Unmarshal(b, v); err != nil {
@@ -344,17 +353,24 @@ func (s *SchemaRecord) CheckSchema() error {
 	if s.Type != "record" {
 		return fmt.Errorf("expected 'record' schema")
 	}
-	switch s.Key {
+	if err := checkKeyType(s.Key); err != nil {
+		return err
+	}
+	return s.Record.CheckSchema()
+}
+
+func checkKeyType(key string) error {
+	switch key {
 	case "":
-		return fmt.Errorf("record key specifier is required")
+		return fmt.Errorf("record/space key specifier is required")
 	case "tid", "nsid", "any":
 		// pass
 	default:
-		if !strings.HasPrefix(s.Key, "literal:") {
-			return fmt.Errorf("invalid record key specifier: %s", s.Key)
+		if !strings.HasPrefix(key, "literal:") {
+			return fmt.Errorf("invalid record/space key specifier: %s", key)
 		}
 	}
-	return s.Record.CheckSchema()
+	return nil
 }
 
 type SchemaQuery struct {
@@ -489,6 +505,10 @@ type SchemaPermission struct {
 	LXM        []string `json:"lxm,omitempty"`
 	Audience   string   `json:"aud,omitempty"`
 	InheritAud bool     `json:"inheritAud,omitempty"`
+	SpaceType  string   `json:"spaceType,omitempty"`
+	Authority  string   `json:"authority,omitempty"`
+	SpaceKey   string   `json:"skey,omitempty"`
+	Manage     []string `json:"manage,omitempty"`
 }
 
 func (s *SchemaPermission) CheckSchema() error {
@@ -537,10 +557,82 @@ func (s *SchemaPermission) CheckSchema() error {
 		if s.Audience != "" && s.Audience != "*" {
 			return fmt.Errorf("rpc permission 'aud' can't have service DID in permission set")
 		}
+	case "space":
+		if s.SpaceType == "*" {
+			return fmt.Errorf("space permission 'spaceType' can not be wildcard in permission set")
+		}
+		_, err := syntax.ParseNSID(s.SpaceType)
+		if err != nil {
+			return fmt.Errorf("space permission spaceType is not valid NSID")
+		}
+		if s.Authority != "" && s.Authority != "*" && s.Authority != "self" {
+			_, err := syntax.ParseDID(s.Authority)
+			if err != nil {
+				return fmt.Errorf("space permission authority is not valid DID")
+			}
+		}
+		if s.SpaceKey != "" && s.SpaceKey != "*" {
+			_, err := syntax.ParseRecordKey(s.SpaceKey)
+			if err != nil {
+				return fmt.Errorf("space permission spaceKey is not valid space-key")
+			}
+		}
+		for _, col := range s.Collection {
+			if col != "*" {
+				_, err := syntax.ParseNSID(col)
+				if err != nil {
+					return fmt.Errorf("space permission collection is not valid NSID")
+				}
+			}
+		}
+		for _, act := range s.Action {
+			if act != "read" && act != "create" && act != "update" && act != "delete" && act != "read_self" {
+				return fmt.Errorf("space permission unknown 'action' value: %s", act)
+			}
+		}
+		for _, mng := range s.Manage {
+			if mng != "create" && mng != "update" && mng != "delete" {
+				return fmt.Errorf("space permission unknown 'manage' value: %s", mng)
+			}
+		}
 	case "blob", "account", "identity":
 		return fmt.Errorf("%s permission not allowed in permission sets", s.Resource)
 	default:
 		return fmt.Errorf("unsupported permission resource: %s", s.Resource)
+	}
+	return nil
+}
+
+type SchemaSpace struct {
+	Type        string            `json:"type"` // "space"
+	Description *string           `json:"description,omitempty"`
+	Key         string            `json:"key"`
+	Title       *string           `json:"title,omitempty"`
+	TitleLang   map[string]string `json:"title:lang,omitempty"`
+	Collections []string          `json:"collections"`
+}
+
+func (s *SchemaSpace) CheckSchema() error {
+	if s.Type != "space" {
+		return fmt.Errorf("expected 'space' schema")
+	}
+	if err := checkKeyType(s.Key); err != nil {
+		return err
+	}
+	for lang, _ := range s.TitleLang {
+		_, err := syntax.ParseLanguage(lang)
+		if err != nil {
+			return err
+		}
+	}
+	if s.Collections == nil {
+		return fmt.Errorf("space schema 'collections' array is required")
+	}
+	for _, c := range s.Collections {
+		_, err := syntax.ParseNSID(c)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -708,7 +800,7 @@ func (s *SchemaString) CheckSchema() error {
 	}
 	if s.Format != nil {
 		switch *s.Format {
-		case "at-identifier", "at-uri", "cid", "datetime", "did", "handle", "nsid", "uri", "language", "tid", "record-key":
+		case "at-identifier", "at-uri", "space-ref", "cid", "datetime", "did", "handle", "nsid", "uri", "language", "tid", "record-key":
 			// pass
 		default:
 			return fmt.Errorf("unknown string format: %s", *s.Format)
@@ -753,6 +845,10 @@ func (s *SchemaString) Validate(d any, flags ValidateFlags) error {
 			}
 		case "at-uri":
 			if _, err := syntax.ParseATURI(v); err != nil {
+				return err
+			}
+		case "space-ref":
+			if _, err := syntax.ParseSpaceRef(v); err != nil {
 				return err
 			}
 		case "cid":

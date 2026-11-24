@@ -72,5 +72,29 @@
         }
       }
     }
+  },
+  {
+    "name": "spaces permission-set (from proposal)",
+    "lexicon": {
+      "lexicon": 1,
+      "id": "example.lexicon.perms",
+      "defs": {
+        "main": {
+          "type": "permission-set",
+          "title": "AtmoBoards",
+          "detail": "Read and post in your AtmoBoards forums",
+          "permissions": [
+            {
+              "type": "permission",
+              "resource": "space",
+              "spaceType": "com.atmoboards.forum",
+              "authority": "*",
+              "collection": ["com.atmoboards.thread", "com.atmoboards.reply"],
+              "action": ["read", "create"]
+            }
+          ]
+        }
+      }
+    }
   }
 ]
