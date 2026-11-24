@@ -619,19 +619,14 @@ func (s *SchemaSpace) CheckSchema() error {
 	if err := checkKeyType(s.Key); err != nil {
 		return err
 	}
-	if s.Title != nil && (len(*s.Title) < 1 || len(*s.Title) > 64) {
-		// TODO: graphemes vs bytes?
-		return fmt.Errorf("space title must be between 1 and 64 characters long")
-	}
-	for lang, title := range s.TitleLang {
+	for lang, _ := range s.TitleLang {
 		_, err := syntax.ParseLanguage(lang)
 		if err != nil {
 			return err
 		}
-		if len(title) < 1 || len(title) > 64 {
-			// TODO: graphemes vs bytes?
-			return fmt.Errorf("space title must be between 1 and 64 characters long")
-		}
+	}
+	if s.Collections == nil {
+		return fmt.Errorf("space schema 'collections' array is required")
 	}
 	for _, c := range s.Collections {
 		_, err := syntax.ParseNSID(c)
