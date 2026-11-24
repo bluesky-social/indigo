@@ -505,6 +505,10 @@ type SchemaPermission struct {
 	LXM        []string `json:"lxm,omitempty"`
 	Audience   string   `json:"aud,omitempty"`
 	InheritAud bool     `json:"inheritAud,omitempty"`
+	SpaceType  string   `json:"spaceType,omitempty"`
+	Authority  string   `json:"authority,omitempty"`
+	SpaceKey   string   `json:"skey,omitempty"`
+	Manage     []string `json:"manage,omitempty"`
 }
 
 func (s *SchemaPermission) CheckSchema() error {
@@ -552,6 +556,44 @@ func (s *SchemaPermission) CheckSchema() error {
 		}
 		if s.Audience != "" && s.Audience != "*" {
 			return fmt.Errorf("rpc permission 'aud' can't have service DID in permission set")
+		}
+	case "space":
+		if s.SpaceType == "*" {
+			return fmt.Errorf("space permission 'spaceType' can not be wildcard in permission set")
+		}
+		_, err := syntax.ParseNSID(s.SpaceType)
+		if err != nil {
+			return fmt.Errorf("space permission spaceType is not valid NSID")
+		}
+		if s.Authority != "" && s.Authority != "*" && s.Authority != "self" {
+			_, err := syntax.ParseDID(s.Authority)
+			if err != nil {
+				return fmt.Errorf("space permission authority is not valid DID")
+			}
+		}
+		if s.SpaceKey != "" && s.SpaceKey != "*" {
+			_, err := syntax.ParseRecordKey(s.SpaceKey)
+			if err != nil {
+				return fmt.Errorf("space permission spaceKey is not valid space-key")
+			}
+		}
+		for _, col := range s.Collection {
+			if col != "*" {
+				_, err := syntax.ParseNSID(col)
+				if err != nil {
+					return fmt.Errorf("space permission collection is not valid NSID")
+				}
+			}
+		}
+		for _, act := range s.Action {
+			if act != "read" && act != "create" && act != "update" && act != "delete" && act != "read_self" {
+				return fmt.Errorf("space permission unknown 'action' value: %s", act)
+			}
+		}
+		for _, mng := range s.Manage {
+			if mng != "create" && mng != "update" && mng != "delete" {
+				return fmt.Errorf("space permission unknown 'manage' value: %s", mng)
+			}
 		}
 	case "blob", "account", "identity":
 		return fmt.Errorf("%s permission not allowed in permission sets", s.Resource)
