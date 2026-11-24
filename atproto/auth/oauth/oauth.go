@@ -227,15 +227,6 @@ func (app *ClientApp) ResumeSession(ctx context.Context, did syntax.DID, session
 	return &sess, nil
 }
 
-type clientAssertionClaims struct {
-	jwt.RegisteredClaims
-
-	HTTPMethod      string  `json:"htm"`
-	TargetURI       string  `json:"hti"`
-	AccessTokenHash *string `json:"ath,omitempty"`
-	Nonce           *string `json:"nonce,omitempty"`
-}
-
 type dpopClaims struct {
 	jwt.RegisteredClaims
 
@@ -250,15 +241,13 @@ func (cfg *ClientConfig) NewClientAssertion(authURL string) (string, error) {
 	if !cfg.IsConfidential() {
 		return "", fmt.Errorf("non-confidential client")
 	}
-	claims := clientAssertionClaims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    cfg.ClientID,
-			Subject:   cfg.ClientID,
-			Audience:  []string{authURL},
-			ID:        secureRandomBase64(16),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(jwtExpirationDuration)),
-		},
+	claims := jwt.RegisteredClaims{
+		Issuer:    cfg.ClientID,
+		Subject:   cfg.ClientID,
+		Audience:  []string{authURL},
+		ID:        secureRandomBase64(16),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(jwtExpirationDuration)),
 	}
 
 	signingMethod, err := keySigningMethod(cfg.PrivateKey)
@@ -267,6 +256,7 @@ func (cfg *ClientConfig) NewClientAssertion(authURL string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(signingMethod, claims)
+	// NOTE: client assertion includes no "typ"
 	token.Header["kid"] = cfg.KeyID
 	return token.SignedString(cfg.PrivateKey)
 }
