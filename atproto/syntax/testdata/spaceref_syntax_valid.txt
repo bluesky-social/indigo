@@ -2,7 +2,7 @@
 at:space/did:plc:asdf123/com.example.space/skey
 at:space/did:plc:asdf123/com.example.spaceV2/skey
 
-# very long: 'at://did:plc:asdf123/com.example.space/' + 'o'.repeat(512)
+# very long: 'at:space/did:plc:asdf123/com.example.space/' + 'o'.repeat(512)
 at:space/did:plc:asdf123/com.example.space/oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
 
 # permissive about space keys

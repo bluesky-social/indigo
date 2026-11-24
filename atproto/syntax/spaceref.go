@@ -13,7 +13,7 @@ var spacerefRegex = regexp.MustCompile(`^at:space\/(?P<authority>[a-zA-Z0-9._:%-
 //
 // Use [ParseSpaceRef] instead of wrapping strings directly when working with external input.
 //
-// Syntax specification: https://github.com/bluesky-social/proposals/tree/main/0016-permissioned-data#commit-digest
+// Syntax specification: https://github.com/bluesky-social/proposals/tree/main/0016-permissioned-data#addressing
 type SpaceRef string
 
 func NewSpaceRef(authority DID, stype NSID, skey RecordKey) SpaceRef {
