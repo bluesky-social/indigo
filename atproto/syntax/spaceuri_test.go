@@ -12,10 +12,10 @@ import (
 func TestSpaceURIBasic(t *testing.T) {
 	assert := assert.New(t)
 
-	_, err := ParseSpaceURI("at://did:plc:asdf123/space/com.example.space/skey")
+	_, err := ParseSpaceURI("at:space/did:plc:asdf123/com.example.space/skey")
 	assert.NoError(err)
 
-	_, err = ParseSpaceURI("at://did:plc:asdf123/com.example.space/skey")
+	_, err = ParseSpaceURI("at://did:plc:asdf123/space/com.example.space/skey")
 	assert.Error(err)
 }
 
@@ -70,8 +70,8 @@ func TestSpaceURIParts(t *testing.T) {
 	assert := assert.New(t)
 
 	testVec := [][]string{
-		{"at://did:abc:123/space/io.nsid.someType/space-key", "did:abc:123", "io.nsid.someType", "space-key", "", "", "", "at://did:abc:123/space/io.nsid.someType/space-key"},
-		{"at://did:abc:123/space/io.nsid.someType/space-key/did:abc:456/io.nsid.someRecord/record-key", "did:abc:123", "io.nsid.someType", "space-key", "did:abc:456", "io.nsid.someRecord", "record-key", "at://did:abc:123/space/io.nsid.someType/space-key"},
+		{"at:space/did:abc:123/io.nsid.someType/space-key", "did:abc:123", "io.nsid.someType", "space-key", "", "", "", "at:space/did:abc:123/io.nsid.someType/space-key"},
+		{"at:space/did:abc:123/io.nsid.someType/space-key/did:abc:456/io.nsid.someRecord/record-key", "did:abc:123", "io.nsid.someType", "space-key", "did:abc:456", "io.nsid.someRecord", "record-key", "at:space/did:abc:123/io.nsid.someType/space-key"},
 	}
 
 	for _, parts := range testVec {
@@ -95,7 +95,7 @@ func TestSpaceURIParts(t *testing.T) {
 }
 
 func TestSpaceURINoPanic(t *testing.T) {
-	for _, s := range []string{"", ".", "at://", "at:///", "at://e.com", "at://e.com/", "at://e.com//"} {
+	for _, s := range []string{"", ".", "at:space/", "at:space//", "at:space/e.com", "at:space/e.com/", "at:space/e.com//"} {
 		bad := SpaceURI(s)
 		_ = bad.SpaceAuthority()
 		_ = bad.SpaceType()

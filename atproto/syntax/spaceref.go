@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-var spacerefRegex = regexp.MustCompile(`^at:\/\/(?P<authority>[a-zA-Z0-9._:%-]+)\/space\/(?P<stype>[a-zA-Z0-9.-]+)\/(?P<skey>[a-zA-Z0-9_~.:-]{1,512})$`)
+var spacerefRegex = regexp.MustCompile(`^at:space\/(?P<authority>[a-zA-Z0-9._:%-]+)\/(?P<stype>[a-zA-Z0-9.-]+)\/(?P<skey>[a-zA-Z0-9_~.:-]{1,512})$`)
 
 // String type which represents a syntaxtually valid AT space URI referencing a space, with space authority, space type, and space key.
 //
@@ -17,7 +17,7 @@ var spacerefRegex = regexp.MustCompile(`^at:\/\/(?P<authority>[a-zA-Z0-9._:%-]+)
 type SpaceRef string
 
 func NewSpaceRef(authority DID, stype NSID, skey RecordKey) SpaceRef {
-	return SpaceRef("at://" + authority.String() + "/space/" + stype.String() + "/" + skey.String())
+	return SpaceRef("at:space/" + authority.String() + "/" + stype.String() + "/" + skey.String())
 }
 
 func ParseSpaceRef(raw string) (SpaceRef, error) {
@@ -25,7 +25,6 @@ func ParseSpaceRef(raw string) (SpaceRef, error) {
 		return "", errors.New("Space ref is too long (8192 chars max)")
 	}
 	parts := spacerefRegex.FindStringSubmatch(raw)
-	//if parts == nil || len(parts) != 5 || parts[0] == "" {
 	if parts == nil || parts[0] == "" {
 		return "", errors.New("Space ref syntax didn't validate via regex")
 	}
@@ -49,12 +48,12 @@ func ParseSpaceRef(raw string) (SpaceRef, error) {
 //
 // If this SpaceRef is malformed, returns empty
 func (n SpaceRef) SpaceAuthority() DID {
-	parts := strings.SplitN(string(n), "/", 4)
-	if len(parts) < 3 {
+	parts := strings.SplitN(string(n), "/", 3)
+	if len(parts) < 2 {
 		// something has gone wrong (would not validate)
 		return ""
 	}
-	atid, err := ParseDID(parts[2])
+	atid, err := ParseDID(parts[1])
 	if err != nil {
 		return ""
 	}
@@ -62,12 +61,12 @@ func (n SpaceRef) SpaceAuthority() DID {
 }
 
 func (n SpaceRef) SpaceType() NSID {
-	parts := strings.SplitN(string(n), "/", 6)
-	if len(parts) < 5 {
+	parts := strings.SplitN(string(n), "/", 4)
+	if len(parts) < 3 {
 		// something has gone wrong (would not validate)
 		return NSID("")
 	}
-	nsid, err := ParseNSID(parts[4])
+	nsid, err := ParseNSID(parts[2])
 	if err != nil {
 		return NSID("")
 	}
@@ -75,12 +74,12 @@ func (n SpaceRef) SpaceType() NSID {
 }
 
 func (n SpaceRef) SpaceKey() RecordKey {
-	parts := strings.SplitN(string(n), "/", 7)
-	if len(parts) < 6 {
+	parts := strings.SplitN(string(n), "/", 5)
+	if len(parts) < 4 {
 		// something has gone wrong (would not validate)
 		return RecordKey("")
 	}
-	rkey, err := ParseRecordKey(parts[5])
+	rkey, err := ParseRecordKey(parts[3])
 	if err != nil {
 		return RecordKey("")
 	}

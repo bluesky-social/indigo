@@ -12,10 +12,10 @@ import (
 func TestSpaceRefBasic(t *testing.T) {
 	assert := assert.New(t)
 
-	_, err := ParseSpaceRef("at://did:plc:asdf123/space/com.example.space/skey")
+	_, err := ParseSpaceRef("at:space/did:plc:asdf123/com.example.space/skey")
 	assert.NoError(err)
 
-	_, err = ParseSpaceRef("at://did:plc:asdf123/com.example.space/skey")
+	_, err = ParseSpaceRef("at://did:plc:asdf123/space/com.example.space/skey")
 	assert.Error(err)
 
 	ref := NewSpaceRef(DID("did:plc:asdf123"), NSID("com.example.space"), RecordKey("skey"))
@@ -74,7 +74,7 @@ func TestSpaceRefParts(t *testing.T) {
 	assert := assert.New(t)
 
 	testVec := [][]string{
-		{"at://did:abc:123/space/io.nsid.someType/space-key", "did:abc:123", "io.nsid.someType", "space-key"},
+		{"at:space/did:abc:123/io.nsid.someType/space-key", "did:abc:123", "io.nsid.someType", "space-key"},
 	}
 
 	for _, parts := range testVec {
@@ -90,7 +90,7 @@ func TestSpaceRefParts(t *testing.T) {
 }
 
 func TestSpaceRefNoPanic(t *testing.T) {
-	for _, s := range []string{"", ".", "at://", "at:///", "at://e.com", "at://e.com/", "at://e.com//"} {
+	for _, s := range []string{"", ".", "at:space/", "at:space//", "at:space/e.com", "at:space/e.com/", "at:space/e.com//"} {
 		bad := SpaceRef(s)
 		_ = bad.SpaceAuthority()
 		_ = bad.SpaceType()

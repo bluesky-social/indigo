@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-var spaceuriRegex = regexp.MustCompile(`^at:\/\/(?P<authority>[a-zA-Z0-9._:%-]+)\/space\/(?P<stype>[a-zA-Z0-9.-]+)\/(?P<skey>[a-zA-Z0-9_~.:-]{1,512})(\/(?P<repo>[a-zA-Z0-9._:%-]+)(\/(?P<collection>[a-zA-Z0-9-.]+)(\/(?P<rkey>[a-zA-Z0-9_~.:-]{1,512}))?)?)?$`)
+var spaceuriRegex = regexp.MustCompile(`^at:space\/(?P<authority>[a-zA-Z0-9._:%-]+)\/(?P<stype>[a-zA-Z0-9.-]+)\/(?P<skey>[a-zA-Z0-9_~.:-]{1,512})(\/(?P<repo>[a-zA-Z0-9._:%-]+)(\/(?P<collection>[a-zA-Z0-9-.]+)(\/(?P<rkey>[a-zA-Z0-9_~.:-]{1,512}))?)?)?$`)
 
 // String type which represents a syntaxtually valid AT space URI referencing at least a space ("space ref"), and possibly an author repository, collection, and record.
 //
@@ -21,7 +21,6 @@ func ParseSpaceURI(raw string) (SpaceURI, error) {
 		return "", errors.New("Space URI is too long (8192 chars max)")
 	}
 	parts := spaceuriRegex.FindStringSubmatch(raw)
-	//if parts == nil || len(parts) != 5 || parts[0] == "" {
 	if parts == nil || parts[0] == "" {
 		return "", errors.New("Space URI syntax didn't validate via regex")
 	}
@@ -64,12 +63,12 @@ func ParseSpaceURI(raw string) (SpaceURI, error) {
 //
 // If this SpaceURI is malformed, returns empty
 func (n SpaceURI) SpaceAuthority() DID {
-	parts := strings.SplitN(string(n), "/", 4)
-	if len(parts) < 3 {
+	parts := strings.SplitN(string(n), "/", 3)
+	if len(parts) < 2 {
 		// something has gone wrong (would not validate)
 		return ""
 	}
-	atid, err := ParseDID(parts[2])
+	atid, err := ParseDID(parts[1])
 	if err != nil {
 		return ""
 	}
@@ -78,12 +77,12 @@ func (n SpaceURI) SpaceAuthority() DID {
 
 // Returns a valid NSID if there is one in the appropriate part of the path, otherwise empty.
 func (n SpaceURI) SpaceType() NSID {
-	parts := strings.SplitN(string(n), "/", 6)
-	if len(parts) < 5 {
+	parts := strings.SplitN(string(n), "/", 4)
+	if len(parts) < 3 {
 		// something has gone wrong (would not validate)
 		return NSID("")
 	}
-	nsid, err := ParseNSID(parts[4])
+	nsid, err := ParseNSID(parts[2])
 	if err != nil {
 		return NSID("")
 	}
@@ -91,12 +90,12 @@ func (n SpaceURI) SpaceType() NSID {
 }
 
 func (n SpaceURI) SpaceKey() RecordKey {
-	parts := strings.SplitN(string(n), "/", 7)
-	if len(parts) < 6 {
+	parts := strings.SplitN(string(n), "/", 5)
+	if len(parts) < 4 {
 		// something has gone wrong (would not validate)
 		return RecordKey("")
 	}
-	rkey, err := ParseRecordKey(parts[5])
+	rkey, err := ParseRecordKey(parts[3])
 	if err != nil {
 		return RecordKey("")
 	}
@@ -104,12 +103,12 @@ func (n SpaceURI) SpaceKey() RecordKey {
 }
 
 func (n SpaceURI) Repo() DID {
-	parts := strings.SplitN(string(n), "/", 8)
-	if len(parts) < 7 {
+	parts := strings.SplitN(string(n), "/", 6)
+	if len(parts) < 5 {
 		// something has gone wrong (would not validate)
 		return DID("")
 	}
-	did, err := ParseDID(parts[6])
+	did, err := ParseDID(parts[4])
 	if err != nil {
 		return DID("")
 	}
@@ -118,12 +117,12 @@ func (n SpaceURI) Repo() DID {
 
 // Returns a valid NSID if there is one in the appropriate part of the path, otherwise empty.
 func (n SpaceURI) Collection() NSID {
-	parts := strings.SplitN(string(n), "/", 9)
-	if len(parts) < 8 {
+	parts := strings.SplitN(string(n), "/", 7)
+	if len(parts) < 6 {
 		// something has gone wrong (would not validate)
 		return NSID("")
 	}
-	nsid, err := ParseNSID(parts[7])
+	nsid, err := ParseNSID(parts[5])
 	if err != nil {
 		return NSID("")
 	}
@@ -131,12 +130,12 @@ func (n SpaceURI) Collection() NSID {
 }
 
 func (n SpaceURI) RecordKey() RecordKey {
-	parts := strings.SplitN(string(n), "/", 10)
-	if len(parts) < 9 {
+	parts := strings.SplitN(string(n), "/", 8)
+	if len(parts) < 7 {
 		// something has gone wrong (would not validate)
 		return RecordKey("")
 	}
-	rkey, err := ParseRecordKey(parts[8])
+	rkey, err := ParseRecordKey(parts[6])
 	if err != nil {
 		return RecordKey("")
 	}
@@ -154,7 +153,7 @@ func (u SpaceURI) SpaceRef() SpaceRef {
 	if sauth == "" || stype == "" || skey == "" {
 		return ""
 	}
-	return SpaceRef(fmt.Sprintf("at://%s/space/%s/%s", sauth, stype, skey))
+	return SpaceRef(fmt.Sprintf("at:space/%s/%s/%s", sauth, stype, skey))
 }
 
 func (a SpaceURI) MarshalText() ([]byte, error) {
