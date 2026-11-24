@@ -262,7 +262,7 @@ func (cfg *ClientConfig) NewClientAssertion(authURL string) (string, error) {
 	return token.SignedString(cfg.PrivateKey)
 }
 
-// Low-level helper to generate and sign an atproto client assertion. These can be used when obtaining atproto space credentials.
+// Low-level helper to generate and sign an atproto client attestation. These can be used when obtaining atproto space credentials.
 func (cfg *ClientConfig) NewAtprotoClientAttestation(authority syntax.DID) (string, error) {
 	if !cfg.IsConfidential() {
 		return "", fmt.Errorf("non-confidential client")
