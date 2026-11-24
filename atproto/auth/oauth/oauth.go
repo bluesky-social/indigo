@@ -262,6 +262,32 @@ func (cfg *ClientConfig) NewClientAssertion(authURL string) (string, error) {
 	return token.SignedString(cfg.PrivateKey)
 }
 
+// Low-level helper to generate and sign an atproto client assertion. These can be used when obtaining atproto space credentials.
+func (cfg *ClientConfig) NewAtprotoClientAttestation(authority syntax.DID) (string, error) {
+	if !cfg.IsConfidential() {
+		return "", fmt.Errorf("non-confidential client")
+	}
+	now := time.Now()
+	claims := jwt.RegisteredClaims{
+		Issuer:    cfg.ClientID,
+		Subject:   cfg.ClientID,
+		Audience:  []string{authority.String() + "#atproto_pds"},
+		ID:        secureRandomBase64(16),
+		IssuedAt:  jwt.NewNumericDate(now),
+		ExpiresAt: jwt.NewNumericDate(now.Add(jwtExpirationDuration)),
+	}
+
+	signingMethod, err := keySigningMethod(cfg.PrivateKey)
+	if err != nil {
+		return "", err
+	}
+
+	token := jwt.NewWithClaims(signingMethod, claims)
+	token.Header["typ"] = "atproto-client-attestation+jwt"
+	token.Header["kid"] = cfg.KeyID
+	return token.SignedString(cfg.PrivateKey)
+}
+
 // Creates a DPoP token (JWT) for use with an OAuth Auth Server (not to be used with Resource Server). The returned JWT is not bound to an Access Token (no 'ath'), and does not indicate an issuer ('iss').
 //
 // This is used during initial auth request (PAR), initial token request, and subsequent refresh token requests. Note that a full [ClientSession] is not available in several of these circumstances, so this is a stand-alone function.
