@@ -228,7 +228,18 @@ func lintSchemaDef(nsid syntax.NSID, defname string, def lexicon.SchemaDef) []Li
 			// TODO: any lints on permissions?
 			_ = perm
 		}
-	case lexicon.SchemaPermission, lexicon.SchemaBoolean, lexicon.SchemaInteger, lexicon.SchemaString, lexicon.SchemaBytes, lexicon.SchemaCIDLink, lexicon.SchemaArray, lexicon.SchemaObject, lexicon.SchemaBlob, lexicon.SchemaToken, lexicon.SchemaRef, lexicon.SchemaUnion, lexicon.SchemaUnknown, lexicon.SchemaSpace:
+	case lexicon.SchemaSpace:
+		if v.Title == nil || *v.Title == "" {
+			issues = append(issues, LintIssue{
+				NSID:            nsid,
+				LintLevel:       "warn",
+				LintName:        "space-no-title",
+				LintDescription: "space schemas should include a title",
+				Message:         "missing title",
+			})
+		}
+		// TODO: any other space lints?
+	case lexicon.SchemaPermission, lexicon.SchemaBoolean, lexicon.SchemaInteger, lexicon.SchemaString, lexicon.SchemaBytes, lexicon.SchemaCIDLink, lexicon.SchemaArray, lexicon.SchemaObject, lexicon.SchemaBlob, lexicon.SchemaToken, lexicon.SchemaRef, lexicon.SchemaUnion, lexicon.SchemaUnknown:
 		reciss := lintSchemaRecursive(nsid, def)
 		if len(reciss) > 0 {
 			issues = append(issues, reciss...)
