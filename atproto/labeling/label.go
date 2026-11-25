@@ -10,7 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// version of the label data fromat implemented by this package
+// version of the label data format implemented by this package
 const ATPROTO_LABEL_VERSION int64 = 1
 
 type Label struct {
