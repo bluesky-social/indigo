@@ -125,6 +125,12 @@ func main() {
 		atproto.LabelSubscribeLabels_Info{},
 		atproto.LabelDefs_LabelValueDefinition{},
 		atproto.LabelDefs_LabelValueDefinitionStrings{},
+		atproto.LabelRecord{},
+		atproto.SpacePolicy{},
+		atproto.ManagedspacePolicy{},
+		atproto.MemberspacePolicy{},
+		atproto.MemberspaceMember{},
+		atproto.PersonalspacePolicy{},
 	); err != nil {
 		panic(err)
 	}

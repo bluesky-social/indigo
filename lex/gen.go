@@ -21,6 +21,7 @@ const (
 	EncodingJSON   = "application/json"
 	EncodingJSONL  = "application/jsonl"
 	EncodingCAR    = "application/vnd.ipld.car"
+	EncodingSTAR   = "application/vnd.dasl.star"
 	EncodingMP4    = "video/mp4"
 	EncodingBinary = "application/octet-stream"
 	EncodingANY    = "*/*"
