@@ -338,8 +338,13 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		newFlags = dedupeFlagActions(newFlags, existingFlags)
 	}
 
-	// don't report the same record multiple times on the same day for the same reason. this is a quick check; we also query the mod service API just before creating the report.
-	partialReports, err := eng.dedupeReportActions(ctx, atURI, c.effects.RecordReports)
+	// Don't report the same record version multiple times on the same day for the same reason.
+	// The URI stays stable across updates, so the CID is part of this quick de-duplication key.
+	reportSubject := atURI
+	if c.RecordOp.CID != nil {
+		reportSubject += "#" + c.RecordOp.CID.String()
+	}
+	partialReports, err := eng.dedupeReportActions(ctx, reportSubject, c.effects.RecordReports)
 	if err != nil {
 		return fmt.Errorf("de-duplicating reports: %w", err)
 	}

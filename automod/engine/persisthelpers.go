@@ -225,13 +225,12 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *atclient.APIC
 	return true, nil
 }
 
-// Create a moderation report, but checks first if there was a similar recent one, and skips if so.
+// Create a moderation report, but checks first if there was a similar recent one for the same record version, and skips if so.
 //
 // Returns a bool indicating if a new report was created.
 //
 // TODO: merge this with createReportIfFresh()
 func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *atclient.APIClient, uri syntax.ATURI, cid *syntax.CID, mr ModReport) (bool, error) {
-	// before creating a report, query to see if automod has already reported this account in the past week for the same reason
 	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
 
 	resp, err := toolsozone.ModerationQueryEvents(
@@ -266,7 +265,7 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *atclien
 	}
 	for _, modEvt := range resp.Events {
 		// defensively ensure that our query params worked correctly
-		if modEvt.Event.ModerationDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.AccountDID.String() || modEvt.Subject.RepoStrongRef == nil || modEvt.Subject.RepoStrongRef.Uri != uri.String() || (modEvt.Event.ModerationDefs_ModEventReport.ReportType != nil && *modEvt.Event.ModerationDefs_ModEventReport.ReportType != mr.ReasonType) {
+		if modEvt.Event.ModerationDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.AccountDID.String() || modEvt.Subject.RepoStrongRef == nil || modEvt.Subject.RepoStrongRef.Uri != uri.String() || modEvt.Subject.RepoStrongRef.Cid != cid.String() || (modEvt.Event.ModerationDefs_ModEventReport.ReportType != nil && *modEvt.Event.ModerationDefs_ModEventReport.ReportType != mr.ReasonType) {
 			continue
 		}
 		// igonre if older
@@ -283,7 +282,7 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *atclien
 		}
 
 		// there is a recent report which is similar to this one
-		eng.Logger.Info("skipping duplicate account report due to API check")
+		eng.Logger.Info("skipping duplicate record report due to API check")
 		return false, nil
 	}
 
