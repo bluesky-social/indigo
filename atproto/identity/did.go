@@ -132,9 +132,14 @@ func (d *BaseDirectory) resolveDIDWeb(ctx context.Context, did syntax.DID) ([]by
 		return nil, fmt.Errorf("%w: did:web body too large for %s", ErrDIDResolutionFailed, did)
 	}
 
-	// TODO: this could result in a truncated handle value with no error thrown (if Content-Length is not set).
-	// See: https://github.com/bluesky-social/indigo/issues/1460
-	return io.ReadAll(io.LimitReader(resp.Body, maxDIDBodySize))
+	b, err := readAllLimited(resp.Body, maxDIDBodySize)
+	if err != nil {
+		if errors.Is(err, errBodyTooLarge) {
+			return nil, fmt.Errorf("%w: did:web body too large for %s", ErrDIDResolutionFailed, did)
+		}
+		return nil, fmt.Errorf("%w: did:web body read for %s: %w", ErrDIDResolutionFailed, did, err)
+	}
+	return b, nil
 }
 
 func (d *BaseDirectory) resolveDIDPLC(ctx context.Context, did syntax.DID) ([]byte, error) {
