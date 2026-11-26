@@ -1,0 +1,25 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.space",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "An entry in the group's space index, in the members space. The group host maintains these records as spaces are created, deleted, or unlisted, and rejects direct writes.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["space", "createdAt"],
+        "properties": {
+          "space": {
+            "type": "string",
+            "format": "space-ref"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}

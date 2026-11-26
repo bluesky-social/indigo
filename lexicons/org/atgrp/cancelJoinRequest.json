@@ -1,0 +1,31 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.cancelJoinRequest",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Withdraw the caller's pending join request. Requires service auth.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["group"],
+          "properties": {
+            "group": {
+              "type": "string",
+              "format": "did"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "GroupNotFound"
+        },
+        {
+          "name": "JoinRequestNotFound"
+        }
+      ]
+    }
+  }
+}

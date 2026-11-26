@@ -1,0 +1,74 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.mod.updateSubject",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Change a subject's status or tags, or add a note. Omitted fields are left as they are. Requires auth as the group.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["subject"],
+          "properties": {
+            "subject": {
+              "type": "string",
+              "format": "uri",
+              "description": "An account DID or record URI."
+            },
+            "cid": {
+              "type": "string",
+              "format": "cid",
+              "description": "If set, a specific version of the record."
+            },
+            "status": {
+              "type": "string",
+              "enum": ["open", "resolved"]
+            },
+            "note": {
+              "type": "string",
+              "maxGraphemes": 2000,
+              "maxLength": 20000
+            },
+            "addTags": {
+              "type": "array",
+              "maxLength": 25,
+              "description": "Tags follow label value syntax ([a-z-]+).",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "removeTags": {
+              "type": "array",
+              "maxLength": 25,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "ref",
+          "ref": "org.atgrp.mod.defs#subjectView"
+        }
+      },
+      "errors": [
+        {
+          "name": "InvalidSubject",
+          "description": "The subject isn't in this group."
+        },
+        {
+          "name": "SubjectNotFound",
+          "description": "The subject has never been reported."
+        }
+      ]
+    }
+  }
+}

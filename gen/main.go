@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	standardsite "github.com/bluesky-social/indigo/api-ext/standardsite"
+	"github.com/bluesky-social/indigo/api/atgrp"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	chat "github.com/bluesky-social/indigo/api/chat"
@@ -125,6 +126,22 @@ func main() {
 		atproto.LabelSubscribeLabels_Info{},
 		atproto.LabelDefs_LabelValueDefinition{},
 		atproto.LabelDefs_LabelValueDefinitionStrings{},
+	); err != nil {
+		panic(err)
+	}
+
+	if err := genCfg.WriteMapEncodersToFile("api/atgrp/cbor_gen.go", "atgrp",
+		atgrp.About{},
+		atgrp.Config{},
+		atgrp.Confirmation{},
+		atgrp.Declaration{},
+		atgrp.Invite{},
+		atgrp.Labeler{},
+		atgrp.Labeler_Policies{},
+		atgrp.Membership{},
+		atgrp.Role{},
+		atgrp.Rule{},
+		atgrp.Space{},
 	); err != nil {
 		panic(err)
 	}

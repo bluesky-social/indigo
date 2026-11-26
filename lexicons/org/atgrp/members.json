@@ -1,0 +1,22 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.members",
+  "defs": {
+    "main": {
+      "type": "space",
+      "description": "Membership and administrative information for the group. Usually readable only by members.",
+      "key": "literal:self",
+      "title": "Group members",
+      "collections": [
+        "org.atgrp.space",
+        "org.atgrp.role",
+        "org.atgrp.membership",
+        "org.atgrp.confirmation",
+        "org.atgrp.rule",
+        "org.atgrp.labeler",
+        "com.atproto.label.record",
+        "com.atproto.space.policy"
+      ]
+    }
+  }
+}

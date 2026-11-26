@@ -1,0 +1,75 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.mod.submitReport",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Report an account or record in a group, opening or reopening it in the moderation queue. The caller must be able to read the subject's space. Requires service auth.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["group", "subject", "reasonType"],
+          "properties": {
+            "group": {
+              "type": "string",
+              "format": "did"
+            },
+            "subject": {
+              "type": "string",
+              "format": "uri",
+              "description": "An account DID or record URI."
+            },
+            "cid": {
+              "type": "string",
+              "format": "cid",
+              "description": "If set, a specific version of the record."
+            },
+            "reasonType": {
+              "type": "ref",
+              "ref": "org.atgrp.mod.defs#reasonType",
+              "description": "For reasonViolation, cite the broken rule in rule."
+            },
+            "reason": {
+              "type": "string",
+              "maxGraphemes": 2000,
+              "maxLength": 20000
+            },
+            "rule": {
+              "type": "string",
+              "format": "at-uri",
+              "description": "The group rule the subject breaks."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["eventId", "createdAt"],
+          "properties": {
+            "eventId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "createdAt": {
+              "type": "string",
+              "format": "datetime"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "GroupNotFound"
+        },
+        {
+          "name": "InvalidSubject",
+          "description": "The subject isn't in this group."
+        }
+      ]
+    }
+  }
+}

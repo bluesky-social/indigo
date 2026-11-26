@@ -1,0 +1,30 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.membership",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A member's roles in the group, keyed by the member's DID. Written by the group in the members space, and paired with the member's confirmation.",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["roles", "createdAt"],
+        "properties": {
+          "roles": {
+            "type": "array",
+            "maxLength": 100,
+            "items": {
+              "type": "string",
+              "format": "record-key",
+              "description": "Role definition record key."
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}

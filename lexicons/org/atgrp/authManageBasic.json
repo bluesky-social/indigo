@@ -1,0 +1,32 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.authManageBasic",
+  "defs": {
+    "main": {
+      "type": "permission-set",
+      "description": "For group account sessions. Limited to what the authorizing user's roles grant.",
+      "title": "Group profile",
+      "detail": "Edit the group's profile and rules.",
+      "permissions": [
+        {
+          "type": "permission",
+          "resource": "space",
+          "spaceType": "org.atgrp.meta",
+          "authority": "self",
+          "skey": "self",
+          "collection": ["org.atgrp.about"],
+          "action": ["read", "create", "update", "delete"]
+        },
+        {
+          "type": "permission",
+          "resource": "space",
+          "spaceType": "org.atgrp.members",
+          "authority": "self",
+          "skey": "self",
+          "collection": ["org.atgrp.rule"],
+          "action": ["read", "create", "update", "delete"]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.authManageAdmin",
+  "defs": {
+    "main": {
+      "type": "permission-set",
+      "description": "For group account sessions. Limited to what the authorizing user's roles grant.",
+      "title": "Group administration",
+      "detail": "Manage everything in the group's info and member list, including its roles and what each role can do.",
+      "permissions": [
+        {
+          "type": "permission",
+          "resource": "space",
+          "spaceType": "org.atgrp.meta",
+          "authority": "self",
+          "skey": "self",
+          "collection": [
+            "org.atgrp.about",
+            "org.atgrp.config",
+            "com.atproto.label.record"
+          ],
+          "action": ["read", "create", "update", "delete"],
+          "manage": ["update"]
+        },
+        {
+          "type": "permission",
+          "resource": "space",
+          "spaceType": "org.atgrp.members",
+          "authority": "self",
+          "skey": "self",
+          "collection": [
+            "org.atgrp.rule",
+            "org.atgrp.labeler",
+            "org.atgrp.role",
+            "org.atgrp.membership",
+            "com.atproto.label.record"
+          ],
+          "action": ["read", "create", "update", "delete"],
+          "manage": ["update"]
+        },
+        {
+          "type": "permission",
+          "resource": "space",
+          "spaceType": "org.atgrp.inbox",
+          "authority": "*",
+          "skey": "self",
+          "collection": ["org.atgrp.invite"],
+          "action": ["read_self", "create", "update", "delete"]
+        },
+        {
+          "type": "permission",
+          "resource": "rpc",
+          "aud": "*",
+          "lxm": [
+            "org.atgrp.listJoinRequests",
+            "org.atgrp.denyJoinRequest",
+            "org.atgrp.mod.querySubjects",
+            "org.atgrp.mod.querySubjectHistory",
+            "org.atgrp.mod.updateSubject"
+          ]
+        }
+      ]
+    }
+  }
+}

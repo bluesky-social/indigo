@@ -1,0 +1,68 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.labeler",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "The group's label values and the reports it accepts. Written by the group in the members space.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["policies"],
+        "properties": {
+          "policies": {
+            "type": "ref",
+            "ref": "#policies"
+          },
+          "reasonTypes": {
+            "type": "array",
+            "description": "Accepted report reasons. Omit to accept all.",
+            "items": {
+              "type": "ref",
+              "ref": "org.atgrp.mod.defs#reasonType"
+            }
+          },
+          "subjectTypes": {
+            "type": "array",
+            "description": "Accepted report subject types. Omit to accept all.",
+            "items": {
+              "type": "string",
+              "knownValues": ["account", "record"]
+            }
+          },
+          "subjectCollections": {
+            "type": "array",
+            "description": "Accepted report record types. Omit to accept all.",
+            "items": {
+              "type": "string",
+              "format": "nsid"
+            }
+          }
+        }
+      }
+    },
+    "policies": {
+      "type": "object",
+      "description": "The group's label values and their definitions.",
+      "required": ["labelValues"],
+      "properties": {
+        "labelValues": {
+          "type": "array",
+          "description": "Label values the group applies.",
+          "items": {
+            "type": "ref",
+            "ref": "com.atproto.label.defs#labelValue"
+          }
+        },
+        "labelValueDefinitions": {
+          "type": "array",
+          "description": "Definitions for group-defined label values.",
+          "items": {
+            "type": "ref",
+            "ref": "com.atproto.label.defs#labelValueDefinition"
+          }
+        }
+      }
+    }
+  }
+}

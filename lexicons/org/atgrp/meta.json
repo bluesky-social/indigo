@@ -1,0 +1,18 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.meta",
+  "defs": {
+    "main": {
+      "type": "space",
+      "description": "Basic information and settings for the group. Often public, even when the rest of the group is not.",
+      "key": "literal:self",
+      "title": "Group info",
+      "collections": [
+        "org.atgrp.about",
+        "org.atgrp.config",
+        "com.atproto.label.record",
+        "com.atproto.space.policy"
+      ]
+    }
+  }
+}

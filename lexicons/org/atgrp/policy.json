@@ -1,0 +1,64 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.policy",
+  "defs": {
+    "main": {
+      "type": "object",
+      "description": "Space policy for group spaces: each role's access and permissions in the space, whether it is public, and whether it is listed in the space index. The host always publishes it in the space as a com.atproto.space.policy record.",
+      "required": ["grants"],
+      "properties": {
+        "publicRead": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, anyone may read the space."
+        },
+        "unlisted": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, the host leaves the space out of the group's space index. Ignored for the meta and members spaces."
+        },
+        "grants": {
+          "type": "array",
+          "maxLength": 100,
+          "description": "At most one entry per role.",
+          "items": {
+            "type": "ref",
+            "ref": "#grant"
+          }
+        }
+      }
+    },
+    "grant": {
+      "type": "object",
+      "description": "A role's grants in one space. read and write apply to members acting as themselves; permissions apply to acting as the group.",
+      "required": ["role"],
+      "properties": {
+        "role": {
+          "type": "string",
+          "format": "record-key",
+          "description": "A role record's key."
+        },
+        "read": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, members with this role may read the space."
+        },
+        "write": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, members with this role are in the space's writer set, so their own records sync to readers."
+        },
+        "permissions": {
+          "type": "array",
+          "maxLength": 100,
+          "description": "Permissions for acting as the group in this space, one per item.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
+      }
+    }
+  }
+}

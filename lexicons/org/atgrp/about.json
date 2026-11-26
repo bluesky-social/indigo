@@ -1,0 +1,37 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.about",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "Basic information for presenting the group. Written by the group in the meta space.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["displayName"],
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "maxGraphemes": 64,
+            "maxLength": 640
+          },
+          "description": {
+            "type": "string",
+            "maxGraphemes": 2000,
+            "maxLength": 20000
+          },
+          "avatar": {
+            "type": "blob",
+            "accept": ["image/png", "image/jpeg", "image/webp"],
+            "maxSize": 2000000
+          },
+          "website": {
+            "type": "string",
+            "format": "uri",
+            "description": "Group website. Must be http or https."
+          }
+        }
+      }
+    }
+  }
+}

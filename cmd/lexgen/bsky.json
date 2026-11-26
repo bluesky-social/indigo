@@ -22,5 +22,11 @@
     "prefix": "tools.ozone",
     "outdir": "api/ozone",
     "import": "github.com/bluesky-social/indigo/api/ozone"
+  },
+  {
+    "package": "atgrp",
+    "prefix": "org.atgrp",
+    "outdir": "api/atgrp",
+    "import": "github.com/bluesky-social/indigo/api/atgrp"
   }
 ]
