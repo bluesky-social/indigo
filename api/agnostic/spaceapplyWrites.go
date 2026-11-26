@@ -1,0 +1,173 @@
+// Copied from indigo:api/atproto/spaceapplyWrites.go
+
+// Lexicon schema: com.atproto.space.applyWrites
+
+package agnostic
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+)
+
+// SpaceApplyWrites_Create is a "create" in the com.atproto.space.applyWrites schema.
+//
+// Operation which creates a new record.
+type SpaceApplyWrites_Create struct {
+	LexiconTypeID string           `json:"$type" cborgen:"$type,const=com.atproto.space.applyWrites#create"`
+	Collection    string           `json:"collection" cborgen:"collection"`
+	Rkey          *string          `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
+	Value         *json.RawMessage `json:"value" cborgen:"value"`
+}
+
+// SpaceApplyWrites_CreateResult is a "createResult" in the com.atproto.space.applyWrites schema.
+type SpaceApplyWrites_CreateResult struct {
+	LexiconTypeID    string  `json:"$type" cborgen:"$type,const=com.atproto.space.applyWrites#createResult"`
+	Cid              string  `json:"cid" cborgen:"cid"`
+	Uri              string  `json:"uri" cborgen:"uri"`
+	ValidationStatus *string `json:"validationStatus,omitempty" cborgen:"validationStatus,omitempty"`
+}
+
+// SpaceApplyWrites_Delete is a "delete" in the com.atproto.space.applyWrites schema.
+//
+// Operation which deletes an existing record.
+type SpaceApplyWrites_Delete struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.space.applyWrites#delete"`
+	Collection    string `json:"collection" cborgen:"collection"`
+	Rkey          string `json:"rkey" cborgen:"rkey"`
+}
+
+// SpaceApplyWrites_DeleteResult is a "deleteResult" in the com.atproto.space.applyWrites schema.
+type SpaceApplyWrites_DeleteResult struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.space.applyWrites#deleteResult"`
+}
+
+// SpaceApplyWrites_Input is the input argument to a com.atproto.space.applyWrites call.
+type SpaceApplyWrites_Input struct {
+	Repo  string `json:"repo" cborgen:"repo"`
+	Space string `json:"space" cborgen:"space"`
+	// validate: Can be set to 'false' to skip Lexicon schema validation of record data across all operations, 'true' to require it, or leave unset to validate only for known Lexicons.
+	Validate *bool                                 `json:"validate,omitempty" cborgen:"validate,omitempty"`
+	Writes   []*SpaceApplyWrites_Input_Writes_Elem `json:"writes" cborgen:"writes"`
+}
+
+type SpaceApplyWrites_Input_Writes_Elem struct {
+	SpaceApplyWrites_Create *SpaceApplyWrites_Create
+	SpaceApplyWrites_Update *SpaceApplyWrites_Update
+	SpaceApplyWrites_Delete *SpaceApplyWrites_Delete
+}
+
+func (t *SpaceApplyWrites_Input_Writes_Elem) MarshalJSON() ([]byte, error) {
+	if t.SpaceApplyWrites_Create != nil {
+		t.SpaceApplyWrites_Create.LexiconTypeID = "com.atproto.space.applyWrites#create"
+		return json.Marshal(t.SpaceApplyWrites_Create)
+	}
+	if t.SpaceApplyWrites_Update != nil {
+		t.SpaceApplyWrites_Update.LexiconTypeID = "com.atproto.space.applyWrites#update"
+		return json.Marshal(t.SpaceApplyWrites_Update)
+	}
+	if t.SpaceApplyWrites_Delete != nil {
+		t.SpaceApplyWrites_Delete.LexiconTypeID = "com.atproto.space.applyWrites#delete"
+		return json.Marshal(t.SpaceApplyWrites_Delete)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *SpaceApplyWrites_Input_Writes_Elem) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "com.atproto.space.applyWrites#create":
+		t.SpaceApplyWrites_Create = new(SpaceApplyWrites_Create)
+		return json.Unmarshal(b, t.SpaceApplyWrites_Create)
+	case "com.atproto.space.applyWrites#update":
+		t.SpaceApplyWrites_Update = new(SpaceApplyWrites_Update)
+		return json.Unmarshal(b, t.SpaceApplyWrites_Update)
+	case "com.atproto.space.applyWrites#delete":
+		t.SpaceApplyWrites_Delete = new(SpaceApplyWrites_Delete)
+		return json.Unmarshal(b, t.SpaceApplyWrites_Delete)
+	default:
+		return fmt.Errorf("closed unions must match a listed schema")
+	}
+}
+
+// SpaceApplyWrites_Output is the output of a com.atproto.space.applyWrites call.
+type SpaceApplyWrites_Output struct {
+	Results []*SpaceApplyWrites_Output_Results_Elem `json:"results,omitempty" cborgen:"results,omitempty"`
+}
+
+type SpaceApplyWrites_Output_Results_Elem struct {
+	SpaceApplyWrites_CreateResult *SpaceApplyWrites_CreateResult
+	SpaceApplyWrites_UpdateResult *SpaceApplyWrites_UpdateResult
+	SpaceApplyWrites_DeleteResult *SpaceApplyWrites_DeleteResult
+}
+
+func (t *SpaceApplyWrites_Output_Results_Elem) MarshalJSON() ([]byte, error) {
+	if t.SpaceApplyWrites_CreateResult != nil {
+		t.SpaceApplyWrites_CreateResult.LexiconTypeID = "com.atproto.space.applyWrites#createResult"
+		return json.Marshal(t.SpaceApplyWrites_CreateResult)
+	}
+	if t.SpaceApplyWrites_UpdateResult != nil {
+		t.SpaceApplyWrites_UpdateResult.LexiconTypeID = "com.atproto.space.applyWrites#updateResult"
+		return json.Marshal(t.SpaceApplyWrites_UpdateResult)
+	}
+	if t.SpaceApplyWrites_DeleteResult != nil {
+		t.SpaceApplyWrites_DeleteResult.LexiconTypeID = "com.atproto.space.applyWrites#deleteResult"
+		return json.Marshal(t.SpaceApplyWrites_DeleteResult)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *SpaceApplyWrites_Output_Results_Elem) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "com.atproto.space.applyWrites#createResult":
+		t.SpaceApplyWrites_CreateResult = new(SpaceApplyWrites_CreateResult)
+		return json.Unmarshal(b, t.SpaceApplyWrites_CreateResult)
+	case "com.atproto.space.applyWrites#updateResult":
+		t.SpaceApplyWrites_UpdateResult = new(SpaceApplyWrites_UpdateResult)
+		return json.Unmarshal(b, t.SpaceApplyWrites_UpdateResult)
+	case "com.atproto.space.applyWrites#deleteResult":
+		t.SpaceApplyWrites_DeleteResult = new(SpaceApplyWrites_DeleteResult)
+		return json.Unmarshal(b, t.SpaceApplyWrites_DeleteResult)
+	default:
+		return fmt.Errorf("closed unions must match a listed schema")
+	}
+}
+
+// SpaceApplyWrites_Update is a "update" in the com.atproto.space.applyWrites schema.
+//
+// Operation which updates an existing record.
+type SpaceApplyWrites_Update struct {
+	LexiconTypeID string           `json:"$type" cborgen:"$type,const=com.atproto.space.applyWrites#update"`
+	Collection    string           `json:"collection" cborgen:"collection"`
+	Rkey          string           `json:"rkey" cborgen:"rkey"`
+	Value         *json.RawMessage `json:"value" cborgen:"value"`
+}
+
+// SpaceApplyWrites_UpdateResult is a "updateResult" in the com.atproto.space.applyWrites schema.
+type SpaceApplyWrites_UpdateResult struct {
+	LexiconTypeID    string  `json:"$type" cborgen:"$type,const=com.atproto.space.applyWrites#updateResult"`
+	Cid              string  `json:"cid" cborgen:"cid"`
+	Uri              string  `json:"uri" cborgen:"uri"`
+	ValidationStatus *string `json:"validationStatus,omitempty" cborgen:"validationStatus,omitempty"`
+}
+
+// SpaceApplyWrites calls the XRPC method "com.atproto.space.applyWrites".
+func SpaceApplyWrites(ctx context.Context, c lexutil.LexClient, input *SpaceApplyWrites_Input) (*SpaceApplyWrites_Output, error) {
+	var out SpaceApplyWrites_Output
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "com.atproto.space.applyWrites", nil, input, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
