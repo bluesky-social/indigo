@@ -63,7 +63,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 		inpvar = "input"
 		inpenc = s.Input.Encoding
 		switch s.Input.Encoding {
-		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingBinary, EncodingMP4:
+		case EncodingCBOR, EncodingCAR, EncodingSTAR, EncodingANY, EncodingBinary, EncodingMP4:
 			params = fmt.Sprintf("%s, input io.Reader", params)
 		case EncodingJSON:
 			params = fmt.Sprintf("%s, input *%s", params, inputname)
@@ -90,7 +90,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 	out := "error"
 	if s.Output != nil {
 		switch s.Output.Encoding {
-		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingBinary, EncodingJSONL, EncodingMP4:
+		case EncodingCBOR, EncodingCAR, EncodingSTAR, EncodingANY, EncodingBinary, EncodingJSONL, EncodingMP4:
 			out = "([]byte, error)"
 		case EncodingJSON:
 			outname := fname + "_Output"
@@ -123,7 +123,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 	outRet := "nil"
 	if s.Output != nil {
 		switch s.Output.Encoding {
-		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingBinary, EncodingJSONL, EncodingMP4:
+		case EncodingCBOR, EncodingCAR, EncodingSTAR, EncodingANY, EncodingBinary, EncodingJSONL, EncodingMP4:
 			pf("buf := new(bytes.Buffer)\n")
 			outvar = "buf"
 			errRet = "nil, err"
@@ -426,7 +426,7 @@ if err := c.Bind(&body); err != nil {
 			}
 			pf("var out *%s.%s\n", impname, outname)
 			returndef = fmt.Sprintf("(*%s.%s, error)", impname, outname)
-		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingBinary, EncodingJSONL, EncodingMP4:
+		case EncodingCBOR, EncodingCAR, EncodingSTAR, EncodingANY, EncodingBinary, EncodingJSONL, EncodingMP4:
 			assign = "out, handleErr"
 			pf("var out io.Reader\n")
 			returndef = "(io.Reader, error)"
@@ -447,6 +447,8 @@ if err := c.Bind(&body); err != nil {
 			pf("return c.Stream(200, \"application/octet-stream\", out)\n}\n\n")
 		case EncodingCAR:
 			pf("return c.Stream(200, \"application/vnd.ipld.car\", out)\n}\n\n")
+		case EncodingSTAR:
+			pf("return c.Stream(200, \"application/vnd.dasl.star\", out)\n}\n\n")
 		case EncodingJSONL:
 			pf("return c.Stream(200, \"application/jsonl\", out)\n}\n\n")
 		case EncodingMP4:
