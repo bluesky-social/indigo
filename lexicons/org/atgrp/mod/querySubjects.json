@@ -1,0 +1,69 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.mod.querySubjects",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "List subjects in the moderation queue. Requires auth as the group.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["open", "resolved"],
+            "description": "Omit for all."
+          },
+          "tags": {
+            "type": "array",
+            "maxLength": 25,
+            "description": "Only subjects with any of these tags.",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "sort": {
+            "type": "string",
+            "knownValues": ["oldest", "newest", "updated"],
+            "default": "oldest",
+            "description": "oldest and newest go by createdAt. updated puts the latest updatedAt first."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["subjects"],
+          "properties": {
+            "cursor": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "org.atgrp.mod.defs#subjectView"
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "InvalidCursor"
+        }
+      ]
+    }
+  }
+}

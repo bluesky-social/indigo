@@ -1,0 +1,70 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.mod.querySelfHistory",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get moderation history for the caller's account and records. Omits reports, notes, tags, and who acted. Works for former members. Requires service auth.",
+      "parameters": {
+        "type": "params",
+        "required": ["group"],
+        "properties": {
+          "group": {
+            "type": "string",
+            "format": "did"
+          },
+          "subject": {
+            "type": "string",
+            "format": "uri",
+            "description": "The caller's DID or one of their record URIs. Omit for all."
+          },
+          "sort": {
+            "type": "string",
+            "knownValues": ["newest", "oldest"],
+            "default": "newest"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["events"],
+          "properties": {
+            "cursor": {
+              "type": "string"
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "org.atgrp.mod.defs#eventView"
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "GroupNotFound"
+        },
+        {
+          "name": "InvalidSubject",
+          "description": "The subject isn't the caller's account or record."
+        },
+        {
+          "name": "InvalidCursor"
+        }
+      ]
+    }
+  }
+}

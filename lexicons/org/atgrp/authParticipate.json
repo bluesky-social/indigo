@@ -1,0 +1,53 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.authParticipate",
+  "defs": {
+    "main": {
+      "type": "permission-set",
+      "description": "For personal sessions, acting as the user rather than the group.",
+      "title": "Groups",
+      "detail": "View and interact with your groups.",
+      "permissions": [
+        {
+          "type": "permission",
+          "resource": "space",
+          "spaceType": "org.atgrp.meta",
+          "authority": "*",
+          "skey": "self",
+          "action": ["read"]
+        },
+        {
+          "type": "permission",
+          "resource": "space",
+          "spaceType": "org.atgrp.members",
+          "authority": "*",
+          "skey": "self",
+          "collection": ["org.atgrp.confirmation"],
+          "action": ["read", "create", "update", "delete"]
+        },
+        {
+          "type": "permission",
+          "resource": "space",
+          "spaceType": "org.atgrp.inbox",
+          "authority": "self",
+          "skey": "self",
+          "action": ["read"],
+          "manage": ["create"]
+        },
+        {
+          "type": "permission",
+          "resource": "rpc",
+          "aud": "*",
+          "lxm": [
+            "org.atgrp.requestJoin",
+            "org.atgrp.cancelJoinRequest",
+            "org.atgrp.leaveGroup",
+            "org.atgrp.mod.submitReport",
+            "org.atgrp.mod.submitAppeal",
+            "org.atgrp.mod.querySelfHistory"
+          ]
+        }
+      ]
+    }
+  }
+}

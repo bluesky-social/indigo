@@ -1,0 +1,28 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.leaveGroup",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Leave a group, deleting the caller's membership, which the group authored. The caller should also delete their confirmation. Requires service auth.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["group"],
+          "properties": {
+            "group": {
+              "type": "string",
+              "format": "did"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "GroupNotFound"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.requestJoin",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Request to join a group, optionally redeeming an invite. Admits the caller right away when the join policy is open or with a valid invite, and otherwise queues a request. Returns the caller's existing request or membership if they have one. Requires service auth.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["group"],
+          "properties": {
+            "group": {
+              "type": "string",
+              "format": "did"
+            },
+            "invite": {
+              "type": "string",
+              "format": "at-uri",
+              "description": "An invite in the caller's inbox space."
+            },
+            "message": {
+              "type": "string",
+              "maxGraphemes": 2000,
+              "maxLength": 20000,
+              "description": "Shown to the group with the request."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["status"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "knownValues": ["pending", "admitted"]
+            },
+            "request": {
+              "type": "ref",
+              "ref": "org.atgrp.defs#joinRequest",
+              "description": "Present when pending."
+            },
+            "membership": {
+              "type": "ref",
+              "ref": "com.atproto.repo.strongRef",
+              "description": "Present when admitted."
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "GroupNotFound"
+        },
+        {
+          "name": "InvalidInvite"
+        },
+        {
+          "name": "JoinClosed",
+          "description": "The group is invite-only."
+        }
+      ]
+    }
+  }
+}

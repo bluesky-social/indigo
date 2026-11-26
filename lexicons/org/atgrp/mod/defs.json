@@ -1,0 +1,222 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.mod.defs",
+  "defs": {
+    "reasonType": {
+      "type": "string",
+      "knownValues": [
+        "org.atgrp.mod.defs#reasonSpam",
+        "org.atgrp.mod.defs#reasonViolation",
+        "org.atgrp.mod.defs#reasonMisleading",
+        "org.atgrp.mod.defs#reasonNsfw",
+        "org.atgrp.mod.defs#reasonRude",
+        "org.atgrp.mod.defs#reasonOther"
+      ]
+    },
+    "reasonSpam": {
+      "type": "token",
+      "description": "Spam or unwanted promotion."
+    },
+    "reasonViolation": {
+      "type": "token",
+      "description": "Breaks a group rule."
+    },
+    "reasonMisleading": {
+      "type": "token",
+      "description": "Misleading content, impersonation, or scams."
+    },
+    "reasonNsfw": {
+      "type": "token",
+      "description": "Unwanted or unlabeled NSFW content."
+    },
+    "reasonRude": {
+      "type": "token",
+      "description": "Rude, harassing, or hateful content."
+    },
+    "reasonOther": {
+      "type": "token",
+      "description": "Anything else."
+    },
+    "subjectView": {
+      "type": "object",
+      "description": "A subject in the moderation queue.",
+      "required": ["subject", "status", "createdAt", "updatedAt"],
+      "properties": {
+        "subject": {
+          "type": "string",
+          "format": "uri",
+          "description": "An account DID or record URI."
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid",
+          "description": "If set, a specific version of the record."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["open", "resolved"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "reportCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tags": {
+          "type": "array",
+          "description": "Free-form moderator tags in label value syntax ([a-z-]+).",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      }
+    },
+    "eventView": {
+      "type": "object",
+      "description": "An event in a subject's moderation history.",
+      "required": ["eventId", "createdAt", "subject", "event"],
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "subject": {
+          "type": "string",
+          "format": "uri",
+          "description": "An account DID or record URI."
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid",
+          "description": "If set, a specific version of the record."
+        },
+        "createdBy": {
+          "type": "string",
+          "format": "did",
+          "description": "May be withheld to protect reporters and moderators."
+        },
+        "event": {
+          "type": "union",
+          "refs": [
+            "#reportEvent",
+            "#appealEvent",
+            "#statusEvent",
+            "#tagEvent",
+            "#labelEvent",
+            "#ejectEvent"
+          ]
+        }
+      }
+    },
+    "reportEvent": {
+      "type": "object",
+      "description": "A report was filed.",
+      "required": ["reasonType"],
+      "properties": {
+        "reasonType": {
+          "type": "ref",
+          "ref": "#reasonType"
+        },
+        "reason": {
+          "type": "string",
+          "maxGraphemes": 2000,
+          "maxLength": 20000
+        },
+        "rule": {
+          "type": "string",
+          "format": "at-uri"
+        }
+      }
+    },
+    "appealEvent": {
+      "type": "object",
+      "description": "An appeal was filed.",
+      "properties": {
+        "note": {
+          "type": "string",
+          "maxGraphemes": 2000,
+          "maxLength": 20000
+        }
+      }
+    },
+    "statusEvent": {
+      "type": "object",
+      "description": "A moderator changed the subject's status or added a note.",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["open", "resolved"],
+          "description": "The status after this event."
+        },
+        "note": {
+          "type": "string",
+          "maxGraphemes": 2000,
+          "maxLength": 20000,
+          "description": "Only visible to moderators."
+        }
+      }
+    },
+    "tagEvent": {
+      "type": "object",
+      "description": "A moderator added or removed tags.",
+      "properties": {
+        "add": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "remove": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      }
+    },
+    "labelEvent": {
+      "type": "object",
+      "description": "A label record was written or deleted.",
+      "required": ["uri", "val"],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "The label record."
+        },
+        "val": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "deleted": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "ejectEvent": {
+      "type": "object",
+      "description": "The subject was ejected from the group.",
+      "properties": {}
+    }
+  }
+}

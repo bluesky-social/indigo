@@ -1,0 +1,64 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.mod.submitAppeal",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Appeal a label or ejection on the caller's account or one of their records, reopening it in the moderation queue. Works for former members. Requires service auth.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["group", "subject"],
+          "properties": {
+            "group": {
+              "type": "string",
+              "format": "did"
+            },
+            "subject": {
+              "type": "string",
+              "format": "uri",
+              "description": "The caller's DID or one of their record URIs."
+            },
+            "note": {
+              "type": "string",
+              "maxGraphemes": 2000,
+              "maxLength": 20000
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["eventId", "createdAt"],
+          "properties": {
+            "eventId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "createdAt": {
+              "type": "string",
+              "format": "datetime"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "GroupNotFound"
+        },
+        {
+          "name": "InvalidSubject",
+          "description": "The subject isn't the caller's account or record."
+        },
+        {
+          "name": "NotAppealable",
+          "description": "The subject has no label or ejection."
+        }
+      ]
+    }
+  }
+}

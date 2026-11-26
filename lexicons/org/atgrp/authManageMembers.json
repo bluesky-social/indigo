@@ -1,0 +1,41 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.authManageMembers",
+  "defs": {
+    "main": {
+      "type": "permission-set",
+      "description": "For group account sessions. Limited to what the authorizing user's roles grant.",
+      "title": "Group members",
+      "detail": "Manage the group's members, their roles, and invites.",
+      "permissions": [
+        {
+          "type": "permission",
+          "resource": "space",
+          "spaceType": "org.atgrp.members",
+          "authority": "self",
+          "skey": "self",
+          "collection": ["org.atgrp.membership"],
+          "action": ["read", "create", "update", "delete"]
+        },
+        {
+          "type": "permission",
+          "resource": "space",
+          "spaceType": "org.atgrp.inbox",
+          "authority": "*",
+          "skey": "self",
+          "collection": ["org.atgrp.invite"],
+          "action": ["read_self", "create", "update", "delete"]
+        },
+        {
+          "type": "permission",
+          "resource": "rpc",
+          "aud": "*",
+          "lxm": [
+            "org.atgrp.listJoinRequests",
+            "org.atgrp.denyJoinRequest"
+          ]
+        }
+      ]
+    }
+  }
+}

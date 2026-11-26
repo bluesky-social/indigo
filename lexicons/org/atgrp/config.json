@@ -1,0 +1,22 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.config",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "The group's configuration, such as how to join. Written by the group in the meta space.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["joinPolicy"],
+        "properties": {
+          "joinPolicy": {
+            "type": "string",
+            "knownValues": ["open", "approval", "invite"],
+            "description": "open admits anyone; approval queues a join request; invite requires an invitation. An invitation admits its recipient under any policy."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.defs",
+  "defs": {
+    "joinRequest": {
+      "type": "object",
+      "description": "A pending join request.",
+      "required": ["member", "createdAt"],
+      "properties": {
+        "member": {
+          "type": "string",
+          "format": "did"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "message": {
+          "type": "string",
+          "maxGraphemes": 2000,
+          "maxLength": 20000
+        }
+      }
+    }
+  }
+}

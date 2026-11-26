@@ -1,0 +1,51 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.authModerate",
+  "defs": {
+    "main": {
+      "type": "permission-set",
+      "description": "For group account sessions. Limited to what the authorizing user's roles grant.",
+      "title": "Group moderation",
+      "detail": "Label content, remove members, and review reports.",
+      "permissions": [
+        {
+          "type": "permission",
+          "resource": "space",
+          "spaceType": "org.atgrp.meta",
+          "authority": "self",
+          "skey": "self",
+          "collection": ["com.atproto.label.record"],
+          "action": ["read", "create", "update", "delete"]
+        },
+        {
+          "type": "permission",
+          "resource": "space",
+          "spaceType": "org.atgrp.members",
+          "authority": "self",
+          "skey": "self",
+          "collection": ["com.atproto.label.record"],
+          "action": ["read", "create", "update", "delete"]
+        },
+        {
+          "type": "permission",
+          "resource": "space",
+          "spaceType": "org.atgrp.members",
+          "authority": "self",
+          "skey": "self",
+          "collection": ["org.atgrp.membership"],
+          "action": ["read", "delete"]
+        },
+        {
+          "type": "permission",
+          "resource": "rpc",
+          "aud": "*",
+          "lxm": [
+            "org.atgrp.mod.querySubjects",
+            "org.atgrp.mod.querySubjectHistory",
+            "org.atgrp.mod.updateSubject"
+          ]
+        }
+      ]
+    }
+  }
+}

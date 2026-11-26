@@ -1,0 +1,68 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.mod.querySubjectHistory",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get a subject's moderation history. Requires auth as the group.",
+      "parameters": {
+        "type": "params",
+        "required": ["subject"],
+        "properties": {
+          "subject": {
+            "type": "string",
+            "format": "uri",
+            "description": "An account DID or record URI."
+          },
+          "cid": {
+            "type": "string",
+            "format": "cid",
+            "description": "If set, only this version of the record."
+          },
+          "sort": {
+            "type": "string",
+            "knownValues": ["newest", "oldest"],
+            "default": "newest"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["events"],
+          "properties": {
+            "cursor": {
+              "type": "string"
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "org.atgrp.mod.defs#eventView"
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "InvalidSubject",
+          "description": "The subject isn't in this group."
+        },
+        {
+          "name": "InvalidCursor"
+        }
+      ]
+    }
+  }
+}

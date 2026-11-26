@@ -1,0 +1,21 @@
+{
+  "lexicon": 1,
+  "id": "org.atgrp.confirmation",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A member's confirmation of their group membership. Written by the member in the group's members space.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["createdAt"],
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}
