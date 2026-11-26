@@ -16,6 +16,44 @@ import (
 
 var maxHandleBodySize int64 = 2048
 
+var errBodyTooLarge = errors.New("response body exceeds maximum size")
+
+type limitErrorReader struct {
+	r io.Reader
+	n int64
+}
+
+func (l *limitErrorReader) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if l.n <= 0 {
+		// Probe one extra byte so exact-limit payloads ending in EOF still succeed.
+		var probe [1]byte
+		n, err := l.r.Read(probe[:])
+		if n > 0 {
+			return 0, errBodyTooLarge
+		}
+		if err != nil {
+			return 0, err
+		}
+		return 0, nil
+	}
+	if int64(len(p)) > l.n {
+		p = p[:l.n]
+	}
+	n, err := l.r.Read(p)
+	l.n -= int64(n)
+	return n, err
+}
+
+func readAllLimited(r io.Reader, max int64) ([]byte, error) {
+	if max < 0 {
+		max = 0
+	}
+	return io.ReadAll(&limitErrorReader{r: r, n: max})
+}
+
 func parseTXTResp(res []string) (syntax.DID, error) {
 	var found syntax.DID
 	for _, s := range res {
@@ -170,10 +208,11 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 		return "", fmt.Errorf("%w: HTTP well-known body too large for %s", ErrHandleResolutionFailed, handle)
 	}
 
-	// TODO: this could result in a truncated handle value with no error thrown (if Content-Length is not set).
-	// See: https://github.com/bluesky-social/indigo/issues/1460
-	b, err := io.ReadAll(io.LimitReader(resp.Body, maxHandleBodySize))
+	b, err := readAllLimited(resp.Body, maxHandleBodySize)
 	if err != nil {
+		if errors.Is(err, errBodyTooLarge) {
+			return "", fmt.Errorf("%w: HTTP well-known body too large for %s", ErrHandleResolutionFailed, handle)
+		}
 		return "", fmt.Errorf("%w: HTTP well-known body read for %s: %w", ErrHandleResolutionFailed, handle, err)
 	}
 	line := strings.TrimSpace(string(b))
