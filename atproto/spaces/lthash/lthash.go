@@ -29,6 +29,8 @@ var hasherPool = sync.Pool{
 type Hash struct {
 	lanes  [2048]byte
 	xofbuf [2048]byte
+
+	_ [0]func() // prevent '==' comparison (won't compile); use h.Equal(other) instead
 }
 
 // New initializes an empty [Hash].
@@ -85,6 +87,11 @@ func (h *Hash) Remove(elem []byte) {
 		update := binary.LittleEndian.Uint16(lane) - binary.LittleEndian.Uint16(h.xofbuf[i:i+2])
 		binary.LittleEndian.PutUint16(lane, update)
 	}
+}
+
+// Equal checks if the state (lanes) match those of another Hash
+func (h *Hash) Equal(other *Hash) bool {
+	return h.lanes == other.lanes
 }
 
 // Sum256 returns the SHA-256 (256 bit output) hash of the current lane state as bytes.

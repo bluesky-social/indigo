@@ -57,6 +57,7 @@ func TestLtHashBasic(t *testing.T) {
 	var h4 Hash
 	assert.NoError(h4.UnmarshalBinary(buf))
 	assert.Equal(o1, h4.Sum256())
+	assert.True(h3.Equal(&h4))
 
 	// big element
 	big := make([]byte, 30_000)
@@ -65,6 +66,7 @@ func TestLtHashBasic(t *testing.T) {
 	}
 	h4.Add(big)
 	assert.NotEqual(o1, h4.Sum256())
+	assert.False(h.Equal(&h4))
 	h4.Remove(big)
 	assert.Equal(o1, h4.Sum256())
 }
