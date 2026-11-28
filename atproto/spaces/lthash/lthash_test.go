@@ -58,6 +58,13 @@ func TestLtHashBasic(t *testing.T) {
 	assert.NoError(h4.UnmarshalBinary(buf))
 	assert.Equal(o1, h4.Sum256())
 
+	// big element
+	big := make([]byte, 30_000)
+	for i := range len(big) {
+		big[i] = 0x12
+	}
+	h4.Add(big)
+	h4.Remove(big)
 }
 
 // test against known values from the typescript implementation
@@ -72,4 +79,6 @@ func TestLtHashAtproto(t *testing.T) {
 	h.Add([]byte("one"))
 	h.Add([]byte("two"))
 	assert.Equal("ae05cb6d224379d9710c290c8529945c5b0e0fde9ead30b9699057ce701c63e7", fmt.Sprintf("%x", h.Sum256()))
+
+	// TODO: realistic atproto spaces example (collection/rkey/version)
 }

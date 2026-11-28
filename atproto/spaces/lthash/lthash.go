@@ -30,6 +30,7 @@ type Hash struct {
 	lanes [2048]byte
 }
 
+// New initializes an empty [Hash].
 func New() *Hash {
 	return &Hash{}
 }
@@ -55,8 +56,8 @@ func (h *Hash) UnmarshalBinary(b []byte) error {
 	return nil
 }
 
-// MarshalBinary implements the [encoding.BinaryMarshaler] interface using [Bytes()]. It never returns an error.
-func (h *Hash) MarshalBinary() ([]byte, error) {
+// MarshalBinary implements the [encoding.BinaryMarshaler] interface using [Hash.Bytes]. It never returns an error.
+func (h Hash) MarshalBinary() ([]byte, error) {
 	b := h.Bytes()
 	return b[:], nil
 }
@@ -64,7 +65,8 @@ func (h *Hash) MarshalBinary() ([]byte, error) {
 // Add incorporates elem into the hash state.
 // Adding the same element multiple times accumulates each occurrence.
 func (h *Hash) Add(elem []byte) {
-	xofbuf := h.hashElem(elem)
+	var xofbuf [2048]byte
+	hashElem(elem, &xofbuf)
 	for i := 0; i < 2048; i += 2 {
 		lane := h.lanes[i : i+2]
 		update := binary.LittleEndian.Uint16(lane) + binary.LittleEndian.Uint16(xofbuf[i:i+2])
@@ -75,7 +77,8 @@ func (h *Hash) Add(elem []byte) {
 // Remove removes elem from the hash state, reversing a prior [Hash.Add].
 // It does not track membership; removing an element that was never added still mutates the state.
 func (h *Hash) Remove(elem []byte) {
-	xofbuf := h.hashElem(elem)
+	var xofbuf [2048]byte
+	hashElem(elem, &xofbuf)
 	for i := 0; i < 2048; i += 2 {
 		lane := h.lanes[i : i+2]
 		update := binary.LittleEndian.Uint16(lane) - binary.LittleEndian.Uint16(xofbuf[i:i+2])
@@ -89,8 +92,7 @@ func (h *Hash) Sum256() [32]byte {
 }
 
 // Updates xofbuf with the blake3 extended hash output (XOF) of the input element bytes.
-func (h *Hash) hashElem(elem []byte) [2048]byte {
-	var xofbuf [2048]byte
+func hashElem(elem []byte, xofbuf *[2048]byte) {
 
 	hasher := hasherPool.Get().(*blake3.Hasher)
 
@@ -100,12 +102,10 @@ func (h *Hash) hashElem(elem []byte) [2048]byte {
 	hasher.Write(elem)
 
 	// safe to ignore Read() return values here: xof.Read() is guaranteed to succeed up to 2^64 bytes, and we are reading only a couple kilobytes
-	// The blake3 implementation internally uses parallelization (WaitGroup) for XOF reads over 1024 bytes. That is inefficient for small reads, so to two partial reads instead.
+	// The blake3 implementation internally uses parallelization (WaitGroup) for XOF reads over 1024 bytes. That is inefficient for small reads, so do two partial reads instead.
 	xof := hasher.XOF()
 	xof.Read(xofbuf[0:1024])
 	xof.Read(xofbuf[1024:2048])
 
 	hasherPool.Put(hasher)
-
-	return xofbuf
 }
