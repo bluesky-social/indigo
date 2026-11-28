@@ -27,10 +27,9 @@ var hasherPool = sync.Pool{
 // Hash is not safe for concurrent use; callers must synchronize concurrent
 // reads and mutations externally.
 type Hash struct {
+	_      [0]func() // prevent '==' comparison (won't compile); use h.Equal(other) instead
 	lanes  [2048]byte
 	xofbuf [2048]byte
-
-	_ [0]func() // prevent '==' comparison (won't compile); use h.Equal(other) instead
 }
 
 // New initializes an empty [Hash].
