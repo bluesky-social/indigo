@@ -64,7 +64,9 @@ func TestLtHashBasic(t *testing.T) {
 		big[i] = 0x12
 	}
 	h4.Add(big)
+	assert.NotEqual(o1, h4.Sum256())
 	h4.Remove(big)
+	assert.Equal(o1, h4.Sum256())
 }
 
 // test against known values from the typescript implementation
