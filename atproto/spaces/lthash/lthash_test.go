@@ -28,15 +28,22 @@ func TestLtHashBasic(t *testing.T) {
 	o3 := h.Sum256()
 	assert.Equal(o1, o3)
 
+	// remove an element which has not been added
+	h.Remove([]byte("purple"))
+	o4 := h.Sum256()
+	assert.NotEqual(o1, o4)
+	h.Add([]byte("purple"))
+	o5 := h.Sum256()
+	assert.Equal(o1, o5)
+
 	// adding duplicate element is not a no-op
 	h.Add([]byte("red"))
 	assert.NotEqual(o3, h.Sum256())
 	h.Remove([]byte("red"))
 	assert.Equal(o3, h.Sum256())
 
-	buf := new([2048]byte)
-	h.Export(buf)
-	h2 := Load(buf)
+	b := h.Bytes()
+	h2 := Load(b)
 	assert.Equal(o1, h2.Sum256())
 
 	h3 := New()
@@ -44,6 +51,12 @@ func TestLtHashBasic(t *testing.T) {
 	h3.Add([]byte("red"))
 	h3.Add([]byte("blue"))
 	assert.Equal(o1, h3.Sum256())
+
+	buf, err := h3.MarshalBinary()
+	assert.NoError(err)
+	var h4 Hash
+	assert.NoError(h4.UnmarshalBinary(buf))
+	assert.Equal(o1, h4.Sum256())
 
 }
 
